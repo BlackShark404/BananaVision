@@ -1,0 +1,73 @@
+"""
+Security utilities: JWT token creation/verification and password/PIN hashing.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+
+from app.config import get_settings
+
+settings = get_settings()
+
+# ── Password Hashing ────────────────────────────────────────────────────────
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def hash_password(plain: str) -> str:
+    """Hash a plain-text password using bcrypt."""
+    return pwd_context.hash(plain)
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    """Verify a plain-text password against a bcrypt hash."""
+    return pwd_context.verify(plain, hashed)
+
+
+# ── PIN Hashing (same bcrypt, separate functions for clarity) ────────────────
+
+def hash_pin(plain_pin: str) -> str:
+    """Hash a plain-text PIN using bcrypt."""
+    return pwd_context.hash(plain_pin)
+
+
+def verify_pin(plain_pin: str, hashed_pin: str) -> bool:
+    """Verify a plain-text PIN against a bcrypt hash."""
+    return pwd_context.verify(plain_pin, hashed_pin)
+
+
+# ── JWT Tokens ───────────────────────────────────────────────────────────────
+
+def create_access_token(
+    data: dict,
+    expires_delta: timedelta | None = None,
+) -> str:
+    """Create a signed JWT access token."""
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + (
+        expires_delta
+        or timedelta(minutes=settings.jwt_access_token_expire_minutes)
+    )
+    to_encode.update({"exp": expire})
+    return jwt.encode(
+        to_encode,
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+
+
+def decode_access_token(token: str) -> dict | None:
+    """Decode and verify a JWT access token. Returns payload or None."""
+    try:
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret_key,
+            algorithms=[settings.jwt_algorithm],
+        )
+        return payload
+    except JWTError:
+        return None
