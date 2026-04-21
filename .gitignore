@@ -30,3 +30,16 @@ build/
 .next/
 out/
 coverage/
+
+# Python / Backend
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+venv/
+.venv/
+backend/captures/*
+!backend/captures/.gitkeep
+backend/app/ml/weights/*.pt
+backend/app/ml/weights/*.joblib
+!backend/app/ml/weights/.gitkeep
