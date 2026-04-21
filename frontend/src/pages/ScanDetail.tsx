@@ -1,0 +1,559 @@
+import { useState } from "react"
+import { useParams, useNavigate } from "react-router-dom"
+import { useApp } from "@/context/AppContext"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { AspectRatio } from "@/components/ui/aspect-ratio"
+import { Separator } from "@/components/ui/separator"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import {
+  ArrowLeft,
+  Banana,
+  Calendar,
+  Clock,
+  User,
+  Target,
+  AlertTriangle,
+  Hand,
+  Package,
+  Layers,
+  ScanLine,
+  Flag,
+  MessageSquare,
+  Edit,
+  CheckCircle,
+  ShieldCheck,
+  Save,
+  X,
+} from "lucide-react"
+import { toast } from "sonner"
+import { getSpoilageDays } from "@/lib/utils"
+import type { Cultivar, Ripeness, ScanResult } from "@/types"
+import { ChangePreview } from "@/components/ChangePreview"
+import { StatusBadge } from "@/components/shared/status-badge"
+
+const cameraViews = [
+  { id: "CAM-001", label: "Top View" },
+  { id: "CAM-002", label: "Side View" },
+  { id: "CAM-003", label: "Front View" },
+  { id: "CAM-004", label: "Angled View" },
+]
+
+export default function ScanDetail() {
+  const { scanId } = useParams<{ scanId: string }>()
+  const navigate = useNavigate()
+  const { scans, flagScan, addScanNote, getScanNotes, updateScanData, config, user } = useApp()
+  const [noteText, setNoteText] = useState("")
+  const [editMode, setEditMode] = useState(false)
+  const [editData, setEditData] = useState<Partial<{ cultivar: Cultivar; ripeness: Ripeness; spoilageDays: string; fingerCount: number | string }>>({})
+  const [activeCamera, setActiveCamera] = useState(0)
+
+  const scan = scans.find((s) => s.id === scanId)
+  const notes = scan ? getScanNotes(scan.id) : []
+  const isAdmin = user?.role === "Admin"
+
+  const handleFlag = () => {
+    if (!scan) return
+    const isNowFlagged = !scan.flagged
+    flagScan(scan.id, isNowFlagged)
+    toast.success(isNowFlagged ? "Scan flagged for review" : "Flag removed")
+  }
+
+  const handleAddNote = () => {
+    if (scan && noteText.trim()) {
+      addScanNote(scan.id, noteText.trim())
+      setNoteText("")
+      toast.success("Note added successfully")
+    }
+  }
+
+  const startEdit = () => {
+    if (!scan) return
+    setEditData({
+      cultivar: scan.cultivar,
+      ripeness: scan.ripeness,
+      spoilageDays: scan.spoilageDays,
+      fingerCount: scan.fingerCount,
+    })
+    setEditMode(true)
+  }
+
+  const handleSaveEdit = () => {
+    if (scan && editData) {
+      const saveData = {
+        ...editData,
+        fingerCount: typeof editData.fingerCount === 'string' ? (parseInt(editData.fingerCount) || 0) : editData.fingerCount,
+        spoilageDays: editData.spoilageDays,
+        isOverridden: true,
+        originalAiResult: scan.originalAiResult || {
+          cultivar: scan.cultivar,
+          ripeness: scan.ripeness,
+          fingerCount: scan.fingerCount,
+          spoilageDays: scan.spoilageDays,
+        }
+      } as Partial<ScanResult>
+      updateScanData(scan.id, saveData)
+      setEditMode(false)
+      toast.success("Scan data updated successfully")
+    }
+  }
+
+  if (!scan) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon" className="size-12 rounded-full bg-primary/10 text-primary [&_svg]:size-6">
+              <ScanLine className="w-4 h-4" />
+            </EmptyMedia>
+            <EmptyTitle className="text-base sm:text-lg font-semibold mt-1">Scan not found</EmptyTitle>
+            <EmptyDescription className="text-sm sm:text-base max-w-md mx-auto text-balance">
+              The scan record you're looking for doesn't exist or has been deleted.
+            </EmptyDescription>
+          </EmptyHeader>
+          <Button variant="outline" className="mt-4 gap-2" onClick={() => navigate(-1)}>
+            <ArrowLeft className="w-4 h-4" /> Go Back
+          </Button>
+        </Empty>
+      </div>
+    )
+  }
+
+  const dateObj = new Date(scan.dateTime)
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <Button variant="ghost" size="icon" className="w-9 h-9 shrink-0" onClick={() => navigate(-1)}>
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <div className="flex-1">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
+            <ScanLine className="w-7 h-7" /> Scan Details
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Scan ID: <span className="font-mono uppercase">{scan.id}</span>
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {scan.isOverridden && (
+            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs gap-1">
+              <Edit className="w-3 h-3" />
+              Overridden
+            </Badge>
+          )}
+          {scan.flagged ? (
+            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs gap-1">
+              <Flag className="w-3 h-3 fill-current" />
+              Flagged
+            </Badge>
+          ) : scan.confidence < config.confidenceThreshold ? (
+            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs gap-1">
+              <AlertTriangle className="w-3 h-3" />
+              Needs Review
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs gap-1">
+              <CheckCircle className="w-3 h-3" />
+              Verified
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* Left Column — Camera Views */}
+        <Card className="rounded-2xl lg:col-span-1 lg:sticky lg:top-20">
+          <CardContent className="p-4 sm:p-6">
+            {/* Main Camera View */}
+            <AspectRatio ratio={4/3} className="rounded-xl overflow-hidden bg-muted/50 border-2 relative group">
+              {scan.thumbnailUrl ? (
+                <>
+                  <img src={scan.thumbnailUrl} alt={`${cameraViews[activeCamera].label}`} className="w-full h-full object-cover transition-all duration-300" />
+                  <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-[10px] font-medium flex items-center gap-1">
+                    {cameraViews[activeCamera].id}
+                  </div>
+                  <div className="absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-xs font-medium">
+                    {cameraViews[activeCamera].label}
+                  </div>
+                  <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded-md text-[10px] font-medium">
+                    {scan.confidence}%
+                  </div>
+                </>
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+                  <Banana className="w-16 h-16 text-muted-foreground/30" />
+                  <span className="text-sm text-muted-foreground/50">No image available</span>
+                </div>
+              )}
+            </AspectRatio>
+
+            {/* Camera Thumbnails */}
+            <div className="grid grid-cols-4 gap-2 mt-3">
+              {cameraViews.map((cam, idx) => (
+                <button
+                  key={cam.id}
+                  onClick={() => setActiveCamera(idx)}
+                  className={`relative rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                    activeCamera === idx
+                      ? 'border-primary ring-2 ring-primary/20'
+                      : 'border-transparent hover:border-muted-foreground/30'
+                  }`}
+                >
+                  <AspectRatio ratio={1} className="bg-muted/50">
+                    {scan.thumbnailUrl ? (
+                      <img src={scan.thumbnailUrl} alt={cam.label} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Banana className="w-5 h-5 text-muted-foreground/30" />
+                      </div>
+                    )}
+                  </AspectRatio>
+                  <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] font-medium py-0.5 text-center">
+                    {cam.id}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 text-center">
+              <h2 className="text-xl font-bold">{scan.cultivar}</h2>
+              <div className="mt-2">
+                <StatusBadge type="ripeness" status={scan.ripeness} size="lg" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Right Column — Details */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Classification Card */}
+          <Card className="rounded-2xl">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Target className="w-4 h-4 text-primary" /> Classification
+                </CardTitle>
+                {isAdmin && !editMode && (
+                  <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8" onClick={startEdit}>
+                    <Edit className="w-3.5 h-3.5" /> Edit
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {editMode ? (
+                <div className="space-y-4 p-4 bg-muted/30 rounded-xl">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="edit-cultivar" className="text-xs">Cultivar</Label>
+                      <Select value={editData.cultivar} onValueChange={(v) => {
+                        const newCultivar = v as Cultivar;
+                        setEditData({...editData, cultivar: newCultivar, spoilageDays: editData.ripeness ? getSpoilageDays(newCultivar, editData.ripeness) : editData.spoilageDays})
+                      }}>
+                        <SelectTrigger id="edit-cultivar" className="rounded-xl mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Lakatan">Lakatan</SelectItem>
+                          <SelectItem value="Latundan">Latundan</SelectItem>
+                          <SelectItem value="Saba">Saba</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-ripeness" className="text-xs">Ripeness</Label>
+                      <Select value={editData.ripeness} onValueChange={(v) => {
+                        const newRipeness = v as Ripeness;
+                        setEditData({...editData, ripeness: newRipeness, spoilageDays: editData.cultivar ? getSpoilageDays(editData.cultivar, newRipeness) : editData.spoilageDays})
+                      }}>
+                        <SelectTrigger id="edit-ripeness" className="rounded-xl mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Unripe">Unripe</SelectItem>
+                          <SelectItem value="Ripe">Ripe</SelectItem>
+                          <SelectItem value="Overripe">Overripe</SelectItem>
+                          <SelectItem value="Rotten">Rotten</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-spoilage" className="text-xs">Est. Spoilage (days)</Label>
+                      <Input
+                        id="edit-spoilage"
+                        type="text"
+                        value={editData.spoilageDays}
+                        readOnly
+                        className="rounded-xl mt-1 bg-muted"
+                        placeholder="e.g. 2-3"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-fingers" className="text-xs">Est. Finger Count</Label>
+                      <Input
+                        id="edit-fingers"
+                        type="number"
+                        min="1"
+                        max="30"
+                        value={editData.fingerCount}
+                        onChange={(e) => setEditData({...editData, fingerCount: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0)})}
+                        className="rounded-xl mt-1"
+                      />
+                    </div>
+                  </div>
+
+                    {editData && scan && (
+                      <ChangePreview 
+                        originalData={scan} 
+                        editData={editData} 
+                        className="mt-4"
+                      />
+                    )}
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setEditMode(false)}>
+                      <X className="w-3.5 h-3.5" /> Cancel
+                    </Button>
+                    <Button size="sm" className="gap-1.5" onClick={handleSaveEdit}>
+                      <Save className="w-3.5 h-3.5" /> Save Changes
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Cultivar</p>
+                      <p className="font-semibold">{scan.cultivar}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Ripeness</p>
+                      <StatusBadge type="ripeness" status={scan.ripeness} size="md" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Confidence</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${scan.confidence < config.confidenceThreshold ? 'bg-yellow-500' : 'bg-primary'}`}
+                            style={{ width: `${scan.confidence}%` }}
+                          />
+                        </div>
+                        <span className={`font-semibold text-sm ${scan.confidence < config.confidenceThreshold ? 'text-yellow-600' : ''}`}>{scan.confidence}%</span>
+                      </div>
+                      {scan.confidence < config.confidenceThreshold && (
+                        <p className="text-[10px] text-yellow-600 mt-1 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" /> Below {config.confidenceThreshold}% threshold
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {scan.isOverridden && scan.originalAiResult && (
+                    <ChangePreview 
+                      originalData={scan.originalAiResult} 
+                      editData={scan} 
+                    />
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Details Card */}
+          <Card className="rounded-2xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Banana className="w-4 h-4 text-primary" /> Scan Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Hand className="w-3.5 h-3.5" /> Finger Count
+                  </div>
+                  <p className="text-2xl font-bold">{scan.fingerCount}</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <AlertTriangle className="w-3.5 h-3.5" /> Est. Spoilage
+                  </div>
+                  <p className="text-2xl font-bold">{scan.spoilageDays} <span className="text-sm font-normal text-muted-foreground">days</span></p>
+                </div>
+                {scan.temperature !== undefined && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span>🌡️</span> Temperature
+                    </div>
+                    <p className="text-2xl font-bold">{scan.temperature}°C</p>
+                  </div>
+                )}
+                {scan.humidity !== undefined && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span>💧</span> Humidity
+                    </div>
+                    <p className="text-2xl font-bold">{scan.humidity}%</p>
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Package className="w-3.5 h-3.5" /> Inventory Status
+                  </div>
+                  <StatusBadge type="inventory" status={scan.inventoryStatus || "In Stock"} size="md" />
+                </div>
+                {scan.source && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Package className="w-3.5 h-3.5" /> Source
+                    </div>
+                    <p className="font-semibold text-sm">{scan.source}</p>
+                  </div>
+                )}
+                {scan.intakeId && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Layers className="w-3.5 h-3.5" /> Intake
+                    </div>
+                    <p className="font-semibold text-sm font-mono">{scan.intakeId}</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quality Control Card */}
+          {isAdmin && (
+            <Card className="rounded-2xl">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-primary" /> Quality Control
+                  </CardTitle>
+                  <Button
+                    variant={scan.flagged ? "secondary" : "outline"}
+                    size="sm"
+                    className={`gap-1.5 text-xs h-8 ${scan.flagged ? 'text-red-600 bg-red-50 hover:bg-red-100 border border-red-200' : ''}`}
+                    onClick={handleFlag}
+                  >
+                    <Flag className={`w-3.5 h-3.5 ${scan.flagged ? 'fill-current' : ''}`} />
+                    {scan.flagged ? 'Remove Flag' : 'Flag for Review'}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Review Notes */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4" />
+                    Review Notes
+                    {notes.length > 0 && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 rounded-full">
+                        {notes.length}
+                      </Badge>
+                    )}
+                  </Label>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {notes.map((note) => (
+                      <div key={note.id} className="p-3 bg-muted/50 rounded-lg text-sm flex gap-3">
+                        <Avatar className="w-7 h-7 shrink-0 mt-0.5">
+                          <AvatarFallback className="bg-primary/10 text-primary font-semibold text-[10px]">
+                            {note.author.split(' ').map(n => n[0]).join('').toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="text-foreground">{note.note}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {note.author} • {new Date(note.timestamp).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    {notes.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">No notes yet</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Textarea
+                      placeholder="Add a review note..."
+                      value={noteText}
+                      onChange={(e) => setNoteText(e.target.value)}
+                      className="rounded-xl resize-none"
+                      rows={2}
+                    />
+                    <Button onClick={handleAddNote} disabled={!noteText.trim()} className="self-end">
+                      Add
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Metadata Card */}
+          <Card className="rounded-2xl">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                {user?.role === "Admin" && (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="w-10 h-10">
+                        <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                          {scan.operator.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
+                          <User className="w-3.5 h-3.5" /> Operator
+                        </div>
+                        <p className="font-semibold">{scan.operator}</p>
+                      </div>
+                    </div>
+                    <Separator orientation="vertical" className="hidden sm:block h-10" />
+                  </>
+                )}
+
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
+                    <Calendar className="w-3.5 h-3.5" /> Date
+                  </div>
+                  <p className="font-semibold">
+                    {dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </p>
+                </div>
+
+                <Separator orientation="vertical" className="hidden sm:block h-10" />
+
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
+                    <Clock className="w-3.5 h-3.5" /> Time
+                  </div>
+                  <p className="font-semibold">{dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                </div>
+
+                <Separator orientation="vertical" className="hidden sm:block h-10" />
+
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
+                    <Calendar className="w-3.5 h-3.5 text-rose-500" /> Est. Spoilage Range
+                  </div>
+                  <p className="font-bold text-rose-600">
+                    {scan.spoilageDays} days
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}
