@@ -1,0 +1,104 @@
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+import type { Cultivar, Ripeness } from "@/types"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
+/**
+ * Calculates estimated days until spoilage based on cultivar, ripeness, and environmental factors.
+ * This simulates the planned Random Forest Regression model output.
+ */
+export function getSpoilageDays(
+  cultivar: Cultivar, 
+  ripeness: Ripeness,
+  temperature?: number,
+  humidity?: number
+): string {
+  if (ripeness === "Rotten") return "0"
+  
+  let baseMin = 0
+  let baseMax = 0
+
+  if (cultivar === "Lakatan") {
+    if (ripeness === "Unripe") { baseMin = 4; baseMax = 6 }
+    else if (ripeness === "Ripe") { baseMin = 2; baseMax = 3 }
+    else if (ripeness === "Overripe") { baseMin = 1; baseMax = 2 }
+  } else if (cultivar === "Latundan") {
+    if (ripeness === "Unripe") { baseMin = 3; baseMax = 5 }
+    else if (ripeness === "Ripe") { baseMin = 1; baseMax = 2 }
+    else if (ripeness === "Overripe") { baseMin = 1; baseMax = 1 }
+  } else if (cultivar === "Saba") {
+    if (ripeness === "Unripe") { baseMin = 6; baseMax = 8 }
+    else if (ripeness === "Ripe") { baseMin = 3; baseMax = 4 }
+    else if (ripeness === "Overripe") { baseMin = 2; baseMax = 3 }
+  }
+
+  // Simulate Random Forest logic: Adjust based on temperature & humidity
+  if (temperature !== undefined && humidity !== undefined) {
+    // High heat (>28°C) accelerates spoilage by ~30%
+    // High humidity (>75%) accelerates spoilage by ~20%
+    // Cold (<22°C) slows spoilage
+    
+    let multiplier = 1.0
+
+    if (temperature > 28) multiplier -= 0.3
+    else if (temperature < 22) multiplier += 0.2
+
+    if (humidity > 75) multiplier -= 0.2
+    else if (humidity < 60) multiplier += 0.1
+
+    // Ensure we don't go below 0 or above double the baseline
+    multiplier = Math.max(0.2, Math.min(2.0, multiplier))
+
+    baseMin = Math.max(1, Math.round(baseMin * multiplier))
+    baseMax = Math.max(baseMin, Math.round(baseMax * multiplier))
+  }
+  
+  // Return the range back to represent ML model uncertainty + RMSE margins
+  return baseMin === baseMax ? `${baseMin}` : `${baseMin}-${baseMax}`
+}
+
+/**
+ * Parses spoilage string ranges (e.g. "4-6") or exact strings (e.g. "5") into numeric averages.
+ * For exact numeric strings, it behaves identically.
+ */
+export function parseSpoilageAvg(val: string): number {
+  if (!val) return 0;
+  if (val.includes("-")) {
+    const [min, max] = val.split("-").map(Number);
+    return (min + max) / 2;
+  }
+  return Number(val) || 0;
+}
+
+const BANANA_IMAGES: Record<string, string[]> = {
+  "Unripe": [
+    "https://the-veggie-table.com/cdn/shop/products/saba_300x.png?v=1586490675", // Green bananas
+    "https://www.gulayatbp.com/cdn/shop/files/banana_saba1.png?v=1729220360"  // Greenish bunch
+  ],
+  "Ripe": [
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTQwik_uYQV3m9z-tF0NiOJuQIR-lxNqSzSWPZAvHUrZQ&s", // Yellow
+    "https://www.eatright.org/-/media/images/eatright-articles/bananas.jpg?as=0&w=967&rev=c5a21c5b5daf455baa28092d199f7ea9&hash=0DB86DF1DDEDF4F1003A3BF726BF4ABC", // Bright yellow
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9EYaQHTYBuaCBi0Dmb2ijsHJaAp3LoxZqFQ&s"  // Yellow bundle
+  ],
+  "Overripe": [
+    "https://chefjulieyoon.com/wp-content/uploads/2012/08/RipeBananas-1.jpg", // Spotted
+    "https://delightfuladventures.com/wp-content/uploads/2019/02/what-to-do-with-overripe-bananas-info.jpg"  // Spotted yellow
+  ],
+  "Rotten": [
+    "https://media.istockphoto.com/id/1301198272/photo/dark-and-spoiled-banana-on-the-table-rotten-fruit.jpg?s=612x612&w=0&k=20&c=_3Llkp1sNS7bZtnVB6W9Zh6hhjoq4tCaa7sqhlJ1UPk=", // Darkish
+    "https://static.vecteezy.com/system/resources/previews/010/234/579/non_2x/closeup-of-a-banana-that-is-starting-to-rot-or-turn-black-free-photo.jpg"  // Older
+  ]
+};
+
+/**
+ * Returns an actual photo URL based on the banana's cultivar and ripeness.
+ */
+export function getBananaImageUrl(cultivar: Cultivar, ripeness: Ripeness): string {
+  const images = BANANA_IMAGES[ripeness] || BANANA_IMAGES["Ripe"];
+  // Use cultivar string length to pseudo-randomly pick an image from the array consistently
+  const index = (cultivar.length + ripeness.length) % images.length;
+  return images[index];
+}
