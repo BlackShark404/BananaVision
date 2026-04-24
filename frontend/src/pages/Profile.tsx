@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner"
 
 export default function Profile() {
-  const { user, scans, activityLogs, updateUser, users } = useApp()
+  const { user, scans, activityLogs, updateUser, users, changePasswordAndLogin } = useApp()
   const { theme, setTheme } = useTheme()
   const [isEditingPassword, setIsEditingPassword] = useState(false)
   const [isEditingPin, setIsEditingPin] = useState(false)
@@ -157,7 +157,7 @@ export default function Profile() {
     }
   }, [userScans, scans, user, users])
 
-  const handlePasswordChange = (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handlePasswordChange = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (passwordData.new !== passwordData.confirm) {
       toast.error("Passwords don't match")
@@ -167,10 +167,21 @@ export default function Profile() {
       toast.error("Password must be at least 6 characters")
       return
     }
-    // In production: API call to change password
-    toast.success("Password changed successfully")
-    setPasswordData({ current: "", new: "", confirm: "" })
-    setIsEditingPassword(false)
+    
+    if (user) {
+      try {
+        const success = await changePasswordAndLogin(user.username, passwordData.new)
+        if (success) {
+          toast.success("Password changed successfully")
+          setPasswordData({ current: "", new: "", confirm: "" })
+          setIsEditingPassword(false)
+        } else {
+          toast.error("Failed to change password. Please check your current password.")
+        }
+      } catch (err) {
+        toast.error("An error occurred while changing password.")
+      }
+    }
   }
 
   const handlePinOtpChange = (val: string) => {
