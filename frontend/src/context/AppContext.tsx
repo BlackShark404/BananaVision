@@ -512,13 +512,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── CRUD Operations ─────────────────────────────────────────────────────
 
   const addUser = useCallback((data: Omit<User, "id">) => {
-    api.users.create(data)
+    const apiData = {
+      username: data.username,
+      full_name: data.fullName,
+      role: data.role,
+      password: data.password || "banana123",
+      pin: data.pin
+    }
+    api.users.create(apiData)
       .then((newUser) => setUsers((prev) => [...prev, mapApiUser(newUser)]))
       .catch(() => setUsers((prev) => [...prev, { ...data, id: Math.random().toString(36).substring(2, 10) } as User]))
   }, [])
 
   const updateUser = useCallback((id: string, data: Partial<User>) => {
-    api.users.update(id, data)
+    const apiData: any = { ...data }
+    if (data.fullName !== undefined) apiData.full_name = data.fullName
+    if (data.requiresPasswordChange !== undefined) apiData.requires_password_change = data.requiresPasswordChange
+    if (data.passwordSetupReason !== undefined) apiData.password_setup_reason = data.passwordSetupReason
+    if (data.requiresPinChange !== undefined) apiData.requires_pin_change = data.requiresPinChange
+    if (data.pinSetupReason !== undefined) apiData.pin_setup_reason = data.pinSetupReason
+
+    api.users.update(id, apiData)
       .then((updated) => {
         const mapped = mapApiUser(updated)
         setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...mapped } : u)))
