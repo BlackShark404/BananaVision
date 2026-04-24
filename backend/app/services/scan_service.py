@@ -11,6 +11,9 @@ from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.scan import Scan
+from app.models.scan_classification import ScanClassification
+from app.models.scan_status_log import ScanStatusLog
+from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.models.scan_detection import ScanDetection
 from app.models.scan_image import ScanImage
 from app.models.activity_log import ActivityLog
@@ -161,7 +164,13 @@ async def execute_scan_pipeline(
             id=scan_id,
             operator_id=operator_id,
             intake_id=intake_id,
-            scanned_at=datetime.now(timezone.utc),
+            date_time=datetime.now(timezone.utc),
+            flagged=fused.auto_flagged,
+            source_text=supplier_name,
+        )
+
+        classification = ScanClassification(
+            scan_id=scan_id,
             cultivar=fused.cultivar,
             ripeness=fused.ripeness,
             confidence=fused.confidence,
@@ -169,12 +178,31 @@ async def execute_scan_pipeline(
             humidity=humidity,
             spoilage_days=spoilage_days,
             finger_count=fused.finger_count,
-            inventory_status="In Stock",
-            status_updated_at=datetime.now(timezone.utc),
-            flagged=fused.auto_flagged,
+            thumbnail_url=captures[0].file_path if captures else None,
         )
 
+        status_log = ScanStatusLog(
+            scan_id=scan_id,
+            inventory_status="In Stock",
+        )
+
+        original_ai = ScanOriginalAiResult(
+            scan_id=scan_id,
+            cultivar=fused.cultivar,
+            ripeness=fused.ripeness,
+            confidence=fused.confidence,
+            finger_count=fused.finger_count,
+        )
+
+        scan.classification = classification
+        scan.status_logs = [status_log]
+        scan.original_ai_result = original_ai
+
         db.add(scan)
+        db.add(classification)
+        db.add(status_log)
+        db.add(original_ai)
+
         for det in db_detections:
             db.add(det)
         for img in db_images:
