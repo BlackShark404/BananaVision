@@ -42,7 +42,7 @@ const cameras = [
 ]
 
 export default function Kiosk() {
-  const { user, scanState, startScan, scans, users, switchOperator, updateUser, flagScan, suppliers } = useApp()
+  const { user, scanState, startScan, scans, users, switchOperator, changePinAndLogin, flagScan, suppliers } = useApp()
   const { isScanning, scanStep, scanProgress, lastResult } = scanState
   const [currentTime, setCurrentTime] = useState(new Date())
   const activeSuppliers = suppliers.filter(s => s.status === "Active")
@@ -133,21 +133,30 @@ export default function Kiosk() {
                    <InputOTP
                       maxLength={4}
                       value={newPinInput.length === 4 ? confirmPinInput : newPinInput}
-                      onChange={(val) => {
+                      onChange={async (val) => {
                         if (newPinInput.length < 4) {
                           setNewPinInput(val);
                         } else {
                           setConfirmPinInput(val);
                           if (val.length === 4) {
                             if (newPinInput === val) {
-                              updateUser(swapTarget, { requiresPinChange: false, pin: val });
-                              switchOperator(activeOperators.find(o => o.id === swapTarget)?.username || "", val);
-                              toast.success(`PIN updated and swapped to ${activeOperators.find(o => o.id === swapTarget)?.fullName}`);
-                              setShowSwapModal(false);
-                              setSwapTarget(null);
-                              setRequiresNewPin(false);
-                              setNewPinInput("");
-                              setConfirmPinInput("");
+                              const targetUser = activeOperators.find(o => o.id === swapTarget);
+                              if (!targetUser) return;
+                              
+                              const success = await changePinAndLogin(targetUser.username, val);
+                              
+                              if (success) {
+                                toast.success(`PIN updated and swapped to ${targetUser.fullName}`);
+                                setShowSwapModal(false);
+                                setSwapTarget(null);
+                                setRequiresNewPin(false);
+                                setNewPinInput("");
+                                setConfirmPinInput("");
+                              } else {
+                                toast.error("Failed to update PIN. Try again.");
+                                setNewPinInput("");
+                                setConfirmPinInput("");
+                              }
                             } else {
                               toast.error("PINs do not match. Try again.");
                               setNewPinInput("");
