@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner"
 
 export default function Profile() {
-  const { user, scans, activityLogs, updateUser, users, changePasswordAndLogin } = useApp()
+  const { user, scans, activityLogs, updateUser, users, changePasswordAndLogin, changePinAndLogin, switchOperator } = useApp()
   const { theme, setTheme } = useTheme()
   const [isEditingPassword, setIsEditingPassword] = useState(false)
   const [isEditingPin, setIsEditingPin] = useState(false)
@@ -184,12 +184,13 @@ export default function Profile() {
     }
   }
 
-  const handlePinOtpChange = (val: string) => {
+  const handlePinOtpChange = async (val: string) => {
     if (pinStep === "current") {
       setPinData(prev => ({ ...prev, current: val }))
       if (val.length === 4) {
-        const fullUser = users.find(u => u.id === user?.id)
-        if (fullUser && fullUser.pin && fullUser.pin !== val) {
+        if (!user) return
+        const status = await switchOperator(user.username, val)
+        if (status === "failed") {
           toast.error("Current PIN is incorrect")
           setPinData(prev => ({ ...prev, current: "" }))
           return
@@ -211,11 +212,15 @@ export default function Profile() {
           return
         }
         if (user) {
-          updateUser(user.id, { pin: val })
-          toast.success("Kiosk PIN changed successfully")
-          setPinData({ current: "", new: "", confirm: "" })
-          setPinStep("current")
-          setIsEditingPin(false)
+          const success = await changePinAndLogin(user.username, val)
+          if (success) {
+            toast.success("Kiosk PIN changed successfully")
+            setPinData({ current: "", new: "", confirm: "" })
+            setPinStep("current")
+            setIsEditingPin(false)
+          } else {
+            toast.error("Failed to change Kiosk PIN")
+          }
         }
       }
     }

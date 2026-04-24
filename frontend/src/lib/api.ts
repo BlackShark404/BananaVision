@@ -101,8 +101,12 @@ export const api = {
         user: { id: string; username: string; full_name: string; role: string } | null
       }>("/api/v1/auth/change-password", { username, current_password: currentPassword, new_password: newPassword }),
 
-    changePin: (newPin: string) =>
-      post<{ message: string }>("/api/v1/auth/change-pin", { new_pin: newPin }),
+    changePin: (username: string, newPin: string) =>
+      post<{
+        status: string
+        token: { access_token: string; token_type: string } | null
+        user: { id: string; username: string; full_name: string; role: string; avatar_url?: string } | null
+      }>("/api/v1/auth/change-pin", { username, new_pin: newPin }),
 
     logout: () => post<void>("/api/v1/auth/logout"),
   },

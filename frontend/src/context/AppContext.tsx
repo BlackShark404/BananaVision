@@ -52,6 +52,7 @@ interface AppContextType {
       | "requires_password_change_reset"
     >
   changePasswordAndLogin: (username: string, newPassword?: string) => Promise<boolean>
+  changePinAndLogin: (username: string, newPin?: string) => Promise<boolean>
   logout: () => void
   switchOperator: (username: string, pin: string) => Promise<"success" | "failed" | "requires_pin_change" | "requires_pin_change_new_account" | "requires_pin_change_reset">
   scanState: ScanState
@@ -437,6 +438,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const changePinAndLogin = useCallback(async (username: string, newPin?: string) => {
+    if (!newPin) return false
+    try {
+      const res = await api.auth.changePin(username, newPin)
+      if (!res.token || !res.user) return false
+      setToken(res.token.access_token)
+      const u = res.user
+      const authUser: AuthUser = { id: u.id, username: u.username, fullName: u.full_name, role: u.role as Role }
+      setStoredUser(authUser)
+      setUser(authUser)
+      return true
+    } catch {
+      return false
+    }
+  }, [])
+
   // ── Scan Pipeline ───────────────────────────────────────────────────────
 
   const startScan = useCallback((source?: string) => {
@@ -640,6 +657,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         user,
         login,
         changePasswordAndLogin,
+        changePinAndLogin,
         logout,
         switchOperator,
         scanState,
