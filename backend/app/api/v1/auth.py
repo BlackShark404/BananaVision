@@ -23,6 +23,7 @@ from app.services.auth_service import (
     change_pin,
     create_user_token,
 )
+from app.models.activity_log import ActivityLog
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -40,6 +41,14 @@ async def login(body: LoginRequest, db: DbSession):
 
     # Success
     token = create_user_token(user)
+
+    db.add(ActivityLog(
+        user_id=user.id,
+        action="login",
+        details=f"User {user.username} logged in",
+    ))
+    await db.flush()
+
     return LoginResponse(
         status="success",
         token=TokenResponse(access_token=token),
@@ -65,6 +74,14 @@ async def swap(body: PinSwapRequest, db: DbSession):
         return LoginResponse(status="requires_pin_change", reason=reason)
 
     token = create_user_token(user)
+
+    db.add(ActivityLog(
+        user_id=user.id,
+        action="login",
+        details=f"Operator {user.username} swapped in session",
+    ))
+    await db.flush()
+
     return LoginResponse(
         status="success",
         token=TokenResponse(access_token=token),
@@ -83,6 +100,14 @@ async def change_password_route(body: ChangePasswordRequest, db: DbSession):
     """Change password and auto-login."""
     user = await change_password(db, body.username, body.new_password)
     token = create_user_token(user)
+
+    db.add(ActivityLog(
+        user_id=user.id,
+        action="user_updated",
+        details=f"User {user.username} changed password",
+    ))
+    await db.flush()
+
     return LoginResponse(
         status="success",
         token=TokenResponse(access_token=token),
@@ -101,6 +126,14 @@ async def change_pin_route(body: ChangePinRequest, db: DbSession):
     """Change PIN and auto-login."""
     user = await change_pin(db, body.username, body.new_pin)
     token = create_user_token(user)
+
+    db.add(ActivityLog(
+        user_id=user.id,
+        action="user_updated",
+        details=f"User {user.username} changed PIN",
+    ))
+    await db.flush()
+
     return LoginResponse(
         status="success",
         token=TokenResponse(access_token=token),
@@ -115,6 +148,12 @@ async def change_pin_route(body: ChangePinRequest, db: DbSession):
 
 
 @router.post("/logout")
-async def logout(user: CurrentUser):
+async def logout(user: CurrentUser, db: DbSession):
     """Logout (client-side token removal; server acknowledges)."""
+    db.add(ActivityLog(
+        user_id=user.id,
+        action="logout",
+        details=f"User {user.username} logged out",
+    ))
+    await db.flush()
     return {"message": "Logged out successfully"}
