@@ -7,7 +7,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from sqlalchemy import select, func, desc
 
 from app.api.deps import DbSession, CurrentUser, AdminUser
@@ -138,7 +138,7 @@ async def list_users(db: DbSession, user: CurrentUser):
 
 
 @users_router.post("", response_model=UserResponse, status_code=201)
-async def create_user(body: UserCreate, db: DbSession, admin: AdminUser):
+async def create_user(body: UserCreate, db: DbSession, admin: AdminUser, request: Request):
     """Create a new user (admin only)."""
     existing = await db.execute(select(UserAccount).where(UserAccount.username == body.username))
     if existing.scalar_one_or_none():
@@ -174,6 +174,7 @@ async def create_user(body: UserCreate, db: DbSession, admin: AdminUser):
         user_id=admin.id,
         action="user_created",
         details=f"Created user '{body.username}' with role {body.role}",
+        ip_address=request.client.host if request.client else None,
     ))
 
     await db.flush()
@@ -181,7 +182,7 @@ async def create_user(body: UserCreate, db: DbSession, admin: AdminUser):
 
 
 @users_router.patch("/{user_id}", response_model=UserResponse)
-async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin: AdminUser):
+async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin: AdminUser, request: Request):
     """Update a user (admin only)."""
     result = await db.execute(
         select(UserAccount)
@@ -210,6 +211,7 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin
         user_id=admin.id,
         action="user_updated",
         details=f"Updated user '{user.username}': {list(update_data.keys())}",
+        ip_address=request.client.host if request.client else None,
     ))
 
     await db.flush()
@@ -267,7 +269,7 @@ async def list_suppliers(db: DbSession, user: CurrentUser):
 
 
 @suppliers_router.post("", response_model=SupplierResponse, status_code=201)
-async def create_supplier(body: SupplierCreate, db: DbSession, admin: AdminUser):
+async def create_supplier(body: SupplierCreate, db: DbSession, admin: AdminUser, request: Request):
     """Create a new supplier."""
     supplier = Supplier(**body.model_dump())
     db.add(supplier)
@@ -275,6 +277,7 @@ async def create_supplier(body: SupplierCreate, db: DbSession, admin: AdminUser)
         user_id=admin.id,
         action="supplier_created",
         details=f"Added supplier '{body.name}'",
+        ip_address=request.client.host if request.client else None,
     ))
     await db.flush()
     return SupplierResponse.model_validate(supplier)
@@ -282,7 +285,7 @@ async def create_supplier(body: SupplierCreate, db: DbSession, admin: AdminUser)
 
 @suppliers_router.patch("/{supplier_id}", response_model=SupplierResponse)
 async def update_supplier(
-    supplier_id: uuid.UUID, body: SupplierUpdate, db: DbSession, admin: AdminUser
+    supplier_id: uuid.UUID, body: SupplierUpdate, db: DbSession, admin: AdminUser, request: Request
 ):
     """Update a supplier."""
     result = await db.execute(select(Supplier).where(Supplier.id == supplier_id))
@@ -297,6 +300,7 @@ async def update_supplier(
         user_id=admin.id,
         action="supplier_updated",
         details=f"Updated supplier '{supplier.name}'",
+        ip_address=request.client.host if request.client else None,
     ))
 
     await db.flush()
@@ -340,7 +344,7 @@ async def list_intakes(db: DbSession, user: CurrentUser):
 
 @intakes_router.patch("/{intake_id}/status")
 async def update_intake_status(
-    intake_id: uuid.UUID, body: IntakeStatusUpdate, db: DbSession, admin: AdminUser
+    intake_id: uuid.UUID, body: IntakeStatusUpdate, db: DbSession, admin: AdminUser, request: Request
 ):
     """Update intake status (Active/Depleted)."""
     result = await db.execute(select(Intake).where(Intake.id == intake_id))
@@ -353,13 +357,14 @@ async def update_intake_status(
         user_id=admin.id,
         action="intake_status_changed",
         details=f"Intake {intake_id} status → {body.status}",
+        ip_address=request.client.host if request.client else None,
     ))
     return {"message": "Intake status updated"}
 
 
 @intakes_router.patch("/{intake_id}/bulk-inventory")
 async def bulk_update_intake_inventory(
-    intake_id: uuid.UUID, body: IntakeBulkInventoryUpdate, db: DbSession, admin: AdminUser
+    intake_id: uuid.UUID, body: IntakeBulkInventoryUpdate, db: DbSession, admin: AdminUser, request: Request
 ):
     """Bulk update inventory status for all scans in an intake."""
     result = await db.execute(select(Intake).where(Intake.id == intake_id))
@@ -391,6 +396,7 @@ async def bulk_update_intake_inventory(
         user_id=admin.id,
         action="intake_status_changed",
         details=f"Bulk updated {updated} scans in intake {intake_id} → {body.inventory_status}",
+        ip_address=request.client.host if request.client else None,
     ))
 
     return {"message": f"Updated {updated} scans", "updated_count": updated}
@@ -531,7 +537,7 @@ async def get_config(db: DbSession, admin: AdminUser):
 
 
 @config_router.patch("", response_model=SystemConfigResponse)
-async def update_config(body: SystemConfigUpdate, db: DbSession, admin: AdminUser):
+async def update_config(body: SystemConfigUpdate, db: DbSession, admin: AdminUser, request: Request):
     """Update system configuration."""
     if body.camera_ids is not None:
         await _set_config_value(db, "camera_ids", body.camera_ids)
@@ -542,6 +548,7 @@ async def update_config(body: SystemConfigUpdate, db: DbSession, admin: AdminUse
         user_id=admin.id,
         action="config_changed",
         details=f"Updated config: {body.model_dump(exclude_none=True)}",
+        ip_address=request.client.host if request.client else None,
     ))
 
     return await get_config(db, admin)

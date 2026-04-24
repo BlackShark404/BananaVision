@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from sqlalchemy import select, func, desc
 from sqlalchemy.orm import selectinload
 
@@ -205,7 +205,7 @@ async def get_scan(scan_id: uuid.UUID, db: DbSession, user: CurrentUser):
 
 
 @router.patch("/{scan_id}/flag")
-async def flag_scan(scan_id: uuid.UUID, body: ScanFlagRequest, db: DbSession, user: CurrentUser):
+async def flag_scan(scan_id: uuid.UUID, body: ScanFlagRequest, db: DbSession, user: CurrentUser, request: Request):
     """Flag or unflag a scan for review."""
     result = await db.execute(select(Scan).where(Scan.id == scan_id))
     scan = result.scalar_one_or_none()
@@ -217,13 +217,14 @@ async def flag_scan(scan_id: uuid.UUID, body: ScanFlagRequest, db: DbSession, us
         user_id=user.id,
         action="scan_flagged",
         details=f"{'Flagged' if body.flagged else 'Unflagged'} scan {scan_id}",
+        ip_address=request.client.host if request.client else None,
     ))
     return {"message": f"Scan {'flagged' if body.flagged else 'unflagged'}"}
 
 
 @router.patch("/{scan_id}", response_model=ScanResponse)
 async def override_scan(
-    scan_id: uuid.UUID, body: ScanOverrideRequest, db: DbSession, admin: AdminUser
+    scan_id: uuid.UUID, body: ScanOverrideRequest, db: DbSession, admin: AdminUser, request: Request
 ):
     """Admin override of scan classification."""
     result = await db.execute(
@@ -266,6 +267,7 @@ async def override_scan(
         user_id=admin.id,
         action="scan_edited",
         details=f"Override scan {scan_id}: {body.model_dump(exclude_none=True)}",
+        ip_address=request.client.host if request.client else None,
     ))
 
     await db.flush()
