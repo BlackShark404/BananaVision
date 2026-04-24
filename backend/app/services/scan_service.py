@@ -235,7 +235,7 @@ async def execute_scan_pipeline(
             "flagged": fused.auto_flagged,
             "conflict_detected": fused.conflict_detected,
             "camera_count": fused.camera_count,
-            "scanned_at": scan.scanned_at.isoformat(),
+            "scanned_at": scan.date_time.isoformat(),
         }
 
         await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_COMPLETED, scan_result)

@@ -114,7 +114,7 @@ export const api = {
   // ── Scans ────────────────────────────────────────────────────────────────
   scans: {
     trigger: (data: { source?: string; intake_id?: string }) =>
-      post<{ scan_id: string; status: string }>("/api/v1/scans/trigger", data),
+      post<{ scan_id: string; status: string }>("/api/v1/scans/trigger", { source_text: data.source, intake_id: data.intake_id }),
 
     list: (params?: { page?: number; per_page?: number; cultivar?: string; ripeness?: string; flagged?: boolean; source?: string; operator?: string }) =>
       get<{ items: any[]; total: number; page: number; per_page: number }>("/api/v1/scans", params as any),
