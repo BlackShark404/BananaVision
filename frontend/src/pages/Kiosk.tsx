@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useApp } from "@/context/AppContext"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -64,10 +64,10 @@ export default function Kiosk() {
     : 0
 
   // Update clock every second
-  useState(() => {
+  useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(interval)
-  })
+  }, [])
 
   // Get recent scans (last 5)
   const recentScans = scans.slice(0, 5)
