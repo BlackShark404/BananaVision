@@ -15,7 +15,11 @@ from app.core.exceptions import NotFoundException, ConflictException
 from app.core.security import hash_password, hash_pin
 from app.models.device import Device
 from app.models.sensor_reading import SensorReading
-from app.models.user import User
+from app.models.user_account import UserAccount
+from app.models.user_role import UserRole
+from app.models.admin_profile import AdminProfile
+from app.models.operator_profile import OperatorProfile
+from sqlalchemy.orm import selectinload
 from app.models.supplier import Supplier
 from app.models.intake import Intake
 from app.models.scan import Scan
@@ -119,10 +123,14 @@ users_router = APIRouter(prefix="/users", tags=["Users"])
 @users_router.get("", response_model=UserListResponse)
 async def list_users(db: DbSession, admin: AdminUser):
     """List all users (admin only)."""
-    result = await db.execute(select(User).order_by(User.created_at))
+    result = await db.execute(
+        select(UserAccount)
+        .options(selectinload(UserAccount.role), selectinload(UserAccount.operator_profile))
+        .order_by(UserAccount.created_at)
+    )
     users = result.scalars().all()
     return UserListResponse(
-        items=[UserResponse.model_validate(u) for u in users],
+        items=[UserResponse.from_db_model(u) for u in users],
         total=len(users),
     )
 
@@ -130,21 +138,34 @@ async def list_users(db: DbSession, admin: AdminUser):
 @users_router.post("", response_model=UserResponse, status_code=201)
 async def create_user(body: UserCreate, db: DbSession, admin: AdminUser):
     """Create a new user (admin only)."""
-    existing = await db.execute(select(User).where(User.username == body.username))
+    existing = await db.execute(select(UserAccount).where(UserAccount.username == body.username))
     if existing.scalar_one_or_none():
         raise ConflictException(f"Username '{body.username}' already exists")
 
-    user = User(
+    role_res = await db.execute(select(UserRole).where(UserRole.name == body.role))
+    user_role = role_res.scalar_one_or_none()
+    if not user_role:
+        raise NotFoundException(f"Role '{body.role}' not found")
+
+    user = UserAccount(
         username=body.username,
         full_name=body.full_name,
         password_hash=hash_password(body.password),
-        pin_hash=hash_pin(body.pin) if body.pin else None,
-        role=body.role,
+        role_id=user_role.id,
         requires_password_change=True,
         password_setup_reason="new_account",
-        requires_pin_change=True if body.pin else False,
-        pin_setup_reason="new_account" if body.pin else None,
     )
+    user.role = user_role  # Explicitly load for from_db_model
+
+    if body.role == "Admin":
+        user.admin_profile = AdminProfile()
+    elif body.role == "Operator":
+        user.operator_profile = OperatorProfile(
+            pin_hash=hash_pin(body.pin) if body.pin else None,
+            requires_pin_change=True if body.pin else False,
+            pin_setup_reason="new_account" if body.pin else None,
+        )
+
     db.add(user)
 
     db.add(ActivityLog(
@@ -154,20 +175,34 @@ async def create_user(body: UserCreate, db: DbSession, admin: AdminUser):
     ))
 
     await db.flush()
-    return UserResponse.model_validate(user)
+    return UserResponse.from_db_model(user)
 
 
 @users_router.patch("/{user_id}", response_model=UserResponse)
 async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin: AdminUser):
     """Update a user (admin only)."""
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(
+        select(UserAccount)
+        .options(selectinload(UserAccount.role), selectinload(UserAccount.operator_profile))
+        .where(UserAccount.id == user_id)
+    )
     user = result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User")
 
     update_data = body.model_dump(exclude_none=True)
     for field, value in update_data.items():
-        setattr(user, field, value)
+        if field in ["requires_pin_change", "pin_setup_reason"]:
+            if user.operator_profile:
+                setattr(user.operator_profile, field, value)
+        elif field == "role":
+            role_res = await db.execute(select(UserRole).where(UserRole.name == value))
+            user_role = role_res.scalar_one_or_none()
+            if user_role:
+                user.role_id = user_role.id
+                user.role = user_role
+        else:
+            setattr(user, field, value)
 
     db.add(ActivityLog(
         user_id=admin.id,
@@ -176,7 +211,7 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin
     ))
 
     await db.flush()
-    return UserResponse.model_validate(user)
+    return UserResponse.from_db_model(user)
 
 
 @users_router.post("/{user_id}/reset-password")
@@ -184,7 +219,7 @@ async def reset_user_password(
     user_id: uuid.UUID, body: UserPasswordReset, db: DbSession, admin: AdminUser
 ):
     """Reset a user's password (admin only)."""
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(UserAccount).where(UserAccount.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User")
@@ -200,14 +235,18 @@ async def reset_user_pin(
     user_id: uuid.UUID, body: UserPinReset, db: DbSession, admin: AdminUser
 ):
     """Reset a user's PIN (admin only)."""
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(
+        select(UserAccount)
+        .options(selectinload(UserAccount.operator_profile))
+        .where(UserAccount.id == user_id)
+    )
     user = result.scalar_one_or_none()
-    if not user:
-        raise NotFoundException("User")
+    if not user or not user.operator_profile:
+        raise NotFoundException("User Operator Profile")
 
-    user.pin_hash = hash_pin(body.new_pin)
-    user.requires_pin_change = True
-    user.pin_setup_reason = body.pin_setup_reason
+    user.operator_profile.pin_hash = hash_pin(body.new_pin)
+    user.operator_profile.requires_pin_change = True
+    user.operator_profile.pin_setup_reason = body.pin_setup_reason
     return {"message": "PIN reset successfully"}
 
 

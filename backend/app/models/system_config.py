@@ -7,9 +7,9 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, String, Text
+from sqlalchemy import DateTime, String, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -27,3 +27,8 @@ class SystemConfig(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+    upd_by_admin: Mapped[uuid.UUID | None] = mapped_column(
+        "sc_upt_by_admin", UUID(as_uuid=True), ForeignKey("admin_profile.ap_id", ondelete="SET NULL"), nullable=True
+    )
+
+    admin = relationship("AdminProfile", lazy="selectin")

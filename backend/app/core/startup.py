@@ -22,7 +22,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.core.database import async_session_factory, engine, Base
 from app.core.security import hash_password, hash_pin
-from app.models import User, Device  # Import all models to register them
+from app.models.user_account import UserAccount
+from app.models.user_role import UserRole
+from app.models.admin_profile import AdminProfile
+from app.models.operator_profile import OperatorProfile
+from app.models.device import Device
 from app.services.camera_manager import camera_manager
 from app.services.classification import banana_classifier
 from app.services.spoilage import spoilage_predictor
@@ -155,21 +159,27 @@ async def start_background_tasks():
 
 async def _seed_default_data(db: AsyncSession):
     """Seed default admin user if the users table is empty."""
-    result = await db.execute(select(User).limit(1))
+    result = await db.execute(select(UserAccount).limit(1))
     if result.scalar_one_or_none() is not None:
         logger.info("  Users already exist — skipping seed")
         return
 
-    logger.info("  Seeding default admin user...")
-    admin = User(
+    logger.info("  Seeding default roles & admin user...")
+    admin_role = UserRole(name="Admin", permissions={"all": True})
+    operator_role = UserRole(name="Operator", permissions={"scan": True})
+    db.add_all([admin_role, operator_role])
+    await db.commit()
+    await db.refresh(admin_role)
+
+    admin_account = UserAccount(
         username="admin",
         full_name="Admin User",
         password_hash=hash_password("admin"),
-        pin_hash=hash_pin("1234"),
-        role="Admin",
+        role_id=admin_role.id,
         status="Active",
     )
-    db.add(admin)
+    admin_account.admin_profile = AdminProfile()
+    db.add(admin_account)
     await db.commit()
     logger.info("  Default admin created (admin / admin)")
 

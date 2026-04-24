@@ -14,13 +14,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.exceptions import CredentialsException, ForbiddenException
 from app.core.security import decode_access_token
-from app.models.user import User
+from app.models.user_account import UserAccount
+from sqlalchemy.orm import selectinload
 
 
 async def get_current_user(
     db: Annotated[AsyncSession, Depends(get_db)],
     authorization: str = Header(default=""),
-) -> User:
+) -> UserAccount:
     """Extract and validate the current user from the Authorization header."""
     if not authorization.startswith("Bearer "):
         raise CredentialsException("Missing or invalid Authorization header")
@@ -36,7 +37,11 @@ async def get_current_user(
     except (ValueError, TypeError):
         raise CredentialsException("Malformed token payload")
 
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(
+        select(UserAccount)
+        .options(selectinload(UserAccount.role), selectinload(UserAccount.operator_profile))
+        .where(UserAccount.id == user_id)
+    )
     user = result.scalar_one_or_none()
 
     if not user:
@@ -49,15 +54,15 @@ async def get_current_user(
 
 
 async def require_admin(
-    user: Annotated[User, Depends(get_current_user)],
-) -> User:
+    user: Annotated[UserAccount, Depends(get_current_user)],
+) -> UserAccount:
     """Require the current user to have Admin role."""
-    if user.role != "Admin":
+    if not user.role or user.role.name != "Admin":
         raise ForbiddenException("Admin access required")
     return user
 
 
 # Type aliases for dependency injection
 DbSession = Annotated[AsyncSession, Depends(get_db)]
-CurrentUser = Annotated[User, Depends(get_current_user)]
-AdminUser = Annotated[User, Depends(require_admin)]
+CurrentUser = Annotated[UserAccount, Depends(get_current_user)]
+AdminUser = Annotated[UserAccount, Depends(require_admin)]

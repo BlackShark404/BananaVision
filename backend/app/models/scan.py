@@ -24,7 +24,7 @@ class Scan(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     operator_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+        "sc_operator_id", UUID(as_uuid=True), ForeignKey("operator_profile.op_id", ondelete="RESTRICT"), nullable=False, index=True
     )
     intake_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("intakes.id"), nullable=True, index=True
@@ -59,7 +59,7 @@ class Scan(Base):
     )
 
     # Relationships
-    operator = relationship("User", back_populates="scans", lazy="selectin")
+    operator = relationship("OperatorProfile", back_populates="scans", lazy="selectin")
     intake = relationship("Intake", back_populates="scans", lazy="selectin")
     detections = relationship("ScanDetection", back_populates="scan", lazy="selectin")
     images = relationship("ScanImage", back_populates="scan", lazy="selectin")

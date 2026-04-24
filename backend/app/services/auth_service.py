@@ -18,12 +18,13 @@ from app.core.security import (
     verify_pin,
 )
 from app.core.exceptions import CredentialsException, NotFoundException
-from app.models.user import User
+from app.models.user_account import UserAccount
+from sqlalchemy.orm import selectinload
 
 
 async def authenticate_user(
     db: AsyncSession, username: str, password: str
-) -> tuple[str, User | None, str | None]:
+) -> tuple[str, UserAccount | None, str | None]:
     """
     Authenticate a user by username + password.
 
@@ -32,7 +33,11 @@ async def authenticate_user(
         status: "success" | "failed" | "requires_password_change"
         reason: "new_account" | "password_reset" | None
     """
-    result = await db.execute(select(User).where(User.username == username))
+    result = await db.execute(
+        select(UserAccount)
+        .options(selectinload(UserAccount.role), selectinload(UserAccount.operator_profile))
+        .where(UserAccount.username == username)
+    )
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(password, user.password_hash):
@@ -49,7 +54,7 @@ async def authenticate_user(
 
 async def swap_operator(
     db: AsyncSession, username: str, pin: str
-) -> tuple[str, User | None, str | None]:
+) -> tuple[str, UserAccount | None, str | None]:
     """
     Swap operator by username + PIN.
 
@@ -57,14 +62,18 @@ async def swap_operator(
         (status, user_or_none, reason_or_none)
         status: "success" | "failed" | "requires_pin_change"
     """
-    result = await db.execute(select(User).where(User.username == username))
+    result = await db.execute(
+        select(UserAccount)
+        .options(selectinload(UserAccount.role), selectinload(UserAccount.operator_profile))
+        .where(UserAccount.username == username)
+    )
     user = result.scalar_one_or_none()
 
-    if not user or not user.pin_hash or not verify_pin(pin, user.pin_hash):
+    if not user or not user.operator_profile or not user.operator_profile.pin_hash or not verify_pin(pin, user.operator_profile.pin_hash):
         return "failed", None, None
 
-    if user.requires_pin_change:
-        reason = user.pin_setup_reason or "pin_change"
+    if user.operator_profile.requires_pin_change:
+        reason = user.operator_profile.pin_setup_reason or "pin_change"
         return "requires_pin_change", user, reason
 
     user.last_active = datetime.now(timezone.utc)
@@ -73,9 +82,13 @@ async def swap_operator(
 
 async def change_password(
     db: AsyncSession, username: str, new_password: str
-) -> User:
+) -> UserAccount:
     """Change user password and clear the requires_password_change flag."""
-    result = await db.execute(select(User).where(User.username == username))
+    result = await db.execute(
+        select(UserAccount)
+        .options(selectinload(UserAccount.role))
+        .where(UserAccount.username == username)
+    )
     user = result.scalar_one_or_none()
 
     if not user:
@@ -90,27 +103,34 @@ async def change_password(
 
 async def change_pin(
     db: AsyncSession, username: str, new_pin: str
-) -> User:
+) -> UserAccount:
     """Change user PIN and clear the requires_pin_change flag."""
-    result = await db.execute(select(User).where(User.username == username))
+    result = await db.execute(
+        select(UserAccount)
+        .options(selectinload(UserAccount.role), selectinload(UserAccount.operator_profile))
+        .where(UserAccount.username == username)
+    )
     user = result.scalar_one_or_none()
 
-    if not user:
-        raise NotFoundException("User")
+    if not user or not user.operator_profile:
+        raise NotFoundException("Operator Profile")
 
-    user.pin_hash = hash_pin(new_pin)
-    user.requires_pin_change = False
-    user.pin_setup_reason = None
+    user.operator_profile.pin_hash = hash_pin(new_pin)
+    user.operator_profile.requires_pin_change = False
+    user.operator_profile.pin_setup_reason = None
     user.last_active = datetime.now(timezone.utc)
     return user
 
 
-def create_user_token(user: User) -> str:
+def create_user_token(user: UserAccount) -> str:
     """Create a JWT access token for the given user."""
+    # Check if role is populated, otherwise fallback dynamically
+    role_name = getattr(user.role, "name", "Unknown") if hasattr(user, "role") and user.role else "Unknown"
+
     return create_access_token(
         data={
             "sub": str(user.id),
             "username": user.username,
-            "role": user.role,
+            "role": role_name,
         }
     )

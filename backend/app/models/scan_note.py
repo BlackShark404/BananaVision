@@ -7,7 +7,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Text
+from sqlalchemy import DateTime, ForeignKey, Text, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,9 +23,7 @@ class ScanNote(Base):
     scan_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("scans.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    author_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
+    author_name: Mapped[str] = mapped_column("scnt_author_name", String(100), nullable=False)
     note: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -33,4 +31,4 @@ class ScanNote(Base):
 
     # Relationships
     scan = relationship("Scan", back_populates="notes")
-    author = relationship("User", back_populates="scan_notes")
+

@@ -21,7 +21,7 @@ class ActivityLog(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
+        "al_user_id", UUID(as_uuid=True), ForeignKey("user_account.ua_id", ondelete="SET NULL"), nullable=True, index=True
     )
     action: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     details: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -31,4 +31,4 @@ class ActivityLog(Base):
     )
 
     # Relationships
-    user = relationship("User", back_populates="activity_logs")
+    user = relationship("UserAccount", back_populates="activity_logs")

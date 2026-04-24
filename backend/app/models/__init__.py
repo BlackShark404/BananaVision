@@ -2,7 +2,10 @@
 ORM model registry — import all models here so Alembic and Base.metadata discover them.
 """
 
-from app.models.user import User
+from app.models.user_role import UserRole
+from app.models.user_account import UserAccount
+from app.models.admin_profile import AdminProfile
+from app.models.operator_profile import OperatorProfile
 from app.models.supplier import Supplier
 from app.models.intake import Intake
 from app.models.scan import Scan
@@ -15,7 +18,10 @@ from app.models.activity_log import ActivityLog
 from app.models.system_config import SystemConfig
 
 __all__ = [
-    "User",
+    "UserRole",
+    "UserAccount",
+    "AdminProfile",
+    "OperatorProfile",
     "Supplier",
     "Intake",
     "Scan",
