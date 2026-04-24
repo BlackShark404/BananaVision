@@ -1,5 +1,8 @@
 """
 Security utilities: JWT token creation/verification and password/PIN hashing.
+
+Uses `bcrypt` directly instead of passlib (passlib is incompatible with
+bcrypt >= 4.1 and Python >= 3.13).
 """
 
 from __future__ import annotations
@@ -7,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 
 from app.config import get_settings
 
@@ -15,29 +18,27 @@ settings = get_settings()
 
 # ── Password Hashing ────────────────────────────────────────────────────────
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def hash_password(plain: str) -> str:
     """Hash a plain-text password using bcrypt."""
-    return pwd_context.hash(plain)
+    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
     """Verify a plain-text password against a bcrypt hash."""
-    return pwd_context.verify(plain, hashed)
+    return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 
 # ── PIN Hashing (same bcrypt, separate functions for clarity) ────────────────
 
 def hash_pin(plain_pin: str) -> str:
     """Hash a plain-text PIN using bcrypt."""
-    return pwd_context.hash(plain_pin)
+    return bcrypt.hashpw(plain_pin.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_pin(plain_pin: str, hashed_pin: str) -> bool:
     """Verify a plain-text PIN against a bcrypt hash."""
-    return pwd_context.verify(plain_pin, hashed_pin)
+    return bcrypt.checkpw(plain_pin.encode("utf-8"), hashed_pin.encode("utf-8"))
 
 
 # ── JWT Tokens ───────────────────────────────────────────────────────────────
