@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
+from logging.handlers import RotatingFileHandler
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,11 +23,26 @@ from app.core.startup import run_startup, run_shutdown, start_background_tasks
 
 settings = get_settings()
 
-# ── Logging ──────────────────────────────────────────────────────────────────
+# ── Logging (Console + File) ────────────────────────────────────────────────
+LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+
+log_format = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+log_level = logging.DEBUG if settings.app_debug else logging.INFO
+
 logging.basicConfig(
-    level=logging.DEBUG if settings.app_debug else logging.INFO,
-    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+    level=log_level,
+    format=log_format,
     datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.StreamHandler(),                          # Console output
+        RotatingFileHandler(                              # File output → logs/bananavision.log
+            os.path.join(LOG_DIR, "bananavision.log"),
+            maxBytes=5 * 1024 * 1024,                     # 5 MB per file
+            backupCount=5,                                # Keep 5 rotated backups
+            encoding="utf-8",
+        ),
+    ],
 )
 logger = logging.getLogger("bananavision")
 
