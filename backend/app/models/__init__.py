@@ -19,6 +19,7 @@ from app.models.device import Device
 from app.models.activity_log import ActivityLog
 from app.models.system_config import SystemConfig
 from app.models.app_notification import AppNotification
+from app.models.sensor_reading import SensorReading
 
 __all__ = [
     "UserRole",
@@ -38,4 +39,5 @@ __all__ = [
     "ActivityLog",
     "SystemConfig",
     "AppNotification",
+    "SensorReading",
 ]
