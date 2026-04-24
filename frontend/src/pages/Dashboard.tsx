@@ -244,17 +244,17 @@ export default function Dashboard() {
           <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" /> Hardware Monitoring
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {[1, 2, 3, 4].map((i) => {
-            const isOnline = i <= 3 // Mock 3 online, 1 offline
+          {devices.map((device) => {
+            const isOnline = device.status === "Online"
             return (
-              <Card key={i} className="rounded-lg sm:rounded-xl overflow-hidden group">
+              <Card key={device.id} className="rounded-lg sm:rounded-xl overflow-hidden group">
                 <div className={`aspect-video relative flex items-center justify-center ${isOnline ? 'bg-muted/60' : 'bg-destructive/5'}`}>
                   {isOnline ? (
                     <>
                       <div className="absolute inset-0 bg-linear-to-b from-transparent to-black/20" />
                       <div className="text-center space-y-1.5 sm:space-y-2">
                         <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground/40 mx-auto" />
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">CAM-00{i} Ready</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">{device.cameraId} Ready</p>
                       </div>
                       <div className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2">
                         <Badge variant="outline" className="bg-emerald-500/90 text-white border-0 text-[9px] sm:text-[10px] px-1 sm:px-1.5 h-4 sm:h-auto">
@@ -270,7 +270,7 @@ export default function Dashboard() {
                   ) : (
                     <div className="text-center space-y-1.5 sm:space-y-2">
                       <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-destructive/40 mx-auto" />
-                      <p className="text-[10px] sm:text-xs text-destructive/60 font-medium">CAM-00{i} Offline</p>
+                      <p className="text-[10px] sm:text-xs text-destructive/60 font-medium">{device.cameraId} Offline</p>
                     </div>
                   )}
                 </div>
