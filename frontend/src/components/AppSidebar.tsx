@@ -23,10 +23,10 @@ const navItems = [
   { to: "/inventory", icon: PackageOpen, label: "Inventory" },
   { to: "/devices", icon: Monitor, label: "Device Status" },
 ]
-
+ 
 const adminItems = [
   { to: "/admin/users", icon: Users, label: "User Management" },
-  { to: "/admin/intakes", icon: Package, label: "Delivery Intakes" },
+  { to: "/admin/delivery-intakes", icon: Package, label: "Delivery Intakes" },
   { to: "/admin/suppliers", icon: Building2, label: "Supplier Management" },
   { to: "/admin/quality", icon: ShieldCheck, label: "Quality Control" },
   { to: "/admin/activity", icon: ScrollText, label: "Activity Log" },

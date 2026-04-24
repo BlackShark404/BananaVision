@@ -69,7 +69,7 @@ const TERMINAL_STATUSES: InventoryStatus[] = ["Sold", "Spoiled"]
 
 const PAGE_SIZE = 15
 
-export default function IntakeManagement() {
+export default function DeliveryIntake() {
   const navigate = useNavigate()
   const { intakes, scans, bulkUpdateIntakeInventory } = useApp()
   const [search, setSearch] = useState("")

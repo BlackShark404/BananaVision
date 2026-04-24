@@ -24,7 +24,7 @@ const UserManagement = React.lazy(() => import("@/pages/admin/UserManagement"))
 const SystemConfig = React.lazy(() => import("@/pages/admin/SystemConfig"))
 const QualityControl = React.lazy(() => import("@/pages/admin/QualityControl"))
 const ActivityLog = React.lazy(() => import("@/pages/admin/ActivityLog"))
-const IntakeManagement = React.lazy(() => import("@/pages/admin/IntakeManagement"))
+const DeliveryIntake = React.lazy(() => import("@/pages/admin/DeliveryIntake"))
 const SupplierManagement = React.lazy(() => import("@/pages/admin/SupplierManagement"))
 
 // Loading fallback component
@@ -65,7 +65,7 @@ function AppRoutes() {
           <Route path="/scans/:scanId" element={<ScanDetail />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/admin/users" element={<ProtectedRoute reqAdmin><UserManagement /></ProtectedRoute>} />
-          <Route path="/admin/intakes" element={<ProtectedRoute reqAdmin><IntakeManagement /></ProtectedRoute>} />
+          <Route path="/admin/delivery-intakes" element={<ProtectedRoute reqAdmin><DeliveryIntake /></ProtectedRoute>} />
           <Route path="/admin/suppliers" element={<ProtectedRoute reqAdmin><SupplierManagement /></ProtectedRoute>} />
 
           <Route path="/admin/quality" element={<ProtectedRoute reqAdmin><QualityControl /></ProtectedRoute>} />
