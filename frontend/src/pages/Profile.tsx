@@ -157,7 +157,7 @@ export default function Profile() {
     }
   }, [userScans, scans, user, users])
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  const handlePasswordChange = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (passwordData.new !== passwordData.confirm) {
       toast.error("Passwords don't match")
