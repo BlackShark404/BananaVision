@@ -86,7 +86,10 @@ BananaVision/
 │   │   │
 │   │   ├── models/                  # ── SQLAlchemy ORM Models ──
 │   │   │   ├── __init__.py
-│   │   │   ├── user.py
+│   │   │   ├── user_account.py
+│   │   │   ├── user_role.py
+│   │   │   ├── operator_profile.py
+│   │   │   ├── admin_profile.py
 │   │   │   ├── scan.py
 │   │   │   ├── scan_detection.py    # Per-camera detections
 │   │   │   ├── scan_image.py        # Captured images metadata
@@ -227,22 +230,44 @@ MAX_CAPTURES_RETENTION_DAYS=30
 
 ```mermaid
 erDiagram
-    users {
-        uuid id PK
-        varchar username UK
-        varchar full_name
-        varchar password_hash
-        varchar pin_hash
-        enum role "Admin | Operator"
-        enum status "Active | Inactive"
-        varchar avatar_url
-        boolean requires_password_change
-        varchar password_setup_reason
-        boolean requires_pin_change
-        varchar pin_setup_reason
-        timestamp last_active
-        timestamp created_at
-        timestamp updated_at
+    user_role {
+        uuid rl_id PK
+        varchar rl_name UK
+        jsonb rl_permissions
+    }
+
+    user_account {
+        uuid ua_id PK
+        varchar ua_username UK
+        varchar ua_fullname
+        uuid ua_role_id FK
+        varchar ua_pwd_hash
+        enum ua_status "Active | Inactive"
+        varchar ua_avatar_url
+        boolean ua_req_pwd_change
+        varchar ua_pwd_setup_reason
+        timestamp ua_last_active
+        timestamp ua_created_at
+        timestamp ua_updated_at
+    }
+
+    admin_profile {
+        uuid ap_id PK
+        uuid ap_ua_id FK
+        timestamp ap_created_at
+        timestamp ap_updated_at
+    }
+
+    operator_profile {
+        uuid op_id PK
+        uuid op_ua_id FK
+        varchar op_pin_hash
+        boolean op_req_pin_change
+        varchar op_pin_setup_reason
+        int op_total_scans
+        int op_total_flagged_scans
+        timestamp op_created_at
+        timestamp op_updated_at
     }
 
     suppliers {
@@ -312,7 +337,7 @@ erDiagram
     scan_notes {
         uuid id PK
         uuid scan_id FK
-        uuid author_id FK
+        varchar author_name
         text note
         timestamp created_at
     }
@@ -351,9 +376,11 @@ erDiagram
         timestamp updated_at
     }
 
-    users ||--o{ scans : "operates"
-    users ||--o{ scan_notes : "authors"
-    users ||--o{ activity_logs : "performs"
+    user_role ||--o{ user_account : "has"
+    user_account ||--o| admin_profile : "has_admin"
+    user_account ||--o| operator_profile : "has_operator"
+    operator_profile ||--o{ scans : "operates"
+    user_account ||--o{ activity_logs : "performs"
     suppliers ||--o{ intakes : "supplies"
     intakes ||--o{ scans : "contains"
     scans ||--o{ scan_detections : "has"
