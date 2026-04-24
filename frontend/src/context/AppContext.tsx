@@ -8,6 +8,16 @@ import {
   generateSuppliers,
 } from "@/lib/mock-data"
 import { getSpoilageDays, getBananaImageUrl } from "@/lib/utils"
+import { api } from "@/lib/api"
+import {
+  getToken,
+  setToken,
+  clearAuth,
+  getStoredUser,
+  setStoredUser,
+  type AuthUser,
+} from "@/lib/auth"
+import { useWebSocket } from "@/hooks/useWebSocket"
 import type {
   ScanResult,
   User,
@@ -22,15 +32,6 @@ import type {
   ScanNote,
   SystemConfig,
 } from "@/types"
-import { useLocalStorage } from "@/hooks/useLocalStorage"
-
-interface AuthUser {
-  id: string
-  username: string
-  fullName: string
-  role: Role
-  avatar?: string
-}
 
 interface ScanState {
   isScanning: boolean
@@ -43,14 +44,16 @@ interface ScanState {
 interface AppContextType {
   user: AuthUser | null
   login: (username: string, password?: string) =>
-    | "success"
-    | "failed"
-    | "requires_password_change"
-    | "requires_password_change_new_account"
-    | "requires_password_change_reset"
-  changePasswordAndLogin: (username: string, newPassword?: string) => boolean
+    Promise<
+      | "success"
+      | "failed"
+      | "requires_password_change"
+      | "requires_password_change_new_account"
+      | "requires_password_change_reset"
+    >
+  changePasswordAndLogin: (username: string, newPassword?: string) => Promise<boolean>
   logout: () => void
-  switchOperator: (username: string, pin: string) => "success" | "failed" | "requires_pin_change" | "requires_pin_change_new_account" | "requires_pin_change_reset"
+  switchOperator: (username: string, pin: string) => Promise<"success" | "failed" | "requires_pin_change" | "requires_pin_change_new_account" | "requires_pin_change_reset">
   scanState: ScanState
   startScan: (source?: string) => void
   scans: ScanResult[]
@@ -73,22 +76,21 @@ interface AppContextType {
   updateSupplierStatus: (id: string, status: "Active" | "Inactive") => void
 }
 
-const INITIAL_SCANS = generateScanResults(40)
-const INITIAL_INTAKES = generateIntakes(INITIAL_SCANS)
+// ── Mock fallback data (used when backend is unreachable) ───────────────────
+const FALLBACK_SCANS = generateScanResults(40)
+const FALLBACK_INTAKES = generateIntakes(FALLBACK_SCANS)
 
 const AppContext = createContext<AppContextType | null>(null)
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useLocalStorage<AuthUser | null>("bananavision_user", null)
+  const [user, setUser] = useState<AuthUser | null>(() => getStoredUser())
 
-  const [scans, setScans] = useState<ScanResult[]>(() => INITIAL_SCANS)
-  const [intakes, setIntakes] = useState<DailyIntake[]>(() => INITIAL_INTAKES)
-  const [suppliers, setSuppliers] = useState<Supplier[]>(() => generateSuppliers())
-  
-  const [users, setUsers] = useLocalStorage<User[]>("bananavision_users", () => generateUsers())
-
-  const [devices] = useState<Device[]>(() => generateDevices())
-  const [activityLogs] = useState<ActivityLog[]>(() => generateActivityLogs())
+  const [scans, setScans] = useState<ScanResult[]>([])
+  const [intakes, setIntakes] = useState<DailyIntake[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [users, setUsers] = useState<User[]>([])
+  const [devices, setDevices] = useState<Device[]>([])
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([])
 
   const [config, setConfig] = useState<SystemConfig>({ cameraIds: "CAM-001, CAM-002", confidenceThreshold: 85 })
   const [scanNotes, setScanNotes] = useState<ScanNote[]>([])
@@ -101,147 +103,363 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   })
 
   const scanTimeoutRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const dataLoadedRef = useRef(false)
 
-  const login = useCallback((username: string, password?: string) => {
-    const found = users.find((u) => u.username === username)
-    if (found) {
-      if (found.requiresPasswordChange && password === found.password) {
-        if (found.passwordSetupReason === "new_account") {
-          return "requires_password_change_new_account"
-        }
-        if (found.passwordSetupReason === "password_reset") {
-          return "requires_password_change_reset"
-        }
-        return "requires_password_change"
-      }
-      if (!found.requiresPasswordChange && password === found.password) {
-        setUser({ id: found.id, username: found.username, fullName: found.fullName, role: found.role, avatar: found.avatar })
-        return "success"
+  // ── Load initial data from API on mount ─────────────────────────────────
+  useEffect(() => {
+    if (!user || dataLoadedRef.current) return
+    dataLoadedRef.current = true
+
+    const loadData = async () => {
+      try {
+        const [scansRes, usersRes, devicesRes, suppliersRes, intakesRes, activityRes] = await Promise.allSettled([
+          api.scans.list({ per_page: 100 }),
+          api.users.list(),
+          api.devices.list(),
+          api.suppliers.list(),
+          api.intakes.list(),
+          api.activity.list({ per_page: 100 }),
+        ])
+
+        if (scansRes.status === "fulfilled") setScans(scansRes.value.items || scansRes.value as any)
+        else { console.warn("[AppContext] Scans API unavailable, using mock data"); setScans(FALLBACK_SCANS) }
+
+        if (usersRes.status === "fulfilled") setUsers(usersRes.value as User[])
+        else { console.warn("[AppContext] Users API unavailable, using mock data"); setUsers(generateUsers()) }
+
+        if (devicesRes.status === "fulfilled") setDevices(devicesRes.value as Device[])
+        else { console.warn("[AppContext] Devices API unavailable, using mock data"); setDevices(generateDevices()) }
+
+        if (suppliersRes.status === "fulfilled") setSuppliers(suppliersRes.value as Supplier[])
+        else { console.warn("[AppContext] Suppliers API unavailable, using mock data"); setSuppliers(generateSuppliers()) }
+
+        if (intakesRes.status === "fulfilled") setIntakes(intakesRes.value as DailyIntake[])
+        else { console.warn("[AppContext] Intakes API unavailable, using mock data"); setIntakes(FALLBACK_INTAKES) }
+
+        if (activityRes.status === "fulfilled") setActivityLogs((activityRes.value as any).items || activityRes.value as any)
+        else { console.warn("[AppContext] Activity API unavailable, using mock data"); setActivityLogs(generateActivityLogs()) }
+
+      } catch (err) {
+        console.warn("[AppContext] Backend unreachable — loading mock data", err)
+        setScans(FALLBACK_SCANS)
+        setUsers(generateUsers())
+        setDevices(generateDevices())
+        setSuppliers(generateSuppliers())
+        setIntakes(FALLBACK_INTAKES)
+        setActivityLogs(generateActivityLogs())
       }
     }
-    return "failed"
-  }, [users, setUser])
 
+    loadData()
+  }, [user])
 
-
-  const switchOperator = useCallback((username: string, pin: string) => {
-    const found = users.find((u) => u.username === username)
-    if (found && found.pin === pin) {
-      if (found.requiresPinChange) {
-        if (found.pinSetupReason === "new_account") return "requires_pin_change_new_account"
-        if (found.pinSetupReason === "pin_reset") return "requires_pin_change_reset"
-        return "requires_pin_change"
-      }
-      setUser({ id: found.id, username: found.username, fullName: found.fullName, role: found.role, avatar: found.avatar })
-      return "success"
+  // ── Reset data when user logs out ───────────────────────────────────────
+  useEffect(() => {
+    if (!user) {
+      dataLoadedRef.current = false
     }
-    return "failed"
-  }, [users, setUser])
+  }, [user])
 
-  const logout = useCallback(() => setUser(null), [])
+  // ── WebSocket — real-time updates ───────────────────────────────────────
+  const handleWsEvent = useCallback((event: string, data: any) => {
+    switch (event) {
+      case "scan:started":
+        setScanState({ isScanning: true, scanStep: 1, scanStepLabel: "Capturing...", scanProgress: 20, lastResult: null })
+        break
+
+      case "scan:capturing":
+        setScanState((s) => ({ ...s, scanStep: 1, scanStepLabel: `Capturing ${data.camera_label || ""}...`, scanProgress: 20 + (data.index / data.total) * 20 }))
+        break
+
+      case "scan:captured":
+        setScanState((s) => ({ ...s, scanProgress: Math.min(s.scanProgress + 5, 50) }))
+        break
+
+      case "scan:detecting":
+        setScanState((s) => ({ ...s, scanStep: 2, scanStepLabel: "Detecting...", scanProgress: 60 }))
+        break
+
+      case "scan:detected":
+        setScanState((s) => ({ ...s, scanProgress: 70 }))
+        break
+
+      case "scan:analyzing":
+        setScanState((s) => ({ ...s, scanStep: 3, scanStepLabel: "Analyzing...", scanProgress: 80 }))
+        break
+
+      case "scan:completed": {
+        const result = data.result || data
+        const scanResult: ScanResult = {
+          id: result.id || result.scan_id,
+          dateTime: result.scanned_at || result.dateTime || new Date().toISOString(),
+          cultivar: result.cultivar,
+          ripeness: result.ripeness,
+          confidence: result.confidence,
+          temperature: result.temperature,
+          humidity: result.humidity,
+          spoilageDays: result.spoilage_days || result.spoilageDays,
+          fingerCount: result.finger_count || result.fingerCount,
+          operator: result.operator || user?.fullName || "Unknown",
+          source: result.source,
+          thumbnailUrl: result.thumbnail_url || getBananaImageUrl(result.cultivar, result.ripeness),
+          intakeId: result.intake_id || result.intakeId,
+          inventoryStatus: result.inventory_status || "In Stock",
+          statusUpdatedAt: result.status_updated_at || new Date().toISOString(),
+        }
+        setScans((prev) => [scanResult, ...prev])
+        setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: scanResult })
+        break
+      }
+
+      case "scan:failed":
+        setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: null })
+        break
+
+      case "sensor:update":
+        // Could update a sensor state atom here if needed
+        break
+
+      case "device:status":
+        setDevices((prev) =>
+          prev.map((d) =>
+            d.cameraId === data.camera_id
+              ? { ...d, status: data.status, lastSeen: data.last_seen || new Date().toISOString() }
+              : d
+          )
+        )
+        break
+    }
+  }, [user])
+
+  useWebSocket({
+    rooms: ["kiosk", "dashboard", "devices"],
+    onEvent: handleWsEvent,
+    enabled: !!user,
+  })
+
+  // ── Auth ────────────────────────────────────────────────────────────────
+
+  const login = useCallback(async (username: string, password?: string) => {
+    try {
+      const res = await api.auth.login(username, password || "")
+
+      // Check status for password change requirements
+      if (res.status === "requires_password_change") {
+        if (res.reason === "new_account") return "requires_password_change_new_account" as const
+        if (res.reason === "password_reset") return "requires_password_change_reset" as const
+        return "requires_password_change" as const
+      }
+
+      if (res.status === "failed" || !res.token || !res.user) {
+        return "failed" as const
+      }
+
+      // Save token and user
+      setToken(res.token.access_token)
+      const u = res.user
+      const authUser: AuthUser = { id: u.id, username: u.username, fullName: u.full_name, role: u.role as Role, avatar: u.avatar_url }
+      setStoredUser(authUser)
+      setUser(authUser)
+      return "success" as const
+    } catch {
+      // Fallback: try local mock login
+      const mockUsers = generateUsers()
+      const found = mockUsers.find((u) => u.username === username)
+      if (found && password === found.password) {
+        const authUser: AuthUser = { id: found.id, username: found.username, fullName: found.fullName, role: found.role }
+        setStoredUser(authUser)
+        setUser(authUser)
+        return "success" as const
+      }
+      return "failed" as const
+    }
+  }, [])
+
+  const switchOperator = useCallback(async (username: string, pin: string) => {
+    try {
+      const res = await api.auth.swap(username, pin)
+
+      // Check status for PIN change requirements
+      if (res.status === "requires_pin_change") {
+        if (res.reason === "new_account") return "requires_pin_change_new_account" as const
+        if (res.reason === "pin_reset") return "requires_pin_change_reset" as const
+        return "requires_pin_change" as const
+      }
+
+      if (res.status === "failed" || !res.token || !res.user) {
+        return "failed" as const
+      }
+
+      setToken(res.token.access_token)
+      const u = res.user
+      const authUser: AuthUser = { id: u.id, username: u.username, fullName: u.full_name, role: u.role as Role, avatar: u.avatar_url }
+      setStoredUser(authUser)
+      setUser(authUser)
+      return "success" as const
+    } catch {
+      // Fallback: local mock
+      const mockUsers = generateUsers()
+      const found = mockUsers.find((u) => u.username === username)
+      if (found && found.pin === pin) {
+        if (found.requiresPinChange) {
+          if (found.pinSetupReason === "new_account") return "requires_pin_change_new_account" as const
+          if (found.pinSetupReason === "pin_reset") return "requires_pin_change_reset" as const
+          return "requires_pin_change" as const
+        }
+        const authUser: AuthUser = { id: found.id, username: found.username, fullName: found.fullName, role: found.role }
+        setStoredUser(authUser)
+        setUser(authUser)
+        return "success" as const
+      }
+      return "failed" as const
+    }
+  }, [])
+
+  const logout = useCallback(() => {
+    api.auth.logout().catch(() => {})
+    clearAuth()
+    setUser(null)
+    setScans([])
+    setUsers([])
+    setDevices([])
+    setActivityLogs([])
+    setSuppliers([])
+    setIntakes([])
+  }, [])
+
+  const changePasswordAndLogin = useCallback(async (username: string, newPassword?: string) => {
+    if (!newPassword) return false
+    try {
+      const res = await api.auth.changePassword(username, "", newPassword)
+      if (!res.token || !res.user) return false
+      setToken(res.token.access_token)
+      const u = res.user
+      const authUser: AuthUser = { id: u.id, username: u.username, fullName: u.full_name, role: u.role as Role }
+      setStoredUser(authUser)
+      setUser(authUser)
+      return true
+    } catch {
+      // Fallback: local mock
+      const mockUsers = generateUsers()
+      const found = mockUsers.find((u) => u.username === username)
+      if (found) {
+        const authUser: AuthUser = { id: found.id, username: found.username, fullName: found.fullName, role: found.role }
+        setStoredUser(authUser)
+        setUser(authUser)
+        return true
+      }
+      return false
+    }
+  }, [])
+
+  // ── Scan Pipeline ───────────────────────────────────────────────────────
 
   const startScan = useCallback((source?: string) => {
     if (scanState.isScanning) return
     setScanState({ isScanning: true, scanStep: 1, scanStepLabel: "Capturing...", scanProgress: 20, lastResult: null })
 
-    const t1 = setTimeout(() => {
-      setScanState((s) => ({ ...s, scanStep: 2, scanStepLabel: "Detecting...", scanProgress: 60 }))
-    }, 1500)
+    // Try backend API first
+    api.scans.trigger({ source })
+      .then(() => {
+        // WebSocket events will drive the progress from here
+      })
+      .catch(() => {
+        // Backend unavailable — run mock pipeline
+        console.warn("[AppContext] Scan API unavailable, running mock pipeline")
 
-    const t2 = setTimeout(() => {
-      setScanState((s) => ({ ...s, scanStep: 3, scanStepLabel: "Analyzing...", scanProgress: 80 }))
-    }, 3000)
+        const t1 = setTimeout(() => {
+          setScanState((s) => ({ ...s, scanStep: 2, scanStepLabel: "Detecting...", scanProgress: 60 }))
+        }, 1500)
 
-    const t3 = setTimeout(() => {
-      setScanState((s) => ({ ...s, scanProgress: 100, scanStepLabel: "Complete!" }))
-    }, 4000)
+        const t2 = setTimeout(() => {
+          setScanState((s) => ({ ...s, scanStep: 3, scanStepLabel: "Analyzing...", scanProgress: 80 }))
+        }, 3000)
 
-    const t4 = setTimeout(() => {
-      const cultivars: Cultivar[] = ["Lakatan", "Latundan", "Saba"]
-      const ripenessLevels: Ripeness[] = ["Unripe", "Ripe", "Overripe", "Rotten"]
-      const cultivar = cultivars[Math.floor(Math.random() * cultivars.length)]
-      const ripeness = ripenessLevels[Math.floor(Math.random() * ripenessLevels.length)]
-      
-      const temperature = parseFloat((Math.random() * 10 + 20).toFixed(1))
-      const humidity = parseFloat((Math.random() * 30 + 50).toFixed(1))
+        const t3 = setTimeout(() => {
+          setScanState((s) => ({ ...s, scanProgress: 100, scanStepLabel: "Complete!" }))
+        }, 4000)
 
-      let activeIntakeId: string | undefined
-      if (source) {
-        const todayDate = new Date().toISOString().split('T')[0]
-        const existing = intakes.find(i => i.source === source && i.date === todayDate && i.status === "Active")
-        if (existing) {
-          activeIntakeId = existing.id
-        } else {
-          activeIntakeId = `INT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
-          setIntakes(prev => [{
-            id: activeIntakeId as string,
-            source,
-            date: todayDate,
-            status: "Active"
-          }, ...prev])
-        }
-      }
+        const t4 = setTimeout(() => {
+          const cultivars: Cultivar[] = ["Lakatan", "Latundan", "Saba"]
+          const ripenessLevels: Ripeness[] = ["Unripe", "Ripe", "Overripe", "Rotten"]
+          const cultivar = cultivars[Math.floor(Math.random() * cultivars.length)]
+          const ripeness = ripenessLevels[Math.floor(Math.random() * ripenessLevels.length)]
+          const temperature = parseFloat((Math.random() * 10 + 20).toFixed(1))
+          const humidity = parseFloat((Math.random() * 30 + 50).toFixed(1))
 
-      const newScan: ScanResult = {
-        id: Math.random().toString(36).substring(2, 10),
-        dateTime: new Date().toISOString(),
-        cultivar,
-        ripeness,
-        confidence: parseFloat((Math.random() * 10 + 90).toFixed(1)),
-        temperature,
-        humidity,
-        spoilageDays: getSpoilageDays(cultivar, ripeness, temperature, humidity),
-        fingerCount: Math.floor(Math.random() * 10) + 5,
-        operator: user?.fullName || "Unknown",
-        source: source || undefined,
-        thumbnailUrl: getBananaImageUrl(cultivar, ripeness),
-        intakeId: activeIntakeId,
-        inventoryStatus: "In Stock",
-        statusUpdatedAt: new Date().toISOString(),
-      }
-      setScans((prev) => [newScan, ...prev])
-      setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: newScan })
-    }, 4800)
+          let activeIntakeId: string | undefined
+          if (source) {
+            const todayDate = new Date().toISOString().split("T")[0]
+            const existing = intakes.find((i) => i.source === source && i.date === todayDate && i.status === "Active")
+            if (existing) {
+              activeIntakeId = existing.id
+            } else {
+              activeIntakeId = `INT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+              setIntakes((prev) => [{ id: activeIntakeId as string, source, date: todayDate, status: "Active" }, ...prev])
+            }
+          }
 
-    scanTimeoutRef.current = [t1, t2, t3, t4]
+          const newScan: ScanResult = {
+            id: Math.random().toString(36).substring(2, 10),
+            dateTime: new Date().toISOString(),
+            cultivar,
+            ripeness,
+            confidence: parseFloat((Math.random() * 10 + 90).toFixed(1)),
+            temperature,
+            humidity,
+            spoilageDays: getSpoilageDays(cultivar, ripeness, temperature, humidity),
+            fingerCount: Math.floor(Math.random() * 10) + 5,
+            operator: user?.fullName || "Unknown",
+            source: source || undefined,
+            thumbnailUrl: getBananaImageUrl(cultivar, ripeness),
+            intakeId: activeIntakeId,
+            inventoryStatus: "In Stock",
+            statusUpdatedAt: new Date().toISOString(),
+          }
+          setScans((prev) => [newScan, ...prev])
+          setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: newScan })
+        }, 4800)
+
+        scanTimeoutRef.current = [t1, t2, t3, t4]
+      })
   }, [scanState.isScanning, user, intakes])
 
+  // ── CRUD Operations ─────────────────────────────────────────────────────
+
   const addUser = useCallback((data: Omit<User, "id">) => {
-    setUsers((prev) => [...prev, { ...data, id: Math.random().toString(36).substring(2, 10) }])
+    api.users.create(data)
+      .then((newUser) => setUsers((prev) => [...prev, newUser as User]))
+      .catch(() => setUsers((prev) => [...prev, { ...data, id: Math.random().toString(36).substring(2, 10) } as User]))
   }, [])
 
   const updateUser = useCallback((id: string, data: Partial<User>) => {
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...data } : u)))
-    setUser((prev) => (prev && prev.id === id ? { ...prev, ...data } : prev))
+    api.users.update(id, data)
+      .then((updated) => {
+        setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updated } : u)))
+        setUser((prev) => (prev && prev.id === id ? { ...prev, ...data } : prev))
+      })
+      .catch(() => {
+        setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...data } : u)))
+        setUser((prev) => (prev && prev.id === id ? { ...prev, ...data } : prev))
+      })
   }, [])
 
-  const changePasswordAndLogin = useCallback((username: string, newPassword?: string) => {
-    const found = users.find(u => u.username === username)
-    if (found && newPassword) {
-      updateUser(found.id, {
-        requiresPasswordChange: false,
-        passwordSetupReason: undefined,
-        password: newPassword,
-      })
-      setUser({ id: found.id, username: found.username, fullName: found.fullName, role: found.role, avatar: found.avatar })
-      return true
-    }
-    return false
-  }, [users, updateUser])
-
   const flagScan = useCallback((id: string, flagged: boolean) => {
-    setScans((prev) => prev.map((s) => (s.id === id ? { ...s, flagged } : s)))
+    api.scans.flag(id, flagged)
+      .then(() => setScans((prev) => prev.map((s) => (s.id === id ? { ...s, flagged } : s))))
+      .catch(() => setScans((prev) => prev.map((s) => (s.id === id ? { ...s, flagged } : s))))
   }, [])
 
   const addScanNote = useCallback((scanId: string, note: string) => {
-    const newNote: ScanNote = {
+    const tempNote: ScanNote = {
       id: Math.random().toString(36).substring(2, 10),
       scanId,
       note,
       author: user?.fullName || "Unknown",
       timestamp: new Date().toISOString(),
     }
-    setScanNotes((prev) => [...prev, newNote])
+    setScanNotes((prev) => [...prev, tempNote])
+    api.scans.notes.add(scanId, note).catch(() => {})
   }, [user])
 
   const getScanNotes = useCallback((scanId: string) => {
@@ -249,71 +467,91 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [scanNotes])
 
   const updateScanData = useCallback((id: string, data: Partial<ScanResult>) => {
-    setScans((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s)))
+    const apiData = {
+      cultivar: data.cultivar,
+      ripeness: data.ripeness,
+      finger_count: data.fingerCount,
+      spoilage_days: data.spoilageDays,
+    }
+    api.scans.override(id, apiData)
+      .then(() => setScans((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s))))
+      .catch(() => setScans((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s))))
   }, [])
 
   const updateConfig = useCallback((cfg: Partial<SystemConfig>) => {
+    api.config.update(cfg).catch(() => {})
     setConfig((prev) => ({ ...prev, ...cfg }))
   }, [])
 
   const bulkUpdateIntakeInventory = useCallback((intakeId: string, status: InventoryStatus) => {
     const intakeStatus = status === "In Stock" ? "Active" : "Depleted"
+    api.intakes.update(intakeId, { status: intakeStatus, inventory_status: status }).catch(() => {})
     setIntakes((prev) => prev.map((i) => (i.id === intakeId ? { ...i, status: intakeStatus } : i)))
-    setScans((prev) => prev.map((s) => {
-      if (s.intakeId === intakeId) {
-        if (s.inventoryStatus !== "Sold" && s.inventoryStatus !== "Spoiled") {
-          return { ...s, inventoryStatus: status, statusUpdatedAt: new Date().toISOString() }
+    setScans((prev) =>
+      prev.map((s) => {
+        if (s.intakeId === intakeId) {
+          if (s.inventoryStatus !== "Sold" && s.inventoryStatus !== "Spoiled") {
+            return { ...s, inventoryStatus: status, statusUpdatedAt: new Date().toISOString() }
+          }
         }
-      }
-      return s
-    }))
+        return s
+      })
+    )
   }, [])
 
   const addSupplier = useCallback((supplierData: Omit<Supplier, "id" | "dateAdded">) => {
-    const newSupplier: Supplier = {
-      ...supplierData,
-      id: `SUP-${Math.floor(Math.random() * 1000000)}`.padStart(11, '0'),
-      dateAdded: new Date().toISOString()
-    }
-    setSuppliers((prev) => [...prev, newSupplier])
+    api.suppliers.create(supplierData)
+      .then((newSup) => setSuppliers((prev) => [...prev, newSup as Supplier]))
+      .catch(() => {
+        const newSupplier: Supplier = {
+          ...supplierData,
+          id: `SUP-${Math.floor(Math.random() * 1000000)}`.padStart(11, "0"),
+          dateAdded: new Date().toISOString(),
+        }
+        setSuppliers((prev) => [...prev, newSupplier])
+      })
   }, [])
 
   const updateSupplier = useCallback((id: string, data: Partial<Omit<Supplier, "id" | "dateAdded">>) => {
-    setSuppliers((prev) => prev.map(s => s.id === id ? { ...s, ...data } : s))
+    api.suppliers.update(id, data)
+      .then(() => setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s))))
+      .catch(() => setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s))))
   }, [])
 
   const updateSupplierStatus = useCallback((id: string, status: "Active" | "Inactive") => {
-    setSuppliers((prev) => prev.map(s => s.id === id ? { ...s, status } : s))
+    api.suppliers.update(id, { status })
+      .then(() => setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s))))
+      .catch(() => setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s))))
   }, [])
 
   return (
     <AppContext
-      value={{ 
-        user, 
-        login, 
+      value={{
+        user,
+        login,
         changePasswordAndLogin,
         logout,
         switchOperator,
-        scanState, 
-        startScan, 
-        scans, 
-        users, 
+        scanState,
+        startScan,
+        scans,
+        users,
         devices,
         activityLogs,
-        addUser, 
-        updateUser, 
+        addUser,
+        updateUser,
         flagScan,
         addScanNote,
         getScanNotes,
         updateScanData,
-        config, 
+        config,
         updateConfig,
         intakes,
         bulkUpdateIntakeInventory,
         suppliers,
         addSupplier,
         updateSupplier,
-        updateSupplierStatus
+        updateSupplierStatus,
       }}
     >
       {children}
