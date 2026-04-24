@@ -697,8 +697,8 @@ Instead:
 │  │     first-scan latency)                           │     │
 │  │  9. Load RFR model from .joblib                   │     │
 │  │ 10. Validate model outputs with test input        │     │
-│  └──────────────────────────────────────────────────┘     │
-│                       │                                   │
+│  └──────────────────────────────────────────────────┘      │
+│                       │                                    │
 │                       ▼                                   │
 │  ┌─── Phase 4: Camera Initialization ──────────────┐     │
 │  │ 11. Open all 4 cameras via OpenCV                 │     │
