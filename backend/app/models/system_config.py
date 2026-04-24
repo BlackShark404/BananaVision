@@ -1,13 +1,13 @@
 """
-SystemConfig ORM model — key/value application settings stored in DB.
+SystemConfig ORM model — typed system configuration.
 """
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime, timezone
+import uuid
 
-from sqlalchemy import DateTime, String, Text, ForeignKey
+from sqlalchemy import DateTime, Text, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -17,12 +17,11 @@ from app.core.database import Base
 class SystemConfig(Base):
     __tablename__ = "system_config"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    key: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
-    value: Mapped[str] = mapped_column(Text, nullable=False)
+    id: Mapped[int] = mapped_column("sc_id", Integer, primary_key=True, autoincrement=True)
+    camera_ids: Mapped[str] = mapped_column("sc_camera_ids", Text, nullable=False)
+    confidence_threshold: Mapped[int] = mapped_column("sc_confidence_threshold", Integer, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
+        "sc_updated_at",
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),

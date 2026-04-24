@@ -15,18 +15,24 @@ from app.core.database import Base
 
 
 class Device(Base):
-    __tablename__ = "devices"
+    __tablename__ = "device"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        "dev_id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    camera_id: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)
-    label: Mapped[str] = mapped_column(String(50), nullable=False)
+    camera_id: Mapped[str] = mapped_column("dev_camera_id", String(50), unique=True, nullable=False, index=True)
+    label: Mapped[str] = mapped_column("dev_label", String(100), nullable=False)
     status: Mapped[str] = mapped_column(
-        SAEnum("Online", "Offline", name="device_status"), nullable=False, default="Offline"
+        "dev_status", SAEnum("Online", "Offline", name="device_status"), nullable=False, default="Offline"
     )
-    resolution: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    last_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolution: Mapped[str | None] = mapped_column("dev_resolution", String(20), nullable=True, default="1920x1080")
+    last_seen: Mapped[datetime | None] = mapped_column("dev_last_seen", DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        "dev_created_at", DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        "dev_updated_at",
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
