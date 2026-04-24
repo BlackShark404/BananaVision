@@ -171,6 +171,35 @@ CREATE TABLE SCAN_ORIGINAL_AI_RESULT (
     SOAR_CREATED_AT     TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- ============================================================
+-- IoT CAMERA INFRASTRUCTURE (4 Camera Support)
+-- ============================================================
+
+CREATE TABLE SCAN_DETECTION (
+    SD_ID                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    SD_SCAN_ID              UUID NOT NULL REFERENCES SCAN(SC_ID) ON DELETE CASCADE,
+    SD_CAMERA_ID            VARCHAR(20) NOT NULL,
+    SD_CAMERA_LABEL         VARCHAR(30) NOT NULL,
+    SD_DETECTED_CULTIVAR    VARCHAR(20),
+    SD_DETECTED_RIPENESS    VARCHAR(20),
+    SD_CONFIDENCE           DECIMAL(5,2),
+    SD_FINGER_COUNT         INT DEFAULT 0,
+    SD_BOUNDING_BOXES       JSONB,
+    SD_INFERENCE_TIME_MS    DECIMAL(8,2),
+    SD_CAPTURED_AT          TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE SCAN_IMAGE (
+    SI_ID               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    SI_SCAN_ID          UUID NOT NULL REFERENCES SCAN(SC_ID) ON DELETE CASCADE,
+    SI_CAMERA_ID        VARCHAR(20) NOT NULL,
+    SI_FILE_PATH        VARCHAR(500) NOT NULL,
+    SI_WIDTH            INT,
+    SI_HEIGHT           INT,
+    SI_FILE_SIZE_BYTES  INT,
+    SI_CAPTURED_AT      TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- Aligned with the ScanNote interface in AppContext.tsx
 CREATE TABLE SCAN_NOTE (
     SCNT_ID                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
