@@ -123,8 +123,8 @@ users_router = APIRouter(prefix="/users", tags=["Users"])
 
 
 @users_router.get("", response_model=UserListResponse)
-async def list_users(db: DbSession, admin: AdminUser):
-    """List all users (admin only)."""
+async def list_users(db: DbSession, user: CurrentUser):
+    """List all users."""
     result = await db.execute(
         select(UserAccount)
         .options(selectinload(UserAccount.role), selectinload(UserAccount.operator_profile))
@@ -260,7 +260,7 @@ suppliers_router = APIRouter(prefix="/suppliers", tags=["Suppliers"])
 
 
 @suppliers_router.get("", response_model=list[SupplierResponse])
-async def list_suppliers(db: DbSession, admin: AdminUser):
+async def list_suppliers(db: DbSession, user: CurrentUser):
     """List all suppliers."""
     result = await db.execute(select(Supplier).order_by(Supplier.date_added))
     return [SupplierResponse.model_validate(s) for s in result.scalars().all()]
@@ -311,7 +311,7 @@ intakes_router = APIRouter(prefix="/intakes", tags=["Intakes"])
 
 
 @intakes_router.get("", response_model=list[IntakeResponse])
-async def list_intakes(db: DbSession, admin: AdminUser):
+async def list_intakes(db: DbSession, user: CurrentUser):
     """List all intakes with scan counts."""
     result = await db.execute(
         select(Intake).order_by(desc(Intake.intake_date))
