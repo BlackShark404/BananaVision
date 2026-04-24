@@ -475,7 +475,7 @@ activity_router = APIRouter(prefix="/activity", tags=["Activity"])
 @activity_router.get("", response_model=ActivityLogListResponse)
 async def list_activity(
     db: DbSession,
-    admin: AdminUser,
+    user: CurrentUser,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     action: str | None = None,
