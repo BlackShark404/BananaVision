@@ -480,8 +480,8 @@ async def list_activity(
     page_size: int = Query(50, ge=1, le=200),
     action: str | None = None,
 ):
-    """List activity logs with pagination (admin only)."""
-    query = select(ActivityLog).order_by(desc(ActivityLog.created_at))
+    """List activity logs with pagination."""
+    query = select(ActivityLog).options(selectinload(ActivityLog.user)).order_by(desc(ActivityLog.timestamp))
 
     if action:
         query = query.where(ActivityLog.action == action)
@@ -501,7 +501,7 @@ async def list_activity(
                 action=log.action,
                 details=log.details,
                 ip_address=log.ip_address,
-                created_at=log.created_at,
+                created_at=log.timestamp,
             )
             for log in logs
         ],
