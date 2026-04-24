@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 # ── Requests ─────────────────────────────────────────────────────────────────
 
 class ScanTriggerRequest(BaseModel):
-    supplier_id: uuid.UUID | None = None
+    source_text: str | None = None
     intake_id: uuid.UUID | None = None
 
 
@@ -75,14 +75,25 @@ class ScanImageResponse(BaseModel):
 class ScanNoteResponse(BaseModel):
     id: uuid.UUID
     scan_id: uuid.UUID
-    note: str
+    text: str
     author_name: str
-    created_at: datetime
+    timestamp: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class OriginalAiResult(BaseModel):
+    cultivar: str
+    ripeness: str
+    confidence: float
+    finger_count: int
+
+    model_config = {"from_attributes": True}
 
 
 class ScanResponse(BaseModel):
     id: uuid.UUID
-    scanned_at: datetime
+    date_time: datetime
     cultivar: str
     ripeness: str
     confidence: float
@@ -91,15 +102,17 @@ class ScanResponse(BaseModel):
     spoilage_days: str
     finger_count: int
     operator_name: str
-    supplier_name: str | None = None
+    source_text: str | None = None
     intake_id: uuid.UUID | None = None
     inventory_status: str
     status_updated_at: datetime | None = None
     flagged: bool = False
     is_overridden: bool = False
-    original_ai_result: dict | None = None
+    original_ai_result: OriginalAiResult | None = None
     thumbnail_url: str | None = None
-    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class ScanDetailResponse(ScanResponse):
