@@ -208,7 +208,7 @@ export default function Inventory() {
                 </div>
                 <span className="text-sm font-bold">{inventory.unripe.length} hands</span>
               </div>
-              <Progress value={(inventory.unripe.length / inventory.totalHands) * 100} className="h-2" />
+              <Progress value={inventory.totalHands ? (inventory.unripe.length / inventory.totalHands) * 100 : 0} className="h-2" />
               <p className="text-xs text-muted-foreground mt-1">
                 {inventory.unripe.reduce((sum, s) => sum + s.fingerCount, 0)} fingers • Store in controlled temperature
               </p>
@@ -222,7 +222,7 @@ export default function Inventory() {
                 </div>
                 <span className="text-sm font-bold">{inventory.ripe.length} hands</span>
               </div>
-              <Progress value={(inventory.ripe.length / inventory.totalHands) * 100} className="h-2" />
+              <Progress value={inventory.totalHands ? (inventory.ripe.length / inventory.totalHands) * 100 : 0} className="h-2" />
               <p className="text-xs text-muted-foreground mt-1">
                 {inventory.ripe.reduce((sum, s) => sum + s.fingerCount, 0)} fingers • Ready for distribution
               </p>
@@ -236,7 +236,7 @@ export default function Inventory() {
                 </div>
                 <span className="text-sm font-bold">{inventory.overripe.length} hands</span>
               </div>
-              <Progress value={(inventory.overripe.length / inventory.totalHands) * 100} className="h-2" />
+              <Progress value={inventory.totalHands ? (inventory.overripe.length / inventory.totalHands) * 100 : 0} className="h-2" />
               <p className="text-xs text-muted-foreground mt-1">
                 {inventory.overripe.reduce((sum, s) => sum + s.fingerCount, 0)} fingers • Prioritize for immediate sale
               </p>
@@ -250,7 +250,7 @@ export default function Inventory() {
                 </div>
                 <span className="text-sm font-bold">{inventory.rotten.length} hands</span>
               </div>
-              <Progress value={(inventory.rotten.length / inventory.totalHands) * 100} className="h-2" />
+              <Progress value={inventory.totalHands ? (inventory.rotten.length / inventory.totalHands) * 100 : 0} className="h-2" />
               <p className="text-xs text-muted-foreground mt-1">
                 {inventory.rotten.reduce((sum, s) => sum + s.fingerCount, 0)} fingers • Dispose immediately
               </p>
@@ -277,7 +277,7 @@ export default function Inventory() {
                     </div>
                   </div>
                   <Badge variant="outline" className="font-mono">
-                    {((count / inventory.totalHands) * 100).toFixed(0)}%
+                    {inventory.totalHands ? ((count / inventory.totalHands) * 100).toFixed(0) : 0}%
                   </Badge>
                 </div>
               ))}
