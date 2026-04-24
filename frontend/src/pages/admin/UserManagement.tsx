@@ -88,7 +88,7 @@ export default function UserManagement() {
     setIsDialogOpen(true)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (editingId) {
       updateUser(editingId, formData)
