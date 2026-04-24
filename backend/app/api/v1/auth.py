@@ -47,7 +47,7 @@ async def login(body: LoginRequest, db: DbSession):
             id=user.id,
             username=user.username,
             full_name=user.full_name,
-            role=user.role,
+            role=getattr(user.role, "name", "Unknown") if user.role else "Unknown",
             avatar_url=user.avatar_url,
         ),
     )
@@ -72,7 +72,7 @@ async def swap(body: PinSwapRequest, db: DbSession):
             id=user.id,
             username=user.username,
             full_name=user.full_name,
-            role=user.role,
+            role=getattr(user.role, "name", "Unknown") if user.role else "Unknown",
             avatar_url=user.avatar_url,
         ),
     )
@@ -90,7 +90,7 @@ async def change_password_route(body: ChangePasswordRequest, db: DbSession):
             id=user.id,
             username=user.username,
             full_name=user.full_name,
-            role=user.role,
+            role=getattr(user.role, "name", "Unknown") if user.role else "Unknown",
             avatar_url=user.avatar_url,
         ),
     )
@@ -108,7 +108,7 @@ async def change_pin_route(body: ChangePinRequest, db: DbSession):
             id=user.id,
             username=user.username,
             full_name=user.full_name,
-            role=user.role,
+            role=getattr(user.role, "name", "Unknown") if user.role else "Unknown",
             avatar_url=user.avatar_url,
         ),
     )

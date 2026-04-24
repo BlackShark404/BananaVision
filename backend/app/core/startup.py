@@ -165,8 +165,8 @@ async def _seed_default_data(db: AsyncSession):
         return
 
     logger.info("  Seeding default roles & admin user...")
-    admin_role = UserRole(name="Admin", permissions={"all": True})
-    operator_role = UserRole(name="Operator", permissions={"scan": True})
+    admin_role = UserRole(name="Admin", description="Full system access")
+    operator_role = UserRole(name="Operator", description="Standard scan pipeline access")
     db.add_all([admin_role, operator_role])
     await db.commit()
     await db.refresh(admin_role)
