@@ -105,6 +105,76 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const scanTimeoutRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const dataLoadedRef = useRef(false)
 
+  // ── Map backend snake_case user to frontend camelCase ──────────────────
+  const mapApiUser = (u: any): User => ({
+    id: u.id,
+    username: u.username,
+    fullName: u.full_name || u.fullName || "",
+    role: u.role,
+    status: u.status || "Active",
+    lastActive: u.last_active || u.lastActive || "Never",
+    avatar: u.avatar_url || u.avatar,
+    requiresPasswordChange: u.requires_password_change ?? u.requiresPasswordChange,
+    passwordSetupReason: u.password_setup_reason || u.passwordSetupReason,
+    requiresPinChange: u.requires_pin_change ?? u.requiresPinChange,
+    pinSetupReason: u.pin_setup_reason || u.pinSetupReason,
+  })
+
+  const mapApiDevice = (d: any): Device => ({
+    id: d.id,
+    cameraId: d.camera_id || d.cameraId,
+    label: d.label,
+    status: d.status,
+    resolution: d.resolution,
+    lastSeen: d.last_seen || d.lastSeen || new Date().toISOString(),
+  })
+
+  const mapApiSupplier = (s: any): Supplier => ({
+    id: s.id,
+    name: s.name,
+    contactPerson: s.contact_person || s.contactPerson,
+    contactPhone: s.contact_phone || s.contactPhone,
+    status: s.status,
+    dateAdded: s.date_added || s.dateAdded || new Date().toISOString(),
+  })
+
+  const mapApiIntake = (i: any): DailyIntake => ({
+    id: i.id,
+    source: i.supplier_name || i.source || "Unknown",
+    date: i.intake_date || i.date || new Date().toISOString().split("T")[0],
+    status: i.status as "Active" | "Depleted",
+  })
+
+  const mapApiActivityLog = (a: any): ActivityLog => ({
+    id: a.id,
+    timestamp: a.created_at || a.timestamp || new Date().toISOString(),
+    user: a.user_name || a.user || "System",
+    action: a.action,
+    details: a.details,
+    ipAddress: a.ip_address || a.ipAddress,
+  })
+
+  const mapApiScan = (s: any): ScanResult => ({
+    id: s.id,
+    dateTime: s.scanned_at || s.dateTime || new Date().toISOString(),
+    cultivar: s.cultivar,
+    ripeness: s.ripeness,
+    confidence: s.confidence,
+    temperature: s.temperature,
+    humidity: s.humidity,
+    spoilageDays: s.spoilage_days || s.spoilageDays,
+    fingerCount: s.finger_count || s.fingerCount,
+    operator: s.operator_name || s.operator || "Unknown",
+    source: s.supplier_name || s.source,
+    thumbnailUrl: s.thumbnail_url || s.thumbnailUrl,
+    intakeId: s.intake_id || s.intakeId,
+    inventoryStatus: s.inventory_status || s.inventoryStatus || "In Stock",
+    statusUpdatedAt: s.status_updated_at || s.statusUpdatedAt || new Date().toISOString(),
+    flagged: s.flagged,
+    isOverridden: s.is_overridden || s.isOverridden,
+    originalAiResult: s.original_ai_result || s.originalAiResult,
+  })
+
   // ── Load initial data from API on mount ─────────────────────────────────
   useEffect(() => {
     if (!user || dataLoadedRef.current) return
@@ -121,22 +191,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           api.activity.list({ per_page: 100 }),
         ])
 
-        if (scansRes.status === "fulfilled") setScans(scansRes.value.items || scansRes.value as any)
+        if (scansRes.status === "fulfilled") {
+          const raw = scansRes.value.items || scansRes.value as any
+          setScans(Array.isArray(raw) ? raw.map(mapApiScan) : FALLBACK_SCANS)
+        }
         else { console.warn("[AppContext] Scans API unavailable, using mock data"); setScans(FALLBACK_SCANS) }
 
-        if (usersRes.status === "fulfilled") setUsers(usersRes.value as User[])
+        if (usersRes.status === "fulfilled") {
+          const raw = usersRes.value.items || usersRes.value as any
+          setUsers(Array.isArray(raw) ? raw.map(mapApiUser) : [])
+        }
         else { console.warn("[AppContext] Users API unavailable, using mock data"); setUsers(generateUsers()) }
 
-        if (devicesRes.status === "fulfilled") setDevices(devicesRes.value as Device[])
+        if (devicesRes.status === "fulfilled") {
+          setDevices((devicesRes.value as any[]).map(mapApiDevice))
+        }
         else { console.warn("[AppContext] Devices API unavailable, using mock data"); setDevices(generateDevices()) }
 
-        if (suppliersRes.status === "fulfilled") setSuppliers(suppliersRes.value as Supplier[])
+        if (suppliersRes.status === "fulfilled") {
+          setSuppliers((suppliersRes.value as any[]).map(mapApiSupplier))
+        }
         else { console.warn("[AppContext] Suppliers API unavailable, using mock data"); setSuppliers(generateSuppliers()) }
 
-        if (intakesRes.status === "fulfilled") setIntakes(intakesRes.value as DailyIntake[])
+        if (intakesRes.status === "fulfilled") {
+          setIntakes((intakesRes.value as any[]).map(mapApiIntake))
+        }
         else { console.warn("[AppContext] Intakes API unavailable, using mock data"); setIntakes(FALLBACK_INTAKES) }
 
-        if (activityRes.status === "fulfilled") setActivityLogs((activityRes.value as any).items || activityRes.value as any)
+        if (activityRes.status === "fulfilled") {
+          const raw = (activityRes.value as any).items || activityRes.value as any
+          setActivityLogs(Array.isArray(raw) ? raw.map(mapApiActivityLog) : [])
+        }
         else { console.warn("[AppContext] Activity API unavailable, using mock data"); setActivityLogs(generateActivityLogs()) }
 
       } catch (err) {
@@ -428,14 +513,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addUser = useCallback((data: Omit<User, "id">) => {
     api.users.create(data)
-      .then((newUser) => setUsers((prev) => [...prev, newUser as User]))
+      .then((newUser) => setUsers((prev) => [...prev, mapApiUser(newUser)]))
       .catch(() => setUsers((prev) => [...prev, { ...data, id: Math.random().toString(36).substring(2, 10) } as User]))
   }, [])
 
   const updateUser = useCallback((id: string, data: Partial<User>) => {
     api.users.update(id, data)
       .then((updated) => {
-        setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updated } : u)))
+        const mapped = mapApiUser(updated)
+        setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...mapped } : u)))
         setUser((prev) => (prev && prev.id === id ? { ...prev, ...data } : prev))
       })
       .catch(() => {
@@ -500,8 +586,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const addSupplier = useCallback((supplierData: Omit<Supplier, "id" | "dateAdded">) => {
-    api.suppliers.create(supplierData)
-      .then((newSup) => setSuppliers((prev) => [...prev, newSup as Supplier]))
+    const apiData = {
+      name: supplierData.name,
+      contact_person: supplierData.contactPerson,
+      contact_phone: supplierData.contactPhone,
+      status: supplierData.status,
+    }
+    api.suppliers.create(apiData)
+      .then((newSup) => setSuppliers((prev) => [...prev, mapApiSupplier(newSup)]))
       .catch(() => {
         const newSupplier: Supplier = {
           ...supplierData,
@@ -513,14 +605,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const updateSupplier = useCallback((id: string, data: Partial<Omit<Supplier, "id" | "dateAdded">>) => {
-    api.suppliers.update(id, data)
-      .then(() => setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s))))
+    const apiData: any = { ...data }
+    if (data.contactPerson !== undefined) apiData.contact_person = data.contactPerson
+    if (data.contactPhone !== undefined) apiData.contact_phone = data.contactPhone
+
+    api.suppliers.update(id, apiData)
+      .then((updated) => setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, ...mapApiSupplier(updated) } : s))))
       .catch(() => setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s))))
   }, [])
 
   const updateSupplierStatus = useCallback((id: string, status: "Active" | "Inactive") => {
     api.suppliers.update(id, { status })
-      .then(() => setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s))))
+      .then((updated) => setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, ...mapApiSupplier(updated) } : s))))
       .catch(() => setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s))))
   }, [])
 

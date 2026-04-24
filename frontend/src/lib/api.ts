@@ -145,7 +145,7 @@ export const api = {
 
   // ── Users ────────────────────────────────────────────────────────────────
   users: {
-    list: () => get<any[]>("/api/v1/users"),
+    list: () => get<{ items: any[]; total: number }>("/api/v1/users"),
     create: (data: any) => post<any>("/api/v1/users", data),
     update: (id: string, data: any) => patch<any>(`/api/v1/users/${id}`, data),
   },
