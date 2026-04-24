@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { useApp } from "@/context/AppContext"
 import { getMockNotifications } from "@/lib/mock-data"
+import { api } from "@/lib/api"
 import type { AppNotification, NotificationType } from "@/types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -63,11 +64,49 @@ const notificationConfig: Record<NotificationType, { icon: typeof Bell; color: s
   },
 }
 
+const mapApiNotification = (n: any): AppNotification => ({
+  id: n.id,
+  type: n.type,
+  title: n.title,
+  message: n.message,
+  timestamp: new Date(n.timestamp),
+  read: n.read,
+  href: n.href,
+})
+
 export function AppNotifications() {
   const { user } = useApp()
   const navigate = useNavigate()
-  const [notifications, setNotifications] = useState<AppNotification[]>(getMockNotifications)
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [open, setOpen] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  // Fetch notifications from backend
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await api.notifications.list()
+      const items = res.items || res as any
+      if (Array.isArray(items)) {
+        setNotifications(items.map(mapApiNotification))
+      }
+    } catch {
+      // Fallback to mock data only on first load
+      if (!loaded) {
+        setNotifications(getMockNotifications())
+      }
+    }
+    setLoaded(true)
+  }, [loaded])
+
+  // Load on mount
+  useEffect(() => {
+    if (user) fetchNotifications()
+  }, [user])
+
+  // Refresh when popover opens
+  useEffect(() => {
+    if (open && user) fetchNotifications()
+  }, [open])
 
   const filteredNotifications = useMemo(() => {
     const OPERATOR_TYPES: NotificationType[] = ["scan_complete", "scan_flagged"]
@@ -81,10 +120,12 @@ export function AppNotifications() {
 
   const markAsRead = (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+    api.notifications.markRead(id).catch(() => {})
   }
 
   const markAllAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    api.notifications.markAllRead().catch(() => {})
   }
 
   const handleNotificationClick = (notification: AppNotification) => {

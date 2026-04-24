@@ -17,6 +17,7 @@ from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.models.scan_detection import ScanDetection
 from app.models.scan_image import ScanImage
 from app.models.activity_log import ActivityLog
+from app.models.app_notification import AppNotification
 from app.services.camera_manager import camera_manager
 from app.services.classification import banana_classifier
 from app.services.fusion_engine import fusion_engine
@@ -217,6 +218,30 @@ async def execute_scan_pipeline(
                 f"{fused.confidence}% confidence, {fused.finger_count} fingers"
             ),
         ))
+
+        # Auto-create notifications
+        db.add(AppNotification(
+            type="scan_complete",
+            title="Scan Completed",
+            message=(
+                f"{fused.cultivar} · {fused.ripeness} · "
+                f"{fused.confidence}% confidence · {fused.finger_count} fingers"
+            ),
+            href=f"/scans/{scan_id_str}",
+            user_id=operator_id,
+        ))
+
+        if fused.auto_flagged:
+            db.add(AppNotification(
+                type="scan_flagged",
+                title="Scan Auto-Flagged",
+                message=(
+                    f"{fused.cultivar} · {fused.ripeness} · "
+                    f"{fused.confidence}% confidence — flagged for review"
+                ),
+                href=f"/scans/{scan_id_str}",
+                user_id=None,  # Visible to all users (admins)
+            ))
 
         await db.flush()
 

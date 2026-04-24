@@ -190,6 +190,13 @@ export const api = {
       get<{ items: any[]; total: number }>("/api/v1/quality/flagged", params as any),
   },
 
+  // ── Notifications ───────────────────────────────────────────────────────
+  notifications: {
+    list: () => get<{ items: any[]; total: number }>("/api/v1/notifications"),
+    markRead: (id: string) => patch<any>(`/api/v1/notifications/${id}/read`),
+    markAllRead: () => post<any>("/api/v1/notifications/read-all"),
+  },
+
   // ── Health ───────────────────────────────────────────────────────────────
   health: () => get<{ status: string; cameras_online: number; cameras_total: number; yolo_loaded: boolean; rfr_loaded: boolean; sensor_connected: boolean }>("/health"),
 }
