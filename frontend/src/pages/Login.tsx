@@ -23,7 +23,7 @@ export default function Login() {
   const { login, changePasswordAndLogin } = useApp()
   const navigate = useNavigate()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     if (isChangingPassword) {
@@ -36,37 +36,38 @@ export default function Login() {
         return
       }
       setLoading(true)
-      setTimeout(() => {
-        changePasswordAndLogin(username, newPassword)
+      const ok = await changePasswordAndLogin(username, newPassword)
+      if (ok) {
         toast.success("Welcome back!", { description: "Your password was updated successfully." })
         navigate("/dashboard")
-      }, 800)
+      } else {
+        toast.error("Failed to update password")
+      }
+      setLoading(false)
       return
     }
 
     setLoading(true)
-    setTimeout(() => {
-      const result = login(username, password)
-      if (result === "requires_password_change" || result === "requires_password_change_new_account" || result === "requires_password_change_reset") {
-        if (result === "requires_password_change_new_account") {
-          setPasswordChangePrompt("Welcome! Your account was newly created. Please set a new secure password to continue.")
-        } else if (result === "requires_password_change_reset") {
-          setPasswordChangePrompt("Welcome back! Because your password was recently reset, please set a new secure password to continue.")
-        } else {
-          setPasswordChangePrompt("Welcome back! Please set a new secure password to continue.")
-        }
-        setIsChangingPassword(true)
-        setLoading(false)
-        return
-      }
-      if (result === "success") {
-        toast.success("Welcome back!", { description: "Logged in successfully" })
-        navigate("/dashboard")
+    const result = await login(username, password)
+    if (result === "requires_password_change" || result === "requires_password_change_new_account" || result === "requires_password_change_reset") {
+      if (result === "requires_password_change_new_account") {
+        setPasswordChangePrompt("Welcome! Your account was newly created. Please set a new secure password to continue.")
+      } else if (result === "requires_password_change_reset") {
+        setPasswordChangePrompt("Welcome back! Because your password was recently reset, please set a new secure password to continue.")
       } else {
-        toast.error("Login failed", { description: "Invalid credentials. Try 'admin' or any operator username." })
+        setPasswordChangePrompt("Welcome back! Please set a new secure password to continue.")
       }
+      setIsChangingPassword(true)
       setLoading(false)
-    }, 800)
+      return
+    }
+    if (result === "success") {
+      toast.success("Welcome back!", { description: "Logged in successfully" })
+      navigate("/dashboard")
+    } else {
+      toast.error("Login failed", { description: "Invalid credentials. Try 'admin' or any operator username." })
+    }
+    setLoading(false)
   }
 
   return (

@@ -189,10 +189,10 @@ export default function Kiosk() {
                   <InputOTP
                     maxLength={4}
                     value={pinInput}
-                    onChange={(val) => {
+                    onChange={async (val) => {
                       setPinInput(val);
                       if (val.length === 4) {
-                        const success = switchOperator(activeOperators.find(o => o.id === swapTarget)?.username || "", val);
+                        const success = await switchOperator(activeOperators.find(o => o.id === swapTarget)?.username || "", val);
                         if (success === "success") {
                           toast.success(`Swapped to ${activeOperators.find(o => o.id === swapTarget)?.fullName}`);
                           setShowSwapModal(false);
