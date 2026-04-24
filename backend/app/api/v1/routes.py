@@ -23,6 +23,8 @@ from sqlalchemy.orm import selectinload
 from app.models.supplier import Supplier
 from app.models.intake import Intake
 from app.models.scan import Scan
+from app.models.scan_classification import ScanClassification
+from app.models.scan_status_log import ScanStatusLog
 from app.models.activity_log import ActivityLog
 from app.models.system_config import SystemConfig
 from app.schemas.common import (
@@ -366,15 +368,20 @@ async def bulk_update_intake_inventory(
         raise NotFoundException("Intake")
 
     # Update all scans in this intake
-    scans_result = await db.execute(select(Scan).where(Scan.intake_id == intake_id))
+    scans_result = await db.execute(
+        select(Scan)
+        .where(Scan.intake_id == intake_id)
+        .options(selectinload(Scan.status_logs))
+    )
     scans = scans_result.scalars().all()
 
     now = datetime.now(timezone.utc)
     updated = 0
     for scan in scans:
-        if scan.inventory_status not in ("Sold", "Spoiled"):
-            scan.inventory_status = body.inventory_status
-            scan.status_updated_at = now
+        current_status = scan.status_logs[-1].inventory_status if scan.status_logs else "In Stock"
+        if current_status not in ("Sold", "Spoiled"):
+            db.add(ScanStatusLog(scan_id=scan.id, inventory_status=body.inventory_status))
+            scan.updated_at = now
             updated += 1
 
     # Update intake status based on inventory
@@ -404,14 +411,14 @@ async def analytics_summary(db: DbSession, user: CurrentUser):
     total_scans = total_result.scalar() or 0
 
     # Average confidence
-    avg_result = await db.execute(select(func.avg(Scan.confidence)))
+    avg_result = await db.execute(select(func.avg(ScanClassification.confidence)))
     avg_confidence = round(float(avg_result.scalar() or 0), 1)
 
     # Ripeness distribution
     ripeness_dist = []
     for ripeness in ["Unripe", "Ripe", "Overripe", "Rotten"]:
         count_result = await db.execute(
-            select(func.count()).where(Scan.ripeness == ripeness)
+            select(func.count()).where(ScanClassification.ripeness == ripeness)
         )
         ripeness_dist.append(RipenessDistribution(
             name=ripeness,
@@ -424,7 +431,7 @@ async def analytics_summary(db: DbSession, user: CurrentUser):
     max_count = 0
     for cultivar in ["Lakatan", "Latundan", "Saba"]:
         count_result = await db.execute(
-            select(func.count()).where(Scan.cultivar == cultivar)
+            select(func.count()).where(ScanClassification.cultivar == cultivar)
         )
         count = count_result.scalar() or 0
         cultivar_counts.append(CultivarCount(name=cultivar, count=count))
@@ -440,7 +447,7 @@ async def analytics_summary(db: DbSession, user: CurrentUser):
         day = today - timedelta(days=i)
         count_result = await db.execute(
             select(func.count()).where(
-                func.date(Scan.scanned_at) == day
+                func.date(Scan.date_time) == day
             )
         )
         scan_trend.append(ScanTrend(
@@ -572,8 +579,9 @@ async def get_flagged_scans(
     """Get all flagged scans for quality review."""
     query = (
         select(Scan)
+        .options(selectinload(Scan.classification), selectinload(Scan.operator))
         .where(Scan.flagged == True)  # noqa: E712
-        .order_by(desc(Scan.scanned_at))
+        .order_by(desc(Scan.date_time))
     )
 
     count_query = select(func.count()).select_from(query.subquery())
@@ -587,11 +595,11 @@ async def get_flagged_scans(
         "items": [
             {
                 "id": str(s.id),
-                "scanned_at": s.scanned_at.isoformat(),
-                "cultivar": s.cultivar,
-                "ripeness": s.ripeness,
-                "confidence": s.confidence,
-                "finger_count": s.finger_count,
+                "scanned_at": s.date_time.isoformat(),
+                "cultivar": s.classification.cultivar if s.classification else "Unknown",
+                "ripeness": s.classification.ripeness if s.classification else "Unknown",
+                "confidence": float(s.classification.confidence) if s.classification else 0.0,
+                "finger_count": s.classification.finger_count if s.classification else 0,
                 "operator_name": s.operator.full_name if s.operator else "Unknown",
                 "flagged": s.flagged,
             }
