@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { CheckCircle2, Factory, BarChart3, ShieldCheck, Mail, ChevronRight, Menu, ScanLine, PackageOpen, ScrollText } from "lucide-react"
 
@@ -6,9 +6,19 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
+const navLinks = [
+  { label: "Home", id: "home" },
+  { label: "About", id: "about" },
+  { label: "Key Features", id: "features" },
+  { label: "Modules", id: "modules" },
+  { label: "FAQs", id: "faqs" },
+  { label: "Contact", id: "contact" },
+]
+
 export default function Landing() {
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [activeSection, setActiveSection] = useState("home")
   
   const scrollToSection = (id: string) => {
     setMobileOpen(false)
@@ -24,14 +34,25 @@ export default function Landing() {
     }, 150)
   }
 
-  const navLinks = [
-    { label: "Home", id: "home" },
-    { label: "About", id: "about" },
-    { label: "Key Features", id: "features" },
-    { label: "Modules", id: "modules" },
-    { label: "FAQs", id: "faqs" },
-    { label: "Contact", id: "contact" },
-  ]
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id)
+          }
+        })
+      },
+      { rootMargin: "-40% 0px -40% 0px" }
+    )
+
+    navLinks.forEach((link) => {
+      const el = document.getElementById(link.id)
+      if (el) observer.observe(el)
+    })
+
+    return () => observer.disconnect()
+  }, [])
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
@@ -51,7 +72,11 @@ export default function Landing() {
               <button
                 key={link.label}
                 onClick={() => scrollToSection(link.id)}
-                className="px-3 py-2 text-sm font-medium text-foreground/70 hover:text-primary rounded-md hover:bg-primary/5 transition-colors"
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeSection === link.id
+                    ? "text-primary bg-primary/10"
+                    : "text-foreground/70 hover:text-primary hover:bg-primary/5"
+                }`}
               >
                 {link.label}
               </button>
@@ -86,7 +111,11 @@ export default function Landing() {
                       <button
                         key={link.label}
                         onClick={() => scrollToSection(link.id)}
-                        className="text-left text-base font-medium px-3 py-3 rounded-lg text-foreground/80 hover:text-primary hover:bg-primary/5 transition-colors"
+                        className={`text-left text-base font-medium px-3 py-3 rounded-lg transition-colors ${
+                          activeSection === link.id
+                            ? "text-primary bg-primary/10"
+                            : "text-foreground/80 hover:text-primary hover:bg-primary/5"
+                        }`}
                       >
                         {link.label}
                       </button>
