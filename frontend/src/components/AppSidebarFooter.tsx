@@ -38,7 +38,7 @@ export default function AppSidebarFooter() {
           <PopoverTrigger asChild>
             <button className="flex items-center gap-3 hover:bg-accent rounded-lg p-2 transition-colors w-full">
               <Avatar className="h-9 w-9 border-2 border-primary/20">
-                {user?.avatar && <AvatarImage src={user.avatar} className="object-cover" />}
+                <AvatarImage src={user?.avatar || undefined} className="object-cover" />
                 <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
                   {user?.fullName?.split(" ").map((n) => n[0]).join("")?.toUpperCase() || "?"}
                 </AvatarFallback>

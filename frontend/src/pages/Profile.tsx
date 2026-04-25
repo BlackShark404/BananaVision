@@ -51,6 +51,13 @@ export default function Profile() {
     reader.readAsDataURL(file)
   }
 
+  const handleRemoveAvatar = () => {
+    if (user) {
+      updateUser(user.id, { avatar: "" })
+      toast.success("Avatar removed successfully")
+    }
+  }
+
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark")
     toast.success(`Switched to ${theme === "dark" ? "light" : "dark"} mode`)
@@ -307,13 +314,10 @@ export default function Profile() {
                   title="Upload new avatar"
                 >
                   <Avatar className="w-20 h-20 sm:w-24 sm:h-24 border-[3px] border-background ring-1 ring-border shadow-sm transition-all group-hover:ring-primary/50 group-hover:shadow-md">
-                    {user.avatar ? (
-                      <AvatarImage src={user.avatar} className="object-cover" />
-                    ) : (
-                      <AvatarFallback className="text-2xl sm:text-3xl bg-primary/10 text-primary font-bold">
-                        {user.fullName.split(' ').map(n => n[0]).join('').toUpperCase()}
-                      </AvatarFallback>
-                    )}
+                    <AvatarImage src={user.avatar || undefined} className="object-cover" />
+                    <AvatarFallback className="text-2xl sm:text-3xl bg-primary/10 text-primary font-bold">
+                      {user.fullName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                    </AvatarFallback>
                   </Avatar>
                   <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Camera className="w-6 h-6 text-white" />
@@ -327,8 +331,22 @@ export default function Profile() {
                   />
                 </div>
                 <div className="flex-1 space-y-1">
-                  <h3 className="text-xl sm:text-2xl font-bold tracking-tight">{user.fullName}</h3>
-                  <p className="text-sm sm:text-base text-muted-foreground font-medium">@{user.username}</p>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-xl sm:text-2xl font-bold tracking-tight">{user.fullName}</h3>
+                      <p className="text-sm sm:text-base text-muted-foreground font-medium">@{user.username}</p>
+                    </div>
+                    {user.avatar && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={handleRemoveAvatar} 
+                        className="text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
+                      >
+                        Remove Photo
+                      </Button>
+                    )}
+                  </div>
                   <div className="pt-2">
                     <Badge variant="outline" className={`gap-1.5 font-medium ${user.role === "Admin" ? "bg-primary/10 text-primary border-primary/20" : "bg-secondary text-secondary-foreground"}`}>
                       <Shield className="w-3 h-3" />

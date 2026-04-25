@@ -326,7 +326,7 @@ export default function Kiosk() {
             title="Swap Operator"
           >
             <Avatar className="h-8 w-8 lg:h-9 lg:w-9 border border-border">
-              {user?.avatar && <AvatarImage src={user.avatar} className="object-cover" />}
+              <AvatarImage src={user?.avatar || undefined} className="object-cover" />
               <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
                 {user?.fullName?.split(" ").map(n => n[0]).join("").toUpperCase() || "?"}
               </AvatarFallback>
