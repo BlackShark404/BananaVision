@@ -559,16 +559,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (data.passwordSetupReason !== undefined) apiData.password_setup_reason = data.passwordSetupReason
     if (data.requiresPinChange !== undefined) apiData.requires_pin_change = data.requiresPinChange
     if (data.pinSetupReason !== undefined) apiData.pin_setup_reason = data.pinSetupReason
+    if (data.avatar !== undefined) {
+      apiData.avatar_url = data.avatar
+      delete apiData.avatar
+    }
 
     api.users.update(id, apiData)
       .then((updated) => {
         const mapped = mapApiUser(updated)
         setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...mapped } : u)))
-        setUser((prev) => (prev && prev.id === id ? { ...prev, ...data } : prev))
+        setUser((prev) => {
+          if (prev && prev.id === id) {
+            const newUser = { ...prev, ...data }
+            setStoredUser(newUser)
+            return newUser
+          }
+          return prev
+        })
       })
       .catch(() => {
         setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...data } : u)))
-        setUser((prev) => (prev && prev.id === id ? { ...prev, ...data } : prev))
+        setUser((prev) => {
+          if (prev && prev.id === id) {
+            const newUser = { ...prev, ...data }
+            setStoredUser(newUser)
+            return newUser
+          }
+          return prev
+        })
       })
   }, [])
 
