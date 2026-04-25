@@ -34,39 +34,44 @@ export function StatsCard({
 }: StatsCardProps) {
   return (
     <Card 
-      className={cn("rounded-xl sm:rounded-2xl animate-fade-in", className)}
+      className={cn(
+        "relative overflow-hidden rounded-xl sm:rounded-2xl border border-border/50 bg-card/60 backdrop-blur-xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 group animate-fade-in",
+        className
+      )}
       style={{ animationDelay: `${delay}ms` }}
     >
-      <CardContent className="p-4 sm:p-5">
-        <div className="flex items-center gap-3 sm:gap-4">
+      {/* Subtle glare effect */}
+      <div className="absolute inset-0 bg-linear-to-br from-white/40 to-transparent dark:from-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+      
+      <CardContent className="p-5 sm:p-6 relative z-10 flex flex-col gap-4">
+        {/* Header: Title and Icon */}
+        <div className="flex flex-row-reverse items-center justify-between">
           <div className={cn(
-            "w-11 h-11 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center shrink-0",
+            "w-12 h-12 rounded-[1rem] flex items-center justify-center shrink-0 shadow-sm border border-black/5 dark:border-white/5 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3",
             iconBgColor
           )}>
-            <Icon className={cn("w-5 h-5 sm:w-6 sm:h-6", iconColor)} />
+            <Icon className={cn("w-6 h-6", iconColor)} />
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs sm:text-sm text-muted-foreground font-medium">{title}</p>
-            <div className="flex items-baseline gap-2">
-              <p className="text-2xl sm:text-3xl font-bold truncate">{value}</p>
-              {trend && (
-                <div className={cn(
-                  "flex items-center gap-0.5 text-xs font-medium",
-                  trend.isPositive ? "text-emerald-600" : "text-red-600"
-                )}>
-                  {trend.isPositive ? (
-                    <TrendingUp className="w-3 h-3" />
-                  ) : (
-                    <TrendingDown className="w-3 h-3" />
-                  )}
-                  <span>{Math.abs(trend.value)}%</span>
-                </div>
-              )}
-            </div>
-            {description && (
-              <p className="text-xs text-muted-foreground mt-0.5 truncate">{description}</p>
+          <p className="text-sm font-semibold text-muted-foreground tracking-tight uppercase">{title}</p>
+        </div>
+        
+        {/* Body: Value and Trend */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-end gap-3 flex-wrap">
+            <h3 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground drop-shadow-sm leading-none">{value}</h3>
+            {trend && (
+              <div className={cn(
+                "flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md mb-0.5",
+                trend.isPositive ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "bg-red-500/15 text-red-700 dark:text-red-400"
+              )}>
+                {trend.isPositive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                <span>{Math.abs(trend.value)}%</span>
+              </div>
             )}
           </div>
+          {description && (
+            <p className="text-sm font-medium text-muted-foreground/80 leading-relaxed">{description}</p>
+          )}
         </div>
       </CardContent>
     </Card>
