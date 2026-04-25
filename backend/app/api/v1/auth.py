@@ -36,6 +36,9 @@ async def login(body: LoginRequest, db: DbSession, request: Request):
     if status == "failed":
         return LoginResponse(status="failed")
 
+    if status == "inactive":
+        return LoginResponse(status="inactive", reason="Account is inactive")
+
     if status == "requires_password_change":
         return LoginResponse(status="requires_password_change", reason=reason)
 
@@ -70,6 +73,9 @@ async def swap(body: PinSwapRequest, db: DbSession, request: Request):
 
     if status == "failed":
         return LoginResponse(status="failed")
+
+    if status == "inactive":
+        return LoginResponse(status="inactive", reason="Account is inactive")
 
     if status == "requires_pin_change":
         return LoginResponse(status="requires_pin_change", reason=reason)

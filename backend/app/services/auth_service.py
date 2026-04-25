@@ -43,6 +43,9 @@ async def authenticate_user(
     if not user or not verify_password(password, user.password_hash):
         return "failed", None, None
 
+    if user.status == "Inactive":
+        return "inactive", None, None
+
     if user.requires_password_change:
         reason = user.password_setup_reason or "password_change"
         return "requires_password_change", user, reason
@@ -71,6 +74,9 @@ async def swap_operator(
 
     if not user or not user.operator_profile or not user.operator_profile.pin_hash or not verify_pin(pin, user.operator_profile.pin_hash):
         return "failed", None, None
+
+    if user.status == "Inactive":
+        return "inactive", None, None
 
     if user.operator_profile.requires_pin_change:
         reason = user.operator_profile.pin_setup_reason or "pin_change"

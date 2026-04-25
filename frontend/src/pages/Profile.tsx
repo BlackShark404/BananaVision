@@ -190,6 +190,11 @@ export default function Profile() {
       if (val.length === 4) {
         if (!user) return
         const status = await switchOperator(user.username, val)
+        if (status === "inactive") {
+          toast.error("Account Inactive", { description: "Your account is inactive. Please contact an administrator." })
+          setPinData(prev => ({ ...prev, current: "" }))
+          return
+        }
         if (status === "failed") {
           toast.error("Current PIN is incorrect")
           setPinData(prev => ({ ...prev, current: "" }))

@@ -64,6 +64,8 @@ export default function Login() {
     if (result === "success") {
       toast.success("Welcome back!", { description: "Logged in successfully" })
       navigate("/dashboard")
+    } else if (result === "inactive") {
+      toast.error("Account Inactive", { description: "Your account is inactive. Please contact an administrator." })
     } else {
       toast.error("Login failed", { description: "Invalid credentials. Try 'admin' or any operator username." })
     }

@@ -47,6 +47,7 @@ interface AppContextType {
     Promise<
       | "success"
       | "failed"
+      | "inactive"
       | "requires_password_change"
       | "requires_password_change_new_account"
       | "requires_password_change_reset"
@@ -54,7 +55,7 @@ interface AppContextType {
   changePasswordAndLogin: (username: string, newPassword?: string) => Promise<boolean>
   changePinAndLogin: (username: string, newPin?: string) => Promise<boolean>
   logout: () => void
-  switchOperator: (username: string, pin: string) => Promise<"success" | "failed" | "requires_pin_change" | "requires_pin_change_new_account" | "requires_pin_change_reset">
+  switchOperator: (username: string, pin: string) => Promise<"success" | "failed" | "inactive" | "requires_pin_change" | "requires_pin_change_new_account" | "requires_pin_change_reset">
   scanState: ScanState
   startScan: (source?: string) => void
   scans: ScanResult[]
@@ -336,6 +337,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return "requires_password_change" as const
       }
 
+      if (res.status === "inactive") {
+        return "inactive" as const
+      }
+
       if (res.status === "failed" || !res.token || !res.user) {
         return "failed" as const
       }
@@ -352,6 +357,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const mockUsers = generateUsers()
       const found = mockUsers.find((u) => u.username === username)
       if (found && password === found.password) {
+        if (found.status === "Inactive") return "inactive" as const
         const authUser: AuthUser = { id: found.id, username: found.username, fullName: found.fullName, role: found.role }
         setStoredUser(authUser)
         setUser(authUser)
@@ -372,6 +378,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return "requires_pin_change" as const
       }
 
+      if (res.status === "inactive") {
+        return "inactive" as const
+      }
+
       if (res.status === "failed" || !res.token || !res.user) {
         return "failed" as const
       }
@@ -387,6 +397,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const mockUsers = generateUsers()
       const found = mockUsers.find((u) => u.username === username)
       if (found && found.pin === pin) {
+        if (found.status === "Inactive") return "inactive" as const
         if (found.requiresPinChange) {
           if (found.pinSetupReason === "new_account") return "requires_pin_change_new_account" as const
           if (found.pinSetupReason === "pin_reset") return "requires_pin_change_reset" as const

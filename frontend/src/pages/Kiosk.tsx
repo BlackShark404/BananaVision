@@ -217,6 +217,9 @@ export default function Kiosk() {
                           }
                           setRequiresNewPin(true);
                           setPinInput("");
+                        } else if (success === "inactive") {
+                          toast.error("Account Inactive", { description: "Your account is inactive. Please contact an administrator." });
+                          setPinInput("");
                         } else {
                           toast.error("Invalid PIN code");
                           setPinInput("");
