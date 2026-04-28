@@ -50,7 +50,8 @@ export default function Kiosk() {
   const [showSourceModal, setShowSourceModal] = useState(false)
 
   const activeOperators = users.filter(u => u.status === "Active" && u.role === "Operator")
-  const [showSwapModal, setShowSwapModal] = useState(false)
+  const [kioskOperator, setKioskOperator] = useState<string | null>(null)
+  const [showSwapModal, setShowSwapModal] = useState(true)
   const [swapTarget, setSwapTarget] = useState<string | null>(null)
   const [pinInput, setPinInput] = useState("")
   const [requiresNewPin, setRequiresNewPin] = useState(false)
@@ -73,6 +74,11 @@ export default function Kiosk() {
   const recentScans = scans.slice(0, 5)
 
   const handleScan = () => {
+    if (!kioskOperator) {
+      toast.error("Please select an operator first")
+      setShowSwapModal(true)
+      return
+    }
     if (!selectedSource) {
       toast.error("Please select a source/supplier")
       return
@@ -87,10 +93,13 @@ export default function Kiosk() {
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden relative">
 
       {/* Swap Operator Modal */}
-      <Dialog open={showSwapModal} onOpenChange={(open) => { setShowSwapModal(open); if (!open) { setSwapTarget(null); setPinInput(""); setRequiresNewPin(false); setNewPinInput(""); setConfirmPinInput(""); } }}>
+      <Dialog open={showSwapModal} onOpenChange={(open) => { if (!open && !kioskOperator) return; setShowSwapModal(open); if (!open) { setSwapTarget(null); setPinInput(""); setRequiresNewPin(false); setNewPinInput(""); setConfirmPinInput(""); } }}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle>{!swapTarget ? "Select Operator" : requiresNewPin ? "Create New Kiosk PIN" : "Enter PIN"}</DialogTitle>
+            <DialogTitle>{!swapTarget ? (kioskOperator ? "Switch Operator" : "Select Operator to Begin") : requiresNewPin ? "Create New Kiosk PIN" : "Enter PIN"}</DialogTitle>
+            {!swapTarget && !kioskOperator && (
+              <DialogDescription className="text-sm text-muted-foreground">Please select an operator and authenticate to use the kiosk.</DialogDescription>
+            )}
           </DialogHeader>
           {!swapTarget ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
@@ -147,6 +156,7 @@ export default function Kiosk() {
                               
                               if (success) {
                                 toast.success(`PIN updated and swapped to ${targetUser.fullName}`);
+                                setKioskOperator(targetUser.id);
                                 setShowSwapModal(false);
                                 setSwapTarget(null);
                                 setRequiresNewPin(false);
@@ -204,6 +214,7 @@ export default function Kiosk() {
                         const success = await switchOperator(activeOperators.find(o => o.id === swapTarget)?.username || "", val);
                         if (success === "success") {
                           toast.success(`Swapped to ${activeOperators.find(o => o.id === swapTarget)?.fullName}`);
+                          setKioskOperator(swapTarget);
                           setShowSwapModal(false);
                           setSwapTarget(null);
                           setPinInput("");
@@ -326,18 +337,33 @@ export default function Kiosk() {
             title="Swap Operator"
           >
             <Avatar className="h-8 w-8 lg:h-9 lg:w-9 border border-border">
-              <AvatarImage src={user?.avatar || undefined} className="object-cover" />
-              <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
-                {user?.fullName?.split(" ").map(n => n[0]).join("").toUpperCase() || "?"}
-              </AvatarFallback>
+              {kioskOperator ? (
+                <>
+                  <AvatarImage src={user?.avatar || undefined} className="object-cover" />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
+                    {user?.fullName?.split(" ").map(n => n[0]).join("").toUpperCase() || "?"}
+                  </AvatarFallback>
+                </>
+              ) : (
+                <AvatarFallback className="bg-muted text-muted-foreground text-xs font-bold">?</AvatarFallback>
+              )}
             </Avatar>
             <div className="hidden sm:block">
-              <p className="text-xs font-semibold leading-tight">{user?.fullName}</p>
-              <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground">
-                <span>{user?.role}</span>
-                <span className="w-1 h-1 rounded-full bg-border"></span>
-                <span className="text-primary hover:underline font-medium">Swap</span>
-              </div>
+              {kioskOperator ? (
+                <>
+                  <p className="text-xs font-semibold leading-tight">{user?.fullName}</p>
+                  <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground">
+                    <span>{user?.role}</span>
+                    <span className="w-1 h-1 rounded-full bg-border"></span>
+                    <span className="text-primary hover:underline font-medium">Swap</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-semibold leading-tight text-muted-foreground">No Operator</p>
+                  <p className="text-[10px] text-primary font-medium">Tap to select</p>
+                </>
+              )}
             </div>
           </button>
 
@@ -486,7 +512,7 @@ export default function Kiosk() {
             <Button
               size="lg"
               className="h-14 lg:h-16 text-base lg:text-xl font-bold rounded-2xl shadow-xl shadow-primary/20 gap-3 transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]"
-              disabled={isScanning || !selectedSource}
+              disabled={isScanning || !selectedSource || !kioskOperator}
               onClick={handleScan}
             >
               {isScanning ? (
