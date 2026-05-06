@@ -73,7 +73,6 @@ async def run_startup():
     # Seed default admin user if no users exist
     async with async_session_factory() as db:
         await _seed_default_data(db)
-        await _seed_mock_data(db)
 
     # ── Phase 3: ML Models ───────────────────────────────────────────────
     logger.info("[Phase 3] Loading ML models...")
@@ -226,94 +225,4 @@ async def _register_cameras(db: AsyncSession, results: dict[int, bool]):
             ))
 
     await db.commit()
-
-async def _seed_mock_data(db: AsyncSession):
-    """Seed mock suppliers, intakes, and scans for testing."""
-    # Check if we already seeded mock data
-    result = await db.execute(select(Supplier).limit(1))
-    if result.scalar_one_or_none() is not None:
-        logger.info("  Mock data already exists — skipping seed")
-        return
-
-    logger.info("  Seeding mock testing data...")
-    now = datetime.now(timezone.utc)
-    
-    # Needs operator for scans
-    op_result = await db.execute(select(UserAccount).where(UserAccount.username == 'admin'))
-    op = op_result.scalar_one()
-
-    if not op.operator_profile:
-        op.operator_profile = OperatorProfile()
-        await db.commit()
-    
-    # 1. Create Suppliers
-    s1 = Supplier(name="Dole Foods", contact_person="John Doe", contact_phone="555-0100")
-    s2 = Supplier(name="Del Monte", contact_person="Jane Smith", contact_phone="555-0200")
-    s3 = Supplier(name="Local Farm Coop", contact_person="Bob Builder", contact_phone="555-0300")
-    db.add_all([s1, s2, s3])
-    await db.flush()
-
-    # 2. Create Intakes
-    i1 = Intake(
-        supplier_id=s1.id,
-        batch_number="BCH-1A2B3C",
-        source="Kiosk",
-        intake_date=now.date(),
-        status="Active",
-        created_at=now,
-        updated_at=now
-    )
-    i2 = Intake(
-        supplier_id=s2.id,
-        batch_number="BCH-9X8Y7Z",
-        source="Kiosk",
-        intake_date=(now - timedelta(days=1)).date(),
-        status="Depleted",
-        created_at=now - timedelta(days=1),
-        updated_at=now - timedelta(days=1)
-    )
-    db.add_all([i1, i2])
-    await db.flush()
-
-    # 3. Create Scans
-    cultivars = ["Lakatan", "Latundan", "Saba"]
-    ripeness_levels = ["Unripe", "Ripe", "Overripe", "Rotten"]
-    
-    for i in range(15):
-        is_i1 = i < 10
-        scan_time = now - timedelta(minutes=random.randint(1, 60)) if is_i1 else now - timedelta(days=1, minutes=random.randint(1, 60))
-        
-        scan = Scan(
-            operator_id=op.id,
-            intake_id=i1.id if is_i1 else i2.id,
-            date_time=scan_time,
-            source_text=s1.name if is_i1 else s2.name
-        )
-        db.add(scan)
-        await db.flush()
-
-        cultivar = random.choice(cultivars)
-        ripeness = random.choice(ripeness_levels)
-        
-        classification = ScanClassification(
-            scan_id=scan.id,
-            cultivar=cultivar,
-            ripeness=ripeness,
-            confidence=random.uniform(85.0, 99.9),
-            temperature=random.uniform(22.0, 24.0),
-            humidity=random.uniform(50.0, 60.0),
-            spoilage_days=random.randint(1, 10),
-            finger_count=random.randint(5, 12),
-        )
-        db.add(classification)
-        
-        status_log = ScanStatusLog(
-            scan_id=scan.id,
-            inventory_status="In Stock" if is_i1 else "Sold",
-            updated_at=scan_time
-        )
-        db.add(status_log)
-        
-    await db.commit()
-    logger.info("  Mock data seeded successfully.")
 

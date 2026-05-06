@@ -1,0 +1,183 @@
+import asyncio
+import logging
+import uuid
+import random
+import sqlalchemy
+from datetime import datetime, timezone, timedelta
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.schema import MetaData
+
+from app.core.database import async_session_factory, engine, Base
+from app.core.security import hash_password, hash_pin
+from app.models.user_account import UserAccount
+from app.models.user_role import UserRole
+from app.models.admin_profile import AdminProfile
+from app.models.operator_profile import OperatorProfile
+from app.models.device import Device
+from app.models.sensor_reading import SensorReading
+from app.models.supplier import Supplier
+from app.models.intake import Intake
+from app.models.scan import Scan
+from app.models.scan_classification import ScanClassification
+from app.models.scan_status_log import ScanStatusLog
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("seeder")
+
+async def clear_database():
+    """Drop and recreate all tables."""
+    logger.info("Dropping all tables...")
+    
+    # We must issue separate transactions if one fails and aborts the block
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+    except Exception:
+        async with engine.begin() as conn:
+            for table in reversed(Base.metadata.sorted_tables):
+                await conn.execute(sqlalchemy.text(f"DROP TABLE IF EXISTS {table.name} CASCADE"))
+    
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Tables created.")
+
+async def seed_data():
+    async with async_session_factory() as db:
+        logger.info("Seeding data...")
+        now = datetime.now(timezone.utc)
+
+        # 1. Roles
+        admin_role = UserRole(name="Admin", description="Full system access")
+        operator_role = UserRole(name="Operator", description="Standard scan pipeline access")
+        db.add_all([admin_role, operator_role])
+        await db.flush()
+
+        # 2. Admin User
+        admin_user = UserAccount(
+            username="admin",
+            full_name="Admin User",
+            password_hash=hash_password("admin123"),
+            role_id=admin_role.id,
+            status="Active",
+        )
+        db.add(admin_user)
+        await db.flush()
+
+        # Admin profile — the FK column is `account_id`, not `user_id`
+        admin_prof = AdminProfile(account_id=admin_user.id)
+        db.add(admin_prof)
+        await db.flush()
+        
+        # 3. Operator User — pin_hash lives on OperatorProfile, NOT UserAccount
+        operator_user = UserAccount(
+            username="operator1",
+            full_name="Kiosk Operator",
+            password_hash=hash_password("operator"),
+            role_id=operator_role.id,
+            status="Active",
+        )
+        db.add(operator_user)
+        await db.flush()
+
+        # Operator profile — pin_hash goes here; no `assigned_station` field in the model
+        operator_prof = OperatorProfile(
+            account_id=operator_user.id,
+            pin_hash=hash_pin("1234"),
+        )
+        db.add(operator_prof)
+        await db.flush()
+        
+        # 4. Devices (Cameras)
+        cam1 = Device(camera_id="CAM-001", label="Front Camera", status="Online", resolution="1920x1080", last_seen=now)
+        cam2 = Device(camera_id="CAM-002", label="Side Camera", status="Offline", resolution="1920x1080", last_seen=now - timedelta(days=1))
+        db.add_all([cam1, cam2])
+        
+        # 5. Sensor Readings
+        for i in range(10):
+            sr = SensorReading(
+                temperature=random.uniform(22.0, 25.0),
+                humidity=random.uniform(55.0, 65.0),
+                recorded_at=now - timedelta(minutes=i*10)
+            )
+            db.add(sr)
+        
+        # 6. Suppliers
+        s1 = Supplier(name="Dole Foods", contact_person="John Doe", contact_phone="555-0100", status="Active")
+        s2 = Supplier(name="Del Monte", contact_person="Jane Smith", contact_phone="555-0200", status="Active")
+        s3 = Supplier(name="Local Farm Coop", contact_person="Bob Builder", contact_phone="555-0300", status="Inactive")
+        db.add_all([s1, s2, s3])
+        await db.flush()
+
+        # 7. Intakes
+        i1 = Intake(
+            supplier_id=s1.id,
+            batch_number="BCH-1A2B3C",
+            source="Kiosk",
+            intake_date=now.date(),
+            status="Active",
+            created_at=now,
+            updated_at=now
+        )
+        i2 = Intake(
+            supplier_id=s2.id,
+            batch_number="BCH-9X8Y7Z",
+            source="Kiosk",
+            intake_date=(now - timedelta(days=1)).date(),
+            status="Depleted",
+            created_at=now - timedelta(days=1),
+            updated_at=now - timedelta(days=1)
+        )
+        db.add_all([i1, i2])
+        await db.flush()
+
+        # 8. Scans & Classifications
+        cultivars = ["Lakatan", "Latundan", "Saba"]
+        ripeness_levels = ["Unripe", "Ripe", "Overripe", "Rotten"]
+        
+        for i in range(25):
+            is_i1 = i < 15
+            scan_time = now - timedelta(minutes=random.randint(1, 60)) if is_i1 else now - timedelta(days=1, minutes=random.randint(1, 60))
+            
+            scan = Scan(
+                operator_id=operator_prof.id,
+                intake_id=i1.id if is_i1 else i2.id,
+                date_time=scan_time,
+                source_text=s1.name if is_i1 else s2.name
+            )
+            db.add(scan)
+            await db.flush()
+
+            cultivar = random.choice(cultivars)
+            ripeness = random.choice(ripeness_levels)
+            
+            classification = ScanClassification(
+                scan_id=scan.id,
+                cultivar=cultivar,
+                ripeness=ripeness,
+                confidence=random.uniform(85.0, 99.9),
+                temperature=random.uniform(22.0, 24.0),
+                humidity=random.uniform(50.0, 60.0),
+                # spoilage_days is String(20) in the model, not Integer
+                spoilage_days=str(random.randint(1, 10)),
+                finger_count=random.randint(5, 12),
+            )
+            db.add(classification)
+            
+            status_log = ScanStatusLog(
+                scan_id=scan.id,
+                inventory_status="In Stock" if is_i1 else "Sold",
+                updated_at=scan_time
+            )
+            db.add(status_log)
+
+        await db.commit()
+        logger.info("Database seeding completed successfully.")
+
+async def main():
+    await clear_database()
+    await seed_data()
+
+if __name__ == "__main__":
+    asyncio.run(main())
