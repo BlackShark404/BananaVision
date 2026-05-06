@@ -71,6 +71,9 @@ interface AppContextType {
   config: SystemConfig
   updateConfig: (cfg: Partial<SystemConfig>) => void
   intakes: DailyIntake[]
+  startIntake: (supplierId: string, batchNumber: string) => Promise<DailyIntake | undefined>
+  activeIntake: DailyIntake | null
+  setActiveIntake: (intake: DailyIntake | null) => void
   bulkUpdateIntakeInventory: (intakeId: string, status: InventoryStatus) => void
   suppliers: Supplier[]
   addSupplier: (supplierData: Omit<Supplier, "id" | "dateAdded">) => void
@@ -89,6 +92,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [scans, setScans] = useState<ScanResult[]>([])
   const [intakes, setIntakes] = useState<DailyIntake[]>([])
+  const [activeIntake, setActiveIntake] = useState<DailyIntake | null>(null)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [devices, setDevices] = useState<Device[]>([])
@@ -140,12 +144,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dateAdded: s.date_added || s.dateAdded || new Date().toISOString(),
   })
 
-  const mapApiIntake = (i: any): DailyIntake => ({
+  const mapApiIntake = useCallback((i: any): DailyIntake => ({
     id: i.id,
-    source: i.supplier_name || i.source || "Unknown",
+    supplierId: i.supplier_id || i.supplierId,
+    supplierName: i.supplier_name || i.supplierName || i.source || "Unknown",
+    batchNumber: i.batch_number || i.batchNumber,
+    qrCode: i.qr_code || i.qrCode,
     date: i.intake_date || i.date || new Date().toISOString().split("T")[0],
     status: i.status as "Active" | "Depleted",
-  })
+    scanCount: i.scan_count || i.scanCount || 0,
+  }), [])
 
   const mapApiActivityLog = (a: any): ActivityLog => ({
     id: a.id,
@@ -467,12 +475,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── Scan Pipeline ───────────────────────────────────────────────────────
 
-  const startScan = useCallback((source?: string) => {
+  const startScan = useCallback((source?: string, simulate?: boolean) => {
     if (scanState.isScanning) return
     setScanState({ isScanning: true, scanStep: 1, scanStepLabel: "Capturing...", scanProgress: 20, lastResult: null })
 
     // Try backend API first
-    api.scans.trigger({ source })
+    const reqData = activeIntake ? { intake_id: activeIntake.id } : { source }
+    api.scans.trigger(reqData)
       .then(() => {
         // WebSocket events will drive the progress from here
       })
@@ -535,7 +544,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         scanTimeoutRef.current = [t1, t2, t3, t4]
       })
-  }, [scanState.isScanning, user, intakes])
+  }, [scanState.isScanning, user, intakes, activeIntake])
 
   // ── CRUD Operations ─────────────────────────────────────────────────────
 
@@ -629,6 +638,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setConfig((prev) => ({ ...prev, ...cfg }))
   }, [])
 
+  const startIntake = useCallback(async (supplierId: string, batchNumber: string) => {
+    try {
+      const resp = await api.intakes.create({ supplier_id: supplierId, batch_number: batchNumber, source: "Kiosk" })
+      const newIntake = mapApiIntake(resp)
+      setIntakes((prev) => [newIntake, ...prev])
+      setActiveIntake(newIntake)
+      return newIntake
+    } catch (error) {
+      console.error("[AppContext] Failed to create intake", error)
+    }
+  }, [mapApiIntake])
+
   const bulkUpdateIntakeInventory = useCallback((intakeId: string, status: InventoryStatus) => {
     const intakeStatus = status === "In Stock" ? "Active" : "Depleted"
     api.intakes.update(intakeId, { status: intakeStatus, inventory_status: status }).catch(() => {})
@@ -704,6 +725,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         config,
         updateConfig,
         intakes,
+        startIntake,
+        activeIntake,
+        setActiveIntake,
         bulkUpdateIntakeInventory,
         suppliers,
         addSupplier,

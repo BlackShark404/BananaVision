@@ -5,6 +5,10 @@ Device, sensor, user, supplier, intake, analytics, activity, config, and quality
 from __future__ import annotations
 
 import uuid
+import qrcode
+import io
+import base64
+import json
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Query, Request
@@ -35,6 +39,7 @@ from app.schemas.common import (
     SupplierCreate,
     SupplierUpdate,
     SupplierResponse,
+    IntakeCreate,
     IntakeResponse,
     IntakeStatusUpdate,
     IntakeBulkInventoryUpdate,
@@ -315,6 +320,62 @@ async def update_supplier(
 intakes_router = APIRouter(prefix="/intakes", tags=["Intakes"])
 
 
+@intakes_router.post("", response_model=IntakeResponse)
+async def create_intake(body: IntakeCreate, db: DbSession, user: CurrentUser, request: Request):
+    """Create a new delivery intake."""
+    now = datetime.now(timezone.utc)
+    new_intake = Intake(
+        supplier_id=body.supplier_id,
+        batch_number=body.batch_number,
+        source=body.source,
+        intake_date=now.date(),
+        status="Active",
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(new_intake)
+    await db.flush()
+
+    # Generate QR Code
+    qr_data = {
+        "intake_id": str(new_intake.id),
+        "supplier_id": str(new_intake.supplier_id),
+        "batch_number": new_intake.batch_number,
+        "date": new_intake.intake_date.isoformat()
+    }
+    img = qrcode.make(json.dumps(qr_data))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+    new_intake.qr_code = f"data:image/png;base64,{b64}"
+
+    await db.flush()
+
+    # Fetch supplier name
+    from app.models.supplier import Supplier
+    sup_result = await db.execute(select(Supplier).where(Supplier.id == new_intake.supplier_id))
+    sup = sup_result.scalar_one_or_none()
+
+    db.add(ActivityLog(
+        user_id=user.id,
+        action="intake_created",
+        details=f"Created intake {new_intake.id}",
+        ip_address=request.client.host if request.client else None,
+    ))
+
+    return IntakeResponse(
+        id=new_intake.id,
+        supplier_id=new_intake.supplier_id,
+        supplier_name=sup.name if sup else None,
+        batch_number=new_intake.batch_number,
+        qr_code=new_intake.qr_code,
+        intake_date=new_intake.intake_date,
+        status=new_intake.status,
+        scan_count=0,
+        created_at=new_intake.created_at,
+    )
+
+
 @intakes_router.get("", response_model=list[IntakeResponse])
 async def list_intakes(db: DbSession, user: CurrentUser):
     """List all intakes with scan counts."""
@@ -334,6 +395,8 @@ async def list_intakes(db: DbSession, user: CurrentUser):
             id=intake.id,
             supplier_id=intake.supplier_id,
             supplier_name=intake.supplier.name if intake.supplier else None,
+            batch_number=intake.batch_number,
+            qr_code=intake.qr_code,
             intake_date=intake.intake_date,
             status=intake.status,
             scan_count=scan_count,

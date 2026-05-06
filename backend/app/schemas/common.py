@@ -68,10 +68,17 @@ class SupplierResponse(BaseModel):
 
 # ── Intake ───────────────────────────────────────────────────────────────────
 
+class IntakeCreate(BaseModel):
+    supplier_id: uuid.UUID
+    batch_number: str | None = None
+    source: str = "Kiosk"
+
 class IntakeResponse(BaseModel):
     id: uuid.UUID
-    supplier_id: uuid.UUID
+    supplier_id: uuid.UUID | None = None
     supplier_name: str | None = None
+    batch_number: str | None = None
+    qr_code: str | None = None
     intake_date: date
     status: str
     scan_count: int = 0

@@ -42,12 +42,13 @@ const cameras = [
 ]
 
 export default function Kiosk() {
-  const { user, scanState, startScan, scans, users, switchOperator, changePinAndLogin, flagScan, suppliers } = useApp()
+  const { user, scanState, startScan, scans, users, switchOperator, changePinAndLogin, flagScan, suppliers, activeIntake, startIntake } = useApp()
   const { isScanning, scanStep, scanProgress, lastResult } = scanState
   const [currentTime, setCurrentTime] = useState(new Date())
   const activeSuppliers = suppliers.filter(s => s.status === "Active")
-  const [selectedSource, setSelectedSource] = useState<string>(activeSuppliers[0]?.name || "Unknown Source")
   const [showSourceModal, setShowSourceModal] = useState(false)
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null)
+  const [batchNumber, setBatchNumber] = useState("")
 
   const activeOperators = users.filter(u => u.status === "Active" && u.role === "Operator")
   const [kioskOperator, setKioskOperator] = useState<string | null>(null)
@@ -79,11 +80,12 @@ export default function Kiosk() {
       setShowSwapModal(true)
       return
     }
-    if (!selectedSource) {
-      toast.error("Please select a source/supplier")
+    if (!activeIntake) {
+      toast.error("Please start an active delivery intake first")
+      setShowSourceModal(true)
       return
     }
-    startScan(selectedSource)
+    startScan()
   }
 
   // Count scans for today
@@ -269,33 +271,59 @@ export default function Kiosk() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
-            {activeSuppliers.map((supplier) => (
-              <button
-                key={supplier.id}
-                onClick={() => {
-                  setSelectedSource(supplier.name)
-                  setShowSourceModal(false)
-                }}
-                className={`
-                  flex flex-col items-start p-6 rounded-xl border-2 transition-all duration-200 text-left
-                  ${selectedSource === supplier.name 
-                    ? 'border-primary bg-primary/5 shadow-md scale-[1.02]' 
-                    : 'border-border bg-card hover:border-primary/50 hover:bg-accent hover:shadow-sm'}
-                `}
-              >
-                <span className="text-lg font-bold text-foreground mb-2">{supplier.name}</span>
-                <span className="text-sm text-muted-foreground flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  Active Delivery Intake
-                </span>
-                {supplier.contactPerson && (
-                  <span className="text-xs text-muted-foreground/70 mt-3 pt-3 border-t w-full">
-                    Contact: {supplier.contactPerson}
-                  </span>
-                )}
-              </button>
-            ))}
+          <div className="flex flex-col gap-4 py-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {activeSuppliers.map((supplier) => (
+                <button
+                  key={supplier.id}
+                  onClick={() => setSelectedSupplierId(supplier.id)}
+                  className={`
+                    flex flex-col items-start p-6 rounded-xl border-2 transition-all duration-200 text-left
+                    ${selectedSupplierId === supplier.id
+                      ? 'border-primary bg-primary/5 shadow-md scale-[1.02]'
+                      : 'border-border bg-card hover:border-primary/50 hover:bg-accent hover:shadow-sm'}
+                  `}
+                >
+                  <span className="text-lg font-bold text-foreground mb-2">{supplier.name}</span>
+                  {activeIntake?.supplierId === supplier.id && (
+                    <span className="text-sm text-primary font-medium flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      Currently Active Intake
+                    </span>
+                  )}
+                  {supplier.contactPerson && (
+                    <span className="text-xs text-muted-foreground/70 mt-3 pt-3 border-t w-full">
+                      Contact: {supplier.contactPerson}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+            
+            <div className="mt-4 flex flex-col gap-2">
+              <label className="text-sm font-semibold">Batch Number / PO (Optional)</label>
+              <input 
+                type="text" 
+                value={batchNumber} 
+                onChange={(e) => setBatchNumber(e.target.value)}
+                placeholder="e.g. PO-2026-05" 
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+            
+            <Button 
+              className="mt-4" 
+              size="lg" 
+              disabled={!selectedSupplierId}
+              onClick={async () => {
+                if (!selectedSupplierId) return;
+                await startIntake(selectedSupplierId, batchNumber);
+                toast.success("Started new delivery intake!");
+                setShowSourceModal(false);
+              }}
+            >
+              Start Intake Session
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -504,7 +532,7 @@ export default function Kiosk() {
                 disabled={isScanning}
                 className="w-full h-14 bg-card hover:bg-muted text-left flex justify-between items-center px-4 rounded-xl border-border shadow-sm text-base font-medium"
               >
-                <span>{selectedSource}</span>
+                <span>{activeIntake ? `${activeIntake.supplierName}${activeIntake.batchNumber ? ` (${activeIntake.batchNumber})` : ''}` : "Select Source"}</span>
                 <span className="text-sm text-muted-foreground bg-muted/50 px-2 py-1 rounded-md">Change</span>
               </Button>
             </div>
@@ -512,7 +540,7 @@ export default function Kiosk() {
             <Button
               size="lg"
               className="h-14 lg:h-16 text-base lg:text-xl font-bold rounded-2xl shadow-xl shadow-primary/20 gap-3 transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]"
-              disabled={isScanning || !selectedSource || !kioskOperator}
+              disabled={isScanning || !activeIntake || !kioskOperator}
               onClick={handleScan}
             >
               {isScanning ? (

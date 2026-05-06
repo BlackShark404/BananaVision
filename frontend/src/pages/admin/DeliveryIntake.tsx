@@ -275,7 +275,8 @@ export default function DeliveryIntake() {
             <TableRow className="bg-muted/30">
               <TableHead className="font-semibold">Intake ID</TableHead>
               <TableHead className="font-semibold">Date</TableHead>
-              <TableHead className="font-semibold">Source</TableHead>
+              <TableHead className="font-semibold">Supplier</TableHead>
+              <TableHead className="font-semibold">Batch / PO</TableHead>
               <TableHead className="font-semibold">Items Scanned</TableHead>
               <TableHead className="font-semibold">Status</TableHead>
               <TableHead className="font-semibold">Inventory Status</TableHead>
@@ -285,7 +286,7 @@ export default function DeliveryIntake() {
           <TableBody>
             {paginated.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-64">
+                <TableCell colSpan={8} className="h-64">
                   <Empty>
                     <EmptyHeader>
                       <EmptyMedia variant="icon" className="size-12 rounded-full bg-primary/10 text-primary [&_svg]:size-6">
@@ -311,9 +312,10 @@ export default function DeliveryIntake() {
                   <TableCell>
                     {new Date(intake.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                   </TableCell>
-                  <TableCell className="font-medium">{intake.source}</TableCell>
+                  <TableCell className="font-medium">{intake.supplierName || "Unknown"}</TableCell>
+                  <TableCell className="text-muted-foreground">{intake.batchNumber || "—"}</TableCell>
                   <TableCell>
-                    {intake.scanCount} bananas
+                    {intake.scanCount || 0} bananas
                   </TableCell>
                   <TableCell>
                     {intake.status === "Active" ? (
@@ -355,6 +357,33 @@ export default function DeliveryIntake() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
+                        {intake.qrCode && (
+                          <>
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                const win = window.open("", "_blank");
+                                if (win) {
+                                  win.document.write(`
+                                    <html>
+                                      <head><title>Batch QR Code: ${intake.batchNumber}</title></head>
+                                      <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;">
+                                        <h2>Batch: ${intake.batchNumber || intake.id}</h2>
+                                        <p>Supplier: ${intake.supplierName}</p>
+                                        <img src="${intake.qrCode}" width="300" height="300" />
+                                        <button onclick="window.print()" style="margin-top:20px;padding:10px 20px;font-size:16px;">Print Label</button>
+                                      </body>
+                                    </html>
+                                  `);
+                                  win.document.close();
+                                }
+                              }}
+                            >
+                              <Package className="mr-2 h-4 w-4 text-primary" />
+                              <span>Print Batch QR Label</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                          </>
+                        )}
                         <DropdownMenuLabel>Bulk Update Status</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         {([

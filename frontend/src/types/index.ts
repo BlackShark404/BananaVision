@@ -32,9 +32,13 @@ export interface ScanResult {
 
 export interface DailyIntake {
   id: string
-  source: string
+  supplierId?: string
+  supplierName?: string
+  batchNumber?: string
+  qrCode?: string
   date: string
   status: "Active" | "Depleted"
+  scanCount?: number
 }
 
 export interface Supplier {
