@@ -48,7 +48,6 @@ export default function Kiosk() {
   const activeSuppliers = suppliers.filter(s => s.status === "Active")
   const [showSourceModal, setShowSourceModal] = useState(false)
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null)
-  const [batchNumber, setBatchNumber] = useState("")
 
   const activeOperators = users.filter(u => u.status === "Active" && u.role === "Operator")
   const [kioskOperator, setKioskOperator] = useState<string | null>(null)
@@ -300,24 +299,22 @@ export default function Kiosk() {
               ))}
             </div>
             
-            <div className="mt-4 flex flex-col gap-2">
-              <label className="text-sm font-semibold">Batch Number / PO (Optional)</label>
-              <input 
-                type="text" 
-                value={batchNumber} 
-                onChange={(e) => setBatchNumber(e.target.value)}
-                placeholder="e.g. PO-2026-05" 
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              />
+            <div className="mt-4 p-4 rounded-xl bg-muted/50 border border-border flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold">Batch Tracking</span>
+                <span className="text-xs text-muted-foreground">A secure batch number will be automatically generated.</span>
+              </div>
+              <Badge variant="secondary" className="font-mono text-xs">AUTO-ASSIGNED</Badge>
             </div>
             
             <Button 
-              className="mt-4" 
+              className="mt-4 h-14 text-lg font-bold rounded-xl" 
               size="lg" 
               disabled={!selectedSupplierId}
               onClick={async () => {
                 if (!selectedSupplierId) return;
-                await startIntake(selectedSupplierId, batchNumber);
+                const generatedBatch = `BCH-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+                await startIntake(selectedSupplierId, generatedBatch);
                 toast.success("Started new delivery intake!");
                 setShowSourceModal(false);
               }}
