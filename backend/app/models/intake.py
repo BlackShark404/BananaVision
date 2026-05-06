@@ -7,7 +7,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Date, Enum as SAEnum, DateTime, String, ForeignKey
+from sqlalchemy import Date, Enum as SAEnum, DateTime, String, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,7 +25,7 @@ class Intake(Base):
         "di_supplier_id", UUID(as_uuid=True), ForeignKey("supplier.sup_id", ondelete="RESTRICT"), nullable=True, index=True
     )
     batch_number: Mapped[str | None] = mapped_column("di_batch_number", String(50), nullable=True)
-    qr_code: Mapped[str | None] = mapped_column("di_qr_code", String(1000), nullable=True)
+    qr_code: Mapped[str | None] = mapped_column("di_qr_code", Text, nullable=True)
     intake_date: Mapped[date] = mapped_column("di_date", Date, nullable=False, index=True)
     status: Mapped[str] = mapped_column(
         "di_status", SAEnum("Active", "Depleted", name="intake_status"), nullable=False, default="Active"

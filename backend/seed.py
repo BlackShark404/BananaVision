@@ -2,7 +2,11 @@ import asyncio
 import logging
 import uuid
 import random
+import io
+import base64
+import json
 import sqlalchemy
+import qrcode
 from datetime import datetime, timezone, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -110,7 +114,7 @@ async def seed_data():
         db.add_all([s1, s2, s3])
         await db.flush()
 
-        # 7. Intakes
+        # 7. Intakes (with QR codes — same format as create_intake API)
         i1 = Intake(
             supplier_id=s1.id,
             batch_number="BCH-1A2B3C",
@@ -120,6 +124,9 @@ async def seed_data():
             created_at=now,
             updated_at=now
         )
+        db.add(i1)
+        await db.flush()
+
         i2 = Intake(
             supplier_id=s2.id,
             batch_number="BCH-9X8Y7Z",
@@ -129,8 +136,24 @@ async def seed_data():
             created_at=now - timedelta(days=1),
             updated_at=now - timedelta(days=1)
         )
-        db.add_all([i1, i2])
+        db.add(i2)
         await db.flush()
+
+        # Generate QR codes for both intakes
+        for intake, supplier in [(i1, s1), (i2, s2)]:
+            qr_data = {
+                "intake_id": str(intake.id),
+                "supplier_id": str(intake.supplier_id),
+                "batch_number": intake.batch_number,
+                "date": intake.intake_date.isoformat()
+            }
+            img = qrcode.make(json.dumps(qr_data))
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+            intake.qr_code = f"data:image/png;base64,{b64}"
+        await db.flush()
+        logger.info("  QR codes generated for intakes")
 
         # 8. Scans & Classifications
         cultivars = ["Lakatan", "Latundan", "Saba"]
