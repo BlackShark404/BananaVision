@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import DbSession, CurrentUser, AdminUser
 from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
+from app.models.operator_profile import OperatorProfile
 from app.models.scan_status_log import ScanStatusLog
 from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.models.scan_note import ScanNote
@@ -85,7 +86,7 @@ async def list_scans(
         selectinload(Scan.classification),
         selectinload(Scan.status_logs),
         selectinload(Scan.original_ai_result),
-        selectinload(Scan.operator),
+        selectinload(Scan.operator).selectinload(OperatorProfile.account),
     ).order_by(desc(Scan.date_time))
 
     if cultivar:
@@ -116,7 +117,7 @@ async def list_scans(
                 humidity=float(s.classification.humidity) if s.classification and s.classification.humidity else None,
                 spoilage_days=s.classification.spoilage_days if s.classification else "Unknown",
                 finger_count=s.classification.finger_count if s.classification else 0,
-                operator_name=s.operator.full_name if s.operator else "Unknown",
+                operator_name=s.operator.account.full_name if s.operator and s.operator.account else "Unknown",
                 source_text=s.source_text,
                 intake_id=s.intake_id,
                 inventory_status=s.status_logs[-1].inventory_status if s.status_logs else "Unknown",
