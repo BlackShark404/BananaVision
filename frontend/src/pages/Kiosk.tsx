@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { BASE_URL } from "@/lib/api"
 import {
   InputOTP,
   InputOTPGroup,
@@ -405,20 +406,40 @@ export default function Kiosk() {
           <Card className="shrink-0 lg:shrink h-50 sm:h-70 lg:flex-1 lg:h-auto bg-card border-border rounded-2xl overflow-hidden relative lg:min-h-50">
             <CardContent className="p-0 h-full flex flex-col relative">
               {/* Main Feed */}
-              <div className="flex-1 w-full flex items-center justify-center relative">
+              <div className="flex-1 w-full flex items-center justify-center relative bg-black rounded-t-2xl overflow-hidden">
                 {isScanning ? (
-                  <div className="text-center space-y-4 animate-pulse">
+                  <div className="text-center space-y-4 animate-pulse z-10">
                     <div className="w-20 h-20 lg:w-24 lg:h-24 rounded-full bg-primary/20 flex items-center justify-center mx-auto border-2 border-primary/40">
                       <Loader2 className="w-10 h-10 lg:w-12 lg:h-12 text-primary animate-spin" />
                     </div>
-                    <p className="text-muted-foreground text-sm lg:text-base font-medium">{scanState.scanStepLabel}</p>
+                    <p className="text-white text-sm lg:text-base font-medium drop-shadow-md">{scanState.scanStepLabel}</p>
                   </div>
                 ) : (
-                  <div className="text-center space-y-3">
-                    <div className="w-20 h-20 lg:w-24 lg:h-24 rounded-full bg-muted flex items-center justify-center mx-auto border-2 border-border">
+                  <img
+                    src={`${BASE_URL}/api/v1/cameras/preview/0`}
+                    alt="Live Camera Feed"
+                    className="w-full h-full object-cover opacity-90 transition-opacity duration-300 z-0 absolute"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.parentElement?.classList.remove('bg-black');
+                      // Target the fallback div directly or just rely on CSS
+                      const fallback = e.currentTarget.nextElementSibling;
+                      if (fallback) (fallback as HTMLElement).style.display = 'block';
+                    }}
+                    onLoad={(e) => {
+                      const fallback = e.currentTarget.nextElementSibling;
+                      if (fallback) (fallback as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                )}
+                
+                {/* Fallback UI if camera stream fails or isn't scanning */}
+                {!isScanning && (
+                  <div className="text-center space-y-3 z-10" style={{ display: 'none' }}>
+                    <div className="w-20 h-20 lg:w-24 lg:h-24 rounded-full bg-muted flex items-center justify-center mx-auto border-2 border-border shadow-sm">
                       <Camera className="w-10 h-10 lg:w-12 lg:h-12 text-muted-foreground/50" />
                     </div>
-                    <p className="text-muted-foreground/70 text-sm">Multi-camera feed — Ready</p>
+                    <p className="text-muted-foreground/70 text-sm">Multi-camera feed — Standby</p>
                   </div>
                 )}
 
