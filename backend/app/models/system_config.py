@@ -18,7 +18,7 @@ class SystemConfig(Base):
     __tablename__ = "system_config"
 
     id: Mapped[int] = mapped_column("sc_id", Integer, primary_key=True, autoincrement=True)
-    camera_ids: Mapped[str] = mapped_column("sc_camera_ids", Text, nullable=False, default="CAM-001, CAM-002")
+    camera_ids: Mapped[str] = mapped_column("sc_camera_ids", Text, nullable=False, default="CAM-001, CAM-002, CAM-003, CAM-004")
     confidence_threshold: Mapped[int] = mapped_column("sc_confidence_threshold", Integer, nullable=False, default=85)
     data_retention_enabled: Mapped[bool] = mapped_column("sc_data_retention", Boolean, nullable=False, default=True)
     updated_at: Mapped[datetime] = mapped_column(

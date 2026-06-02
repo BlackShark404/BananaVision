@@ -218,7 +218,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setDevices((devicesRes.value as any[]).map(mapApiDevice))
         }
         else { 
-          const currentConfigIds = configRes.status === "fulfilled" ? configRes.value.camera_ids : "CAM-001, CAM-002"
+          const currentConfigIds = configRes.status === "fulfilled" ? configRes.value.camera_ids : "CAM-001, CAM-002, CAM-003, CAM-004"
           const parsedIds = currentConfigIds.split(",").map((s: string) => s.trim()).filter(Boolean)
           console.warn("[AppContext] Devices API unavailable, using mock data"); 
           setDevices(generateDevices(parsedIds)) 

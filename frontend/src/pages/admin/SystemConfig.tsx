@@ -64,7 +64,7 @@ export default function SystemConfig() {
   }
 
   const handleReset = () => {
-    setLocalConfig({ cameraIds: "CAM-001, CAM-002", confidenceThreshold: 85, dataRetentionEnabled: true })
+    setLocalConfig({ cameraIds: "CAM-001, CAM-002, CAM-003, CAM-004", confidenceThreshold: 85, dataRetentionEnabled: true })
     toast.info("Settings reset to defaults")
   }
 
