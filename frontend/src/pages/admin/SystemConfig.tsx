@@ -17,7 +17,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, X, Plus } from "lucide-react"
 import { toast } from "sonner"
 
 export default function SystemConfig() {
@@ -26,10 +27,29 @@ export default function SystemConfig() {
   const [saving, setSaving] = useState(false)
   const [showShutdownDialog, setShowShutdownDialog] = useState(false)
   const [showRestartDialog, setShowRestartDialog] = useState(false)
+  const [newCameraId, setNewCameraId] = useState("")
 
   useEffect(() => {
     setLocalConfig(config)
   }, [config])
+
+  const activeCameraIds = localConfig.cameraIds.split(",").map(s => s.trim()).filter(Boolean)
+
+  const handleAddCameraId = () => {
+    if (!newCameraId.trim()) return
+    const id = newCameraId.trim()
+    if (!activeCameraIds.includes(id)) {
+      setLocalConfig({...localConfig, cameraIds: [...activeCameraIds, id].join(", ")})
+    }
+    setNewCameraId("")
+  }
+
+  const handleRemoveCameraId = (idToRemove: string) => {
+    setLocalConfig({
+      ...localConfig, 
+      cameraIds: activeCameraIds.filter(id => id !== idToRemove).join(", ")
+    })
+  }
 
   const handleSave = () => {
     setSaving(true)
@@ -123,15 +143,39 @@ export default function SystemConfig() {
               <CardDescription className="text-xs sm:text-sm">Configure camera devices for banana scanning.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 px-4 sm:px-6">
-              <div className="space-y-2">
-                <Label htmlFor="cameraIds" className="text-sm">Active Camera IDs (comma separated)</Label>
-                <Input 
-                  id="cameraIds" 
-                  value={localConfig.cameraIds} 
-                  onChange={e => setLocalConfig({...localConfig, cameraIds: e.target.value})} 
-                  placeholder="e.g. CAM-001, CAM-002" 
-                  className="rounded-xl h-10 sm:h-11"
-                />
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm">Active Camera IDs</Label>
+                  <div className="flex flex-wrap gap-2 mb-2 p-3 min-h-12 border rounded-xl bg-muted/20">
+                    {activeCameraIds.length === 0 && (
+                      <span className="text-sm text-muted-foreground italic flex items-center">No cameras configured</span>
+                    )}
+                    {activeCameraIds.map(id => (
+                      <Badge key={id} variant="secondary" className="px-2.5 py-1 text-xs sm:text-sm rounded-lg flex items-center gap-1.5 font-medium border bg-background">
+                        {id}
+                        <button 
+                          onClick={() => handleRemoveCameraId(id)}
+                          className="hover:bg-muted/80 rounded-full p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Input 
+                    value={newCameraId} 
+                    onChange={e => setNewCameraId(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && (e.preventDefault(), handleAddCameraId())}
+                    placeholder="e.g. CAM-003" 
+                    className="rounded-xl h-10 sm:h-11 flex-1"
+                  />
+                  <Button onClick={handleAddCameraId} type="button" variant="secondary" className="h-10 sm:h-11 rounded-xl px-4 sm:px-6">
+                    <Plus className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Add Camera</span>
+                  </Button>
+                </div>
                 <p className="text-xs text-muted-foreground">These cameras will be used for round-robin scanning.</p>
               </div>
             </CardContent>
