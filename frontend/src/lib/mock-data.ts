@@ -319,6 +319,8 @@ export function generateActivityLogs(): ActivityLog[] {
     "intake_edited",
     "intake_deleted",
     "intake_status_changed",
+    "system_shutdown",
+    "system_restart",
   ]
   const users = [
     "Admin User",
@@ -381,6 +383,8 @@ export function generateActivityLogs(): ActivityLog[] {
     intake_edited: ["Adjusted intake records", "Modified delivery data"],
     intake_deleted: ["Voided intake", "Deleted erroneous delivery"],
     intake_status_changed: ["Marked intake as depleted", "Re-activated intake"],
+    system_shutdown: ["System shutdown initiated", "Manual shutdown completed"],
+    system_restart: ["System restart initiated", "Manual reboot completed"],
   }
 
   return Array.from({ length: 100 }, (_, i) => {

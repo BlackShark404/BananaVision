@@ -41,7 +41,7 @@ export default function SystemConfig() {
   }
 
   const handleReset = () => {
-    setLocalConfig({ cameraIds: "CAM-001, CAM-002", confidenceThreshold: 85 })
+    setLocalConfig({ cameraIds: "CAM-001, CAM-002", confidenceThreshold: 85, dataRetentionEnabled: true })
     toast.info("Settings reset to defaults")
   }
 
@@ -49,7 +49,7 @@ export default function SystemConfig() {
     try {
       await api.config.export()
       toast.success("Database Exported", { description: "bananavision_inventory_export.csv saved to downloads" })
-    } catch (error) {
+    } catch {
       toast.error("Export Failed", { description: "Could not export database" })
     }
   }
@@ -74,7 +74,7 @@ export default function SystemConfig() {
       setTimeout(() => {
         toast.info("System shutting down...", { description: "Please wait while the system powers off" })
       }, 3000)
-    } catch (error) {
+    } catch {
       toast.error("Shutdown Failed", { description: "Could not initiate shutdown" })
     }
   }
@@ -84,7 +84,7 @@ export default function SystemConfig() {
       await api.config.restart()
       toast.success("Restart initiated", { description: "System will reboot in 10 seconds..." })
       setShowRestartDialog(false)
-    } catch (error) {
+    } catch {
       toast.error("Restart Failed", { description: "Could not initiate restart" })
     }
   }

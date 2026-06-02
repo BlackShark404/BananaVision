@@ -644,7 +644,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const updateConfig = useCallback((cfg: Partial<SystemConfig>) => {
-    const apiData: any = {
+    const apiData: Record<string, unknown> = {
       camera_ids: cfg.cameraIds,
       confidence_threshold: cfg.confidenceThreshold,
       data_retention_enabled: cfg.dataRetentionEnabled,

@@ -78,7 +78,7 @@ export default function DeliveryIntake() {
   const [sourceFilter, setSourceFilter] = useState<string>("all")
   const [page, setPage] = useState(1)
 
-  const activeSources = useMemo(() => Array.from(new Set(intakes.map(i => i.source))).sort(), [intakes])
+  const activeSources = useMemo(() => Array.from(new Set(intakes.map(i => i.source).filter(Boolean))).sort(), [intakes])
 
   const intakesWithScanCount = useMemo(() => {
     return intakes.map(intake => {
@@ -105,7 +105,7 @@ export default function DeliveryIntake() {
       if (sourceFilter !== "all" && intake.source !== sourceFilter) return false
       if (search) {
         const q = search.toLowerCase()
-        return intake.source.toLowerCase().includes(q) || 
+        return (intake.source?.toLowerCase() || "").includes(q) || 
                intake.id.toLowerCase().includes(q)
       }
       return true
@@ -126,7 +126,7 @@ export default function DeliveryIntake() {
     const headers = ["Intake ID", "Source", "Date", "Total Scans", "Status"]
     const rows = filtered.map(intake => [
       intake.id,
-      intake.source,
+      intake.source || "Unknown",
       intake.date,
       intake.scanCount.toString(),
       intake.status
@@ -262,7 +262,7 @@ export default function DeliveryIntake() {
           <SelectContent>
             <SelectItem value="all">All Sources</SelectItem>
             {activeSources.map((source) => (
-              <SelectItem key={source} value={source}>{source}</SelectItem>
+              <SelectItem key={source} value={source as string}>{source}</SelectItem>
             ))}
           </SelectContent>
         </Select>

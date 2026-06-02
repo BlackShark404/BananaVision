@@ -145,8 +145,8 @@ export default function Inventory() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Sources</SelectItem>
-              {Array.from(new Set(intakes.filter(i => i.status === "Active").map(i => i.source))).sort().map((src) => (
-                <SelectItem key={src} value={src}>{src}</SelectItem>
+              {Array.from(new Set(intakes.filter(i => i.status === "Active").map(i => i.source).filter(Boolean))).sort().map((src) => (
+                <SelectItem key={src} value={src as string}>{src}</SelectItem>
               ))}
             </SelectContent>
           </Select>

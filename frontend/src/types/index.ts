@@ -39,6 +39,7 @@ export interface DailyIntake {
   date: string
   status: "Active" | "Depleted"
   scanCount?: number
+  source?: string
 }
 
 export interface Supplier {
@@ -84,15 +85,20 @@ export interface ActivityLog {
     | "logout"
     | "scan_created"
     | "scan_edited"
+    | "scan_deleted"
     | "user_created"
     | "user_updated"
     | "config_changed"
     | "scan_flagged"
     | "supplier_created"
     | "supplier_updated"
+    | "supplier_deleted"
     | "intake_created"
     | "intake_edited"
+    | "intake_deleted"
     | "intake_status_changed"
+    | "system_shutdown"
+    | "system_restart"
   details: string
   ipAddress?: string
 }
