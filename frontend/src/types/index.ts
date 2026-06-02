@@ -110,6 +110,7 @@ export interface AppNotification {
 export interface SystemConfig {
   cameraIds: string
   confidenceThreshold: number
+  dataRetentionEnabled: boolean
 }
 
 export interface ScanNote {

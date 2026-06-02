@@ -98,7 +98,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [devices, setDevices] = useState<Device[]>([])
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([])
 
-  const [config, setConfig] = useState<SystemConfig>({ cameraIds: "CAM-001, CAM-002", confidenceThreshold: 85 })
+  const [config, setConfig] = useState<SystemConfig>({ cameraIds: "CAM-001, CAM-002", confidenceThreshold: 85, dataRetentionEnabled: true })
   const [scanNotes, setScanNotes] = useState<ScanNote[]>([])
   const [scanState, setScanState] = useState<ScanState>({
     isScanning: false,
@@ -192,13 +192,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const loadData = async () => {
       try {
-        const [scansRes, usersRes, devicesRes, suppliersRes, intakesRes, activityRes] = await Promise.allSettled([
+        const [scansRes, usersRes, devicesRes, suppliersRes, intakesRes, activityRes, configRes] = await Promise.allSettled([
           api.scans.list({ per_page: 100 }),
           api.users.list(),
           api.devices.list(),
           api.suppliers.list(),
           api.intakes.list(),
           api.activity.list({ per_page: 100 }),
+          api.config.get(),
         ])
 
         if (scansRes.status === "fulfilled") {
@@ -233,6 +234,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setActivityLogs(Array.isArray(raw) ? raw.map(mapApiActivityLog) : [])
         }
         else { console.warn("[AppContext] Activity API unavailable, using mock data"); setActivityLogs(generateActivityLogs()) }
+
+        if (configRes.status === "fulfilled") {
+          setConfig({
+            cameraIds: configRes.value.camera_ids,
+            confidenceThreshold: configRes.value.confidence_threshold,
+            dataRetentionEnabled: configRes.value.data_retention_enabled,
+          })
+        }
+        else { console.warn("[AppContext] Config API unavailable"); }
 
       } catch (err) {
         console.warn("[AppContext] Backend unreachable — loading mock data", err)
@@ -634,7 +644,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const updateConfig = useCallback((cfg: Partial<SystemConfig>) => {
-    api.config.update(cfg).catch(() => {})
+    const apiData: any = {
+      camera_ids: cfg.cameraIds,
+      confidence_threshold: cfg.confidenceThreshold,
+      data_retention_enabled: cfg.dataRetentionEnabled,
+    }
+    // Remove undefined
+    Object.keys(apiData).forEach(k => apiData[k] === undefined && delete apiData[k])
+    
+    api.config.update(apiData).catch(() => {})
     setConfig((prev) => ({ ...prev, ...cfg }))
   }, [])
 

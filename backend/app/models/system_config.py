@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import uuid
 
-from sqlalchemy import DateTime, Text, Integer, ForeignKey
+from sqlalchemy import DateTime, Text, Integer, ForeignKey, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,8 +18,9 @@ class SystemConfig(Base):
     __tablename__ = "system_config"
 
     id: Mapped[int] = mapped_column("sc_id", Integer, primary_key=True, autoincrement=True)
-    camera_ids: Mapped[str] = mapped_column("sc_camera_ids", Text, nullable=False)
-    confidence_threshold: Mapped[int] = mapped_column("sc_confidence_threshold", Integer, nullable=False)
+    camera_ids: Mapped[str] = mapped_column("sc_camera_ids", Text, nullable=False, default="CAM-001, CAM-002")
+    confidence_threshold: Mapped[int] = mapped_column("sc_confidence_threshold", Integer, nullable=False, default=85)
+    data_retention_enabled: Mapped[bool] = mapped_column("sc_data_retention", Boolean, nullable=False, default=True)
     updated_at: Mapped[datetime] = mapped_column(
         "sc_updated_at",
         DateTime(timezone=True),

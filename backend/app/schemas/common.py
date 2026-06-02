@@ -142,8 +142,10 @@ class ActivityLogListResponse(BaseModel):
 class SystemConfigResponse(BaseModel):
     camera_ids: str
     confidence_threshold: float
+    data_retention_enabled: bool
 
 
 class SystemConfigUpdate(BaseModel):
     camera_ids: str | None = None
     confidence_threshold: float | None = None
+    data_retention_enabled: bool | None = None

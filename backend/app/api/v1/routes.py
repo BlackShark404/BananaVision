@@ -9,9 +9,11 @@ import qrcode
 import io
 import base64
 import json
+import csv
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Query, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select, func, desc
 
 from app.api.deps import DbSession, CurrentUser, AdminUser
@@ -591,22 +593,48 @@ config_router = APIRouter(prefix="/config", tags=["Config"])
 @config_router.get("", response_model=SystemConfigResponse)
 async def get_config(db: DbSession, admin: AdminUser):
     """Get system configuration."""
-    camera_ids = await _get_config_value(db, "camera_ids", "CAM-001, CAM-002")
-    threshold = await _get_config_value(db, "confidence_threshold", "85")
+    result = await db.execute(select(SystemConfig).limit(1))
+    config = result.scalar_one_or_none()
+    
+    if not config:
+        config = SystemConfig(
+            camera_ids="CAM-001, CAM-002",
+            confidence_threshold=85,
+            data_retention_enabled=True
+        )
+        db.add(config)
+        await db.flush()
 
     return SystemConfigResponse(
-        camera_ids=camera_ids,
-        confidence_threshold=float(threshold),
+        camera_ids=config.camera_ids,
+        confidence_threshold=float(config.confidence_threshold),
+        data_retention_enabled=config.data_retention_enabled,
     )
 
 
 @config_router.patch("", response_model=SystemConfigResponse)
 async def update_config(body: SystemConfigUpdate, db: DbSession, admin: AdminUser, request: Request):
     """Update system configuration."""
+    result = await db.execute(select(SystemConfig).limit(1))
+    config = result.scalar_one_or_none()
+    
+    if not config:
+        config = SystemConfig(
+            camera_ids="CAM-001, CAM-002",
+            confidence_threshold=85,
+            data_retention_enabled=True
+        )
+        db.add(config)
+        await db.flush()
+
     if body.camera_ids is not None:
-        await _set_config_value(db, "camera_ids", body.camera_ids)
+        config.camera_ids = body.camera_ids
     if body.confidence_threshold is not None:
-        await _set_config_value(db, "confidence_threshold", str(body.confidence_threshold))
+        config.confidence_threshold = int(body.confidence_threshold)
+    if body.data_retention_enabled is not None:
+        config.data_retention_enabled = body.data_retention_enabled
+        
+    config.upd_by_admin = admin.id
 
     db.add(ActivityLog(
         user_id=admin.id,
@@ -615,22 +643,63 @@ async def update_config(body: SystemConfigUpdate, db: DbSession, admin: AdminUse
         ip_address=request.client.host if request.client else None,
     ))
 
+    await db.flush()
     return await get_config(db, admin)
 
 
-async def _get_config_value(db: DbSession, key: str, default: str) -> str:
-    result = await db.execute(select(SystemConfig).where(SystemConfig.key == key))
-    config = result.scalar_one_or_none()
-    return config.value if config else default
+@config_router.get("/export")
+async def export_database(db: DbSession, admin: AdminUser):
+    """Export database logs and inventory to CSV."""
+    result = await db.execute(
+        select(Scan)
+        .options(selectinload(Scan.classification), selectinload(Scan.status_logs))
+    )
+    scans = result.scalars().all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Scan ID", "Date Time", "Cultivar", "Ripeness", "Confidence", "Inventory Status"])
+
+    for scan in scans:
+        cultivar = scan.classification.cultivar if scan.classification else "N/A"
+        ripeness = scan.classification.ripeness if scan.classification else "N/A"
+        confidence = scan.classification.confidence if scan.classification else "N/A"
+        status = scan.status_logs[-1].inventory_status if scan.status_logs else "N/A"
+        writer.writerow([scan.id, scan.date_time.isoformat(), cultivar, ripeness, confidence, status])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=bananavision_inventory_export.csv"}
+    )
 
 
-async def _set_config_value(db: DbSession, key: str, value: str):
-    result = await db.execute(select(SystemConfig).where(SystemConfig.key == key))
-    config = result.scalar_one_or_none()
-    if config:
-        config.value = value
-    else:
-        db.add(SystemConfig(key=key, value=value))
+@config_router.post("/shutdown")
+async def shutdown_system(db: DbSession, admin: AdminUser, request: Request):
+    """Shutdown the system (Mock for now)."""
+    db.add(ActivityLog(
+        user_id=admin.id,
+        action="system_shutdown",
+        details="Initiated system shutdown",
+        ip_address=request.client.host if request.client else None,
+    ))
+    await db.flush()
+    return {"message": "System shutdown initiated"}
+
+
+@config_router.post("/restart")
+async def restart_system(db: DbSession, admin: AdminUser, request: Request):
+    """Restart the system (Mock for now)."""
+    db.add(ActivityLog(
+        user_id=admin.id,
+        action="system_restart",
+        details="Initiated system restart",
+        ip_address=request.client.host if request.client else None,
+    ))
+    await db.flush()
+    return {"message": "System restart initiated"}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

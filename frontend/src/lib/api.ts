@@ -183,6 +183,22 @@ export const api = {
   config: {
     get: () => get<any>("/api/v1/config"),
     update: (data: any) => patch<any>("/api/v1/config", data),
+    export: async () => {
+      const token = getToken()
+      const res = await fetch(`${BASE_URL}/api/v1/config/export`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      })
+      if (!res.ok) throw new Error("Export failed")
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = "bananavision_inventory_export.csv"
+      a.click()
+      window.URL.revokeObjectURL(url)
+    },
+    shutdown: () => post<any>("/api/v1/config/shutdown"),
+    restart: () => post<any>("/api/v1/config/restart"),
   },
 
   // ── Quality Control ──────────────────────────────────────────────────────

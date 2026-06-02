@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { useApp } from "@/context/AppContext"
+import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,7 +26,6 @@ export default function SystemConfig() {
   const [saving, setSaving] = useState(false)
   const [showShutdownDialog, setShowShutdownDialog] = useState(false)
   const [showRestartDialog, setShowRestartDialog] = useState(false)
-  const [dataRetentionEnabled, setDataRetentionEnabled] = useState(true)
 
   useEffect(() => {
     setLocalConfig(config)
@@ -45,35 +45,48 @@ export default function SystemConfig() {
     toast.info("Settings reset to defaults")
   }
 
-  const handleExportData = () => {
-    toast.success("Database Exported", { description: "bananavision_inventory_export.csv saved to downloads" })
+  const handleExportData = async () => {
+    try {
+      await api.config.export()
+      toast.success("Database Exported", { description: "bananavision_inventory_export.csv saved to downloads" })
+    } catch (error) {
+      toast.error("Export Failed", { description: "Could not export database" })
+    }
   }
 
   const toggleDataRetention = () => {
-    const newState = !dataRetentionEnabled
-    setDataRetentionEnabled(newState)
+    const newState = !localConfig.dataRetentionEnabled
+    setLocalConfig({...localConfig, dataRetentionEnabled: newState})
+    updateConfig({ dataRetentionEnabled: newState })
     toast.success(
       newState ? "Data Retention Enabled" : "Data Retention Disabled",
       { description: newState ? "Logs older than 30 days will be deleted automatically" : "All logs will be kept indefinitely" }
     )
   }
 
-  const handleShutdown = () => {
-    // In production: API call to shutdown the mini PC
-    // fetch('/api/system/shutdown', { method: 'POST' })
-    toast.success("Shutdown initiated", { description: "System will power off in 10 seconds..." })
-    setShowShutdownDialog(false)
-    
-    // Simulate countdown
-    setTimeout(() => {
-      toast.info("System shutting down...", { description: "Please wait while the system powers off" })
-    }, 3000)
+  const handleShutdown = async () => {
+    try {
+      await api.config.shutdown()
+      toast.success("Shutdown initiated", { description: "System will power off in 10 seconds..." })
+      setShowShutdownDialog(false)
+      
+      // Simulate countdown
+      setTimeout(() => {
+        toast.info("System shutting down...", { description: "Please wait while the system powers off" })
+      }, 3000)
+    } catch (error) {
+      toast.error("Shutdown Failed", { description: "Could not initiate shutdown" })
+    }
   }
 
-  const handleRestart = () => {
-    // In production: API call to restart the mini PC
-    toast.success("Restart initiated", { description: "System will reboot in 10 seconds..." })
-    setShowRestartDialog(false)
+  const handleRestart = async () => {
+    try {
+      await api.config.restart()
+      toast.success("Restart initiated", { description: "System will reboot in 10 seconds..." })
+      setShowRestartDialog(false)
+    } catch (error) {
+      toast.error("Restart Failed", { description: "Could not initiate restart" })
+    }
   }
 
   return (
@@ -182,11 +195,11 @@ export default function SystemConfig() {
                   <p className="text-xs sm:text-sm text-muted-foreground">Delete logs older than 30 days automatically</p>
                 </div>
                 <Button 
-                  variant={dataRetentionEnabled ? "default" : "outline"} 
+                  variant={localConfig.dataRetentionEnabled ? "default" : "outline"} 
                   onClick={toggleDataRetention} 
                   className="w-full sm:w-auto"
                 >
-                  {dataRetentionEnabled ? "Enabled" : "Disabled"}
+                  {localConfig.dataRetentionEnabled ? "Enabled" : "Disabled"}
                 </Button>
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border">
