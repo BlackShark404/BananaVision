@@ -676,9 +676,13 @@ async def export_database(db: DbSession, admin: AdminUser):
     )
 
 
+import subprocess
+import os
+import platform
+
 @config_router.post("/shutdown")
 async def shutdown_system(db: DbSession, admin: AdminUser, request: Request):
-    """Shutdown the system (Mock for now)."""
+    """Shutdown the system using OS-level commands."""
     db.add(ActivityLog(
         user_id=admin.id,
         action="system_shutdown",
@@ -686,12 +690,25 @@ async def shutdown_system(db: DbSession, admin: AdminUser, request: Request):
         ip_address=request.client.host if request.client else None,
     ))
     await db.flush()
+    
+    # Execute actual OS shutdown
+    current_os = platform.system().lower()
+    try:
+        if "windows" in current_os:
+            subprocess.Popen(["shutdown", "/s", "/t", "10"])
+        elif "darwin" in current_os or "mac" in current_os:
+            subprocess.Popen(["sudo", "shutdown", "-h", "+1"])
+        else: # Linux
+            subprocess.Popen(["sudo", "shutdown", "-h", "now"])
+    except Exception as e:
+        print(f"Failed to execute shutdown: {e}")
+        
     return {"message": "System shutdown initiated"}
 
 
 @config_router.post("/restart")
 async def restart_system(db: DbSession, admin: AdminUser, request: Request):
-    """Restart the system (Mock for now)."""
+    """Restart the system using OS-level commands."""
     db.add(ActivityLog(
         user_id=admin.id,
         action="system_restart",
@@ -699,6 +716,19 @@ async def restart_system(db: DbSession, admin: AdminUser, request: Request):
         ip_address=request.client.host if request.client else None,
     ))
     await db.flush()
+    
+    # Execute actual OS restart
+    current_os = platform.system().lower()
+    try:
+        if "windows" in current_os:
+            subprocess.Popen(["shutdown", "/r", "/t", "10"])
+        elif "darwin" in current_os or "mac" in current_os:
+            subprocess.Popen(["sudo", "shutdown", "-r", "+1"])
+        else: # Linux
+            subprocess.Popen(["sudo", "shutdown", "-r", "now"])
+    except Exception as e:
+        print(f"Failed to execute restart: {e}")
+        
     return {"message": "System restart initiated"}
 
 
