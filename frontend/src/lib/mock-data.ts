@@ -217,7 +217,18 @@ export function generateUsers(): User[] {
   ]
 }
 
-export function generateDevices(): Device[] {
+export function generateDevices(cameraIds?: string[]): Device[] {
+  if (cameraIds && cameraIds.length > 0) {
+    return cameraIds.map((id, index) => ({
+      id: String(index + 1),
+      cameraId: id,
+      label: `Scanner ${index + 1}`,
+      status: index % 3 === 0 ? "Offline" : "Online",
+      resolution: "1920x1080",
+      lastSeen: index % 3 === 0 ? generateDate(1) : new Date().toISOString(),
+    }))
+  }
+
   return [
     {
       id: "1",

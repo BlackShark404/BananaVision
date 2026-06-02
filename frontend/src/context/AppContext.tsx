@@ -217,7 +217,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (devicesRes.status === "fulfilled") {
           setDevices((devicesRes.value as any[]).map(mapApiDevice))
         }
-        else { console.warn("[AppContext] Devices API unavailable, using mock data"); setDevices(generateDevices()) }
+        else { 
+          const currentConfigIds = configRes.status === "fulfilled" ? configRes.value.camera_ids : "CAM-001, CAM-002"
+          const parsedIds = currentConfigIds.split(",").map((s: string) => s.trim()).filter(Boolean)
+          console.warn("[AppContext] Devices API unavailable, using mock data"); 
+          setDevices(generateDevices(parsedIds)) 
+        }
 
         if (suppliersRes.status === "fulfilled") {
           setSuppliers((suppliersRes.value as any[]).map(mapApiSupplier))
@@ -248,7 +253,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         console.warn("[AppContext] Backend unreachable — loading mock data", err)
         setScans(FALLBACK_SCANS)
         setUsers(generateUsers())
-        setDevices(generateDevices())
+        setDevices(generateDevices(config.cameraIds.split(",").map((s: string) => s.trim()).filter(Boolean)))
         setSuppliers(generateSuppliers())
         setIntakes(FALLBACK_INTAKES)
         setActivityLogs(generateActivityLogs())

@@ -38,13 +38,6 @@ import type { Cultivar, Ripeness, ScanResult } from "@/types"
 import { ChangePreview } from "@/components/ChangePreview"
 import { StatusBadge } from "@/components/shared/status-badge"
 
-const cameraViews = [
-  { id: "CAM-001", label: "Top View" },
-  { id: "CAM-002", label: "Side View" },
-  { id: "CAM-003", label: "Front View" },
-  { id: "CAM-004", label: "Angled View" },
-]
-
 export default function ScanDetail() {
   const { scanId } = useParams<{ scanId: string }>()
   const navigate = useNavigate()
@@ -57,6 +50,13 @@ export default function ScanDetail() {
   const scan = scans.find((s) => s.id === scanId)
   const notes = scan ? getScanNotes(scan.id) : []
   const isAdmin = user?.role === "Admin"
+
+  // Dynamically generate camera views from config
+  const cameraViews = config.cameraIds.split(",").map((s, index) => {
+    const id = s.trim()
+    const labels = ["Top View", "Side View", "Front View", "Angled View"]
+    return { id, label: labels[index] || `View ${index + 1}` }
+  }).filter(cam => cam.id)
 
   const handleFlag = () => {
     if (!scan) return
@@ -178,10 +178,10 @@ export default function ScanDetail() {
                 <>
                   <img src={scan.thumbnailUrl} alt={`${cameraViews[activeCamera].label}`} className="w-full h-full object-cover transition-all duration-300" />
                   <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-[10px] font-medium flex items-center gap-1">
-                    {cameraViews[activeCamera].id}
+                    {cameraViews[activeCamera]?.id || "CAM"}
                   </div>
                   <div className="absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-xs font-medium">
-                    {cameraViews[activeCamera].label}
+                    {cameraViews[activeCamera]?.label || "View"}
                   </div>
                   <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded-md text-[10px] font-medium">
                     {scan.confidence}%
