@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, X, Plus, Edit2 } from "lucide-react"
+import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, Edit2 } from "lucide-react"
 import { toast } from "sonner"
 
 export default function SystemConfig() {
@@ -27,7 +27,6 @@ export default function SystemConfig() {
   const [saving, setSaving] = useState(false)
   const [showShutdownDialog, setShowShutdownDialog] = useState(false)
   const [showRestartDialog, setShowRestartDialog] = useState(false)
-  const [newCameraId, setNewCameraId] = useState("")
   const [editingCameraId, setEditingCameraId] = useState<string | null>(null)
   const [editCameraValue, setEditCameraValue] = useState("")
 
@@ -36,22 +35,6 @@ export default function SystemConfig() {
   }, [config])
 
   const activeCameraIds = localConfig.cameraIds.split(",").map(s => s.trim()).filter(Boolean)
-
-  const handleAddCameraId = () => {
-    if (!newCameraId.trim()) return
-    const id = newCameraId.trim()
-    if (!activeCameraIds.includes(id)) {
-      setLocalConfig({...localConfig, cameraIds: [...activeCameraIds, id].join(", ")})
-    }
-    setNewCameraId("")
-  }
-
-  const handleRemoveCameraId = (idToRemove: string) => {
-    setLocalConfig({
-      ...localConfig, 
-      cameraIds: activeCameraIds.filter(id => id !== idToRemove).join(", ")
-    })
-  }
 
   const startEditingCameraId = (idToEdit: string) => {
     setEditingCameraId(idToEdit)
@@ -198,32 +181,12 @@ export default function SystemConfig() {
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
-                              <button 
-                                onClick={() => handleRemoveCameraId(id)}
-                                className="hover:bg-muted/80 rounded-full p-0.5 text-muted-foreground hover:text-foreground transition-colors"
-                                title="Remove"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
                             </div>
                           </>
                         )}
                       </Badge>
                     ))}
                   </div>
-                </div>
-                <div className="flex gap-2">
-                  <Input 
-                    value={newCameraId} 
-                    onChange={e => setNewCameraId(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && (e.preventDefault(), handleAddCameraId())}
-                    placeholder="e.g. CAM-003" 
-                    className="rounded-xl h-10 sm:h-11 flex-1"
-                  />
-                  <Button onClick={handleAddCameraId} type="button" variant="secondary" className="h-10 sm:h-11 rounded-xl px-4 sm:px-6">
-                    <Plus className="w-4 h-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Add Camera</span>
-                  </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">These cameras will be used for round-robin scanning.</p>
               </div>
