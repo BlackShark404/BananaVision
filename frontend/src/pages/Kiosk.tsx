@@ -35,15 +35,10 @@ const ripenessIcon: Record<string, string> = {
   Rotten: "⚫",
 }
 
-const cameras = [
-  { id: 1, label: "CAM-001", position: "Front" },
-  { id: 2, label: "CAM-002", position: "Left" },
-  { id: 3, label: "CAM-003", position: "Right" },
-  { id: 4, label: "CAM-004", position: "Top" },
-]
+
 
 export default function Kiosk() {
-  const { user, scanState, startScan, scans, users, switchOperator, changePinAndLogin, flagScan, suppliers, activeIntake, startIntake } = useApp()
+  const { user, scanState, startScan, scans, users, switchOperator, changePinAndLogin, flagScan, suppliers, activeIntake, startIntake, config } = useApp()
   const { isScanning, scanStep, scanProgress, lastResult } = scanState
   const [currentTime, setCurrentTime] = useState(new Date())
   const activeSuppliers = suppliers.filter(s => s.status === "Active")
@@ -60,9 +55,15 @@ export default function Kiosk() {
   const [newPinInput, setNewPinInput] = useState("")
   const [confirmPinInput, setConfirmPinInput] = useState("")
 
+  // Generate cameras dynamically from database configuration
+  const cameras = config.cameraIds.split(",").map(s => s.trim()).filter(Boolean).map((id, index) => ({
+    id: index + 1,
+    label: id,
+  }))
+
   // Determine which camera is actively capturing during scan step 1
   const activeCaptureCamera = isScanning && scanStep === 1
-    ? Math.min(4, Math.floor((scanProgress / 33) * 4) + 1)
+    ? Math.min(cameras.length, Math.floor((scanProgress / 33) * cameras.length) + 1)
     : 0
 
   // Update clock every second
@@ -495,8 +496,12 @@ export default function Kiosk() {
           </Card>
 
           {/* Camera Status Indicators (view-only) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3 shrink-0">
-            {cameras.map((cam) => {
+          <div className={`grid gap-2 lg:gap-3 shrink-0 ${cameras.length > 4 ? 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6' : 'grid-cols-2 sm:grid-cols-4'}`}>
+            {cameras.length === 0 ? (
+               <div className="col-span-full text-center text-muted-foreground text-xs py-4 border rounded-xl border-dashed">
+                 No cameras configured. Go to Settings to add cameras.
+               </div>
+            ) : cameras.map((cam) => {
               const isCapturing = isScanning && scanStep === 1 && activeCaptureCamera === cam.id
               const isCaptured = isScanning && scanStep === 1 && activeCaptureCamera > cam.id
               const isDoneCapture = isScanning && scanStep > 1
