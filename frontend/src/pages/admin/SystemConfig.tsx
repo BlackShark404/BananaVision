@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, X, Plus } from "lucide-react"
+import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, X, Plus, Edit2 } from "lucide-react"
 import { toast } from "sonner"
 
 export default function SystemConfig() {
@@ -28,6 +28,8 @@ export default function SystemConfig() {
   const [showShutdownDialog, setShowShutdownDialog] = useState(false)
   const [showRestartDialog, setShowRestartDialog] = useState(false)
   const [newCameraId, setNewCameraId] = useState("")
+  const [editingCameraId, setEditingCameraId] = useState<string | null>(null)
+  const [editCameraValue, setEditCameraValue] = useState("")
 
   useEffect(() => {
     setLocalConfig(config)
@@ -49,6 +51,24 @@ export default function SystemConfig() {
       ...localConfig, 
       cameraIds: activeCameraIds.filter(id => id !== idToRemove).join(", ")
     })
+  }
+
+  const startEditingCameraId = (idToEdit: string) => {
+    setEditingCameraId(idToEdit)
+    setEditCameraValue(idToEdit)
+  }
+
+  const saveEditedCameraId = () => {
+    if (editingCameraId) {
+      const trimmed = editCameraValue.trim()
+      const newIds = activeCameraIds.map(id => id === editingCameraId ? trimmed : id).filter(Boolean)
+      
+      // Filter out duplicates if they renamed to an existing one
+      const uniqueIds = Array.from(new Set(newIds))
+      
+      setLocalConfig({ ...localConfig, cameraIds: uniqueIds.join(", ") })
+      setEditingCameraId(null)
+    }
   }
 
   const handleSave = () => {
@@ -151,14 +171,37 @@ export default function SystemConfig() {
                       <span className="text-sm text-muted-foreground italic flex items-center">No cameras configured</span>
                     )}
                     {activeCameraIds.map(id => (
-                      <Badge key={id} variant="secondary" className="px-2.5 py-1 text-xs sm:text-sm rounded-lg flex items-center gap-1.5 font-medium border bg-background">
-                        {id}
-                        <button 
-                          onClick={() => handleRemoveCameraId(id)}
-                          className="hover:bg-muted/80 rounded-full p-0.5 text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
+                      <Badge key={id} variant="secondary" className="px-2.5 py-1 text-xs sm:text-sm rounded-lg flex items-center gap-1.5 font-medium border bg-background group">
+                        {editingCameraId === id ? (
+                          <input 
+                            value={editCameraValue} 
+                            onChange={e => setEditCameraValue(e.target.value)} 
+                            onBlur={saveEditedCameraId}
+                            onKeyDown={e => e.key === "Enter" && saveEditedCameraId()}
+                            autoFocus
+                            className="bg-transparent border-b border-primary/50 outline-none w-20 px-1 text-center"
+                          />
+                        ) : (
+                          <>
+                            {id}
+                            <div className="flex items-center">
+                              <button 
+                                onClick={() => startEditingCameraId(id)}
+                                className="hover:bg-muted/80 rounded-full p-0.5 text-muted-foreground hover:text-foreground transition-colors mr-0.5"
+                                title="Edit"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button 
+                                onClick={() => handleRemoveCameraId(id)}
+                                className="hover:bg-muted/80 rounded-full p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                                title="Remove"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </Badge>
                     ))}
                   </div>
