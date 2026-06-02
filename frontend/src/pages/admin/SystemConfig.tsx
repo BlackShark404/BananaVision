@@ -183,7 +183,13 @@ export default function SystemConfig() {
                           />
                         ) : (
                           <>
-                            {id}
+                            <span 
+                              onClick={() => startEditingCameraId(id)} 
+                              className="cursor-pointer hover:text-primary transition-colors"
+                              title="Click to edit"
+                            >
+                              {id}
+                            </span>
                             <div className="flex items-center">
                               <button 
                                 onClick={() => startEditingCameraId(id)}
