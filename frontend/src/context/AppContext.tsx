@@ -225,7 +225,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setDevices((devicesRes.value as any[]).map(mapApiDevice))
         }
         else { 
-          const currentConfigIds = configRes.status === "fulfilled" ? configRes.value.camera_ids : "CAM-001, CAM-002, CAM-003, CAM-004"
+          const currentConfigIds = configRes.status === "fulfilled" ? configRes.value.camera_ids : config.cameraIds
           const parsedIds = currentConfigIds.split(",").map((s: string) => s.trim()).filter(Boolean)
           console.warn("[AppContext] Devices API unavailable, using mock data"); 
           setDevices(generateDevices(parsedIds)) 
@@ -671,7 +671,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Remove undefined
     Object.keys(apiData).forEach(k => apiData[k] === undefined && delete apiData[k])
     
-    api.config.update(apiData).catch(() => {})
+    api.config.update(apiData)
+      .then(() => {
+        // Try to fetch updated devices from backend
+        api.devices.list().then(res => setDevices((res as any[]).map(mapApiDevice))).catch(console.error)
+      })
+      .catch(() => {
+        // Mock fallback: update generated devices
+        if (cfg.cameraIds !== undefined) {
+          const parsedIds = cfg.cameraIds.split(",").map((s: string) => s.trim()).filter(Boolean)
+          setDevices(generateDevices(parsedIds))
+        }
+      })
     setConfig((prev) => ({ ...prev, ...cfg }))
   }, [])
 

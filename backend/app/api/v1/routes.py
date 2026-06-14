@@ -629,6 +629,23 @@ async def update_config(body: SystemConfigUpdate, db: DbSession, admin: AdminUse
 
     if body.camera_ids is not None:
         config.camera_ids = body.camera_ids
+        
+        # Synchronize Device table with new camera IDs
+        from app.models.device import Device
+        from sqlalchemy import delete
+        from datetime import datetime, timezone
+        
+        await db.execute(delete(Device))
+        parsed_ids = [s.strip() for s in body.camera_ids.split(",") if s.strip()]
+        for idx, cam_id in enumerate(parsed_ids):
+            db.add(Device(
+                camera_id=cam_id,
+                label=f"Scanner {idx + 1}",
+                status="Online",
+                resolution="1920x1080",
+                last_seen=datetime.now(timezone.utc)
+            ))
+
     if body.confidence_threshold is not None:
         config.confidence_threshold = int(body.confidence_threshold)
     if body.data_retention_enabled is not None:

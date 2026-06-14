@@ -584,7 +584,7 @@ export default function QualityControl() {
               <div>
                 <Label className="text-sm font-semibold mb-3 block">Camera Views with Detection Boxes</Label>
                 <div className="grid grid-cols-2 gap-3">
-                  {['CAM-001', 'CAM-002', 'CAM-003', 'CAM-004'].map((camId, idx) => (
+                  {config.cameraIds.split(",").map(s => s.trim()).filter(Boolean).map((camId, idx) => (
                     <div key={camId}>
                       <AspectRatio ratio={4/3} className="rounded-lg overflow-hidden bg-muted/50 border-2 relative group">
                         {selectedScan.thumbnailUrl ? (
