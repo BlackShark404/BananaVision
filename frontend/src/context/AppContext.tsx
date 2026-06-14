@@ -18,6 +18,7 @@ import {
   type AuthUser,
 } from "@/lib/auth"
 import { useWebSocket } from "@/hooks/useWebSocket"
+import { generateQRCodeDataUrl } from "@/lib/qrcode"
 import type {
   ScanResult,
   User,
@@ -204,9 +205,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         if (scansRes.status === "fulfilled") {
           const raw = scansRes.value.items || scansRes.value as any
-          setScans(Array.isArray(raw) ? raw.map(mapApiScan) : FALLBACK_SCANS)
+          const mapped = Array.isArray(raw) ? raw.map(mapApiScan) : FALLBACK_SCANS
+          const withQr = await Promise.all(mapped.map(async (s: ScanResult) => ({ ...s, qrCode: await generateQRCodeDataUrl(s) })))
+          setScans(withQr)
         }
-        else { console.warn("[AppContext] Scans API unavailable, using mock data"); setScans(FALLBACK_SCANS) }
+        else { 
+          console.warn("[AppContext] Scans API unavailable, using mock data"); 
+          const withQr = await Promise.all(FALLBACK_SCANS.map(async (s: ScanResult) => ({ ...s, qrCode: await generateQRCodeDataUrl(s) })))
+          setScans(withQr) 
+        }
 
         if (usersRes.status === "fulfilled") {
           const raw = usersRes.value.items || usersRes.value as any
@@ -251,7 +258,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       } catch (err) {
         console.warn("[AppContext] Backend unreachable — loading mock data", err)
-        setScans(FALLBACK_SCANS)
+        const withQr = await Promise.all(FALLBACK_SCANS.map(async (s: ScanResult) => ({ ...s, qrCode: await generateQRCodeDataUrl(s) })))
+        setScans(withQr)
         setUsers(generateUsers())
         setDevices(generateDevices(config.cameraIds.split(",").map((s: string) => s.trim()).filter(Boolean)))
         setSuppliers(generateSuppliers())
@@ -316,8 +324,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           inventoryStatus: result.inventory_status || "In Stock",
           statusUpdatedAt: result.status_updated_at || new Date().toISOString(),
         }
-        setScans((prev) => [scanResult, ...prev])
-        setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: scanResult })
+        generateQRCodeDataUrl(scanResult).then((qrCode) => {
+          const scanWithQR = { ...scanResult, qrCode }
+          setScans((prev) => [scanWithQR, ...prev])
+          setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: scanWithQR })
+        })
         break
       }
 
@@ -553,8 +564,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             inventoryStatus: "In Stock",
             statusUpdatedAt: new Date().toISOString(),
           }
-          setScans((prev) => [newScan, ...prev])
-          setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: newScan })
+          generateQRCodeDataUrl(newScan).then((qrCode) => {
+            const scanWithQR = { ...newScan, qrCode }
+            setScans((prev) => [scanWithQR, ...prev])
+            setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: scanWithQR })
+          })
         }, 4800)
 
         scanTimeoutRef.current = [t1, t2, t3, t4]

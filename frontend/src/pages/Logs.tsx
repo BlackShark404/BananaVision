@@ -29,10 +29,11 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
-import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets } from "lucide-react"
+import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, QrCode, X, Printer } from "lucide-react"
 import { toast } from "sonner"
 import { parseSpoilageAvg } from "@/lib/utils"
-import type { Cultivar, Ripeness, InventoryStatus } from "@/types"
+import { printQRTag } from "@/lib/qrcode"
+import type { Cultivar, Ripeness, InventoryStatus, ScanResult } from "@/types"
 import { StatusBadge } from "@/components/shared/status-badge"
 
 const PAGE_SIZE = 10
@@ -49,6 +50,7 @@ export default function Logs() {
   const [intakeFilter, setIntakeFilter] = useState<string>(searchParams.get("intake") || "all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [page, setPage] = useState(1)
+  const [qrModalScan, setQrModalScan] = useState<ScanResult | null>(null)
 
   const roleFilteredScans = useMemo(() => {
     return user?.role === "Operator" ? scans.filter(s => s.operator === user.fullName) : scans
@@ -128,6 +130,7 @@ export default function Logs() {
 
 
   return (
+    <>
     <div className="space-y-6">
       <AppPageHeader
         title={intakeFilter !== "all" ? `Logs for Intake ${intakeFilter}` : "Scan Logs"}
@@ -270,6 +273,7 @@ export default function Logs() {
           <TableHeader>
             <TableRow className="bg-muted/30">
               <TableHead className="font-semibold w-20">Image</TableHead>
+              <TableHead className="font-semibold w-16">QR Code</TableHead>
               <TableHead className="font-semibold">Date/Time</TableHead>
               <TableHead className="font-semibold">Cultivar</TableHead>
               <TableHead className="font-semibold">Ripeness</TableHead>
@@ -286,7 +290,7 @@ export default function Logs() {
           <TableBody>
             {paginated.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={user?.role === "Admin" ? 11 : 10} className="h-64">
+                <TableCell colSpan={user?.role === "Admin" ? 12 : 11} className="h-64">
                   <Empty>
                     <EmptyHeader>
                       <EmptyMedia variant="icon" className="size-12 rounded-full bg-primary/10 text-primary [&_svg]:size-6">
@@ -315,6 +319,21 @@ export default function Logs() {
                         )}
                       </AspectRatio>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {scan.qrCode ? (
+                      <button
+                        className="w-10 h-10 rounded-lg overflow-hidden border bg-white hover:ring-2 hover:ring-primary/30 transition-all cursor-pointer"
+                        title="View QR Code"
+                        onClick={(e) => { e.stopPropagation(); setQrModalScan(scan as any) }}
+                      >
+                        <img src={scan.qrCode} alt="QR" className="w-full h-full object-contain" />
+                      </button>
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg border bg-muted/50 flex items-center justify-center">
+                        <QrCode className="w-5 h-5 text-muted-foreground/40" />
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm">
                     {new Date(scan.dateTime).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
@@ -506,5 +525,50 @@ export default function Logs() {
         </div>
       </Card>
     </div>
+
+      {/* QR Code Modal */}
+      {qrModalScan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={() => setQrModalScan(null)}>
+          <div
+            className="relative bg-background rounded-2xl shadow-2xl p-6 max-w-xs w-full mx-4 animate-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-muted transition-colors"
+              onClick={() => setQrModalScan(null)}
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center gap-2 text-sm font-semibold text-primary">
+                <QrCode className="w-4 h-4" />
+                Scan QR Code
+              </div>
+              <div className="bg-white rounded-xl p-4 border">
+                {qrModalScan.qrCode ? (
+                  <img src={qrModalScan.qrCode} alt="QR Code" className="w-full h-auto" />
+                ) : (
+                  <div className="w-full aspect-square flex items-center justify-center text-muted-foreground">
+                    <QrCode className="w-16 h-16" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <p className="font-semibold">{qrModalScan.cultivar}</p>
+                <p className="text-xs text-muted-foreground font-mono uppercase">ID: {qrModalScan.id}</p>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => printQRTag(qrModalScan as any)}
+              >
+                <Printer className="w-4 h-4" />
+                Print Tag
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

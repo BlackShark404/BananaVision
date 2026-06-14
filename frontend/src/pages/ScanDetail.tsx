@@ -31,9 +31,13 @@ import {
   ShieldCheck,
   Save,
   X,
+  QrCode,
+  Download,
+  Printer,
 } from "lucide-react"
 import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
+import { printQRTag } from "@/lib/qrcode"
 import type { Cultivar, Ripeness, ScanResult } from "@/types"
 import { ChangePreview } from "@/components/ChangePreview"
 import { StatusBadge } from "@/components/shared/status-badge"
@@ -229,6 +233,55 @@ export default function ScanDetail() {
                 <StatusBadge type="ripeness" status={scan.ripeness} size="lg" />
               </div>
             </div>
+
+            {/* QR Code Section — inside camera card */}
+            {scan.qrCode && (
+              <>
+                <Separator className="my-4" />
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold">
+                      <QrCode className="w-3.5 h-3.5 text-primary" />
+                      QR Tracking
+                    </div>
+                    <div className="flex items-center gap-0.5">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1 text-[10px] h-6 px-2"
+                        onClick={() => {
+                          const link = document.createElement('a')
+                          link.href = scan.qrCode!
+                          link.download = `qr-${scan.id}.png`
+                          link.click()
+                        }}
+                      >
+                        <Download className="w-3 h-3" />
+                        Save
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1 text-[10px] h-6 px-2"
+                        onClick={() => printQRTag(scan as any)}
+                      >
+                        <Printer className="w-3 h-3" />
+                        Print Tag
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-xl p-3 border flex items-center justify-center">
+                    <img src={scan.qrCode} alt="QR Code" className="w-full max-w-[140px] h-auto" />
+                  </div>
+                  <p className="text-center text-[10px] text-muted-foreground font-mono uppercase">
+                    {scan.id}
+                  </p>
+                  <p className="text-center text-[10px] text-muted-foreground">
+                    Scan with phone to track this banana
+                  </p>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 

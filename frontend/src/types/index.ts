@@ -28,6 +28,7 @@ export interface ScanResult {
   isOverridden?: boolean
   originalAiResult?: Partial<ScanResult>
   intakeId?: string
+  qrCode?: string
 }
 
 export interface DailyIntake {

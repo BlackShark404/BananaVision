@@ -644,6 +644,22 @@ export default function Kiosk() {
                   )}
                 </div>
 
+                {/* QR Code Preview */}
+                {lastResult.qrCode && (
+                  <div className="flex items-center gap-3 bg-muted/30 rounded-xl p-3 border border-border">
+                    <div className="bg-white rounded-lg p-1.5 border shadow-sm shrink-0">
+                      <img src={lastResult.qrCode} alt="QR Code" className="w-14 h-14 lg:w-16 lg:h-16" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        QR Code Generated
+                      </div>
+                      <p className="text-[10px] text-muted-foreground font-mono uppercase mt-0.5">{lastResult.id}</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Action Buttons — Accept / Reject only */}
                 <div className="flex gap-3 pt-2">
                   <Button 
