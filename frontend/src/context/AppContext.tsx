@@ -1,12 +1,4 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from "react"
-import {
-  generateScanResults,
-  generateUsers,
-  generateDevices,
-  generateActivityLogs,
-  generateIntakes,
-  generateSuppliers,
-} from "@/lib/mock-data"
 import { getSpoilageDays, getBananaImageUrl } from "@/lib/utils"
 import { api } from "@/lib/api"
 import {
@@ -84,9 +76,7 @@ interface AppContextType {
   updateSupplierStatus: (id: string, status: "Active" | "Inactive") => void
 }
 
-// ── Mock fallback data (used when backend is unreachable) ───────────────────
-const FALLBACK_SCANS = generateScanResults(40)
-const FALLBACK_INTAKES = generateIntakes(FALLBACK_SCANS)
+// ── Mock fallback data removed ───────────────────
 
 const AppContext = createContext<AppContextType | null>(null)
 
@@ -207,47 +197,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         if (scansRes.status === "fulfilled") {
           const raw = scansRes.value.items || scansRes.value as any
-          const mapped = Array.isArray(raw) ? raw.map(mapApiScan) : FALLBACK_SCANS
+          const mapped = Array.isArray(raw) ? raw.map(mapApiScan) : []
           const withQr = await Promise.all(mapped.map(async (s: ScanResult) => ({ ...s, qrCode: await generateQRCodeDataUrl(s) })))
           setScans(withQr)
-        }
-        else { 
-          console.warn("[AppContext] Scans API unavailable, using mock data"); 
-          const withQr = await Promise.all(FALLBACK_SCANS.map(async (s: ScanResult) => ({ ...s, qrCode: await generateQRCodeDataUrl(s) })))
-          setScans(withQr) 
+        } else {
+          console.warn("[AppContext] Scans API unavailable");
         }
 
         if (usersRes.status === "fulfilled") {
           const raw = usersRes.value.items || usersRes.value as any
           setUsers(Array.isArray(raw) ? raw.map(mapApiUser) : [])
+        } else {
+          console.warn("[AppContext] Users API unavailable");
         }
-        else { console.warn("[AppContext] Users API unavailable, using mock data"); setUsers(generateUsers()) }
 
         if (devicesRes.status === "fulfilled") {
           setDevices((devicesRes.value as any[]).map(mapApiDevice))
-        }
-        else { 
-          const currentConfigIds = configRes.status === "fulfilled" ? configRes.value.camera_ids : config.cameraIds
-          const parsedIds = currentConfigIds.split(",").map((s: string) => s.trim()).filter(Boolean)
-          console.warn("[AppContext] Devices API unavailable, using mock data"); 
-          setDevices(generateDevices(parsedIds)) 
+        } else {
+          console.warn("[AppContext] Devices API unavailable");
         }
 
         if (suppliersRes.status === "fulfilled") {
           setSuppliers((suppliersRes.value as any[]).map(mapApiSupplier))
+        } else {
+          console.warn("[AppContext] Suppliers API unavailable");
         }
-        else { console.warn("[AppContext] Suppliers API unavailable, using mock data"); setSuppliers(generateSuppliers()) }
 
         if (intakesRes.status === "fulfilled") {
           setIntakes((intakesRes.value as any[]).map(mapApiIntake))
+        } else {
+          console.warn("[AppContext] Intakes API unavailable");
         }
-        else { console.warn("[AppContext] Intakes API unavailable, using mock data"); setIntakes(FALLBACK_INTAKES) }
 
         if (activityRes.status === "fulfilled") {
           const raw = (activityRes.value as any).items || activityRes.value as any
           setActivityLogs(Array.isArray(raw) ? raw.map(mapApiActivityLog) : [])
+        } else {
+          console.warn("[AppContext] Activity API unavailable");
         }
-        else { console.warn("[AppContext] Activity API unavailable, using mock data"); setActivityLogs(generateActivityLogs()) }
 
         if (configRes.status === "fulfilled") {
           setConfig({
@@ -255,18 +242,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             confidenceThreshold: configRes.value.confidence_threshold,
             dataRetentionEnabled: configRes.value.data_retention_enabled,
           })
+        } else {
+          console.warn("[AppContext] Config API unavailable");
         }
-        else { console.warn("[AppContext] Config API unavailable"); }
-
       } catch (err) {
-        console.warn("[AppContext] Backend unreachable — loading mock data", err)
-        const withQr = await Promise.all(FALLBACK_SCANS.map(async (s: ScanResult) => ({ ...s, qrCode: await generateQRCodeDataUrl(s) })))
-        setScans(withQr)
-        setUsers(generateUsers())
-        setDevices(generateDevices(config.cameraIds.split(",").map((s: string) => s.trim()).filter(Boolean)))
-        setSuppliers(generateSuppliers())
-        setIntakes(FALLBACK_INTAKES)
-        setActivityLogs(generateActivityLogs())
+        console.warn("[AppContext] Backend unreachable", err)
       }
     }
 
@@ -389,16 +369,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setUser(authUser)
       return "success" as const
     } catch {
-      // Fallback: try local mock login
-      const mockUsers = generateUsers()
-      const found = mockUsers.find((u) => u.username === username)
-      if (found && password === found.password) {
-        if (found.status === "Inactive") return "inactive" as const
-        const authUser: AuthUser = { id: found.id, username: found.username, fullName: found.fullName, role: found.role }
-        setStoredUser(authUser)
-        setUser(authUser)
-        return "success" as const
-      }
       return "failed" as const
     }
   }, [])
@@ -429,21 +399,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setUser(authUser)
       return "success" as const
     } catch {
-      // Fallback: local mock
-      const mockUsers = generateUsers()
-      const found = mockUsers.find((u) => u.username === username)
-      if (found && found.pin === pin) {
-        if (found.status === "Inactive") return "inactive" as const
-        if (found.requiresPinChange) {
-          if (found.pinSetupReason === "new_account") return "requires_pin_change_new_account" as const
-          if (found.pinSetupReason === "pin_reset") return "requires_pin_change_reset" as const
-          return "requires_pin_change" as const
-        }
-        const authUser: AuthUser = { id: found.id, username: found.username, fullName: found.fullName, role: found.role }
-        setStoredUser(authUser)
-        setUser(authUser)
-        return "success" as const
-      }
       return "failed" as const
     }
   }, [])
@@ -472,15 +427,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setUser(authUser)
       return true
     } catch {
-      // Fallback: local mock
-      const mockUsers = generateUsers()
-      const found = mockUsers.find((u) => u.username === username)
-      if (found) {
-        const authUser: AuthUser = { id: found.id, username: found.username, fullName: found.fullName, role: found.role }
-        setStoredUser(authUser)
-        setUser(authUser)
-        return true
-      }
       return false
     }
   }, [])
@@ -514,66 +460,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // WebSocket events will drive the progress from here
       })
       .catch(() => {
-        // Backend unavailable — run mock pipeline
-        console.warn("[AppContext] Scan API unavailable, running mock pipeline")
-
-        const t1 = setTimeout(() => {
-          setScanState((s) => ({ ...s, scanStep: 2, scanStepLabel: "Detecting...", scanProgress: 60 }))
-        }, 1500)
-
-        const t2 = setTimeout(() => {
-          setScanState((s) => ({ ...s, scanStep: 3, scanStepLabel: "Analyzing...", scanProgress: 80 }))
-        }, 3000)
-
-        const t3 = setTimeout(() => {
-          setScanState((s) => ({ ...s, scanProgress: 100, scanStepLabel: "Complete!" }))
-        }, 4000)
-
-        const t4 = setTimeout(() => {
-          const cultivars: Cultivar[] = [...CULTIVARS]
-          const ripenessLevels: Ripeness[] = [...RIPENESS_LEVELS]
-          const cultivar = cultivars[Math.floor(Math.random() * cultivars.length)]
-          const ripeness = ripenessLevels[Math.floor(Math.random() * ripenessLevels.length)]
-          const temperature = parseFloat((Math.random() * 10 + 20).toFixed(1))
-          const humidity = parseFloat((Math.random() * 30 + 50).toFixed(1))
-
-          let activeIntakeId: string | undefined
-          if (source) {
-            const todayDate = new Date().toISOString().split("T")[0]
-            const existing = intakes.find((i) => i.source === source && i.date === todayDate && i.status === "Active")
-            if (existing) {
-              activeIntakeId = existing.id
-            } else {
-              activeIntakeId = `INT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
-              setIntakes((prev) => [{ id: activeIntakeId as string, source, date: todayDate, status: "Active" }, ...prev])
-            }
-          }
-
-          const newScan: ScanResult = {
-            id: Math.random().toString(36).substring(2, 10),
-            dateTime: new Date().toISOString(),
-            cultivar,
-            ripeness,
-            confidence: parseFloat((Math.random() * 10 + 90).toFixed(1)),
-            temperature,
-            humidity,
-            spoilageDays: getSpoilageDays(cultivar, ripeness, temperature, humidity),
-            fingerCount: Math.floor(Math.random() * 10) + 5,
-            operator: user?.fullName || "Unknown",
-            source: source || undefined,
-            thumbnailUrl: getBananaImageUrl(cultivar, ripeness),
-            intakeId: activeIntakeId,
-            inventoryStatus: "In Stock",
-            statusUpdatedAt: new Date().toISOString(),
-          }
-          generateQRCodeDataUrl(newScan).then((qrCode) => {
-            const scanWithQR = { ...newScan, qrCode }
-            setScans((prev) => [scanWithQR, ...prev])
-            setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: scanWithQR })
-          })
-        }, 4800)
-
-        scanTimeoutRef.current = [t1, t2, t3, t4]
+        console.warn("[AppContext] Scan API unavailable")
+        setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: null })
       })
   }, [scanState.isScanning, user, intakes, activeIntake])
 
@@ -699,11 +587,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         api.devices.list().then(res => setDevices((res as any[]).map(mapApiDevice))).catch(console.error)
       })
       .catch(() => {
-        // Mock fallback: update generated devices
-        if (cfg.cameraIds !== undefined) {
-          const parsedIds = cfg.cameraIds.split(",").map((s: string) => s.trim()).filter(Boolean)
-          setDevices(generateDevices(parsedIds))
-        }
+        console.warn("[AppContext] Config update failed")
       })
     setConfig((prev) => ({ ...prev, ...cfg }))
   }, [])

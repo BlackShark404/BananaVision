@@ -89,39 +89,6 @@ export default function Profile() {
     }
   }
 
-  const operatorMockActivity = useMemo(() => {
-    if (user?.role !== "Operator") return []
-
-    // Use current date but kept outside loop for consistency
-    const now = new Date().getTime()
-    const latestScans = userScans.slice(0, 3)
-
-    const scanEntries = latestScans.map((scan, index) => ({
-      id: `mock-scan-${scan.id}`,
-      details: `Completed kiosk scan: ${scan.cultivar} (${scan.ripeness}) at ${scan.confidence.toFixed(1)}% confidence`,
-      timestamp: new Date(now - (index + 1) * 45 * 60 * 1000).toISOString(),
-    }))
-
-    return [
-      ...scanEntries,
-      {
-        id: "mock-logs-status",
-        details: "Updated inventory status from the Logs module",
-        timestamp: new Date(now - 3 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: "mock-analytics",
-        details: "Reviewed personal performance in Analytics",
-        timestamp: new Date(now - 5 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: "mock-profile-security",
-        details: "Opened Profile security settings for PIN/password",
-        timestamp: new Date(now - 8 * 60 * 60 * 1000).toISOString(),
-      },
-    ]
-  }, [user?.role, userScans])
-
   const recentActivityFeed = useMemo(() => {
     if (userActivity.length > 0) {
       return userActivity.slice(0, 8).map((activity) => ({
@@ -130,15 +97,8 @@ export default function Profile() {
         timestamp: activity.timestamp,
       }))
     }
-
-    if (user?.role === "Operator") {
-      return operatorMockActivity.slice(0, 8)
-    }
-
     return []
-  }, [userActivity, user?.role, operatorMockActivity])
-
-  const isUsingOperatorMockActivity = user?.role === "Operator" && userActivity.length === 0
+  }, [userActivity])
 
   const stats = useMemo(() => {
     if (user?.role === "Admin") {
@@ -565,9 +525,7 @@ export default function Profile() {
                 <Calendar className="w-4 h-4" />
                 Recent Activity
               </CardTitle>
-              {isUsingOperatorMockActivity && (
-                <p className="text-xs text-muted-foreground">Showing operator mock activity data</p>
-              )}
+
             </CardHeader>
             <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
               <div className="space-y-3 max-h-[calc(100vh-200px)] overflow-y-auto">

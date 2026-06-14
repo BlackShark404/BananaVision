@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { useApp } from "@/context/AppContext"
-import { getMockNotifications } from "@/lib/mock-data"
+
 import { api } from "@/lib/api"
 import type { AppNotification, NotificationType } from "@/types"
 import { Badge } from "@/components/ui/badge"
@@ -81,7 +81,6 @@ export function AppNotifications() {
   const [open, setOpen] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
-  // Fetch notifications from backend
   const fetchNotifications = useCallback(async () => {
     try {
       const res = await api.notifications.list()
@@ -90,10 +89,7 @@ export function AppNotifications() {
         setNotifications(items.map(mapApiNotification))
       }
     } catch {
-      // Fallback to mock data only on first load
-      if (!loaded) {
-        setNotifications(getMockNotifications())
-      }
+      console.error("[AppNotifications] Failed to fetch notifications")
     }
     setLoaded(true)
   }, [loaded])

@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { Cultivar, Ripeness } from "@/types"
+import type { Cultivar, Ripeness, ScanResult } from "@/types"
+import { CULTIVARS, RIPENESS_LEVELS } from "@/types"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -102,3 +103,51 @@ export function getBananaImageUrl(cultivar: Cultivar, ripeness: Ripeness): strin
   const index = (cultivar.length + ripeness.length) % images.length;
   return images[index];
 }
+
+export function getAnalyticsData(scans: ScanResult[]) {
+  const ripenessDistribution = RIPENESS_LEVELS.map((r) => ({
+    name: r,
+    value: scans.filter((s) => s.ripeness === r).length,
+  }))
+
+  const cultivarCounts = CULTIVARS.map((c) => ({
+    name: c,
+    count: scans.filter((s) => s.cultivar === c).length,
+  }))
+
+  const scansByDay: Record<string, number> = {}
+  scans.forEach((s) => {
+    const day = new Date(s.dateTime).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    })
+    scansByDay[day] = (scansByDay[day] || 0) + 1
+  })
+  const scanTrend = Object.entries(scansByDay)
+    .map(([date, count]) => ({ date, count }))
+    .reverse()
+    .slice(-14)
+
+  const avgConfidence = scans.length
+    ? parseFloat(
+        (scans.reduce((a, s) => a + s.confidence, 0) / scans.length).toFixed(1)
+      )
+    : 0
+  const cultivarCountMap: Record<string, number> = {}
+  scans.forEach((s) => {
+    cultivarCountMap[s.cultivar] = (cultivarCountMap[s.cultivar] || 0) + 1
+  })
+  const mostCommonCultivar =
+    Object.entries(cultivarCountMap).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+    "N/A"
+
+  return {
+    ripenessDistribution,
+    cultivarCounts,
+    scanTrend,
+    totalScans: scans.length,
+    avgConfidence,
+    mostCommonCultivar,
+  }
+}
+

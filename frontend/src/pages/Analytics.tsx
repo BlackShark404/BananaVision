@@ -15,7 +15,7 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import { getAnalyticsData } from "@/lib/mock-data"
+import { getAnalyticsData } from "@/lib/utils"
 import { parseSpoilageAvg } from "@/lib/utils"
 import { BarChart3, TrendingUp, Target, AlertTriangle, Users, Calendar, Package, Clock } from "lucide-react"
 import {
