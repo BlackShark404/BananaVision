@@ -164,7 +164,6 @@ export default function ActivityLog() {
           icon={Activity}
           delay={50}
           description="Recent activity"
-          trend={{ value: 12, isPositive: true }}
         />
         <AppStatsCard
           title="Active Users"

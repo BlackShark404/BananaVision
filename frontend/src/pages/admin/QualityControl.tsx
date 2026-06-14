@@ -336,7 +336,6 @@ export default function QualityControl() {
           iconBgColor="bg-yellow-500/10"
           delay={50}
           description="Below threshold"
-          trend={{ value: 5, isPositive: false }}
         />
         <AppStatsCard
           title="Flagged"
@@ -346,7 +345,6 @@ export default function QualityControl() {
           iconBgColor="bg-red-500/10"
           delay={100}
           description="Needs review"
-          trend={{ value: 2, isPositive: false }}
         />
         <AppStatsCard
           title="Sources with Issues"
@@ -356,7 +354,6 @@ export default function QualityControl() {
           iconBgColor="bg-orange-500/10"
           delay={150}
           description="Flagged or low confidence"
-          trend={{ value: 3, isPositive: false }}
         />
       </div>
 

@@ -90,7 +90,6 @@ export default function Dashboard() {
           iconBgColor="bg-blue-500/10"
           delay={50}
           description="Total bananas scanned"
-          trend={{ value: 12, isPositive: true }}
         />
         <AppStatsCard
           title={operatorMetric.label}

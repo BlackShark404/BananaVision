@@ -161,7 +161,6 @@ export default function Inventory() {
           icon={Package}
           delay={50}
           description="In stock"
-          trend={{ value: 12, isPositive: true }}
         />
         <AppStatsCard
           title="Total Fingers"
@@ -171,7 +170,6 @@ export default function Inventory() {
           iconBgColor="bg-yellow-500/10"
           delay={100}
           description="Estimated count"
-          trend={{ value: 8, isPositive: true }}
         />
         <AppStatsCard
           title="Spoiling Soon"
@@ -181,7 +179,6 @@ export default function Inventory() {
           iconBgColor="bg-red-500/10"
           delay={150}
           description="≤2 days left"
-          trend={{ value: 3, isPositive: false }}
         />
         <AppStatsCard
           title="Sold Today"
@@ -191,7 +188,6 @@ export default function Inventory() {
           iconBgColor="bg-emerald-500/10"
           delay={200}
           description="All time"
-          trend={{ value: 15, isPositive: true }}
         />
       </div>
 

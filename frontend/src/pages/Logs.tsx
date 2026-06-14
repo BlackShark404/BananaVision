@@ -306,7 +306,6 @@ const columns: ColumnDef<ScanResult>[] = [
           icon={TrendingUp}
           delay={50}
           description="All time records"
-          trend={{ value: 8, isPositive: true }}
         />
         <AppStatsCard
           title="Avg Confidence"
@@ -316,7 +315,6 @@ const columns: ColumnDef<ScanResult>[] = [
           iconBgColor="bg-emerald-500/10"
           delay={100}
           description="Detection accuracy"
-          trend={{ value: 3, isPositive: true }}
         />
         <AppStatsCard
           title="At-Risk Scans"

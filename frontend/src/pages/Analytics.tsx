@@ -253,7 +253,6 @@ export default function Analytics() {
           icon={TrendingUp}
           delay={50}
           description={sourceFilter !== "all" ? "In selected source" : "All sources"}
-          trend={{ value: 8, isPositive: true }}
         />
         <AppStatsCard
           title="Avg Confidence"
@@ -263,7 +262,6 @@ export default function Analytics() {
           iconBgColor="bg-emerald-500/10"
           delay={100}
           description="Detection accuracy"
-          trend={{ value: 3, isPositive: true }}
         />
         <AppStatsCard
           title="Low Confidence"
@@ -273,7 +271,6 @@ export default function Analytics() {
           iconBgColor="bg-yellow-500/10"
           delay={150}
           description="Below threshold"
-          trend={{ value: 2, isPositive: false }}
         />
         <AppStatsCard
           title="At-Risk Scans"
@@ -283,7 +280,6 @@ export default function Analytics() {
           iconBgColor="bg-orange-500/10"
           delay={200}
           description="Spoiling in ≤2 days"
-          trend={{ value: 1, isPositive: false }}
         />
       </div>
 

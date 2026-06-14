@@ -262,7 +262,6 @@ export default function Profile() {
           icon={Activity}
           delay={50}
           description={user.role === "Admin" ? "Platform lifetime scans" : "Your lifetime scans"}
-          trend={{ value: 12, isPositive: true }}
         />
         {user.role === "Admin" ? (
           <AppStatsCard
@@ -273,7 +272,6 @@ export default function Profile() {
             iconBgColor="bg-blue-500/10"
             delay={100}
             description="Registered accounts"
-            trend={{ value: 2, isPositive: true }}
           />
         ) : (
           <AppStatsCard
@@ -284,7 +282,6 @@ export default function Profile() {
             iconBgColor="bg-blue-500/10"
             delay={100}
             description="Recent activity"
-            trend={{ value: 8, isPositive: true }}
           />
         )}
         <AppStatsCard
@@ -295,7 +292,6 @@ export default function Profile() {
           iconBgColor="bg-emerald-500/10"
           delay={150}
           description={user.role === "Admin" ? "Platform detection accuracy" : "Personal detection accuracy"}
-          trend={{ value: 3, isPositive: true }}
         />
       </div>
 

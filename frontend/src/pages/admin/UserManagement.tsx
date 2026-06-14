@@ -219,7 +219,6 @@ export default function UserManagement() {
           iconBgColor="bg-emerald-500/10"
           delay={100}
           description="Currently enabled"
-          trend={{ value: 5, isPositive: true }}
         />
         <AppStatsCard
           title="Admins"

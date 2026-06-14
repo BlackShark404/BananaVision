@@ -1,6 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
-import { TrendingUp, TrendingDown } from "lucide-react"
 import type { LucideProps } from "lucide-react"
 import type { ForwardRefExoticComponent, RefAttributes } from "react"
 
@@ -15,10 +14,6 @@ interface AppStatsCardProps {
   className?: string
   delay?: number
   description?: string
-  trend?: {
-    value: number
-    isPositive?: boolean
-  }
 }
 
 export function AppStatsCard({
@@ -30,7 +25,6 @@ export function AppStatsCard({
   className,
   delay = 0,
   description,
-  trend,
 }: AppStatsCardProps) {
   return (
     <Card 
@@ -55,19 +49,10 @@ export function AppStatsCard({
           <p className="text-sm font-semibold text-muted-foreground tracking-tight uppercase">{title}</p>
         </div>
         
-        {/* Body: Value and Trend */}
+        {/* Body: Value */}
         <div className="flex flex-col gap-2">
           <div className="flex items-end gap-3 flex-wrap">
             <h3 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground drop-shadow-sm leading-none">{value}</h3>
-            {trend && (
-              <div className={cn(
-                "flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md mb-0.5",
-                trend.isPositive ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "bg-red-500/15 text-red-700 dark:text-red-400"
-              )}>
-                {trend.isPositive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                <span>{Math.abs(trend.value)}%</span>
-              </div>
-            )}
           </div>
           {description && (
             <p className="text-sm font-medium text-muted-foreground/80 leading-relaxed">{description}</p>
