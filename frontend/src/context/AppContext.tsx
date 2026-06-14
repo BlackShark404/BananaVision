@@ -68,6 +68,7 @@ interface AppContextType {
   flagScan: (id: string, flagged: boolean) => void
   addScanNote: (scanId: string, note: string) => void
   getScanNotes: (scanId: string) => ScanNote[]
+  loadScanNotes: (scanId: string) => void
   updateScanData: (id: string, data: Partial<ScanResult>) => void
   config: SystemConfig
   updateConfig: (cfg: Partial<SystemConfig>) => void
@@ -650,6 +651,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return scanNotes.filter((n) => n.scanId === scanId)
   }, [scanNotes])
 
+  const loadScanNotes = useCallback((scanId: string) => {
+    api.scans.notes.list(scanId)
+      .then((notes) => {
+        setScanNotes((prev) => {
+          const others = prev.filter((n) => n.scanId !== scanId)
+          return [
+            ...others,
+            ...notes.map((n: any) => ({
+              id: n.id,
+              scanId: n.scan_id || scanId,
+              note: n.text || n.note,
+              author: n.author_name || "Unknown",
+              timestamp: n.timestamp || new Date().toISOString()
+            }))
+          ]
+        })
+      })
+      .catch(() => {})
+  }, [])
+
   const updateScanData = useCallback((id: string, data: Partial<ScanResult>) => {
     const apiData = {
       cultivar: data.cultivar,
@@ -769,6 +790,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         flagScan,
         addScanNote,
         getScanNotes,
+        loadScanNotes,
         updateScanData,
         config,
         updateConfig,

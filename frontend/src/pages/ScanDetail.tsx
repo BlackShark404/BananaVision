@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useApp } from "@/context/AppContext"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -45,7 +45,7 @@ import { StatusBadge } from "@/components/shared/status-badge"
 export default function ScanDetail() {
   const { scanId } = useParams<{ scanId: string }>()
   const navigate = useNavigate()
-  const { scans, flagScan, addScanNote, getScanNotes, updateScanData, config, user } = useApp()
+  const { scans, flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData, config, user } = useApp()
   const [noteText, setNoteText] = useState("")
   const [editMode, setEditMode] = useState(false)
   const [editData, setEditData] = useState<Partial<{ cultivar: Cultivar; ripeness: Ripeness; spoilageDays: string; fingerCount: number | string }>>({})
@@ -54,6 +54,12 @@ export default function ScanDetail() {
   const scan = scans.find((s) => s.id === scanId)
   const notes = scan ? getScanNotes(scan.id) : []
   const isAdmin = user?.role === "Admin"
+
+  useEffect(() => {
+    if (scanId) {
+      loadScanNotes(scanId)
+    }
+  }, [scanId, loadScanNotes])
 
   // Dynamically generate camera views from config
   const cameraViews = config.cameraIds.split(",").map((s, index) => {

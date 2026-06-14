@@ -42,8 +42,9 @@ import { StatusBadge } from "@/components/shared/status-badge"
 
 const PAGE_SIZE = 15
 
+import { useEffect } from "react"
 export default function QualityControl() {
-  const { scans, flagScan, addScanNote, getScanNotes, updateScanData, config } = useApp()
+  const { scans, flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData, config } = useApp()
   const [selectedScan, setSelectedScan] = useState<ScanResult | null>(null)
   const [noteText, setNoteText] = useState("")
   const [editMode, setEditMode] = useState(false)
@@ -139,6 +140,7 @@ export default function QualityControl() {
       spoilageDays: scan.spoilageDays,
       fingerCount: scan.fingerCount,
     })
+    loadScanNotes(scan.id)
   }
 
   const lowConfidenceCount = scans.filter(s => s.confidence < config.confidenceThreshold).length
