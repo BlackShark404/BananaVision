@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { StatsCard } from "@/components/shared/stats-card"
+import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import {
   ChartContainer,
@@ -246,7 +246,7 @@ export default function Analytics() {
 
       {/* Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatsCard
+        <AppStatsCard
           title="Total Scans"
           value={data.totalScans}
           icon={TrendingUp}
@@ -254,7 +254,7 @@ export default function Analytics() {
           description={sourceFilter !== "all" ? "In selected source" : "All sources"}
           trend={{ value: 8, isPositive: true }}
         />
-        <StatsCard
+        <AppStatsCard
           title="Avg Confidence"
           value={`${data.avgConfidence}%`}
           icon={Target}
@@ -264,7 +264,7 @@ export default function Analytics() {
           description="Detection accuracy"
           trend={{ value: 3, isPositive: true }}
         />
-        <StatsCard
+        <AppStatsCard
           title="Low Confidence"
           value={`${advancedMetrics.lowConfidenceRate}%`}
           icon={AlertTriangle}
@@ -274,7 +274,7 @@ export default function Analytics() {
           description="Below threshold"
           trend={{ value: 2, isPositive: false }}
         />
-        <StatsCard
+        <AppStatsCard
           title="At-Risk Scans"
           value={advancedMetrics.spoilingSoon}
           icon={Clock}

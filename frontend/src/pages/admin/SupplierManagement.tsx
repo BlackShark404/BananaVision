@@ -3,10 +3,10 @@ import { useApp } from "@/context/AppContext"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ActionButton } from "@/components/shared/action-button"
+import { AppActionButton } from "@/components/AppActionButton"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AppDataTable, type ColumnDef } from "@/components/shared/app-data-table"
+import { AppDataTable, type ColumnDef } from "@/components/AppDataTable"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
 import {
   AlertDialog,
@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
-import { StatsCard } from "@/components/shared/stats-card"
+import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppTableFilters } from "@/components/AppTableFilters"
 import { Package, Plus, Building2, Phone, User, CheckCircle2, XCircle, Filter, Pencil } from "lucide-react"
@@ -178,12 +178,12 @@ export default function SupplierManagement() {
       stopPropagation: true,
       cell: (supplier) => (
         <div className="flex items-center justify-end gap-1">
-          <ActionButton
+          <AppActionButton
             tooltip="Edit supplier"
             icon={Pencil}
             onClick={() => openEditDialog(supplier)}
           />
-          <ActionButton
+          <AppActionButton
             tooltip={supplier.status === "Active" ? "Deactivate supplier" : "Activate supplier"}
             icon={supplier.status === "Active" ? XCircle : CheckCircle2}
             iconClassName={supplier.status === "Active" ? "text-red-500" : "text-emerald-500"}
@@ -319,7 +319,7 @@ export default function SupplierManagement() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-        <StatsCard
+        <AppStatsCard
           title="Active Suppliers"
           value={stats.active}
           icon={CheckCircle2}
@@ -328,7 +328,7 @@ export default function SupplierManagement() {
           delay={50}
           description="Available on Kiosk"
         />
-        <StatsCard
+        <AppStatsCard
           title="Inactive Suppliers"
           value={stats.inactive}
           icon={XCircle}

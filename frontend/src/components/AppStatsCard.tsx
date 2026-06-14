@@ -6,7 +6,7 @@ import type { ForwardRefExoticComponent, RefAttributes } from "react"
 
 type LucideIcon = ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>
 
-interface StatsCardProps {
+interface AppStatsCardProps {
   title: string
   value: string | number
   icon: LucideIcon
@@ -21,7 +21,7 @@ interface StatsCardProps {
   }
 }
 
-export function StatsCard({
+export function AppStatsCard({
   title,
   value,
   icon: Icon,
@@ -31,7 +31,7 @@ export function StatsCard({
   delay = 0,
   description,
   trend,
-}: StatsCardProps) {
+}: AppStatsCardProps) {
   return (
     <Card 
       className={cn(

@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge"
 
-interface ChangePreviewProps {
+interface AppChangePreviewProps {
   originalData: {
     cultivar?: string
     ripeness?: string
@@ -18,7 +18,7 @@ interface ChangePreviewProps {
   textClassName?: string
 }
 
-export function ChangePreview({ originalData, editData, className = "", badgeClassName = "bg-background border-border text-[10px]", textClassName = "text-muted-foreground text-[10px]" }: ChangePreviewProps) {
+export function AppChangePreview({ originalData, editData, className = "", badgeClassName = "bg-background border-border text-[10px]", textClassName = "text-muted-foreground text-[10px]" }: AppChangePreviewProps) {
   if (!originalData || !editData) return null
 
   const safeOriginalFingers = originalData.fingerCount === '' || originalData.fingerCount === undefined ? 0 : Math.max(0, Number(originalData.fingerCount) || 0)

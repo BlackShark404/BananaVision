@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { StatsCard } from "@/components/shared/stats-card"
+import { AppStatsCard } from "@/components/AppStatsCard"
 import { Switch } from "@/components/ui/switch"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { Separator } from "@/components/ui/separator"
@@ -256,7 +256,7 @@ export default function Profile() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        <StatsCard
+        <AppStatsCard
           title={user.role === "Admin" ? "System Scans" : "Total Scans"}
           value={stats.totalScans}
           icon={Activity}
@@ -265,7 +265,7 @@ export default function Profile() {
           trend={{ value: 12, isPositive: true }}
         />
         {user.role === "Admin" ? (
-          <StatsCard
+          <AppStatsCard
             title="Total Users"
             value={stats.totalUsers || 0}
             icon={User}
@@ -276,7 +276,7 @@ export default function Profile() {
             trend={{ value: 2, isPositive: true }}
           />
         ) : (
-          <StatsCard
+          <AppStatsCard
             title="Last 7 Days"
             value={stats.last7Days || 0}
             icon={TrendingUp}
@@ -287,7 +287,7 @@ export default function Profile() {
             trend={{ value: 8, isPositive: true }}
           />
         )}
-        <StatsCard
+        <AppStatsCard
           title={user.role === "Admin" ? "System Avg Confidence" : "Avg Confidence"}
           value={`${stats.avgConfidence}%`}
           icon={Target}

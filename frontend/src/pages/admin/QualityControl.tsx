@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { AspectRatio } from "@/components/ui/aspect-ratio"
-import { AppDataTable, type ColumnDef } from "@/components/shared/app-data-table"
-import { StatsCard } from "@/components/shared/stats-card"
+import { AppDataTable, type ColumnDef } from "@/components/AppDataTable"
+import { AppStatsCard } from "@/components/AppStatsCard"
 import { Input } from "@/components/ui/input"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import {
@@ -24,12 +24,12 @@ import { ShieldCheck, Flag, MessageSquare, Edit, AlertTriangle, CheckCircle, Ban
 import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
 import type { ScanResult, Cultivar, Ripeness } from "@/types"
-import { ChangePreview } from "@/components/ChangePreview"
+import { AppChangePreview } from "@/components/AppChangePreview"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { ActionButton } from "@/components/shared/action-button"
+import { AppActionButton } from "@/components/AppActionButton"
 import { AppTableFilters } from "@/components/AppTableFilters"
 import { AppPageHeader } from "@/components/AppPageHeader"
-import { StatusBadge } from "@/components/shared/status-badge"
+import { AppStatusBadge } from "@/components/AppStatusBadge"
 
 const PAGE_SIZE = 15
 
@@ -225,7 +225,7 @@ export default function QualityControl() {
     },
     {
       header: "Ripeness",
-      cell: (scan) => <StatusBadge type="ripeness" status={scan.ripeness} size="md" />,
+      cell: (scan) => <AppStatusBadge type="ripeness" status={scan.ripeness} size="md" />,
     },
     {
       header: "Source",
@@ -301,7 +301,7 @@ export default function QualityControl() {
       className: "text-right",
       stopPropagation: true,
       cell: (scan) => (
-        <ActionButton
+        <AppActionButton
           tooltip={scan.flagged ? "Unflag Issue" : "Flag for Review"}
           icon={Flag}
           iconClassName={scan.flagged ? 'fill-current text-red-600' : ''}
@@ -328,7 +328,7 @@ export default function QualityControl() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        <StatsCard
+        <AppStatsCard
           title="Low Confidence"
           value={lowConfidenceCount}
           icon={AlertTriangle}
@@ -338,7 +338,7 @@ export default function QualityControl() {
           description="Below threshold"
           trend={{ value: 5, isPositive: false }}
         />
-        <StatsCard
+        <AppStatsCard
           title="Flagged"
           value={flaggedCount}
           icon={Flag}
@@ -348,7 +348,7 @@ export default function QualityControl() {
           description="Needs review"
           trend={{ value: 2, isPositive: false }}
         />
-        <StatsCard
+        <AppStatsCard
           title="Sources with Issues"
           value={sourcesWithIssues}
           icon={CheckCircle}
@@ -644,7 +644,7 @@ export default function QualityControl() {
 
                     {/* Change Preview */}
                     {editData && selectedScan && (
-                      <ChangePreview 
+                      <AppChangePreview 
                         originalData={selectedScan} 
                         editData={editData} 
                         className="mt-4"
@@ -693,7 +693,7 @@ export default function QualityControl() {
                 )}
                 
                 {!editMode && selectedScan.isOverridden && selectedScan.originalAiResult && (
-                  <ChangePreview 
+                  <AppChangePreview 
                     originalData={selectedScan.originalAiResult} 
                     editData={selectedScan} 
                   />

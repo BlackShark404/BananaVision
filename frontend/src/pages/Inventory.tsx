@@ -4,7 +4,7 @@ import { parseSpoilageAvg } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { StatsCard } from "@/components/shared/stats-card"
+import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { Progress } from "@/components/ui/progress"
 import { Package, AlertTriangle, TrendingDown, CheckCircle, Clock, Banana } from "lucide-react"
@@ -155,7 +155,7 @@ export default function Inventory() {
 
       {/* Overview Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatsCard
+        <AppStatsCard
           title="Total Hands"
           value={inventory.totalHands}
           icon={Package}
@@ -163,7 +163,7 @@ export default function Inventory() {
           description="In stock"
           trend={{ value: 12, isPositive: true }}
         />
-        <StatsCard
+        <AppStatsCard
           title="Total Fingers"
           value={inventory.totalFingers}
           icon={Banana}
@@ -173,7 +173,7 @@ export default function Inventory() {
           description="Estimated count"
           trend={{ value: 8, isPositive: true }}
         />
-        <StatsCard
+        <AppStatsCard
           title="Spoiling Soon"
           value={inventory.spoilingSoon.length}
           icon={AlertTriangle}
@@ -183,7 +183,7 @@ export default function Inventory() {
           description="≤2 days left"
           trend={{ value: 3, isPositive: false }}
         />
-        <StatsCard
+        <AppStatsCard
           title="Sold Today"
           value={inventory.sold}
           icon={CheckCircle}

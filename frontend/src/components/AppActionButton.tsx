@@ -9,7 +9,7 @@ export interface ActionButtonProps extends React.ComponentProps<typeof Button> {
   iconClassName?: string
 }
 
-export function ActionButton({ tooltip, icon: Icon, iconClassName, className, ...props }: ActionButtonProps) {
+export function AppActionButton({ tooltip, icon: Icon, iconClassName, className, ...props }: ActionButtonProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>

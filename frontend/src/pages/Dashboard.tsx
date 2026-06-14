@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { StatsCard } from "@/components/shared/stats-card"
+import { AppStatsCard } from "@/components/AppStatsCard"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import {
@@ -20,7 +20,7 @@ import {
   ArrowRight,
   LayoutDashboard
 } from "lucide-react"
-import { StatusBadge } from "@/components/shared/status-badge"
+import { AppStatusBadge } from "@/components/AppStatusBadge"
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -82,7 +82,7 @@ export default function Dashboard() {
 
       {/* KPI StatsRow */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatsCard
+        <AppStatsCard
           title="Scans Today"
           value={todayScans}
           icon={TrendingUp}
@@ -92,7 +92,7 @@ export default function Dashboard() {
           description="Total bananas scanned"
           trend={{ value: 12, isPositive: true }}
         />
-        <StatsCard
+        <AppStatsCard
           title={operatorMetric.label}
           value={operatorMetric.value}
           icon={operatorMetric.icon}
@@ -101,7 +101,7 @@ export default function Dashboard() {
           delay={100}
           description={operatorMetric.desc}
         />
-        <StatsCard
+        <AppStatsCard
           title={user?.role === "Operator" ? "My Sources Today" : "Active Sources"}
           value={activeSources.length}
           icon={Package}
@@ -110,7 +110,7 @@ export default function Dashboard() {
           delay={150}
           description="Sources scanned today"
         />
-        <StatsCard
+        <AppStatsCard
           title="System Health"
           value={`${onlineCameras}/${devices.length}`}
           icon={Activity}
@@ -169,7 +169,7 @@ export default function Dashboard() {
                       </TableCell>
                       <TableCell className="font-medium text-sm">{scan.cultivar}</TableCell>
                       <TableCell>
-                        <StatusBadge type="ripeness" status={scan.ripeness} size="sm" />
+                        <AppStatusBadge type="ripeness" status={scan.ripeness} size="sm" />
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

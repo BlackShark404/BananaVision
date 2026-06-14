@@ -5,10 +5,10 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-import { AppDataTable, type ColumnDef } from "@/components/shared/app-data-table"
+import { AppDataTable, type ColumnDef } from "@/components/AppDataTable"
 import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { StatsCard } from "@/components/shared/stats-card"
+import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppTableFilters } from "@/components/AppTableFilters"
 import { 
@@ -24,7 +24,7 @@ import { toast } from "sonner"
 import { parseSpoilageAvg } from "@/lib/utils"
 import { printQRTag } from "@/lib/qrcode"
 import type { Cultivar, Ripeness, InventoryStatus, ScanResult } from "@/types"
-import { StatusBadge } from "@/components/shared/status-badge"
+import { AppStatusBadge } from "@/components/AppStatusBadge"
 
 const PAGE_SIZE = 10
 
@@ -54,7 +54,7 @@ export default function Logs() {
   }
 
   const getStatus = (status?: InventoryStatus) => {
-    return <StatusBadge status={status || "In Stock"} type="inventory" />
+    return <AppStatusBadge status={status || "In Stock"} type="inventory" />
   }
 
   const filtered = useMemo(() => {
@@ -167,7 +167,7 @@ const columns: ColumnDef<ScanResult>[] = [
     },
     {
       header: "Ripeness",
-      cell: (scan) => <StatusBadge type="ripeness" status={scan.ripeness} size="md" />,
+      cell: (scan) => <AppStatusBadge type="ripeness" status={scan.ripeness} size="md" />,
     },
     {
       header: "Source",
@@ -299,7 +299,7 @@ const columns: ColumnDef<ScanResult>[] = [
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        <StatsCard
+        <AppStatsCard
           title="Total Scans"
           value={filtered.length}
           icon={TrendingUp}
@@ -307,7 +307,7 @@ const columns: ColumnDef<ScanResult>[] = [
           description="All time records"
           trend={{ value: 8, isPositive: true }}
         />
-        <StatsCard
+        <AppStatsCard
           title="Avg Confidence"
           value={`${stats.avgConfidence}%`}
           icon={Target}
@@ -317,7 +317,7 @@ const columns: ColumnDef<ScanResult>[] = [
           description="Detection accuracy"
           trend={{ value: 3, isPositive: true }}
         />
-        <StatsCard
+        <AppStatsCard
           title="At-Risk Scans"
           value={stats.spoilingSoon}
           icon={Clock}

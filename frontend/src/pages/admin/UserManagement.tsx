@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { StatsCard } from "@/components/shared/stats-card"
-import { AppDataTable, type ColumnDef } from "@/components/shared/app-data-table"
+import { AppStatsCard } from "@/components/AppStatsCard"
+import { AppDataTable, type ColumnDef } from "@/components/AppDataTable"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
@@ -21,7 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { ActionButton } from "@/components/shared/action-button"
+import { AppActionButton } from "@/components/AppActionButton"
 import { AppTableFilters } from "@/components/AppTableFilters"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { Users, Plus, Pencil, ShieldAlert, ShieldCheck, UserCheck, Filter, ChevronsLeft, ChevronsRight, KeyRound, Key } from "lucide-react"
@@ -163,20 +163,20 @@ export default function UserManagement() {
       stopPropagation: true,
       cell: (user) => (
         <div className="flex items-center justify-end gap-1">
-          <ActionButton 
+          <AppActionButton 
             tooltip="Edit User" 
             icon={Pencil} 
             onClick={() => handleOpenDialog(user.id)} 
             className="hover:text-primary" 
           />
-          <ActionButton 
+          <AppActionButton 
             tooltip="Reset Password" 
             icon={KeyRound} 
             onClick={() => setResetConfirmUser({ id: user.id, fullName: user.fullName })} 
             className="hover:text-amber-600" 
           />
           {user.role === "Operator" && (
-            <ActionButton 
+            <AppActionButton 
               tooltip="Reset Kiosk PIN" 
               icon={Key} 
               onClick={() => setResetConfirmPin({ id: user.id, fullName: user.fullName })} 
@@ -204,14 +204,14 @@ export default function UserManagement() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        <StatsCard
+        <AppStatsCard
           title="Total Users"
           value={users.length}
           icon={Users}
           delay={50}
           description="System accounts"
         />
-        <StatsCard
+        <AppStatsCard
           title="Active Users"
           value={users.filter(u => u.status === "Active").length}
           icon={UserCheck}
@@ -221,7 +221,7 @@ export default function UserManagement() {
           description="Currently enabled"
           trend={{ value: 5, isPositive: true }}
         />
-        <StatsCard
+        <AppStatsCard
           title="Admins"
           value={users.filter(u => u.role === "Admin").length}
           icon={ShieldAlert}

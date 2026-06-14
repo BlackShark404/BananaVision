@@ -28,7 +28,7 @@ const STYLE_MAP = {
   },
 } as const
 
-export function StatusBadge({ status, type, className = "", size = "md" }: StatusBadgeProps) {
+export function AppStatusBadge({ status, type, className = "", size = "md" }: StatusBadgeProps) {
   // @ts-expect-error dynamic access
   const config = STYLE_MAP[type]?.[status]
   

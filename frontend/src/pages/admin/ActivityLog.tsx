@@ -5,8 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { StatsCard } from "@/components/shared/stats-card"
-import { AppDataTable, type ColumnDef } from "@/components/shared/app-data-table"
+import { AppStatsCard } from "@/components/AppStatsCard"
+import { AppDataTable, type ColumnDef } from "@/components/AppDataTable"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppTableFilters } from "@/components/AppTableFilters"
 import { ScrollText, Filter, Download, Activity, UserCheck, AlertCircle, ChevronsLeft, ChevronsRight } from "lucide-react"
@@ -158,7 +158,7 @@ export default function ActivityLog() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        <StatsCard
+        <AppStatsCard
           title="Last 24 Hours"
           value={stats.last24h}
           icon={Activity}
@@ -166,7 +166,7 @@ export default function ActivityLog() {
           description="Recent activity"
           trend={{ value: 12, isPositive: true }}
         />
-        <StatsCard
+        <AppStatsCard
           title="Active Users"
           value={stats.uniqueUsers}
           icon={UserCheck}
@@ -175,7 +175,7 @@ export default function ActivityLog() {
           delay={100}
           description="Unique operators"
         />
-        <StatsCard
+        <AppStatsCard
           title="Critical Actions"
           value={stats.criticalActions}
           icon={AlertCircle}

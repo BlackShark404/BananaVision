@@ -15,8 +15,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AppDataTable, type ColumnDef } from "@/components/shared/app-data-table"
-import { StatsCard } from "@/components/shared/stats-card"
+import { AppDataTable, type ColumnDef } from "@/components/AppDataTable"
+import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppTableFilters } from "@/components/AppTableFilters"
 import { 
@@ -321,7 +321,7 @@ export default function DeliveryIntake() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-        <StatsCard
+        <AppStatsCard
           title="Active Intakes"
           value={stats.activeIntakes}
           icon={Activity}
@@ -330,7 +330,7 @@ export default function DeliveryIntake() {
           delay={50}
           description="Awaiting processing"
         />
-        <StatsCard
+        <AppStatsCard
           title="Depleted Intakes"
           value={stats.depletedIntakes}
           icon={ArchiveRestore}

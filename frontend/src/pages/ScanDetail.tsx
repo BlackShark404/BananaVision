@@ -39,8 +39,8 @@ import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
 import { printQRTag } from "@/lib/qrcode"
 import type { Cultivar, Ripeness, ScanResult } from "@/types"
-import { ChangePreview } from "@/components/ChangePreview"
-import { StatusBadge } from "@/components/shared/status-badge"
+import { AppChangePreview } from "@/components/AppChangePreview"
+import { AppStatusBadge } from "@/components/AppStatusBadge"
 
 export default function ScanDetail() {
   const { scanId } = useParams<{ scanId: string }>()
@@ -236,7 +236,7 @@ export default function ScanDetail() {
             <div className="mt-4 text-center">
               <h2 className="text-xl font-bold">{scan.cultivar}</h2>
               <div className="mt-2">
-                <StatusBadge type="ripeness" status={scan.ripeness} size="lg" />
+                <AppStatusBadge type="ripeness" status={scan.ripeness} size="lg" />
               </div>
             </div>
 
@@ -370,7 +370,7 @@ export default function ScanDetail() {
                   </div>
 
                     {editData && scan && (
-                      <ChangePreview 
+                      <AppChangePreview 
                         originalData={scan} 
                         editData={editData} 
                         className="mt-4"
@@ -394,7 +394,7 @@ export default function ScanDetail() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Ripeness</p>
-                      <StatusBadge type="ripeness" status={scan.ripeness} size="md" />
+                      <AppStatusBadge type="ripeness" status={scan.ripeness} size="md" />
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Confidence</p>
@@ -416,7 +416,7 @@ export default function ScanDetail() {
                   </div>
                   
                   {scan.isOverridden && scan.originalAiResult && (
-                    <ChangePreview 
+                    <AppChangePreview 
                       originalData={scan.originalAiResult} 
                       editData={scan} 
                     />
@@ -467,7 +467,7 @@ export default function ScanDetail() {
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Package className="w-3.5 h-3.5" /> Inventory Status
                   </div>
-                  <StatusBadge type="inventory" status={scan.inventoryStatus || "In Stock"} size="md" />
+                  <AppStatusBadge type="inventory" status={scan.inventoryStatus || "In Stock"} size="md" />
                 </div>
                 {scan.source && (
                   <div className="space-y-1">

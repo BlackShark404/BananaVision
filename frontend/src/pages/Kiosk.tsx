@@ -26,7 +26,7 @@ import {
   Flag,
 } from "lucide-react"
 import { toast } from "sonner"
-import { StatusBadge } from "@/components/shared/status-badge"
+import { AppStatusBadge } from "@/components/AppStatusBadge"
 
 const ripenessIcon: Record<string, string> = {
   Unripe: "🟢",
@@ -600,7 +600,7 @@ export default function Kiosk() {
                       <p className="text-[10px] text-muted-foreground">{new Date(lastResult.dateTime).toLocaleTimeString()}</p>
                     </div>
                   </div>
-                  <StatusBadge type="ripeness" status={lastResult.ripeness} size="lg" />
+                  <AppStatusBadge type="ripeness" status={lastResult.ripeness} size="lg" />
                 </div>
 
                 {/* Metrics Grid */}
@@ -726,7 +726,7 @@ export default function Kiosk() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold">{scan.cultivar}</span>
-                          <StatusBadge type="ripeness" status={scan.ripeness} size="sm" />
+                          <AppStatusBadge type="ripeness" status={scan.ripeness} size="sm" />
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {new Date(scan.dateTime).toLocaleTimeString()} · {scan.confidence}% confidence
