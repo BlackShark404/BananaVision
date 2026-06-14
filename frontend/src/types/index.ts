@@ -1,7 +1,23 @@
-export type Cultivar = "Lakatan" | "Latundan" | "Saba"
-export type Ripeness = "Unripe" | "Ripe" | "Overripe" | "Rotten"
-export type Role = "Admin" | "Operator"
-export type InventoryStatus = "In Stock" | "Sold" | "For Processing" | "Spoiled"
+export const CULTIVARS = ["Lakatan", "Latundan", "Saba"] as const
+export type Cultivar = typeof CULTIVARS[number]
+
+export const RIPENESS_LEVELS = ["Unripe", "Ripe", "Overripe", "Rotten"] as const
+export type Ripeness = typeof RIPENESS_LEVELS[number]
+
+export const ROLES = ["Admin", "Operator"] as const
+export type Role = typeof ROLES[number]
+
+export const INVENTORY_STATUSES = ["In Stock", "Sold", "For Processing", "Spoiled"] as const
+export type InventoryStatus = typeof INVENTORY_STATUSES[number]
+
+export const ACTIVE_STATUSES = ["Active", "Inactive"] as const
+export type ActiveStatus = typeof ACTIVE_STATUSES[number]
+
+export const DEVICE_STATUSES = ["Online", "Offline"] as const
+export type DeviceStatus = typeof DEVICE_STATUSES[number]
+
+export const INTAKE_STATUSES = ["Active", "Depleted"] as const
+export type IntakeStatus = typeof INTAKE_STATUSES[number]
 export type NotificationType =
   | "scan_complete"
   | "scan_flagged"
@@ -38,7 +54,7 @@ export interface DailyIntake {
   batchNumber?: string
   qrCode?: string
   date: string
-  status: "Active" | "Depleted"
+  status: IntakeStatus
   scanCount?: number
   source?: string
 }
@@ -48,7 +64,7 @@ export interface Supplier {
   name: string
   contactPerson?: string
   contactPhone?: string
-  status: "Active" | "Inactive"
+  status: ActiveStatus
   dateAdded: string
 }
 
@@ -58,7 +74,7 @@ export interface User {
   fullName: string
   role: Role
   lastActive: string
-  status: "Active" | "Inactive"
+  status: ActiveStatus
   avatar?: string
   pin?: string
   requiresPasswordChange?: boolean
@@ -72,7 +88,7 @@ export interface Device {
   id: string
   cameraId: string
   label: string
-  status: "Online" | "Offline"
+  status: DeviceStatus
   resolution: string
   lastSeen: string
 }

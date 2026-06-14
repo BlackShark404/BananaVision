@@ -1,4 +1,5 @@
 import { getSpoilageDays, getBananaImageUrl } from "@/lib/utils"
+import { CULTIVARS, RIPENESS_LEVELS } from "@/types"
 import type {
   ActivityLog,
   AppNotification,
@@ -35,8 +36,8 @@ export const generateSuppliers = (): Supplier[] => {
   }))
 }
 
-const cultivars: Cultivar[] = ["Lakatan", "Latundan", "Saba"]
-const ripenessLevels: Ripeness[] = ["Unripe", "Ripe", "Overripe", "Rotten"]
+const cultivars: Cultivar[] = [...CULTIVARS]
+const ripenessLevels: Ripeness[] = [...RIPENESS_LEVELS]
 const operators = [
   "Test Operator",
   "Juan Cruz",

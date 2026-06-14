@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
+import { RIPENESS_LEVELS, CULTIVARS } from "@/types"
 import {
   ChartContainer,
   ChartTooltip,
@@ -144,7 +145,7 @@ export default function Analytics() {
       }))
       .sort((a, b) => b.scans - a.scans)
 
-    const ripenessConfidence = ["Unripe", "Ripe", "Overripe", "Rotten"].map(ripeness => {
+    const ripenessConfidence = RIPENESS_LEVELS.map(ripeness => {
       const ripeScans = filteredScans.filter(s => s.ripeness === ripeness)
       const avgConf = ripeScans.length 
         ? ripeScans.reduce((sum, s) => sum + s.confidence, 0) / ripeScans.length

@@ -33,6 +33,7 @@ import type {
   ScanNote,
   SystemConfig,
 } from "@/types"
+import { CULTIVARS, RIPENESS_LEVELS } from "@/types"
 
 interface ScanState {
   isScanning: boolean
@@ -529,8 +530,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }, 4000)
 
         const t4 = setTimeout(() => {
-          const cultivars: Cultivar[] = ["Lakatan", "Latundan", "Saba"]
-          const ripenessLevels: Ripeness[] = ["Unripe", "Ripe", "Overripe", "Rotten"]
+          const cultivars: Cultivar[] = [...CULTIVARS]
+          const ripenessLevels: Ripeness[] = [...RIPENESS_LEVELS]
           const cultivar = cultivars[Math.floor(Math.random() * cultivars.length)]
           const ripeness = ripenessLevels[Math.floor(Math.random() * ripenessLevels.length)]
           const temperature = parseFloat((Math.random() * 10 + 20).toFixed(1))

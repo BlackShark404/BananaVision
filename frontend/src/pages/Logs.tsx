@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppTableFilters } from "@/components/AppTableFilters"
+import { CULTIVARS, RIPENESS_LEVELS } from "@/types"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -354,7 +355,7 @@ const columns: ColumnDef<ScanResult>[] = [
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Cultivars</SelectItem>
-            {(["Lakatan", "Latundan", "Saba"] as Cultivar[]).map((c) => (
+            {CULTIVARS.map((c) => (
               <SelectItem key={c} value={c}>{c}</SelectItem>
             ))}
           </SelectContent>
@@ -366,7 +367,7 @@ const columns: ColumnDef<ScanResult>[] = [
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Ripeness</SelectItem>
-            {(["Unripe", "Ripe", "Overripe", "Rotten"] as Ripeness[]).map((r) => (
+            {RIPENESS_LEVELS.map((r) => (
               <SelectItem key={r} value={r}>{r}</SelectItem>
             ))}
           </SelectContent>
