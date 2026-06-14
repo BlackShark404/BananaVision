@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { ActionButton } from "@/components/shared/action-button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { AppDataTable, type ColumnDef } from "@/components/shared/app-data-table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
 import {
   AlertDialog,
@@ -22,7 +22,6 @@ import { Label } from "@/components/ui/label"
 import { StatsCard } from "@/components/shared/stats-card"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppTableFilters } from "@/components/AppTableFilters"
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { Package, Plus, Building2, Phone, User, CheckCircle2, XCircle, Filter, Pencil } from "lucide-react"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { toast } from "sonner"
@@ -120,6 +119,80 @@ export default function SupplierManagement() {
     toast.success("Supplier updated successfully")
     setEditTarget(null)
   }
+
+  const columns: ColumnDef<Supplier>[] = [
+    {
+      header: "Supplier Details",
+      cell: (supplier) => (
+        <div className="flex flex-col">
+          <span className="font-medium text-base">{supplier.name}</span>
+          <span className="text-xs text-muted-foreground font-mono mt-0.5">{supplier.id}</span>
+        </div>
+      )
+    },
+    {
+      header: "Contact Info",
+      className: "hidden sm:table-cell",
+      headerClassName: "hidden sm:table-cell",
+      cell: (supplier) => (
+        <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+          {supplier.contactPerson && (
+            <div className="flex items-center gap-1.5 text-foreground/80">
+              <User className="w-3.5 h-3.5" />
+              <span>{supplier.contactPerson}</span>
+            </div>
+          )}
+          {supplier.contactPhone && (
+            <div className="flex items-center gap-1.5">
+              <Phone className="w-3.5 h-3.5" />
+              <span>{supplier.contactPhone}</span>
+            </div>
+          )}
+          {!supplier.contactPerson && !supplier.contactPhone && (
+            <span className="italic text-muted-foreground/50">No contact provided</span>
+          )}
+        </div>
+      )
+    },
+    {
+      header: "Date Added",
+      cell: (supplier) => <span className="text-sm">{new Date(supplier.dateAdded).toLocaleDateString()}</span>
+    },
+    {
+      header: "Status",
+      cell: (supplier) => supplier.status === "Active" ? (
+        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+          <CheckCircle2 className="w-3 h-3 mr-1" />
+          Active
+        </Badge>
+      ) : (
+        <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
+          <XCircle className="w-3 h-3 mr-1" />
+          Inactive
+        </Badge>
+      )
+    },
+    {
+      header: "Actions",
+      className: "text-right",
+      stopPropagation: true,
+      cell: (supplier) => (
+        <div className="flex items-center justify-end gap-1">
+          <ActionButton
+            tooltip="Edit supplier"
+            icon={Pencil}
+            onClick={() => openEditDialog(supplier)}
+          />
+          <ActionButton
+            tooltip={supplier.status === "Active" ? "Deactivate supplier" : "Activate supplier"}
+            icon={supplier.status === "Active" ? XCircle : CheckCircle2}
+            iconClassName={supplier.status === "Active" ? "text-red-500" : "text-emerald-500"}
+            onClick={() => handleToggleStatus(supplier)}
+          />
+        </div>
+      )
+    }
+  ]
 
   return (
     <TooltipProvider>
@@ -288,99 +361,16 @@ export default function SupplierManagement() {
       </AppTableFilters>
 
       {/* Table */}
-      <Card className="rounded-xl sm:rounded-2xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead className="font-semibold">Supplier Details</TableHead>
-              <TableHead className="font-semibold hidden sm:table-cell">Contact Info</TableHead>
-              <TableHead className="font-semibold">Date Added</TableHead>
-              <TableHead className="font-semibold">Status</TableHead>
-              <TableHead className="font-semibold text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredSuppliers.length === 0 ? (
-               <TableRow>
-                <TableCell colSpan={5} className="h-64">
-                  <Empty>
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon" className="size-12 rounded-full bg-primary/10 text-primary [&_svg]:size-6">
-                        <Building2 className="w-4 h-4" />
-                      </EmptyMedia>
-                      <EmptyTitle className="text-base sm:text-lg font-semibold mt-1">No suppliers found</EmptyTitle>
-                      <EmptyDescription className="text-sm sm:text-base max-w-md mx-auto text-balance">
-                        {search ? "Try adjusting your search terms." : "Add a supplier to start receiving items."}
-                      </EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredSuppliers.map((supplier) => (
-                <TableRow key={supplier.id}>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium text-base">{supplier.name}</span>
-                      <span className="text-xs text-muted-foreground font-mono mt-0.5">{supplier.id}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                      {supplier.contactPerson && (
-                        <div className="flex items-center gap-1.5 text-foreground/80">
-                          <User className="w-3.5 h-3.5" />
-                          <span>{supplier.contactPerson}</span>
-                        </div>
-                      )}
-                      {supplier.contactPhone && (
-                        <div className="flex items-center gap-1.5">
-                          <Phone className="w-3.5 h-3.5" />
-                          <span>{supplier.contactPhone}</span>
-                        </div>
-                      )}
-                      {!supplier.contactPerson && !supplier.contactPhone && (
-                        <span className="italic text-muted-foreground/50">No contact provided</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {new Date(supplier.dateAdded).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    {supplier.status === "Active" ? (
-                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                        Active
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
-                        <XCircle className="w-3 h-3 mr-1" />
-                        Inactive
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <ActionButton
-                        tooltip="Edit supplier"
-                        icon={Pencil}
-                        onClick={() => openEditDialog(supplier)}
-                      />
-                      <ActionButton
-                        tooltip={supplier.status === "Active" ? "Deactivate supplier" : "Activate supplier"}
-                        icon={supplier.status === "Active" ? XCircle : CheckCircle2}
-                        iconClassName={supplier.status === "Active" ? "text-red-500" : "text-emerald-500"}
-                        onClick={() => handleToggleStatus(supplier)}
-                      />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+      <AppDataTable
+        data={filteredSuppliers}
+        columns={columns}
+        rowKey={(supplier) => supplier.id}
+        emptyState={{
+          icon: Building2,
+          title: "No suppliers found",
+          description: search ? "Try adjusting your search terms." : "Add a supplier to start receiving items."
+        }}
+      />
     </div>
     </TooltipProvider>
   )

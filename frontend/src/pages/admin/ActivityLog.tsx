@@ -4,19 +4,9 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { StatsCard } from "@/components/shared/stats-card"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { AppDataTable, type ColumnDef } from "@/components/shared/app-data-table"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppTableFilters } from "@/components/AppTableFilters"
 import { ScrollText, Filter, Download, Activity, UserCheck, AlertCircle, ChevronsLeft, ChevronsRight } from "lucide-react"
@@ -42,7 +32,6 @@ export default function ActivityLog() {
   const [search, setSearch] = useState("")
   const [actionFilter, setActionFilter] = useState<string>("all")
   const [userFilter, setUserFilter] = useState<string>("all")
-  const [page, setPage] = useState(1)
 
   const users = useMemo(() => Array.from(new Set(activityLogs.map(log => log.user))).sort(), [activityLogs])
   const actionTypes = useMemo(() => Array.from(new Set(activityLogs.map(log => log.action))).sort(), [activityLogs])
@@ -60,9 +49,6 @@ export default function ActivityLog() {
       return true
     })
   }, [activityLogs, search, actionFilter, userFilter])
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const stats = useMemo(() => {
     const last24h = activityLogs.filter(log => {
@@ -112,6 +98,50 @@ export default function ActivityLog() {
     return action.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
   }
 
+  const columns: ColumnDef<any>[] = [
+    {
+      header: "Timestamp",
+      cell: (log) => (
+        <div className="text-sm">
+          {new Date(log.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+          <br />
+          <span className="text-xs text-muted-foreground">{new Date(log.timestamp).toLocaleTimeString()}</span>
+        </div>
+      ),
+    },
+    {
+      header: "User",
+      cell: (log) => (
+        <div className="flex items-center gap-2">
+          <Avatar className="w-8 h-8">
+            <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+              {log.user.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-sm font-medium">{log.user}</span>
+        </div>
+      ),
+    },
+    {
+      header: "Action",
+      cell: (log) => (
+        <Badge variant="outline" className={`text-xs font-medium rounded-md ${actionTypeColors[log.action] || 'bg-muted'}`}>
+          {formatAction(log.action)}
+        </Badge>
+      ),
+    },
+    {
+      header: "Details",
+      className: "text-sm max-w-md truncate",
+      cell: (log) => log.details,
+    },
+    {
+      header: "IP Address",
+      className: "text-sm text-muted-foreground font-mono",
+      cell: (log) => log.ipAddress || "—",
+    },
+  ]
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <AppPageHeader
@@ -159,17 +189,16 @@ export default function ActivityLog() {
       {/* Filters */}
       <AppTableFilters
         searchQuery={search}
-        onSearchChange={(value) => { setSearch(value); setPage(1) }}
+        onSearchChange={(value) => { setSearch(value) }}
         searchPlaceholder="Search activities..."
         hasActiveFilters={search !== "" || actionFilter !== "all" || userFilter !== "all"}
         onClearFilters={() => {
           setSearch("")
           setActionFilter("all")
           setUserFilter("all")
-          setPage(1)
         }}
       >
-        <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v); setPage(1) }}>
+        <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v) }}>
           <SelectTrigger className="w-full sm:w-45 h-10!">
             <Filter className="w-3.5 h-3.5 mr-1.5" />
             <SelectValue placeholder="Action" />
@@ -181,7 +210,7 @@ export default function ActivityLog() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={userFilter} onValueChange={(v) => { setUserFilter(v); setPage(1) }}>
+        <Select value={userFilter} onValueChange={(v) => { setUserFilter(v) }}>
           <SelectTrigger className="w-full sm:w-45 h-10!">
             <Filter className="w-3.5 h-3.5 mr-1.5" />
             <SelectValue placeholder="User" />
@@ -196,152 +225,17 @@ export default function ActivityLog() {
       </AppTableFilters>
 
       {/* Table */}
-      <Card className="rounded-xl sm:rounded-2xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead className="font-semibold">Timestamp</TableHead>
-              <TableHead className="font-semibold">User</TableHead>
-              <TableHead className="font-semibold">Action</TableHead>
-              <TableHead className="font-semibold">Details</TableHead>
-              <TableHead className="font-semibold">IP Address</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginated.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-64">
-                  <Empty>
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon" className="size-12 rounded-full bg-primary/10 text-primary [&_svg]:size-6">
-                        <Activity className="w-4 h-4" />
-                      </EmptyMedia>
-                      <EmptyTitle className="text-base sm:text-lg font-semibold mt-1">No activities found</EmptyTitle>
-                      <EmptyDescription className="text-sm sm:text-base max-w-md mx-auto text-balance">
-                        Try adjusting your filters or search query
-                      </EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginated.map((log, i) => (
-                <TableRow key={log.id} className="animate-fade-in-row" style={{ animationDelay: `${i * 30}ms` }}>
-                  <TableCell className="text-sm">
-                    {new Date(log.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                    <br />
-                    <span className="text-xs text-muted-foreground">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
-                          {log.user.split(' ').map(n => n[0]).join('').toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm font-medium">{log.user}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={`text-xs font-medium rounded-md ${actionTypeColors[log.action] || 'bg-muted'}`}>
-                      {formatAction(log.action)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm max-w-md truncate">{log.details}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground font-mono">{log.ipAddress || "—"}</TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-
-        {/* Pagination */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t bg-muted/20">
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
-          </p>
-          <div className="flex justify-end">
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setPage(1)}
-                    disabled={page <= 1}
-                    title="First page"
-                  >
-                    <ChevronsLeft className="w-4 h-4" />
-                  </Button>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationPrevious 
-                    href="#" 
-                    onClick={(e) => { e.preventDefault(); if (page > 1) setPage(page - 1) }}
-                    className={page <= 1 ? "pointer-events-none opacity-50" : ""}
-                  />
-                </PaginationItem>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
-                  if (totalPages <= 7) {
-                    return (
-                      <PaginationItem key={p}>
-                        <PaginationLink
-                          href="#"
-                          onClick={(e) => { e.preventDefault(); setPage(p) }}
-                          isActive={p === page}
-                        >
-                          {p}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  }
-                  if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) {
-                    return (
-                      <PaginationItem key={p}>
-                        <PaginationLink
-                          href="#"
-                          onClick={(e) => { e.preventDefault(); setPage(p) }}
-                          isActive={p === page}
-                        >
-                          {p}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  }
-                  if (p === page - 2 || p === page + 2) {
-                    return (
-                      <PaginationItem key={p}>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    )
-                  }
-                  return null
-                })}
-                <PaginationItem>
-                  <PaginationNext 
-                    href="#" 
-                    onClick={(e) => { e.preventDefault(); if (page < totalPages) setPage(page + 1) }}
-                    className={page >= totalPages ? "pointer-events-none opacity-50" : ""}
-                  />
-                </PaginationItem>
-                <PaginationItem>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setPage(totalPages)}
-                    disabled={page >= totalPages}
-                    title="Last page"
-                  >
-                    <ChevronsRight className="w-4 h-4" />
-                  </Button>
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        </div>
-      </Card>
+      <AppDataTable
+        data={filtered}
+        columns={columns}
+        rowKey={(log) => log.id}
+        pagination={{ pageSize: PAGE_SIZE }}
+        emptyState={{
+          icon: Activity,
+          title: "No activities found",
+          description: "Try adjusting your filters or search query"
+        }}
+      />
     </div>
   )
 }

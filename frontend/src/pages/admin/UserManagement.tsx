@@ -7,18 +7,9 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { StatsCard } from "@/components/shared/stats-card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { AppDataTable, type ColumnDef } from "@/components/shared/app-data-table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,7 +24,6 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { ActionButton } from "@/components/shared/action-button"
 import { AppTableFilters } from "@/components/AppTableFilters"
 import { AppPageHeader } from "@/components/AppPageHeader"
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { Users, Plus, Pencil, ShieldAlert, ShieldCheck, UserCheck, Filter, ChevronsLeft, ChevronsRight, KeyRound, Key } from "lucide-react"
 import { toast } from "sonner"
 import type { Role } from "@/types"
@@ -45,7 +35,6 @@ export default function UserManagement() {
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [page, setPage] = useState(1)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   
@@ -70,9 +59,6 @@ export default function UserManagement() {
       return true
     }), [users, search, roleFilter, statusFilter]
   )
-
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
-  const paginatedUsers = filteredUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const handleOpenDialog = (id?: string) => {
     if (id) {
@@ -132,6 +118,76 @@ export default function UserManagement() {
     }
   }
 
+  const columns: ColumnDef<any>[] = [
+    {
+      header: "User",
+      cell: (user) => (
+        <div className="flex items-center gap-3">
+          <Avatar className="w-9 h-9">
+            <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
+              {user.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <div className="font-medium">{user.fullName}</div>
+            <div className="text-xs text-muted-foreground">@{user.username}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: "Role",
+      cell: (user) => (
+        <Badge variant="outline" className={`gap-1 ${user.role === "Admin" ? "bg-primary/10 text-primary border-primary/20" : ""}`}>
+          {user.role === "Admin" ? <ShieldAlert className="w-3 h-3" /> : <ShieldCheck className="w-3 h-3" />}
+          {user.role}
+        </Badge>
+      ),
+    },
+    {
+      header: "Status",
+      cell: (user) => (
+        <Badge variant="secondary" className={user.status === "Active" ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : "bg-muted text-muted-foreground"}>
+          {user.status}
+        </Badge>
+      ),
+    },
+    {
+      header: "Last Active",
+      className: "text-sm text-muted-foreground",
+      cell: (user) => user.lastActive === "Never" ? "Never" : new Date(user.lastActive).toLocaleDateString(),
+    },
+    {
+      header: "Actions",
+      className: "text-right",
+      stopPropagation: true,
+      cell: (user) => (
+        <div className="flex items-center justify-end gap-1">
+          <ActionButton 
+            tooltip="Edit User" 
+            icon={Pencil} 
+            onClick={() => handleOpenDialog(user.id)} 
+            className="hover:text-primary" 
+          />
+          <ActionButton 
+            tooltip="Reset Password" 
+            icon={KeyRound} 
+            onClick={() => setResetConfirmUser({ id: user.id, fullName: user.fullName })} 
+            className="hover:text-amber-600" 
+          />
+          {user.role === "Operator" && (
+            <ActionButton 
+              tooltip="Reset Kiosk PIN" 
+              icon={Key} 
+              onClick={() => setResetConfirmPin({ id: user.id, fullName: user.fullName })} 
+              className="hover:text-indigo-600" 
+            />
+          )}
+        </div>
+      ),
+    },
+  ]
+
   return (
     <TooltipProvider>
       <div className="space-y-6">
@@ -179,17 +235,16 @@ export default function UserManagement() {
       {/* Filters */}
       <AppTableFilters
         searchQuery={search}
-        onSearchChange={(value) => { setSearch(value); setPage(1) }}
+        onSearchChange={(value) => { setSearch(value) }}
         searchPlaceholder="Search users..."
         hasActiveFilters={search !== "" || roleFilter !== "all" || statusFilter !== "all"}
         onClearFilters={() => {
           setSearch("")
           setRoleFilter("all")
           setStatusFilter("all")
-          setPage(1)
         }}
       >
-        <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); setPage(1) }}>
+        <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v) }}>
           <SelectTrigger className="w-full sm:w-40 h-10!">
             <Filter className="w-3.5 h-3.5 mr-1.5" />
             <SelectValue placeholder="All Roles" />
@@ -200,7 +255,7 @@ export default function UserManagement() {
             <SelectItem value="Operator">Operator</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
+        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v) }}>
           <SelectTrigger className="w-full sm:w-40 h-10!">
             <Filter className="w-3.5 h-3.5 mr-1.5" />
             <SelectValue placeholder="All Statuses" />
@@ -213,189 +268,18 @@ export default function UserManagement() {
         </Select>
       </AppTableFilters>
 
-      <Card className="rounded-2xl">
-        <CardContent className="p-4">
-          <div className="rounded-xl border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30">
-                  <TableHead>User</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last Active</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedUsers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-64">
-                      <Empty>
-                        <EmptyHeader>
-                          <EmptyMedia variant="icon" className="size-12 rounded-full bg-primary/10 text-primary [&_svg]:size-6">
-                            <Users className="w-4 h-4" />
-                          </EmptyMedia>
-                          <EmptyTitle className="text-base sm:text-lg font-semibold mt-1">No users found</EmptyTitle>
-                          <EmptyDescription className="text-sm sm:text-base max-w-md mx-auto text-balance">
-                            Try adjusting your search query
-                          </EmptyDescription>
-                        </EmptyHeader>
-                      </Empty>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paginatedUsers.map((user, i) => (
-                    <TableRow key={user.id} className="animate-fade-in-row" style={{ animationDelay: `${i * 40}ms` }}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="w-9 h-9">
-                          <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
-                            {user.fullName.split(' ').map(n => n[0]).join('').toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium">{user.fullName}</div>
-                          <div className="text-xs text-muted-foreground">@{user.username}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`gap-1 ${user.role === "Admin" ? "bg-primary/10 text-primary border-primary/20" : ""}`}>
-                        {user.role === "Admin" ? <ShieldAlert className="w-3 h-3" /> : <ShieldCheck className="w-3 h-3" />}
-                        {user.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className={user.status === "Active" ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : "bg-muted text-muted-foreground"}>
-                        {user.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {user.lastActive === "Never" ? "Never" : new Date(user.lastActive).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <ActionButton 
-                          tooltip="Edit User" 
-                          icon={Pencil} 
-                          onClick={() => handleOpenDialog(user.id)} 
-                          className="hover:text-primary" 
-                        />
-                        
-                        <ActionButton 
-                          tooltip="Reset Password" 
-                          icon={KeyRound} 
-                          onClick={() => setResetConfirmUser({ id: user.id, fullName: user.fullName })} 
-                          className="hover:text-amber-600" 
-                        />
-                        {user.role === "Operator" && (
-                          <ActionButton 
-                            tooltip="Reset Kiosk PIN" 
-                            icon={Key} 
-                            onClick={() => setResetConfirmPin({ id: user.id, fullName: user.fullName })} 
-                            className="hover:text-indigo-600" 
-                          />
-                        )}
-                        
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Pagination */}
-          {filteredUsers.length > PAGE_SIZE && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
-                Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filteredUsers.length)} of {filteredUsers.length}
-              </p>
-              <div className="flex justify-end">
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setPage(1)}
-                        disabled={page <= 1}
-                        title="First page"
-                      >
-                        <ChevronsLeft className="w-4 h-4" />
-                      </Button>
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationPrevious 
-                        href="#" 
-                        onClick={(e) => { e.preventDefault(); if (page > 1) setPage(page - 1) }}
-                        className={page <= 1 ? "pointer-events-none opacity-50" : ""}
-                      />
-                    </PaginationItem>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
-                      if (totalPages <= 7) {
-                        return (
-                          <PaginationItem key={p}>
-                            <PaginationLink
-                              href="#"
-                              onClick={(e) => { e.preventDefault(); setPage(p) }}
-                              isActive={p === page}
-                            >
-                              {p}
-                            </PaginationLink>
-                          </PaginationItem>
-                        )
-                      }
-                      if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) {
-                        return (
-                          <PaginationItem key={p}>
-                            <PaginationLink
-                              href="#"
-                              onClick={(e) => { e.preventDefault(); setPage(p) }}
-                              isActive={p === page}
-                            >
-                              {p}
-                            </PaginationLink>
-                          </PaginationItem>
-                        )
-                      }
-                      if (p === page - 2 || p === page + 2) {
-                        return (
-                          <PaginationItem key={p}>
-                            <PaginationEllipsis />
-                          </PaginationItem>
-                        )
-                      }
-                      return null
-                    })}
-                    <PaginationItem>
-                      <PaginationNext 
-                        href="#" 
-                        onClick={(e) => { e.preventDefault(); if (page < totalPages) setPage(page + 1) }}
-                        className={page >= totalPages ? "pointer-events-none opacity-50" : ""}
-                      />
-                    </PaginationItem>
-                    <PaginationItem>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setPage(totalPages)}
-                        disabled={page >= totalPages}
-                        title="Last page"
-                      >
-                        <ChevronsRight className="w-4 h-4" />
-                      </Button>
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <AppDataTable
+        data={filteredUsers}
+        columns={columns}
+        rowKey={(user) => user.id}
+        pagination={{ pageSize: PAGE_SIZE }}
+        className="rounded-2xl border-none shadow-none"
+        emptyState={{
+          icon: Users,
+          title: "No users found",
+          description: "Try adjusting your search query"
+        }}
+      />
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">

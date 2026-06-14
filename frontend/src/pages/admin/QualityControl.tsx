@@ -1,26 +1,17 @@
 import { useState, useMemo } from "react"
 import { useApp } from "@/context/AppContext"
-import { Card, CardContent } from "@/components/ui/card"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AspectRatio } from "@/components/ui/aspect-ratio"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { AppDataTable, type ColumnDef } from "@/components/shared/app-data-table"
 import { StatsCard } from "@/components/shared/stats-card"
+import { Input } from "@/components/ui/input"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
 import {
   Dialog,
   DialogContent,
@@ -52,7 +43,6 @@ export default function QualityControl() {
   const [filterView, setFilterView] = useState<"all" | "flagged" | "low-confidence" | "overridden">("all")
   const [sourceFilter, setSourceFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
-  const [page, setPage] = useState(1)
 
   const activeSources = useMemo(() => {
     return Array.from(new Set(scans.map(s => s.source).filter(Boolean)))
@@ -85,9 +75,6 @@ export default function QualityControl() {
     
     return filtered.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
   }, [scans, filterView, sourceFilter, searchQuery, config.confidenceThreshold])
-
-  const totalPages = Math.max(1, Math.ceil(filteredScans.length / PAGE_SIZE))
-  const paginated = filteredScans.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const handleFlag = (scan: ScanResult) => {
     const isNowFlagged = !scan.flagged
@@ -191,6 +178,139 @@ export default function QualityControl() {
     toast.success("Export successful", { description: `${filteredScans.length} scans exported to CSV` })
   }
 
+  const columns: ColumnDef<ScanResult>[] = [
+    {
+      header: "Image",
+      className: "w-20",
+      cell: (scan) => (
+        <div className="w-14">
+          <AspectRatio ratio={1} className="rounded-lg overflow-hidden bg-muted/50 border">
+            {scan.thumbnailUrl ? (
+              <img src={scan.thumbnailUrl} alt={scan.cultivar} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Banana className="w-6 h-6 text-muted-foreground/40" />
+              </div>
+            )}
+          </AspectRatio>
+        </div>
+      ),
+    },
+    {
+      header: "Date/Time",
+      cell: (scan) => (
+        <div className="text-sm">
+          {new Date(scan.dateTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          <br />
+          <span className="text-xs text-muted-foreground">{new Date(scan.dateTime).toLocaleTimeString()}</span>
+        </div>
+      ),
+    },
+    {
+      header: "Operator",
+      cell: (scan) => (
+        <div className="flex items-center gap-2">
+          <Avatar className="w-8 h-8">
+            <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+              {scan.operator.split(' ').map(n => n[0]).join('').toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-sm font-medium">{scan.operator}</span>
+        </div>
+      ),
+    },
+    {
+      header: "Cultivar",
+      cell: (scan) => <span className="font-medium">{scan.cultivar}</span>,
+    },
+    {
+      header: "Ripeness",
+      cell: (scan) => <StatusBadge type="ripeness" status={scan.ripeness} size="md" />,
+    },
+    {
+      header: "Source",
+      cell: (scan) => scan.source ? (
+        <div className="text-xs">
+          <p className="font-medium">{scan.source}</p>
+        </div>
+      ) : (
+        <span className="text-xs text-muted-foreground">—</span>
+      ),
+    },
+    {
+      header: "Confidence",
+      cell: (scan) => (
+        <div className="flex items-center gap-2">
+          <span className={`text-sm font-medium ${scan.confidence < config.confidenceThreshold ? 'text-yellow-600' : ''}`}>
+            {scan.confidence}%
+          </span>
+          {scan.confidence < config.confidenceThreshold && (
+            <AlertTriangle className="w-4 h-4 text-yellow-600" />
+          )}
+        </div>
+      ),
+    },
+    {
+      header: "IoT Data",
+      cell: (scan) => (
+        <div className="flex flex-col text-[10px] text-muted-foreground">
+          {scan.temperature !== undefined ? (
+            <span className="flex items-center gap-1"><Thermometer className="w-3 h-3" />{scan.temperature}°C</span>
+          ) : (
+            <span className="flex items-center gap-1 opacity-50"><Thermometer className="w-3 h-3" />—</span>
+          )}
+          {scan.humidity !== undefined ? (
+            <span className="flex items-center gap-1"><Droplets className="w-3 h-3" />{scan.humidity}%</span>
+          ) : (
+            <span className="flex items-center gap-1 opacity-50"><Droplets className="w-3 h-3" />—</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      header: "Status",
+      cell: (scan) => (
+        <div className="flex flex-wrap gap-1">
+          {scan.isOverridden && (
+            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs mr-1.5 mb-1.5 sm:mb-0">
+              <Edit className="w-3 h-3 mr-1" />
+              Overridden
+            </Badge>
+          )}
+          {scan.flagged ? (
+            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs">
+              <Flag className="w-3 h-3 mr-1" />
+              Flagged
+            </Badge>
+          ) : scan.confidence < config.confidenceThreshold ? (
+            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs">
+              <AlertTriangle className="w-3 h-3 mr-1" />
+              Review
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
+              <CheckCircle className="w-3 h-3 mr-1" />
+              Verified
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      header: "Actions",
+      className: "text-right",
+      stopPropagation: true,
+      cell: (scan) => (
+        <ActionButton
+          tooltip={scan.flagged ? "Unflag Issue" : "Flag for Review"}
+          icon={Flag}
+          iconClassName={scan.flagged ? 'fill-current text-red-600' : ''}
+          onClick={() => handleFlag(scan)}
+        />
+      ),
+    },
+  ]
+
   return (
     <TooltipProvider>
     <div className="space-y-4 sm:space-y-6">
@@ -243,17 +363,16 @@ export default function QualityControl() {
       {/* Filter Tabs */}
       <AppTableFilters 
         searchQuery={searchQuery}
-        onSearchChange={(v) => { setSearchQuery(v); setPage(1) }}
+        onSearchChange={(v) => { setSearchQuery(v) }}
         searchPlaceholder="Search by operator, cultivar, source, or ID..."
         hasActiveFilters={filterView !== "all" || sourceFilter !== "all" || searchQuery !== ""}
         onClearFilters={() => {
           setFilterView("all")
           setSourceFilter("all")
           setSearchQuery("")
-          setPage(1)
         }}
       >
-        <Select value={filterView} onValueChange={(v) => { setFilterView(v as typeof filterView); setPage(1) }}>
+        <Select value={filterView} onValueChange={(v) => { setFilterView(v as typeof filterView) }}>
           <SelectTrigger className="w-full sm:w-45 h-10!">
             <Filter className="w-3.5 h-3.5 mr-1.5" />
             <SelectValue placeholder="All Scans" />
@@ -265,7 +384,7 @@ export default function QualityControl() {
             <SelectItem value="overridden">Overridden</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setPage(1) }}>
+        <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v) }}>
           <SelectTrigger className="w-full sm:w-47.5 h-10!">
             <Filter className="w-3.5 h-3.5 mr-1.5" />
             <SelectValue placeholder="All Sources" />
@@ -282,234 +401,20 @@ export default function QualityControl() {
       </AppTableFilters>
 
       {/* Scans Table */}
-      <Card className="rounded-xl sm:rounded-2xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead className="font-semibold w-20">Image</TableHead>
-              <TableHead className="font-semibold">Date/Time</TableHead>
-              <TableHead className="font-semibold">Operator</TableHead>
-              <TableHead className="font-semibold">Cultivar</TableHead>
-              <TableHead className="font-semibold">Ripeness</TableHead>
-              <TableHead className="font-semibold">Source</TableHead>
-              <TableHead className="font-semibold">Confidence</TableHead>
-              <TableHead className="font-semibold">IoT Data</TableHead>
-              <TableHead className="font-semibold">Status</TableHead>
-              <TableHead className="font-semibold text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredScans.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} className="h-64">
-                  <Empty>
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon" className="size-12 rounded-full bg-primary/10 text-primary [&_svg]:size-6">
-                        <ShieldCheck className="w-4 h-4" />
-                      </EmptyMedia>
-                      <EmptyTitle className="text-base sm:text-lg font-semibold mt-1">No scans to review</EmptyTitle>
-                      <EmptyDescription className="text-sm sm:text-base max-w-md mx-auto text-balance">
-                        {filterView !== "all" || sourceFilter !== "all"
-                          ? "Try adjusting your filters"
-                          : "All scans have been reviewed"
-                        }
-                      </EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginated.map((scan, i) => (
-                <TableRow key={scan.id} className="cursor-pointer hover:bg-muted/50 animate-fade-in-row" style={{ animationDelay: `${i * 40}ms` }} onClick={() => openScanDetails(scan)}>
-                  <TableCell>
-                    <div className="w-14">
-                      <AspectRatio ratio={1} className="rounded-lg overflow-hidden bg-muted/50 border">
-                        {scan.thumbnailUrl ? (
-                          <img src={scan.thumbnailUrl} alt={scan.cultivar} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Banana className="w-6 h-6 text-muted-foreground/40" />
-                          </div>
-                        )}
-                      </AspectRatio>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {new Date(scan.dateTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    <br />
-                    <span className="text-xs text-muted-foreground">{new Date(scan.dateTime).toLocaleTimeString()}</span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
-                          {scan.operator.split(' ').map(n => n[0]).join('').toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm font-medium">{scan.operator}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-medium">{scan.cultivar}</TableCell>
-                  <TableCell>
-                    <StatusBadge type="ripeness" status={scan.ripeness} size="md" />
-                  </TableCell>
-                  <TableCell>
-                    {scan.source ? (
-                      <div className="text-xs">
-                        <p className="font-medium">{scan.source}</p>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-medium ${scan.confidence < config.confidenceThreshold ? 'text-yellow-600' : ''}`}>
-                        {scan.confidence}%
-                      </span>
-                      {scan.confidence < config.confidenceThreshold && (
-                        <AlertTriangle className="w-4 h-4 text-yellow-600" />
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col text-[10px] text-muted-foreground">
-                      {scan.temperature !== undefined ? (
-                        <span className="flex items-center gap-1"><Thermometer className="w-3 h-3" />{scan.temperature}°C</span>
-                      ) : (
-                        <span className="flex items-center gap-1 opacity-50"><Thermometer className="w-3 h-3" />—</span>
-                      )}
-                      {scan.humidity !== undefined ? (
-                        <span className="flex items-center gap-1"><Droplets className="w-3 h-3" />{scan.humidity}%</span>
-                      ) : (
-                        <span className="flex items-center gap-1 opacity-50"><Droplets className="w-3 h-3" />—</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {scan.isOverridden && (
-                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs mr-1.5 mb-1.5 sm:mb-0">
-                        <Edit className="w-3 h-3 mr-1" />
-                        Overridden
-                      </Badge>
-                    )}
-                    {scan.flagged ? (
-                      <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs">
-                        <Flag className="w-3 h-3 mr-1" />
-                        Flagged
-                      </Badge>
-                    ) : scan.confidence < config.confidenceThreshold ? (
-                      <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs">
-                        <AlertTriangle className="w-3 h-3 mr-1" />
-                        Review
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Verified
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                    <ActionButton
-                      tooltip={scan.flagged ? "Unflag Issue" : "Flag for Review"}
-                      icon={Flag}
-                      iconClassName={scan.flagged ? 'fill-current text-red-600' : ''}
-                      onClick={() => handleFlag(scan)}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        {/* Pagination */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t bg-muted/20">
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filteredScans.length)} of {filteredScans.length}
-          </p>
-          <div className="flex justify-end">
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setPage(1)}
-                    disabled={page <= 1}
-                    title="First page"
-                  >
-                    <ChevronsLeft className="w-4 h-4" />
-                  </Button>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationPrevious 
-                    href="#" 
-                    onClick={(e) => { e.preventDefault(); if (page > 1) setPage(page - 1) }}
-                    className={page <= 1 ? "pointer-events-none opacity-50" : ""}
-                  />
-                </PaginationItem>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
-                  if (totalPages <= 7) {
-                    return (
-                      <PaginationItem key={p}>
-                        <PaginationLink
-                          href="#"
-                          onClick={(e) => { e.preventDefault(); setPage(p) }}
-                          isActive={p === page}
-                        >
-                          {p}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  }
-                  if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) {
-                    return (
-                      <PaginationItem key={p}>
-                        <PaginationLink
-                          href="#"
-                          onClick={(e) => { e.preventDefault(); setPage(p) }}
-                          isActive={p === page}
-                        >
-                          {p}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  }
-                  if (p === page - 2 || p === page + 2) {
-                    return (
-                      <PaginationItem key={p}>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    )
-                  }
-                  return null
-                })}
-                <PaginationItem>
-                  <PaginationNext 
-                    href="#" 
-                    onClick={(e) => { e.preventDefault(); if (page < totalPages) setPage(page + 1) }}
-                    className={page >= totalPages ? "pointer-events-none opacity-50" : ""}
-                  />
-                </PaginationItem>
-                <PaginationItem>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setPage(totalPages)}
-                    disabled={page >= totalPages}
-                    title="Last page"
-                  >
-                    <ChevronsRight className="w-4 h-4" />
-                  </Button>
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        </div>
-      </Card>
+      <AppDataTable
+        data={filteredScans}
+        columns={columns}
+        rowKey={(scan) => scan.id}
+        onRowClick={(scan) => openScanDetails(scan)}
+        pagination={{ pageSize: PAGE_SIZE }}
+        emptyState={{
+          icon: ShieldCheck,
+          title: "No scans to review",
+          description: filterView !== "all" || sourceFilter !== "all"
+            ? "Try adjusting your filters"
+            : "All scans have been reviewed"
+        }}
+      />
 
       {/* Scan Details Dialog */}
       <Dialog open={!!selectedScan} onOpenChange={() => { setSelectedScan(null); setEditMode(false); setNoteText("") }}>

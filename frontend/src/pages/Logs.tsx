@@ -5,20 +5,10 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { AppDataTable, type ColumnDef } from "@/components/shared/app-data-table"
 import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { StatsCard } from "@/components/shared/stats-card"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppTableFilters } from "@/components/AppTableFilters"
 import { 
@@ -49,7 +39,6 @@ export default function Logs() {
   const [operatorFilter, setOperatorFilter] = useState<string>("all")
   const [intakeFilter, setIntakeFilter] = useState<string>(searchParams.get("intake") || "all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [page, setPage] = useState(1)
   const [qrModalScan, setQrModalScan] = useState<ScanResult | null>(null)
 
   const roleFilteredScans = useMemo(() => {
@@ -83,9 +72,6 @@ export default function Logs() {
       return true
     })
   }, [roleFilteredScans, search, cultivarFilter, ripenessFilter, sourceFilter, operatorFilter, statusFilter, intakeFilter])
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const stats = useMemo(() => {
     const avgConfidence = filtered.length 
@@ -128,6 +114,166 @@ export default function Logs() {
   }
 
 
+
+const columns: ColumnDef<ScanResult>[] = [
+    {
+      header: "Image",
+      className: "w-20",
+      cell: (scan) => (
+        <div className="w-14">
+          <AspectRatio ratio={1} className="rounded-lg overflow-hidden bg-muted/50 border">
+            {scan.thumbnailUrl ? (
+              <img src={scan.thumbnailUrl} alt={scan.cultivar} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Banana className="w-6 h-6 text-muted-foreground/40" />
+              </div>
+            )}
+          </AspectRatio>
+        </div>
+      ),
+    },
+    {
+      header: "QR Code",
+      className: "w-16",
+      stopPropagation: true,
+      cell: (scan) => scan.qrCode ? (
+        <button
+          className="w-10 h-10 rounded-lg overflow-hidden border bg-white hover:ring-2 hover:ring-primary/30 transition-all cursor-pointer"
+          title="View QR Code"
+          onClick={() => setQrModalScan(scan)}
+        >
+          <img src={scan.qrCode} alt="QR" className="w-full h-full object-contain" />
+        </button>
+      ) : (
+        <div className="w-10 h-10 rounded-lg border bg-muted/50 flex items-center justify-center">
+          <QrCode className="w-5 h-5 text-muted-foreground/40" />
+        </div>
+      ),
+    },
+    {
+      header: "Date/Time",
+      cell: (scan) => (
+        <div className="text-sm">
+          {new Date(scan.dateTime).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+          <br />
+          <span className="text-xs text-muted-foreground">{new Date(scan.dateTime).toLocaleTimeString()}</span>
+        </div>
+      ),
+    },
+    {
+      header: "Cultivar",
+      cell: (scan) => <span className="font-medium">{scan.cultivar}</span>,
+    },
+    {
+      header: "Ripeness",
+      cell: (scan) => <StatusBadge type="ripeness" status={scan.ripeness} size="md" />,
+    },
+    {
+      header: "Source",
+      cell: (scan) => scan.source ? (
+        <span className="font-medium text-sm">{scan.source}</span>
+      ) : (
+        <span className="text-xs text-muted-foreground">—</span>
+      ),
+    },
+    {
+      header: "Confidence",
+      cell: (scan) => (
+        <div className="flex items-center gap-2">
+          <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-primary rounded-full" style={{ width: `${scan.confidence}%` }} />
+          </div>
+          <span className="text-sm">{scan.confidence}%</span>
+        </div>
+      ),
+    },
+    {
+      header: "IoT Data",
+      cell: (scan) => (
+        <div className="flex flex-col gap-1 text-xs">
+          {scan.temperature !== undefined ? (
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Thermometer className="h-3.5 w-3.5" />
+              <span>{scan.temperature.toFixed(1)}°C</span>
+            </div>
+          ) : null}
+          {scan.humidity !== undefined ? (
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Droplets className="h-3.5 w-3.5" />
+              <span>{scan.humidity.toFixed(1)}%</span>
+            </div>
+          ) : null}
+          {scan.temperature === undefined && scan.humidity === undefined && (
+             <span className="text-muted-foreground">—</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      header: "Est. Spoilage",
+      cell: (scan) => <span className="text-sm">{scan.spoilageDays} days</span>,
+    },
+    {
+      header: "Est. Fingers",
+      cell: (scan) => <span className="text-sm">{scan.fingerCount}</span>,
+    },
+    ...(user?.role === "Admin" ? [{
+      header: "Operator",
+      cell: (scan: ScanResult) => (
+        <div className="flex items-center gap-2">
+          <Avatar className="w-8 h-8">
+            <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+              {scan.operator.split(' ').map(n => n[0]).join('').toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-sm">{scan.operator}</span>
+        </div>
+      ),
+    }] : []),
+    {
+      header: "Status",
+      cell: (scan) => getStatus(scan.inventoryStatus),
+    },
+    ...(user?.role === "Admin" ? [{
+      header: "Actions",
+      className: "text-right",
+      stopPropagation: true,
+      cell: (scan: ScanResult) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <span className="sr-only">Open menu</span>
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Update Status</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {([
+              { actionStatus: "In Stock" as InventoryStatus, icon: Box, color: "text-blue-500" },
+              { actionStatus: "For Processing" as InventoryStatus, icon: Settings, color: "text-purple-500" },
+              { actionStatus: "Sold" as InventoryStatus, icon: DollarSign, color: "text-emerald-500" },
+              { actionStatus: "Spoiled" as InventoryStatus, icon: AlertTriangle, color: "text-red-500" },
+            ] as const).map(({ actionStatus, icon: ItemIcon, color }) => {
+              const isDisabled = scan.inventoryStatus === actionStatus
+              return (
+                <DropdownMenuItem
+                  key={actionStatus}
+                  onClick={() => !isDisabled && handleStatusUpdate(scan.id, actionStatus)}
+                  disabled={isDisabled}
+                  className={isDisabled ? "opacity-40 cursor-not-allowed" : ""}
+                >
+                  <ItemIcon className={`mr-2 h-4 w-4 ${isDisabled ? "text-muted-foreground" : color}`} />
+                  <span>Mark {actionStatus}</span>
+                </DropdownMenuItem>
+              )
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    }] : []),
+  ]
 
   return (
     <>
@@ -185,7 +331,7 @@ export default function Logs() {
       {/* Filters */}
       <AppTableFilters
         searchQuery={search}
-        onSearchChange={(value) => { setSearch(value); setPage(1) }}
+        onSearchChange={(value) => { setSearch(value) }}
         searchPlaceholder="Search by cultivar, operator, or ID..."
         hasActiveFilters={search !== "" || cultivarFilter !== "all" || ripenessFilter !== "all" || sourceFilter !== "all" || operatorFilter !== "all" || statusFilter !== "all" || intakeFilter !== "all"}
         onClearFilters={() => {
@@ -199,10 +345,9 @@ export default function Logs() {
             setIntakeFilter("all")
             navigate('/logs', { replace: true })
           }
-          setPage(1)
         }}
       >
-        <Select value={cultivarFilter} onValueChange={(v) => { setCultivarFilter(v); setPage(1) }}>
+        <Select value={cultivarFilter} onValueChange={(v) => { setCultivarFilter(v) }}>
           <SelectTrigger className="w-full sm:w-35 h-10!">
             <Filter className="w-3.5 h-3.5 mr-1.5" />
             <SelectValue placeholder="Cultivar" />
@@ -214,7 +359,7 @@ export default function Logs() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={ripenessFilter} onValueChange={(v) => { setRipenessFilter(v); setPage(1) }}>
+        <Select value={ripenessFilter} onValueChange={(v) => { setRipenessFilter(v) }}>
           <SelectTrigger className="w-full sm:w-35 h-10!">
             <Filter className="w-3.5 h-3.5 mr-1.5" />
             <SelectValue placeholder="Ripeness" />
@@ -226,7 +371,7 @@ export default function Logs() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setPage(1) }}>
+        <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v) }}>
           <SelectTrigger className="w-full sm:w-47.5 h-10!">
             <Filter className="w-3.5 h-3.5 mr-1.5" />
             <SelectValue placeholder="Source" />
@@ -239,7 +384,7 @@ export default function Logs() {
           </SelectContent>
         </Select>
         {user?.role === "Admin" && (
-          <Select value={operatorFilter} onValueChange={(v) => { setOperatorFilter(v); setPage(1) }}>
+          <Select value={operatorFilter} onValueChange={(v) => { setOperatorFilter(v) }}>
             <SelectTrigger className="w-full sm:w-45 h-10!">
               <Users className="w-3.5 h-3.5 mr-1.5" />
               <SelectValue placeholder="Operator" />
@@ -252,7 +397,7 @@ export default function Logs() {
             </SelectContent>
           </Select>
         )}
-        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
+        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v) }}>
           <SelectTrigger className="w-full sm:w-37.5 h-10!">
             <Package className="w-3.5 h-3.5 mr-1.5" />
             <SelectValue placeholder="Status" />
@@ -268,262 +413,18 @@ export default function Logs() {
       </AppTableFilters>
 
       {/* Table */}
-      <Card className="rounded-2xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead className="font-semibold w-20">Image</TableHead>
-              <TableHead className="font-semibold w-16">QR Code</TableHead>
-              <TableHead className="font-semibold">Date/Time</TableHead>
-              <TableHead className="font-semibold">Cultivar</TableHead>
-              <TableHead className="font-semibold">Ripeness</TableHead>
-              <TableHead className="font-semibold">Source</TableHead>
-              <TableHead className="font-semibold">Confidence</TableHead>
-              <TableHead className="font-semibold">IoT Data</TableHead>
-              <TableHead className="font-semibold">Est. Spoilage</TableHead>
-              <TableHead className="font-semibold">Est. Fingers</TableHead>
-              {user?.role === "Admin" && <TableHead className="font-semibold">Operator</TableHead>}
-              <TableHead className="font-semibold">Status</TableHead>
-              {user?.role === "Admin" && <TableHead className="font-semibold text-right">Actions</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginated.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={user?.role === "Admin" ? 12 : 11} className="h-64">
-                  <Empty>
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon" className="size-12 rounded-full bg-primary/10 text-primary [&_svg]:size-6">
-                        <Banana className="w-4 h-4" />
-                      </EmptyMedia>
-                      <EmptyTitle className="text-base sm:text-lg font-semibold mt-1">No scans match your filters</EmptyTitle>
-                      <EmptyDescription className="text-sm sm:text-base max-w-md mx-auto text-balance">
-                        Try adjusting your search or filter criteria
-                      </EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginated.map((scan, i) => (
-                <TableRow key={scan.id} className="animate-fade-in-row cursor-pointer hover:bg-muted/50" style={{ animationDelay: `${i * 30}ms` }} onClick={() => navigate(`/scans/${scan.id}`)}>
-                  <TableCell>
-                    <div className="w-14">
-                      <AspectRatio ratio={1} className="rounded-lg overflow-hidden bg-muted/50 border">
-                        {scan.thumbnailUrl ? (
-                          <img src={scan.thumbnailUrl} alt={scan.cultivar} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Banana className="w-6 h-6 text-muted-foreground/40" />
-                          </div>
-                        )}
-                      </AspectRatio>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {scan.qrCode ? (
-                      <button
-                        className="w-10 h-10 rounded-lg overflow-hidden border bg-white hover:ring-2 hover:ring-primary/30 transition-all cursor-pointer"
-                        title="View QR Code"
-                        onClick={(e) => { e.stopPropagation(); setQrModalScan(scan as any) }}
-                      >
-                        <img src={scan.qrCode} alt="QR" className="w-full h-full object-contain" />
-                      </button>
-                    ) : (
-                      <div className="w-10 h-10 rounded-lg border bg-muted/50 flex items-center justify-center">
-                        <QrCode className="w-5 h-5 text-muted-foreground/40" />
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {new Date(scan.dateTime).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                    <br />
-                    <span className="text-xs text-muted-foreground">{new Date(scan.dateTime).toLocaleTimeString()}</span>
-                  </TableCell>
-                  <TableCell className="font-medium">{scan.cultivar}</TableCell>
-                  <TableCell>
-                    <StatusBadge type="ripeness" status={scan.ripeness} size="md" />
-                  </TableCell>
-                  <TableCell>
-                    {scan.source ? (
-                      <span className="font-medium text-sm">{scan.source}</span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full" style={{ width: `${scan.confidence}%` }} />
-                      </div>
-                      <span className="text-sm">{scan.confidence}%</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1 text-xs">
-                      {scan.temperature !== undefined ? (
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <Thermometer className="h-3.5 w-3.5" />
-                          <span>{scan.temperature.toFixed(1)}°C</span>
-                        </div>
-                      ) : null}
-                      {scan.humidity !== undefined ? (
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <Droplets className="h-3.5 w-3.5" />
-                          <span>{scan.humidity.toFixed(1)}%</span>
-                        </div>
-                      ) : null}
-                      {scan.temperature === undefined && scan.humidity === undefined && (
-                         <span className="text-muted-foreground">—</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {scan.spoilageDays} days
-                  </TableCell>
-                  <TableCell className="text-sm">{scan.fingerCount}</TableCell>
-                  {user?.role === "Admin" && (
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="w-8 h-8">
-                          <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
-                            {scan.operator.split(' ').map(n => n[0]).join('').toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm">{scan.operator}</span>
-                      </div>
-                    </TableCell>
-                  )}
-                  <TableCell>
-                    {getStatus(scan.inventoryStatus)}
-                  </TableCell>
-                  {user?.role === "Admin" && (
-                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56">
-                          <DropdownMenuLabel>Update Status</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          {([
-                            { actionStatus: "In Stock" as InventoryStatus, icon: Box, color: "text-blue-500" },
-                            { actionStatus: "For Processing" as InventoryStatus, icon: Settings, color: "text-purple-500" },
-                            { actionStatus: "Sold" as InventoryStatus, icon: DollarSign, color: "text-emerald-500" },
-                            { actionStatus: "Spoiled" as InventoryStatus, icon: AlertTriangle, color: "text-red-500" },
-                          ] as const).map(({ actionStatus, icon: ItemIcon, color }) => {
-                            const isDisabled = scan.inventoryStatus === actionStatus
-                            return (
-                              <DropdownMenuItem
-                                key={actionStatus}
-                                onClick={() => !isDisabled && handleStatusUpdate(scan.id, actionStatus)}
-                                disabled={isDisabled}
-                                className={isDisabled ? "opacity-40 cursor-not-allowed" : ""}
-                              >
-                                <ItemIcon className={`mr-2 h-4 w-4 ${isDisabled ? "text-muted-foreground" : color}`} />
-                                <span>Mark {actionStatus}</span>
-                              </DropdownMenuItem>
-                            )
-                          })}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        {/* Pagination */}
-        <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/20">
-          <p className="text-sm text-muted-foreground">
-            Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
-          </p>
-          <div className="flex justify-end">
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setPage(1)}
-                    disabled={page <= 1}
-                    title="First page"
-                  >
-                    <ChevronsLeft className="w-4 h-4" />
-                  </Button>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationPrevious 
-                    href="#" 
-                    onClick={(e) => { e.preventDefault(); if (page > 1) setPage(page - 1) }}
-                    className={page <= 1 ? "pointer-events-none opacity-50" : ""}
-                  />
-                </PaginationItem>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
-                  if (totalPages <= 7) {
-                    return (
-                      <PaginationItem key={p}>
-                        <PaginationLink
-                          href="#"
-                          onClick={(e) => { e.preventDefault(); setPage(p) }}
-                          isActive={p === page}
-                        >
-                          {p}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  }
-                  if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) {
-                    return (
-                      <PaginationItem key={p}>
-                        <PaginationLink
-                          href="#"
-                          onClick={(e) => { e.preventDefault(); setPage(p) }}
-                          isActive={p === page}
-                        >
-                          {p}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  }
-                  if (p === page - 2 || p === page + 2) {
-                    return (
-                      <PaginationItem key={p}>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    )
-                  }
-                  return null
-                })}
-                <PaginationItem>
-                  <PaginationNext 
-                    href="#" 
-                    onClick={(e) => { e.preventDefault(); if (page < totalPages) setPage(page + 1) }}
-                    className={page >= totalPages ? "pointer-events-none opacity-50" : ""}
-                  />
-                </PaginationItem>
-                <PaginationItem>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setPage(totalPages)}
-                    disabled={page >= totalPages}
-                    title="Last page"
-                  >
-                    <ChevronsRight className="w-4 h-4" />
-                  </Button>
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        </div>
-      </Card>
+      <AppDataTable
+        data={filtered}
+        columns={columns}
+        rowKey={(scan) => scan.id}
+        onRowClick={(scan) => navigate(`/scans/${scan.id}`)}
+        pagination={{ pageSize: PAGE_SIZE }}
+        emptyState={{
+          icon: Banana,
+          title: "No scans match your filters",
+          description: "Try adjusting your search or filter criteria"
+        }}
+      />
     </div>
 
       {/* QR Code Modal */}
