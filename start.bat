@@ -55,6 +55,12 @@ timeout /t 3 /nobreak >nul
 echo [INFO] Starting Frontend (Static Serve)...
 start "BananaVision Frontend" cmd /c "cd /d "%FRONTEND_DIR%" && npm run preview -- --host 0.0.0.0 --port 5173"
 
+:: 6. Launch Kiosk Mode UI
+echo [INFO] Waiting for UI to become available...
+timeout /t 3 /nobreak >nul
+echo [INFO] Launching Kiosk Interface (Google Chrome)...
+start chrome --kiosk "http://localhost:5173/kiosk"
+
 echo.
 echo ============================================================
 echo   System is now LIVE on your local network.
@@ -64,3 +70,4 @@ echo ============================================================
 echo.
 
 endlocal
+
