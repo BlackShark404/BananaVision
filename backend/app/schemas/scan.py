@@ -9,6 +9,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from .enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
+
 
 # ── Requests ─────────────────────────────────────────────────────────────────
 
@@ -22,8 +24,8 @@ class ScanFlagRequest(BaseModel):
 
 
 class ScanOverrideRequest(BaseModel):
-    cultivar: str | None = None
-    ripeness: str | None = None
+    cultivar: CultivarEnum | None = None
+    ripeness: RipenessEnum | None = None
     finger_count: int | None = None
 
 
@@ -32,7 +34,7 @@ class ScanNoteCreate(BaseModel):
 
 
 class ScanStatusUpdate(BaseModel):
-    inventory_status: str  # "In Stock" | "Sold" | "For Processing" | "Spoiled"
+    inventory_status: InventoryStatusEnum
 
 
 # ── Responses ────────────────────────────────────────────────────────────────
@@ -50,8 +52,8 @@ class ScanDetectionResponse(BaseModel):
     id: uuid.UUID
     camera_id: str
     camera_label: str
-    detected_cultivar: str | None = None
-    detected_ripeness: str | None = None
+    detected_cultivar: CultivarEnum | None = None
+    detected_ripeness: RipenessEnum | None = None
     confidence: float | None = None
     finger_count: int = 0
     bounding_boxes: list[BoundingBox] = []
@@ -83,8 +85,8 @@ class ScanNoteResponse(BaseModel):
 
 
 class OriginalAiResult(BaseModel):
-    cultivar: str
-    ripeness: str
+    cultivar: CultivarEnum
+    ripeness: RipenessEnum
     confidence: float
     finger_count: int
 
@@ -94,8 +96,8 @@ class OriginalAiResult(BaseModel):
 class ScanResponse(BaseModel):
     id: uuid.UUID
     date_time: datetime
-    cultivar: str
-    ripeness: str
+    cultivar: CultivarEnum
+    ripeness: RipenessEnum
     confidence: float
     temperature: float | None = None
     humidity: float | None = None
@@ -104,7 +106,7 @@ class ScanResponse(BaseModel):
     operator_name: str
     source_text: str | None = None
     intake_id: uuid.UUID | None = None
-    inventory_status: str
+    inventory_status: InventoryStatusEnum
     status_updated_at: datetime | None = None
     flagged: bool = False
     is_overridden: bool = False

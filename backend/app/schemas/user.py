@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
+from .enums import ActiveStatusEnum, PasswordSetupReasonEnum, PinSetupReasonEnum, RoleEnum
+
 if TYPE_CHECKING:
     from app.models.user_account import UserAccount
 
@@ -21,28 +23,28 @@ class UserCreate(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=100)
     password: str = Field(..., min_length=4, max_length=128)
     pin: str | None = Field(None, min_length=4, max_length=4)
-    role: str = "Operator"
+    role: RoleEnum = RoleEnum.OPERATOR
 
 
 class UserUpdate(BaseModel):
     full_name: str | None = None
-    role: str | None = None
-    status: str | None = None
+    role: RoleEnum | None = None
+    status: ActiveStatusEnum | None = None
     avatar_url: str | None = None
     requires_password_change: bool | None = None
-    password_setup_reason: str | None = None
+    password_setup_reason: PasswordSetupReasonEnum | None = None
     requires_pin_change: bool | None = None
-    pin_setup_reason: str | None = None
+    pin_setup_reason: PinSetupReasonEnum | None = None
 
 
 class UserPasswordReset(BaseModel):
     new_password: str = Field(..., min_length=4, max_length=128)
-    password_setup_reason: str = "password_reset"
+    password_setup_reason: PasswordSetupReasonEnum = PasswordSetupReasonEnum.PASSWORD_RESET
 
 
 class UserPinReset(BaseModel):
     new_pin: str = Field(..., min_length=4, max_length=4)
-    pin_setup_reason: str = "pin_reset"
+    pin_setup_reason: PinSetupReasonEnum = PinSetupReasonEnum.PIN_RESET
 
 
 # ── Responses ────────────────────────────────────────────────────────────────
@@ -51,8 +53,8 @@ class UserResponse(BaseModel):
     id: uuid.UUID
     username: str
     full_name: str
-    role: str
-    status: str
+    role: RoleEnum
+    status: ActiveStatusEnum
     avatar_url: str | None = None
     requires_password_change: bool = False
     requires_pin_change: bool = False

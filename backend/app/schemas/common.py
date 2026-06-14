@@ -9,6 +9,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
+from .enums import ActiveStatusEnum, DeviceStatusEnum, IntakeStatusEnum, InventoryStatusEnum
+
 
 # ── Device ───────────────────────────────────────────────────────────────────
 
@@ -16,7 +18,7 @@ class DeviceResponse(BaseModel):
     id: uuid.UUID
     camera_id: str
     label: str
-    status: str
+    status: DeviceStatusEnum
     resolution: str | None = None
     last_seen: datetime | None = None
 
@@ -45,14 +47,14 @@ class SupplierCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     contact_person: str | None = None
     contact_phone: str | None = None
-    status: str = "Active"
+    status: ActiveStatusEnum = ActiveStatusEnum.ACTIVE
 
 
 class SupplierUpdate(BaseModel):
     name: str | None = None
     contact_person: str | None = None
     contact_phone: str | None = None
-    status: str | None = None
+    status: ActiveStatusEnum | None = None
 
 
 class SupplierResponse(BaseModel):
@@ -60,7 +62,7 @@ class SupplierResponse(BaseModel):
     name: str
     contact_person: str | None = None
     contact_phone: str | None = None
-    status: str
+    status: ActiveStatusEnum
     date_added: datetime
 
     model_config = {"from_attributes": True}
@@ -80,17 +82,17 @@ class IntakeResponse(BaseModel):
     batch_number: str | None = None
     qr_code: str | None = None
     intake_date: date
-    status: str
+    status: IntakeStatusEnum
     scan_count: int = 0
     created_at: datetime
 
 
 class IntakeStatusUpdate(BaseModel):
-    status: str  # "Active" | "Depleted"
+    status: IntakeStatusEnum
 
 
 class IntakeBulkInventoryUpdate(BaseModel):
-    inventory_status: str  # "In Stock" | "Sold" | "For Processing" | "Spoiled"
+    inventory_status: InventoryStatusEnum
 
 
 # ── Analytics ────────────────────────────────────────────────────────────────
