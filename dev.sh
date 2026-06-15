@@ -34,7 +34,7 @@ fi
 # ── Check frontend node_modules ──────────────────────────────────────────────
 if [ ! -d "$FRONTEND_DIR/node_modules" ]; then
   echo -e "${YELLOW}⚙  Installing frontend dependencies...${NC}"
-  (cd "$FRONTEND_DIR" && npm install)
+  (cd "$FRONTEND_DIR" && npm install --legacy-peer-deps)
 fi
 
 # ── Kill any leftover processes on ports 8000 & 5173 ─────────────────────────

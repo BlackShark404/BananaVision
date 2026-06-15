@@ -28,7 +28,7 @@ if not exist "%BACKEND_DIR%\venv" (
 if not exist "%FRONTEND_DIR%\node_modules" (
     echo [INFO] Installing frontend dependencies...
     pushd "%FRONTEND_DIR%"
-    call npm install
+    call npm install --legacy-peer-deps
     popd
 )
 

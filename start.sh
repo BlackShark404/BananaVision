@@ -27,7 +27,7 @@ fi
 if [ ! -d "$FRONTEND_DIR/node_modules" ]; then
     echo "[INFO] Installing frontend dependencies..."
     cd "$FRONTEND_DIR" || exit
-    npm install
+    npm install --legacy-peer-deps
     cd "$ROOT_DIR" || exit
 fi
 
