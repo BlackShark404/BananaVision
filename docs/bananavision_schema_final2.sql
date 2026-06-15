@@ -1,242 +1,242 @@
 -- ============================================================
--- BANANAVISION DATABASE SCHEMA (FINAL / ALIGNED)
+-- bananavision database schema (final / aligned)
 -- ============================================================
--- This schema represents the final alignment between the
+-- this schema represents the final alignment between the
 -- designed data dictionary and the actual frontend models
--- found in src/types/index.ts and src/context/AppContext.tsx.
+-- found in src/types/index.ts and src/context/appcontext.tsx.
 -- ============================================================
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+create extension if not exists "uuid-ossp";
+create extension if not exists "pgcrypto";
 
 -- ============================================================
--- DROP EXISTING TABLES
+-- drop existing tables
 -- ============================================================
 
-DROP TABLE IF EXISTS APP_NOTIFICATION CASCADE;
-DROP TABLE IF EXISTS ACTIVITY_LOG CASCADE;
-DROP TABLE IF EXISTS SCAN_NOTE CASCADE;
-DROP TABLE IF EXISTS SCAN_CLASSIFICATION CASCADE;
-DROP TABLE IF EXISTS SCAN_ORIGINAL_AI_RESULT CASCADE;
-DROP TABLE IF EXISTS SCAN_STATUS_LOG CASCADE;
-DROP TABLE IF EXISTS SCAN CASCADE;
-DROP TABLE IF EXISTS DELIVERY_INTAKE CASCADE;
-DROP TABLE IF EXISTS SUPPLIER CASCADE;
-DROP TABLE IF EXISTS DEVICE CASCADE;
-DROP TABLE IF EXISTS SYSTEM_CONFIG CASCADE;
-DROP TABLE IF EXISTS OPERATOR_PROFILE CASCADE;
-DROP TABLE IF EXISTS ADMIN_PROFILE CASCADE;
-DROP TABLE IF EXISTS USER_ACCOUNT CASCADE;
-DROP TABLE IF EXISTS USER_ROLE CASCADE;
+drop table if exists app_notification cascade;
+drop table if exists activity_log cascade;
+drop table if exists scan_note cascade;
+drop table if exists scan_classification cascade;
+drop table if exists scan_original_ai_result cascade;
+drop table if exists scan_status_log cascade;
+drop table if exists scan cascade;
+drop table if exists delivery_intake cascade;
+drop table if exists supplier cascade;
+drop table if exists device cascade;
+drop table if exists system_config cascade;
+drop table if exists operator_profile cascade;
+drop table if exists admin_profile cascade;
+drop table if exists user_account cascade;
+drop table if exists user_role cascade;
 
 -- ============================================================
--- CORE USER & ROLES (Aligned with User type + Profiles for Expansion)
+-- core user & roles (aligned with user type + profiles for expansion)
 -- ============================================================
 
-CREATE TABLE USER_ROLE (
-    UR_ID               SERIAL PRIMARY KEY,
-    UR_NAME             VARCHAR(30) UNIQUE NOT NULL,
-    UR_DESCRIPTION      VARCHAR(255)
+create table user_role (
+    id               serial primary key,
+    name             varchar(30) unique not null,
+    description      varchar(255)
 );
 
-CREATE TABLE USER_ACCOUNT (
-    UA_ID                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    UA_USERNAME                 VARCHAR(50) UNIQUE NOT NULL,
-    UA_FULL_NAME                VARCHAR(100) NOT NULL,
-    UR_ID                       INT NOT NULL REFERENCES USER_ROLE(UR_ID) ON DELETE RESTRICT,
-    UA_STATUS                   VARCHAR(20) DEFAULT 'Active' CHECK (UA_STATUS IN ('Active', 'Inactive')),
-    UA_AVATAR_URL               TEXT,
-    UA_PASSWORD_HASH            VARCHAR(255) NOT NULL,
-    UA_REQUIRES_PWD_CHANGE      BOOLEAN DEFAULT FALSE,
-    UA_PWD_SETUP_REASON         VARCHAR(50) CHECK (UA_PWD_SETUP_REASON IN ('new_account', 'password_reset')),
-    UA_LAST_ACTIVE              TIMESTAMP,
-    UA_CREATED_AT               TIMESTAMP NOT NULL DEFAULT NOW(),
-    UA_UPDATED_AT               TIMESTAMP NOT NULL DEFAULT NOW()
+create table user_account (
+    id                       uuid primary key default gen_random_uuid(),
+    username                 varchar(50) unique not null,
+    full_name                varchar(100) not null,
+    id                       int not null references user_role(id) on delete restrict,
+    status                   varchar(20) default 'active' check (status in ('active', 'inactive')),
+    avatar_url               text,
+    password_hash            varchar(255) not null,
+    requires_pwd_change      boolean default false,
+    pwd_setup_reason         varchar(50) check (pwd_setup_reason in ('new_account', 'password_reset')),
+    last_active              timestamp,
+    created_at               timestamp not null default now(),
+    updated_at               timestamp not null default now()
 );
 
--- Administrator Profile Extension
-CREATE TABLE ADMIN_PROFILE (
-    AP_ID               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    AP_ACCOUNT_ID       UUID NOT NULL UNIQUE REFERENCES USER_ACCOUNT(UA_ID) ON DELETE CASCADE,
-    AP_CREATED_AT       TIMESTAMP NOT NULL DEFAULT NOW(),
-    AP_UPDATED_AT       TIMESTAMP NOT NULL DEFAULT NOW()
+-- administrator profile extension
+create table admin_profile (
+    id               uuid primary key default gen_random_uuid(),
+    account_id       uuid not null unique references user_account(id) on delete cascade,
+    created_at       timestamp not null default now(),
+    updated_at       timestamp not null default now()
 );
 
--- Operator Profile Extension (Contains Operator-specific properties like PINs and scan counters)
-CREATE TABLE OPERATOR_PROFILE (
-    OP_ID                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    OP_ACCOUNT_ID           UUID NOT NULL UNIQUE REFERENCES USER_ACCOUNT(UA_ID) ON DELETE CASCADE,
-    OP_PIN_HASH             VARCHAR(255),
-    OP_REQUIRES_PIN_CHANGE  BOOLEAN DEFAULT FALSE,
-    OP_PIN_SETUP_REASON     VARCHAR(50) CHECK (OP_PIN_SETUP_REASON IN ('new_account', 'pin_reset')),
-    OP_TOTAL_SCANS          INT DEFAULT 0,
-    OP_FLAGGED_SCANS        INT DEFAULT 0,
-    OP_CREATED_AT           TIMESTAMP NOT NULL DEFAULT NOW(),
-    OP_UPDATED_AT           TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
--- ============================================================
--- SYSTEM CONFIGURATION
--- ============================================================
-
-CREATE TABLE SYSTEM_CONFIG (
-    SC_ID                   SERIAL PRIMARY KEY,
-    SC_CAMERA_IDS           TEXT NOT NULL,         -- Aligned with config { cameraIds: string }
-    SC_CONFIDENCE_THRESHOLD INT NOT NULL,          -- Aligned with config { confidenceThreshold: number }
-    SC_UPDATED_AT           TIMESTAMP NOT NULL DEFAULT NOW(),
-    SC_UPT_BY_ADMIN         UUID REFERENCES ADMIN_PROFILE(AP_ID) ON DELETE SET NULL
+-- operator profile extension (contains operator-specific properties like pins and scan counters)
+create table operator_profile (
+    id                   uuid primary key default gen_random_uuid(),
+    account_id           uuid not null unique references user_account(id) on delete cascade,
+    pin_hash             varchar(255),
+    requires_pin_change  boolean default false,
+    pin_setup_reason     varchar(50) check (pin_setup_reason in ('new_account', 'pin_reset')),
+    total_scans          int default 0,
+    flagged_scans        int default 0,
+    created_at           timestamp not null default now(),
+    updated_at           timestamp not null default now()
 );
 
 -- ============================================================
--- DEVICE MANAGEMENT (Aligned with Device type)
+-- system configuration
 -- ============================================================
 
-CREATE TABLE DEVICE (
-    DEV_ID              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    DEV_CAMERA_ID       VARCHAR(50) UNIQUE NOT NULL,
-    DEV_LABEL           VARCHAR(100) NOT NULL,
-    DEV_STATUS          VARCHAR(20) DEFAULT 'Offline' CHECK (DEV_STATUS IN ('Online', 'Offline')),
-    DEV_RESOLUTION      VARCHAR(20) DEFAULT '1920x1080',
-    DEV_LAST_SEEN       TIMESTAMP,
-    DEV_CREATED_AT      TIMESTAMP NOT NULL DEFAULT NOW(),
-    DEV_UPDATED_AT      TIMESTAMP NOT NULL DEFAULT NOW()
+create table system_config (
+    id                   serial primary key,
+    camera_ids           text not null,         -- aligned with config { cameraids: string }
+    confidence_threshold int not null,          -- aligned with config { confidencethreshold: number }
+    updated_at           timestamp not null default now(),
+    upt_by_admin         uuid references admin_profile(id) on delete set null
 );
 
 -- ============================================================
--- SUPPLIER & INTAKE (Aligned with Supplier & DailyIntake types)
+-- device management (aligned with device type)
 -- ============================================================
 
-CREATE TABLE SUPPLIER (
-    SUP_ID              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    SUP_NAME            VARCHAR(100) NOT NULL,
-    SUP_CONTACT_PERSON  VARCHAR(100),
-    SUP_CONTACT_PHONE   VARCHAR(20),
-    SUP_STATUS          VARCHAR(20) DEFAULT 'Active' CHECK (SUP_STATUS IN ('Active', 'Inactive')),
-    SUP_DATE_ADDED      TIMESTAMP NOT NULL DEFAULT NOW(),
-    SUP_UPDATED_AT      TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE DELIVERY_INTAKE (
-    DI_ID               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    DI_SOURCE           VARCHAR(100) NOT NULL,
-    DI_DATE             DATE NOT NULL,
-    DI_STATUS           VARCHAR(20) DEFAULT 'Active' CHECK (DI_STATUS IN ('Active', 'Depleted')),
-    DI_CREATED_AT       TIMESTAMP NOT NULL DEFAULT NOW(),
-    DI_UPDATED_AT       TIMESTAMP NOT NULL DEFAULT NOW()
+create table device (
+    id              uuid primary key default gen_random_uuid(),
+    camera_id       varchar(50) unique not null,
+    label           varchar(100) not null,
+    status          varchar(20) default 'offline' check (status in ('online', 'offline')),
+    resolution      varchar(20) default '1920x1080',
+    last_seen       timestamp,
+    created_at      timestamp not null default now(),
+    updated_at      timestamp not null default now()
 );
 
 -- ============================================================
--- SCAN TABLES (Aligned with ScanResult & ScanNote types)
+-- supplier & intake (aligned with supplier & dailyintake types)
 -- ============================================================
 
-CREATE TABLE SCAN (
-    SC_ID                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    SC_DATE_TIME            TIMESTAMP NOT NULL DEFAULT NOW(),
-    SC_FLAGGED              BOOLEAN DEFAULT FALSE,
-    SC_IS_OVERRIDDEN        BOOLEAN DEFAULT FALSE,
-    SC_OPERATOR_ID          UUID NOT NULL REFERENCES OPERATOR_PROFILE(OP_ID) ON DELETE RESTRICT,
-    SC_INTAKE_ID            UUID REFERENCES DELIVERY_INTAKE(DI_ID) ON DELETE SET NULL,
-    SC_SOURCE_TEXT          VARCHAR(100), -- Explicit denormalized source for quick lookup
-    SC_UPDATED_AT           TIMESTAMP NOT NULL DEFAULT NOW()
+create table supplier (
+    id              uuid primary key default gen_random_uuid(),
+    name            varchar(100) not null,
+    contact_person  varchar(100),
+    contact_phone   varchar(20),
+    status          varchar(20) default 'active' check (status in ('active', 'inactive')),
+    date_added      timestamp not null default now(),
+    updated_at      timestamp not null default now()
 );
 
-CREATE TABLE SCAN_CLASSIFICATION (
-    SCLS_ID             SERIAL PRIMARY KEY,
-    SCLS_SCAN_ID        UUID UNIQUE NOT NULL REFERENCES SCAN(SC_ID) ON DELETE CASCADE,
-    SCLS_CULTIVAR       VARCHAR(20) NOT NULL CHECK (SCLS_CULTIVAR IN ('Lakatan', 'Latundan', 'Saba')),
-    SCLS_RIPENESS       VARCHAR(20) NOT NULL CHECK (SCLS_RIPENESS IN ('Unripe', 'Ripe', 'Overripe', 'Rotten')),
-    SCLS_CONFIDENCE     DECIMAL(5,2) NOT NULL CHECK (SCLS_CONFIDENCE >= 0 AND SCLS_CONFIDENCE <= 100),
-    SCLS_TEMPERATURE    DECIMAL(5,2), -- Added from frontend ScanResult
-    SCLS_HUMIDITY       DECIMAL(5,2), -- Added from frontend ScanResult
-    SCLS_SPOILAGE_DAYS  VARCHAR(20) NOT NULL,
-    SCLS_FINGER_COUNT   INT NOT NULL,
-    SCLS_THUMBNAIL_URL  VARCHAR(500)
-);
-
-CREATE TABLE SCAN_STATUS_LOG (
-    SSLG_ID                 SERIAL PRIMARY KEY,
-    SSLG_SCAN_ID            UUID NOT NULL REFERENCES SCAN(SC_ID) ON DELETE CASCADE,
-    SSLG_INVENTORY_STATUS   VARCHAR(30) NOT NULL CHECK (SSLG_INVENTORY_STATUS IN ('In Stock', 'Sold', 'For Processing', 'Spoiled')),
-    SSLG_UPDATED_AT         TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
--- Represents the `originalAiResult` property structure
-CREATE TABLE SCAN_ORIGINAL_AI_RESULT (
-    SOAR_ID             SERIAL PRIMARY KEY,
-    SOAR_SCAN_ID        UUID UNIQUE NOT NULL REFERENCES SCAN(SC_ID) ON DELETE CASCADE,
-    SOAR_CULTIVAR       VARCHAR(20) NOT NULL CHECK (SOAR_CULTIVAR IN ('Lakatan', 'Latundan', 'Saba')),
-    SOAR_RIPENESS       VARCHAR(20) NOT NULL CHECK (SOAR_RIPENESS IN ('Unripe', 'Ripe', 'Overripe', 'Rotten')),
-    SOAR_CONFIDENCE     DECIMAL(5,2) NOT NULL,
-    SOAR_FINGER_COUNT   INT NOT NULL,
-    SOAR_CREATED_AT     TIMESTAMP NOT NULL DEFAULT NOW()
+create table delivery_intake (
+    id               uuid primary key default gen_random_uuid(),
+    source           varchar(100) not null,
+    date             date not null,
+    status           varchar(20) default 'active' check (status in ('active', 'depleted')),
+    created_at       timestamp not null default now(),
+    updated_at       timestamp not null default now()
 );
 
 -- ============================================================
--- IoT CAMERA INFRASTRUCTURE (4 Camera Support)
+-- scan tables (aligned with scanresult & scannote types)
 -- ============================================================
 
-CREATE TABLE SCAN_DETECTION (
-    SD_ID                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    SD_SCAN_ID              UUID NOT NULL REFERENCES SCAN(SC_ID) ON DELETE CASCADE,
-    SD_CAMERA_ID            VARCHAR(20) NOT NULL,
-    SD_CAMERA_LABEL         VARCHAR(30) NOT NULL,
-    SD_DETECTED_CULTIVAR    VARCHAR(20),
-    SD_DETECTED_RIPENESS    VARCHAR(20),
-    SD_CONFIDENCE           DECIMAL(5,2),
-    SD_FINGER_COUNT         INT DEFAULT 0,
-    SD_BOUNDING_BOXES       JSONB,
-    SD_INFERENCE_TIME_MS    DECIMAL(8,2),
-    SD_CAPTURED_AT          TIMESTAMP NOT NULL DEFAULT NOW()
+create table scan (
+    id                   uuid primary key default gen_random_uuid(),
+    date_time            timestamp not null default now(),
+    flagged              boolean default false,
+    is_overridden        boolean default false,
+    operator_id          uuid not null references operator_profile(id) on delete restrict,
+    intake_id            uuid references delivery_intake(id) on delete set null,
+    source_text          varchar(100), -- explicit denormalized source for quick lookup
+    updated_at           timestamp not null default now()
 );
 
-CREATE TABLE SCAN_IMAGE (
-    SI_ID               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    SI_SCAN_ID          UUID NOT NULL REFERENCES SCAN(SC_ID) ON DELETE CASCADE,
-    SI_CAMERA_ID        VARCHAR(20) NOT NULL,
-    SI_FILE_PATH        VARCHAR(500) NOT NULL,
-    SI_WIDTH            INT,
-    SI_HEIGHT           INT,
-    SI_FILE_SIZE_BYTES  INT,
-    SI_CAPTURED_AT      TIMESTAMP NOT NULL DEFAULT NOW()
+create table scan_classification (
+    id             serial primary key,
+    scan_id        uuid unique not null references scan(id) on delete cascade,
+    cultivar       varchar(20) not null check (cultivar in ('lakatan', 'latundan', 'saba')),
+    ripeness       varchar(20) not null check (ripeness in ('unripe', 'ripe', 'overripe', 'rotten')),
+    confidence     decimal(5,2) not null check (confidence >= 0 and confidence <= 100),
+    temperature    decimal(5,2), -- added from frontend scanresult
+    humidity       decimal(5,2), -- added from frontend scanresult
+    spoilage_days  varchar(20) not null,
+    finger_count   int not null,
+    thumbnail_url  varchar(500)
 );
 
--- Aligned with the ScanNote interface in AppContext.tsx
-CREATE TABLE SCAN_NOTE (
-    SCNT_ID                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    SCNT_SCAN_ID                UUID NOT NULL REFERENCES SCAN(SC_ID) ON DELETE CASCADE,
-    SCNT_TEXT                   TEXT NOT NULL,
-    SCNT_AUTHOR_NAME            VARCHAR(100) NOT NULL, -- Storing author explicitly based on interface
-    SCNT_TIMESTAMP              TIMESTAMP NOT NULL DEFAULT NOW()
+create table scan_status_log (
+    id                 serial primary key,
+    scan_id            uuid not null references scan(id) on delete cascade,
+    inventory_status   varchar(30) not null check (inventory_status in ('in stock', 'sold', 'for processing', 'spoiled')),
+    updated_at         timestamp not null default now()
+);
+
+-- represents the `originalairesult` property structure
+create table scan_original_ai_result (
+    id             serial primary key,
+    scan_id        uuid unique not null references scan(id) on delete cascade,
+    cultivar       varchar(20) not null check (cultivar in ('lakatan', 'latundan', 'saba')),
+    ripeness       varchar(20) not null check (ripeness in ('unripe', 'ripe', 'overripe', 'rotten')),
+    confidence     decimal(5,2) not null,
+    finger_count   int not null,
+    created_at     timestamp not null default now()
 );
 
 -- ============================================================
--- SYSTEM LOGS & NOTIFICATIONS (Aligned with ActivityLog & AppNotification types)
+-- iot camera infrastructure (4 camera support)
 -- ============================================================
 
-CREATE TABLE ACTIVITY_LOG (
-    AL_ID               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    AL_TIMESTAMP        TIMESTAMP NOT NULL DEFAULT NOW(),
-    AL_USER_ID          UUID REFERENCES USER_ACCOUNT(UA_ID) ON DELETE SET NULL,
-    AL_ACTION           VARCHAR(50) NOT NULL CHECK (AL_ACTION IN (
+create table scan_detection (
+    id                   uuid primary key default gen_random_uuid(),
+    scan_id              uuid not null references scan(id) on delete cascade,
+    camera_id            varchar(20) not null,
+    camera_label         varchar(30) not null,
+    detected_cultivar    varchar(20),
+    detected_ripeness    varchar(20),
+    confidence           decimal(5,2),
+    finger_count         int default 0,
+    bounding_boxes       jsonb,
+    inference_time_ms    decimal(8,2),
+    captured_at          timestamp not null default now()
+);
+
+create table scan_image (
+    id               uuid primary key default gen_random_uuid(),
+    scan_id          uuid not null references scan(id) on delete cascade,
+    camera_id        varchar(20) not null,
+    file_path        varchar(500) not null,
+    width            int,
+    height           int,
+    file_size_bytes  int,
+    captured_at      timestamp not null default now()
+);
+
+-- aligned with the scannote interface in appcontext.tsx
+create table scan_note (
+    id                     uuid primary key default gen_random_uuid(),
+    scan_id                uuid not null references scan(id) on delete cascade,
+    text                   text not null,
+    author_name            varchar(100) not null, -- storing author explicitly based on interface
+    timestamp              timestamp not null default now()
+);
+
+-- ============================================================
+-- system logs & notifications (aligned with activitylog & appnotification types)
+-- ============================================================
+
+create table activity_log (
+    id               uuid primary key default gen_random_uuid(),
+    timestamp        timestamp not null default now(),
+    user_id          uuid references user_account(id) on delete set null,
+    action           varchar(50) not null check (action in (
                             'login', 'logout', 'scan_created', 'scan_edited', 
                             'user_created', 'user_updated', 'config_changed', 'scan_flagged', 
                             'supplier_created', 'supplier_updated', 
                             'intake_created', 'intake_edited',  
                             'intake_status_changed'
                         )),
-    AL_DETAILS          TEXT NOT NULL,
-    AL_IP_ADDRESS       VARCHAR(45)
+    details          text not null,
+    ip_address       varchar(45)
 );
 
-CREATE TABLE APP_NOTIFICATION (
-    NOTIF_ID            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    NOTIF_TYPE          VARCHAR(30) NOT NULL CHECK (NOTIF_TYPE IN ('scan_complete', 'scan_flagged', 'intake_update', 'system_alert', 'quality_warning')),
-    NOTIF_TITLE         VARCHAR(200) NOT NULL,
-    NOTIF_MESSAGE       TEXT NOT NULL,
-    NOTIF_TIMESTAMP     TIMESTAMP NOT NULL DEFAULT NOW(),
-    NOTIF_IS_READ       BOOLEAN DEFAULT FALSE,
-    NOTIF_HREF          VARCHAR(200),
-    NOTIF_USER_ID       UUID REFERENCES USER_ACCOUNT(UA_ID) ON DELETE CASCADE
+create table app_notification (
+    id            uuid primary key default gen_random_uuid(),
+    type          varchar(30) not null check (type in ('scan_complete', 'scan_flagged', 'intake_update', 'system_alert', 'quality_warning')),
+    title         varchar(200) not null,
+    message       text not null,
+    timestamp     timestamp not null default now(),
+    is_read       boolean default false,
+    href          varchar(200),
+    user_id       uuid references user_account(id) on delete cascade
 );
 
 -- ============================================================
