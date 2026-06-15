@@ -50,7 +50,16 @@ The script will automatically:
 
 * `/backend` - FastAPI Python application, containing ML models, camera services, and WebSocket handlers.
 * `/frontend` - React application built with Vite and TailwindCSS.
+* `/arduino` - Contains the sketch for the Arduino Uno handling the DHT22 temperature and humidity sensor.
 * `/docs` - Additional documentation.
+
+## 🌡️ Arduino Sensor Setup
+The system uses an Arduino Uno connected via USB to send real-time temperature and humidity data using a DHT22 sensor.
+1. Wire the **DHT22 Data Pin** to **Digital Pin 2** on the Arduino Uno.
+2. Open `/arduino/dht22_sensor/dht22_sensor.ino` in the Arduino IDE.
+3. Install the `DHT sensor library` by Adafruit via the Library Manager.
+4. Upload the sketch to the Arduino Uno.
+5. If necessary, update `sensor_serial_port` in `backend/.env` (default is `/dev/ttyUSB0` on Linux/Raspberry Pi or `COM3` on Windows).
 
 ## 📡 API Documentation
 Once the backend is running, you can access the Swagger UI documentation at:
