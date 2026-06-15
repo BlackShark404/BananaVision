@@ -17,18 +17,13 @@ from app.core.database import Base
 class AdminProfile(Base):
     __tablename__ = "admin_profile"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        "ap_id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    account_id: Mapped[uuid.UUID] = mapped_column(
-        "ap_account_id", ForeignKey("user_account.ua_id", ondelete="CASCADE"), unique=True, nullable=False
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("user_account.id", ondelete="CASCADE"), unique=True, nullable=False
     )
-    created_at: Mapped[datetime] = mapped_column(
-        "ap_created_at", DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
-    updated_at: Mapped[datetime] = mapped_column(
-        "ap_updated_at",
-        DateTime(timezone=True),
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )

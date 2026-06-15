@@ -17,22 +17,19 @@ from app.core.database import Base
 class ScanDetection(Base):
     __tablename__ = "scan_detection"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        "sd_id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    scan_id: Mapped[uuid.UUID] = mapped_column(
-        "sd_scan_id", UUID(as_uuid=True), ForeignKey("scan.sc_id", ondelete="CASCADE"), nullable=False, index=True
+    scan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("scan.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    camera_id: Mapped[str] = mapped_column("sd_camera_id", String(20), nullable=False)
-    camera_label: Mapped[str] = mapped_column("sd_camera_label", String(30), nullable=False)
-    detected_cultivar: Mapped[str | None] = mapped_column("sd_detected_cultivar", String(20), nullable=True)
-    detected_ripeness: Mapped[str | None] = mapped_column("sd_detected_ripeness", String(20), nullable=True)
-    confidence: Mapped[float | None] = mapped_column("sd_confidence", DECIMAL(5,2), nullable=True)
-    finger_count: Mapped[int] = mapped_column("sd_finger_count", Integer, default=0)
-    bounding_boxes: Mapped[list | None] = mapped_column("sd_bounding_boxes", JSONB, nullable=True)
-    inference_time_ms: Mapped[float | None] = mapped_column("sd_inference_time_ms", DECIMAL(8,2), nullable=True)
-    captured_at: Mapped[datetime] = mapped_column(
-        "sd_captured_at", DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    camera_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    camera_label: Mapped[str] = mapped_column(String(30), nullable=False)
+    detected_cultivar: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    detected_ripeness: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    confidence: Mapped[float | None] = mapped_column(DECIMAL(5,2), nullable=True)
+    finger_count: Mapped[int] = mapped_column(Integer, default=0)
+    bounding_boxes: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    inference_time_ms: Mapped[float | None] = mapped_column(DECIMAL(8,2), nullable=True)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     # Relationships

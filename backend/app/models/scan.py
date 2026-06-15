@@ -17,24 +17,18 @@ from app.core.database import Base
 class Scan(Base):
     __tablename__ = "scan"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        "sc_id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    date_time: Mapped[datetime] = mapped_column(
-        "sc_date_time", DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
+    date_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
     )
-    flagged: Mapped[bool] = mapped_column("sc_flagged", Boolean, default=False)
-    is_overridden: Mapped[bool] = mapped_column("sc_is_overridden", Boolean, default=False)
-    operator_id: Mapped[uuid.UUID] = mapped_column(
-        "sc_operator_id", UUID(as_uuid=True), ForeignKey("operator_profile.op_id", ondelete="RESTRICT"), nullable=False, index=True
+    flagged: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_overridden: Mapped[bool] = mapped_column(Boolean, default=False)
+    operator_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("operator_profile.id", ondelete="RESTRICT"), nullable=False, index=True
     )
-    intake_id: Mapped[uuid.UUID | None] = mapped_column(
-        "sc_intake_id", UUID(as_uuid=True), ForeignKey("delivery_intake.di_id", ondelete="SET NULL"), nullable=True, index=True
+    intake_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("delivery_intake.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    source_text: Mapped[str | None] = mapped_column("sc_source_text", String(100), nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(
-        "sc_updated_at",
-        DateTime(timezone=True),
+    source_text: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )

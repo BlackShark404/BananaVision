@@ -17,16 +17,13 @@ from app.core.database import Base
 class ScanNote(Base):
     __tablename__ = "scan_note"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        "scnt_id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    scan_id: Mapped[uuid.UUID] = mapped_column(
-        "scnt_scan_id", UUID(as_uuid=True), ForeignKey("scan.sc_id", ondelete="CASCADE"), nullable=False
+    scan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("scan.id", ondelete="CASCADE"), nullable=False
     )
-    text: Mapped[str] = mapped_column("scnt_text", Text, nullable=False)
-    author_name: Mapped[str] = mapped_column("scnt_author_name", String(100), nullable=False)
-    timestamp: Mapped[datetime] = mapped_column(
-        "scnt_timestamp", DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    author_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     # Relationships

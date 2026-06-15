@@ -17,17 +17,13 @@ from app.core.database import Base
 class ScanStatusLog(Base):
     __tablename__ = "scan_status_log"
 
-    id: Mapped[int] = mapped_column("sslg_id", Integer, primary_key=True, autoincrement=True)
-    scan_id: Mapped[uuid.UUID] = mapped_column(
-        "sslg_scan_id", UUID(as_uuid=True), ForeignKey("scan.sc_id", ondelete="CASCADE"), nullable=False
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    scan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("scan.id", ondelete="CASCADE"), nullable=False
     )
-    inventory_status: Mapped[str] = mapped_column(
-        "sslg_inventory_status",
-        SAEnum("In Stock", "Sold", "For Processing", "Spoiled", name="inventory_status_type"),
+    inventory_status: Mapped[str] = mapped_column(SAEnum("In Stock", "Sold", "For Processing", "Spoiled", name="inventory_status_type"),
         nullable=False,
     )
-    updated_at: Mapped[datetime] = mapped_column(
-        "sslg_updated_at", DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     # Relationships

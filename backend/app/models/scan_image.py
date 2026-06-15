@@ -17,19 +17,16 @@ from app.core.database import Base
 class ScanImage(Base):
     __tablename__ = "scan_image"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        "si_id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    scan_id: Mapped[uuid.UUID] = mapped_column(
-        "si_scan_id", UUID(as_uuid=True), ForeignKey("scan.sc_id", ondelete="CASCADE"), nullable=False, index=True
+    scan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("scan.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    camera_id: Mapped[str] = mapped_column("si_camera_id", String(20), nullable=False)
-    file_path: Mapped[str] = mapped_column("si_file_path", String(500), nullable=False)
-    width: Mapped[int | None] = mapped_column("si_width", Integer, nullable=True)
-    height: Mapped[int | None] = mapped_column("si_height", Integer, nullable=True)
-    file_size_bytes: Mapped[int | None] = mapped_column("si_file_size_bytes", Integer, nullable=True)
-    captured_at: Mapped[datetime] = mapped_column(
-        "si_captured_at", DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    camera_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    file_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    file_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     # Relationships

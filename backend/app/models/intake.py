@@ -17,25 +17,19 @@ from app.core.database import Base
 class Intake(Base):
     __tablename__ = "delivery_intake"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        "di_id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    source: Mapped[str] = mapped_column("di_source", String(100), nullable=False)
-    supplier_id: Mapped[uuid.UUID | None] = mapped_column(
-        "di_supplier_id", UUID(as_uuid=True), ForeignKey("supplier.sup_id", ondelete="RESTRICT"), nullable=True, index=True
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    supplier_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("supplier.id", ondelete="RESTRICT"), nullable=True, index=True
     )
-    batch_number: Mapped[str | None] = mapped_column("di_batch_number", String(50), nullable=True)
-    qr_code: Mapped[str | None] = mapped_column("di_qr_code", Text, nullable=True)
-    intake_date: Mapped[date] = mapped_column("di_date", Date, nullable=False, index=True)
-    status: Mapped[str] = mapped_column(
-        "di_status", SAEnum("Active", "Depleted", name="intake_status"), nullable=False, default="Active"
+    batch_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    qr_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    intake_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    status: Mapped[str] = mapped_column(SAEnum("Active", "Depleted", name="intake_status"), nullable=False, default="Active"
     )
-    created_at: Mapped[datetime] = mapped_column(
-        "di_created_at", DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
-    updated_at: Mapped[datetime] = mapped_column(
-        "di_updated_at",
-        DateTime(timezone=True),
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )

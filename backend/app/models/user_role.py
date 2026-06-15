@@ -13,9 +13,9 @@ from app.core.database import Base
 class UserRole(Base):
     __tablename__ = "user_role"
 
-    id: Mapped[int] = mapped_column("ur_id", Integer, primary_key=True)
-    name: Mapped[str] = mapped_column("ur_name", String(30), unique=True, nullable=False)
-    description: Mapped[str | None] = mapped_column("ur_description", String(255), nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(30), unique=True, nullable=False)
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Relationships
     accounts = relationship("UserAccount", back_populates="role", lazy="selectin")
