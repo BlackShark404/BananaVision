@@ -38,7 +38,7 @@ import {
 import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
 import { printQRTag } from "@/lib/qrcode"
-import type { Cultivar, Ripeness, ScanResult } from "@/types"
+import { CULTIVARS, RIPENESS_LEVELS, type Cultivar, type Ripeness, type ScanResult } from "@/types"
 import { AppChangePreview } from "@/components/AppChangePreview"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 
@@ -321,9 +321,9 @@ export default function ScanDetail() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Lakatan">Lakatan</SelectItem>
-                          <SelectItem value="Latundan">Latundan</SelectItem>
-                          <SelectItem value="Saba">Saba</SelectItem>
+                          {CULTIVARS.map((c) => (
+                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -337,10 +337,9 @@ export default function ScanDetail() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Unripe">Unripe</SelectItem>
-                          <SelectItem value="Ripe">Ripe</SelectItem>
-                          <SelectItem value="Overripe">Overripe</SelectItem>
-                          <SelectItem value="Rotten">Rotten</SelectItem>
+                          {RIPENESS_LEVELS.map((r) => (
+                            <SelectItem key={r} value={r}>{r}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>

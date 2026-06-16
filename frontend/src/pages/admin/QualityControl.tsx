@@ -23,7 +23,7 @@ import {
 import { ShieldCheck, Flag, MessageSquare, Edit, AlertTriangle, CheckCircle, Banana, ChevronsLeft, ChevronsRight, Download, Filter, Thermometer, Droplets } from "lucide-react"
 import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
-import type { ScanResult, Cultivar, Ripeness } from "@/types"
+import { CULTIVARS, RIPENESS_LEVELS, type ScanResult, type Cultivar, type Ripeness } from "@/types"
 import { AppChangePreview } from "@/components/AppChangePreview"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppActionButton } from "@/components/AppActionButton"
@@ -592,9 +592,9 @@ export default function QualityControl() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Lakatan">Lakatan</SelectItem>
-                            <SelectItem value="Latundan">Latundan</SelectItem>
-                            <SelectItem value="Saba">Saba</SelectItem>
+                            {CULTIVARS.map(c => (
+                              <SelectItem key={c} value={c}>{c}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -608,10 +608,9 @@ export default function QualityControl() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Unripe">Unripe</SelectItem>
-                            <SelectItem value="Ripe">Ripe</SelectItem>
-                            <SelectItem value="Overripe">Overripe</SelectItem>
-                            <SelectItem value="Rotten">Rotten</SelectItem>
+                            {RIPENESS_LEVELS.map(r => (
+                              <SelectItem key={r} value={r}>{r}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>

@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Cultivar, Ripeness, ScanResult } from "@/types"
-import { CULTIVARS, RIPENESS_LEVELS } from "@/types"
+import { CULTIVARS, RIPENESS_LEVELS, CultivarEnum, RipenessEnum } from "@/types"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -17,23 +17,23 @@ export function getSpoilageDays(
   temperature?: number,
   humidity?: number
 ): string {
-  if (ripeness === "Rotten") return "0"
+  if (ripeness === RipenessEnum.ROTTEN) return "0"
   
   let baseMin = 0
   let baseMax = 0
 
-  if (cultivar === "Lakatan") {
-    if (ripeness === "Unripe") { baseMin = 4; baseMax = 6 }
-    else if (ripeness === "Ripe") { baseMin = 2; baseMax = 3 }
-    else if (ripeness === "Overripe") { baseMin = 1; baseMax = 2 }
-  } else if (cultivar === "Latundan") {
-    if (ripeness === "Unripe") { baseMin = 3; baseMax = 5 }
-    else if (ripeness === "Ripe") { baseMin = 1; baseMax = 2 }
-    else if (ripeness === "Overripe") { baseMin = 1; baseMax = 1 }
-  } else if (cultivar === "Saba") {
-    if (ripeness === "Unripe") { baseMin = 6; baseMax = 8 }
-    else if (ripeness === "Ripe") { baseMin = 3; baseMax = 4 }
-    else if (ripeness === "Overripe") { baseMin = 2; baseMax = 3 }
+  if (cultivar === CultivarEnum.LAKATAN) {
+    if (ripeness === RipenessEnum.UNRIPE) { baseMin = 4; baseMax = 6 }
+    else if (ripeness === RipenessEnum.RIPE) { baseMin = 2; baseMax = 3 }
+    else if (ripeness === RipenessEnum.OVERRIPE) { baseMin = 1; baseMax = 2 }
+  } else if (cultivar === CultivarEnum.LATUNDAN) {
+    if (ripeness === RipenessEnum.UNRIPE) { baseMin = 3; baseMax = 5 }
+    else if (ripeness === RipenessEnum.RIPE) { baseMin = 1; baseMax = 2 }
+    else if (ripeness === RipenessEnum.OVERRIPE) { baseMin = 1; baseMax = 1 }
+  } else if (cultivar === CultivarEnum.SABA) {
+    if (ripeness === RipenessEnum.UNRIPE) { baseMin = 6; baseMax = 8 }
+    else if (ripeness === RipenessEnum.RIPE) { baseMin = 3; baseMax = 4 }
+    else if (ripeness === RipenessEnum.OVERRIPE) { baseMin = 2; baseMax = 3 }
   }
 
   // Simulate Random Forest logic: Adjust based on temperature & humidity
@@ -75,20 +75,20 @@ export function parseSpoilageAvg(val: string): number {
 }
 
 const BANANA_IMAGES: Record<string, string[]> = {
-  "Unripe": [
+  [RipenessEnum.UNRIPE]: [
     "https://the-veggie-table.com/cdn/shop/products/saba_300x.png?v=1586490675", // Green bananas
     "https://www.gulayatbp.com/cdn/shop/files/banana_saba1.png?v=1729220360"  // Greenish bunch
   ],
-  "Ripe": [
+  [RipenessEnum.RIPE]: [
     "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTQwik_uYQV3m9z-tF0NiOJuQIR-lxNqSzSWPZAvHUrZQ&s", // Yellow
     "https://www.eatright.org/-/media/images/eatright-articles/bananas.jpg?as=0&w=967&rev=c5a21c5b5daf455baa28092d199f7ea9&hash=0DB86DF1DDEDF4F1003A3BF726BF4ABC", // Bright yellow
     "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9EYaQHTYBuaCBi0Dmb2ijsHJaAp3LoxZqFQ&s"  // Yellow bundle
   ],
-  "Overripe": [
+  [RipenessEnum.OVERRIPE]: [
     "https://chefjulieyoon.com/wp-content/uploads/2012/08/RipeBananas-1.jpg", // Spotted
     "https://delightfuladventures.com/wp-content/uploads/2019/02/what-to-do-with-overripe-bananas-info.jpg"  // Spotted yellow
   ],
-  "Rotten": [
+  [RipenessEnum.ROTTEN]: [
     "https://media.istockphoto.com/id/1301198272/photo/dark-and-spoiled-banana-on-the-table-rotten-fruit.jpg?s=612x612&w=0&k=20&c=_3Llkp1sNS7bZtnVB6W9Zh6hhjoq4tCaa7sqhlJ1UPk=", // Darkish
     "https://static.vecteezy.com/system/resources/previews/010/234/579/non_2x/closeup-of-a-banana-that-is-starting-to-rot-or-turn-black-free-photo.jpg"  // Older
   ]
@@ -98,7 +98,7 @@ const BANANA_IMAGES: Record<string, string[]> = {
  * Returns an actual photo URL based on the banana's cultivar and ripeness.
  */
 export function getBananaImageUrl(cultivar: Cultivar, ripeness: Ripeness): string {
-  const images = BANANA_IMAGES[ripeness] || BANANA_IMAGES["Ripe"];
+  const images = BANANA_IMAGES[ripeness] || BANANA_IMAGES[RipenessEnum.RIPE];
   // Use cultivar string length to pseudo-randomly pick an image from the array consistently
   const index = (cultivar.length + ripeness.length) % images.length;
   return images[index];

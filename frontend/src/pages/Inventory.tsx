@@ -8,26 +8,27 @@ import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { Progress } from "@/components/ui/progress"
 import { Package, AlertTriangle, TrendingDown, CheckCircle, Clock, Banana } from "lucide-react"
+import { IntakeStatusEnum, InventoryStatusEnum, RipenessEnum, CultivarEnum } from "@/types"
 
 export default function Inventory() {
   const { scans, intakes } = useApp()
   const [sourceFilter, setSourceFilter] = useState<string>("all")
 
   const inventory = useMemo(() => {
-    const activeIntakeIds = new Set(intakes.filter(i => i.status === "Active").map(i => i.id))
+    const activeIntakeIds = new Set(intakes.filter(i => i.status === IntakeStatusEnum.ACTIVE).map(i => i.id))
     let activeScans = scans.filter(s => s.intakeId && activeIntakeIds.has(s.intakeId))
     
     if (sourceFilter !== "all") {
       activeScans = activeScans.filter(s => s.source === sourceFilter)
     }
 
-    const inStock = activeScans.filter(s => s.inventoryStatus === "In Stock")
+    const inStock = activeScans.filter(s => s.inventoryStatus === InventoryStatusEnum.IN_STOCK)
     
     // Group by ripeness
-    const unripe = inStock.filter(s => s.ripeness === "Unripe")
-    const ripe = inStock.filter(s => s.ripeness === "Ripe")
-    const overripe = inStock.filter(s => s.ripeness === "Overripe")
-    const rotten = inStock.filter(s => s.ripeness === "Rotten")
+    const unripe = inStock.filter(s => s.ripeness === RipenessEnum.UNRIPE)
+    const ripe = inStock.filter(s => s.ripeness === RipenessEnum.RIPE)
+    const overripe = inStock.filter(s => s.ripeness === RipenessEnum.OVERRIPE)
+    const rotten = inStock.filter(s => s.ripeness === RipenessEnum.ROTTEN)
     
     // Calculate total hands and fingers
     const totalHands = inStock.length
@@ -69,9 +70,9 @@ export default function Inventory() {
     
     // Group by cultivar
     const byCultivar = {
-      Lakatan: inStock.filter(s => s.cultivar === "Lakatan").length,
-      Latundan: inStock.filter(s => s.cultivar === "Latundan").length,
-      Saba: inStock.filter(s => s.cultivar === "Saba").length,
+      [CultivarEnum.LAKATAN]: inStock.filter(s => s.cultivar === CultivarEnum.LAKATAN).length,
+      [CultivarEnum.LATUNDAN]: inStock.filter(s => s.cultivar === CultivarEnum.LATUNDAN).length,
+      [CultivarEnum.SABA]: inStock.filter(s => s.cultivar === CultivarEnum.SABA).length,
     }
     
     // FIFO recommendations (oldest first, grouped by Intake)
@@ -110,9 +111,9 @@ export default function Inventory() {
       .slice(0, 10)
     
     // Status summary
-    const sold = activeScans.filter(s => s.inventoryStatus === "Sold").length
-    const forProcessing = activeScans.filter(s => s.inventoryStatus === "For Processing").length
-    const spoiled = activeScans.filter(s => s.inventoryStatus === "Spoiled").length
+    const sold = activeScans.filter(s => s.inventoryStatus === InventoryStatusEnum.SOLD).length
+    const forProcessing = activeScans.filter(s => s.inventoryStatus === InventoryStatusEnum.FOR_PROCESSING).length
+    const spoiled = activeScans.filter(s => s.inventoryStatus === InventoryStatusEnum.SPOILED).length
     
     return {
       totalHands,
@@ -145,7 +146,7 @@ export default function Inventory() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Sources</SelectItem>
-              {Array.from(new Set(intakes.filter(i => i.status === "Active").map(i => i.source).filter(Boolean))).sort().map((src) => (
+              {Array.from(new Set(intakes.filter(i => i.status === IntakeStatusEnum.ACTIVE).map(i => i.source).filter(Boolean))).sort().map((src) => (
                 <SelectItem key={src} value={src as string}>{src}</SelectItem>
               ))}
             </SelectContent>
@@ -313,9 +314,9 @@ export default function Inventory() {
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-semibold text-sm">{group.source} — {group.cultivar}</p>
                           <Badge variant="outline" className={`text-[10px] ${
-                            group.ripeness === "Rotten"
+                            group.ripeness === RipenessEnum.ROTTEN
                               ? "bg-violet-50 text-violet-700 border-violet-200"
-                              : group.ripeness === "Overripe" 
+                              : group.ripeness === RipenessEnum.OVERRIPE 
                                 ? "bg-red-50 text-red-700 border-red-200" 
                                 : "bg-yellow-50 text-yellow-700 border-yellow-200"
                           }`}>

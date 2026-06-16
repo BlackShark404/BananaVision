@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
-import { RIPENESS_LEVELS, CULTIVARS } from "@/types"
+import { RIPENESS_LEVELS, CULTIVARS, CultivarEnum, RipenessEnum, RoleEnum } from "@/types"
 import {
   ChartContainer,
   ChartTooltip,
@@ -35,24 +35,24 @@ import {
 // --- Chart Configs ---
 
 const ripenessChartConfig = {
-  Unripe: { label: "Unripe", color: "#22c55e" },
-  Ripe: { label: "Ripe", color: "#eab308" },
-  Overripe: { label: "Overripe", color: "#ef4444" },
-  Rotten: { label: "Rotten", color: "#7c3aed" },
+  [RipenessEnum.UNRIPE]: { label: "Unripe", color: "#22c55e" },
+  [RipenessEnum.RIPE]: { label: "Ripe", color: "#eab308" },
+  [RipenessEnum.OVERRIPE]: { label: "Overripe", color: "#ef4444" },
+  [RipenessEnum.ROTTEN]: { label: "Rotten", color: "#7c3aed" },
 } satisfies ChartConfig
 
 const cultivarChartConfig = {
-  Lakatan: { label: "Lakatan", color: "#f59e0b" },
-  Latundan: { label: "Latundan", color: "#fbbf24" },
-  Saba: { label: "Saba", color: "#d97706" },
+  [CultivarEnum.LAKATAN]: { label: "Lakatan", color: "#f59e0b" },
+  [CultivarEnum.LATUNDAN]: { label: "Latundan", color: "#fbbf24" },
+  [CultivarEnum.SABA]: { label: "Saba", color: "#d97706" },
   count: { label: "Count" },
 } satisfies ChartConfig
 
 const cultivarRipenessChartConfig = {
-  Unripe: { label: "Unripe", color: "#22c55e" },
-  Ripe: { label: "Ripe", color: "#eab308" },
-  Overripe: { label: "Overripe", color: "#ef4444" },
-  Rotten: { label: "Rotten", color: "#7c3aed" },
+  [RipenessEnum.UNRIPE]: { label: "Unripe", color: "#22c55e" },
+  [RipenessEnum.RIPE]: { label: "Ripe", color: "#eab308" },
+  [RipenessEnum.OVERRIPE]: { label: "Overripe", color: "#ef4444" },
+  [RipenessEnum.ROTTEN]: { label: "Rotten", color: "#7c3aed" },
 } satisfies ChartConfig
 
 const confidenceChartConfig = {
@@ -75,9 +75,9 @@ const hourlyChartConfig = {
 type DateRange = "today" | "week" | "month" | "all"
 
 const CULTIVAR_COLORS: Record<string, string> = {
-  Lakatan: "#f59e0b",
-  Latundan: "#fbbf24",
-  Saba: "#d97706",
+  [CultivarEnum.LAKATAN]: "#f59e0b",
+  [CultivarEnum.LATUNDAN]: "#fbbf24",
+  [CultivarEnum.SABA]: "#d97706",
 }
 
 export default function Analytics() {
@@ -86,7 +86,7 @@ export default function Analytics() {
   const [sourceFilter, setSourceFilter] = useState<string>("all")
 
   const filteredScans = useMemo(() => {
-    const roleFilteredScans = user?.role === "Operator" 
+    const roleFilteredScans = user?.role === RoleEnum.OPERATOR 
       ? scans.filter(s => s.operator === user.fullName)
       : scans
 
@@ -159,11 +159,11 @@ export default function Analytics() {
 
     const cultivarRipeness = data.cultivarCounts.map(c => {
       const cultivarScans = filteredScans.filter(s => s.cultivar === c.name)
-      const unripe = cultivarScans.filter(s => s.ripeness === "Unripe").length
-      const ripe = cultivarScans.filter(s => s.ripeness === "Ripe").length
-      const overripe = cultivarScans.filter(s => s.ripeness === "Overripe").length
-      const rotten = cultivarScans.filter(s => s.ripeness === "Rotten").length
-      return { name: c.name, Unripe: unripe, Ripe: ripe, Overripe: overripe, Rotten: rotten }
+      const unripe = cultivarScans.filter(s => s.ripeness === RipenessEnum.UNRIPE).length
+      const ripe = cultivarScans.filter(s => s.ripeness === RipenessEnum.RIPE).length
+      const overripe = cultivarScans.filter(s => s.ripeness === RipenessEnum.OVERRIPE).length
+      const rotten = cultivarScans.filter(s => s.ripeness === RipenessEnum.ROTTEN).length
+      return { name: c.name, [RipenessEnum.UNRIPE]: unripe, [RipenessEnum.RIPE]: ripe, [RipenessEnum.OVERRIPE]: overripe, [RipenessEnum.ROTTEN]: rotten }
     })
 
     const hourlyDistribution = Array.from({ length: 24 }, (_, hour) => {
@@ -353,10 +353,10 @@ export default function Analytics() {
                 <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <ChartLegend content={<ChartLegendContent />} />
-                <Bar dataKey="Unripe" stackId="a" fill="var(--color-Unripe)" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="Ripe" stackId="a" fill="var(--color-Ripe)" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="Overripe" stackId="a" fill="var(--color-Overripe)" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="Rotten" stackId="a" fill="var(--color-Rotten)" radius={[8, 8, 0, 0]} />
+                <Bar dataKey={RipenessEnum.UNRIPE} stackId="a" fill={`var(--color-${RipenessEnum.UNRIPE})`} radius={[0, 0, 0, 0]} />
+                <Bar dataKey={RipenessEnum.RIPE} stackId="a" fill={`var(--color-${RipenessEnum.RIPE})`} radius={[0, 0, 0, 0]} />
+                <Bar dataKey={RipenessEnum.OVERRIPE} stackId="a" fill={`var(--color-${RipenessEnum.OVERRIPE})`} radius={[0, 0, 0, 0]} />
+                <Bar dataKey={RipenessEnum.ROTTEN} stackId="a" fill={`var(--color-${RipenessEnum.ROTTEN})`} radius={[8, 8, 0, 0]} />
               </BarChart>
             </ChartContainer>
           </CardContent>

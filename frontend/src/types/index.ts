@@ -1,23 +1,56 @@
-export const CULTIVARS = ["Lakatan", "Latundan", "Saba"] as const
-export type Cultivar = typeof CULTIVARS[number]
+export const CultivarEnum = {
+  LAKATAN: "Lakatan",
+  LATUNDAN: "Latundan",
+  SABA: "Saba",
+} as const
+export const CULTIVARS = Object.values(CultivarEnum)
+export type Cultivar = typeof CultivarEnum[keyof typeof CultivarEnum]
 
-export const RIPENESS_LEVELS = ["Unripe", "Ripe", "Overripe", "Rotten"] as const
-export type Ripeness = typeof RIPENESS_LEVELS[number]
+export const RipenessEnum = {
+  UNRIPE: "Unripe",
+  RIPE: "Ripe",
+  OVERRIPE: "Overripe",
+  ROTTEN: "Rotten",
+} as const
+export const RIPENESS_LEVELS = Object.values(RipenessEnum)
+export type Ripeness = typeof RipenessEnum[keyof typeof RipenessEnum]
 
-export const ROLES = ["Admin", "Operator"] as const
-export type Role = typeof ROLES[number]
+export const RoleEnum = {
+  ADMIN: "Admin",
+  OPERATOR: "Operator",
+} as const
+export const ROLES = Object.values(RoleEnum)
+export type Role = typeof RoleEnum[keyof typeof RoleEnum]
 
-export const INVENTORY_STATUSES = ["In Stock", "Sold", "For Processing", "Spoiled"] as const
-export type InventoryStatus = typeof INVENTORY_STATUSES[number]
+export const InventoryStatusEnum = {
+  IN_STOCK: "In Stock",
+  SOLD: "Sold",
+  FOR_PROCESSING: "For Processing",
+  SPOILED: "Spoiled",
+} as const
+export const INVENTORY_STATUSES = Object.values(InventoryStatusEnum)
+export type InventoryStatus = typeof InventoryStatusEnum[keyof typeof InventoryStatusEnum]
 
-export const ACTIVE_STATUSES = ["Active", "Inactive"] as const
-export type ActiveStatus = typeof ACTIVE_STATUSES[number]
+export const ActiveStatusEnum = {
+  ACTIVE: "Active",
+  INACTIVE: "Inactive",
+} as const
+export const ACTIVE_STATUSES = Object.values(ActiveStatusEnum)
+export type ActiveStatus = typeof ActiveStatusEnum[keyof typeof ActiveStatusEnum]
 
-export const DEVICE_STATUSES = ["Online", "Offline"] as const
-export type DeviceStatus = typeof DEVICE_STATUSES[number]
+export const DeviceStatusEnum = {
+  ONLINE: "Online",
+  OFFLINE: "Offline",
+} as const
+export const DEVICE_STATUSES = Object.values(DeviceStatusEnum)
+export type DeviceStatus = typeof DeviceStatusEnum[keyof typeof DeviceStatusEnum]
 
-export const INTAKE_STATUSES = ["Active", "Depleted"] as const
-export type IntakeStatus = typeof INTAKE_STATUSES[number]
+export const IntakeStatusEnum = {
+  ACTIVE: "Active",
+  DEPLETED: "Depleted",
+} as const
+export const INTAKE_STATUSES = Object.values(IntakeStatusEnum)
+export type IntakeStatus = typeof IntakeStatusEnum[keyof typeof IntakeStatusEnum]
 export type NotificationType =
   | "scan_complete"
   | "scan_flagged"
