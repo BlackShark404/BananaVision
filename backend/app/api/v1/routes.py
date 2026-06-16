@@ -603,7 +603,7 @@ async def get_config(db: DbSession, admin: AdminUser):
     
     if not config:
         config = SystemConfig(
-            camera_ids="CAM-001, CAM-002",
+            camera_ids="CAM-001, CAM-002, CAM-003, CAM-004",
             confidence_threshold=85,
             data_retention_enabled=True
         )

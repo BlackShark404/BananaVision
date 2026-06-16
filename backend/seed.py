@@ -97,7 +97,9 @@ async def seed_data():
         # 4. Devices (Cameras)
         cam1 = Device(camera_id="CAM-001", label="Front Camera", status=DeviceStatusEnum.ONLINE, resolution="1920x1080", last_seen=now)
         cam2 = Device(camera_id="CAM-002", label="Side Camera", status=DeviceStatusEnum.OFFLINE, resolution="1920x1080", last_seen=now - timedelta(days=1))
-        db.add_all([cam1, cam2])
+        cam3 = Device(camera_id="CAM-003", label="Top Camera", status=DeviceStatusEnum.ONLINE, resolution="1920x1080", last_seen=now)
+        cam4 = Device(camera_id="CAM-004", label="Bottom Camera", status=DeviceStatusEnum.ONLINE, resolution="1920x1080", last_seen=now)
+        db.add_all([cam1, cam2, cam3, cam4])
         
         # 5. Sensor Readings
         for i in range(10):
