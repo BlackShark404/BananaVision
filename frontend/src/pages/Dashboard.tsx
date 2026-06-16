@@ -24,7 +24,7 @@ import { AppStatusBadge } from "@/components/AppStatusBadge"
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { scans, devices, user } = useApp()
+  const { scans, devices, user, config } = useApp()
 
   // --- RBAC Filtering ---
   const roleFilteredScans = useMemo(() => {
@@ -70,6 +70,18 @@ export default function Dashboard() {
   const recentScans = useMemo(() => {
     return roleFilteredScans.slice(0, 5)
   }, [roleFilteredScans])
+
+  const sortedDevices = useMemo(() => {
+    const order = config.cameraIds.split(",").map(id => id.trim()).filter(Boolean)
+    return [...devices].sort((a, b) => {
+      const indexA = order.indexOf(a.cameraId)
+      const indexB = order.indexOf(b.cameraId)
+      if (indexA === -1 && indexB === -1) return 0
+      if (indexA === -1) return 1
+      if (indexB === -1) return -1
+      return indexA - indexB
+    })
+  }, [devices, config.cameraIds])
 
   return (
     <div className="space-y-4 sm:space-y-6 pb-4 sm:pb-6">
@@ -243,7 +255,7 @@ export default function Dashboard() {
           <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" /> Hardware Monitoring
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {devices.map((device) => {
+          {sortedDevices.map((device) => {
             const isOnline = device.status === "Online"
             return (
               <Card key={device.id} className="rounded-lg sm:rounded-xl overflow-hidden group">
