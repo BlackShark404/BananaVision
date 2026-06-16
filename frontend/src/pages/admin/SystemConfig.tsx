@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, Edit2 } from "lucide-react"
+import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, Edit2, Plus } from "lucide-react"
 import { toast } from "sonner"
 
 export default function SystemConfig() {
@@ -44,12 +44,28 @@ export default function SystemConfig() {
   const saveEditedCameraId = () => {
     if (editingCameraId) {
       const trimmed = editCameraValue.trim()
-      const newIds = activeCameraIds.map(id => id === editingCameraId ? trimmed : id).filter(Boolean)
       
-      // Filter out duplicates if they renamed to an existing one
-      const uniqueIds = Array.from(new Set(newIds))
-      
-      setLocalConfig({ ...localConfig, cameraIds: uniqueIds.join(", ") })
+      if (!trimmed) {
+        toast.error("Camera ID cannot be empty", { description: "Please provide a valid camera name." })
+        setEditingCameraId(null)
+        return
+      }
+
+      if (trimmed === editingCameraId) {
+        // No change
+        setEditingCameraId(null)
+        return
+      }
+
+      const otherIds = activeCameraIds.filter(id => id !== editingCameraId)
+      if (otherIds.includes(trimmed)) {
+        toast.error("Camera ID already exists", { description: "Cannot have duplicate camera IDs." })
+        setEditingCameraId(null)
+        return
+      }
+
+      const newIds = activeCameraIds.map(id => id === editingCameraId ? trimmed : id)
+      setLocalConfig({ ...localConfig, cameraIds: newIds.join(", ") })
       setEditingCameraId(null)
     }
   }
