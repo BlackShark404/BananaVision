@@ -20,6 +20,7 @@ from app.core.security import (
 from app.core.exceptions import CredentialsException, NotFoundException
 from app.models.user_account import UserAccount
 from sqlalchemy.orm import selectinload
+from app.schemas.enums import ActiveStatusEnum
 
 
 async def authenticate_user(
@@ -43,7 +44,7 @@ async def authenticate_user(
     if not user or not verify_password(password, user.password_hash):
         return "failed", None, None
 
-    if user.status == "Inactive":
+    if user.status == ActiveStatusEnum.INACTIVE:
         return "inactive", None, None
 
     if user.requires_password_change:
@@ -75,7 +76,7 @@ async def swap_operator(
     if not user or not user.operator_profile or not user.operator_profile.pin_hash or not verify_pin(pin, user.operator_profile.pin_hash):
         return "failed", None, None
 
-    if user.status == "Inactive":
+    if user.status == ActiveStatusEnum.INACTIVE:
         return "inactive", None, None
 
     if user.operator_profile.requires_pin_change:

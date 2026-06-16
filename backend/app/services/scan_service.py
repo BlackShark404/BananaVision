@@ -25,6 +25,7 @@ from app.services.spoilage import spoilage_predictor
 from app.services.sensor_reader import sensor_reader
 from app.ws.manager import ws_manager
 from app.ws import events
+from app.schemas.enums import InventoryStatusEnum
 
 logger = logging.getLogger(__name__)
 
@@ -184,7 +185,7 @@ async def execute_scan_pipeline(
 
         status_log = ScanStatusLog(
             scan_id=scan_id,
-            inventory_status="In Stock",
+            inventory_status=InventoryStatusEnum.IN_STOCK,
         )
 
         original_ai = ScanOriginalAiResult(

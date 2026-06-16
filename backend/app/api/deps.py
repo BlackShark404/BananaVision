@@ -16,7 +16,7 @@ from app.core.exceptions import CredentialsException, ForbiddenException
 from app.core.security import decode_access_token
 from app.models.user_account import UserAccount
 from sqlalchemy.orm import selectinload
-
+from app.schemas.enums import ActiveStatusEnum, RoleEnum
 
 async def get_current_user(
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -47,7 +47,7 @@ async def get_current_user(
     if not user:
         raise CredentialsException("User not found")
 
-    if user.status != "Active":
+    if user.status != ActiveStatusEnum.ACTIVE:
         raise ForbiddenException("Account is inactive")
 
     return user
@@ -57,7 +57,7 @@ async def require_admin(
     user: Annotated[UserAccount, Depends(get_current_user)],
 ) -> UserAccount:
     """Require the current user to have Admin role."""
-    if not user.role or user.role.name != "Admin":
+    if not user.role or user.role.name != RoleEnum.ADMIN.value:
         raise ForbiddenException("Admin access required")
     return user
 

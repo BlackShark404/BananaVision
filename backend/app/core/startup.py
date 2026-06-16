@@ -41,6 +41,7 @@ from app.services.spoilage import spoilage_predictor
 from app.services.sensor_reader import sensor_reader
 from app.ws.manager import ws_manager
 from app.ws import events
+from app.schemas.enums import RoleEnum, ActiveStatusEnum, DeviceStatusEnum
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -173,8 +174,8 @@ async def _seed_default_data(db: AsyncSession):
         return
 
     logger.info("  Seeding default roles & admin user...")
-    admin_role = UserRole(name="Admin", description="Full system access")
-    operator_role = UserRole(name="Operator", description="Standard scan pipeline access")
+    admin_role = UserRole(name=RoleEnum.ADMIN.value, description="Full system access")
+    operator_role = UserRole(name=RoleEnum.OPERATOR.value, description="Standard scan pipeline access")
     db.add_all([admin_role, operator_role])
     await db.commit()
     await db.refresh(admin_role)
@@ -184,7 +185,7 @@ async def _seed_default_data(db: AsyncSession):
         full_name="Admin User",
         password_hash=hash_password("admin"),
         role_id=admin_role.id,
-        status="Active",
+        status=ActiveStatusEnum.ACTIVE,
     )
     admin_account.admin_profile = AdminProfile()
     db.add(admin_account)
@@ -212,14 +213,14 @@ async def _register_cameras(db: AsyncSession, results: dict[int, bool]):
         device = existing.scalar_one_or_none()
 
         if device:
-            device.status = "Online" if success else "Offline"
+            device.status = DeviceStatusEnum.ONLINE if success else DeviceStatusEnum.OFFLINE
             device.resolution = resolution
             device.last_seen = datetime.now(timezone.utc) if success else device.last_seen
         else:
             db.add(Device(
                 camera_id=camera_id,
                 label=label,
-                status="Online" if success else "Offline",
+                status=DeviceStatusEnum.ONLINE if success else DeviceStatusEnum.OFFLINE,
                 resolution=resolution,
                 last_seen=datetime.now(timezone.utc) if success else None,
             ))

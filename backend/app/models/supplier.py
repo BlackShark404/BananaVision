@@ -14,6 +14,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
 
+from app.schemas.enums import ActiveStatusEnum
+
 class Supplier(Base):
     __tablename__ = "supplier"
 
@@ -22,7 +24,7 @@ class Supplier(Base):
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     contact_person: Mapped[str | None] = mapped_column(String(100), nullable=True)
     contact_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    status: Mapped[str] = mapped_column(SAEnum("Active", "Inactive", name="supplier_status"), nullable=False, default="Active"
+    status: Mapped[ActiveStatusEnum] = mapped_column(SAEnum(ActiveStatusEnum), nullable=False, default=ActiveStatusEnum.ACTIVE
     )
     date_added: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

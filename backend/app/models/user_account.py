@@ -14,6 +14,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
+from app.schemas.enums import ActiveStatusEnum
+
 class UserAccount(Base):
     __tablename__ = "user_account"
 
@@ -27,10 +29,10 @@ class UserAccount(Base):
     role_id: Mapped[int] = mapped_column(
         ForeignKey("user_role.id", ondelete="RESTRICT"), nullable=False
     )
-    status: Mapped[str] = mapped_column(
-        SAEnum("Active", "Inactive", name="user_status"),
+    status: Mapped[ActiveStatusEnum] = mapped_column(
+        SAEnum(ActiveStatusEnum),
         nullable=False,
-        default="Active",
+        default=ActiveStatusEnum.ACTIVE,
     )
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)

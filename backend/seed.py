@@ -26,6 +26,7 @@ from app.models.intake import Intake
 from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
 from app.models.scan_status_log import ScanStatusLog
+from app.schemas.enums import RoleEnum, ActiveStatusEnum, DeviceStatusEnum, IntakeStatusEnum, InventoryStatusEnum, CultivarEnum, RipenessEnum
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("seeder")
@@ -53,8 +54,8 @@ async def seed_data():
         now = datetime.now(timezone.utc)
 
         # 1. Roles
-        admin_role = UserRole(name="Admin", description="Full system access")
-        operator_role = UserRole(name="Operator", description="Standard scan pipeline access")
+        admin_role = UserRole(name=RoleEnum.ADMIN.value, description="Full system access")
+        operator_role = UserRole(name=RoleEnum.OPERATOR.value, description="Standard scan pipeline access")
         db.add_all([admin_role, operator_role])
         await db.flush()
 
@@ -64,7 +65,7 @@ async def seed_data():
             full_name="Admin User",
             password_hash=hash_password("admin123"),
             role_id=admin_role.id,
-            status="Active",
+            status=ActiveStatusEnum.ACTIVE,
         )
         db.add(admin_user)
         await db.flush()
@@ -80,7 +81,7 @@ async def seed_data():
             full_name="Kiosk Operator",
             password_hash=hash_password("operator"),
             role_id=operator_role.id,
-            status="Active",
+            status=ActiveStatusEnum.ACTIVE,
         )
         db.add(operator_user)
         await db.flush()
@@ -94,8 +95,8 @@ async def seed_data():
         await db.flush()
         
         # 4. Devices (Cameras)
-        cam1 = Device(camera_id="CAM-001", label="Front Camera", status="Online", resolution="1920x1080", last_seen=now)
-        cam2 = Device(camera_id="CAM-002", label="Side Camera", status="Offline", resolution="1920x1080", last_seen=now - timedelta(days=1))
+        cam1 = Device(camera_id="CAM-001", label="Front Camera", status=DeviceStatusEnum.ONLINE, resolution="1920x1080", last_seen=now)
+        cam2 = Device(camera_id="CAM-002", label="Side Camera", status=DeviceStatusEnum.OFFLINE, resolution="1920x1080", last_seen=now - timedelta(days=1))
         db.add_all([cam1, cam2])
         
         # 5. Sensor Readings
@@ -108,9 +109,9 @@ async def seed_data():
             db.add(sr)
         
         # 6. Suppliers
-        s1 = Supplier(name="Dole Foods", contact_person="John Doe", contact_phone="555-0100", status="Active")
-        s2 = Supplier(name="Del Monte", contact_person="Jane Smith", contact_phone="555-0200", status="Active")
-        s3 = Supplier(name="Local Farm Coop", contact_person="Bob Builder", contact_phone="555-0300", status="Inactive")
+        s1 = Supplier(name="Dole Foods", contact_person="John Doe", contact_phone="555-0100", status=ActiveStatusEnum.ACTIVE)
+        s2 = Supplier(name="Del Monte", contact_person="Jane Smith", contact_phone="555-0200", status=ActiveStatusEnum.ACTIVE)
+        s3 = Supplier(name="Local Farm Coop", contact_person="Bob Builder", contact_phone="555-0300", status=ActiveStatusEnum.INACTIVE)
         db.add_all([s1, s2, s3])
         await db.flush()
 
@@ -120,7 +121,7 @@ async def seed_data():
             batch_number="BCH-1A2B3C",
             source="Kiosk",
             intake_date=now.date(),
-            status="Active",
+            status=IntakeStatusEnum.ACTIVE,
             created_at=now,
             updated_at=now
         )
@@ -132,7 +133,7 @@ async def seed_data():
             batch_number="BCH-9X8Y7Z",
             source="Kiosk",
             intake_date=(now - timedelta(days=1)).date(),
-            status="Depleted",
+            status=IntakeStatusEnum.DEPLETED,
             created_at=now - timedelta(days=1),
             updated_at=now - timedelta(days=1)
         )
@@ -156,8 +157,8 @@ async def seed_data():
         logger.info("  QR codes generated for intakes")
 
         # 8. Scans & Classifications
-        cultivars = ["Lakatan", "Latundan", "Saba"]
-        ripeness_levels = ["Unripe", "Ripe", "Overripe", "Rotten"]
+        cultivars = [e.value for e in CultivarEnum]
+        ripeness_levels = [e.value for e in RipenessEnum]
         
         for i in range(25):
             is_i1 = i < 15
@@ -190,7 +191,7 @@ async def seed_data():
             
             status_log = ScanStatusLog(
                 scan_id=scan.id,
-                inventory_status="In Stock" if is_i1 else "Sold",
+                inventory_status=InventoryStatusEnum.IN_STOCK if is_i1 else InventoryStatusEnum.SOLD,
                 updated_at=scan_time
             )
             db.add(status_log)

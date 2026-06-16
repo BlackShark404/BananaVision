@@ -13,13 +13,14 @@ import numpy as np
 
 from app.config import get_settings
 from app.core.exceptions import ModelInferenceError
+from app.schemas.enums import CultivarEnum, RipenessEnum
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # ── Feature encoding maps ────────────────────────────────────────────────────
-CULTIVAR_MAP = {"Lakatan": 0, "Latundan": 1, "Saba": 2}
-RIPENESS_MAP = {"Unripe": 0, "Ripe": 1, "Overripe": 2, "Rotten": 3}
+CULTIVAR_MAP = {CultivarEnum.LAKATAN.value: 0, CultivarEnum.LATUNDAN.value: 1, CultivarEnum.SABA.value: 2}
+RIPENESS_MAP = {RipenessEnum.UNRIPE.value: 0, RipenessEnum.RIPE.value: 1, RipenessEnum.OVERRIPE.value: 2, RipenessEnum.ROTTEN.value: 3}
 
 
 class SpoilagePredictor:
@@ -76,7 +77,7 @@ class SpoilagePredictor:
         Returns:
             String like "3-5" or "2" representing estimated days.
         """
-        if ripeness == "Rotten":
+        if ripeness == RipenessEnum.ROTTEN.value:
             return "0"
 
         temp = temperature if temperature is not None else 25.0
@@ -121,26 +122,26 @@ class SpoilagePredictor:
         """
         base_min, base_max = 0, 0
 
-        if cultivar == "Lakatan":
-            if ripeness == "Unripe":
+        if cultivar == CultivarEnum.LAKATAN.value:
+            if ripeness == RipenessEnum.UNRIPE.value:
                 base_min, base_max = 4, 6
-            elif ripeness == "Ripe":
+            elif ripeness == RipenessEnum.RIPE.value:
                 base_min, base_max = 2, 3
-            elif ripeness == "Overripe":
+            elif ripeness == RipenessEnum.OVERRIPE.value:
                 base_min, base_max = 1, 2
-        elif cultivar == "Latundan":
-            if ripeness == "Unripe":
+        elif cultivar == CultivarEnum.LATUNDAN.value:
+            if ripeness == RipenessEnum.UNRIPE.value:
                 base_min, base_max = 3, 5
-            elif ripeness == "Ripe":
+            elif ripeness == RipenessEnum.RIPE.value:
                 base_min, base_max = 1, 2
-            elif ripeness == "Overripe":
+            elif ripeness == RipenessEnum.OVERRIPE.value:
                 base_min, base_max = 1, 1
-        elif cultivar == "Saba":
-            if ripeness == "Unripe":
+        elif cultivar == CultivarEnum.SABA.value:
+            if ripeness == RipenessEnum.UNRIPE.value:
                 base_min, base_max = 6, 8
-            elif ripeness == "Ripe":
+            elif ripeness == RipenessEnum.RIPE.value:
                 base_min, base_max = 3, 4
-            elif ripeness == "Overripe":
+            elif ripeness == RipenessEnum.OVERRIPE.value:
                 base_min, base_max = 2, 3
 
         # Environmental multiplier

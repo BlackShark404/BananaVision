@@ -33,6 +33,7 @@ from app.schemas.scan import (
     ScanStatusUpdate,
 )
 from app.services.scan_service import execute_scan_pipeline
+from app.schemas.enums import InventoryStatusEnum
 
 router = APIRouter(prefix="/scans", tags=["Scans"])
 
@@ -61,7 +62,7 @@ async def trigger_scan(body: ScanTriggerRequest, db: DbSession, user: CurrentUse
         operator_name=user.full_name,
         source_text=scan.source_text,
         intake_id=scan.intake_id,
-        inventory_status=scan.status_logs[-1].inventory_status if scan.status_logs else "In Stock",
+        inventory_status=scan.status_logs[-1].inventory_status if scan.status_logs else InventoryStatusEnum.IN_STOCK,
         status_updated_at=scan.status_logs[-1].updated_at if scan.status_logs else None,
         flagged=scan.flagged,
         is_overridden=scan.is_overridden,

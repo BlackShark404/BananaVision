@@ -14,13 +14,15 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
+from app.schemas.enums import InventoryStatusEnum
+
 class ScanStatusLog(Base):
     __tablename__ = "scan_status_log"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     scan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("scan.id", ondelete="CASCADE"), nullable=False
     )
-    inventory_status: Mapped[str] = mapped_column(SAEnum("In Stock", "Sold", "For Processing", "Spoiled", name="inventory_status_type"),
+    inventory_status: Mapped[InventoryStatusEnum] = mapped_column(SAEnum(InventoryStatusEnum),
         nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

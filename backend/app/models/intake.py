@@ -14,6 +14,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
+from app.schemas.enums import IntakeStatusEnum
+
 class Intake(Base):
     __tablename__ = "delivery_intake"
 
@@ -25,7 +27,7 @@ class Intake(Base):
     batch_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
     qr_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     intake_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
-    status: Mapped[str] = mapped_column(SAEnum("Active", "Depleted", name="intake_status"), nullable=False, default="Active"
+    status: Mapped[IntakeStatusEnum] = mapped_column(SAEnum(IntakeStatusEnum), nullable=False, default=IntakeStatusEnum.ACTIVE
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

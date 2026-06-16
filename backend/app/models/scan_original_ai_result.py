@@ -14,15 +14,17 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
+from app.schemas.enums import CultivarEnum, RipenessEnum
+
 class ScanOriginalAiResult(Base):
     __tablename__ = "scan_original_ai_result"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     scan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("scan.id", ondelete="CASCADE"), unique=True, nullable=False
     )
-    cultivar: Mapped[str] = mapped_column(SAEnum("Lakatan", "Latundan", "Saba", name="cultivar_type"), nullable=False
+    cultivar: Mapped[CultivarEnum] = mapped_column(SAEnum(CultivarEnum), nullable=False
     )
-    ripeness: Mapped[str] = mapped_column(SAEnum("Unripe", "Ripe", "Overripe", "Rotten", name="ripeness_type"), nullable=False
+    ripeness: Mapped[RipenessEnum] = mapped_column(SAEnum(RipenessEnum), nullable=False
     )
     confidence: Mapped[float] = mapped_column(DECIMAL(5,2), nullable=False)
     finger_count: Mapped[int] = mapped_column(Integer, nullable=False)

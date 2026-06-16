@@ -15,6 +15,7 @@ import numpy as np
 
 from app.config import get_settings
 from app.core.exceptions import ModelInferenceError
+from app.schemas.enums import CultivarEnum, RipenessEnum
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -46,8 +47,8 @@ class ClassificationResult:
 # Expected YOLO class names format: "Lakatan_Ripe", "Saba_Unripe", etc.
 # Or separate classes: "Lakatan", "Ripe", etc.
 
-CULTIVAR_CLASSES = {"Lakatan", "Latundan", "Saba"}
-RIPENESS_CLASSES = {"Unripe", "Ripe", "Overripe", "Rotten"}
+CULTIVAR_CLASSES = {c.value for c in CultivarEnum}
+RIPENESS_CLASSES = {r.value for r in RipenessEnum}
 
 
 def _parse_class_label(label: str) -> tuple[str | None, str | None]:
@@ -207,8 +208,8 @@ class BananaClassifier:
         import random
 
         elapsed_ms = (time.time() - start) * 1000
-        cultivar = random.choice(["Lakatan", "Latundan", "Saba"])
-        ripeness = random.choice(["Unripe", "Ripe", "Overripe", "Rotten"])
+        cultivar = random.choice(list(CultivarEnum)).value
+        ripeness = random.choice(list(RipenessEnum)).value
         confidence = round(random.uniform(85, 99), 1)
         finger_count = random.randint(5, 16)
 

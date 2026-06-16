@@ -14,6 +14,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
 
+from app.schemas.enums import DeviceStatusEnum
+
 class Device(Base):
     __tablename__ = "device"
 
@@ -21,7 +23,7 @@ class Device(Base):
     )
     camera_id: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     label: Mapped[str] = mapped_column(String(100), nullable=False)
-    status: Mapped[str] = mapped_column(SAEnum("Online", "Offline", name="device_status"), nullable=False, default="Offline"
+    status: Mapped[DeviceStatusEnum] = mapped_column(SAEnum(DeviceStatusEnum), nullable=False, default=DeviceStatusEnum.OFFLINE
     )
     resolution: Mapped[str | None] = mapped_column(String(20), nullable=True, default="1920x1080")
     last_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

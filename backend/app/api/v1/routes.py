@@ -62,6 +62,11 @@ from app.schemas.user import (
     UserPasswordReset,
     UserPinReset,
 )
+from app.schemas.enums import (
+    RoleEnum, ActiveStatusEnum, PasswordSetupReasonEnum, PinSetupReasonEnum,
+    IntakeStatusEnum, InventoryStatusEnum, DeviceStatusEnum, RipenessEnum, CultivarEnum
+)
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -163,17 +168,17 @@ async def create_user(body: UserCreate, db: DbSession, admin: AdminUser, request
         password_hash=hash_password(body.password),
         role_id=user_role.id,
         requires_password_change=True,
-        password_setup_reason="new_account",
+        password_setup_reason=PasswordSetupReasonEnum.NEW_ACCOUNT,
     )
     user.role = user_role  # Explicitly load for from_db_model
 
-    if body.role == "Admin":
+    if body.role == RoleEnum.ADMIN.value:
         user.admin_profile = AdminProfile()
-    elif body.role == "Operator":
+    elif body.role == RoleEnum.OPERATOR.value:
         user.operator_profile = OperatorProfile(
             pin_hash=hash_pin(body.pin) if body.pin else None,
             requires_pin_change=True if body.pin else False,
-            pin_setup_reason="new_account" if body.pin else None,
+            pin_setup_reason=PinSetupReasonEnum.NEW_ACCOUNT if body.pin else None,
         )
 
     db.add(user)
@@ -331,7 +336,7 @@ async def create_intake(body: IntakeCreate, db: DbSession, user: CurrentUser, re
         batch_number=body.batch_number,
         source=body.source,
         intake_date=now.date(),
-        status="Active",
+        status=IntakeStatusEnum.ACTIVE,
         created_at=now,
         updated_at=now,
     )
@@ -449,14 +454,14 @@ async def bulk_update_intake_inventory(
     now = datetime.now(timezone.utc)
     updated = 0
     for scan in scans:
-        current_status = scan.status_logs[-1].inventory_status if scan.status_logs else "In Stock"
-        if current_status not in ("Sold", "Spoiled"):
+        current_status = scan.status_logs[-1].inventory_status if scan.status_logs else InventoryStatusEnum.IN_STOCK
+        if current_status not in (InventoryStatusEnum.SOLD, InventoryStatusEnum.SPOILED):
             db.add(ScanStatusLog(scan_id=scan.id, inventory_status=body.inventory_status))
             scan.updated_at = now
             updated += 1
 
     # Update intake status based on inventory
-    intake.status = "Active" if body.inventory_status == "In Stock" else "Depleted"
+    intake.status = IntakeStatusEnum.ACTIVE if body.inventory_status == InventoryStatusEnum.IN_STOCK else IntakeStatusEnum.DEPLETED
 
     db.add(ActivityLog(
         user_id=admin.id,
@@ -488,12 +493,12 @@ async def analytics_summary(db: DbSession, user: CurrentUser):
 
     # Ripeness distribution
     ripeness_dist = []
-    for ripeness in ["Unripe", "Ripe", "Overripe", "Rotten"]:
+    for ripeness in RipenessEnum:
         count_result = await db.execute(
             select(func.count()).where(ScanClassification.ripeness == ripeness)
         )
         ripeness_dist.append(RipenessDistribution(
-            name=ripeness,
+            name=ripeness.value,
             value=count_result.scalar() or 0,
         ))
 
@@ -501,15 +506,15 @@ async def analytics_summary(db: DbSession, user: CurrentUser):
     cultivar_counts = []
     most_common = "N/A"
     max_count = 0
-    for cultivar in ["Lakatan", "Latundan", "Saba"]:
+    for cultivar in CultivarEnum:
         count_result = await db.execute(
             select(func.count()).where(ScanClassification.cultivar == cultivar)
         )
         count = count_result.scalar() or 0
-        cultivar_counts.append(CultivarCount(name=cultivar, count=count))
+        cultivar_counts.append(CultivarCount(name=cultivar.value, count=count))
         if count > max_count:
             max_count = count
-            most_common = cultivar
+            most_common = cultivar.value
 
     # Scan trend (last 14 days)
     scan_trend: list[ScanTrend] = []
