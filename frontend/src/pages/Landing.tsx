@@ -151,7 +151,7 @@ export default function Landing() {
               <span className="text-transparent bg-clip-text bg-linear-to-r from-primary via-yellow-500 to-orange-500 pb-1 drop-shadow-md inline-block mt-1">BananaVision</span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-3xl mx-auto leading-relaxed">
-              An AI-powered banana classification system built for Micro, Small, and Medium Enterprises (MSMEs). 
+              An AI-powered banana classification system built for Medium and Large Enterprises. 
               Classify cultivar and ripeness in seconds, keep track of your stock, and reduce waste.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-5 w-full max-w-md mx-auto sm:max-w-none">
@@ -176,7 +176,7 @@ export default function Landing() {
                 </div>
                 <h2 className="text-3xl md:text-4xl font-bold">About BananaVision</h2>
                 <p className="text-muted-foreground leading-relaxed">
-                  BananaVision is an enterprise-grade AI solution built to solve real challenges faced by MSMEs in the banana supply chain. 
+                  BananaVision is an enterprise-grade AI solution built to solve real challenges faced by medium and large enterprises in the banana supply chain. 
                 </p>
                 <p className="text-muted-foreground leading-relaxed">
                   Using AI and camera-based recognition, the system identifies the banana variety, determines how ripe it is, and estimates how long it will last — helping businesses speed up their scanning process and reduce product waste.
@@ -300,7 +300,7 @@ export default function Landing() {
               <AccordionItem value="item-1">
                 <AccordionTrigger className="text-left text-lg">Who is this system built for?</AccordionTrigger>
                 <AccordionContent className="text-muted-foreground h-auto">
-                  BananaVision is made for small to medium-sized businesses that handle banana packaging and distribution. It helps workers classify bananas faster and gives managers a clear picture of their inventory.
+                  BananaVision is made for medium and large enterprises that handle banana packaging and distribution. It helps workers classify bananas faster and gives managers a clear picture of their inventory.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="item-2">
