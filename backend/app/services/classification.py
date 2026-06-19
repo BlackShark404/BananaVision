@@ -97,15 +97,16 @@ class BananaClassifier:
             self._loaded = True
             logger.info("YOLOv8n model loaded successfully")
         except FileNotFoundError:
-            logger.warning(
+            logger.error(
                 f"Model file not found at {settings.yolo_model_path}. "
-                "Running in placeholder mode — inference will return mock results."
+                "Inference will be unavailable until a valid model is provided."
             )
             self._model = None
-            self._loaded = True  # Mark as loaded so the app can still run
+            self._loaded = False
         except Exception as exc:
             logger.error(f"Failed to load YOLOv8n model: {exc}")
-            self._loaded = True  # Allow fallback
+            self._model = None
+            self._loaded = False
 
     def warmup(self) -> None:
         """Run a dummy inference to warm up the model (reduces first-call latency)."""
@@ -129,9 +130,11 @@ class BananaClassifier:
         """
         start = time.time()
 
-        # Placeholder mode: return mock results when no model is loaded
         if self._model is None:
-            return self._placeholder_predict(start)
+            raise ModelInferenceError(
+                "YOLOv8n",
+                "Model not loaded. Ensure a valid .pt model file is available.",
+            )
 
         try:
             results = self._model.predict(
@@ -203,24 +206,7 @@ class BananaClassifier:
             confs.extend(ripeness_votes[best_ripeness])
         return round(sum(confs) / len(confs) * 100, 1) if confs else 0.0
 
-    def _placeholder_predict(self, start: float) -> ClassificationResult:
-        """Return mock results when no model file is available."""
-        import random
 
-        elapsed_ms = (time.time() - start) * 1000
-        cultivar = random.choice(list(CultivarEnum)).value
-        ripeness = random.choice(list(RipenessEnum)).value
-        confidence = round(random.uniform(85, 99), 1)
-        finger_count = random.randint(5, 16)
-
-        return ClassificationResult(
-            cultivar=cultivar,
-            ripeness=ripeness,
-            confidence=confidence,
-            finger_count=finger_count,
-            detections=[],
-            inference_time_ms=elapsed_ms,
-        )
 
 
 # Singleton instance

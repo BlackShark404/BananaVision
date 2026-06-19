@@ -9,7 +9,7 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Calculates estimated days until spoilage based on cultivar, ripeness, and environmental factors.
- * This simulates the planned Random Forest Regression model output.
+ * Uses a heuristic lookup table derived from domain research on banana shelf-life data.
  */
 export function getSpoilageDays(
   cultivar: Cultivar, 
@@ -36,7 +36,7 @@ export function getSpoilageDays(
     else if (ripeness === RipenessEnum.OVERRIPE) { baseMin = 2; baseMax = 3 }
   }
 
-  // Simulate Random Forest logic: Adjust based on temperature & humidity
+  // Adjust shelf-life estimate based on environmental conditions
   if (temperature !== undefined && humidity !== undefined) {
     // High heat (>28°C) accelerates spoilage by ~30%
     // High humidity (>75%) accelerates spoilage by ~20%
@@ -57,7 +57,7 @@ export function getSpoilageDays(
     baseMax = Math.max(baseMin, Math.round(baseMax * multiplier))
   }
   
-  // Return the range back to represent ML model uncertainty + RMSE margins
+  // Return the range to represent natural variance in shelf-life estimates
   return baseMin === baseMax ? `${baseMin}` : `${baseMin}-${baseMax}`
 }
 

@@ -67,18 +67,18 @@ class SensorReader:
             )
             return True
         except ImportError:
-            logger.warning("pyserial not installed — sensor reader in mock mode")
+            logger.warning("pyserial not installed — sensor reader unavailable")
             self._connected = False
             return False
         except Exception as exc:
-            logger.warning(f"Sensor connection failed: {exc}. Running in mock mode.")
+            logger.warning(f"Sensor connection failed: {exc}. Sensor reader unavailable.")
             self._connected = False
             return False
 
     def read_once(self) -> SensorData | None:
         """Read a single sensor measurement from serial."""
         if not self._connected or self._serial is None:
-            return self._mock_reading()
+            return None
 
         try:
             line = self._serial.readline().decode("utf-8").strip()
@@ -116,17 +116,6 @@ class SensorReader:
             logger.warning(f"Failed to parse sensor data '{line}': {exc}")
             return None
 
-    def _mock_reading(self) -> SensorData:
-        """Provide mock sensor data for development without hardware."""
-        import random
-
-        data = SensorData(
-            temperature=round(random.uniform(22.0, 30.0), 1),
-            humidity=round(random.uniform(55.0, 80.0), 1),
-            recorded_at=datetime.now(timezone.utc),
-        )
-        self._latest = data
-        return data
 
     async def start_polling(self, on_reading=None):
         """

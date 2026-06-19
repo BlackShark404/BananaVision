@@ -76,7 +76,6 @@ interface AppContextType {
   updateSupplierStatus: (id: string, status: "Active" | "Inactive") => void
 }
 
-// ── Mock fallback data removed ───────────────────
 
 const AppContext = createContext<AppContextType | null>(null)
 

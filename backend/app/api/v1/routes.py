@@ -98,7 +98,7 @@ async def latest_sensor(db: DbSession, user: CurrentUser):
     )
     reading = result.scalar_one_or_none()
     if not reading:
-        # Return mock data from sensor_reader if no DB records
+        # Fall back to the latest in-memory reading if no DB records yet
         from app.services.sensor_reader import sensor_reader
         data = sensor_reader.latest
         if data:
