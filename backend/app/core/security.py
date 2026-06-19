@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError
 import bcrypt
 
 from app.config import get_settings
@@ -70,5 +71,5 @@ def decode_access_token(token: str) -> dict | None:
             algorithms=[settings.jwt_algorithm],
         )
         return payload
-    except JWTError:
+    except PyJWTError:
         return None
