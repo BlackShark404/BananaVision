@@ -20,7 +20,7 @@ settings = get_settings()
 
 # ── Feature encoding maps ────────────────────────────────────────────────────
 CULTIVAR_MAP = {CultivarEnum.LAKATAN.value: 0, CultivarEnum.LATUNDAN.value: 1, CultivarEnum.SABA.value: 2}
-RIPENESS_MAP = {RipenessEnum.UNRIPE.value: 0, RipenessEnum.RIPE.value: 1, RipenessEnum.OVERRIPE.value: 2, RipenessEnum.SEMI_RIPE.value: 3}
+RIPENESS_MAP = {RipenessEnum.UNRIPE.value: 0, RipenessEnum.SEMI_RIPE.value: 1, RipenessEnum.RIPE.value: 2, RipenessEnum.OVERRIPE.value: 3}
 
 
 class SpoilagePredictor:

@@ -98,6 +98,10 @@ const BANANA_IMAGES: Record<string, string[]> = {
     "https://the-veggie-table.com/cdn/shop/products/saba_300x.png?v=1586490675", // Green bananas
     "https://www.gulayatbp.com/cdn/shop/files/banana_saba1.png?v=1729220360"  // Greenish bunch
   ],
+  [RipenessEnum.SEMI_RIPE]: [
+    "https://the-veggie-table.com/cdn/shop/products/saba_300x.png?v=1586490675", // Greenish-yellow
+    "https://www.gulayatbp.com/cdn/shop/files/banana_saba1.png?v=1729220360"  // Transitioning
+  ],
   [RipenessEnum.RIPE]: [
     "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTQwik_uYQV3m9z-tF0NiOJuQIR-lxNqSzSWPZAvHUrZQ&s", // Yellow
     "https://www.eatright.org/-/media/images/eatright-articles/bananas.jpg?as=0&w=967&rev=c5a21c5b5daf455baa28092d199f7ea9&hash=0DB86DF1DDEDF4F1003A3BF726BF4ABC", // Bright yellow
@@ -106,10 +110,6 @@ const BANANA_IMAGES: Record<string, string[]> = {
   [RipenessEnum.OVERRIPE]: [
     "https://chefjulieyoon.com/wp-content/uploads/2012/08/RipeBananas-1.jpg", // Spotted
     "https://delightfuladventures.com/wp-content/uploads/2019/02/what-to-do-with-overripe-bananas-info.jpg"  // Spotted yellow
-  ],
-  [RipenessEnum.SEMI_RIPE]: [
-    "https://the-veggie-table.com/cdn/shop/products/saba_300x.png?v=1586490675", // Greenish-yellow
-    "https://www.gulayatbp.com/cdn/shop/files/banana_saba1.png?v=1729220360"  // Transitioning
   ]
 };
 

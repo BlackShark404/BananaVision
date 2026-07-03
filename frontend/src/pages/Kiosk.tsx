@@ -30,9 +30,9 @@ import { AppStatusBadge } from "@/components/AppStatusBadge"
 
 const ripenessIcon: Record<string, string> = {
   Unripe: "🟢",
+  "Semi Ripe": "🟠",
   Ripe: "🟡",
   Overripe: "🔴",
-  "Semi Ripe": "🟠",
 }
 
 

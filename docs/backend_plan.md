@@ -295,7 +295,7 @@ erDiagram
         uuid intake_id FK
         timestamp scanned_at
         varchar cultivar "Lakatan | Latundan | Saba"
-        varchar ripeness "Unripe | Ripe | Overripe | Semi Ripe"
+        varchar ripeness "Unripe | Semi Ripe | Ripe | Overripe"
         float confidence
         float temperature
         float humidity

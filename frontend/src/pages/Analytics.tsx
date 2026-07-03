@@ -36,9 +36,9 @@ import {
 
 const ripenessChartConfig = {
   [RipenessEnum.UNRIPE]: { label: "Unripe", color: "#22c55e" },
+  [RipenessEnum.SEMI_RIPE]: { label: "Semi Ripe", color: "#7c3aed" },
   [RipenessEnum.RIPE]: { label: "Ripe", color: "#eab308" },
   [RipenessEnum.OVERRIPE]: { label: "Overripe", color: "#ef4444" },
-  [RipenessEnum.SEMI_RIPE]: { label: "Semi Ripe", color: "#7c3aed" },
 } satisfies ChartConfig
 
 const cultivarChartConfig = {
@@ -50,9 +50,9 @@ const cultivarChartConfig = {
 
 const cultivarRipenessChartConfig = {
   [RipenessEnum.UNRIPE]: { label: "Unripe", color: "#22c55e" },
+  [RipenessEnum.SEMI_RIPE]: { label: "Semi Ripe", color: "#7c3aed" },
   [RipenessEnum.RIPE]: { label: "Ripe", color: "#eab308" },
   [RipenessEnum.OVERRIPE]: { label: "Overripe", color: "#ef4444" },
-  [RipenessEnum.SEMI_RIPE]: { label: "Semi Ripe", color: "#7c3aed" },
 } satisfies ChartConfig
 
 const confidenceChartConfig = {
@@ -160,10 +160,10 @@ export default function Analytics() {
     const cultivarRipeness = data.cultivarCounts.map(c => {
       const cultivarScans = filteredScans.filter(s => s.cultivar === c.name)
       const unripe = cultivarScans.filter(s => s.ripeness === RipenessEnum.UNRIPE).length
+      const semiRipe = cultivarScans.filter(s => s.ripeness === RipenessEnum.SEMI_RIPE).length
       const ripe = cultivarScans.filter(s => s.ripeness === RipenessEnum.RIPE).length
       const overripe = cultivarScans.filter(s => s.ripeness === RipenessEnum.OVERRIPE).length
-      const semiRipe = cultivarScans.filter(s => s.ripeness === RipenessEnum.SEMI_RIPE).length
-      return { name: c.name, [RipenessEnum.UNRIPE]: unripe, [RipenessEnum.RIPE]: ripe, [RipenessEnum.OVERRIPE]: overripe, [RipenessEnum.SEMI_RIPE]: semiRipe }
+      return { name: c.name, [RipenessEnum.UNRIPE]: unripe, [RipenessEnum.SEMI_RIPE]: semiRipe, [RipenessEnum.RIPE]: ripe, [RipenessEnum.OVERRIPE]: overripe }
     })
 
     const hourlyDistribution = Array.from({ length: 24 }, (_, hour) => {
@@ -354,9 +354,9 @@ export default function Analytics() {
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <ChartLegend content={<ChartLegendContent />} />
                 <Bar dataKey={RipenessEnum.UNRIPE} stackId="a" fill={`var(--color-${RipenessEnum.UNRIPE})`} radius={[0, 0, 0, 0]} />
+                <Bar dataKey={RipenessEnum.SEMI_RIPE} stackId="a" fill={`var(--color-${RipenessEnum.SEMI_RIPE})`} radius={[0, 0, 0, 0]} />
                 <Bar dataKey={RipenessEnum.RIPE} stackId="a" fill={`var(--color-${RipenessEnum.RIPE})`} radius={[0, 0, 0, 0]} />
-                <Bar dataKey={RipenessEnum.OVERRIPE} stackId="a" fill={`var(--color-${RipenessEnum.OVERRIPE})`} radius={[0, 0, 0, 0]} />
-                <Bar dataKey={RipenessEnum.SEMI_RIPE} stackId="a" fill={`var(--color-${RipenessEnum.SEMI_RIPE})`} radius={[8, 8, 0, 0]} />
+                <Bar dataKey={RipenessEnum.OVERRIPE} stackId="a" fill={`var(--color-${RipenessEnum.OVERRIPE})`} radius={[8, 8, 0, 0]} />
               </BarChart>
             </ChartContainer>
           </CardContent>

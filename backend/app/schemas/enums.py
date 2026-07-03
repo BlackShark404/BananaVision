@@ -7,9 +7,9 @@ class CultivarEnum(str, Enum):
 
 class RipenessEnum(str, Enum):
     UNRIPE = "Unripe"
+    SEMI_RIPE = "Semi Ripe"
     RIPE = "Ripe"
     OVERRIPE = "Overripe"
-    SEMI_RIPE = "Semi Ripe"
 
 class RoleEnum(str, Enum):
     ADMIN = "Admin"

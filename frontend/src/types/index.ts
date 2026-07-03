@@ -8,9 +8,9 @@ export type Cultivar = typeof CultivarEnum[keyof typeof CultivarEnum]
 
 export const RipenessEnum = {
   UNRIPE: "Unripe",
+  SEMI_RIPE: "Semi Ripe",
   RIPE: "Ripe",
   OVERRIPE: "Overripe",
-  SEMI_RIPE: "Semi Ripe",
 } as const
 export const RIPENESS_LEVELS = Object.values(RipenessEnum)
 export type Ripeness = typeof RipenessEnum[keyof typeof RipenessEnum]

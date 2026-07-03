@@ -214,6 +214,20 @@ export default function Inventory() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-violet-500" />
+                  <span className="text-sm font-medium">Semi Ripe</span>
+                </div>
+                <span className="text-sm font-bold">{inventory.semiRipe.length} hands</span>
+              </div>
+              <Progress value={inventory.totalHands ? (inventory.semiRipe.length / inventory.totalHands) * 100 : 0} className="h-2" />
+              <p className="text-xs text-muted-foreground mt-1">
+                {inventory.semiRipe.reduce((sum, s) => sum + s.fingerCount, 0)} fingers • Transitioning ripeness
+              </p>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-yellow-500" />
                   <span className="text-sm font-medium">Ripe</span>
                 </div>
@@ -236,20 +250,6 @@ export default function Inventory() {
               <Progress value={inventory.totalHands ? (inventory.overripe.length / inventory.totalHands) * 100 : 0} className="h-2" />
               <p className="text-xs text-muted-foreground mt-1">
                 {inventory.overripe.reduce((sum, s) => sum + s.fingerCount, 0)} fingers • Prioritize for immediate sale
-              </p>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-violet-500" />
-                  <span className="text-sm font-medium">Semi Ripe</span>
-                </div>
-                <span className="text-sm font-bold">{inventory.semiRipe.length} hands</span>
-              </div>
-              <Progress value={inventory.totalHands ? (inventory.semiRipe.length / inventory.totalHands) * 100 : 0} className="h-2" />
-              <p className="text-xs text-muted-foreground mt-1">
-                {inventory.semiRipe.reduce((sum, s) => sum + s.fingerCount, 0)} fingers • Transitioning ripeness
               </p>
             </div>
           </div>
