@@ -280,7 +280,7 @@
     -webkit-print-color-adjust: exact;
   }
   
-  aside, nav, button:not(.print-keep), .print\\:hidden, .no-print {
+  aside, nav, button:not(.print-keep), .print\:hidden, .no-print {
     display: none !important;
   }
   
