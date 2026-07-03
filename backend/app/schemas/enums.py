@@ -9,7 +9,7 @@ class RipenessEnum(str, Enum):
     UNRIPE = "Unripe"
     RIPE = "Ripe"
     OVERRIPE = "Overripe"
-    ROTTEN = "Rotten"
+    SEMI_RIPE = "Semi Ripe"
 
 class RoleEnum(str, Enum):
     ADMIN = "Admin"

@@ -28,7 +28,7 @@ export default function Inventory() {
     const unripe = inStock.filter(s => s.ripeness === RipenessEnum.UNRIPE)
     const ripe = inStock.filter(s => s.ripeness === RipenessEnum.RIPE)
     const overripe = inStock.filter(s => s.ripeness === RipenessEnum.OVERRIPE)
-    const rotten = inStock.filter(s => s.ripeness === RipenessEnum.ROTTEN)
+    const semiRipe = inStock.filter(s => s.ripeness === RipenessEnum.SEMI_RIPE)
     
     // Calculate total hands and fingers
     const totalHands = inStock.length
@@ -121,7 +121,7 @@ export default function Inventory() {
       unripe,
       ripe,
       overripe,
-      rotten,
+      semiRipe,
       spoilingSoon,
       byCultivar,
       fifoList,
@@ -243,13 +243,13 @@ export default function Inventory() {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-violet-500" />
-                  <span className="text-sm font-medium">Rotten</span>
+                  <span className="text-sm font-medium">Semi Ripe</span>
                 </div>
-                <span className="text-sm font-bold">{inventory.rotten.length} hands</span>
+                <span className="text-sm font-bold">{inventory.semiRipe.length} hands</span>
               </div>
-              <Progress value={inventory.totalHands ? (inventory.rotten.length / inventory.totalHands) * 100 : 0} className="h-2" />
+              <Progress value={inventory.totalHands ? (inventory.semiRipe.length / inventory.totalHands) * 100 : 0} className="h-2" />
               <p className="text-xs text-muted-foreground mt-1">
-                {inventory.rotten.reduce((sum, s) => sum + s.fingerCount, 0)} fingers • Dispose immediately
+                {inventory.semiRipe.reduce((sum, s) => sum + s.fingerCount, 0)} fingers • Transitioning ripeness
               </p>
             </div>
           </div>
@@ -314,7 +314,7 @@ export default function Inventory() {
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-semibold text-sm">{group.source} — {group.cultivar}</p>
                           <Badge variant="outline" className={`text-[10px] ${
-                            group.ripeness === RipenessEnum.ROTTEN
+                            group.ripeness === RipenessEnum.SEMI_RIPE
                               ? "bg-violet-50 text-violet-700 border-violet-200"
                               : group.ripeness === RipenessEnum.OVERRIPE 
                                 ? "bg-red-50 text-red-700 border-red-200" 

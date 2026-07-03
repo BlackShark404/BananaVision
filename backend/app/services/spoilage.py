@@ -20,7 +20,7 @@ settings = get_settings()
 
 # ── Feature encoding maps ────────────────────────────────────────────────────
 CULTIVAR_MAP = {CultivarEnum.LAKATAN.value: 0, CultivarEnum.LATUNDAN.value: 1, CultivarEnum.SABA.value: 2}
-RIPENESS_MAP = {RipenessEnum.UNRIPE.value: 0, RipenessEnum.RIPE.value: 1, RipenessEnum.OVERRIPE.value: 2, RipenessEnum.ROTTEN.value: 3}
+RIPENESS_MAP = {RipenessEnum.UNRIPE.value: 0, RipenessEnum.RIPE.value: 1, RipenessEnum.OVERRIPE.value: 2, RipenessEnum.SEMI_RIPE.value: 3}
 
 
 class SpoilagePredictor:
@@ -77,8 +77,8 @@ class SpoilagePredictor:
         Returns:
             String like "3-5" or "2" representing estimated days.
         """
-        if ripeness == RipenessEnum.ROTTEN.value:
-            return "0"
+        # Semi-ripe bananas are transitioning; estimate spoilage like other stages
+        # (no special-casing needed — it falls through to fallback/model logic)
 
         temp = temperature if temperature is not None else 25.0
         hum = humidity if humidity is not None else 65.0
@@ -129,6 +129,8 @@ class SpoilagePredictor:
                 base_min, base_max = 2, 3
             elif ripeness == RipenessEnum.OVERRIPE.value:
                 base_min, base_max = 1, 2
+            elif ripeness == RipenessEnum.SEMI_RIPE.value:
+                base_min, base_max = 3, 5
         elif cultivar == CultivarEnum.LATUNDAN.value:
             if ripeness == RipenessEnum.UNRIPE.value:
                 base_min, base_max = 3, 5
@@ -136,6 +138,8 @@ class SpoilagePredictor:
                 base_min, base_max = 1, 2
             elif ripeness == RipenessEnum.OVERRIPE.value:
                 base_min, base_max = 1, 1
+            elif ripeness == RipenessEnum.SEMI_RIPE.value:
+                base_min, base_max = 2, 4
         elif cultivar == CultivarEnum.SABA.value:
             if ripeness == RipenessEnum.UNRIPE.value:
                 base_min, base_max = 6, 8
@@ -143,6 +147,8 @@ class SpoilagePredictor:
                 base_min, base_max = 3, 4
             elif ripeness == RipenessEnum.OVERRIPE.value:
                 base_min, base_max = 2, 3
+            elif ripeness == RipenessEnum.SEMI_RIPE.value:
+                base_min, base_max = 5, 7
 
         # Environmental multiplier
         multiplier = 1.0

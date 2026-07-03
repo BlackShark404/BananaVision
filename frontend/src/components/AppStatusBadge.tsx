@@ -14,7 +14,7 @@ const STYLE_MAP = {
     Unripe: { colors: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30" },
     Ripe: { colors: "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30" },
     Overripe: { colors: "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30" },
-    Rotten: { colors: "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-500/20 dark:text-violet-400 dark:border-violet-500/30" },
+    "Semi Ripe": { colors: "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-500/20 dark:text-violet-400 dark:border-violet-500/30" },
   },
   inventory: {
     "In Stock": { colors: "bg-blue-50 text-blue-700 border-blue-200", icon: Package },

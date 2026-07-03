@@ -32,7 +32,7 @@ const ripenessIcon: Record<string, string> = {
   Unripe: "🟢",
   Ripe: "🟡",
   Overripe: "🔴",
-  Rotten: "⚫",
+  "Semi Ripe": "🟠",
 }
 
 

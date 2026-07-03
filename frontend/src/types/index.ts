@@ -10,7 +10,7 @@ export const RipenessEnum = {
   UNRIPE: "Unripe",
   RIPE: "Ripe",
   OVERRIPE: "Overripe",
-  ROTTEN: "Rotten",
+  SEMI_RIPE: "Semi Ripe",
 } as const
 export const RIPENESS_LEVELS = Object.values(RipenessEnum)
 export type Ripeness = typeof RipenessEnum[keyof typeof RipenessEnum]

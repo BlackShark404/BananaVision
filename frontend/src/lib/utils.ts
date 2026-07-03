@@ -17,7 +17,26 @@ export function getSpoilageDays(
   temperature?: number,
   humidity?: number
 ): string {
-  if (ripeness === RipenessEnum.ROTTEN) return "0"
+  if (ripeness === RipenessEnum.SEMI_RIPE) {
+    // Semi-ripe bananas are transitioning; estimate based on cultivar
+    let srMin = 0
+    let srMax = 0
+    if (cultivar === CultivarEnum.LAKATAN) { srMin = 3; srMax = 5 }
+    else if (cultivar === CultivarEnum.LATUNDAN) { srMin = 2; srMax = 4 }
+    else if (cultivar === CultivarEnum.SABA) { srMin = 5; srMax = 7 }
+
+    if (temperature !== undefined && humidity !== undefined) {
+      let multiplier = 1.0
+      if (temperature > 28) multiplier -= 0.3
+      else if (temperature < 22) multiplier += 0.2
+      if (humidity > 75) multiplier -= 0.2
+      else if (humidity < 60) multiplier += 0.1
+      multiplier = Math.max(0.2, Math.min(2.0, multiplier))
+      srMin = Math.max(1, Math.round(srMin * multiplier))
+      srMax = Math.max(srMin, Math.round(srMax * multiplier))
+    }
+    return srMin === srMax ? `${srMin}` : `${srMin}-${srMax}`
+  }
   
   let baseMin = 0
   let baseMax = 0
@@ -88,9 +107,9 @@ const BANANA_IMAGES: Record<string, string[]> = {
     "https://chefjulieyoon.com/wp-content/uploads/2012/08/RipeBananas-1.jpg", // Spotted
     "https://delightfuladventures.com/wp-content/uploads/2019/02/what-to-do-with-overripe-bananas-info.jpg"  // Spotted yellow
   ],
-  [RipenessEnum.ROTTEN]: [
-    "https://media.istockphoto.com/id/1301198272/photo/dark-and-spoiled-banana-on-the-table-rotten-fruit.jpg?s=612x612&w=0&k=20&c=_3Llkp1sNS7bZtnVB6W9Zh6hhjoq4tCaa7sqhlJ1UPk=", // Darkish
-    "https://static.vecteezy.com/system/resources/previews/010/234/579/non_2x/closeup-of-a-banana-that-is-starting-to-rot-or-turn-black-free-photo.jpg"  // Older
+  [RipenessEnum.SEMI_RIPE]: [
+    "https://the-veggie-table.com/cdn/shop/products/saba_300x.png?v=1586490675", // Greenish-yellow
+    "https://www.gulayatbp.com/cdn/shop/files/banana_saba1.png?v=1729220360"  // Transitioning
   ]
 };
 

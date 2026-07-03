@@ -144,7 +144,7 @@ create table scan_classification (
     id             serial primary key,
     scan_id        uuid unique not null references scan(id) on delete cascade,
     cultivar       varchar(20) not null check (cultivar in ('lakatan', 'latundan', 'saba')),
-    ripeness       varchar(20) not null check (ripeness in ('unripe', 'ripe', 'overripe', 'rotten')),
+    ripeness       varchar(20) not null check (ripeness in ('unripe', 'ripe', 'overripe', 'semi_ripe')),
     confidence     decimal(5,2) not null check (confidence >= 0 and confidence <= 100),
     temperature    decimal(5,2), -- added from frontend scanresult
     humidity       decimal(5,2), -- added from frontend scanresult
@@ -165,7 +165,7 @@ create table scan_original_ai_result (
     id             serial primary key,
     scan_id        uuid unique not null references scan(id) on delete cascade,
     cultivar       varchar(20) not null check (cultivar in ('lakatan', 'latundan', 'saba')),
-    ripeness       varchar(20) not null check (ripeness in ('unripe', 'ripe', 'overripe', 'rotten')),
+    ripeness       varchar(20) not null check (ripeness in ('unripe', 'ripe', 'overripe', 'semi_ripe')),
     confidence     decimal(5,2) not null,
     finger_count   int not null,
     created_at     timestamp not null default now()
