@@ -6,7 +6,8 @@
 
 import { getToken, clearAuth } from "@/lib/auth"
 
-export const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+const host = window.location.hostname
+export const BASE_URL = import.meta.env.VITE_API_URL || `http://${host}:8000`
 
 // ── Core Fetch Wrapper ──────────────────────────────────────────────────────
 
