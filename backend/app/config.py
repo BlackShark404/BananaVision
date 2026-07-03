@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     app_port: int = 8000
     app_debug: bool = True
     app_secret_key: str = "change-me"
-    app_cors_origins: list[str] = ["http://localhost:5173"]
+    app_cors_origins: list[str] = ["*"]
 
     # ── Database ─────────────────────────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://bv_user:bv_pass@localhost:5432/bananavision"
