@@ -157,6 +157,7 @@ class CameraManager:
             try:
                 result = await loop.run_in_executor(None, self._capture_single, dev_id)
                 captures.append(result)
+                await asyncio.sleep(0.15)  # Hardware breathing room for USB controller
             except CameraError as exc:
                 logger.warning(f"Sequential capture failed for camera {dev_id}: {exc}")
 
