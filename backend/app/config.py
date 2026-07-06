@@ -42,8 +42,8 @@ class Settings(BaseSettings):
     # ── Camera ───────────────────────────────────────────────────────────────
     camera_device_ids: list[int] = [0, 1, 2, 3]
     camera_labels: list[str] = ["Top", "Left", "Right", "Back"]
-    camera_resolution_w: int = 1920
-    camera_resolution_h: int = 1080
+    camera_resolution_w: int = 640
+    camera_resolution_h: int = 480
     camera_warmup_frames: int = 5
     camera_capture_timeout_ms: int = 3000
 
