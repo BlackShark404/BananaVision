@@ -17,9 +17,9 @@ export default function DeviceStatus() {
 
   // Listen for live sensor readings via WebSocket
   useWebSocket({
-    rooms: ["sensor_readings"],
+    rooms: ["dashboard"],
     onEvent: (event, data) => {
-      if (event === "sensor_update") {
+      if (event === "sensor:update") {
         setSensorData({
           temperature: data.temperature,
           humidity: data.humidity
