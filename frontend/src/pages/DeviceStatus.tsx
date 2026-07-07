@@ -5,12 +5,40 @@ import { Progress } from "@/components/ui/progress"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { Monitor, Camera, Wifi, WifiOff, Cpu, HardDrive, Clock, MemoryStick, Thermometer, Activity, RefreshCw, Droplets } from "lucide-react"
 import { useEffect, useState } from "react"
-
+import { api } from "@/lib/api"
+import { useWebSocket } from "@/hooks/useWebSocket"
 export default function DeviceStatus() {
   const { devices } = useApp()
   const online = devices.filter((d) => d.status === "Online").length
   const total = devices.length
   const [lastUpdate, setLastUpdate] = useState(new Date())
+
+  const [sensorData, setSensorData] = useState({ temperature: 0, humidity: 0 })
+
+  // Listen for live sensor readings via WebSocket
+  useWebSocket({
+    rooms: ["sensor_readings"],
+    onEvent: (event, data) => {
+      if (event === "sensor_update") {
+        setSensorData({
+          temperature: data.temperature,
+          humidity: data.humidity
+        })
+      }
+    }
+  })
+
+  // Fetch initial sensor data on mount
+  useEffect(() => {
+    api.sensors.latest().then((res) => {
+      if (res) {
+        setSensorData({
+          temperature: res.temperature,
+          humidity: res.humidity
+        })
+      }
+    }).catch(console.error)
+  }, [])
 
   // Simulate fetching system metrics every 5 seconds
   useEffect(() => {
@@ -215,7 +243,7 @@ export default function DeviceStatus() {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Ambient Temperature</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-2xl font-bold">25.4<span className="text-base font-medium text-muted-foreground">°C</span></p>
+                  <p className="text-2xl font-bold">{sensorData.temperature.toFixed(1)}<span className="text-base font-medium text-muted-foreground">°C</span></p>
                   <span className="text-[10px] text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full">Optimal</span>
                 </div>
               </div>
@@ -227,7 +255,7 @@ export default function DeviceStatus() {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Ambient Humidity</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-2xl font-bold">62.1<span className="text-base font-medium text-muted-foreground">%</span></p>
+                  <p className="text-2xl font-bold">{sensorData.humidity.toFixed(1)}<span className="text-base font-medium text-muted-foreground">%</span></p>
                   <span className="text-[10px] text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full">Optimal</span>
                 </div>
               </div>

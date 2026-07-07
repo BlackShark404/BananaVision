@@ -11,7 +11,9 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import { getToken } from "@/lib/auth"
 
-const WS_BASE = import.meta.env.VITE_WS_URL || "ws://localhost:8000"
+const host = window.location.hostname
+const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
+const WS_BASE = import.meta.env.VITE_WS_URL || `${protocol}//${host}:8000`
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected"
 
