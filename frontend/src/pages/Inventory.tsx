@@ -72,7 +72,7 @@ export default function Inventory() {
     const byCultivar = {
       [CultivarEnum.LAKATAN]: inStock.filter(s => s.cultivar === CultivarEnum.LAKATAN).length,
       [CultivarEnum.LATUNDAN]: inStock.filter(s => s.cultivar === CultivarEnum.LATUNDAN).length,
-      [CultivarEnum.SABA]: inStock.filter(s => s.cultivar === CultivarEnum.SABA).length,
+      [CultivarEnum.CARDABA]: inStock.filter(s => s.cultivar === CultivarEnum.CARDABA).length,
     }
     
     // FIFO recommendations (oldest first, grouped by Intake)

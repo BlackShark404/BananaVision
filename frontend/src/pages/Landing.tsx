@@ -208,7 +208,7 @@ export default function Landing() {
             
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8 text-left relative z-10">
               {[
-                { icon: ScanLine, title: "AI-Assisted Scanning", desc: "Recognizes banana varieties (Lakatan, Latundan, Saba), determines ripeness level, and automatically estimates shelf life." },
+                { icon: ScanLine, title: "AI-Assisted Scanning", desc: "Recognizes banana varieties (Lakatan, Latundan, Cardaba), determines ripeness level, and automatically estimates shelf life." },
                 { icon: Factory, title: "Operator Kiosk", desc: "A simple, touch-friendly screen where warehouse workers can quickly scan bananas one delivery at a time." },
                 { icon: ShieldCheck, title: "Scan Review", desc: "Unsure classification results are easily flagged so a manager can double-check and correct them later." },
                 { icon: PackageOpen, title: "Inventory Tracking", desc: "See how much stock you have by variety and ripeness, with alerts when items are about to spoil." },

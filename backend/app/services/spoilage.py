@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # ── Feature encoding maps ────────────────────────────────────────────────────
-CULTIVAR_MAP = {CultivarEnum.LAKATAN.value: 0, CultivarEnum.LATUNDAN.value: 1, CultivarEnum.SABA.value: 2}
+CULTIVAR_MAP = {CultivarEnum.LAKATAN.value: 0, CultivarEnum.LATUNDAN.value: 1, CultivarEnum.CARDABA.value: 2}
 RIPENESS_MAP = {RipenessEnum.UNRIPE.value: 0, RipenessEnum.SEMI_RIPE.value: 1, RipenessEnum.RIPE.value: 2, RipenessEnum.OVERRIPE.value: 3}
 
 
@@ -140,7 +140,7 @@ class SpoilagePredictor:
                 base_min, base_max = 1, 1
             elif ripeness == RipenessEnum.SEMI_RIPE.value:
                 base_min, base_max = 2, 4
-        elif cultivar == CultivarEnum.SABA.value:
+        elif cultivar == CultivarEnum.CARDABA.value:
             if ripeness == RipenessEnum.UNRIPE.value:
                 base_min, base_max = 6, 8
             elif ripeness == RipenessEnum.RIPE.value:

@@ -3,7 +3,7 @@ from enum import Enum
 class CultivarEnum(str, Enum):
     LAKATAN = "Lakatan"
     LATUNDAN = "Latundan"
-    SABA = "Saba"
+    CARDABA = "Cardaba"
 
 class RipenessEnum(str, Enum):
     UNRIPE = "Unripe"

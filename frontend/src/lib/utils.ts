@@ -23,7 +23,7 @@ export function getSpoilageDays(
     let srMax = 0
     if (cultivar === CultivarEnum.LAKATAN) { srMin = 3; srMax = 5 }
     else if (cultivar === CultivarEnum.LATUNDAN) { srMin = 2; srMax = 4 }
-    else if (cultivar === CultivarEnum.SABA) { srMin = 5; srMax = 7 }
+    else if (cultivar === CultivarEnum.CARDABA) { srMin = 5; srMax = 7 }
 
     if (temperature !== undefined && humidity !== undefined) {
       let multiplier = 1.0
@@ -49,7 +49,7 @@ export function getSpoilageDays(
     if (ripeness === RipenessEnum.UNRIPE) { baseMin = 3; baseMax = 5 }
     else if (ripeness === RipenessEnum.RIPE) { baseMin = 1; baseMax = 2 }
     else if (ripeness === RipenessEnum.OVERRIPE) { baseMin = 1; baseMax = 1 }
-  } else if (cultivar === CultivarEnum.SABA) {
+  } else if (cultivar === CultivarEnum.CARDABA) {
     if (ripeness === RipenessEnum.UNRIPE) { baseMin = 6; baseMax = 8 }
     else if (ripeness === RipenessEnum.RIPE) { baseMin = 3; baseMax = 4 }
     else if (ripeness === RipenessEnum.OVERRIPE) { baseMin = 2; baseMax = 3 }

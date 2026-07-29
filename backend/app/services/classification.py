@@ -2,7 +2,7 @@
 YOLOv8n classification wrapper.
 
 Loads the trained YOLOv8n model once and provides inference on banana images.
-Detects cultivar (Lakatan/Latundan/Saba) and ripeness (Unripe/Semi Ripe/Ripe/Overripe).
+Detects cultivar (Lakatan/Latundan/Cardaba) and ripeness (Unripe/Semi Ripe/Ripe/Overripe).
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ class ClassificationResult:
 
 
 # ── Class label parsing ─────────────────────────────────────────────────────
-# Expected YOLO class names format: "Lakatan_Ripe", "Saba_Unripe", etc.
+# Expected YOLO class names format: "Lakatan_Ripe", "Cardaba_Unripe", etc.
 # Or separate classes: "Lakatan", "Ripe", etc.
 
 CULTIVAR_CLASSES = {c.value for c in CultivarEnum}

@@ -44,7 +44,7 @@ const ripenessChartConfig = {
 const cultivarChartConfig = {
   [CultivarEnum.LAKATAN]: { label: "Lakatan", color: "#f59e0b" },
   [CultivarEnum.LATUNDAN]: { label: "Latundan", color: "#fbbf24" },
-  [CultivarEnum.SABA]: { label: "Saba", color: "#d97706" },
+  [CultivarEnum.CARDABA]: { label: "Cardaba", color: "#d97706" },
   count: { label: "Count" },
 } satisfies ChartConfig
 
@@ -77,7 +77,7 @@ type DateRange = "today" | "week" | "month" | "all"
 const CULTIVAR_COLORS: Record<string, string> = {
   [CultivarEnum.LAKATAN]: "#f59e0b",
   [CultivarEnum.LATUNDAN]: "#fbbf24",
-  [CultivarEnum.SABA]: "#d97706",
+  [CultivarEnum.CARDABA]: "#d97706",
 }
 
 export default function Analytics() {

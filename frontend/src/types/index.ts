@@ -1,7 +1,7 @@
 export const CultivarEnum = {
   LAKATAN: "Lakatan",
   LATUNDAN: "Latundan",
-  SABA: "Saba",
+  CARDABA: "Cardaba",
 } as const
 export const CULTIVARS = Object.values(CultivarEnum)
 export type Cultivar = typeof CultivarEnum[keyof typeof CultivarEnum]
