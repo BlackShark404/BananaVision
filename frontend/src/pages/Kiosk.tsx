@@ -44,6 +44,7 @@ export default function Kiosk() {
   const activeSuppliers = suppliers.filter(s => s.status === "Active")
   const [showSourceModal, setShowSourceModal] = useState(false)
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null)
+  const [selectedTreatment, setSelectedTreatment] = useState<"Natural" | "Ethephon">("Natural")
 
   const activeOperators = users.filter(u => u.status === "Active" && u.role === "Operator")
   const [kioskOperator, setKioskOperator] = useState<string | null>(null)
@@ -308,6 +309,38 @@ export default function Kiosk() {
               </div>
               <Badge variant="secondary" className="font-mono text-xs">AUTO-ASSIGNED</Badge>
             </div>
+
+            {/* Treatment Selection */}
+            <div className="mt-4 p-4 rounded-xl bg-muted/50 border border-border">
+              <span className="text-sm font-semibold">Ripening Treatment</span>
+              <p className="text-xs text-muted-foreground mb-3">Select how this batch was ripened — affects spoilage prediction accuracy.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setSelectedTreatment("Natural")}
+                  className={`p-3 rounded-xl border-2 text-center transition-all ${
+                    selectedTreatment === "Natural"
+                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                      : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  <span className="text-lg">🌿</span>
+                  <p className="text-sm font-semibold mt-1">Natural</p>
+                  <p className="text-[10px] text-muted-foreground">Ambient ripening</p>
+                </button>
+                <button
+                  onClick={() => setSelectedTreatment("Ethephon")}
+                  className={`p-3 rounded-xl border-2 text-center transition-all ${
+                    selectedTreatment === "Ethephon"
+                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                      : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  <span className="text-lg">🧪</span>
+                  <p className="text-sm font-semibold mt-1">Ethephon</p>
+                  <p className="text-[10px] text-muted-foreground">Chemical ripening</p>
+                </button>
+              </div>
+            </div>
             
             <Button 
               className="mt-4 h-14 text-lg font-bold rounded-xl" 
@@ -316,7 +349,7 @@ export default function Kiosk() {
               onClick={async () => {
                 if (!selectedSupplierId) return;
                 const generatedBatch = `BCH-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-                await startIntake(selectedSupplierId, generatedBatch);
+                await startIntake(selectedSupplierId, generatedBatch, selectedTreatment);
                 toast.success("Started new delivery intake!");
                 setShowSourceModal(false);
               }}
@@ -640,6 +673,27 @@ export default function Kiosk() {
                       <p className="text-xl mx-auto mb-1">💧</p>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Humidity</p>
                       <p className="text-lg font-bold">{lastResult.humidity}%</p>
+                    </div>
+                  )}
+                  {lastResult.dewPoint !== undefined && lastResult.dewPoint !== null && (
+                    <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
+                      <p className="text-xl mx-auto mb-1">🌫️</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Dew Point</p>
+                      <p className="text-lg font-bold">{lastResult.dewPoint}°C</p>
+                    </div>
+                  )}
+                  {lastResult.vpd !== undefined && lastResult.vpd !== null && (
+                    <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
+                      <p className="text-xl mx-auto mb-1">💨</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">VPD</p>
+                      <p className="text-lg font-bold">{lastResult.vpd} kPa</p>
+                    </div>
+                  )}
+                  {lastResult.heatIndex !== undefined && lastResult.heatIndex !== null && (
+                    <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
+                      <p className="text-xl mx-auto mb-1">🔥</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Heat Index</p>
+                      <p className="text-lg font-bold">{lastResult.heatIndex}°C</p>
                     </div>
                   )}
                 </div>

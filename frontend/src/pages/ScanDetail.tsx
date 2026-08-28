@@ -462,6 +462,38 @@ export default function ScanDetail() {
                     <p className="text-2xl font-bold">{scan.humidity}%</p>
                   </div>
                 )}
+                {scan.dewPoint !== undefined && scan.dewPoint !== null && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span>🌫️</span> Dew Point
+                    </div>
+                    <p className="text-2xl font-bold">{scan.dewPoint}<span className="text-sm font-normal text-muted-foreground">°C</span></p>
+                  </div>
+                )}
+                {scan.vpd !== undefined && scan.vpd !== null && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span>💨</span> VPD
+                    </div>
+                    <p className="text-2xl font-bold">{scan.vpd}<span className="text-sm font-normal text-muted-foreground"> kPa</span></p>
+                  </div>
+                )}
+                {scan.heatIndex !== undefined && scan.heatIndex !== null && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span>🔥</span> Heat Index
+                    </div>
+                    <p className="text-2xl font-bold">{scan.heatIndex}<span className="text-sm font-normal text-muted-foreground">°C</span></p>
+                  </div>
+                )}
+                {scan.treatment && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span>{scan.treatment === "Ethephon" ? "🧪" : "🌿"}</span> Treatment
+                    </div>
+                    <p className="text-lg font-bold">{scan.treatment}</p>
+                  </div>
+                )}
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Package className="w-3.5 h-3.5" /> Inventory Status

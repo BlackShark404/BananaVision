@@ -66,7 +66,7 @@ interface AppContextType {
   config: SystemConfig
   updateConfig: (cfg: Partial<SystemConfig>) => void
   intakes: DailyIntake[]
-  startIntake: (supplierId: string, batchNumber: string) => Promise<DailyIntake | undefined>
+  startIntake: (supplierId: string, batchNumber: string, treatment?: string) => Promise<DailyIntake | undefined>
   activeIntake: DailyIntake | null
   setActiveIntake: (intake: DailyIntake | null) => void
   bulkUpdateIntakeInventory: (intakeId: string, status: InventoryStatus) => void
@@ -144,6 +144,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     qrCode: i.qr_code || i.qrCode,
     date: i.intake_date || i.date || new Date().toISOString().split("T")[0],
     status: i.status as "Active" | "Depleted",
+    treatment: i.treatment,
+    harvestedAt: i.harvested_at || i.harvestedAt,
+    treatedAt: i.treated_at || i.treatedAt,
+    spoiledAt: i.spoiled_at || i.spoiledAt,
     scanCount: i.scan_count || i.scanCount || 0,
   }), [])
 
@@ -164,6 +168,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     confidence: s.confidence,
     temperature: s.temperature,
     humidity: s.humidity,
+    dewPoint: s.dew_point ?? s.dewPoint,
+    vpd: s.vpd,
+    heatIndex: s.heat_index ?? s.heatIndex,
+    treatment: s.treatment,
     spoilageDays: s.spoilage_days || s.spoilageDays,
     fingerCount: s.finger_count || s.fingerCount,
     operator: s.operator_name || s.operator || "Unknown",
@@ -296,6 +304,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           confidence: result.confidence,
           temperature: result.temperature,
           humidity: result.humidity,
+          dewPoint: result.dew_point ?? result.dewPoint,
+          vpd: result.vpd,
+          heatIndex: result.heat_index ?? result.heatIndex,
+          treatment: result.treatment,
           spoilageDays: result.spoilage_days || result.spoilageDays,
           fingerCount: result.finger_count || result.fingerCount,
           operator: result.operator || user?.fullName || "Unknown",
@@ -591,9 +603,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setConfig((prev) => ({ ...prev, ...cfg }))
   }, [])
 
-  const startIntake = useCallback(async (supplierId: string, batchNumber: string) => {
+  const startIntake = useCallback(async (supplierId: string, batchNumber: string, treatment?: string) => {
     try {
-      const resp = await api.intakes.create({ supplier_id: supplierId, batch_number: batchNumber, source: "Kiosk" })
+      const resp = await api.intakes.create({ supplier_id: supplierId, batch_number: batchNumber, source: "Kiosk", treatment: treatment || "Natural" })
       const newIntake = mapApiIntake(resp)
       setIntakes((prev) => [newIntake, ...prev])
       setActiveIntake(newIntake)

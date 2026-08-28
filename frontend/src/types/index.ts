@@ -51,6 +51,13 @@ export const IntakeStatusEnum = {
 } as const
 export const INTAKE_STATUSES = Object.values(IntakeStatusEnum)
 export type IntakeStatus = typeof IntakeStatusEnum[keyof typeof IntakeStatusEnum]
+
+export const TreatmentEnum = {
+  NATURAL: "Natural",
+  ETHEPHON: "Ethephon",
+} as const
+export const TREATMENTS = Object.values(TreatmentEnum)
+export type Treatment = typeof TreatmentEnum[keyof typeof TreatmentEnum]
 export type NotificationType =
   | "scan_complete"
   | "scan_flagged"
@@ -66,6 +73,10 @@ export interface ScanResult {
   confidence: number
   temperature?: number
   humidity?: number
+  dewPoint?: number
+  vpd?: number
+  heatIndex?: number
+  treatment?: Treatment
   spoilageDays: string
   fingerCount: number
   operator: string
@@ -88,6 +99,10 @@ export interface DailyIntake {
   qrCode?: string
   date: string
   status: IntakeStatus
+  treatment?: Treatment
+  harvestedAt?: string
+  treatedAt?: string
+  spoiledAt?: string
   scanCount?: number
   source?: string
 }
