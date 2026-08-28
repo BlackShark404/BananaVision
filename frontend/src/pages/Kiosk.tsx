@@ -262,8 +262,8 @@ export default function Kiosk() {
 
       {/* Select Source Modal */}
       <Dialog open={showSourceModal} onOpenChange={setShowSourceModal}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader className="text-center sm:text-center pb-4">
+        <DialogContent className="sm:max-w-2xl max-h-[90dvh] flex flex-col gap-0 p-0 overflow-hidden">
+          <DialogHeader className="text-center sm:text-center p-6 pb-4 shrink-0 border-b">
             <div className="mx-auto w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-4">
               <Package className="w-6 h-6" />
             </div>
@@ -273,7 +273,7 @@ export default function Kiosk() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-4 py-4">
+          <div className="flex flex-col gap-4 p-6 overflow-y-auto flex-1 kiosk-scroll">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {activeSuppliers.map((supplier) => (
                 <button
@@ -341,9 +341,11 @@ export default function Kiosk() {
                 </button>
               </div>
             </div>
-            
+          </div>
+
+          <div className="p-6 pt-4 shrink-0 border-t bg-background">
             <Button 
-              className="mt-4 h-14 text-lg font-bold rounded-xl" 
+              className="w-full h-14 text-lg font-bold rounded-xl" 
               size="lg" 
               disabled={!selectedSupplierId}
               onClick={async () => {
