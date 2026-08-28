@@ -14,7 +14,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
-from app.schemas.enums import IntakeStatusEnum
+from app.schemas.enums import IntakeStatusEnum, TreatmentEnum
 
 class Intake(Base):
     __tablename__ = "delivery_intake"
@@ -29,6 +29,19 @@ class Intake(Base):
     intake_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     status: Mapped[IntakeStatusEnum] = mapped_column(SAEnum(IntakeStatusEnum), nullable=False, default=IntakeStatusEnum.ACTIVE
     )
+    # ── Batch lifecycle fields (for RFR dataset) ────────────────────────────
+    treatment: Mapped[TreatmentEnum | None] = mapped_column(
+        SAEnum(TreatmentEnum), nullable=True, default=TreatmentEnum.NATURAL
+    )
+    harvested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    treated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    spoiled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
@@ -39,3 +52,4 @@ class Intake(Base):
     # Relationships
     scans = relationship("Scan", back_populates="intake", lazy="selectin")
     supplier = relationship("Supplier", lazy="selectin")
+

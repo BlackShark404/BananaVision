@@ -330,13 +330,26 @@ intakes_router = APIRouter(prefix="/intakes", tags=["Intakes"])
 @intakes_router.post("", response_model=IntakeResponse)
 async def create_intake(body: IntakeCreate, db: DbSession, user: CurrentUser, request: Request):
     """Create a new delivery intake."""
+    from app.schemas.enums import TreatmentEnum
     now = datetime.now(timezone.utc)
+
+    # Parse treatment enum
+    treatment_val = None
+    if body.treatment:
+        try:
+            treatment_val = TreatmentEnum(body.treatment)
+        except ValueError:
+            treatment_val = TreatmentEnum.NATURAL
+
     new_intake = Intake(
         supplier_id=body.supplier_id,
         batch_number=body.batch_number,
         source=body.source,
         intake_date=now.date(),
         status=IntakeStatusEnum.ACTIVE,
+        treatment=treatment_val,
+        harvested_at=body.harvested_at,
+        treated_at=body.treated_at,
         created_at=now,
         updated_at=now,
     )
@@ -378,6 +391,10 @@ async def create_intake(body: IntakeCreate, db: DbSession, user: CurrentUser, re
         qr_code=new_intake.qr_code,
         intake_date=new_intake.intake_date,
         status=new_intake.status,
+        treatment=new_intake.treatment.value if new_intake.treatment else None,
+        harvested_at=new_intake.harvested_at,
+        treated_at=new_intake.treated_at,
+        spoiled_at=new_intake.spoiled_at,
         scan_count=0,
         created_at=new_intake.created_at,
     )
@@ -406,6 +423,10 @@ async def list_intakes(db: DbSession, user: CurrentUser):
             qr_code=intake.qr_code,
             intake_date=intake.intake_date,
             status=intake.status,
+            treatment=intake.treatment.value if intake.treatment else None,
+            harvested_at=intake.harvested_at,
+            treated_at=intake.treated_at,
+            spoiled_at=intake.spoiled_at,
             scan_count=scan_count,
             created_at=intake.created_at,
         ))

@@ -74,6 +74,9 @@ class IntakeCreate(BaseModel):
     supplier_id: uuid.UUID
     batch_number: str | None = None
     source: str = "Kiosk"
+    treatment: str | None = "Natural"  # "Natural" or "Ethephon"
+    harvested_at: datetime | None = None
+    treated_at: datetime | None = None
 
 class IntakeResponse(BaseModel):
     id: uuid.UUID
@@ -83,6 +86,10 @@ class IntakeResponse(BaseModel):
     qr_code: str | None = None
     intake_date: date
     status: IntakeStatusEnum
+    treatment: str | None = None
+    harvested_at: datetime | None = None
+    treated_at: datetime | None = None
+    spoiled_at: datetime | None = None
     scan_count: int = 0
     created_at: datetime
 

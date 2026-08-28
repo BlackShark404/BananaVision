@@ -1,7 +1,13 @@
 """
 Random Forest Regression spoilage predictor.
 
-Predicts remaining shelf life (days) based on cultivar, ripeness, temperature, humidity.
+Predicts remaining shelf life (days) based on cultivar, ripeness,
+temperature, humidity, and engineered chemical features (dew point,
+VPD, heat index, treatment).
+
+Auto-detects whether the loaded model expects 4 features (legacy) or
+8 features (enhanced with chemical engineering), so existing models
+continue to work while upgraded models benefit from richer inputs.
 """
 
 from __future__ import annotations
@@ -13,7 +19,8 @@ import numpy as np
 
 from app.config import get_settings
 from app.core.exceptions import ModelInferenceError
-from app.schemas.enums import CultivarEnum, RipenessEnum
+from app.schemas.enums import CultivarEnum, RipenessEnum, TreatmentEnum
+from app.services.feature_engineering import calc_dew_point, calc_vpd, calc_heat_index
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -21,23 +28,44 @@ settings = get_settings()
 # ── Feature encoding maps ────────────────────────────────────────────────────
 CULTIVAR_MAP = {CultivarEnum.LAKATAN.value: 0, CultivarEnum.LATUNDAN.value: 1, CultivarEnum.CARDABA.value: 2}
 RIPENESS_MAP = {RipenessEnum.UNRIPE.value: 0, RipenessEnum.SEMI_RIPE.value: 1, RipenessEnum.RIPE.value: 2, RipenessEnum.OVERRIPE.value: 3}
+TREATMENT_MAP = {TreatmentEnum.NATURAL.value: 0, TreatmentEnum.ETHEPHON.value: 1}
+
+# Number of features for each mode
+LEGACY_FEATURE_COUNT = 4    # [cultivar, ripeness, temp, humidity]
+ENHANCED_FEATURE_COUNT = 8  # + [dew_point, vpd, heat_index, treatment]
 
 
 class SpoilagePredictor:
     """
     Random Forest Regression model wrapper for spoilage estimation.
 
-    Features: [cultivar_encoded, ripeness_encoded, temperature, humidity]
-    Output:   predicted days until spoilage (float → formatted as range string)
+    Legacy features (4):
+        [cultivar_encoded, ripeness_encoded, temperature, humidity]
+
+    Enhanced features (8):
+        [cultivar_encoded, ripeness_encoded, temperature, humidity,
+         dew_point, vpd, heat_index, treatment_encoded]
+
+    The model's expected feature count is auto-detected on load via
+    ``model.n_features_in_``, so both legacy and enhanced models work
+    without configuration changes.
+
+    Output: predicted days until spoilage (float → formatted as range string)
     """
 
     def __init__(self):
         self._model = None
         self._loaded = False
+        self._n_features: int = LEGACY_FEATURE_COUNT
 
     @property
     def is_loaded(self) -> bool:
         return self._loaded
+
+    @property
+    def uses_enhanced_features(self) -> bool:
+        """True if the loaded model expects engineered chemical features."""
+        return self._n_features >= ENHANCED_FEATURE_COUNT
 
     def load(self) -> None:
         """Load RFR model from .joblib file. Call once at startup."""
@@ -58,7 +86,18 @@ class SpoilagePredictor:
 
             self._model = joblib.load(model_path)
             self._loaded = True
-            logger.info("RFR spoilage model loaded successfully")
+
+            # Auto-detect feature count from the loaded model
+            if hasattr(self._model, "n_features_in_"):
+                self._n_features = self._model.n_features_in_
+                logger.info(
+                    f"RFR model loaded — expects {self._n_features} features "
+                    f"({'enhanced' if self.uses_enhanced_features else 'legacy'} mode)"
+                )
+            else:
+                self._n_features = LEGACY_FEATURE_COUNT
+                logger.info("RFR model loaded (legacy mode, feature count unknown)")
+
         except Exception as exc:
             logger.error(f"Failed to load RFR model: {exc}")
             self._model = None
@@ -70,33 +109,66 @@ class SpoilagePredictor:
         ripeness: str,
         temperature: float | None = None,
         humidity: float | None = None,
+        dew_point: float | None = None,
+        vpd: float | None = None,
+        heat_index: float | None = None,
+        treatment: str | None = None,
     ) -> str:
         """
         Predict days until spoilage.
 
+        If the loaded model expects enhanced features, the chemical
+        features are computed automatically from temperature/humidity
+        when not explicitly provided.
+
         Returns:
             String like "3-5" or "2" representing estimated days.
         """
-        # Semi-ripe bananas are transitioning; estimate spoilage like other stages
-        # (no special-casing needed — it falls through to fallback/model logic)
-
         temp = temperature if temperature is not None else 25.0
         hum = humidity if humidity is not None else 65.0
 
         if self._model is not None:
-            return self._model_predict(cultivar, ripeness, temp, hum)
+            return self._model_predict(
+                cultivar, ripeness, temp, hum,
+                dew_point=dew_point,
+                vpd=vpd,
+                heat_index=heat_index,
+                treatment=treatment,
+            )
         else:
-            return self._fallback_predict(cultivar, ripeness, temp, hum)
+            return self._fallback_predict(cultivar, ripeness, temp, hum, treatment)
 
     def _model_predict(
-        self, cultivar: str, ripeness: str, temperature: float, humidity: float
+        self,
+        cultivar: str,
+        ripeness: str,
+        temperature: float,
+        humidity: float,
+        dew_point: float | None = None,
+        vpd: float | None = None,
+        heat_index: float | None = None,
+        treatment: str | None = None,
     ) -> str:
         """Use the loaded RFR model for prediction."""
         try:
             cultivar_enc = CULTIVAR_MAP.get(cultivar, 0)
             ripeness_enc = RIPENESS_MAP.get(ripeness, 1)
 
-            features = np.array([[cultivar_enc, ripeness_enc, temperature, humidity]])
+            if self.uses_enhanced_features:
+                # Compute chemical features if not provided
+                dp = dew_point if dew_point is not None else calc_dew_point(temperature, humidity)
+                v = vpd if vpd is not None else calc_vpd(temperature, humidity)
+                hi = heat_index if heat_index is not None else calc_heat_index(temperature, humidity)
+                treat_enc = TREATMENT_MAP.get(treatment, 0) if treatment else 0
+
+                features = np.array([[
+                    cultivar_enc, ripeness_enc, temperature, humidity,
+                    dp, v, hi, treat_enc,
+                ]])
+            else:
+                # Legacy 4-feature model
+                features = np.array([[cultivar_enc, ripeness_enc, temperature, humidity]])
+
             prediction = float(self._model.predict(features)[0])
 
             # Convert to range string with ±RMSE margin
@@ -111,10 +183,11 @@ class SpoilagePredictor:
 
         except Exception as exc:
             logger.error(f"RFR inference error: {exc}")
-            return self._fallback_predict(cultivar, ripeness, temperature, humidity)
+            return self._fallback_predict(cultivar, ripeness, temperature, humidity, treatment)
 
     def _fallback_predict(
-        self, cultivar: str, ripeness: str, temperature: float, humidity: float
+        self, cultivar: str, ripeness: str, temperature: float, humidity: float,
+        treatment: str | None = None,
     ) -> str:
         """
         Rule-based fallback matching the frontend's getSpoilageDays() logic.
@@ -160,6 +233,10 @@ class SpoilagePredictor:
             multiplier -= 0.2
         elif humidity < 60:
             multiplier += 0.1
+
+        # Ethephon-treated bananas spoil faster
+        if treatment == TreatmentEnum.ETHEPHON.value:
+            multiplier -= 0.15
 
         multiplier = max(0.2, min(2.0, multiplier))
         base_min = max(1, round(base_min * multiplier))

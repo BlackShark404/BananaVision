@@ -13,7 +13,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
-from app.schemas.enums import CultivarEnum, RipenessEnum
+from app.schemas.enums import CultivarEnum, RipenessEnum, TreatmentEnum
 
 class ScanClassification(Base):
     __tablename__ = "scan_classification"
@@ -32,5 +32,14 @@ class ScanClassification(Base):
     finger_count: Mapped[int] = mapped_column(Integer, nullable=False)
     thumbnail_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
+    # ── Engineered chemical features (computed from temp/humidity) ───────────
+    dew_point: Mapped[float | None] = mapped_column(DECIMAL(6,3), nullable=True)
+    vpd: Mapped[float | None] = mapped_column(DECIMAL(6,3), nullable=True)
+    heat_index: Mapped[float | None] = mapped_column(DECIMAL(5,2), nullable=True)
+    treatment: Mapped[TreatmentEnum | None] = mapped_column(
+        SAEnum(TreatmentEnum), nullable=True
+    )
+
     # Relationships
     scan = relationship("Scan", back_populates="classification")
+

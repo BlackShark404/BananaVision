@@ -101,6 +101,10 @@ class ScanResponse(BaseModel):
     confidence: float
     temperature: float | None = None
     humidity: float | None = None
+    dew_point: float | None = None
+    vpd: float | None = None
+    heat_index: float | None = None
+    treatment: str | None = None
     spoilage_days: str
     finger_count: int
     operator_name: str

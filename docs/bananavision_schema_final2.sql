@@ -116,11 +116,18 @@ create table supplier (
     updated_at      timestamp not null default now()
 );
 
+-- treatment type for ripening method
+create type treatmentenum as enum ('Natural', 'Ethephon');
+
 create table delivery_intake (
     id               uuid primary key default gen_random_uuid(),
     source           varchar(100) not null,
     date             date not null,
     status           varchar(20) default 'active' check (status in ('active', 'depleted')),
+    treatment        treatmentenum default 'Natural',
+    harvested_at     timestamp with time zone,
+    treated_at       timestamp with time zone,
+    spoiled_at       timestamp with time zone,
     created_at       timestamp not null default now(),
     updated_at       timestamp not null default now()
 );
@@ -146,11 +153,16 @@ create table scan_classification (
     cultivar       varchar(20) not null check (cultivar in ('lakatan', 'latundan', 'cardaba')),
     ripeness       varchar(20) not null check (ripeness in ('unripe', 'semi_ripe', 'ripe', 'overripe')),
     confidence     decimal(5,2) not null check (confidence >= 0 and confidence <= 100),
-    temperature    decimal(5,2), -- added from frontend scanresult
-    humidity       decimal(5,2), -- added from frontend scanresult
+    temperature    decimal(5,2),
+    humidity       decimal(5,2),
     spoilage_days  varchar(20) not null,
     finger_count   int not null,
-    thumbnail_url  varchar(500)
+    thumbnail_url  varchar(500),
+    -- engineered chemical features (computed from temp/humidity)
+    dew_point      decimal(6,3),
+    vpd            decimal(6,3),
+    heat_index     decimal(5,2),
+    treatment      treatmentenum
 );
 
 create table scan_status_log (

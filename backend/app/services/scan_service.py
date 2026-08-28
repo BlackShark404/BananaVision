@@ -8,6 +8,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.scan import Scan
@@ -22,6 +23,8 @@ from app.services.camera_manager import camera_manager
 from app.services.classification import banana_classifier
 from app.services.fusion_engine import fusion_engine
 from app.services.spoilage import spoilage_predictor
+from app.services.feature_engineering import calc_dew_point, calc_vpd, calc_heat_index
+from app.models.intake import Intake
 from app.services.sensor_reader import sensor_reader
 from app.ws.manager import ws_manager
 from app.ws import events
@@ -149,16 +152,39 @@ async def execute_scan_pipeline(
 
         fused = fusion_engine.fuse(classification_results)
 
-        # ── Step 5: Get sensor data + predict spoilage ───────────────────
+        # ── Step 5: Get sensor data + compute features + predict spoilage ─
         sensor_data = sensor_reader.latest
         temperature = sensor_data.temperature if sensor_data else None
         humidity = sensor_data.humidity if sensor_data else None
+
+        # Compute engineered chemical features
+        dew_point = None
+        vpd = None
+        heat_index = None
+        if temperature is not None and humidity is not None:
+            dew_point = calc_dew_point(temperature, humidity)
+            vpd = calc_vpd(temperature, humidity)
+            heat_index = calc_heat_index(temperature, humidity)
+
+        # Get treatment from linked intake
+        intake_treatment = None
+        if intake_id:
+            intake_result = await db.execute(
+                select(Intake).where(Intake.id == intake_id)
+            )
+            intake_obj = intake_result.scalar_one_or_none()
+            if intake_obj and intake_obj.treatment:
+                intake_treatment = intake_obj.treatment
 
         spoilage_days = spoilage_predictor.predict(
             cultivar=fused.cultivar,
             ripeness=fused.ripeness,
             temperature=temperature,
             humidity=humidity,
+            dew_point=dew_point,
+            vpd=vpd,
+            heat_index=heat_index,
+            treatment=intake_treatment.value if intake_treatment else None,
         )
 
         # ── Step 6: Persist scan to DB ───────────────────────────────────
@@ -181,6 +207,10 @@ async def execute_scan_pipeline(
             spoilage_days=spoilage_days,
             finger_count=fused.finger_count,
             thumbnail_url=captures[0].file_path if captures else None,
+            dew_point=dew_point,
+            vpd=vpd,
+            heat_index=heat_index,
+            treatment=intake_treatment,
         )
 
         status_log = ScanStatusLog(
@@ -255,6 +285,10 @@ async def execute_scan_pipeline(
             "finger_count": fused.finger_count,
             "temperature": temperature,
             "humidity": humidity,
+            "dew_point": dew_point,
+            "vpd": vpd,
+            "heat_index": heat_index,
+            "treatment": intake_treatment.value if intake_treatment else None,
             "spoilage_days": spoilage_days,
             "operator": operator_name,
             "supplier": supplier_name,

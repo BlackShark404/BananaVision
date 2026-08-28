@@ -11,6 +11,10 @@ class RipenessEnum(str, Enum):
     RIPE = "Ripe"
     OVERRIPE = "Overripe"
 
+class TreatmentEnum(str, Enum):
+    NATURAL = "Natural"
+    ETHEPHON = "Ethephon"
+
 class RoleEnum(str, Enum):
     ADMIN = "Admin"
     OPERATOR = "Operator"
