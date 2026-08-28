@@ -37,7 +37,7 @@ class ScanClassification(Base):
     vpd: Mapped[float | None] = mapped_column(DECIMAL(6,3), nullable=True)
     heat_index: Mapped[float | None] = mapped_column(DECIMAL(5,2), nullable=True)
     treatment: Mapped[TreatmentEnum | None] = mapped_column(
-        SAEnum(TreatmentEnum), nullable=True
+        SAEnum(TreatmentEnum, values_callable=lambda obj: [e.value for e in obj]), nullable=True
     )
 
     # Relationships

@@ -31,7 +31,7 @@ class Intake(Base):
     )
     # ── Batch lifecycle fields (for RFR dataset) ────────────────────────────
     treatment: Mapped[TreatmentEnum | None] = mapped_column(
-        SAEnum(TreatmentEnum), nullable=True, default=TreatmentEnum.NATURAL
+        SAEnum(TreatmentEnum, values_callable=lambda obj: [e.value for e in obj]), nullable=True, default=TreatmentEnum.NATURAL
     )
     harvested_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

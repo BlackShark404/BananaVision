@@ -165,7 +165,7 @@ export const api = {
   // ── Intakes ──────────────────────────────────────────────────────────────
   intakes: {
     list: () => get<any[]>("/api/v1/intakes"),
-    create: (data: { supplier_id: string; batch_number: string; source?: string }) => post<any>("/api/v1/intakes", data),
+    create: (data: { supplier_id: string; batch_number: string; source?: string; treatment?: string }) => post<any>("/api/v1/intakes", data),
     update: (id: string, data: any) => patch<any>(`/api/v1/intakes/${id}`, data),
   },
 
