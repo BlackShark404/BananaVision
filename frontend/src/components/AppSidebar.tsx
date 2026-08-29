@@ -23,7 +23,7 @@ const navItems = [
   { to: "/inventory", icon: PackageOpen, label: "Inventory" },
   { to: "/devices", icon: Monitor, label: "Device Status" },
 ]
- 
+
 const adminItems = [
   { to: "/admin/users", icon: Users, label: "User Management" },
   { to: "/admin/delivery-intakes", icon: Package, label: "Delivery Intakes" },
@@ -39,16 +39,15 @@ export default function AppSidebar({ onLinkClick }: { onLinkClick?: () => void }
   const navigate = useNavigate()
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-200 group ${
-      isActive
-        ? "bg-primary text-primary-foreground shadow-md"
-        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-all duration-200 group ${isActive
+      ? "bg-primary text-primary-foreground shadow-md"
+      : "text-muted-foreground hover:bg-accent hover:text-foreground"
     }`
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Logo */}
-      <div 
+      <div
         className="flex items-center gap-3 px-4 py-5 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
         onClick={() => {
           navigate("/dashboard")
