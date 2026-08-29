@@ -59,7 +59,7 @@ export default function AppSidebar({ onLinkClick }: { onLinkClick?: () => void }
         </div>
         <div>
           <h1 className="text-lg font-bold tracking-tight">BananaVision</h1>
-          <p className="text-[11px] text-muted-foreground -mt-0.5">AI Scanner</p>
+          <p className="text-[11px] text-muted-foreground -mt-0.5">Smart Banana Classification</p>
         </div>
       </div>
 
