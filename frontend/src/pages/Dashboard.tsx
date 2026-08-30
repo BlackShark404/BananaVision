@@ -150,12 +150,12 @@ export default function Dashboard() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableHead className="w-[140px]">Date/Time</TableHead>
-                  <TableHead>Cultivar</TableHead>
-                  <TableHead>Ripeness</TableHead>
-                  <TableHead>Confidence</TableHead>
-                  <TableHead>Source</TableHead>
-                  {user?.role !== "Operator" && <TableHead className="text-right">Operator</TableHead>}
+                  <TableHead className="font-semibold w-[140px]">Date/Time</TableHead>
+                  <TableHead className="font-semibold">Cultivar</TableHead>
+                  <TableHead className="font-semibold">Ripeness</TableHead>
+                  <TableHead className="font-semibold">Confidence</TableHead>
+                  <TableHead className="font-semibold">Source</TableHead>
+                  {user?.role !== "Operator" && <TableHead className="font-semibold text-right">Operator</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
