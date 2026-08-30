@@ -29,33 +29,37 @@ export function AppStatsCard({
   return (
     <Card 
       className={cn(
-        "relative overflow-hidden rounded-xl sm:rounded-2xl border border-border/50 bg-card/60 backdrop-blur-xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 group animate-fade-in",
+        "relative overflow-hidden rounded-2xl border border-border/40 bg-card shadow-sm hover:shadow-md transition-all duration-300 ease-out group animate-fade-in",
         className
       )}
       style={{ animationDelay: `${delay}ms` }}
     >
-      {/* Subtle glare effect */}
-      <div className="absolute inset-0 bg-linear-to-br from-white/40 to-transparent dark:from-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-      
-      <CardContent className="p-5 sm:p-6 relative z-10 flex flex-col gap-4">
-        {/* Header: Title and Icon */}
-        <div className="flex flex-row-reverse items-center justify-between">
+      {/* Accent gradient bar */}
+      <div className={cn(
+        "absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl opacity-60 group-hover:opacity-100 transition-opacity duration-300",
+        iconBgColor
+      )} />
+
+      {/* Hover shimmer */}
+      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out bg-gradient-to-r from-transparent via-white/[0.06] to-transparent pointer-events-none" />
+
+      <CardContent className="p-5 sm:p-6 pl-6 sm:pl-7 relative z-10 flex flex-col gap-3">
+        {/* Header row */}
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium tracking-wide text-muted-foreground/70 uppercase">{title}</p>
           <div className={cn(
-            "w-12 h-12 rounded-[1rem] flex items-center justify-center shrink-0 shadow-sm border border-black/5 dark:border-white/5 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3",
+            "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105",
             iconBgColor
           )}>
-            <Icon className={cn("w-6 h-6", iconColor)} />
+            <Icon className={cn("w-[18px] h-[18px]", iconColor)} />
           </div>
-          <p className="text-sm font-semibold text-muted-foreground tracking-tight uppercase">{title}</p>
         </div>
         
-        {/* Body: Value */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-end gap-3 flex-wrap">
-            <h3 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground drop-shadow-sm leading-none">{value}</h3>
-          </div>
+        {/* Value + description */}
+        <div className="flex flex-col gap-0.5">
+          <h3 className="text-3xl sm:text-[2.25rem] font-extrabold tracking-tight text-foreground leading-none">{value}</h3>
           {description && (
-            <p className="text-sm font-medium text-muted-foreground/80 leading-relaxed">{description}</p>
+            <p className="text-xs text-muted-foreground/60 font-medium mt-1">{description}</p>
           )}
         </div>
       </CardContent>
