@@ -155,6 +155,7 @@ export default function DeliveryIntake() {
   const columns: ColumnDef<any>[] = [
     {
       header: "Intake ID",
+      headerClassName: "",
       className: "font-medium font-mono text-sm",
       cell: (intake) => intake.id,
     },
@@ -164,11 +165,13 @@ export default function DeliveryIntake() {
     },
     {
       header: "Supplier",
+      headerClassName: "",
       className: "font-medium",
       cell: (intake) => intake.supplierName || "Unknown",
     },
     {
       header: "Batch / PO",
+      headerClassName: "",
       className: "text-muted-foreground",
       cell: (intake) => intake.batchNumber || "—",
     },
