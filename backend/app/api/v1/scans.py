@@ -72,6 +72,7 @@ async def trigger_scan(body: ScanTriggerRequest, db: DbSession, user: CurrentUse
         is_overridden=scan.is_overridden,
         original_ai_result=None,
         thumbnail_url=scan.classification.thumbnail_url,
+        has_notes=False,
         updated_at=scan.updated_at,
     )
 
@@ -91,6 +92,7 @@ async def list_scans(
         selectinload(Scan.classification),
         selectinload(Scan.status_logs),
         selectinload(Scan.original_ai_result),
+        selectinload(Scan.notes),
         selectinload(Scan.operator).selectinload(OperatorProfile.account),
     ).order_by(desc(Scan.date_time))
 
@@ -140,6 +142,7 @@ async def list_scans(
                     "finger_count": s.original_ai_result.finger_count,
                 } if s.original_ai_result else None,
                 thumbnail_url=s.classification.thumbnail_url if s.classification else None,
+                has_notes=len(s.notes) > 0 if hasattr(s, 'notes') and s.notes else False,
                 updated_at=s.updated_at,
             )
             for s in scans
@@ -198,6 +201,7 @@ async def get_scan(scan_id: uuid.UUID, db: DbSession, user: CurrentUser):
             "finger_count": scan.original_ai_result.finger_count,
         } if scan.original_ai_result else None,
         thumbnail_url=scan.classification.thumbnail_url if scan.classification else None,
+        has_notes=len(scan.notes) > 0 if scan.notes else False,
         updated_at=scan.updated_at,
         detections=[
             ScanDetectionResponse.model_validate(d) for d in scan.detections
@@ -248,6 +252,7 @@ async def override_scan(
             selectinload(Scan.classification),
             selectinload(Scan.status_logs),
             selectinload(Scan.original_ai_result),
+            selectinload(Scan.notes),
             selectinload(Scan.operator),
         )
     )
@@ -310,6 +315,7 @@ async def override_scan(
             "finger_count": scan.original_ai_result.finger_count,
         } if scan.original_ai_result else None,
         thumbnail_url=scan.classification.thumbnail_url if scan.classification else None,
+        has_notes=len(scan.notes) > 0 if hasattr(scan, 'notes') and scan.notes else False,
         updated_at=scan.updated_at,
     )
 

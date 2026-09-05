@@ -116,6 +116,7 @@ class ScanResponse(BaseModel):
     is_overridden: bool = False
     original_ai_result: OriginalAiResult | None = None
     thumbnail_url: str | None = None
+    has_notes: bool = False
     updated_at: datetime
 
     model_config = {"from_attributes": True}

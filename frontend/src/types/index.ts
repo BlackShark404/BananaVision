@@ -89,6 +89,7 @@ export interface ScanResult {
   originalAiResult?: Partial<ScanResult>
   intakeId?: string
   qrCode?: string
+  hasNotes?: boolean
 }
 
 export interface DailyIntake {

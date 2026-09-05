@@ -279,6 +279,12 @@ export default function QualityControl() {
               Overridden
             </Badge>
           )}
+          {scan.hasNotes && (
+            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs mr-1.5 mb-1.5 sm:mb-0">
+              <MessageSquare className="w-3 h-3 mr-1" />
+              Notes
+            </Badge>
+          )}
           {scan.flagged ? (
             <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs">
               <Flag className="w-3 h-3 mr-1" />

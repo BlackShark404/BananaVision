@@ -59,6 +59,7 @@ const mapApiScan = (s: any): ScanResult => ({
   flagged: s.flagged,
   isOverridden: s.is_overridden || s.isOverridden,
   originalAiResult: s.original_ai_result || s.originalAiResult,
+  hasNotes: s.has_notes || s.hasNotes || false,
 })
 
 // ── Provider ────────────────────────────────────────────────────────────────
@@ -224,6 +225,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       timestamp: new Date().toISOString(),
     }
     setScanNotes((prev) => [...prev, tempNote])
+    setScans((prev) => prev.map((s) => (s.id === scanId ? { ...s, hasNotes: true } : s)))
     api.scans.notes.add(scanId, note).catch(() => {})
   }, [user])
 
