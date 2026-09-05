@@ -1,5 +1,7 @@
 import { useState, useMemo, useRef } from "react"
-import { useApp } from "@/context/AppContext"
+import { useAuth } from "@/context/AuthContext"
+import { useScans } from "@/context/ScanContext"
+import { useAdmin } from "@/context/AdminContext"
 import { useTheme } from "@/components/theme-provider"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -21,7 +23,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner"
 
 export default function Profile() {
-  const { user, scans, activityLogs, updateUser, users, changePasswordAndLogin, changePinAndLogin, switchOperator } = useApp()
+  const { user, changePasswordAndLogin, changePinAndLogin, switchOperator } = useAuth()
+  const { scans } = useScans()
+  const { activityLogs, updateUser, users } = useAdmin()
   const { theme, setTheme } = useTheme()
   const [isEditingPassword, setIsEditingPassword] = useState(false)
   const [isEditingPin, setIsEditingPin] = useState(false)

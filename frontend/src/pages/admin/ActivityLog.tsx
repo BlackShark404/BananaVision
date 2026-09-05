@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { useApp } from "@/context/AppContext"
+import { useAdmin } from "@/context/AdminContext"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,7 +28,7 @@ const actionTypeColors: Record<string, string> = {
 const PAGE_SIZE = 15
 
 export default function ActivityLog() {
-  const { activityLogs } = useApp()
+  const { activityLogs } = useAdmin()
   const [search, setSearch] = useState("")
   const [actionFilter, setActionFilter] = useState<string>("all")
   const [userFilter, setUserFilter] = useState<string>("all")

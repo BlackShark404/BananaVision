@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
-import { useApp } from "@/context/AppContext"
+import { useScans } from "@/context/ScanContext"
+import { useInventory } from "@/context/InventoryContext"
 import { parseSpoilageAvg } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -11,7 +12,8 @@ import { Package, AlertTriangle, TrendingDown, CheckCircle, Clock, Banana } from
 import { IntakeStatusEnum, InventoryStatusEnum, RipenessEnum, CultivarEnum } from "@/types"
 
 export default function Inventory() {
-  const { scans, intakes } = useApp()
+  const { scans } = useScans()
+  const { intakes } = useInventory()
   const [sourceFilter, setSourceFilter] = useState<string>("all")
 
   const inventory = useMemo(() => {

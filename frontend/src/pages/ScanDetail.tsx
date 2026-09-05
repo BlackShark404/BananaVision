@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { useApp } from "@/context/AppContext"
+import { useAuth } from "@/context/AuthContext"
+import { useScans } from "@/context/ScanContext"
+import { useAdmin } from "@/context/AdminContext"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -45,7 +47,9 @@ import { AppStatusBadge } from "@/components/AppStatusBadge"
 export default function ScanDetail() {
   const { scanId } = useParams<{ scanId: string }>()
   const navigate = useNavigate()
-  const { scans, flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData, config, user } = useApp()
+  const { user } = useAuth()
+  const { scans, flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData } = useScans()
+  const { config } = useAdmin()
   const [noteText, setNoteText] = useState("")
   const [editMode, setEditMode] = useState(false)
   const [editData, setEditData] = useState<Partial<{ cultivar: Cultivar; ripeness: Ripeness; spoilageDays: string; fingerCount: number | string }>>({})

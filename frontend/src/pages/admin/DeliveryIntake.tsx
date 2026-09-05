@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
-import { useApp } from "@/context/AppContext"
+import { useScans } from "@/context/ScanContext"
+import { useInventory } from "@/context/InventoryContext"
 import { Card } from "@/components/ui/card"
 import {
   AlertDialog,
@@ -61,7 +62,8 @@ const PAGE_SIZE = 15
 
 export default function DeliveryIntake() {
   const navigate = useNavigate()
-  const { intakes, scans, bulkUpdateIntakeInventory } = useApp()
+  const { scans } = useScans()
+  const { intakes, bulkUpdateIntakeInventory } = useInventory()
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("Active")
   const [confirmAction, setConfirmAction] = useState<{ intakeId: string; status: InventoryStatus; scanCount: number } | null>(null)

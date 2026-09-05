@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react"
-import { useApp } from "@/context/AppContext"
+import { useAuth } from "@/context/AuthContext"
+import { useScans } from "@/context/ScanContext"
+import { useInventory } from "@/context/InventoryContext"
+import { useAdmin } from "@/context/AdminContext"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -38,7 +41,10 @@ const ripenessIcon: Record<string, string> = {
 
 
 export default function Kiosk() {
-  const { user, scanState, startScan, scans, users, switchOperator, changePinAndLogin, flagScan, suppliers, activeIntake, startIntake, config } = useApp()
+  const { user, switchOperator, changePinAndLogin } = useAuth()
+  const { scanState, startScan, scans, flagScan } = useScans()
+  const { suppliers, activeIntake, startIntake } = useInventory()
+  const { users, config } = useAdmin()
   const { isScanning, scanStep, scanProgress, lastResult } = scanState
   const [currentTime, setCurrentTime] = useState(new Date())
   const activeSuppliers = suppliers.filter(s => s.status === "Active")
@@ -87,7 +93,7 @@ export default function Kiosk() {
       setShowSourceModal(true)
       return
     }
-    startScan()
+    startScan(undefined, activeIntake?.id)
   }
 
   // Count scans for today

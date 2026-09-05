@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { useApp } from "@/context/AppContext"
+import { useInventory } from "@/context/InventoryContext"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,7 +28,7 @@ import { toast } from "sonner"
 import type { Supplier } from "@/types"
 
 export default function SupplierManagement() {
-  const { suppliers, addSupplier, updateSupplier, updateSupplierStatus } = useApp()
+  const { suppliers, addSupplier, updateSupplier, updateSupplierStatus } = useInventory()
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [isAddOpen, setIsAddOpen] = useState(false)

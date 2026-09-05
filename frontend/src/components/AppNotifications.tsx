@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { useApp } from "@/context/AppContext"
+import { useAuth } from "@/context/AuthContext"
 
 import { api } from "@/lib/api"
 import type { AppNotification, NotificationType } from "@/types"
@@ -75,7 +75,7 @@ const mapApiNotification = (n: any): AppNotification => ({
 })
 
 export function AppNotifications() {
-  const { user } = useApp()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [open, setOpen] = useState(false)

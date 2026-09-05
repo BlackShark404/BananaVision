@@ -8,18 +8,16 @@ from fastapi import APIRouter
 
 from app.api.v1.auth import router as auth_router
 from app.api.v1.scans import router as scans_router
-from app.api.v1.routes import (
-    devices_router,
-    sensors_router,
-    users_router,
-    suppliers_router,
-    intakes_router,
-    analytics_router,
-    activity_router,
-    config_router,
-    quality_router,
-    notifications_router,
-)
+from app.api.v1.devices import router as devices_router
+from app.api.v1.sensors import router as sensors_router
+from app.api.v1.users import router as users_router
+from app.api.v1.suppliers import router as suppliers_router
+from app.api.v1.intakes import router as intakes_router
+from app.api.v1.analytics import router as analytics_router
+from app.api.v1.activity import router as activity_router
+from app.api.v1.config import router as config_router
+from app.api.v1.quality import router as quality_router
+from app.api.v1.notifications import router as notifications_router
 from app.api.v1.cameras import router as cameras_router
 
 v1_router = APIRouter(prefix="/api/v1")

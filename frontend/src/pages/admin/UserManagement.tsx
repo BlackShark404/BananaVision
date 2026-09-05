@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { useApp } from "@/context/AppContext"
+import { useAdmin } from "@/context/AdminContext"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,7 +31,7 @@ import type { Role } from "@/types"
 const PAGE_SIZE = 10
 
 export default function UserManagement() {
-  const { users, addUser, updateUser } = useApp()
+  const { users, addUser, updateUser } = useAdmin()
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")

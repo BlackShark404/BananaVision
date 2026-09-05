@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react"
-import { useApp } from "@/context/AppContext"
+import { useAuth } from "@/context/AuthContext"
+import { useScans } from "@/context/ScanContext"
+import { useAdmin } from "@/context/AdminContext"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
@@ -81,7 +83,9 @@ const CULTIVAR_COLORS: Record<string, string> = {
 }
 
 export default function Analytics() {
-  const { scans, config, user } = useApp()
+  const { user } = useAuth()
+  const { scans } = useScans()
+  const { config } = useAdmin()
   const [dateRange, setDateRange] = useState<DateRange>("week")
   const [sourceFilter, setSourceFilter] = useState<string>("all")
 

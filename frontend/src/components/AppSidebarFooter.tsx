@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { NavLink, useNavigate } from "react-router-dom"
-import { useApp } from "@/context/AppContext"
+import { useAuth } from "@/context/AuthContext"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
@@ -18,7 +18,7 @@ import {
 import { LogOut, ShieldCheck, ShieldAlert, User } from "lucide-react"
 
 export default function AppSidebarFooter() {
-  const { user, logout } = useApp()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [showLogoutDialog, setShowLogoutDialog] = useState(false)
 

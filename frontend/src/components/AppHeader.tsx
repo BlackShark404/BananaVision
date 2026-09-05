@@ -1,10 +1,10 @@
-import { useApp } from "@/context/AppContext"
+import { useAuth } from "@/context/AuthContext"
 import { AppNotifications } from "./AppNotifications"
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function AppHeader() {
-  const { user } = useApp()
+  const { user } = useAuth()
 
   return (
     <header className="hidden lg:flex items-center justify-between h-15 px-6 xl:px-8 border-b border-border/60 bg-background/80 backdrop-blur-md sticky top-0 z-20">

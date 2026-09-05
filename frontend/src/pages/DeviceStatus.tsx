@@ -1,4 +1,4 @@
-import { useApp } from "@/context/AppContext"
+import { useAdmin } from "@/context/AdminContext"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -8,7 +8,7 @@ import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
 import { useWebSocket } from "@/hooks/useWebSocket"
 export default function DeviceStatus() {
-  const { devices } = useApp()
+  const { devices } = useAdmin()
   const online = devices.filter((d) => d.status === "Online").length
   const total = devices.length
   const [lastUpdate, setLastUpdate] = useState(new Date())

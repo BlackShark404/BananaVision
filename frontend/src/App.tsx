@@ -1,7 +1,10 @@
 import React, { Suspense } from "react"
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { Toaster } from "@/components/ui/sonner"
-import { AppProvider, useApp } from "@/context/AppContext"
+import { AuthProvider, useAuth } from "@/context/AuthContext"
+import { AdminProvider } from "@/context/AdminContext"
+import { ScanProvider } from "@/context/ScanContext"
+import { InventoryProvider } from "@/context/InventoryContext"
 import { ThemeProvider } from "@/components/theme-provider"
 
 // Layouts and Core (Keep eager for fast initial load)
@@ -36,7 +39,7 @@ const PageLoader = () => (
 
 // Protected Route Wrapper
 function ProtectedRoute({ children, reqAdmin = false }: { children: React.ReactNode; reqAdmin?: boolean }) {
-  const { user } = useApp()
+  const { user } = useAuth()
   if (!user) return <Navigate to="/" replace />
   if (reqAdmin && user.role !== "Admin") return <Navigate to="/dashboard" replace />
   return <>{children}</>
@@ -44,7 +47,7 @@ function ProtectedRoute({ children, reqAdmin = false }: { children: React.ReactN
 
 // Public Route Wrapper
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user } = useApp()
+  const { user } = useAuth()
   if (user) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
@@ -81,12 +84,18 @@ function AppRoutes() {
 function App() {
   return (
     <ThemeProvider defaultTheme="light" storageKey="bananavision-theme">
-      <AppProvider>
-        <BrowserRouter>
-          <AppRoutes />
-          <Toaster position="top-center" richColors />
-        </BrowserRouter>
-      </AppProvider>
+      <AuthProvider>
+        <AdminProvider>
+          <ScanProvider>
+            <InventoryProvider>
+              <BrowserRouter>
+                <AppRoutes />
+                <Toaster position="top-center" richColors />
+              </BrowserRouter>
+            </InventoryProvider>
+          </ScanProvider>
+        </AdminProvider>
+      </AuthProvider>
     </ThemeProvider>
   )
 }

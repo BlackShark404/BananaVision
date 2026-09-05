@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { useApp } from "@/context/AppContext"
+import { useAuth } from "@/context/AuthContext"
+import { useScans } from "@/context/ScanContext"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -32,7 +33,8 @@ const PAGE_SIZE = 10
 export default function Logs() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { scans, user, updateScanData } = useApp()
+  const { user } = useAuth()
+  const { scans, updateScanData } = useScans()
   const [search, setSearch] = useState("")
   const [cultivarFilter, setCultivarFilter] = useState<string>("all")
   const [ripenessFilter, setRipenessFilter] = useState<string>("all")

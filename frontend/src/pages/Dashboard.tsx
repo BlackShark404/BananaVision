@@ -1,6 +1,8 @@
 import { useMemo } from "react"
 import { useNavigate } from "react-router-dom"
-import { useApp } from "@/context/AppContext"
+import { useAuth } from "@/context/AuthContext"
+import { useScans } from "@/context/ScanContext"
+import { useAdmin } from "@/context/AdminContext"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,7 +26,9 @@ import { AppStatusBadge } from "@/components/AppStatusBadge"
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { scans, devices, user, config } = useApp()
+  const { user } = useAuth()
+  const { scans } = useScans()
+  const { devices, config } = useAdmin()
 
   // --- RBAC Filtering ---
   const roleFilteredScans = useMemo(() => {

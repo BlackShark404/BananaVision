@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { useApp } from "@/context/AppContext"
+import { useAdmin } from "@/context/AdminContext"
 import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -22,7 +22,7 @@ import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, Edit
 import { toast } from "sonner"
 
 export default function SystemConfig() {
-  const { config, updateConfig } = useApp()
+  const { config, updateConfig } = useAdmin()
   const [localConfig, setLocalConfig] = useState(config)
   const [saving, setSaving] = useState(false)
   const [showShutdownDialog, setShowShutdownDialog] = useState(false)

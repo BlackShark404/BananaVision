@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom"
-import { useApp } from "@/context/AppContext"
+import { useAuth } from "@/context/AuthContext"
 import AppSidebarFooter from "@/components/AppSidebarFooter"
 import { Separator } from "@/components/ui/separator"
 
@@ -34,7 +34,7 @@ const adminItems = [
 ]
 
 export default function AppSidebar({ onLinkClick }: { onLinkClick?: () => void } = {}) {
-  const { user } = useApp()
+  const { user } = useAuth()
   const isAdmin = user?.role === "Admin"
   const navigate = useNavigate()
 

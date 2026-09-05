@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useApp } from "@/context/AppContext"
+import { useAuth } from "@/context/AuthContext"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -20,7 +20,7 @@ export default function Login() {
     "Welcome back! Please set a new secure password to continue."
   )
 
-  const { login, changePasswordAndLogin } = useApp()
+  const { login, changePasswordAndLogin } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {

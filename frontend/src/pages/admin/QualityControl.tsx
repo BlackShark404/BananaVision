@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react"
-import { useApp } from "@/context/AppContext"
+import { useScans } from "@/context/ScanContext"
+import { useAdmin } from "@/context/AdminContext"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -35,7 +36,8 @@ const PAGE_SIZE = 15
 
 import { useEffect } from "react"
 export default function QualityControl() {
-  const { scans, flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData, config } = useApp()
+  const { scans, flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData } = useScans()
+  const { config } = useAdmin()
   const [selectedScan, setSelectedScan] = useState<ScanResult | null>(null)
   const [noteText, setNoteText] = useState("")
   const [editMode, setEditMode] = useState(false)
