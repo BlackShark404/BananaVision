@@ -159,7 +159,7 @@ export default function DeliveryIntake() {
       header: "Intake ID",
       headerClassName: "",
       className: "font-medium font-mono text-sm",
-      cell: (intake) => intake.id,
+      cell: (intake) => intake.id.substring(0, 8),
     },
     {
       header: "Date",

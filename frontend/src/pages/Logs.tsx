@@ -282,7 +282,7 @@ const columns: ColumnDef<ScanResult>[] = [
     <>
     <div className="space-y-6">
       <AppPageHeader
-        title={intakeFilter !== "all" ? `Logs for Intake ${intakeFilter}` : "Scan Logs"}
+        title={intakeFilter !== "all" ? `Logs for Intake ${intakeFilter.substring(0, 8)}` : "Scan Logs"}
         description={intakeFilter !== "all" ? "Viewing all scans grouped under this delivery" : "View all banana scan results"}
         icon={ScrollText}
         action={
