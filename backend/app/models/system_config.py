@@ -25,7 +25,7 @@ class SystemConfig(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
-    upd_by_admin: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("admin_profile.id", ondelete="SET NULL"), nullable=True
+    updated_by_admin: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("admin_profile.id", ondelete="SET NULL"), nullable=True
     )
 
     admin = relationship("AdminProfile", lazy="selectin")

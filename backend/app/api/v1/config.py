@@ -86,7 +86,7 @@ async def update_config(body: SystemConfigUpdate, db: DbSession, admin: AdminUse
         config.data_retention_enabled = body.data_retention_enabled
 
     admin_prof_id = await db.scalar(select(AdminProfile.id).where(AdminProfile.account_id == admin.id))
-    config.upd_by_admin = admin_prof_id
+    config.updated_by_admin = admin_prof_id
 
     db.add(ActivityLog(
         user_id=admin.id,

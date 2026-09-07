@@ -19,30 +19,30 @@ export default function Inventory() {
   const inventory = useMemo(() => {
     const activeIntakeIds = new Set(intakes.filter(i => i.status === IntakeStatusEnum.ACTIVE).map(i => i.id))
     let activeScans = scans.filter(s => s.intakeId && activeIntakeIds.has(s.intakeId))
-    
+
     if (sourceFilter !== "all") {
       activeScans = activeScans.filter(s => s.source === sourceFilter)
     }
 
     const inStock = activeScans.filter(s => s.inventoryStatus === InventoryStatusEnum.IN_STOCK)
-    
+
     // Group by ripeness
     const unripe = inStock.filter(s => s.ripeness === RipenessEnum.UNRIPE)
     const ripe = inStock.filter(s => s.ripeness === RipenessEnum.RIPE)
     const overripe = inStock.filter(s => s.ripeness === RipenessEnum.OVERRIPE)
     const semiRipe = inStock.filter(s => s.ripeness === RipenessEnum.SEMI_RIPE)
-    
+
     // Calculate total hands and fingers
     const totalHands = inStock.length
     const totalFingers = inStock.reduce((sum, s) => sum + s.fingerCount, 0)
-    
+
     // Spoilage alerts (will spoil in 2 days or less) - Grouped by intake, cultivar, and ripeness
     const spoilageAlertsMap = new Map<string, { id: string; intakeId: string; source: string; cultivar: string; ripeness: string; spoilageDays: string; daysNum: number; count: number; fingers: number; oldestScanDate: Date }>()
-    
+
     inStock.forEach(s => {
       const daysNum = parseSpoilageAvg(s.spoilageDays)
       if (daysNum > 2) return // only keep soon-to-spoil
-      
+
       const key = `${s.intakeId}-${s.cultivar}-${s.ripeness}`
       const existing = spoilageAlertsMap.get(key)
       if (existing) {
@@ -67,26 +67,26 @@ export default function Inventory() {
         })
       }
     })
-    
+
     const spoilingSoon = Array.from(spoilageAlertsMap.values()).sort((a, b) => a.daysNum - b.daysNum)
-    
+
     // Group by cultivar
     const byCultivar = {
       [CultivarEnum.LAKATAN]: inStock.filter(s => s.cultivar === CultivarEnum.LAKATAN).length,
       [CultivarEnum.LATUNDAN]: inStock.filter(s => s.cultivar === CultivarEnum.LATUNDAN).length,
       [CultivarEnum.CARDABA]: inStock.filter(s => s.cultivar === CultivarEnum.CARDABA).length,
     }
-    
+
     // FIFO recommendations (oldest first, grouped by Intake)
     const intakeGroups = new Map<string, { intakeId: string, source: string, date: Date, hands: number, fingers: number, earliestSpoilage: number, spoilageDays: string }>()
-    
+
     inStock.forEach(s => {
       if (!s.intakeId) return
-      
+
       const existing = intakeGroups.get(s.intakeId)
       const scanDate = new Date(s.dateTime)
       const spoilageNum = parseSpoilageAvg(s.spoilageDays)
-      
+
       if (existing) {
         existing.hands += 1
         existing.fingers += s.fingerCount
@@ -107,16 +107,16 @@ export default function Inventory() {
         })
       }
     })
-    
+
     const fifoList = Array.from(intakeGroups.values())
       .sort((a, b) => a.date.getTime() - b.date.getTime())
       .slice(0, 10)
-    
+
     // Status summary
     const sold = activeScans.filter(s => s.inventoryStatus === InventoryStatusEnum.SOLD).length
     const forProcessing = activeScans.filter(s => s.inventoryStatus === InventoryStatusEnum.FOR_PROCESSING).length
     const spoiled = activeScans.filter(s => s.inventoryStatus === InventoryStatusEnum.SPOILED).length
-    
+
     return {
       totalHands,
       totalFingers,
@@ -315,13 +315,12 @@ export default function Inventory() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-semibold text-sm">{group.source} — {group.cultivar}</p>
-                          <Badge variant="outline" className={`text-[10px] ${
-                            group.ripeness === RipenessEnum.SEMI_RIPE
+                          <Badge variant="outline" className={`text-[10px] ${group.ripeness === RipenessEnum.SEMI_RIPE
                               ? "bg-violet-50 text-violet-700 border-violet-200"
-                              : group.ripeness === RipenessEnum.OVERRIPE 
-                                ? "bg-red-50 text-red-700 border-red-200" 
+                              : group.ripeness === RipenessEnum.OVERRIPE
+                                ? "bg-red-50 text-red-700 border-red-200"
                                 : "bg-yellow-50 text-yellow-700 border-yellow-200"
-                          }`}>
+                            }`}>
                             {group.ripeness}
                           </Badge>
                         </div>
@@ -332,15 +331,14 @@ export default function Inventory() {
                           Delivered: {group.oldestScanDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </p>
                       </div>
-                      <Badge 
-                        variant="destructive" 
-                        className={`h-auto rounded-lg font-mono text-center flex-col items-center justify-center py-1.5 px-2.5 text-[10px] sm:text-xs whitespace-nowrap shrink-0 text-white border-transparent ${
-                          group.daysNum === 0 
-                            ? "bg-red-600 hover:bg-red-700" 
+                      <Badge
+                        variant="destructive"
+                        className={`h-auto rounded-lg font-mono text-center flex-col items-center justify-center py-1.5 px-2.5 text-[10px] sm:text-xs whitespace-nowrap shrink-0 text-white border-transparent ${group.daysNum === 0
+                            ? "bg-red-600 hover:bg-red-700"
                             : group.daysNum === 1
-                              ? "bg-orange-600 hover:bg-orange-700" 
+                              ? "bg-orange-600 hover:bg-orange-700"
                               : "bg-yellow-600 hover:bg-yellow-700"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-center mb-0.5">
                           <Clock className="w-3 h-3 mr-1" />
@@ -380,11 +378,10 @@ export default function Inventory() {
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <Badge variant="outline" className={`text-[10px] sm:text-xs ${
-                    intake.earliestSpoilage <= 2 ? "bg-red-50 text-red-700 border-red-200" :
-                    intake.earliestSpoilage <= 4 ? "bg-yellow-50 text-yellow-700 border-yellow-200" :
-                    "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  }`}>
+                  <Badge variant="outline" className={`text-[10px] sm:text-xs ${intake.earliestSpoilage <= 2 ? "bg-red-50 text-red-700 border-red-200" :
+                      intake.earliestSpoilage <= 4 ? "bg-yellow-50 text-yellow-700 border-yellow-200" :
+                        "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    }`}>
                     {intake.earliestSpoilage <= 2 ? "Sell immediately" : "Stock is stable"}
                   </Badge>
                   <span className="text-[9px] sm:text-[10px] text-muted-foreground font-mono mt-1">
