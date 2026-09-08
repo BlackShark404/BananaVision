@@ -19,6 +19,7 @@ from app.models.scan_detection import ScanDetection
 from app.models.scan_image import ScanImage
 from app.models.activity_log import ActivityLog
 from app.models.app_notification import AppNotification
+from app.core.exceptions import ModelInferenceError
 from app.services.camera_manager import camera_manager
 from app.services.classification import banana_classifier
 from app.services.fusion_engine import fusion_engine
@@ -36,6 +37,7 @@ logger = logging.getLogger(__name__)
 async def execute_scan_pipeline(
     db: AsyncSession,
     operator_id: uuid.UUID,
+    account_id: uuid.UUID,
     operator_name: str,
     intake_id: uuid.UUID | None = None,
     supplier_name: str | None = None,
@@ -152,6 +154,14 @@ async def execute_scan_pipeline(
 
         fused = fusion_engine.fuse(classification_results)
 
+        # Guard: if no banana was detected, abort the scan gracefully
+        if fused.cultivar == "Unknown" or fused.ripeness == "Unknown":
+            raise ModelInferenceError(
+                "BananaClassifier",
+                "No banana detected in any camera frame. "
+                "Please position the banana hand and try again.",
+            )
+
         # ── Step 5: Get sensor data + compute features + predict spoilage ─
         sensor_data = sensor_reader.latest
         temperature = sensor_data.temperature if sensor_data else None
@@ -242,7 +252,7 @@ async def execute_scan_pipeline(
 
         # Activity log
         db.add(ActivityLog(
-            user_id=operator_id,
+            user_id=account_id,
             action="scan_created",
             details=(
                 f"Scanned {fused.cultivar} ({fused.ripeness}) — "
@@ -259,7 +269,7 @@ async def execute_scan_pipeline(
                 f"{fused.confidence}% confidence · {fused.finger_count} fingers"
             ),
             href=f"/scans/{scan_id_str}",
-            user_id=operator_id,
+            user_id=account_id,
         ))
 
         if fused.auto_flagged:

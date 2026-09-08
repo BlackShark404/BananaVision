@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import select, func, desc
 from sqlalchemy.orm import selectinload
 
@@ -18,7 +18,7 @@ from app.models.scan_status_log import ScanStatusLog
 from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.models.scan_note import ScanNote
 from app.models.activity_log import ActivityLog
-from app.core.exceptions import NotFoundException
+from app.core.exceptions import NotFoundException, ModelInferenceError
 from app.schemas.scan import (
     ScanTriggerRequest,
     ScanFlagRequest,
@@ -41,13 +41,20 @@ router = APIRouter(prefix="/scans", tags=["Scans"])
 @router.post("/trigger", response_model=ScanResponse)
 async def trigger_scan(body: ScanTriggerRequest, db: DbSession, user: CurrentUser):
     """Trigger a full scan pipeline (capture → detect → fuse → predict)."""
-    scan = await execute_scan_pipeline(
-        db=db,
-        operator_id=user.id,
-        operator_name=user.full_name,
-        intake_id=body.intake_id,
-        supplier_name=body.source_text,  # Use source_text from request
-    )
+    if not user.operator_profile:
+        raise NotFoundException("OperatorProfile")
+
+    try:
+        scan = await execute_scan_pipeline(
+            db=db,
+            operator_id=user.operator_profile.id,
+            account_id=user.id,
+            operator_name=user.full_name,
+            intake_id=body.intake_id,
+            supplier_name=body.source_text,  # Use source_text from request
+        )
+    except ModelInferenceError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
     return ScanResponse(
         id=scan.id,

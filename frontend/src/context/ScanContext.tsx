@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext"
 import { useAdmin } from "@/context/AdminContext"
 import { useWebSocket } from "@/hooks/useWebSocket"
 import { generateQRCodeDataUrl } from "@/lib/qrcode"
+import { toast } from "sonner"
 import type { ScanResult, ScanNote, InventoryStatus } from "@/types"
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -172,6 +173,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
 
       case "scan:failed":
         setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: null })
+        toast.error(data?.error || "Scan failed. Please try again.")
         break
 
       case "sensor:update":
@@ -202,9 +204,10 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       .then(() => {
         // WebSocket events will drive the progress from here
       })
-      .catch(() => {
-        console.warn("[ScanContext] Scan API unavailable")
+      .catch((err: Error) => {
+        console.warn("[ScanContext] Scan API error:", err.message)
         setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: null })
+        toast.error(err.message || "Scan failed. Please try again.")
       })
   }, [scanState.isScanning])
 
