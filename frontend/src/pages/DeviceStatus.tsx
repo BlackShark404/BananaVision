@@ -14,6 +14,7 @@ export default function DeviceStatus() {
   const [lastUpdate, setLastUpdate] = useState(new Date())
 
   const [sensorData, setSensorData] = useState({ temperature: 0, humidity: 0 })
+  const [sensorConnected, setSensorConnected] = useState(false)
 
   // Listen for live sensor readings via WebSocket
   useWebSocket({
@@ -28,7 +29,7 @@ export default function DeviceStatus() {
     }
   })
 
-  // Fetch initial sensor data on mount
+  // Fetch initial sensor data and health on mount
   useEffect(() => {
     api.sensors.latest().then((res) => {
       if (res) {
@@ -37,6 +38,10 @@ export default function DeviceStatus() {
           humidity: res.humidity
         })
       }
+    }).catch(console.error)
+
+    api.health().then((res) => {
+      setSensorConnected(res.sensor_connected)
     }).catch(console.error)
   }, [])
 
@@ -227,15 +232,41 @@ export default function DeviceStatus() {
       </Card>
 
       {/* Environmental Sensors */}
-      <Card className="rounded-2xl">
+      <Card className="rounded-2xl overflow-hidden relative">
         <CardHeader>
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Thermometer className="w-5 h-5" /> AI Prediction Environmental Sensors
-          </CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">IoT sensor suite for random forest regression input</p>
+          <div className="flex items-start sm:items-center justify-between flex-col sm:flex-row gap-4 sm:gap-2">
+            <div>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Thermometer className="w-5 h-5" /> AI Prediction Environmental Sensors
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">IoT sensor suite for random forest regression input</p>
+            </div>
+            <Badge
+              variant="outline"
+              className={`text-xs px-2.5 py-0.5 rounded-full font-semibold shrink-0 ${
+                sensorConnected
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-red-50 text-red-600 border-red-200"
+              }`}
+            >
+              {sensorConnected ? <Wifi className="w-3.5 h-3.5 mr-1.5" /> : <WifiOff className="w-3.5 h-3.5 mr-1.5" />}
+              {sensorConnected ? "Live" : "Offline"}
+            </Badge>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <CardContent className="space-y-4 relative">
+          {!sensorConnected && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-red-50/50 border border-red-100/50 rounded-xl">
+              <div className="w-8 h-8 shrink-0 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                <WifiOff className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-red-900 leading-none mb-1">Sensor Disconnected</p>
+                <p className="text-xs text-red-700/80 leading-tight">Showing last recorded historical data.</p>
+              </div>
+            </div>
+          )}
+          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${!sensorConnected ? 'opacity-70 grayscale-[30%]' : ''}`}>
             <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border">
               <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
                 <Thermometer className="w-5 h-5" />
