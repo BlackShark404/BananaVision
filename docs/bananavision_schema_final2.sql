@@ -53,7 +53,6 @@ create table user_account (
     id                          uuid primary key default gen_random_uuid(),
     username                    varchar(50) unique not null,
     full_name                   varchar(100) not null,
-    role_id                     int not null references user_role(id) on delete restrict,
     status                      varchar(20) default 'Active'
                                     check (status in ('Active', 'Inactive')),
     avatar_url                  text,
@@ -63,21 +62,23 @@ create table user_account (
                                     check (password_setup_reason in ('new_account', 'password_reset')),
     last_active                 timestamp with time zone,
     created_at                  timestamp with time zone not null default now(),
-    updated_at                  timestamp with time zone not null default now()
+    updated_at                  timestamp with time zone not null default now(),
+    role_id                     int not null references user_role(id) on delete restrict
 );
 
 -- administrator profile extension
 create table admin_profile (
-    id               uuid primary key default gen_random_uuid(),
     account_id       uuid not null unique references user_account(id) on delete cascade,
+    id               uuid not null default gen_random_uuid(),
     created_at       timestamp with time zone not null default now(),
-    updated_at       timestamp with time zone not null default now()
+    updated_at       timestamp with time zone not null default now(),
+    primary key (account_id, id)
 );
 
 -- operator profile extension
 create table operator_profile (
-    id                      uuid primary key default gen_random_uuid(),
     account_id              uuid not null unique references user_account(id) on delete cascade,
+    id                      uuid not null default gen_random_uuid(),
     pin_hash                varchar(255),
     requires_pin_change     boolean default false,
     pin_setup_reason        varchar(50)
@@ -85,20 +86,8 @@ create table operator_profile (
     total_scans             int default 0,
     flagged_scans           int default 0,
     created_at              timestamp with time zone not null default now(),
-    updated_at              timestamp with time zone not null default now()
-);
-
--- ============================================================
--- system configuration
--- ============================================================
-
-create table system_config (
-    id                       serial primary key,
-    camera_ids               text not null,
-    confidence_threshold     int not null,
-    data_retention_enabled   boolean not null default true,
-    updated_at               timestamp with time zone not null default now(),
-    updated_by_admin         uuid references admin_profile(id) on delete set null
+    updated_at              timestamp with time zone not null default now(),
+    primary key (account_id, id)
 );
 
 -- ============================================================
@@ -115,6 +104,19 @@ create table device (
     last_seen       timestamp with time zone,
     created_at      timestamp with time zone not null default now(),
     updated_at      timestamp with time zone not null default now()
+);
+
+-- ============================================================
+-- system configuration
+-- ============================================================
+
+create table system_config (
+    id                       serial primary key,
+    camera_ids               text not null,
+    confidence_threshold     int not null,
+    data_retention_enabled   boolean not null default true,
+    updated_at               timestamp with time zone not null default now(),
+    updated_by_admin         uuid references admin_profile(id) on delete set null
 );
 
 -- ============================================================
@@ -147,7 +149,6 @@ create table supplier (
 create table delivery_intake (
     id               uuid primary key default gen_random_uuid(),
     source           varchar(100) not null,
-    supplier_id      uuid references supplier(id) on delete restrict,
     batch_number     varchar(50),
     qr_code          text,
     intake_date      date not null,
@@ -159,7 +160,8 @@ create table delivery_intake (
     treated_at       timestamp with time zone,
     spoiled_at       timestamp with time zone,
     created_at       timestamp with time zone not null default now(),
-    updated_at       timestamp with time zone not null default now()
+    updated_at       timestamp with time zone not null default now(),
+    supplier_id      uuid references supplier(id) on delete restrict
 );
 
 -- ============================================================
@@ -171,15 +173,14 @@ create table scan (
     date_time            timestamp with time zone not null default now(),
     flagged              boolean default false,
     is_overridden        boolean default false,
-    operator_id          uuid not null references operator_profile(id) on delete restrict,
-    intake_id            uuid references delivery_intake(id) on delete set null,
     source_text          varchar(100),
-    updated_at           timestamp with time zone not null default now()
+    updated_at           timestamp with time zone not null default now(),
+    operator_id          uuid not null references operator_profile(id) on delete restrict,
+    intake_id            uuid references delivery_intake(id) on delete set null
 );
 
 create table scan_classification (
     id             serial primary key,
-    scan_id        uuid unique not null references scan(id) on delete cascade,
     cultivar       varchar(20) not null
                        check (cultivar in ('Lakatan', 'Latundan', 'Cardaba')),
     ripeness       varchar(20) not null
@@ -195,28 +196,29 @@ create table scan_classification (
     vpd            decimal(6,3),
     heat_index     decimal(5,2),
     treatment      varchar(20)
-                       check (treatment in ('Natural', 'Ethephon'))
+                       check (treatment in ('Natural', 'Ethephon')),
+    scan_id        uuid unique not null references scan(id) on delete cascade
 );
 
 create table scan_status_log (
     id                 serial primary key,
-    scan_id            uuid not null references scan(id) on delete cascade,
     inventory_status   varchar(30) not null
                            check (inventory_status in ('In Stock', 'Sold', 'For Processing', 'Spoiled')),
-    updated_at         timestamp with time zone not null default now()
+    updated_at         timestamp with time zone not null default now(),
+    scan_id            uuid not null references scan(id) on delete cascade
 );
 
 -- represents the original ai result before any manual override
 create table scan_original_ai_result (
     id             serial primary key,
-    scan_id        uuid unique not null references scan(id) on delete cascade,
     cultivar       varchar(20) not null
                        check (cultivar in ('Lakatan', 'Latundan', 'Cardaba')),
     ripeness       varchar(20) not null
                        check (ripeness in ('Unripe', 'Semi Ripe', 'Ripe', 'Overripe')),
     confidence     decimal(5,2) not null,
     finger_count   int not null,
-    created_at     timestamp with time zone not null default now()
+    created_at     timestamp with time zone not null default now(),
+    scan_id        uuid unique not null references scan(id) on delete cascade
 );
 
 -- ============================================================
@@ -225,7 +227,6 @@ create table scan_original_ai_result (
 
 create table scan_detection (
     id                   uuid primary key default gen_random_uuid(),
-    scan_id              uuid not null references scan(id) on delete cascade,
     camera_id            varchar(20) not null,
     camera_label         varchar(30) not null,
     detected_cultivar    varchar(20),
@@ -234,26 +235,27 @@ create table scan_detection (
     finger_count         int default 0,
     bounding_boxes       jsonb,
     inference_time_ms    decimal(8,2),
-    captured_at          timestamp with time zone not null default now()
+    captured_at          timestamp with time zone not null default now(),
+    scan_id              uuid not null references scan(id) on delete cascade
 );
 
 create table scan_image (
     id               uuid primary key default gen_random_uuid(),
-    scan_id          uuid not null references scan(id) on delete cascade,
     camera_id        varchar(20) not null,
     file_path        varchar(500) not null,
     width            int,
     height           int,
     file_size_bytes  int,
-    captured_at      timestamp with time zone not null default now()
+    captured_at      timestamp with time zone not null default now(),
+    scan_id          uuid not null references scan(id) on delete cascade
 );
 
 create table scan_note (
     id                     uuid primary key default gen_random_uuid(),
-    scan_id                uuid not null references scan(id) on delete cascade,
     text                   text not null,
     author_name            varchar(100) not null,
-    timestamp              timestamp with time zone not null default now()
+    timestamp              timestamp with time zone not null default now(),
+    scan_id                uuid not null references scan(id) on delete cascade
 );
 
 -- ============================================================
@@ -263,7 +265,6 @@ create table scan_note (
 create table activity_log (
     id               uuid primary key default gen_random_uuid(),
     timestamp        timestamp with time zone not null default now(),
-    user_id          uuid references user_account(id) on delete set null,
     action           varchar(50) not null check (action in (
                             'login', 'logout',
                             'scan_created', 'scan_edited', 'scan_deleted', 'scan_flagged',
@@ -275,7 +276,8 @@ create table activity_log (
                             'system_shutdown', 'system_restart'
                         )),
     details          text,
-    ip_address       varchar(45)
+    ip_address       varchar(45),
+    user_id          uuid references user_account(id) on delete set null
 );
 
 create table app_notification (
