@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from "react"
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
 import { useScans } from "@/context/ScanContext"
 import type { DailyIntake, Supplier, InventoryStatus } from "@/types"
+import { useLocation } from "react-router-dom"
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -53,18 +54,16 @@ const mapApiIntake = (i: any): DailyIntake => ({
 export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const { updateScansForIntake } = useScans()
+  const { pathname } = useLocation()
 
   const [intakes, setIntakes] = useState<DailyIntake[]>([])
   const [activeIntake, setActiveIntake] = useState<DailyIntake | null>(null)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
 
-  const dataLoadedRef = useRef(false)
-
-  // ── Load data on mount ──────────────────────────────────────────────────
+  // ── Load data on mount / navigation ─────────────────────────────────────
 
   useEffect(() => {
-    if (!user || dataLoadedRef.current) return
-    dataLoadedRef.current = true
+    if (!user) return
 
     const loadData = async () => {
       try {
@@ -90,13 +89,12 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     }
 
     loadData()
-  }, [user])
+  }, [user, pathname])
 
   // ── Reset on logout ─────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!user) {
-      dataLoadedRef.current = false
       setIntakes([])
       setActiveIntake(null)
       setSuppliers([])

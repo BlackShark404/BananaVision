@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from "react"
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react"
 import { getBananaImageUrl } from "@/lib/utils"
 import { api } from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
@@ -6,6 +6,7 @@ import { useAdmin } from "@/context/AdminContext"
 import { useWebSocket } from "@/hooks/useWebSocket"
 import { generateQRCodeDataUrl } from "@/lib/qrcode"
 import { toast } from "sonner"
+import { useLocation } from "react-router-dom"
 import type { ScanResult, ScanNote, InventoryStatus } from "@/types"
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -68,6 +69,7 @@ const mapApiScan = (s: any): ScanResult => ({
 export function ScanProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const { updateDeviceFromWs } = useAdmin()
+  const { pathname } = useLocation()
 
   const [scans, setScans] = useState<ScanResult[]>([])
   const [scanNotes, setScanNotes] = useState<ScanNote[]>([])
@@ -79,13 +81,11 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
     lastResult: null,
   })
 
-  const dataLoadedRef = useRef(false)
 
-  // ── Load scans on mount ─────────────────────────────────────────────────
+  // ── Load scans on mount / navigation ────────────────────────────────────
 
   useEffect(() => {
-    if (!user || dataLoadedRef.current) return
-    dataLoadedRef.current = true
+    if (!user) return
 
     const loadData = async () => {
       try {
@@ -100,13 +100,12 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
     }
 
     loadData()
-  }, [user])
+  }, [user, pathname])
 
   // ── Reset on logout ─────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!user) {
-      dataLoadedRef.current = false
       setScans([])
       setScanNotes([])
     }

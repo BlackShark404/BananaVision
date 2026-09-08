@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from "react"
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react"
 import { api } from "@/lib/api"
 import { setStoredUser } from "@/lib/auth"
 import { useAuth } from "@/context/AuthContext"
 import type { User, Device, ActivityLog, SystemConfig } from "@/types"
+import { useLocation } from "react-router-dom"
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -60,19 +61,17 @@ const mapApiActivityLog = (a: any): ActivityLog => ({
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
   const { user, updateAuthUser } = useAuth()
+  const { pathname } = useLocation()
 
   const [users, setUsers] = useState<User[]>([])
   const [devices, setDevices] = useState<Device[]>([])
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([])
   const [config, setConfig] = useState<SystemConfig>({ cameraIds: "CAM-001, CAM-002", confidenceThreshold: 85, dataRetentionEnabled: true })
 
-  const dataLoadedRef = useRef(false)
-
-  // ── Load data on mount ──────────────────────────────────────────────────
+  // ── Load data on mount / navigation ─────────────────────────────────────
 
   useEffect(() => {
-    if (!user || dataLoadedRef.current) return
-    dataLoadedRef.current = true
+    if (!user) return
 
     const loadData = async () => {
       try {
@@ -118,13 +117,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     }
 
     loadData()
-  }, [user])
+  }, [user, pathname])
 
   // ── Reset on logout ─────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!user) {
-      dataLoadedRef.current = false
       setUsers([])
       setDevices([])
       setActivityLogs([])

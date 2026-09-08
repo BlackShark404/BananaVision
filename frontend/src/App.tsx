@@ -85,16 +85,16 @@ function App() {
   return (
     <ThemeProvider defaultTheme="light" storageKey="bananavision-theme">
       <AuthProvider>
-        <AdminProvider>
-          <ScanProvider>
-            <InventoryProvider>
-              <BrowserRouter>
+        <BrowserRouter>
+          <AdminProvider>
+            <ScanProvider>
+              <InventoryProvider>
                 <AppRoutes />
                 <Toaster position="top-center" richColors />
-              </BrowserRouter>
-            </InventoryProvider>
-          </ScanProvider>
-        </AdminProvider>
+              </InventoryProvider>
+            </ScanProvider>
+          </AdminProvider>
+        </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>
   )
