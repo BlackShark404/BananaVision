@@ -50,13 +50,14 @@ export function AppDataTable<T>({
 }: AppDataTableProps<T>) {
   const [page, setPage] = useState(1)
 
-  // Reset page when data reference changes significantly (e.g. new filters applied outside)
-  useEffect(() => {
-    setPage(1)
-  }, [data])
-
   const pageSize = pagination?.pageSize || data.length || 1
   const totalPages = Math.max(1, Math.ceil(data.length / pageSize))
+
+  // Clamp page if data shrinks so the current page exceeds the new total
+  useEffect(() => {
+    setPage((prev) => (prev > totalPages ? totalPages : prev))
+  }, [totalPages])
+
   const paginatedData = pagination ? data.slice((page - 1) * pageSize, page * pageSize) : data
 
   return (

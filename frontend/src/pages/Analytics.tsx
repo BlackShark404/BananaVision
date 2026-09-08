@@ -357,10 +357,10 @@ export default function Analytics() {
                 <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <ChartLegend content={<ChartLegendContent />} />
-                <Bar dataKey={RipenessEnum.UNRIPE} stackId="a" fill={`var(--color-${RipenessEnum.UNRIPE})`} radius={[0, 0, 0, 0]} />
-                <Bar dataKey={RipenessEnum.SEMI_RIPE} stackId="a" fill={`var(--color-${RipenessEnum.SEMI_RIPE})`} radius={[0, 0, 0, 0]} />
-                <Bar dataKey={RipenessEnum.RIPE} stackId="a" fill={`var(--color-${RipenessEnum.RIPE})`} radius={[0, 0, 0, 0]} />
-                <Bar dataKey={RipenessEnum.OVERRIPE} stackId="a" fill={`var(--color-${RipenessEnum.OVERRIPE})`} radius={[8, 8, 0, 0]} />
+                <Bar dataKey={RipenessEnum.UNRIPE} stackId="a" fill={cultivarRipenessChartConfig[RipenessEnum.UNRIPE].color} radius={[0, 0, 0, 0]} />
+                <Bar dataKey={RipenessEnum.SEMI_RIPE} stackId="a" fill={cultivarRipenessChartConfig[RipenessEnum.SEMI_RIPE].color} radius={[0, 0, 0, 0]} />
+                <Bar dataKey={RipenessEnum.RIPE} stackId="a" fill={cultivarRipenessChartConfig[RipenessEnum.RIPE].color} radius={[0, 0, 0, 0]} />
+                <Bar dataKey={RipenessEnum.OVERRIPE} stackId="a" fill={cultivarRipenessChartConfig[RipenessEnum.OVERRIPE].color} radius={[8, 8, 0, 0]} />
               </BarChart>
             </ChartContainer>
           </CardContent>

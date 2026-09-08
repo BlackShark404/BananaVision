@@ -311,3 +311,10 @@
     box-shadow: none !important;
   }
 }
+
+/* Hide tooltips on mobile / touch — no hover available */
+@media (max-width: 767px) {
+  [data-slot="tooltip-content"] {
+    display: none !important;
+  }
+}
