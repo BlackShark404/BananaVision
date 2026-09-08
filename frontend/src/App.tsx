@@ -1,6 +1,7 @@
 import React, { Suspense } from "react"
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { Toaster } from "@/components/ui/sonner"
+import { useIsMobile } from "@/hooks/useIsMobile"
 import { AuthProvider, useAuth } from "@/context/AuthContext"
 import { AdminProvider } from "@/context/AdminContext"
 import { ScanProvider } from "@/context/ScanContext"
@@ -52,6 +53,11 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function ResponsiveToaster() {
+  const isMobile = useIsMobile()
+  return <Toaster position={isMobile ? "bottom-center" : "top-center"} richColors />
+}
+
 function AppRoutes() {
   return (
     <Suspense fallback={<PageLoader />}>
@@ -90,7 +96,7 @@ function App() {
             <ScanProvider>
               <InventoryProvider>
                 <AppRoutes />
-                <Toaster position="top-center" richColors />
+                <ResponsiveToaster />
               </InventoryProvider>
             </ScanProvider>
           </AdminProvider>
