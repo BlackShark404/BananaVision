@@ -16,7 +16,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import DbSession, AdminUser
+from app.api.deps import DbSession, AdminUser, CurrentUser
 from app.models.device import Device
 from app.models.scan import Scan
 from app.models.admin_profile import AdminProfile
@@ -29,7 +29,7 @@ router = APIRouter(prefix="/config", tags=["Config"])
 
 
 @router.get("", response_model=SystemConfigResponse)
-async def get_config(db: DbSession, admin: AdminUser):
+async def get_config(db: DbSession, user: CurrentUser):
     """Get system configuration."""
     result = await db.execute(select(SystemConfig).limit(1))
     config = result.scalar_one_or_none()
