@@ -75,11 +75,13 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
     const loadData = async () => {
       try {
+        const isAdmin = user.role === "Admin"
+        
         const [usersRes, devicesRes, activityRes, configRes] = await Promise.allSettled([
-          api.users.list(),
+          isAdmin ? api.users.list() : Promise.reject("Not admin"),
           api.devices.list(),
-          api.activity.list({ per_page: 100 }),
-          api.config.get(),
+          isAdmin ? api.activity.list({ per_page: 100 }) : Promise.reject("Not admin"),
+          isAdmin ? api.config.get() : Promise.reject("Not admin"),
         ])
 
         if (usersRes.status === "fulfilled") {
