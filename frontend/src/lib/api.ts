@@ -215,6 +215,22 @@ export const api = {
     markAllRead: () => post<any>("/api/v1/notifications/read-all"),
   },
 
+  // ── System ─────────────────────────────────────────────────────────────
+  system: {
+    metrics: () => get<{
+      cpu_name: string
+      cpu_percent: number
+      memory_used_gb: number
+      memory_total_gb: number
+      memory_percent: number
+      disk_used_gb: number
+      disk_total_gb: number
+      disk_percent: number
+      uptime: string
+      cpu_temp: number | null
+    }>("/api/v1/system/metrics"),
+  },
+
   // ── Health ───────────────────────────────────────────────────────────────
   health: () => get<{ status: string; cameras_online: number; cameras_total: number; yolo_loaded: boolean; rfr_loaded: boolean; sensor_connected: boolean }>("/health"),
 }

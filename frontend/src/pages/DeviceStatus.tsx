@@ -13,6 +13,19 @@ export default function DeviceStatus() {
   const total = devices.length
   const [lastUpdate, setLastUpdate] = useState(new Date())
 
+  const [systemMetrics, setSystemMetrics] = useState<{
+    cpu_name: string
+    cpu_percent: number
+    memory_used_gb: number
+    memory_total_gb: number
+    memory_percent: number
+    disk_used_gb: number
+    disk_total_gb: number
+    disk_percent: number
+    uptime: string
+    cpu_temp: number | null
+  } | null>(null)
+
   const [sensorData, setSensorData] = useState({ temperature: 0, humidity: 0 })
   const [sensorConnected, setSensorConnected] = useState(false)
 
@@ -45,13 +58,17 @@ export default function DeviceStatus() {
     }).catch(console.error)
   }, [])
 
-  // Simulate fetching system metrics every 5 seconds
+  // Fetch live system metrics every 5 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      // In production: fetch('/api/system/metrics')
-      setLastUpdate(new Date())
-    }, 5000)
+    const fetchMetrics = () => {
+      api.system.metrics().then((res) => {
+        setSystemMetrics(res)
+        setLastUpdate(new Date())
+      }).catch(console.error)
+    }
 
+    fetchMetrics() // Initial fetch
+    const interval = setInterval(fetchMetrics, 5000)
     return () => clearInterval(interval)
   }, [])
 
@@ -148,21 +165,21 @@ export default function DeviceStatus() {
               <Cpu className="w-5 h-5 text-muted-foreground" />
               <div>
                 <p className="text-xs text-muted-foreground">Processor</p>
-                <p className="text-sm font-medium">AMD Ryzen 5 5600G</p>
+                <p className="text-sm font-medium">{systemMetrics?.cpu_name ?? "Loading..."}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
               <HardDrive className="w-5 h-5 text-muted-foreground" />
               <div>
                 <p className="text-xs text-muted-foreground">Storage</p>
-                <p className="text-sm font-medium">256 GB / 512 GB</p>
+                <p className="text-sm font-medium">{systemMetrics ? `${systemMetrics.disk_used_gb} GB / ${systemMetrics.disk_total_gb} GB` : "Loading..."}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
               <Clock className="w-5 h-5 text-muted-foreground" />
               <div>
                 <p className="text-xs text-muted-foreground">Uptime</p>
-                <p className="text-sm font-medium">12h 34m</p>
+                <p className="text-sm font-medium">{systemMetrics?.uptime ?? "Loading..."}</p>
               </div>
             </div>
           </div>
@@ -189,9 +206,9 @@ export default function DeviceStatus() {
                 <Cpu className="w-4 h-4 text-blue-600" />
                 <span className="font-medium">CPU Usage</span>
               </div>
-              <span className="text-muted-foreground">45%</span>
+              <span className="text-muted-foreground">{systemMetrics?.cpu_percent ?? 0}%</span>
             </div>
-            <Progress value={45} className="h-2" />
+            <Progress value={systemMetrics?.cpu_percent ?? 0} className="h-2" />
           </div>
 
           <div className="space-y-2">
@@ -200,9 +217,9 @@ export default function DeviceStatus() {
                 <MemoryStick className="w-4 h-4 text-purple-600" />
                 <span className="font-medium">Memory Usage</span>
               </div>
-              <span className="text-muted-foreground">8.2 GB / 16 GB (51%)</span>
+              <span className="text-muted-foreground">{systemMetrics ? `${systemMetrics.memory_used_gb} GB / ${systemMetrics.memory_total_gb} GB (${systemMetrics.memory_percent}%)` : "—"}</span>
             </div>
-            <Progress value={51} className="h-2" />
+            <Progress value={systemMetrics?.memory_percent ?? 0} className="h-2" />
           </div>
 
           <div className="space-y-2">
@@ -211,9 +228,9 @@ export default function DeviceStatus() {
                 <HardDrive className="w-4 h-4 text-emerald-600" />
                 <span className="font-medium">Disk Usage</span>
               </div>
-              <span className="text-muted-foreground">256 GB / 512 GB (50%)</span>
+              <span className="text-muted-foreground">{systemMetrics ? `${systemMetrics.disk_used_gb} GB / ${systemMetrics.disk_total_gb} GB (${systemMetrics.disk_percent}%)` : "—"}</span>
             </div>
-            <Progress value={50} className="h-2" />
+            <Progress value={systemMetrics?.disk_percent ?? 0} className="h-2" />
           </div>
 
           <div className="space-y-2">
@@ -222,11 +239,11 @@ export default function DeviceStatus() {
                 <Thermometer className="w-4 h-4 text-orange-600" />
                 <span className="font-medium">CPU Temperature</span>
               </div>
-              <span className="font-medium text-emerald-600">
-                58°C
+              <span className={`font-medium ${(systemMetrics?.cpu_temp ?? 0) > 80 ? 'text-red-600' : 'text-emerald-600'}`}>
+                {systemMetrics?.cpu_temp != null ? `${systemMetrics.cpu_temp}°C` : "N/A"}
               </span>
             </div>
-            <Progress value={(58 / 100) * 100} className="h-2" />
+            <Progress value={systemMetrics?.cpu_temp != null ? (systemMetrics.cpu_temp / 100) * 100 : 0} className="h-2" />
           </div>
         </CardContent>
       </Card>

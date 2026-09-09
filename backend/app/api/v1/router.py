@@ -19,6 +19,7 @@ from app.api.v1.config import router as config_router
 from app.api.v1.quality import router as quality_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.cameras import router as cameras_router
+from app.api.v1.system import router as system_router
 
 v1_router = APIRouter(prefix="/api/v1")
 
@@ -35,3 +36,4 @@ v1_router.include_router(config_router)
 v1_router.include_router(quality_router)
 v1_router.include_router(notifications_router)
 v1_router.include_router(cameras_router)
+v1_router.include_router(system_router)
