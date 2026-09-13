@@ -76,10 +76,10 @@
                 <mxCell id="storage" value="🖼️&lt;br&gt;Image&lt;br&gt;Storage" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=9;" parent="1" vertex="1">
                     <mxGeometry x="990" y="505" width="70" height="70" as="geometry"/>
                 </mxCell>
-                <mxCell id="dashboard" value="🏠&lt;br&gt;Web&lt;br&gt;Dashboard" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=10;fontStyle=1;" parent="1" vertex="1">
+                <mxCell id="dashboard" value="🏠&lt;br&gt;React Dashboard&lt;br&gt;(REST + WebSocket)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=8;fontStyle=1;" parent="1" vertex="1">
                     <mxGeometry x="640" y="500" width="80" height="80" as="geometry"/>
                 </mxCell>
-                <mxCell id="display" value="📺&lt;br&gt;Kiosk&lt;br&gt;Display" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=9;" parent="1" vertex="1">
+                <mxCell id="display" value="📺&lt;br&gt;Kiosk Display&lt;br&gt;(Live Events)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=8;" parent="1" vertex="1">
                     <mxGeometry x="540" y="505" width="70" height="70" as="geometry"/>
                 </mxCell>
                 <mxCell id="arduino" value="🔌&lt;br&gt;Arduino&lt;br&gt;Serial MCU" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=8;fontStyle=1;" parent="1" vertex="1">
@@ -153,7 +153,7 @@
                 <mxCell id="arrow21" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f59e0b;endArrow=block;endFill=1;" parent="1" source="arduino" target="dht22" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="arrow22" value="env data" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f59e0b;endArrow=block;endFill=1;dashed=1;fontSize=8;fontStyle=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="dht22" target="spoilage" edge="1">
+                <mxCell id="arrow22" value="sensor:update + feature input" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f59e0b;endArrow=block;endFill=1;dashed=1;fontSize=8;fontStyle=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="dht22" target="spoilage" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <mxPoint x="470" y="560" as="sourcePoint"/>
                         <mxPoint x="1084.44" y="400" as="targetPoint"/>

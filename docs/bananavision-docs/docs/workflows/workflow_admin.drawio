@@ -16,7 +16,7 @@
                 <mxCell id="arrow2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="login" target="dashboard" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="dashboard" value="🏠&#xa;Admin&#xa;Dashboard&#xa;(Role-Aware Overview)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=8;" parent="1" vertex="1">
+                <mxCell id="dashboard" value="🏠&#xa;Admin&#xa;Dashboard&#xa;(Overview + Notifications)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=8;" parent="1" vertex="1">
                     <mxGeometry x="210" y="-110" width="100" height="100" as="geometry"/>
                 </mxCell>
                 <mxCell id="arrow_um" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="dashboard" target="usermgmt" edge="1">

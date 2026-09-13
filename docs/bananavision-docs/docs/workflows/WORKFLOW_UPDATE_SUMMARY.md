@@ -1,265 +1,109 @@
-# BananaVision Workflow Diagrams - Update Summary
+# BananaVision Workflow Diagrams - Change History
 
-**Date:** April 20, 2026  
-**Updated By:** Kiro AI Assistant  
-**Project:** BananaVision Capstone 1
+**Updated:** September 13, 2026
+**Scope:** Operator, kiosk, administrator, and IoT workflow diagrams
+**Source of truth:** Implemented backend/frontend code, plus `docs/BANANAVISION_CONTEXT.md`
 
-## Overview
+## Purpose
 
-All four workflow diagrams have been updated to accurately reflect the current system architecture, features, and user flows as implemented in the codebase.
+This file records what the workflow diagrams showed previously and what was changed to bring them in line with the current BananaVision implementation. The diagrams are documentation only; application behavior is controlled by the source files listed below.
 
-## Files Updated
+## Previous Workflow State
 
-1. `workflow_iot.drawio` - IoT Hardware Integration Workflow
-2. `workflow_kiosk.drawio` - Kiosk Terminal Workflow  
-3. `workflow_operator.drawio` - Operator Web Dashboard Workflow
-4. `workflow_admin.drawio` - Admin Web Dashboard Workflow
+The earlier diagrams described the main research concept correctly, but several details were based on an older design:
 
-## Key Changes Made
+- The kiosk flow ended with “Accept or Flag” and did not make persistence behavior clear.
+- Kiosk source selection was shown as supplier selection only, without the delivery-intake and treatment step.
+- The scan pipeline was described as four broad stages: capture, detect, analyze, and calculate.
+- The IoT diagram used generic YOLOv8/RFR wording and did not show multi-camera fusion or engineered environmental features.
+- Camera positions and labels did not match the configured order in the backend.
+- Operator and admin diagrams used stale page/access wording and did not clearly represent notifications, live status, or the REST/WebSocket boundary.
+- The IoT diagram did not clearly distinguish per-camera inference from final fused scan output.
 
-### 1. IoT Workflow (workflow_iot.drawio)
+## Current Implementation Changes
 
-**Completely redesigned** to show the full edge processing pipeline:
+### Kiosk Workflow
 
-- User → Mini PC Edge Node
-- 4-Camera Array (Top, Side, Side, Bottom)
-- Arduino MCU → DHT22 Sensor (Temperature & Humidity)
-- Image Capture → Buffer
-- AI Processing Pipeline (YOLOv8 + RFR):
-  - Detection
-  - Finger Count
-  - Cultivar Classification
-  - Ripeness Analysis
-  - RFR Spoilage Prediction (visual + environmental features)
-  - Confidence Scoring
-- DHT22 env data → RFR Spoilage Prediction (dashed arrow)
-- Scan Result → PostgreSQL Database
-- Image Storage (local/cloud)
-- Web Dashboard sync
-- Kiosk Display
+`workflow_kiosk.drawio` now documents:
 
-**Icons Used:**
-- 👤 User/Operator
-- 🖥️ Mini PC
-- 📷 Cameras (4x)
-- 🖼️ Image Capture
-- 💾 Buffer/Storage
-- 🧠 YOLOv8 Model
-- 🔍 Detection
-- # Finger Count
-- 📊 Classification
-- 🍌 Ripeness
-- ⏰ Spoilage
-- ✓ Confidence
-- ✅ Result
-- 💾 PostgreSQL
-- 🏠 Dashboard
-- 📺 Display
+- Active-operator selection and four-digit PIN authentication.
+- Required PIN change for new or reset operator accounts.
+- Selection or creation of an active delivery intake, including supplier and ripening treatment (`Natural` or `Ethephon`).
+- Full-screen kiosk scanning through a REST trigger with WebSocket progress updates.
+- Configured camera capture with sensor context.
+- Per-camera detection followed by multi-camera fusion and engineered feature analysis.
+- RFR spoilage prediction using sensor values and intake treatment.
+- A persisted scan result containing QR metadata, evidence, status, and audit information.
+- Post-result continuation or flagging for quality review and notification.
+- Recent scans and operator swapping.
 
-### 2. Kiosk Workflow (workflow_kiosk.drawio)
+### IoT and AI Workflow
 
-**Completely redesigned** to show the isolated scanning terminal flow:
+`workflow_iot.drawio` now documents:
 
-- Select Operator (Active Only)
-- PIN Entry (4-digit)
-- PIN Change Decision (Yes/No)
-- Create New Kiosk PIN (if required)
-- Kiosk Terminal
-- Select Supplier
-- Full-Screen Scan Interface
-- Scan Now Button
-- AI Pipeline (4-Step):
-  - Capturing (4 Cam + DHT22)
-  - Detecting (YOLOv8)
-  - Analyzing (Feature Vector)
-  - Calculating (RFR Spoilage)
-- Scan Result Display
-- Decision: Accept or Flag
-- Recent Scans (Last 5)
-- Operator Swap
+- The configured camera order: Top, Back, Left, and Right according to the current settings/registration flow.
+- Arduino serial communication with the DHT22 temperature/humidity sensor.
+- Image capture and buffering on the Mini PC edge node.
+- YOLOv8n per-camera detection, including finger count and cultivar/ripeness classification.
+- Confidence-weighted multi-camera fusion, with conflict and low-confidence flagging.
+- Dew point, VPD, and heat-index feature engineering.
+- RFR spoilage prediction using classification, environmental data, and treatment.
+- Persistence of scan classification, original AI result, camera detections, images, inventory status, activity, and notifications.
+- PostgreSQL/database output, image storage, React dashboard synchronization, and live kiosk events.
+- `sensor:update` and WebSocket-driven dashboard/kiosk updates.
 
-**Icons Used:**
-- 👤 Select Operator
-- 🔢 PIN Entry
-- ❓ Decision Diamond
-- 🖥️ Kiosk Terminal
-- 🏢 Select Supplier
-- 🔍 Scan Interface
-- ▶️ Scan Now
-- 📷 Capturing
-- 🎯 Detecting
-- 🔬 Analyzing
-- 🧮 Calculating (RFR)
-- ✅ Scan Result
-- ✓ Accept
-- ⚠️ Flag
-- 📋 Recent Scans
-- 🔄 Operator Swap
+### Operator Workflow
 
-### 3. Operator Workflow (workflow_operator.drawio)
+`workflow_operator.drawio` now documents the current role-limited application surface:
 
-**Completely redesigned** to show all 10 accessible pages:
+- Username/password login and the role-aware operator dashboard.
+- Own-scan metrics and alert/notification visibility.
+- Profile actions: password change, kiosk PIN change, avatar upload, and theme toggle.
+- Scan logs with filtering, detail navigation, CSV export, QR actions, and inventory status visibility.
+- Scan detail review with camera evidence, flags, notes, original AI values, and QR tracking.
+- Operator-filtered analytics, FIFO inventory, spoilage alerts, and inventory status summaries.
+- Device status showing configured cameras, live sensor readings, health state, and system metrics.
+- Standalone kiosk entry with intake creation and scan initiation.
 
-- Operator → Login (Username/Password)
-- Dashboard (Central Hub)
-- **Profile Branch:**
-  - Update Password
-  - Update Kiosk PIN
-  - Theme Toggle
-  - Upload Avatar
-- **Scan Logs Branch (Own Scans Only):**
-  - View Detail
-  - Export CSV
-- **Analytics Branch (Own Data):**
-  - View Charts
-- **Inventory Branch:**
-  - FIFO List
-  - Spoilage Alerts
-- **Device Status Branch:**
-  - 4-Camera Grid
-  - System Info
-- **Kiosk Branch:**
-  - Scan Now
+### Administrator Workflow
 
-**Icons Used:**
-- 👤 Operator/Profile
-- 🔐 Login
-- 🏠 Dashboard
-- 🔑 Password
-- 🔢 PIN
-- 🌓 Theme
-- 📷 Avatar
-- 📋 Scan Logs
-- 🔍 View Detail
-- 📊 Export/Analytics
-- 📦 Inventory
-- ⚠️ Spoilage Alerts
-- 📷 Device Status
-- 💻 System Info
-- 🖥️ Kiosk
-- ▶️ Scan Now
+`workflow_admin.drawio` now documents:
 
-### 4. Admin Workflow (workflow_admin.drawio)
+- Admin login and a role-aware overview with notifications.
+- Shared operator pages plus the six admin-only modules: users, delivery intakes, suppliers, quality control, activity log, and system configuration.
+- User creation/update, account status changes, password reset, and operator PIN reset behavior.
+- Delivery intake status and inventory transitions, supplier/treatment data, and QR-linked intake records.
+- Flagged-scan quality review, scan overrides, notes, and review actions.
+- Scan detail, CSV export, and inventory status updates.
+- Audit/activity filtering and notification-driven operational awareness.
+- Camera ID configuration, confidence threshold, data retention, database export, restart, and shutdown controls.
 
-**Updated** to maintain existing structure with accurate icons:
+## Implementation References
 
-- Admin → Login → Dashboard (All 16 Pages)
-- **User Management:**
-  - Add User
-  - Edit User
-  - Disable User
-  - Reset Password
-- **Delivery Intakes:**
-  - Edit Intake
-  - Toggle Status
-- **Quality Control:**
-  - Flag Scan
-  - Edit Scan Data
-  - Review Notes
-- **Scan Log:**
-  - View Detail
-  - Export CSV
-  - Update Status
-- **Activity Log:**
-  - Filter Actions
-- **System Config:**
-  - Camera Settings
-  - AI Settings
-  - Storage Settings
-  - Power Management
-- **Supplier Management:**
-  - Add Supplier
-  - Toggle Status
+- Frontend routing and role guards: `frontend/src/App.tsx`
+- Kiosk UI and intake/PIN flow: `frontend/src/pages/Kiosk.tsx`
+- Scan event handling and WebSocket rooms: `frontend/src/context/ScanContext.tsx`
+- Intake and supplier state: `frontend/src/context/InventoryContext.tsx`
+- User, device, activity, and system configuration state: `frontend/src/context/AdminContext.tsx`
+- Backend scan orchestration: `backend/app/services/scan_service.py`
+- Camera capture: `backend/app/services/camera_manager.py`
+- YOLOv8n inference: `backend/app/services/classification.py`
+- Multi-camera fusion: `backend/app/services/fusion_engine.py`
+- Sensor polling: `backend/app/services/sensor_reader.py`
+- API and WebSocket registration: `backend/app/api/v1/router.py` and `backend/app/main.py`
+- Project-wide implementation context: `docs/BANANAVISION_CONTEXT.md`
 
-**Icons Used:**
-- 👤 Admin
-- 🔐 Login
-- 🏠 Dashboard
-- 👥 User Management
-- 📦 Delivery Intakes
-- 🔍✓ Quality Control
-- 📋 Scan Log
-- 📜 Activity Log
-- ⚙️ System Config
-- 🏢 Supplier Management
-- Plus various action icons (➕, ✏️, 🚫, 🔑, ✅, 🚩, 📝, 🔽, 📷, 🤖, 💾, ⏻)
+## Validation
 
-### 5. RFR + DHT22 Integration Update (April 20, 2026)
+The four `.drawio` files were checked after the update:
 
-**Kiosk (`workflow_kiosk.drawio`)**:
-- Added 4th pipeline node: 🧮 Calculating (RFR Spoilage)
-- Updated Capturing label to include DHT22: 📷 (4 Cam + DHT22)
-- Updated Analyzing label to 🔬 (Feature Vector)
-- Arrow flow: Capturing → Detecting → Analyzing → Calculating → Scan Result
+- All files parse successfully as XML.
+- All edge source and target references resolve to existing nodes.
+- `git diff --check` found no whitespace errors.
 
-**IoT (`workflow_iot.drawio`)**:
-- Renamed pipeline label from "YOLOv8 + OpenCV" to "YOLOv8 + RFR"
-- Renamed Spoilage node from ⏰ Spoilage Estimate to 🧮 RFR Spoilage Prediction (highlighted yellow)
-- Added 🔌 Arduino MCU node (Mini PC → Arduino)
-- Added 🌡️ DHT22 Sensor node (Arduino → DHT22)
-- Added dashed "env data" arrow from DHT22 → RFR Spoilage Prediction
-
-## Technical Improvements
-
-1. **Consistent Icon Usage:** All workflows now use emoji icons for better visual clarity
-2. **Proper Color Coding:**
-   - Blue (#dbeafe, #2563eb) - User/Operator elements
-   - Yellow (#fef3c7, #f59e0b) - Important actions/decisions
-   - Red (#fee2e2, #dc2626) - Admin-only features
-   - Green (#dcfce7, #22c55e) - Success/Results
-   - Orange (#fff7ed, #ea580c) - Warnings/Decisions
-   - Purple (#e0e7ff, #6366f1) - Secondary features
-
-3. **Improved Layout:**
-   - Logical left-to-right flow
-   - Clear grouping of related features
-   - Proper use of boxes for subsystems
-   - Legend boxes for context
-
-4. **Accurate Representation:**
-   - All workflows match actual codebase implementation
-   - Page counts accurate (10 for Operator, 16 for Admin)
-   - Feature lists match `bananavision_features.md`
-   - Data flows match `DATA_DICTIONARY_FINAL.md`
-
-## Alignment with Documentation
-
-All workflows now accurately reflect:
-
-- ✅ `docs/SOFTWARE_SPECIFICATION.md` - Technology stack and requirements
-- ✅ `docs/bananavision_features.md` - Complete feature list (16 pages)
-- ✅ `docs/DATA_DICTIONARY_FINAL.md` - Database schema and entities
-- ✅ `PROGRAM_SPECIFICATION_CAPSTONE1.md` - Functional requirements
-- ✅ `src/pages/` - Actual page implementations
-- ✅ `src/App.tsx` - Routing structure
-
-## Verification
-
-To verify the workflows are accurate:
-
-1. Open each `.drawio` file in [draw.io](https://app.diagrams.net/)
-2. Compare with the corresponding page implementations in `src/pages/`
-3. Cross-reference with feature documentation in `docs/bananavision_features.md`
-4. Validate against the database schema in `docs/DATA_DICTIONARY_FINAL.md`
-
-## Export Instructions
-
-To export the diagrams for documentation:
-
-1. Open the `.drawio` file in draw.io
-2. File → Export as → PNG/SVG/PDF
-3. Choose appropriate resolution (300 DPI recommended for print)
-4. Save to `docs/workflows/` directory
-
-## Notes
-
-- All diagrams use the mxGraph format compatible with draw.io
-- Icons are Unicode emoji for maximum compatibility
-- Color scheme follows the application's design system
-- Workflows are optimized for both digital and print viewing
+Open the diagrams in [draw.io](https://app.diagrams.net/) to review their visual layout and export them for the research document.
 
 ---
 
 **Status:** ✅ Complete  
 **Next Steps:** Export diagrams to SVG/PNG for final documentation
-
