@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="820" viewBox="0 0 1800 820" role="img" aria-labelledby="title desc" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
+  <title id="title">BananaVision Kiosk Workflow with 4-Step AI Scanning Pipeline</title>
+  <desc id="desc">Flowchart from Kiosk Terminal to PIN Entry, Select Supplier, Kiosk Scan Interface, Scan Now, AI Scanning Pipeline with four steps including Calculate days to spoil, Scan Result, and Accept or Flag decision.</desc>
+
+  <defs>
+    <marker id="arrow-black" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M1,1 L11,6 L1,11 Z" fill="#111827"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M1,1 L11,6 L1,11 Z" fill="#16a34a"/>
+    </marker>
+    <marker id="arrow-gold" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M1,1 L11,6 L1,11 Z" fill="#d97706"/>
+    </marker>
+    <marker id="arrow-gray" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M1,1 L11,6 L1,11 Z" fill="#6b7280"/>
+    </marker>
+
+    <style>
+      .label { font-family: "Segoe UI", Tahoma, Arial, sans-serif; fill: #111827; text-anchor: middle; }
+      .small { font-size: 14px; font-weight: 600; }
+      .tiny { font-size: 12px; font-weight: 600; }
+      .pipe-title { font-size: 18px; font-weight: 700; fill: #1d4ed8; }
+      .icon { stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .icon-light { stroke: #ffffff; stroke-width: 2.4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .icon-blue { stroke: #2563eb; }
+      .icon-gray { stroke: #4b5563; }
+      .icon-gold { stroke: #d97706; }
+      .icon-green { stroke: #16a34a; }
+      .icon-red { stroke: #dc2626; }
+      .icon-purple { stroke: #7c3aed; }
+      .icon-teal { stroke: #0f766e; }
+      .icon-orange { stroke: #ea580c; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1800" height="820" fill="#ffffff"/>
+
+  <!-- Main horizontal flow arrows -->
+  <line x1="138" y1="360" x2="173" y2="360" stroke="#111827" stroke-width="3" marker-end="url(#arrow-black)"/>
+  <line x1="257" y1="360" x2="298" y2="360" stroke="#111827" stroke-width="3" marker-end="url(#arrow-black)"/>
+  <line x1="392" y1="360" x2="440" y2="360" stroke="#111827" stroke-width="3" marker-end="url(#arrow-black)"/>
+  <line x1="560" y1="360" x2="618" y2="360" stroke="#111827" stroke-width="3" marker-end="url(#arrow-black)"/>
+
+  <!-- Pipeline container and title -->
+  <rect x="715" y="255" width="500" height="210" rx="22" ry="22" fill="#f0f9ff" stroke="#60a5fa" stroke-width="3" stroke-dasharray="10 8"/>
+  <text x="965" y="290" class="label pipe-title">AI Scanning Pipeline (4-Step)</text>
+
+  <!-- Arrow from Scan Now into pipeline -->
+  <line x1="702" y1="360" x2="731" y2="360" stroke="#111827" stroke-width="2.4" marker-end="url(#arrow-black)"/>
+
+  <!-- Pipeline internal arrows -->
+  <line x1="809" y1="360" x2="831" y2="360" stroke="#111827" stroke-width="2" marker-end="url(#arrow-black)"/>
+  <line x1="909" y1="360" x2="931" y2="360" stroke="#111827" stroke-width="2" marker-end="url(#arrow-black)"/>
+  <line x1="1009" y1="360" x2="1028" y2="360" stroke="#111827" stroke-width="2" marker-end="url(#arrow-black)"/>
+  <line x1="1112" y1="360" x2="1168" y2="360" stroke="#111827" stroke-width="2.6" marker-end="url(#arrow-black)"/>
+
+  <!-- Scan result to decision and outcomes -->
+  <line x1="1250" y1="360" x2="1287" y2="360" stroke="#111827" stroke-width="3" marker-end="url(#arrow-black)"/>
+  <line x1="1335" y1="312" x2="1335" y2="249" stroke="#16a34a" stroke-width="3" marker-end="url(#arrow-green)"/>
+  <line x1="1335" y1="408" x2="1335" y2="468" stroke="#d97706" stroke-width="3" marker-end="url(#arrow-gold)"/>
+
+  <!-- Dashed branch: PIN Entry to Operator Swap -->
+  <polyline points="215,318 215,220 315,220 315,185" fill="none" stroke="#4b5563" stroke-width="2.5" stroke-dasharray="9 7" marker-end="url(#arrow-gray)"/>
+
+  <!-- Dashed branch: Scan Interface to Recent Scans -->
+  <line x1="500" y1="415" x2="500" y2="492" stroke="#4b5563" stroke-width="2.5" stroke-dasharray="9 7" marker-end="url(#arrow-gray)"/>
+
+  <!-- Dashed return path: Recent Scans back toward Scan Interface -->
+  <polyline points="548,540 590,540 590,120 500,120 500,295" fill="none" stroke="#9ca3af" stroke-width="2.2" stroke-dasharray="8 7" marker-end="url(#arrow-gray)"/>
+
+  <!-- Dashed loop from Accept toward Scan Interface top -->
+  <polyline points="1335,163 1335,120 590,120" fill="none" stroke="#9ca3af" stroke-width="2" stroke-dasharray="8 7"/>
+
+  <!-- Dashed loop from Flag toward Recent Scans -->
+  <polyline points="1335,560 1335,625 500,625 500,588" fill="none" stroke="#9ca3af" stroke-width="2.2" stroke-dasharray="8 7" marker-end="url(#arrow-gray)"/>
+
+  <!-- Nodes -->
+  <g>
+    <circle cx="90" cy="360" r="48" fill="#e0f2fe" stroke="#0284c7" stroke-width="3"/>
+    <rect x="74" y="339" width="32" height="20" rx="3" class="icon icon-blue"/>
+    <line x1="90" y1="359" x2="90" y2="370" class="icon icon-blue"/>
+    <line x1="80" y1="370" x2="100" y2="370" class="icon icon-blue"/>
+    <text x="90" y="385" class="label small">Kiosk</text>
+    <text x="90" y="404" class="label small">Terminal</text>
+  </g>
+
+  <g>
+    <circle cx="215" cy="360" r="42" fill="#ffffff" stroke="#374151" stroke-width="3"/>
+    <rect x="202" y="341" width="26" height="18" rx="2" class="icon icon-gray"/>
+    <circle cx="207" cy="347" r="1.6" fill="#374151"/>
+    <circle cx="215" cy="347" r="1.6" fill="#374151"/>
+    <circle cx="223" cy="347" r="1.6" fill="#374151"/>
+    <circle cx="207" cy="353" r="1.6" fill="#374151"/>
+    <circle cx="215" cy="353" r="1.6" fill="#374151"/>
+    <circle cx="223" cy="353" r="1.6" fill="#374151"/>
+    <text x="215" y="382" class="label small">PIN Entry</text>
+    <text x="215" y="397" class="label tiny">(4-digit)</text>
+  </g>
+
+  <g>
+    <circle cx="345" cy="360" r="47" fill="#fef3c7" stroke="#f59e0b" stroke-width="3"/>
+    <path d="M333 346 H353 L359 352 L353 358 H333 Z" class="icon icon-gold"/>
+    <circle cx="351" cy="352" r="1.8" fill="#d97706"/>
+    <text x="345" y="385" class="label small">Select</text>
+    <text x="345" y="404" class="label small">Supplier</text>
+  </g>
+
+  <g>
+    <ellipse cx="500" cy="360" rx="60" ry="60" fill="#dbeafe" stroke="#2563eb" stroke-width="3"/>
+    <rect x="478" y="340" width="44" height="26" rx="4" class="icon icon-blue"/>
+    <line x1="485" y1="347" x2="515" y2="347" class="icon icon-blue"/>
+    <line x1="485" y1="353" x2="508" y2="353" class="icon icon-blue"/>
+    <text x="500" y="388" class="label small">Kiosk Scan Interface</text>
+    <text x="500" y="407" class="label tiny">(Full Screen)</text>
+  </g>
+
+  <g>
+    <circle cx="660" cy="360" r="42" fill="#22c55e" stroke="#16a34a" stroke-width="3"/>
+    <polygon points="648,347 648,373 671,360" fill="#ffffff"/>
+    <text x="660" y="392" class="label small" fill="#ffffff" style="fill:#ffffff;">Scan Now</text>
+  </g>
+
+  <!-- Pipeline nodes -->
+  <g>
+    <circle cx="770" cy="360" r="39" fill="#e5e7eb" stroke="#4b5563" stroke-width="2.2"/>
+    <rect x="756" y="346" width="28" height="16" rx="2" class="icon icon-blue"/>
+    <circle cx="770" cy="354" r="3" class="icon icon-blue"/>
+    <path d="M784 350 L791 347 L791 360" class="icon icon-blue"/>
+    <text x="770" y="379" class="label tiny">Capturing</text>
+    <text x="770" y="392" class="label tiny">(4 Cameras)</text>
+  </g>
+
+  <g>
+    <circle cx="870" cy="360" r="39" fill="#e5e7eb" stroke="#4b5563" stroke-width="2.2"/>
+    <circle cx="870" cy="360" r="9" class="icon icon-red"/>
+    <circle cx="870" cy="360" r="2.2" fill="#dc2626"/>
+    <line x1="870" y1="343" x2="870" y2="351" class="icon icon-red"/>
+    <line x1="870" y1="369" x2="870" y2="377" class="icon icon-red"/>
+    <line x1="853" y1="360" x2="861" y2="360" class="icon icon-red"/>
+    <line x1="879" y1="360" x2="887" y2="360" class="icon icon-red"/>
+    <text x="870" y="379" class="label tiny">Detecting</text>
+    <text x="870" y="392" class="label tiny">(YOLOv8)</text>
+  </g>
+
+  <g>
+    <circle cx="970" cy="360" r="39" fill="#e5e7eb" stroke="#4b5563" stroke-width="2.2"/>
+    <path d="M955 348 H985 L975 359 V372 H965 V359 Z" class="icon icon-purple"/>
+    <text x="970" y="379" class="label tiny">Analyzing</text>
+    <text x="970" y="392" class="label tiny">(Classify)</text>
+  </g>
+
+  <g>
+    <circle cx="1070" cy="360" r="42" fill="#e5e7eb" stroke="#4b5563" stroke-width="2.2"/>
+    <!-- Calendar + clock + downward trend icon -->
+    <rect x="1052" y="341" width="25" height="20" rx="2" class="icon icon-blue"/>
+    <line x1="1052" y1="347" x2="1077" y2="347" class="icon icon-blue"/>
+    <line x1="1058" y1="338" x2="1058" y2="344" class="icon icon-blue"/>
+    <line x1="1071" y1="338" x2="1071" y2="344" class="icon icon-blue"/>
+    <circle cx="1085" cy="355" r="7" class="icon icon-orange"/>
+    <line x1="1085" y1="355" x2="1085" y2="351" class="icon icon-orange"/>
+    <line x1="1085" y1="355" x2="1089" y2="358" class="icon icon-orange"/>
+    <polyline points="1054,370 1064,366 1072,373 1080,368" class="icon icon-teal"/>
+    <line x1="1080" y1="368" x2="1077" y2="372" class="icon icon-teal"/>
+    <line x1="1080" y1="368" x2="1075" y2="367" class="icon icon-teal"/>
+    <text x="1070" y="382" class="label tiny">Calculate days</text>
+    <text x="1070" y="395" class="label tiny">to spoil</text>
+  </g>
+
+  <g>
+    <circle cx="1210" cy="360" r="40" fill="#dcfce7" stroke="#22c55e" stroke-width="3"/>
+    <rect x="1198" y="345" width="24" height="20" rx="2" class="icon icon-green"/>
+    <path d="M1202 355 L1208 361 L1219 348" class="icon icon-green"/>
+    <text x="1210" y="381" class="label small">Scan</text>
+    <text x="1210" y="394" class="label small">Result</text>
+  </g>
+
+  <g>
+    <polygon points="1335,312 1383,360 1335,408 1287,360" fill="#fff7ed" stroke="#ea580c" stroke-width="3"/>
+    <text x="1335" y="356" class="label small" style="font-size:14px;">Accept or</text>
+    <text x="1335" y="374" class="label small" style="font-size:14px;">Flag?</text>
+  </g>
+
+  <g>
+    <circle cx="1335" cy="205" r="42" fill="#dcfce7" stroke="#22c55e" stroke-width="3"/>
+    <path d="M1322 206 L1331 215 L1348 194" class="icon icon-green"/>
+    <text x="1335" y="226" class="label small">Accept</text>
+    <text x="1335" y="239" class="label tiny">(Save)</text>
+  </g>
+
+  <g>
+    <circle cx="1335" cy="515" r="45" fill="#fef3c7" stroke="#f59e0b" stroke-width="3"/>
+    <path d="M1335 493 L1352 523 H1318 Z" class="icon icon-orange"/>
+    <line x1="1335" y1="503" x2="1335" y2="514" class="icon icon-orange"/>
+    <circle cx="1335" cy="518" r="1.6" fill="#ea580c"/>
+    <text x="1335" y="536" class="label small">Flag for</text>
+    <text x="1335" y="553" class="label small">Review</text>
+  </g>
+
+  <g>
+    <circle cx="360" cy="185" r="45" fill="#e0f2fe" stroke="#0284c7" stroke-width="2.2" stroke-dasharray="8 6"/>
+    <path d="M347 186 A13 13 0 0 1 373 186" class="icon icon-blue"/>
+    <polygon points="372,180 373,186 367,186" fill="#2563eb"/>
+    <text x="360" y="206" class="label tiny">Operator Swap</text>
+    <text x="360" y="224" class="label tiny">(PIN)</text>
+  </g>
+
+  <g>
+    <circle cx="500" cy="540" r="48" fill="#f3f4f6" stroke="#6b7280" stroke-width="2" stroke-dasharray="7 6"/>
+    <rect x="487" y="523" width="26" height="18" rx="2" class="icon icon-gray"/>
+    <line x1="492" y1="517" x2="492" y2="523" class="icon icon-gray"/>
+    <line x1="508" y1="517" x2="508" y2="523" class="icon icon-gray"/>
+    <text x="500" y="561" class="label tiny">Recent Scans</text>
+    <text x="500" y="578" class="label tiny">(Last 5 AI Scans)</text>
+  </g>
+</svg>

@@ -1,0 +1,161 @@
+<mxfile host="65bd71144e">
+    <diagram name="Admin Workflow" id="admin-workflow">
+        <mxGraphModel dx="842" dy="1229" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900" pageHeight="580" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="admin" value="⭐&lt;br&gt;Admin" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#333333;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="30" y="70" width="60" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="admin" target="login" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="login" value="🔐&lt;br&gt;Login" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="120" y="70" width="60" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="login" target="dashboard" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="dashboard" value="🏠&lt;br&gt;Dashboard&lt;br&gt;(Home)&lt;br&gt;&lt;i&gt;+ All Operator Features&lt;/i&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#333333;strokeWidth=2;fontSize=9;direction=south;" parent="1" vertex="1">
+                    <mxGeometry x="220" y="-100" width="80" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_um" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="dashboard" target="usermgmt" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="usermgmt" value="👥&lt;br&gt;User&lt;br&gt;Management" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#333333;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="215" y="-270" width="90" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="adduser" value="➕👤&lt;br&gt;Add User" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="310" y="-370" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_add" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="usermgmt" target="adduser" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edituser" value="✏️👤&lt;br&gt;Edit User" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="160" y="-370" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_edit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="usermgmt" target="edituser" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="disableuser" value="🚫&lt;br&gt;Disable User" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="-250" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_disable" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="usermgmt" target="disableuser" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="resetpw" value="🔑&lt;br&gt;Reset&lt;br&gt;Password" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="235" y="-380" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_reset" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="usermgmt" target="resetpw" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_bm" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="dashboard" target="batchmgmt" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="batchmgmt" value="📦&lt;br&gt;Batch&lt;br&gt;Management" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#333333;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="215" y="150" width="90" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="createbatch" value="➕&lt;br&gt;Create&lt;br&gt;Batch" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="130" y="265" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_create" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="batchmgmt" target="createbatch" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="editbatch" value="✏️&lt;br&gt;Edit&lt;br&gt;Batch" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="330" y="265" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_editb" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="batchmgmt" target="editbatch" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="355" y="190"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="togglestatus" value="✅&lt;br&gt;Toggle&lt;br&gt;Status" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="235" y="290" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_toggle" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="batchmgmt" target="togglestatus" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_qc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="dashboard" target="qualitycontrol" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="qualitycontrol" value="🔍✓&lt;br&gt;Quality&lt;br&gt;Control" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#333333;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="360" y="10" width="70" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="flagscan" value="🚩&lt;br&gt;Flag Scan" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="-20" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_flag" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="qualitycontrol" target="flagscan" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="editscan" value="✏️&lt;br&gt;Edit Scan&lt;br&gt;Data" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="40" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_editscan" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="qualitycontrol" target="editscan" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="reviewnotes" value="📝&lt;br&gt;Review&lt;br&gt;Notes" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="370" y="110" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="qualitycontrol" target="reviewnotes" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_as" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="dashboard" target="allscans" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="allscans" value="📋&lt;br&gt;All Scans" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#333333;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="-180" width="70" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="deletescan" value="🗑️&lt;br&gt;Delete&lt;br&gt;Scan" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#ef4444;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="450" y="-260" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_delete" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;strokeColor=#ef4444;" parent="1" source="allscans" target="deletescan" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_al" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="dashboard" target="activitylog" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="activitylog" value="📜&lt;br&gt;Activity&lt;br&gt;Log" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#333333;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="-95" width="70" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="filteractions" value="🔽&lt;br&gt;Filter&lt;br&gt;Actions" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="20" y="-85" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_filter" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="activitylog" target="filteractions" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_sc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="dashboard" target="systemconfig" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="systemconfig" value="⚙️&lt;br&gt;System&lt;br&gt;Config" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#333333;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="610" y="-95" width="70" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="cameraconfig" value="📷&lt;br&gt;Camera" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="720" y="-130" width="45" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_camera" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="systemconfig" target="cameraconfig" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="aisettings" value="🤖&lt;br&gt;AI" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="622.5" y="-210" width="45" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_ai" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="systemconfig" target="aisettings" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="storage" value="💾&lt;br&gt;Storage" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="622.5" y="25" width="45" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_storage" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="systemconfig" target="storage" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="power" value="⏻&lt;br&gt;Power" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="720" y="-45" width="45" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_power" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="systemconfig" target="power" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
