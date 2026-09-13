@@ -61,6 +61,9 @@
                 <mxCell id="recent_scans" value="📋&lt;br&gt;Recent Scans&lt;br&gt;(Last 5)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f3f4f6;strokeColor=#6b7280;strokeWidth=2;fontSize=9;fontStyle=1;" parent="1" vertex="1">
                     <mxGeometry x="670" y="-50" width="80" height="80" as="geometry"/>
                 </mxCell>
+                <mxCell id="print_report" value="🖨️&lt;br&gt;Print&lt;br&gt;Spoilage Report&lt;br&gt;(Estimation)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;fontSize=8;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="970" y="-140" width="80" height="80" as="geometry"/>
+                </mxCell>
                 <mxCell id="operator_swap" value="🔄&lt;br&gt;Swap&lt;br&gt;Operator" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=1;fontSize=9;fontStyle=1;" parent="1" vertex="1">
                     <mxGeometry x="45" y="240" width="80" height="80" as="geometry"/>
                 </mxCell>
@@ -112,7 +115,10 @@
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="arrow13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;" parent="1" source="scan_result" target="decision" edge="1">
+                <mxCell id="arrow13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor:#333333;endArrow=block;endFill=1;" parent="1" source="scan_result" target="print_report" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow13b" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor:#333333;endArrow=block;endFill=1;" parent="1" source="print_report" target="decision" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="arrow14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#22c55e;endArrow=block;endFill=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" source="decision" target="accept" edge="1">

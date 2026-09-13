@@ -1,73 +1,44 @@
 # BananaVision Program Workflows
 
-BananaVision is a browser-based banana inventory and quality-control system. The workflow diagrams describe four connected perspectives: the kiosk scan experience, the operator dashboard, the administrator dashboard, and the edge hardware and AI pipeline. The diagrams are implemented in the Drawio files `workflow_kiosk.drawio`, `workflow_operator.drawio`, `workflow_admin.drawio`, and `workflow_iot.drawio`. The application uses a React/Vite frontend, a FastAPI backend, REST endpoints under `/api/v1`, and WebSocket events under `/api/v1/ws`.
+BananaVision is a browser-based banana inventory and quality-control system using React/Vite frontend, FastAPI backend, REST endpoints under `/api/v1`, and WebSocket events for real-time updates.
 
----
-
-## Figure 12A: Kiosk Workflow
+## Kiosk Workflow
 
 ![Kiosk Workflow](workflow_kiosk.svg)
 
-The kiosk workflow begins with selecting an active operator and authenticating with a four-digit PIN. New or reset operator accounts must create a new kiosk PIN before continuing. The operator then selects or creates an active delivery intake by choosing a supplier, generating a batch number, and selecting the ripening treatment: Natural or Ethephon.
+The BananaVision Kiosk is a full-screen scan interface for banana quality assessment. Operators authenticate with a 4-digit PIN, create or select a delivery intake by supplier, batch, and ripening treatment, then start a scan. The backend captures camera frames and DHT22 sensor data, runs YOLO26 detection, fuses multi-camera results, calculates environmental features, and uses Random Forest Regression to predict spoilage days. The result includes classification data, images, inventory updates, QR metadata, and audit records.
 
-The full-screen kiosk interface triggers a scan through the backend REST API and receives progress through WebSocket events. The scan captures frames from the configured cameras with available sensor context, runs YOLOv8n detection for each camera image, fuses the multi-camera results, calculates engineered environmental features, and predicts spoilage using the Random Forest Regression model, classification data, sensor values, and intake treatment. The completed result is persisted with classification data, original AI output, camera detections, captured images, inventory status, activity history, notifications, and QR-related metadata. The operator can continue to the next scan or flag the result for quality review. The kiosk also shows recent scans and supports operator swapping through PIN re-authentication.
+After the result is saved, the system generates and prints a spoilage estimation report through the connected printer. Operators review the result, flag it for quality control when necessary, or continue to the next scan. The kiosk also displays the five most recent scans and supports operator swapping through PIN re-authentication.
 
----
-
-## Figure 12B: Operator Workflow
+## Operator Dashboard
 
 ![Operator Workflow](workflow_operator.svg)
 
-Operators authenticate with username and password and enter a role-limited dashboard. The dashboard provides operator-filtered metrics, recent scans, active sources, camera health, and notifications. Scan Logs provide filtering, detail navigation, CSV export, QR actions, IoT readings, and inventory status. Scan Detail provides camera evidence, QR tracking, flags, notes, original AI values, and review information. Analytics provides operator-filtered charts, confidence trends, ripeness and cultivar summaries, and source analysis. Inventory provides FIFO recommendations, inventory status summaries, cultivar and ripeness grouping, and spoilage alerts for items estimated to spoil within two days. Device Status provides camera availability, DHT22 readings, API/model/sensor health, system metrics, storage, processor, and uptime information. Profile provides password changes, kiosk PIN changes, avatar upload and removal, theme switching, and personal activity, while the kiosk entry supports intake creation and scan initiation. Operators do not have access to administrator-only routes. Scan records and analytics are filtered to the signed-in operator where the page implements operator-specific views.
+The BananaVision Operator Dashboard is a secure, role-based web system with 10 pages: Dashboard (metrics, recent scans, notifications), Scan Logs (filtering, CSV export, QR actions), Scan Detail (camera evidence, QR tracking, flags, notes, AI values), Analytics (charts, confidence trends, cultivar summaries), Inventory (FIFO, spoilage alerts), Device Status (camera health, DHT22 readings), and Profile (account settings, kiosk PIN, avatar, theme).
 
----
-
-## Figure 13: Administrator Workflow
+## Administrator Dashboard
 
 ![Admin Workflow](workflow_admin.svg)
 
-Administrators authenticate with username and password and receive the shared dashboard surface plus six administrator-only modules. User Management supports account creation and updates, role and status changes, password resets, and operator PIN resets. Delivery Intakes provides intake records, supplier and treatment information, scan counts, and inventory transitions. Supplier Management supports adding, editing, activating, and deactivating suppliers. Quality Control lists flagged scans, provides evidence and note review, and supports administrator scan overrides. Activity Log supports inspection and filtering of audit activity, while System Config supports camera ID configuration, confidence thresholds, data retention, database export, restart, and shutdown actions. Administrators can view system-wide scan information, including operator, source, intake, IoT readings, spoilage prediction, flags, notes, QR data, and inventory status. Notifications cover scan completion, flagged scans, intake updates, quality warnings, and system alerts.
+The BananaVision Administrator Dashboard provides system-wide access through the shared operator dashboard plus six exclusive modules: User Management (account creation, role changes, password resets), Delivery Intakes (intake records, supplier info, scan counts), Supplier Management (add/edit/activate suppliers), Quality Control (review flagged scans, override classifications), Activity Log (audit trail), and System Config (camera configuration, thresholds, data retention, database export, system controls).
 
----
-
-## Figure 14: IoT and AI Workflow
+## IoT and AI Pipeline
 
 ![IoT Workflow](workflow_iot.svg)
 
-The edge workflow starts when the kiosk requests a scan. The Mini PC keeps the configured camera devices available, captures frames, saves them under the capture directory, and coordinates the AI pipeline. The Arduino communicates DHT22 temperature and humidity readings over the configured serial connection. Sensor readings are periodically persisted and broadcast to the kiosk and dashboard.
+The BananaVision edge hardware and AI pipeline coordinates the Mini PC, multi-camera array, and Arduino DHT22 sensor. When the kiosk triggers a scan via REST API, the Mini PC activates the camera system to capture frames from all configured cameras and retrieves temperature and humidity sensor data from the Arduino via serial connection.
 
-The AI path consists of image capture and buffering, followed by YOLOv8n per-camera detection of cultivar, ripeness, confidence, finger count, and bounding-box evidence. Confidence-weighted multi-camera fusion then combines cultivar and ripeness across cameras, while the maximum camera finger count is used to avoid double counting. Conflicts and low confidence can automatically flag the scan. When temperature and humidity are available, the system calculates dew point, VPD, and heat index before the RFR model predicts spoilage using visual classification, environmental features, and linked intake treatment. The final stage persists the result and delivers live updates.
+The AI detection stage runs YOLO26 inference on each camera image to extract cultivar, ripeness, confidence score, finger count, and bounding-box evidence per image. Confidence-weighted multi-camera fusion then combines cultivar and ripeness predictions across cameras while using the maximum finger count to avoid double counting. Low confidence or cross-camera disagreement automatically flags the scan for manual review.
 
-Persisted output includes the scan, classification, original AI result, per-camera detections, image records, inventory status history, activity log, and notifications. Captured images are served from backend capture storage, while result and status updates are delivered to React clients through REST and WebSocket channels.
+The feature engineering stage calculates environmental metrics—dew point, VPD (vapor pressure deficit), and heat index—from the DHT22 sensor data. The spoilage prediction stage uses a Random Forest Regression model trained on visual classification, environmental features, and intake ripening treatment to estimate spoilage days. Results persist with classification, detections, images, inventory status updates, activity logs, and notifications, then broadcast to kiosk and dashboard via WebSocket for real-time user feedback.
 
----
+## Tech Stack
 
-## Workflow Summary
-
-Figure 12A presents the kiosk flow from operator PIN authentication through delivery-intake selection, REST scan triggering, WebSocket progress, and result flagging. Figure 12B presents the operator web flow from login to the role-limited dashboard, scans, analytics, inventory, device status, profile, and kiosk access. Figure 13 presents the administrator web flow from login to the shared dashboard, six administrator modules, and system controls. Figure 14 presents the IoT and AI flow from the cameras and Arduino/DHT22 sensor through YOLOv8n, multi-camera fusion, feature engineering, RFR prediction, persistence, and live dashboard updates.
-
-## AI and Hardware Components
-
-### Hardware and Runtime
-
-The hardware and runtime layer consists of a configured multi-camera array managed by OpenCV, an Arduino serial connection with a DHT22 temperature and humidity sensor, and a Mini PC or local backend runtime for capture, inference, persistence, and storage. Application data is stored in a PostgreSQL-compatible database, while captured images are served from local storage mounted by the FastAPI application.
-
-### AI and Feature Processing
-
-The AI and feature-processing layer uses YOLOv8n for per-image banana detection and classification, confidence-weighted fusion for multi-camera cultivar and ripeness results, and the maximum per-camera finger count to avoid cross-camera double counting. It also calculates dew point, VPD, and heat index, uses Random Forest Regression to estimate spoilage days, and automatically flags scans with low confidence or cross-camera disagreement.
-
-### Data and Event Flow
-
-The operator authenticates and associates the scan with an active intake, after which the kiosk triggers `POST /api/v1/scans/trigger` with the intake context. The backend broadcasts capture, detection, analysis, completion, or failure events, persists the scan result and related evidence, and allows the frontend to receive live progress and update the dashboard, kiosk, device, and notification views.
-
-## Implementation References
-
-The workflow documentation is based on the frontend routing and role guards in `frontend/src/App.tsx`, the kiosk and intake flow in `frontend/src/pages/Kiosk.tsx`, scan state and WebSocket handling in `frontend/src/context/ScanContext.tsx`, intake and supplier state in `frontend/src/context/InventoryContext.tsx`, device and system configuration state in `frontend/src/context/AdminContext.tsx`, scan orchestration in `backend/app/services/scan_service.py`, camera capture in `backend/app/services/camera_manager.py`, classification in `backend/app/services/classification.py`, multi-camera fusion in `backend/app/services/fusion_engine.py`, sensor polling in `backend/app/services/sensor_reader.py`, API registration in `backend/app/api/v1/router.py`, application and WebSocket setup in `backend/app/main.py`, and the project-wide context in `docs/BANANAVISION_CONTEXT.md`.
+- **Frontend:** React, Vite, TypeScript
+- **Backend:** FastAPI, PostgreSQL
+- **Hardware:** OpenCV (multi-camera), Arduino (DHT22 sensor), Mini PC
+- **AI:** YOLO26 detection, multi-camera fusion, Random Forest Regression (spoilage prediction)
 
 ---
 
-_BananaVision Capstone Project_
-
-_Bachelor of Science in Information Technology_
-
-_Cebu Technological University_
+_BananaVision Capstone Project | Cebu Technological University_
