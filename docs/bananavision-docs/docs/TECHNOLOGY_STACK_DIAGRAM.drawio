@@ -1,0 +1,99 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="BananaVision Technology Stack" id="bananavision-tech-stack">
+    <mxGraphModel dx="451" dy="267" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="net" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ff5f5f;strokeColor=#b91c1c;fontStyle=1;fontSize=20;fontColor=#111111;" value="Operations Network / LAN / Internet" vertex="1">
+          <mxGeometry height="90" width="200" x="40" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="client" parent="1" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#c9ecf6;strokeColor=#2c7da0;fontStyle=1;fontSize=17;" value="Client Side&lt;div&gt;(Web + Kiosk UI)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="320" x="350" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="c1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d8f0f8;strokeColor=#2c7da0;fontStyle=1;fontSize=14;" value="React 19 + TypeScript" vertex="1">
+          <mxGeometry height="90" width="200" x="740" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="c2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d8f0f8;strokeColor=#2c7da0;fontStyle=1;fontSize=14;" value="Vite + React Router" vertex="1">
+          <mxGeometry height="90" width="200" x="1000" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d8f0f8;strokeColor=#2c7da0;fontStyle=1;fontSize=14;" value="Tailwind CSS + shadcn/ui" vertex="1">
+          <mxGeometry height="90" width="250" x="1260" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="server" parent="1" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#c8f287;strokeColor=#5a9f19;fontStyle=1;fontSize=17;" value="Server Side" vertex="1">
+          <mxGeometry height="90" width="320" x="350" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="s1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ddf8b6;strokeColor=#5a9f19;fontStyle=1;fontSize=14;" value="FastAPI REST API" vertex="1">
+          <mxGeometry height="90" width="200" x="740" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ddf8b6;strokeColor=#5a9f19;fontStyle=1;fontSize=14;" value="Auth + RBAC + Audit" vertex="1">
+          <mxGeometry height="90" width="220" x="1000" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ddf8b6;strokeColor=#5a9f19;fontStyle=1;fontSize=14;" value="PostgreSQL 17+" vertex="1">
+          <mxGeometry height="90" width="200" x="1280" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="iot" parent="1" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#f56bc8;strokeColor=#b83280;fontStyle=1;fontSize=17;" value="IoT Edge" vertex="1">
+          <mxGeometry height="90" width="320" x="350" y="560" as="geometry" />
+        </mxCell>
+        <mxCell id="i1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8aadf;strokeColor=#b83280;fontStyle=1;fontSize=14;" value="Mini PC Edge Node" vertex="1">
+          <mxGeometry height="90" width="200" x="740" y="560" as="geometry" />
+        </mxCell>
+        <mxCell id="i2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8aadf;strokeColor=#b83280;fontStyle=1;fontSize=14;" value="4-Camera Array" vertex="1">
+          <mxGeometry height="90" width="200" x="1000" y="560" as="geometry" />
+        </mxCell>
+        <mxCell id="i3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8aadf;strokeColor=#b83280;fontStyle=1;fontSize=14;" value="YOLOv8 + OpenCV" vertex="1">
+          <mxGeometry height="90" width="220" x="1260" y="560" as="geometry" />
+        </mxCell>
+        <mxCell id="e_net_client" edge="1" parent="1" source="net" style="curved=1;endArrow=block;endFill=1;html=1;strokeWidth=2;" target="client">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="265" y="255" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_net_server" edge="1" parent="1" source="net" style="endArrow=block;endFill=1;html=1;strokeWidth=2;" target="server">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_net_iot" edge="1" parent="1" source="net" style="curved=1;endArrow=block;endFill=1;html=1;strokeWidth=2;" target="iot">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="265" y="650" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_client1" edge="1" parent="1" source="client" style="endArrow=block;endFill=1;html=1;strokeWidth=2;" target="c1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_client2" edge="1" parent="1" source="c1" style="endArrow=block;endFill=1;html=1;strokeWidth=2;" target="c2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_client3" edge="1" parent="1" source="c2" style="endArrow=block;endFill=1;html=1;strokeWidth=2;" target="c3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_server1" edge="1" parent="1" source="server" style="endArrow=block;endFill=1;html=1;strokeWidth=2;" target="s1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_server2" edge="1" parent="1" source="s1" style="endArrow=block;endFill=1;html=1;strokeWidth=2;" target="s2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_server3" edge="1" parent="1" source="s2" style="endArrow=block;endFill=1;html=1;strokeWidth=2;" target="s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_iot1" edge="1" parent="1" source="iot" style="endArrow=block;endFill=1;html=1;strokeWidth=2;" target="i1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_iot2" edge="1" parent="1" source="i1" style="endArrow=block;endFill=1;html=1;strokeWidth=2;" target="i2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_iot3" edge="1" parent="1" source="i2" style="endArrow=block;endFill=1;html=1;strokeWidth=2;" target="i3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_api" edge="1" parent="1" source="c2" style="dashed=1;endArrow=block;endFill=1;html=1;strokeWidth=2;strokeColor=#4b5563;fontSize=11;labelBackgroundColor=#ffffff;" target="s1" value="API calls">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_sync" edge="1" parent="1" source="i3" style="dashed=1;endArrow=block;endFill=1;html=1;strokeWidth=2;strokeColor=#4b5563;fontSize=11;labelBackgroundColor=#ffffff;" target="s1" value="scan results">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
