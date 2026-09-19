@@ -62,6 +62,7 @@ const mapApiScan = (s: any): ScanResult => ({
   isOverridden: s.is_overridden || s.isOverridden,
   originalAiResult: s.original_ai_result || s.originalAiResult,
   hasNotes: s.has_notes || s.hasNotes || false,
+  images: s.images || [],
 })
 
 // ── Provider ────────────────────────────────────────────────────────────────
@@ -161,6 +162,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
           intakeId: result.intake_id || result.intakeId,
           inventoryStatus: result.inventory_status || "In Stock",
           statusUpdatedAt: result.status_updated_at || new Date().toISOString(),
+          images: result.images || [],
         }
         generateQRCodeDataUrl(scanResult).then((qrCode) => {
           const scanWithQR = { ...scanResult, qrCode }

@@ -306,6 +306,7 @@ async def execute_scan_pipeline(
             "conflict_detected": fused.conflict_detected,
             "camera_count": fused.camera_count,
             "scanned_at": scan.date_time.isoformat(),
+            "images": [{"camera_id": img.camera_id, "file_path": img.file_path} for img in db_images],
         }
 
         await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_COMPLETED, scan_result)

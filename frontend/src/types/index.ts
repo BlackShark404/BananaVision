@@ -90,6 +90,7 @@ export interface ScanResult {
   intakeId?: string
   qrCode?: string
   hasNotes?: boolean
+  images?: { camera_id: string; file_path: string }[]
 }
 
 export interface DailyIntake {

@@ -546,6 +546,9 @@ export default function Kiosk() {
               const isCapturing = isScanning && scanStep === 1 && activeCaptureCamera === cam.id
               const isCaptured = isScanning && scanStep === 1 && activeCaptureCamera > cam.id
               const isDoneCapture = isScanning && scanStep > 1
+              
+              // Find the captured image for this camera from the last scan result
+              const scanImage = !isScanning && lastResult?.images?.find(i => i.camera_id === String(cam.label) || i.camera_id === String(cam.id))?.file_path
 
               return (
                 <div
@@ -553,21 +556,25 @@ export default function Kiosk() {
                   className={`relative aspect-video rounded-xl border-2 transition-all duration-300 overflow-hidden flex items-center justify-center bg-card ${
                     isCapturing
                       ? "border-primary shadow-lg shadow-primary/30 ring-2 ring-primary/20"
-                      : (isCaptured || isDoneCapture)
+                      : (isCaptured || isDoneCapture || scanImage)
                         ? "border-emerald-500/40"
                         : "border-border"
                   }`}
                 >
                   {/* Camera content */}
-                  <div className="text-center space-y-1">
-                    {isCapturing ? (
-                      <Loader2 className="w-5 h-5 lg:w-6 lg:h-6 text-primary animate-spin mx-auto" />
-                    ) : (isCaptured || isDoneCapture) ? (
-                      <CheckCircle2 className="w-5 h-5 lg:w-6 lg:h-6 text-emerald-500 mx-auto" />
-                    ) : (
-                      <Camera className="w-5 h-5 lg:w-6 lg:h-6 text-muted-foreground/40 mx-auto" />
-                    )}
-                  </div>
+                  {scanImage ? (
+                    <img src={scanImage.startsWith('http') ? scanImage : `${BASE_URL}${scanImage}`} alt={cam.label} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-center space-y-1">
+                      {isCapturing ? (
+                        <Loader2 className="w-5 h-5 lg:w-6 lg:h-6 text-primary animate-spin mx-auto" />
+                      ) : (isCaptured || isDoneCapture) ? (
+                        <CheckCircle2 className="w-5 h-5 lg:w-6 lg:h-6 text-emerald-500 mx-auto" />
+                      ) : (
+                        <Camera className="w-5 h-5 lg:w-6 lg:h-6 text-muted-foreground/40 mx-auto" />
+                      )}
+                    </div>
+                  )}
 
                   {/* Label */}
                   <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between">
@@ -705,6 +712,25 @@ export default function Kiosk() {
                     </div>
                   )}
                 </div>
+
+                {/* Captured Image Preview */}
+                {lastResult.thumbnailUrl && (
+                  <div className="flex items-center gap-3 bg-muted/30 rounded-xl p-3 border border-border">
+                    <div className="rounded-lg overflow-hidden border shadow-sm shrink-0 w-14 h-14 lg:w-16 lg:h-16 relative group cursor-pointer">
+                      <img src={lastResult.thumbnailUrl} alt="Captured scan" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Camera className="w-4 h-4 text-white" />
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                        <Camera className="w-3.5 h-3.5" />
+                        Image Captured
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 truncate">Visual analysis saved</p>
+                    </div>
+                  </div>
+                )}
 
                 {/* QR Code Preview */}
                 {lastResult.qrCode && (
