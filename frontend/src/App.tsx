@@ -64,7 +64,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-        <Route path="/kiosk" element={<ProtectedRoute><Kiosk /></ProtectedRoute>} />
+        <Route path="/kiosk" element={<Kiosk />} />
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/logs" element={<Logs />} />
