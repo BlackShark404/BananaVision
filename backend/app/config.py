@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     sensor_read_interval_s: int = 5
 
     # ── ML Models ────────────────────────────────────────────────────────────
-    yolo_model_path: str = "app/ml/weights/banana_yolov8n.pt"
+    yolo_model_path: str = "app/ml/weights/banana_yolov26n.pt"
     yolo_confidence_threshold: float = 0.50
     yolo_iou_threshold: float = 0.45
     rfr_model_path: str = "app/ml/weights/spoilage_rfr.joblib"

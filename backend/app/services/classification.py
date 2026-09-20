@@ -52,12 +52,26 @@ RIPENESS_CLASSES = {r.value for r in RipenessEnum}
 
 
 def _parse_class_label(label: str) -> tuple[str | None, str | None]:
-    """Parse a YOLO class label into (cultivar, ripeness)."""
-    # Handle combined labels like "Lakatan_Ripe"
+    """Parse a YOLO class label into (cultivar, ripeness).
+
+    Handles formats like:
+        "Lakatan_Ripe"       → ("Lakatan", "Ripe")
+        "Lakatan_Semi_Ripe"  → ("Lakatan", "Semi Ripe")
+        "Cardaba_Overripe"   → ("Cardaba", "Overripe")
+        "Lakatan"            → ("Lakatan", None)
+        "Ripe"               → (None, "Ripe")
+    """
+    # Handle combined labels like "Lakatan_Ripe" or "Lakatan_Semi_Ripe"
     if "_" in label:
         parts = label.split("_", 1)
         cultivar = parts[0] if parts[0] in CULTIVAR_CLASSES else None
-        ripeness = parts[1] if len(parts) > 1 and parts[1] in RIPENESS_CLASSES else None
+
+        ripeness = None
+        if len(parts) > 1:
+            # Replace underscores with spaces to match enum values (e.g. "Semi_Ripe" → "Semi Ripe")
+            ripeness_raw = parts[1].replace("_", " ")
+            ripeness = ripeness_raw if ripeness_raw in RIPENESS_CLASSES else None
+
         return cultivar, ripeness
 
     # Handle single-class labels
