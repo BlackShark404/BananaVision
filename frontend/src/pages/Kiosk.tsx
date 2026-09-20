@@ -713,24 +713,6 @@ export default function Kiosk() {
                   )}
                 </div>
 
-                {/* Captured Image Preview */}
-                {lastResult.thumbnailUrl && (
-                  <div className="flex items-center gap-3 bg-muted/30 rounded-xl p-3 border border-border">
-                    <div className="rounded-lg overflow-hidden border shadow-sm shrink-0 w-14 h-14 lg:w-16 lg:h-16 relative group cursor-pointer">
-                      <img src={lastResult.thumbnailUrl} alt="Captured scan" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Camera className="w-4 h-4 text-white" />
-                      </div>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
-                        <Camera className="w-3.5 h-3.5" />
-                        Image Captured
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 truncate">Visual analysis saved</p>
-                    </div>
-                  </div>
-                )}
 
                 {/* QR Code Preview */}
                 {lastResult.qrCode && (
