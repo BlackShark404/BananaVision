@@ -28,6 +28,41 @@ from app.models.activity_log import ActivityLog
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
+@router.get("/operators")
+async def list_kiosk_operators(db: DbSession):
+    """
+    Public endpoint — returns active operators for the kiosk selection modal.
+    No authentication required so fresh kiosk sessions can populate the operator list.
+    """
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    from app.models.user_account import UserAccount
+    from app.models.user_role import UserRole
+    from app.schemas.enums import ActiveStatusEnum, RoleEnum
+
+    result = await db.execute(
+        select(UserAccount)
+        .options(selectinload(UserAccount.role), selectinload(UserAccount.operator_profile))
+        .join(UserAccount.role)
+        .where(UserAccount.status == ActiveStatusEnum.ACTIVE)
+        .where(UserRole.name == RoleEnum.OPERATOR.value)
+        .order_by(UserAccount.full_name)
+    )
+    users = result.scalars().all()
+
+    return [
+        {
+            "id": str(u.id),
+            "username": u.username,
+            "full_name": u.full_name,
+            "role": u.role.name if u.role else "Operator",
+            "status": u.status.value if u.status else "Active",
+            "avatar_url": u.avatar_url,
+        }
+        for u in users
+    ]
+
+
 @router.post("/login", response_model=LoginResponse)
 async def login(body: LoginRequest, db: DbSession, request: Request):
     """Authenticate a user by username + password."""

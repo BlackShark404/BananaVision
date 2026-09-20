@@ -110,6 +110,12 @@ export const api = {
       }>("/api/v1/auth/change-pin", { username, new_pin: newPin }),
 
     logout: () => post<void>("/api/v1/auth/logout"),
+
+    /** Public endpoint — no auth needed. Returns active operators for kiosk selection. */
+    kioskOperators: () =>
+      get<{ id: string; username: string; full_name: string; role: string; status: string; avatar_url?: string }[]>(
+        "/api/v1/auth/operators"
+      ),
   },
 
   // ── Scans ────────────────────────────────────────────────────────────────

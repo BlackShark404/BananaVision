@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { BASE_URL } from "@/lib/api"
+import { BASE_URL, api } from "@/lib/api"
 import {
   InputOTP,
   InputOTPGroup,
@@ -52,8 +52,29 @@ export default function Kiosk() {
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null)
   const [selectedTreatment, setSelectedTreatment] = useState<"Natural" | "Ethephon">("Natural")
 
-  const activeOperators = users.filter(u => u.status === "Active" && u.role === "Operator")
+  const [kioskOperatorsList, setKioskOperatorsList] = useState<{ id: string; username: string; fullName: string; role: string; status: string; avatar?: string }[]>([])
   const [kioskOperator, setKioskOperator] = useState<string | null>(null)
+
+  // Fetch operators from public endpoint on mount (no auth required).
+  // This ensures the kiosk selection modal is populated even on fresh sessions.
+  useEffect(() => {
+    api.auth.kioskOperators()
+      .then((ops) => {
+        setKioskOperatorsList(ops.map(o => ({
+          id: o.id,
+          username: o.username,
+          fullName: o.full_name,
+          role: o.role,
+          status: o.status,
+          avatar: o.avatar_url,
+        })))
+      })
+      .catch((err) => console.warn("[Kiosk] Failed to fetch operators", err))
+  }, [])
+
+  // Use the publicly-fetched list; fall back to AdminContext users if populated
+  const adminOperators = users.filter(u => u.status === "Active" && u.role === "Operator")
+  const activeOperators = kioskOperatorsList.length > 0 ? kioskOperatorsList : adminOperators
   const [showSwapModal, setShowSwapModal] = useState(true)
   const [swapTarget, setSwapTarget] = useState<string | null>(null)
   const [pinInput, setPinInput] = useState("")
