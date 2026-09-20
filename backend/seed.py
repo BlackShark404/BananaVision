@@ -63,7 +63,7 @@ async def seed_data():
         admin_user = UserAccount(
             username="admin",
             full_name="Admin User",
-            password_hash=hash_password("admin123"),
+            password_hash=hash_password("admin"),
             role_id=admin_role.id,
             status=ActiveStatusEnum.ACTIVE,
         )
@@ -77,7 +77,7 @@ async def seed_data():
         
         # 3. Operator User — pin_hash lives on OperatorProfile, NOT UserAccount
         operator_user = UserAccount(
-            username="operator1",
+            username="operator",
             full_name="Kiosk Operator",
             password_hash=hash_password("operator"),
             role_id=operator_role.id,
