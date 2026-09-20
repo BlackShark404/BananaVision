@@ -44,41 +44,49 @@ class ClassificationResult:
 
 
 # ── Class label parsing ─────────────────────────────────────────────────────
-# Expected YOLO class names format: "Lakatan_Ripe", "Cardaba_Unripe", etc.
-# Or separate classes: "Lakatan", "Ripe", etc.
+# Roboflow/YOLO class names are all lowercase with underscores, e.g.:
+#   "lakatan_ripe", "cardaba_semi_ripe", "latundan_overripe"
+# We need case-insensitive lookup to map back to our enum values.
 
 CULTIVAR_CLASSES = {c.value for c in CultivarEnum}
 RIPENESS_CLASSES = {r.value for r in RipenessEnum}
+
+# Case-insensitive lookup: lowercase → proper enum value
+_CULTIVAR_LOOKUP = {c.value.lower(): c.value for c in CultivarEnum}
+_RIPENESS_LOOKUP = {r.value.lower().replace(" ", "_"): r.value for r in RipenessEnum}
 
 
 def _parse_class_label(label: str) -> tuple[str | None, str | None]:
     """Parse a YOLO class label into (cultivar, ripeness).
 
-    Handles formats like:
-        "Lakatan_Ripe"       → ("Lakatan", "Ripe")
-        "Lakatan_Semi_Ripe"  → ("Lakatan", "Semi Ripe")
-        "Cardaba_Overripe"   → ("Cardaba", "Overripe")
-        "Lakatan"            → ("Lakatan", None)
-        "Ripe"               → (None, "Ripe")
+    Handles Roboflow-style lowercase labels:
+        "lakatan_ripe"       → ("Lakatan", "Ripe")
+        "lakatan_semi_ripe"  → ("Lakatan", "Semi Ripe")
+        "cardaba_overripe"   → ("Cardaba", "Overripe")
+        "lakatan"            → ("Lakatan", None)
+        "ripe"               → (None, "Ripe")
     """
-    # Handle combined labels like "Lakatan_Ripe" or "Lakatan_Semi_Ripe"
-    if "_" in label:
-        parts = label.split("_", 1)
-        cultivar = parts[0] if parts[0] in CULTIVAR_CLASSES else None
+    label_lower = label.lower()
+
+    # Handle combined labels like "lakatan_ripe" or "cardaba_semi_ripe"
+    if "_" in label_lower:
+        parts = label_lower.split("_", 1)
+        cultivar = _CULTIVAR_LOOKUP.get(parts[0])
 
         ripeness = None
         if len(parts) > 1:
-            # Replace underscores with spaces to match enum values (e.g. "Semi_Ripe" → "Semi Ripe")
-            ripeness_raw = parts[1].replace("_", " ")
-            ripeness = ripeness_raw if ripeness_raw in RIPENESS_CLASSES else None
+            # Ripeness portion may contain underscores (e.g. "semi_ripe")
+            ripeness = _RIPENESS_LOOKUP.get(parts[1])
 
         return cultivar, ripeness
 
     # Handle single-class labels
-    if label in CULTIVAR_CLASSES:
-        return label, None
-    if label in RIPENESS_CLASSES:
-        return None, label
+    cultivar = _CULTIVAR_LOOKUP.get(label_lower)
+    if cultivar:
+        return cultivar, None
+    ripeness = _RIPENESS_LOOKUP.get(label_lower)
+    if ripeness:
+        return None, ripeness
     return None, None
 
 
