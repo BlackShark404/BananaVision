@@ -195,19 +195,19 @@ const columns: ColumnDef<ScanResult>[] = [
       header: "IoT Data",
       cell: (scan) => (
         <div className="flex flex-col gap-1 text-xs">
-          {scan.temperature !== undefined ? (
+          {scan.temperature != null ? (
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <Thermometer className="h-3.5 w-3.5" />
               <span>{scan.temperature.toFixed(1)}°C</span>
             </div>
           ) : null}
-          {scan.humidity !== undefined ? (
+          {scan.humidity != null ? (
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <Droplets className="h-3.5 w-3.5" />
               <span>{scan.humidity.toFixed(1)}%</span>
             </div>
           ) : null}
-          {scan.temperature === undefined && scan.humidity === undefined && (
+          {scan.temperature == null && scan.humidity == null && (
              <span className="text-muted-foreground">—</span>
           )}
         </div>
