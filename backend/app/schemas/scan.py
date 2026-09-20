@@ -93,6 +93,11 @@ class OriginalAiResult(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ScanImageRef(BaseModel):
+    camera_id: str
+    file_path: str
+
+
 class ScanResponse(BaseModel):
     id: uuid.UUID
     date_time: datetime
@@ -117,6 +122,7 @@ class ScanResponse(BaseModel):
     original_ai_result: OriginalAiResult | None = None
     thumbnail_url: str | None = None
     has_notes: bool = False
+    images: list[ScanImageRef] = []
     updated_at: datetime
 
     model_config = {"from_attributes": True}

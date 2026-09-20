@@ -72,6 +72,14 @@ export default function ScanDetail() {
     return { id, label: labels[index] || `View ${index + 1}` }
   }).filter(cam => cam.id)
 
+  // Resolve the image URL for a given camera, falling back to the scan thumbnail
+  const getCameraImageUrl = (cameraId: string): string | undefined => {
+    const match = scan?.images?.find(
+      (img) => img.camera_id === cameraId
+    )
+    return match?.file_path || scan?.thumbnailUrl
+  }
+
   const handleFlag = () => {
     if (!scan) return
     const isNowFlagged = !scan.flagged
@@ -188,53 +196,59 @@ export default function ScanDetail() {
           <CardContent className="p-4 sm:p-6">
             {/* Main Camera View */}
             <AspectRatio ratio={4/3} className="rounded-xl overflow-hidden bg-muted/50 border-2 relative group">
-              {scan.thumbnailUrl ? (
-                <>
-                  <img src={scan.thumbnailUrl} alt={`${cameraViews[activeCamera].label}`} className="w-full h-full object-cover transition-all duration-300" />
-                  <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-[10px] font-medium flex items-center gap-1">
-                    {cameraViews[activeCamera]?.id || "CAM"}
+              {(() => {
+                const activeImageUrl = getCameraImageUrl(cameraViews[activeCamera]?.id)
+                return activeImageUrl ? (
+                  <>
+                    <img src={activeImageUrl} alt={`${cameraViews[activeCamera].label}`} className="w-full h-full object-cover transition-all duration-300" />
+                    <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-[10px] font-medium flex items-center gap-1">
+                      {cameraViews[activeCamera]?.id || "CAM"}
+                    </div>
+                    <div className="absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-xs font-medium">
+                      {cameraViews[activeCamera]?.label || "View"}
+                    </div>
+                    <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded-md text-[10px] font-medium">
+                      {scan.confidence}%
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+                    <Banana className="w-16 h-16 text-muted-foreground/30" />
+                    <span className="text-sm text-muted-foreground/50">No image available</span>
                   </div>
-                  <div className="absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-xs font-medium">
-                    {cameraViews[activeCamera]?.label || "View"}
-                  </div>
-                  <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded-md text-[10px] font-medium">
-                    {scan.confidence}%
-                  </div>
-                </>
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-3">
-                  <Banana className="w-16 h-16 text-muted-foreground/30" />
-                  <span className="text-sm text-muted-foreground/50">No image available</span>
-                </div>
-              )}
+                )
+              })()}
             </AspectRatio>
 
             {/* Camera Thumbnails */}
             <div className="grid grid-cols-4 gap-2 mt-3">
-              {cameraViews.map((cam, idx) => (
-                <button
-                  key={cam.id}
-                  onClick={() => setActiveCamera(idx)}
-                  className={`relative rounded-lg overflow-hidden border-2 transition-all duration-200 ${
-                    activeCamera === idx
-                      ? 'border-primary ring-2 ring-primary/20'
-                      : 'border-transparent hover:border-muted-foreground/30'
-                  }`}
-                >
-                  <AspectRatio ratio={1} className="bg-muted/50">
-                    {scan.thumbnailUrl ? (
-                      <img src={scan.thumbnailUrl} alt={cam.label} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Banana className="w-5 h-5 text-muted-foreground/30" />
-                      </div>
-                    )}
-                  </AspectRatio>
-                  <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] font-medium py-0.5 text-center">
-                    {cam.id}
-                  </span>
-                </button>
-              ))}
+              {cameraViews.map((cam, idx) => {
+                const thumbUrl = getCameraImageUrl(cam.id)
+                return (
+                  <button
+                    key={cam.id}
+                    onClick={() => setActiveCamera(idx)}
+                    className={`relative rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                      activeCamera === idx
+                        ? 'border-primary ring-2 ring-primary/20'
+                        : 'border-transparent hover:border-muted-foreground/30'
+                    }`}
+                  >
+                    <AspectRatio ratio={1} className="bg-muted/50">
+                      {thumbUrl ? (
+                        <img src={thumbUrl} alt={cam.label} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Banana className="w-5 h-5 text-muted-foreground/30" />
+                        </div>
+                      )}
+                    </AspectRatio>
+                    <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] font-medium py-0.5 text-center">
+                      {cam.id}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
 
             <div className="mt-4 text-center">

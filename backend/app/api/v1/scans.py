@@ -29,6 +29,7 @@ from app.schemas.scan import (
     ScanListResponse,
     ScanDetectionResponse,
     ScanImageResponse,
+    ScanImageRef,
     ScanNoteResponse,
     ScanStatusUpdate,
 )
@@ -80,6 +81,7 @@ async def trigger_scan(body: ScanTriggerRequest, db: DbSession, user: CurrentUse
         original_ai_result=None,
         thumbnail_url=scan.classification.thumbnail_url,
         has_notes=False,
+        images=[ScanImageRef(camera_id=img.camera_id, file_path=img.file_path) for img in (scan.images or [])],
         updated_at=scan.updated_at,
     )
 
@@ -100,6 +102,7 @@ async def list_scans(
         selectinload(Scan.status_logs),
         selectinload(Scan.original_ai_result),
         selectinload(Scan.notes),
+        selectinload(Scan.images),
         selectinload(Scan.operator).selectinload(OperatorProfile.account),
     ).order_by(desc(Scan.date_time))
 
@@ -150,6 +153,7 @@ async def list_scans(
                 } if s.original_ai_result else None,
                 thumbnail_url=s.classification.thumbnail_url if s.classification else None,
                 has_notes=len(s.notes) > 0 if hasattr(s, 'notes') and s.notes else False,
+                images=[ScanImageRef(camera_id=img.camera_id, file_path=img.file_path) for img in (s.images or [])],
                 updated_at=s.updated_at,
             )
             for s in scans
