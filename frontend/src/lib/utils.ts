@@ -2,9 +2,22 @@ import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Cultivar, Ripeness, ScanResult } from "@/types"
 import { CULTIVARS, RIPENESS_LEVELS, CultivarEnum, RipenessEnum } from "@/types"
+import { BASE_URL } from "@/lib/api"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+/**
+ * Normalizes image paths to absolute URLs using BASE_URL.
+ */
+export function getImageUrl(path?: string | null): string {
+  if (!path) return "";
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
+    return path;
+  }
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${BASE_URL}${normalizedPath}`;
 }
 
 /**

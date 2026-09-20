@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react"
-import { getBananaImageUrl } from "@/lib/utils"
+import { getBananaImageUrl, getImageUrl } from "@/lib/utils"
 import { api } from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
 import { useAdmin } from "@/context/AdminContext"
@@ -54,7 +54,7 @@ const mapApiScan = (s: any): ScanResult => ({
   fingerCount: s.finger_count || s.fingerCount,
   operator: s.operator_name || s.operator || "Unknown",
   source: s.supplier_name || s.source,
-  thumbnailUrl: s.thumbnail_url || s.thumbnailUrl,
+  thumbnailUrl: s.thumbnail_url || s.thumbnailUrl ? getImageUrl(s.thumbnail_url || s.thumbnailUrl) : undefined,
   intakeId: s.intake_id || s.intakeId,
   inventoryStatus: s.inventory_status || s.inventoryStatus || "In Stock",
   statusUpdatedAt: s.status_updated_at || s.statusUpdatedAt || new Date().toISOString(),
@@ -62,7 +62,7 @@ const mapApiScan = (s: any): ScanResult => ({
   isOverridden: s.is_overridden || s.isOverridden,
   originalAiResult: s.original_ai_result || s.originalAiResult,
   hasNotes: s.has_notes || s.hasNotes || false,
-  images: s.images || [],
+  images: (s.images || []).map((img: any) => ({ ...img, file_path: getImageUrl(img.file_path) })),
 })
 
 // ── Provider ────────────────────────────────────────────────────────────────
@@ -158,11 +158,11 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
           fingerCount: result.finger_count || result.fingerCount,
           operator: result.operator || user?.fullName || "Unknown",
           source: result.source,
-          thumbnailUrl: result.thumbnail_url || getBananaImageUrl(result.cultivar, result.ripeness),
+          thumbnailUrl: result.thumbnail_url ? getImageUrl(result.thumbnail_url) : getBananaImageUrl(result.cultivar, result.ripeness),
           intakeId: result.intake_id || result.intakeId,
           inventoryStatus: result.inventory_status || "In Stock",
           statusUpdatedAt: result.status_updated_at || new Date().toISOString(),
-          images: result.images || [],
+          images: (result.images || []).map((img: any) => ({ ...img, file_path: getImageUrl(img.file_path) })),
         }
         generateQRCodeDataUrl(scanResult).then((qrCode) => {
           const scanWithQR = { ...scanResult, qrCode }

@@ -563,7 +563,7 @@ export default function Kiosk() {
                 >
                   {/* Camera content */}
                   {scanImage ? (
-                    <img src={scanImage.startsWith('http') ? scanImage : `${BASE_URL}${scanImage}`} alt={cam.label} className="w-full h-full object-cover" />
+                    <img src={scanImage} alt={cam.label} className="w-full h-full object-cover" />
                   ) : (
                     <div className="text-center space-y-1">
                       {isCapturing ? (
