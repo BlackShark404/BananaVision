@@ -61,6 +61,7 @@ export default function Kiosk() {
   const [pinChangeMessage, setPinChangeMessage] = useState("Please set your new secure 4-digit PIN.")
   const [newPinInput, setNewPinInput] = useState("")
   const [confirmPinInput, setConfirmPinInput] = useState("")
+  const [scanAction, setScanAction] = useState<{ id: string, action: 'accepted' | 'flagged' } | null>(null)
 
   // Generate cameras dynamically from database configuration
   const cameras = config.cameraIds.split(",").map(s => s.trim()).filter(Boolean).map((id, index) => ({
@@ -734,25 +735,33 @@ export default function Kiosk() {
                 <div className="flex gap-3 pt-2">
                   <Button 
                     size="lg"
+                    disabled={lastResult.id === scanAction?.id}
                     className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white gap-2 font-bold h-12 lg:h-14 text-sm lg:text-base"
-                    onClick={() => toast.success("Scan accepted", { description: "Result saved to intake." })}
+                    onClick={() => {
+                      if (lastResult && lastResult.id !== scanAction?.id) {
+                        setScanAction({ id: lastResult.id, action: 'accepted' })
+                        toast.success("Scan accepted", { description: "Result saved to intake." })
+                      }
+                    }}
                   >
                     <CheckCircle2 className="w-4 h-4 lg:w-5 lg:h-5" />
-                    Accept
+                    {lastResult.id === scanAction?.id && scanAction?.action === 'accepted' ? "Accepted" : "Accept"}
                   </Button>
                   <Button 
                     size="lg"
                     variant="outline"
+                    disabled={lastResult.id === scanAction?.id}
                     className="flex-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 gap-2 font-bold h-12 lg:h-14 text-sm lg:text-base"
                     onClick={() => {
-                      if (lastResult) {
+                      if (lastResult && lastResult.id !== scanAction?.id) {
                         flagScan(lastResult.id, true)
+                        setScanAction({ id: lastResult.id, action: 'flagged' })
                         toast.success("Flagged for review", { description: "Item routed to quality control dashboard." })
                       }
                     }}
                   >
                     <Flag className="w-4 h-4 lg:w-5 lg:h-5" />
-                    Flag for Review
+                    {lastResult.id === scanAction?.id && scanAction?.action === 'flagged' ? "Flagged" : "Flag for Review"}
                   </Button>
                 </div>
               </CardContent>
