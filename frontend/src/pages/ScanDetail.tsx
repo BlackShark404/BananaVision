@@ -72,12 +72,12 @@ export default function ScanDetail() {
     return { id, label: labels[index] || `View ${index + 1}` }
   }).filter(cam => cam.id)
 
-  // Resolve the image URL for a given camera, falling back to the scan thumbnail
+  // Resolve the image URL for a given camera — no fallback to avoid showing a duplicate
   const getCameraImageUrl = (cameraId: string): string | undefined => {
     const match = scan?.images?.find(
       (img) => img.camera_id === cameraId
     )
-    return match?.file_path || scan?.thumbnailUrl
+    return match?.file_path
   }
 
   const handleFlag = () => {
