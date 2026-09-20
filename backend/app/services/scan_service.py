@@ -110,8 +110,7 @@ async def execute_scan_pipeline(
         if not any_banana_found:
             raise ModelInferenceError(
                 "BananaPreDetector",
-                "No banana detected in any camera frame. "
-                "Please position the banana hand on the tray and try again.",
+                "🍌 No banana found — please place the banana on the tray and try again.",
             )
 
         # ── Step 4: YOLOv8n cultivar/ripeness inference on each image ────
@@ -355,10 +354,16 @@ async def execute_scan_pipeline(
         return scan
 
     except Exception as exc:
-        # Broadcast failure
+        # Broadcast failure — use .message for ModelInferenceError to avoid
+        # showing internal model names to the operator.
+        if isinstance(exc, ModelInferenceError):
+            user_error = exc.message
+        else:
+            user_error = "Something went wrong during the scan. Please try again."
+
         await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_FAILED, {
             "scan_id": scan_id_str,
-            "error": str(exc),
+            "error": user_error,
             "stage": "pipeline",
         })
         logger.error(f"Scan pipeline failed: {exc}")
