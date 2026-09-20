@@ -22,6 +22,7 @@ from app.models.app_notification import AppNotification
 from app.core.exceptions import ModelInferenceError
 from app.services.camera_manager import camera_manager
 from app.services.classification import banana_classifier
+from app.services.banana_detector import banana_pre_detector
 from app.services.fusion_engine import fusion_engine
 from app.services.spoilage import spoilage_predictor
 from app.services.feature_engineering import calc_dew_point, calc_vpd, calc_heat_index
@@ -91,7 +92,29 @@ async def execute_scan_pipeline(
                 "total": len(captures),
             })
 
-        # ── Step 3: YOLOv8n inference on each image ──────────────────────
+        # ── Step 3: Banana pre-detection gate ────────────────────────────
+        # Run base COCO YOLOv8n on each frame to verify a banana is present
+        # before running the custom cultivar/ripeness model.
+        await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_DETECTING, {
+            "scan_id": scan_id_str,
+            "progress_pct": 30,
+        })
+
+        any_banana_found = False
+        for cap in captures:
+            pre_result = banana_pre_detector.detect(cap.frame)
+            if pre_result.banana_detected:
+                any_banana_found = True
+                break
+
+        if not any_banana_found:
+            raise ModelInferenceError(
+                "BananaPreDetector",
+                "No banana detected in any camera frame. "
+                "Please position the banana hand on the tray and try again.",
+            )
+
+        # ── Step 4: YOLOv8n cultivar/ripeness inference on each image ────
         await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_DETECTING, {
             "scan_id": scan_id_str,
             "progress_pct": 50,
@@ -146,7 +169,7 @@ async def execute_scan_pipeline(
                 "inference_ms": result.inference_time_ms,
             })
 
-        # ── Step 4: Fuse multi-camera results ────────────────────────────
+        # ── Step 5: Fuse multi-camera results ────────────────────────────
         await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_ANALYZING, {
             "scan_id": scan_id_str,
             "progress_pct": 80,
@@ -162,7 +185,7 @@ async def execute_scan_pipeline(
                 "Please position the banana hand and try again.",
             )
 
-        # ── Step 5: Get sensor data + compute features + predict spoilage ─
+        # ── Step 6: Get sensor data + compute features + predict spoilage ─
         sensor_data = sensor_reader.latest
         temperature = sensor_data.temperature if sensor_data else None
         humidity = sensor_data.humidity if sensor_data else None
@@ -197,7 +220,7 @@ async def execute_scan_pipeline(
             treatment=intake_treatment.value if intake_treatment else None,
         )
 
-        # ── Step 6: Persist scan to DB ───────────────────────────────────
+        # ── Step 7: Persist scan to DB ───────────────────────────────────
         scan = Scan(
             id=scan_id,
             operator_id=operator_id,
@@ -286,7 +309,7 @@ async def execute_scan_pipeline(
 
         await db.flush()
 
-        # ── Step 7: Broadcast completed ──────────────────────────────────
+        # ── Step 8: Broadcast completed ──────────────────────────────────
         scan_result = {
             "scan_id": scan_id_str,
             "cultivar": fused.cultivar,

@@ -114,6 +114,7 @@ async def health_check():
     """System health check endpoint."""
     from app.services.camera_manager import camera_manager
     from app.services.classification import banana_classifier
+    from app.services.banana_detector import banana_pre_detector
     from app.services.spoilage import spoilage_predictor
     from app.services.sensor_reader import sensor_reader
 
@@ -122,6 +123,7 @@ async def health_check():
         "version": "0.1.0",
         "cameras_online": len(camera_manager.online_cameras),
         "cameras_total": len(settings.camera_device_ids),
+        "banana_pre_detector_loaded": banana_pre_detector.is_loaded,
         "yolo_loaded": banana_classifier.is_loaded,
         "rfr_loaded": spoilage_predictor.is_loaded,
         "sensor_connected": sensor_reader.is_connected,

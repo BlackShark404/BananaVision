@@ -37,6 +37,7 @@ import random
 from datetime import timedelta
 from app.services.camera_manager import camera_manager
 from app.services.classification import banana_classifier
+from app.services.banana_detector import banana_pre_detector
 from app.services.spoilage import spoilage_predictor
 from app.services.sensor_reader import sensor_reader
 from app.ws.manager import ws_manager
@@ -77,6 +78,8 @@ async def run_startup():
 
     # ── Phase 3: ML Models ───────────────────────────────────────────────
     logger.info("[Phase 3] Loading ML models...")
+    banana_pre_detector.load()
+    banana_pre_detector.warmup()
     banana_classifier.load()
     banana_classifier.warmup()
     spoilage_predictor.load()
