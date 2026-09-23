@@ -201,51 +201,51 @@ export default function Kiosk() {
               <div className="space-y-4 pt-2">
                 <div className="flex flex-col items-center gap-2 py-2">
                   <p className="text-xs font-semibold text-muted-foreground uppercase">{newPinInput.length === 4 ? "Confirm New PIN" : "Create a new 4-digit PIN"}</p>
-                   <InputOTP
-                      maxLength={4}
-                      value={newPinInput.length === 4 ? confirmPinInput : newPinInput}
-                      onChange={async (val) => {
-                        if (newPinInput.length < 4) {
-                          setNewPinInput(val);
-                        } else {
-                          setConfirmPinInput(val);
-                          if (val.length === 4) {
-                            if (newPinInput === val) {
-                              const targetUser = activeOperators.find(o => o.id === swapTarget);
-                              if (!targetUser) return;
-                              
-                              const success = await changePinAndLogin(targetUser.username, val);
-                              
-                              if (success) {
-                                toast.success(`PIN updated and swapped to ${targetUser.fullName}`);
-                                setKioskOperator(targetUser.id);
-                                setShowSwapModal(false);
-                                setSwapTarget(null);
-                                setRequiresNewPin(false);
-                                setNewPinInput("");
-                                setConfirmPinInput("");
-                              } else {
-                                toast.error("Failed to update PIN. Try again.");
-                                setNewPinInput("");
-                                setConfirmPinInput("");
-                              }
+                  <InputOTP
+                    maxLength={4}
+                    value={newPinInput.length === 4 ? confirmPinInput : newPinInput}
+                    onChange={async (val) => {
+                      if (newPinInput.length < 4) {
+                        setNewPinInput(val);
+                      } else {
+                        setConfirmPinInput(val);
+                        if (val.length === 4) {
+                          if (newPinInput === val) {
+                            const targetUser = activeOperators.find(o => o.id === swapTarget);
+                            if (!targetUser) return;
+
+                            const success = await changePinAndLogin(targetUser.username, val);
+
+                            if (success) {
+                              toast.success(`PIN updated and swapped to ${targetUser.fullName}`);
+                              setKioskOperator(targetUser.id);
+                              setShowSwapModal(false);
+                              setSwapTarget(null);
+                              setRequiresNewPin(false);
+                              setNewPinInput("");
+                              setConfirmPinInput("");
                             } else {
-                              toast.error("PINs do not match. Try again.");
+                              toast.error("Failed to update PIN. Try again.");
                               setNewPinInput("");
                               setConfirmPinInput("");
                             }
+                          } else {
+                            toast.error("PINs do not match. Try again.");
+                            setNewPinInput("");
+                            setConfirmPinInput("");
                           }
                         }
-                      }}
-                      autoFocus
-                    >
-                      <InputOTPGroup className="gap-2">
-                        <InputOTPSlot index={0} className="w-12 h-14 text-2xl rounded-lg border-y border-x" />
-                        <InputOTPSlot index={1} className="w-12 h-14 text-2xl rounded-lg border-y border-x" />
-                        <InputOTPSlot index={2} className="w-12 h-14 text-2xl rounded-lg border-y border-x" />
-                        <InputOTPSlot index={3} className="w-12 h-14 text-2xl rounded-lg border-y border-x" />
-                      </InputOTPGroup>
-                    </InputOTP>
+                      }
+                    }}
+                    autoFocus
+                  >
+                    <InputOTPGroup className="gap-2">
+                      <InputOTPSlot index={0} className="w-12 h-14 text-2xl rounded-lg border-y border-x" />
+                      <InputOTPSlot index={1} className="w-12 h-14 text-2xl rounded-lg border-y border-x" />
+                      <InputOTPSlot index={2} className="w-12 h-14 text-2xl rounded-lg border-y border-x" />
+                      <InputOTPSlot index={3} className="w-12 h-14 text-2xl rounded-lg border-y border-x" />
+                    </InputOTPGroup>
+                  </InputOTP>
                 </div>
                 <Button variant="ghost" className="w-full text-muted-foreground h-10" onClick={() => { setSwapTarget(null); setPinInput(""); setRequiresNewPin(false); setNewPinInput(""); setConfirmPinInput(""); }}>
                   Cancel
@@ -359,7 +359,7 @@ export default function Kiosk() {
                 </button>
               ))}
             </div>
-            
+
             <div className="mt-4 p-4 rounded-xl bg-muted/50 border border-border flex items-center justify-between">
               <div className="flex flex-col">
                 <span className="text-sm font-semibold">Batch Tracking</span>
@@ -375,11 +375,10 @@ export default function Kiosk() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => setSelectedTreatment("Natural")}
-                  className={`p-3 rounded-xl border-2 text-center transition-all ${
-                    selectedTreatment === "Natural"
+                  className={`p-3 rounded-xl border-2 text-center transition-all ${selectedTreatment === "Natural"
                       ? "border-primary bg-primary/10 ring-1 ring-primary/30"
                       : "border-border hover:border-primary/40"
-                  }`}
+                    }`}
                 >
                   <span className="text-lg">🌿</span>
                   <p className="text-sm font-semibold mt-1">Natural</p>
@@ -387,11 +386,10 @@ export default function Kiosk() {
                 </button>
                 <button
                   onClick={() => setSelectedTreatment("Ethephon")}
-                  className={`p-3 rounded-xl border-2 text-center transition-all ${
-                    selectedTreatment === "Ethephon"
+                  className={`p-3 rounded-xl border-2 text-center transition-all ${selectedTreatment === "Ethephon"
                       ? "border-primary bg-primary/10 ring-1 ring-primary/30"
                       : "border-border hover:border-primary/40"
-                  }`}
+                    }`}
                 >
                   <span className="text-lg">🧪</span>
                   <p className="text-sm font-semibold mt-1">Ethephon</p>
@@ -402,9 +400,9 @@ export default function Kiosk() {
           </div>
 
           <div className="p-6 pt-4 shrink-0 border-t bg-background">
-            <Button 
-              className="w-full h-14 text-lg font-bold rounded-xl" 
-              size="lg" 
+            <Button
+              className="w-full h-14 text-lg font-bold rounded-xl"
+              size="lg"
               disabled={!selectedSupplierId}
               onClick={async () => {
                 if (!selectedSupplierId) return;
@@ -451,7 +449,7 @@ export default function Kiosk() {
           </div>
 
           {/* Operator - Clickable to Swap */}
-          <button 
+          <button
             className="flex items-center gap-2 lg:gap-3 p-1.5 pr-3 rounded-full hover:bg-accent transition-colors text-left"
             onClick={() => setShowSwapModal(true)}
             title="Swap Operator"
@@ -500,7 +498,7 @@ export default function Kiosk() {
           <Card className="shrink-0 lg:shrink h-50 sm:h-70 lg:flex-1 lg:h-auto bg-card border-border rounded-2xl overflow-hidden relative lg:min-h-50">
             <CardContent className="p-0 h-full flex flex-col relative">
               {/* Main Feed */}
-              <div className="flex-1 w-full flex items-center justify-center relative bg-black rounded-t-2xl overflow-hidden">
+              <div className="flex-1 w-full flex items-center justify-center relative bg-black rounded-2xl overflow-hidden">
                 {isScanning ? (
                   <div className="text-center space-y-4 animate-pulse z-10">
                     <div className="w-20 h-20 lg:w-24 lg:h-24 rounded-full bg-primary/20 flex items-center justify-center mx-auto border-2 border-primary/40">
@@ -516,9 +514,8 @@ export default function Kiosk() {
                         key={cam.id}
                         src={`${BASE_URL}/api/v1/cameras/preview/${idx}`}
                         alt={`Live Camera Feed - ${cam.label}`}
-                        className={`w-full h-full object-cover transition-opacity duration-500 z-0 absolute ${
-                          idx === activeCameraIndex ? 'opacity-90' : 'opacity-0 pointer-events-none'
-                        }`}
+                        className={`w-full h-full object-cover transition-opacity duration-500 z-0 absolute ${idx === activeCameraIndex ? 'opacity-90' : 'opacity-0 pointer-events-none'
+                          }`}
                         onError={(e) => {
                           if (idx === activeCameraIndex) {
                             e.currentTarget.style.display = 'none';
@@ -546,7 +543,7 @@ export default function Kiosk() {
                     )}
                   </>
                 )}
-                
+
                 {/* Fallback UI if camera stream fails */}
                 {!isScanning && cameras.length > 0 && (
                   <div data-camera-fallback className="text-center space-y-3 z-10 items-center justify-center flex-col" style={{ display: 'none' }}>
@@ -587,11 +584,10 @@ export default function Kiosk() {
                             className="w-2.5 h-2.5 rounded-full transition-all duration-300 hover:scale-125"
                             title={cameras[idx]?.label}
                           >
-                            <div className={`w-full h-full rounded-full transition-all duration-300 ${
-                              idx === activeCameraIndex
+                            <div className={`w-full h-full rounded-full transition-all duration-300 ${idx === activeCameraIndex
                                 ? 'bg-primary scale-110'
                                 : 'bg-muted-foreground/40 hover:bg-muted-foreground/60'
-                            }`} />
+                              }`} />
                           </button>
                         ))}
                       </div>
@@ -641,13 +637,12 @@ export default function Kiosk() {
                       { label: "Analyze", step: 3, icon: ScanLine },
                     ].map(({ label, step, icon: Icon }) => (
                       <div key={step} className="flex items-center gap-1.5">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
-                          scanStep > step
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${scanStep > step
                             ? "bg-emerald-500 text-white"
                             : scanStep === step
                               ? "bg-primary text-primary-foreground"
                               : "bg-muted text-muted-foreground"
-                        }`}>
+                          }`}>
                           {scanStep > step ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Icon className="w-3 h-3" />}
                         </div>
                         <span className={`text-[10px] ${scanStep >= step ? "text-foreground/80" : "text-muted-foreground"}`}>
@@ -664,15 +659,15 @@ export default function Kiosk() {
           {/* Camera Status Indicators — clickable to switch live view */}
           <div className={`grid gap-2 lg:gap-3 shrink-0 ${cameras.length > 4 ? 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6' : 'grid-cols-2 sm:grid-cols-4'}`}>
             {cameras.length === 0 ? (
-               <div className="col-span-full text-center text-muted-foreground text-xs py-4 border rounded-xl border-dashed">
-                 No cameras configured. Go to Settings to add cameras.
-               </div>
+              <div className="col-span-full text-center text-muted-foreground text-xs py-4 border rounded-xl border-dashed">
+                No cameras configured. Go to Settings to add cameras.
+              </div>
             ) : cameras.map((cam, idx) => {
               const isCapturing = isScanning && scanStep === 1 && activeCaptureCamera === cam.id
               const isCaptured = isScanning && scanStep === 1 && activeCaptureCamera > cam.id
               const isDoneCapture = isScanning && scanStep > 1
               const isActiveView = !isScanning && idx === activeCameraIndex
-              
+
               // Find the captured image for this camera from the last scan result
               const scanImage = !isScanning && lastResult?.images?.find(i => i.camera_id === String(cam.label) || i.camera_id === String(cam.id))?.file_path
 
@@ -680,15 +675,14 @@ export default function Kiosk() {
                 <button
                   key={cam.id}
                   onClick={() => { if (!isScanning) selectCamera(idx); }}
-                  className={`relative aspect-video rounded-xl border-2 transition-all duration-300 overflow-hidden flex items-center justify-center bg-card ${
-                    isCapturing
+                  className={`relative aspect-video rounded-xl border-2 transition-all duration-300 overflow-hidden flex items-center justify-center bg-card ${isCapturing
                       ? "border-primary shadow-lg shadow-primary/30 ring-2 ring-primary/20"
                       : isActiveView
                         ? "border-primary/60 ring-1 ring-primary/20 shadow-md shadow-primary/10"
                         : (isCaptured || isDoneCapture || scanImage)
                           ? "border-emerald-500/40"
                           : "border-border hover:border-primary/30 hover:shadow-sm"
-                  } ${!isScanning ? 'cursor-pointer active:scale-95' : ''}`}
+                    } ${!isScanning ? 'cursor-pointer active:scale-95' : ''}`}
                   disabled={isScanning}
                 >
                   {/* Camera content — prominent position number */}
@@ -701,24 +695,21 @@ export default function Kiosk() {
                       ) : (isCaptured || isDoneCapture) ? (
                         <CheckCircle2 className="w-5 h-5 lg:w-6 lg:h-6 text-emerald-500" />
                       ) : (
-                        <span className={`text-xs lg:text-sm font-bold transition-colors leading-tight ${
-                          isActiveView ? 'text-primary' : 'text-muted-foreground/30'
-                        }`}>{cam.angle}</span>
+                        <span className={`text-xs lg:text-sm font-bold transition-colors leading-tight ${isActiveView ? 'text-primary' : 'text-muted-foreground/30'
+                          }`}>{cam.angle}</span>
                       )}
                     </div>
                   )}
 
                   {/* Label */}
                   <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between">
-                    <span className={`text-[9px] lg:text-[10px] font-medium transition-colors ${
-                      isActiveView ? 'text-primary' : 'text-muted-foreground'
-                    }`}>{cam.label}</span>
-                    <div className={`w-1.5 h-1.5 rounded-full ${
-                      isCapturing ? "bg-red-500 animate-pulse" 
+                    <span className={`text-[9px] lg:text-[10px] font-medium transition-colors ${isActiveView ? 'text-primary' : 'text-muted-foreground'
+                      }`}>{cam.label}</span>
+                    <div className={`w-1.5 h-1.5 rounded-full ${isCapturing ? "bg-red-500 animate-pulse"
                         : isActiveView ? "bg-primary animate-pulse"
-                        : (isCaptured || isDoneCapture) ? "bg-emerald-500" 
-                        : "bg-emerald-500/50"
-                    }`} />
+                          : (isCaptured || isDoneCapture) ? "bg-emerald-500"
+                            : "bg-emerald-500/50"
+                      }`} />
                   </div>
 
                   {/* Active view indicator with position number */}
@@ -878,7 +869,7 @@ export default function Kiosk() {
 
                 {/* Action Buttons — Accept / Reject only */}
                 <div className="flex gap-3 pt-2">
-                  <Button 
+                  <Button
                     size="lg"
                     disabled={lastResult.id === scanAction?.id}
                     className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white gap-2 font-bold h-12 lg:h-14 text-sm lg:text-base"
@@ -892,7 +883,7 @@ export default function Kiosk() {
                     <CheckCircle2 className="w-4 h-4 lg:w-5 lg:h-5" />
                     {lastResult.id === scanAction?.id && scanAction?.action === 'accepted' ? "Accepted" : "Accept"}
                   </Button>
-                  <Button 
+                  <Button
                     size="lg"
                     variant="outline"
                     disabled={lastResult.id === scanAction?.id}
@@ -940,11 +931,10 @@ export default function Kiosk() {
                     style={{ animationDelay: `${i * 40}ms` }}
                   >
                     <CardContent className="p-3 flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 ${
-                        scan.ripeness === "Unripe" ? "bg-emerald-500/20" :
-                        scan.ripeness === "Ripe" ? "bg-yellow-500/20" :
-                        scan.ripeness === "Overripe" ? "bg-red-500/20" : "bg-violet-500/20"
-                      }`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 ${scan.ripeness === "Unripe" ? "bg-emerald-500/20" :
+                          scan.ripeness === "Ripe" ? "bg-yellow-500/20" :
+                            scan.ripeness === "Overripe" ? "bg-red-500/20" : "bg-violet-500/20"
+                        }`}>
                         {ripenessIcon[scan.ripeness]}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -957,9 +947,9 @@ export default function Kiosk() {
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                      <div className="flex flex-col items-end">
-                        <p className="text-sm font-bold text-rose-500">{scan.spoilageDays} days</p>
-                      </div>
+                        <div className="flex flex-col items-end">
+                          <p className="text-sm font-bold text-rose-500">{scan.spoilageDays} days</p>
+                        </div>
                         <p className="text-xs text-muted-foreground mt-0.5">{scan.fingerCount} fingers</p>
                       </div>
                     </CardContent>
