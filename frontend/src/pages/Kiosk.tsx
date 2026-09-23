@@ -508,30 +508,25 @@ export default function Kiosk() {
                   </div>
                 ) : (
                   <>
-                    {/* Render all camera feeds, only show the active one */}
-                    {cameras.map((cam, idx) => (
+                    {/* Render only the active camera feed to save bandwidth */}
+                    {cameras.length > 0 && (
                       <img
-                        key={cam.id}
-                        src={`${BASE_URL}/api/v1/cameras/preview/${idx}`}
-                        alt={`Live Camera Feed - ${cam.label}`}
-                        className={`w-full h-full object-cover transition-opacity duration-500 z-0 absolute ${idx === activeCameraIndex ? 'opacity-90' : 'opacity-0 pointer-events-none'
-                          }`}
+                        key={`cam-feed-${activeCameraIndex}`}
+                        src={`${BASE_URL}/api/v1/cameras/preview/${activeCameraIndex}`}
+                        alt={`Live Camera Feed - ${cameras[activeCameraIndex]?.label}`}
+                        className="w-full h-full object-cover opacity-90 z-0 absolute animate-fade-in"
                         onError={(e) => {
-                          if (idx === activeCameraIndex) {
-                            e.currentTarget.style.display = 'none';
-                            const fallback = e.currentTarget.parentElement?.querySelector('[data-camera-fallback]');
-                            if (fallback) (fallback as HTMLElement).style.display = 'flex';
-                          }
+                          e.currentTarget.style.display = 'none';
+                          const fallback = e.currentTarget.parentElement?.querySelector('[data-camera-fallback]');
+                          if (fallback) (fallback as HTMLElement).style.display = 'flex';
                         }}
                         onLoad={(e) => {
-                          if (idx === activeCameraIndex) {
-                            e.currentTarget.style.display = '';
-                            const fallback = e.currentTarget.parentElement?.querySelector('[data-camera-fallback]');
-                            if (fallback) (fallback as HTMLElement).style.display = 'none';
-                          }
+                          e.currentTarget.style.display = '';
+                          const fallback = e.currentTarget.parentElement?.querySelector('[data-camera-fallback]');
+                          if (fallback) (fallback as HTMLElement).style.display = 'none';
                         }}
                       />
-                    ))}
+                    )}
                     {/* Fallback for when no cameras or stream fails */}
                     {cameras.length === 0 && (
                       <div className="text-center space-y-3 z-10 flex flex-col items-center justify-center">
