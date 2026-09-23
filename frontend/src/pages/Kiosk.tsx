@@ -611,8 +611,9 @@ export default function Kiosk() {
                 {/* Camera counter — top right */}
                 {!isScanning && cameras.length > 1 && (
                   <div className="absolute top-3 right-3 z-20">
-                    <Badge variant="outline" className="bg-background/80 backdrop-blur-sm border-border text-xs gap-1 py-1 font-mono">
-                      {activeCameraIndex + 1} / {cameras.length}
+                    <Badge variant="outline" className="bg-background/80 backdrop-blur-sm border-border text-xs gap-1.5 py-1">
+                      <Camera className="w-3 h-3" />
+                      {cameras[activeCameraIndex]?.angle}
                     </Badge>
                   </div>
                 )}
