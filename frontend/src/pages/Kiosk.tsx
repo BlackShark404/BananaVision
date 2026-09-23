@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/context/AuthContext"
 import { useScans } from "@/context/ScanContext"
 import { useInventory } from "@/context/InventoryContext"
@@ -27,6 +27,8 @@ import {
   Package,
   Clock,
   Flag,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import { toast } from "sonner"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
@@ -84,11 +86,39 @@ export default function Kiosk() {
   const [confirmPinInput, setConfirmPinInput] = useState("")
   const [scanAction, setScanAction] = useState<{ id: string, action: 'accepted' | 'flagged' } | null>(null)
 
+  // Angle labels for each camera position (expandable for more cameras)
+  const cameraAngles = ["Front", "Left", "Right", "Top", "Rear", "Bottom"]
+
   // Generate cameras dynamically from database configuration
   const cameras = config.cameraIds.split(",").map(s => s.trim()).filter(Boolean).map((id, index) => ({
     id: index + 1,
     label: id,
+    angle: cameraAngles[index] || `Angle ${index + 1}`,
   }))
+
+  // --- Live webcam switch state ---
+  const [activeCameraIndex, setActiveCameraIndex] = useState(0)
+
+  const goToNextCamera = useCallback(() => {
+    if (cameras.length === 0) return
+    setActiveCameraIndex(prev => (prev + 1) % cameras.length)
+  }, [cameras.length])
+
+  const goToPrevCamera = useCallback(() => {
+    if (cameras.length === 0) return
+    setActiveCameraIndex(prev => (prev - 1 + cameras.length) % cameras.length)
+  }, [cameras.length])
+
+  const selectCamera = useCallback((index: number) => {
+    setActiveCameraIndex(index)
+  }, [])
+
+  // Clamp activeCameraIndex if cameras change
+  useEffect(() => {
+    if (cameras.length > 0 && activeCameraIndex >= cameras.length) {
+      setActiveCameraIndex(0)
+    }
+  }, [cameras.length, activeCameraIndex])
 
   // Determine which camera is actively capturing during scan step 1
   const activeCaptureCamera = isScanning && scanStep === 1
@@ -479,41 +509,113 @@ export default function Kiosk() {
                     <p className="text-white text-sm lg:text-base font-medium drop-shadow-md">{scanState.scanStepLabel}</p>
                   </div>
                 ) : (
-                  <img
-                    src={`${BASE_URL}/api/v1/cameras/preview/0`}
-                    alt="Live Camera Feed"
-                    className="w-full h-full object-cover opacity-90 transition-opacity duration-300 z-0 absolute"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.parentElement?.classList.remove('bg-black');
-                      // Target the fallback div directly or just rely on CSS
-                      const fallback = e.currentTarget.nextElementSibling;
-                      if (fallback) (fallback as HTMLElement).style.display = 'block';
-                    }}
-                    onLoad={(e) => {
-                      const fallback = e.currentTarget.nextElementSibling;
-                      if (fallback) (fallback as HTMLElement).style.display = 'none';
-                    }}
-                  />
+                  <>
+                    {/* Render all camera feeds, only show the active one */}
+                    {cameras.map((cam, idx) => (
+                      <img
+                        key={cam.id}
+                        src={`${BASE_URL}/api/v1/cameras/preview/${idx}`}
+                        alt={`Live Camera Feed - ${cam.label}`}
+                        className={`w-full h-full object-cover transition-opacity duration-500 z-0 absolute ${
+                          idx === activeCameraIndex ? 'opacity-90' : 'opacity-0 pointer-events-none'
+                        }`}
+                        onError={(e) => {
+                          if (idx === activeCameraIndex) {
+                            e.currentTarget.style.display = 'none';
+                            const fallback = e.currentTarget.parentElement?.querySelector('[data-camera-fallback]');
+                            if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                          }
+                        }}
+                        onLoad={(e) => {
+                          if (idx === activeCameraIndex) {
+                            e.currentTarget.style.display = '';
+                            const fallback = e.currentTarget.parentElement?.querySelector('[data-camera-fallback]');
+                            if (fallback) (fallback as HTMLElement).style.display = 'none';
+                          }
+                        }}
+                      />
+                    ))}
+                    {/* Fallback for when no cameras or stream fails */}
+                    {cameras.length === 0 && (
+                      <div className="text-center space-y-3 z-10 flex flex-col items-center justify-center">
+                        <div className="w-20 h-20 lg:w-24 lg:h-24 rounded-full bg-muted flex items-center justify-center mx-auto border-2 border-border shadow-sm">
+                          <Camera className="w-10 h-10 lg:w-12 lg:h-12 text-muted-foreground/50" />
+                        </div>
+                        <p className="text-muted-foreground/70 text-sm">No cameras configured</p>
+                      </div>
+                    )}
+                  </>
                 )}
                 
-                {/* Fallback UI if camera stream fails or isn't scanning */}
-                {!isScanning && (
-                  <div className="text-center space-y-3 z-10" style={{ display: 'none' }}>
+                {/* Fallback UI if camera stream fails */}
+                {!isScanning && cameras.length > 0 && (
+                  <div data-camera-fallback className="text-center space-y-3 z-10 items-center justify-center flex-col" style={{ display: 'none' }}>
                     <div className="w-20 h-20 lg:w-24 lg:h-24 rounded-full bg-muted flex items-center justify-center mx-auto border-2 border-border shadow-sm">
                       <Camera className="w-10 h-10 lg:w-12 lg:h-12 text-muted-foreground/50" />
                     </div>
-                    <p className="text-muted-foreground/70 text-sm">Multi-camera feed — Standby</p>
+                    <p className="text-muted-foreground/70 text-sm">Camera offline</p>
                   </div>
                 )}
 
-                {/* Camera label overlay */}
-                <div className="absolute top-3 left-3">
+                {/* Camera label overlay — top left */}
+                <div className="absolute top-3 left-3 flex items-center gap-2 z-20">
                   <Badge variant="outline" className="bg-background/80 backdrop-blur-sm border-border text-xs gap-1.5 py-1">
                     <div className={`w-2 h-2 rounded-full ${isScanning ? "bg-red-500 animate-pulse" : "bg-emerald-500"}`} />
-                    {isScanning ? "CAPTURING" : "STANDBY"}
+                    {isScanning ? "CAPTURING" : cameras.length > 0 ? cameras[activeCameraIndex]?.label : "NO CAM"}
                   </Badge>
                 </div>
+
+                {/* Camera cycling controls — bottom overlay */}
+                {!isScanning && cameras.length > 1 && (
+                  <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-2 z-20">
+                    <div className="flex items-center gap-1.5 bg-background/70 backdrop-blur-md rounded-full px-2 py-1.5 border border-border/50 shadow-lg">
+                      {/* Prev button */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); goToPrevCamera(); }}
+                        className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                        title="Previous camera"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+
+                      {/* Camera dots */}
+                      <div className="flex items-center gap-1.5 px-1">
+                        {cameras.map((_, idx) => (
+                          <button
+                            key={idx}
+                            onClick={(e) => { e.stopPropagation(); selectCamera(idx); }}
+                            className="w-2.5 h-2.5 rounded-full transition-all duration-300 hover:scale-125"
+                            title={cameras[idx]?.label}
+                          >
+                            <div className={`w-full h-full rounded-full transition-all duration-300 ${
+                              idx === activeCameraIndex
+                                ? 'bg-primary scale-110'
+                                : 'bg-muted-foreground/40 hover:bg-muted-foreground/60'
+                            }`} />
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Next button */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); goToNextCamera(); }}
+                        className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                        title="Next camera"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Camera counter — top right */}
+                {!isScanning && cameras.length > 1 && (
+                  <div className="absolute top-3 right-3 z-20">
+                    <Badge variant="outline" className="bg-background/80 backdrop-blur-sm border-border text-xs gap-1 py-1 font-mono">
+                      {activeCameraIndex + 1} / {cameras.length}
+                    </Badge>
+                  </div>
+                )}
               </div>
 
               {/* Scan Progress Bar (inline) */}
@@ -558,59 +660,80 @@ export default function Kiosk() {
             </CardContent>
           </Card>
 
-          {/* Camera Status Indicators (view-only) */}
+          {/* Camera Status Indicators — clickable to switch live view */}
           <div className={`grid gap-2 lg:gap-3 shrink-0 ${cameras.length > 4 ? 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6' : 'grid-cols-2 sm:grid-cols-4'}`}>
             {cameras.length === 0 ? (
                <div className="col-span-full text-center text-muted-foreground text-xs py-4 border rounded-xl border-dashed">
                  No cameras configured. Go to Settings to add cameras.
                </div>
-            ) : cameras.map((cam) => {
+            ) : cameras.map((cam, idx) => {
               const isCapturing = isScanning && scanStep === 1 && activeCaptureCamera === cam.id
               const isCaptured = isScanning && scanStep === 1 && activeCaptureCamera > cam.id
               const isDoneCapture = isScanning && scanStep > 1
+              const isActiveView = !isScanning && idx === activeCameraIndex
               
               // Find the captured image for this camera from the last scan result
               const scanImage = !isScanning && lastResult?.images?.find(i => i.camera_id === String(cam.label) || i.camera_id === String(cam.id))?.file_path
 
               return (
-                <div
+                <button
                   key={cam.id}
+                  onClick={() => { if (!isScanning) selectCamera(idx); }}
                   className={`relative aspect-video rounded-xl border-2 transition-all duration-300 overflow-hidden flex items-center justify-center bg-card ${
                     isCapturing
                       ? "border-primary shadow-lg shadow-primary/30 ring-2 ring-primary/20"
-                      : (isCaptured || isDoneCapture || scanImage)
-                        ? "border-emerald-500/40"
-                        : "border-border"
-                  }`}
+                      : isActiveView
+                        ? "border-primary/60 ring-1 ring-primary/20 shadow-md shadow-primary/10"
+                        : (isCaptured || isDoneCapture || scanImage)
+                          ? "border-emerald-500/40"
+                          : "border-border hover:border-primary/30 hover:shadow-sm"
+                  } ${!isScanning ? 'cursor-pointer active:scale-95' : ''}`}
+                  disabled={isScanning}
                 >
-                  {/* Camera content */}
+                  {/* Camera content — prominent position number */}
                   {scanImage ? (
                     <img src={scanImage} alt={cam.label} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="text-center space-y-1">
+                    <div className="text-center flex flex-col items-center justify-center">
                       {isCapturing ? (
-                        <Loader2 className="w-5 h-5 lg:w-6 lg:h-6 text-primary animate-spin mx-auto" />
+                        <Loader2 className="w-5 h-5 lg:w-6 lg:h-6 text-primary animate-spin" />
                       ) : (isCaptured || isDoneCapture) ? (
-                        <CheckCircle2 className="w-5 h-5 lg:w-6 lg:h-6 text-emerald-500 mx-auto" />
+                        <CheckCircle2 className="w-5 h-5 lg:w-6 lg:h-6 text-emerald-500" />
                       ) : (
-                        <Camera className="w-5 h-5 lg:w-6 lg:h-6 text-muted-foreground/40 mx-auto" />
+                        <span className={`text-xs lg:text-sm font-bold transition-colors leading-tight ${
+                          isActiveView ? 'text-primary' : 'text-muted-foreground/30'
+                        }`}>{cam.angle}</span>
                       )}
                     </div>
                   )}
 
                   {/* Label */}
                   <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between">
-                    <span className="text-[9px] lg:text-[10px] text-muted-foreground font-medium">{cam.label}</span>
+                    <span className={`text-[9px] lg:text-[10px] font-medium transition-colors ${
+                      isActiveView ? 'text-primary' : 'text-muted-foreground'
+                    }`}>{cam.label}</span>
                     <div className={`w-1.5 h-1.5 rounded-full ${
-                      isCapturing ? "bg-red-500 animate-pulse" : (isCaptured || isDoneCapture) ? "bg-emerald-500" : "bg-emerald-500/50"
+                      isCapturing ? "bg-red-500 animate-pulse" 
+                        : isActiveView ? "bg-primary animate-pulse"
+                        : (isCaptured || isDoneCapture) ? "bg-emerald-500" 
+                        : "bg-emerald-500/50"
                     }`} />
                   </div>
+
+                  {/* Active view indicator with position number */}
+                  {isActiveView && (
+                    <div className="absolute top-1 right-1">
+                      <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center">
+                        <Camera className="w-2.5 h-2.5 text-primary" />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Capturing pulse ring */}
                   {isCapturing && (
                     <div className="absolute inset-0 rounded-[10px] border-2 border-primary animate-ping opacity-20 pointer-events-none" />
                   )}
-                </div>
+                </button>
               )
             })}
           </div>
