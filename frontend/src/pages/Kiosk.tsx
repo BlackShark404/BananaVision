@@ -562,47 +562,7 @@ export default function Kiosk() {
                   </Badge>
                 </div>
 
-                {/* Camera cycling controls — bottom overlay */}
-                {!isScanning && cameras.length > 1 && (
-                  <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-2 z-20">
-                    <div className="flex items-center gap-1.5 bg-background/70 backdrop-blur-md rounded-full px-2 py-1.5 border border-border/50 shadow-lg">
-                      {/* Prev button */}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); goToPrevCamera(); }}
-                        className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-                        title="Previous camera"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
 
-                      {/* Camera dots */}
-                      <div className="flex items-center gap-1.5 px-1">
-                        {cameras.map((_, idx) => (
-                          <button
-                            key={idx}
-                            onClick={(e) => { e.stopPropagation(); selectCamera(idx); }}
-                            className="w-2.5 h-2.5 rounded-full transition-all duration-300 hover:scale-125"
-                            title={cameras[idx]?.label}
-                          >
-                            <div className={`w-full h-full rounded-full transition-all duration-300 ${idx === activeCameraIndex
-                                ? 'bg-primary scale-110'
-                                : 'bg-muted-foreground/40 hover:bg-muted-foreground/60'
-                              }`} />
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Next button */}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); goToNextCamera(); }}
-                        className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-                        title="Next camera"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                )}
 
                 {/* Camera counter — top right */}
                 {!isScanning && cameras.length > 1 && (
