@@ -11,6 +11,12 @@ import type { ScanResult, ScanNote, InventoryStatus } from "@/types"
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
+export interface SensorData {
+  temperature: number
+  humidity: number
+  recordedAt: string
+}
+
 interface ScanState {
   isScanning: boolean
   scanStep: number
@@ -22,6 +28,7 @@ interface ScanState {
 interface ScanContextType {
   scans: ScanResult[]
   scanState: ScanState
+  latestSensor: SensorData | null
   startScan: (source?: string, intakeId?: string) => void
   flagScan: (id: string, flagged: boolean) => void
   addScanNote: (scanId: string, note: string) => void
@@ -74,6 +81,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
 
   const [scans, setScans] = useState<ScanResult[]>([])
   const [scanNotes, setScanNotes] = useState<ScanNote[]>([])
+  const [latestSensor, setLatestSensor] = useState<SensorData | null>(null)
   const [scanState, setScanState] = useState<ScanState>({
     isScanning: false,
     scanStep: 0,
@@ -142,14 +150,18 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
 
       case "scan:completed": {
         const result = data.result || data
+        // Use sensor values from the scan result, falling back to the latest
+        // live sensor reading when the scan pipeline returned null.
+        const capturedTemp = result.temperature ?? latestSensor?.temperature ?? undefined
+        const capturedHum = result.humidity ?? latestSensor?.humidity ?? undefined
         const scanResult: ScanResult = {
           id: result.id || result.scan_id,
           dateTime: result.scanned_at || result.dateTime || new Date().toISOString(),
           cultivar: result.cultivar,
           ripeness: result.ripeness,
           confidence: result.confidence,
-          temperature: result.temperature,
-          humidity: result.humidity,
+          temperature: capturedTemp,
+          humidity: capturedHum,
           dewPoint: result.dew_point ?? result.dewPoint,
           vpd: result.vpd,
           heatIndex: result.heat_index ?? result.heatIndex,
@@ -178,14 +190,20 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
         break
 
       case "sensor:update":
-        // Could update a sensor state atom here if needed
+        if (data.temperature != null && data.humidity != null) {
+          setLatestSensor({
+            temperature: data.temperature,
+            humidity: data.humidity,
+            recordedAt: data.recorded_at || new Date().toISOString(),
+          })
+        }
         break
 
       case "device:status":
         updateDeviceFromWs(data.camera_id, data.status, data.last_seen)
         break
     }
-  }, [user, updateDeviceFromWs])
+  }, [user, updateDeviceFromWs, latestSensor])
 
   useWebSocket({
     rooms: ["kiosk", "dashboard", "devices"],
@@ -288,6 +306,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
     <ScanContext value={{
       scans,
       scanState,
+      latestSensor,
       startScan,
       flagScan,
       addScanNote,

@@ -44,7 +44,7 @@ const ripenessIcon: Record<string, string> = {
 
 export default function Kiosk() {
   const { user, switchOperator, changePinAndLogin } = useAuth()
-  const { scanState, startScan, scans, flagScan } = useScans()
+  const { scanState, startScan, scans, flagScan, latestSensor } = useScans()
   const { suppliers, activeIntake, startIntake } = useInventory()
   const { users, config } = useAdmin()
   const { isScanning, scanStep, scanProgress, lastResult } = scanState
@@ -786,18 +786,18 @@ export default function Kiosk() {
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Fingers</p>
                     <p className="text-lg font-bold">{lastResult.fingerCount}</p>
                   </div>
-                  {lastResult.temperature !== undefined && (
+                  {(lastResult.temperature ?? latestSensor?.temperature) != null && (
                     <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
                       <p className="text-xl mx-auto mb-1">🌡️</p>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Temp</p>
-                      <p className="text-lg font-bold">{lastResult.temperature}°C</p>
+                      <p className="text-lg font-bold">{lastResult.temperature ?? latestSensor?.temperature}°C</p>
                     </div>
                   )}
-                  {lastResult.humidity !== undefined && (
+                  {(lastResult.humidity ?? latestSensor?.humidity) != null && (
                     <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
                       <p className="text-xl mx-auto mb-1">💧</p>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Humidity</p>
-                      <p className="text-lg font-bold">{lastResult.humidity}%</p>
+                      <p className="text-lg font-bold">{lastResult.humidity ?? latestSensor?.humidity}%</p>
                     </div>
                   )}
                   {lastResult.dewPoint !== undefined && lastResult.dewPoint !== null && (
