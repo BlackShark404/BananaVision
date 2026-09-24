@@ -25,7 +25,7 @@ from app.services.classification import banana_classifier
 from app.services.banana_detector import banana_pre_detector
 from app.services.fusion_engine import fusion_engine
 from app.services.spoilage import spoilage_predictor
-from app.services.feature_engineering import calc_vpd
+from app.services.feature_engineering import calc_dew_point, calc_vpd, calc_heat_index
 from app.models.intake import Intake
 from app.services.sensor_reader import sensor_reader
 from app.ws.manager import ws_manager
@@ -190,9 +190,13 @@ async def execute_scan_pipeline(
         humidity = sensor_data.humidity if sensor_data else None
 
         # Compute engineered chemical features
+        dew_point = None
         vpd = None
+        heat_index = None
         if temperature is not None and humidity is not None:
+            dew_point = calc_dew_point(temperature, humidity)
             vpd = calc_vpd(temperature, humidity)
+            heat_index = calc_heat_index(temperature, humidity)
 
         # Get treatment from linked intake
         intake_treatment = None
@@ -209,9 +213,9 @@ async def execute_scan_pipeline(
             ripeness=fused.ripeness,
             temperature=temperature,
             humidity=humidity,
-            dew_point=None,
+            dew_point=dew_point,
             vpd=vpd,
-            heat_index=None,
+            heat_index=heat_index,
             treatment=intake_treatment.value if intake_treatment else None,
         )
 
@@ -235,9 +239,9 @@ async def execute_scan_pipeline(
             spoilage_days=spoilage_days,
             finger_count=fused.finger_count,
             thumbnail_url=captures[0].file_path if captures else None,
-            dew_point=None,
+            dew_point=dew_point,
             vpd=vpd,
-            heat_index=None,
+            heat_index=heat_index,
             treatment=intake_treatment,
         )
 
@@ -313,9 +317,9 @@ async def execute_scan_pipeline(
             "finger_count": fused.finger_count,
             "temperature": temperature,
             "humidity": humidity,
-            "dew_point": None,
+            "dew_point": dew_point,
             "vpd": vpd,
-            "heat_index": None,
+            "heat_index": heat_index,
             "treatment": intake_treatment.value if intake_treatment else None,
             "spoilage_days": spoilage_days,
             "operator": operator_name,

@@ -20,7 +20,7 @@ import numpy as np
 from app.config import get_settings
 from app.core.exceptions import ModelInferenceError
 from app.schemas.enums import CultivarEnum, RipenessEnum, TreatmentEnum
-from app.services.feature_engineering import calc_vpd
+from app.services.feature_engineering import calc_dew_point, calc_vpd, calc_heat_index
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -32,7 +32,7 @@ TREATMENT_MAP = {TreatmentEnum.NATURAL.value: 0, TreatmentEnum.ETHEPHON.value: 1
 
 # Number of features for each mode
 LEGACY_FEATURE_COUNT = 4    # [cultivar, ripeness, temp, humidity]
-ENHANCED_FEATURE_COUNT = 6  # ripeness, vpd, temp, hum, treatment, cultivar
+ENHANCED_FEATURE_COUNT = 8  # + [dew_point, vpd, heat_index, treatment]
 
 
 class SpoilagePredictor:
@@ -42,9 +42,9 @@ class SpoilagePredictor:
     Legacy features (4):
         [cultivar_encoded, ripeness_encoded, temperature, humidity]
 
-    Enhanced features (6):
-        [ripeness_encoded, vpd, temperature, humidity,
-         treatment_encoded, cultivar_encoded]
+    Enhanced features (8):
+        [cultivar_encoded, ripeness_encoded, temperature, humidity,
+         dew_point, vpd, heat_index, treatment_encoded]
 
     The model's expected feature count is auto-detected on load via
     ``model.n_features_in_``, so both legacy and enhanced models work
@@ -109,7 +109,9 @@ class SpoilagePredictor:
         ripeness: str,
         temperature: float | None = None,
         humidity: float | None = None,
+        dew_point: float | None = None,
         vpd: float | None = None,
+        heat_index: float | None = None,
         treatment: str | None = None,
     ) -> str:
         """
@@ -128,7 +130,9 @@ class SpoilagePredictor:
         if self._model is not None:
             return self._model_predict(
                 cultivar, ripeness, temp, hum,
+                dew_point=dew_point,
                 vpd=vpd,
+                heat_index=heat_index,
                 treatment=treatment,
             )
         else:
@@ -140,7 +144,9 @@ class SpoilagePredictor:
         ripeness: str,
         temperature: float,
         humidity: float,
+        dew_point: float | None = None,
         vpd: float | None = None,
+        heat_index: float | None = None,
         treatment: str | None = None,
     ) -> str:
         """Use the loaded RFR model for prediction."""
@@ -150,11 +156,14 @@ class SpoilagePredictor:
 
             if self.uses_enhanced_features:
                 # Compute chemical features if not provided
+                dp = dew_point if dew_point is not None else calc_dew_point(temperature, humidity)
                 v = vpd if vpd is not None else calc_vpd(temperature, humidity)
+                hi = heat_index if heat_index is not None else calc_heat_index(temperature, humidity)
                 treat_enc = TREATMENT_MAP.get(treatment, 0) if treatment else 0
 
                 features = np.array([[
-                    ripeness_enc, v, temperature, humidity, treat_enc, cultivar_enc
+                    cultivar_enc, ripeness_enc, temperature, humidity,
+                    dp, v, hi, treat_enc,
                 ]])
             else:
                 # Legacy 4-feature model
