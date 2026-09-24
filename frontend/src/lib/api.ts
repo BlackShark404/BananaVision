@@ -143,6 +143,11 @@ export const api = {
     },
   },
 
+  // ── Cameras ─────────────────────────────────────────────────────────────
+  cameras: {
+    list: () => get<{ device_id: number; label: string; online: boolean }[]>("/api/v1/cameras"),
+  },
+
   // ── Devices ──────────────────────────────────────────────────────────────
   devices: {
     list: () => get<any[]>("/api/v1/devices"),

@@ -5,10 +5,29 @@ import cv2
 import logging
 
 from app.services.camera_manager import camera_manager
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 router = APIRouter(prefix="/cameras", tags=["Cameras"])
+
+
+@router.get("")
+async def list_cameras():
+    """
+    List all configured cameras with their device IDs and online status.
+    No auth required — used by the kiosk to map cameras to preview streams.
+    """
+    result = []
+    for idx, dev_id in enumerate(settings.camera_device_ids):
+        label = settings.camera_labels[idx] if idx < len(settings.camera_labels) else f"CAM-{dev_id}"
+        result.append({
+            "device_id": dev_id,
+            "label": label,
+            "online": dev_id in camera_manager.online_cameras,
+        })
+    return result
 
 async def generate_frames(camera_index: int, fps: int = 15):
     """

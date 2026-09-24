@@ -86,15 +86,33 @@ export default function Kiosk() {
   const [confirmPinInput, setConfirmPinInput] = useState("")
   const [scanAction, setScanAction] = useState<{ id: string, action: 'accepted' | 'flagged' } | null>(null)
 
+  // Backend camera list with actual device IDs (excludes laptop camera)
+  const [backendCameras, setBackendCameras] = useState<{ device_id: number; label: string; online: boolean }[]>([])
+
+  // Fetch camera list from backend on mount to get actual device IDs
+  useEffect(() => {
+    api.cameras.list()
+      .then(setBackendCameras)
+      .catch((err) => console.warn("[Kiosk] Failed to fetch cameras", err))
+  }, [])
+
   // Angle labels for each camera position (expandable for more cameras)
   const cameraAngles = ["Front", "Left", "Right", "Top", "Rear", "Bottom"]
 
-  // Generate cameras dynamically from database configuration
-  const cameras = config.cameraIds.split(",").map(s => s.trim()).filter(Boolean).map((id, index) => ({
-    id: index + 1,
-    label: id,
-    angle: cameraAngles[index] || `Angle ${index + 1}`,
-  }))
+  // Generate cameras from backend device list (preferred) or fall back to config labels
+  const cameras = backendCameras.length > 0
+    ? backendCameras.map((cam, index) => ({
+      id: index + 1,
+      deviceId: cam.device_id,
+      label: cam.label,
+      angle: cameraAngles[index] || `Angle ${index + 1}`,
+    }))
+    : config.cameraIds.split(",").map(s => s.trim()).filter(Boolean).map((id, index) => ({
+      id: index + 1,
+      deviceId: index,
+      label: id,
+      angle: cameraAngles[index] || `Angle ${index + 1}`,
+    }))
 
   // --- Live webcam switch state ---
   const [activeCameraIndex, setActiveCameraIndex] = useState(0)
@@ -376,8 +394,8 @@ export default function Kiosk() {
                 <button
                   onClick={() => setSelectedTreatment("Natural")}
                   className={`p-3 rounded-xl border-2 text-center transition-all ${selectedTreatment === "Natural"
-                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                      : "border-border hover:border-primary/40"
+                    ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                    : "border-border hover:border-primary/40"
                     }`}
                 >
                   <span className="text-lg">🌿</span>
@@ -387,8 +405,8 @@ export default function Kiosk() {
                 <button
                   onClick={() => setSelectedTreatment("Ethephon")}
                   className={`p-3 rounded-xl border-2 text-center transition-all ${selectedTreatment === "Ethephon"
-                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                      : "border-border hover:border-primary/40"
+                    ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                    : "border-border hover:border-primary/40"
                     }`}
                 >
                   <span className="text-lg">🧪</span>
@@ -512,7 +530,7 @@ export default function Kiosk() {
                     {cameras.length > 0 && (
                       <img
                         key={`cam-feed-${activeCameraIndex}`}
-                        src={`${BASE_URL}/api/v1/cameras/preview/${activeCameraIndex}`}
+                        src={`${BASE_URL}/api/v1/cameras/preview/${cameras[activeCameraIndex]?.deviceId ?? activeCameraIndex}`}
                         alt={`Live Camera Feed - ${cameras[activeCameraIndex]?.label}`}
                         className="w-full h-full object-cover opacity-90 z-0 absolute animate-fade-in"
                         onError={(e) => {
@@ -593,10 +611,10 @@ export default function Kiosk() {
                     ].map(({ label, step, icon: Icon }) => (
                       <div key={step} className="flex items-center gap-1.5">
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${scanStep > step
-                            ? "bg-emerald-500 text-white"
-                            : scanStep === step
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted text-muted-foreground"
+                          ? "bg-emerald-500 text-white"
+                          : scanStep === step
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground"
                           }`}>
                           {scanStep > step ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Icon className="w-3 h-3" />}
                         </div>
@@ -631,12 +649,12 @@ export default function Kiosk() {
                   key={cam.id}
                   onClick={() => { if (!isScanning) selectCamera(idx); }}
                   className={`relative aspect-video rounded-xl border-2 transition-all duration-300 overflow-hidden flex items-center justify-center bg-card ${isCapturing
-                      ? "border-primary shadow-lg shadow-primary/30 ring-2 ring-primary/20"
-                      : isActiveView
-                        ? "border-primary/60 ring-1 ring-primary/20 shadow-md shadow-primary/10"
-                        : (isCaptured || isDoneCapture || scanImage)
-                          ? "border-emerald-500/40"
-                          : "border-border hover:border-primary/30 hover:shadow-sm"
+                    ? "border-primary shadow-lg shadow-primary/30 ring-2 ring-primary/20"
+                    : isActiveView
+                      ? "border-primary/60 ring-1 ring-primary/20 shadow-md shadow-primary/10"
+                      : (isCaptured || isDoneCapture || scanImage)
+                        ? "border-emerald-500/40"
+                        : "border-border hover:border-primary/30 hover:shadow-sm"
                     } ${!isScanning ? 'cursor-pointer active:scale-95' : ''}`}
                   disabled={isScanning}
                 >
@@ -661,9 +679,9 @@ export default function Kiosk() {
                     <span className={`text-[9px] lg:text-[10px] font-medium transition-colors ${isActiveView ? 'text-primary' : 'text-muted-foreground'
                       }`}>{cam.label}</span>
                     <div className={`w-1.5 h-1.5 rounded-full ${isCapturing ? "bg-red-500 animate-pulse"
-                        : isActiveView ? "bg-primary animate-pulse"
-                          : (isCaptured || isDoneCapture) ? "bg-emerald-500"
-                            : "bg-emerald-500/50"
+                      : isActiveView ? "bg-primary animate-pulse"
+                        : (isCaptured || isDoneCapture) ? "bg-emerald-500"
+                          : "bg-emerald-500/50"
                       }`} />
                   </div>
 
@@ -887,8 +905,8 @@ export default function Kiosk() {
                   >
                     <CardContent className="p-3 flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 ${scan.ripeness === "Unripe" ? "bg-emerald-500/20" :
-                          scan.ripeness === "Ripe" ? "bg-yellow-500/20" :
-                            scan.ripeness === "Overripe" ? "bg-red-500/20" : "bg-violet-500/20"
+                        scan.ripeness === "Ripe" ? "bg-yellow-500/20" :
+                          scan.ripeness === "Overripe" ? "bg-red-500/20" : "bg-violet-500/20"
                         }`}>
                         {ripenessIcon[scan.ripeness]}
                       </div>
