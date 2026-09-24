@@ -32,7 +32,7 @@ TREATMENT_MAP = {TreatmentEnum.NATURAL.value: 0, TreatmentEnum.ETHEPHON.value: 1
 
 # Number of features for each mode
 LEGACY_FEATURE_COUNT = 4    # [cultivar, ripeness, temp, humidity]
-ENHANCED_FEATURE_COUNT = 8  # + [dew_point, vpd, heat_index, treatment]
+ENHANCED_FEATURE_COUNT = 6  # ripeness, vpd, temp, hum, treatment, cultivar
 
 
 class SpoilagePredictor:
@@ -42,9 +42,9 @@ class SpoilagePredictor:
     Legacy features (4):
         [cultivar_encoded, ripeness_encoded, temperature, humidity]
 
-    Enhanced features (8):
-        [cultivar_encoded, ripeness_encoded, temperature, humidity,
-         dew_point, vpd, heat_index, treatment_encoded]
+    Enhanced features (6):
+        [ripeness_encoded, vpd, temperature, humidity,
+         treatment_encoded, cultivar_encoded]
 
     The model's expected feature count is auto-detected on load via
     ``model.n_features_in_``, so both legacy and enhanced models work
@@ -156,14 +156,11 @@ class SpoilagePredictor:
 
             if self.uses_enhanced_features:
                 # Compute chemical features if not provided
-                dp = dew_point if dew_point is not None else calc_dew_point(temperature, humidity)
                 v = vpd if vpd is not None else calc_vpd(temperature, humidity)
-                hi = heat_index if heat_index is not None else calc_heat_index(temperature, humidity)
                 treat_enc = TREATMENT_MAP.get(treatment, 0) if treatment else 0
 
                 features = np.array([[
-                    cultivar_enc, ripeness_enc, temperature, humidity,
-                    dp, v, hi, treat_enc,
+                    ripeness_enc, v, temperature, humidity, treat_enc, cultivar_enc
                 ]])
             else:
                 # Legacy 4-feature model
