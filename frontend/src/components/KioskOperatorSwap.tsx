@@ -2,8 +2,7 @@ import { useState, useCallback, useEffect } from "react"
 import { useAuth } from "@/context/AuthContext"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Delete, ArrowLeft, ShieldCheck, KeyRound, Fingerprint, CheckCircle2 } from "lucide-react"
+import { Delete, ArrowLeft, ShieldCheck, KeyRound, Fingerprint, CheckCircle2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -55,22 +54,37 @@ function getInitials(name: string) {
 
 function PinDots({ length, filled, shake }: { length: number; filled: number; shake: boolean }) {
   return (
-    <div className={`flex items-center justify-center gap-3.5 ${shake ? "animate-shake" : ""}`}>
-      {Array.from({ length }).map((_, i) => (
-        <div
-          key={i}
-          className={`
-            w-4 h-4 rounded-full border-2 transition-all duration-200
-            ${i < filled
-              ? "bg-primary border-primary scale-110 shadow-sm shadow-primary/30"
-              : "border-muted-foreground/30 bg-transparent"
-            }
-          `}
-          style={{
-            transitionDelay: i < filled ? `${i * 40}ms` : "0ms",
-          }}
-        />
-      ))}
+    <div className={`flex items-center justify-center gap-5 py-3 ${shake ? "animate-shake" : ""}`}>
+      {Array.from({ length }).map((_, i) => {
+        const isFilled = i < filled
+        const isNext = i === filled
+
+        return (
+          <div
+            key={i}
+            className="relative flex items-center justify-center"
+          >
+            {/* Glow ring for next dot */}
+            {isNext && (
+              <div className="absolute inset-[-6px] rounded-full border-2 border-primary/25 animate-pulse" />
+            )}
+            <div
+              className={`
+                w-5 h-5 rounded-full transition-all duration-250 ease-out
+                ${isFilled
+                  ? "bg-primary scale-125 shadow-md shadow-primary/40"
+                  : isNext
+                    ? "bg-muted-foreground/10 border-[2.5px] border-primary/50"
+                    : "bg-muted-foreground/10 border-[2.5px] border-muted-foreground/20"
+                }
+              `}
+              style={{
+                transitionDelay: isFilled ? `${i * 50}ms` : "0ms",
+              }}
+            />
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -85,10 +99,10 @@ function TouchKeypad({
   disabled?: boolean
 }) {
   return (
-    <div className="grid grid-cols-3 gap-2.5 w-full max-w-[280px] mx-auto">
+    <div className="grid grid-cols-3 gap-3 w-full max-w-[300px] mx-auto">
       {KEYPAD_KEYS.flat().map((key, idx) => {
         if (key === "") {
-          return <div key={`empty-${idx}`} className="aspect-square" />
+          return <div key={`empty-${idx}`} />
         }
 
         if (key === "backspace") {
@@ -99,18 +113,19 @@ function TouchKeypad({
               disabled={disabled}
               onClick={() => onKeyPress("backspace")}
               className="
-                aspect-square rounded-2xl
+                h-16 rounded-2xl
                 flex items-center justify-center
-                bg-muted/60 hover:bg-destructive/10 active:bg-destructive/20
-                border border-border hover:border-destructive/30
+                bg-muted hover:bg-destructive/10 active:bg-destructive/15
+                border-2 border-border hover:border-destructive/30
                 text-muted-foreground hover:text-destructive
-                transition-all duration-150
-                active:scale-[0.92]
-                disabled:opacity-40 disabled:pointer-events-none
+                transition-all duration-100
+                active:scale-[0.93]
+                disabled:opacity-30 disabled:pointer-events-none
                 touch-manipulation select-none
+                cursor-pointer
               "
             >
-              <Delete className="w-5 h-5" />
+              <Delete className="w-6 h-6" />
             </button>
           )
         }
@@ -122,17 +137,18 @@ function TouchKeypad({
             disabled={disabled}
             onClick={() => onKeyPress(key)}
             className="
-              aspect-square rounded-2xl
+              h-16 rounded-2xl
               flex items-center justify-center
-              text-2xl font-semibold
-              bg-card hover:bg-accent active:bg-primary/10
-              border border-border hover:border-primary/30
+              text-2xl font-bold tracking-tight
+              bg-card hover:bg-accent active:bg-primary/15
+              border-2 border-border/80 hover:border-primary/40
               text-foreground
-              transition-all duration-150
-              active:scale-[0.92] active:border-primary/50
-              shadow-sm hover:shadow-md
-              disabled:opacity-40 disabled:pointer-events-none
+              transition-all duration-100
+              active:scale-[0.93] active:border-primary/60
+              shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.12)]
+              disabled:opacity-30 disabled:pointer-events-none
               touch-manipulation select-none
+              cursor-pointer
             "
           >
             {key}
@@ -356,18 +372,19 @@ export default function KioskOperatorSwap({
         showCloseButton={!!currentOperatorId}
       >
         {/* ─── Header ─────────────────────────────────────────────── */}
-        <DialogHeader className="px-6 pt-6 pb-2">
+        <DialogHeader className="px-6 pt-6 pb-0">
           <div className="flex items-center gap-3">
             {phase !== "select" && (
               <button
                 onClick={handleBack}
                 className="
-                  w-8 h-8 rounded-xl
+                  w-9 h-9 rounded-xl
                   flex items-center justify-center
-                  bg-muted/60 hover:bg-muted
-                  border border-border
+                  bg-muted hover:bg-accent
+                  border-2 border-border
                   text-muted-foreground hover:text-foreground
-                  transition-colors
+                  transition-all duration-150
+                  active:scale-95
                   touch-manipulation
                 "
               >
@@ -375,7 +392,7 @@ export default function KioskOperatorSwap({
               </button>
             )}
             <div>
-              <DialogTitle className="text-lg">{renderTitle()}</DialogTitle>
+              <DialogTitle className="text-lg font-bold">{renderTitle()}</DialogTitle>
               {phase === "select" && !currentOperatorId && (
                 <DialogDescription className="text-sm text-muted-foreground mt-0.5">
                   Please select an operator and authenticate to use the kiosk.
@@ -387,7 +404,7 @@ export default function KioskOperatorSwap({
 
         {/* ─── Phase: Select Operator ─────────────────────────────── */}
         {phase === "select" && (
-          <div className="px-6 pb-6 pt-2">
+          <div className="px-6 pb-6 pt-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {operators.map((op) => (
                 <button
@@ -427,21 +444,21 @@ export default function KioskOperatorSwap({
 
         {/* ─── Phase: PIN Entry ──────────────────────────────────── */}
         {phase === "pin" && targetOperator && (
-          <div className="px-6 pb-6 pt-2 space-y-5">
+          <div className="px-6 pb-6 pt-4 space-y-4">
             {/* Operator card */}
-            <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-xl border border-border">
-              <Avatar className="w-10 h-10">
+            <div className="flex items-center gap-3 p-3.5 bg-primary/5 rounded-xl border border-primary/15">
+              <Avatar className="w-11 h-11 border-2 border-primary/20 shadow-sm">
                 {targetOperator.avatar ? (
                   <AvatarImage src={targetOperator.avatar} className="object-cover" />
                 ) : null}
-                <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
+                <AvatarFallback className="bg-primary/15 text-primary font-bold text-sm">
                   {getInitials(targetOperator.fullName)}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <p className="text-sm font-semibold truncate">{targetOperator.fullName}</p>
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <KeyRound className="w-3 h-3" />
+                <p className="text-sm font-bold truncate">{targetOperator.fullName}</p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <KeyRound className="w-3 h-3 text-primary/60" />
                   Enter your 4-digit PIN
                 </p>
               </div>
@@ -455,8 +472,8 @@ export default function KioskOperatorSwap({
 
             {/* Processing indicator */}
             {isProcessing && (
-              <div className="flex items-center justify-center gap-2 text-sm text-primary animate-pulse">
-                <Fingerprint className="w-4 h-4" />
+              <div className="flex items-center justify-center gap-2.5 text-sm font-medium text-primary py-1">
+                <Loader2 className="w-4 h-4 animate-spin" />
                 Verifying...
               </div>
             )}
@@ -465,16 +482,16 @@ export default function KioskOperatorSwap({
 
         {/* ─── Phase: New PIN ────────────────────────────────────── */}
         {phase === "new-pin" && targetOperator && (
-          <div className="px-6 pb-6 pt-2 space-y-5">
+          <div className="px-6 pb-6 pt-4 space-y-4">
             {/* Message card */}
-            <div className="flex items-center gap-3 p-3 bg-amber-500/8 rounded-xl border border-amber-500/20">
-              <Avatar className="w-10 h-10">
+            <div className="flex items-center gap-3 p-3.5 bg-amber-500/8 rounded-xl border border-amber-500/20">
+              <Avatar className="w-11 h-11 border-2 border-amber-500/20">
                 <AvatarFallback className="bg-amber-500/15 text-amber-600 font-bold text-sm">
                   {getInitials(targetOperator.fullName)}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <p className="text-sm font-semibold truncate">{targetOperator.fullName}</p>
+                <p className="text-sm font-bold truncate">{targetOperator.fullName}</p>
                 <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium leading-tight">
                   {pinChangeMessage}
                 </p>
@@ -482,7 +499,7 @@ export default function KioskOperatorSwap({
             </div>
 
             {/* Label */}
-            <p className="text-xs font-semibold text-muted-foreground uppercase text-center tracking-wide">
+            <p className="text-xs font-semibold text-muted-foreground uppercase text-center tracking-wider">
               Create a new 4-digit PIN
             </p>
 
@@ -496,14 +513,14 @@ export default function KioskOperatorSwap({
 
         {/* ─── Phase: Confirm New PIN ────────────────────────────── */}
         {phase === "confirm-pin" && targetOperator && (
-          <div className="px-6 pb-6 pt-2 space-y-5">
+          <div className="px-6 pb-6 pt-4 space-y-4">
             {/* Success indicator for first PIN */}
-            <div className="flex items-center gap-3 p-3 bg-emerald-500/8 rounded-xl border border-emerald-500/20">
-              <div className="w-10 h-10 rounded-full bg-emerald-500/15 flex items-center justify-center shrink-0">
+            <div className="flex items-center gap-3 p-3.5 bg-emerald-500/8 rounded-xl border border-emerald-500/20">
+              <div className="w-11 h-11 rounded-full bg-emerald-500/15 flex items-center justify-center shrink-0 border-2 border-emerald-500/20">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-semibold">PIN Created</p>
+                <p className="text-sm font-bold">PIN Created</p>
                 <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
                   Now re-enter to confirm.
                 </p>
@@ -511,7 +528,7 @@ export default function KioskOperatorSwap({
             </div>
 
             {/* Label */}
-            <p className="text-xs font-semibold text-muted-foreground uppercase text-center tracking-wide">
+            <p className="text-xs font-semibold text-muted-foreground uppercase text-center tracking-wider">
               Confirm your new PIN
             </p>
 
@@ -523,8 +540,8 @@ export default function KioskOperatorSwap({
 
             {/* Processing indicator */}
             {isProcessing && (
-              <div className="flex items-center justify-center gap-2 text-sm text-primary animate-pulse">
-                <ShieldCheck className="w-4 h-4" />
+              <div className="flex items-center justify-center gap-2.5 text-sm font-medium text-primary py-1">
+                <Loader2 className="w-4 h-4 animate-spin" />
                 Updating PIN...
               </div>
             )}
