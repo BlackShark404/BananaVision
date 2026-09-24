@@ -20,7 +20,7 @@ import numpy as np
 from app.config import get_settings
 from app.core.exceptions import ModelInferenceError
 from app.schemas.enums import CultivarEnum, RipenessEnum, TreatmentEnum
-from app.services.feature_engineering import calc_dew_point, calc_vpd, calc_heat_index
+from app.services.feature_engineering import calc_vpd
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -109,9 +109,7 @@ class SpoilagePredictor:
         ripeness: str,
         temperature: float | None = None,
         humidity: float | None = None,
-        dew_point: float | None = None,
         vpd: float | None = None,
-        heat_index: float | None = None,
         treatment: str | None = None,
     ) -> str:
         """
@@ -130,9 +128,7 @@ class SpoilagePredictor:
         if self._model is not None:
             return self._model_predict(
                 cultivar, ripeness, temp, hum,
-                dew_point=dew_point,
                 vpd=vpd,
-                heat_index=heat_index,
                 treatment=treatment,
             )
         else:
@@ -144,9 +140,7 @@ class SpoilagePredictor:
         ripeness: str,
         temperature: float,
         humidity: float,
-        dew_point: float | None = None,
         vpd: float | None = None,
-        heat_index: float | None = None,
         treatment: str | None = None,
     ) -> str:
         """Use the loaded RFR model for prediction."""
