@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
+import KioskOperatorSwap from "@/components/KioskOperatorSwap"
 import { useAuth } from "@/context/AuthContext"
 import { useScans } from "@/context/ScanContext"
 import { useInventory } from "@/context/InventoryContext"
@@ -11,11 +12,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { BASE_URL, api } from "@/lib/api"
 import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp"
-import {
   Banana,
   ScanLine,
   Camera,
@@ -27,8 +23,6 @@ import {
   Package,
   Clock,
   Flag,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react"
 import { toast } from "sonner"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
@@ -43,7 +37,7 @@ const ripenessIcon: Record<string, string> = {
 
 
 export default function Kiosk() {
-  const { user, switchOperator, changePinAndLogin } = useAuth()
+  const { user } = useAuth()
   const { scanState, startScan, scans, flagScan } = useScans()
   const { suppliers, activeIntake, startIntake } = useInventory()
   const { users, config } = useAdmin()
@@ -78,12 +72,6 @@ export default function Kiosk() {
   const adminOperators = users.filter(u => u.status === "Active" && u.role === "Operator")
   const activeOperators = kioskOperatorsList.length > 0 ? kioskOperatorsList : adminOperators
   const [showSwapModal, setShowSwapModal] = useState(true)
-  const [swapTarget, setSwapTarget] = useState<string | null>(null)
-  const [pinInput, setPinInput] = useState("")
-  const [requiresNewPin, setRequiresNewPin] = useState(false)
-  const [pinChangeMessage, setPinChangeMessage] = useState("Please set your new secure 4-digit PIN.")
-  const [newPinInput, setNewPinInput] = useState("")
-  const [confirmPinInput, setConfirmPinInput] = useState("")
   const [scanAction, setScanAction] = useState<{ id: string, action: 'accepted' | 'flagged' } | null>(null)
 
   // Backend camera list with actual device IDs (excludes laptop camera)
@@ -173,168 +161,13 @@ export default function Kiosk() {
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden relative">
 
       {/* Swap Operator Modal */}
-      <Dialog open={showSwapModal} onOpenChange={(open) => { if (!open && !kioskOperator) return; setShowSwapModal(open); if (!open) { setSwapTarget(null); setPinInput(""); setRequiresNewPin(false); setNewPinInput(""); setConfirmPinInput(""); } }}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>{!swapTarget ? (kioskOperator ? "Switch Operator" : "Select Operator to Begin") : requiresNewPin ? "Create New Kiosk PIN" : "Enter PIN"}</DialogTitle>
-            {!swapTarget && !kioskOperator && (
-              <DialogDescription className="text-sm text-muted-foreground">Please select an operator and authenticate to use the kiosk.</DialogDescription>
-            )}
-          </DialogHeader>
-          {!swapTarget ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
-              {activeOperators.map(op => (
-                <button
-                  key={op.id}
-                  onClick={() => setSwapTarget(op.id)}
-                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-colors ${op.id === user?.id ? 'bg-primary/10 border-primary' : 'bg-muted/50 border-border hover:bg-accent'}`}
-                >
-                  <Avatar className="w-12 h-12">
-                    <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                      {op.fullName.split(" ").map(n => n[0]).join("").toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="text-center w-full">
-                    <p className="text-xs font-semibold truncate px-1">{op.fullName}</p>
-                    <p className="text-[10px] text-muted-foreground">{op.role}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : requiresNewPin ? (
-            <div className="mt-4 space-y-4">
-              <div className="flex items-center gap-3 p-3 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                <Avatar className="w-10 h-10">
-                  <AvatarFallback className="bg-amber-500/20 text-amber-600 font-bold">
-                    {activeOperators.find(o => o.id === swapTarget)?.fullName.split(" ").map(n => n[0]).join("").toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-sm font-semibold">{activeOperators.find(o => o.id === swapTarget)?.fullName}</p>
-                  <p className="text-[11px] text-amber-600 font-medium tracking-tight leading-tight">
-                    {pinChangeMessage}
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-4 pt-2">
-                <div className="flex flex-col items-center gap-2 py-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase">{newPinInput.length === 4 ? "Confirm New PIN" : "Create a new 4-digit PIN"}</p>
-                  <InputOTP
-                    maxLength={4}
-                    value={newPinInput.length === 4 ? confirmPinInput : newPinInput}
-                    onChange={async (val) => {
-                      if (newPinInput.length < 4) {
-                        setNewPinInput(val);
-                      } else {
-                        setConfirmPinInput(val);
-                        if (val.length === 4) {
-                          if (newPinInput === val) {
-                            const targetUser = activeOperators.find(o => o.id === swapTarget);
-                            if (!targetUser) return;
-
-                            const success = await changePinAndLogin(targetUser.username, val);
-
-                            if (success) {
-                              toast.success(`PIN updated and swapped to ${targetUser.fullName}`);
-                              setKioskOperator(targetUser.id);
-                              setShowSwapModal(false);
-                              setSwapTarget(null);
-                              setRequiresNewPin(false);
-                              setNewPinInput("");
-                              setConfirmPinInput("");
-                            } else {
-                              toast.error("Failed to update PIN. Try again.");
-                              setNewPinInput("");
-                              setConfirmPinInput("");
-                            }
-                          } else {
-                            toast.error("PINs do not match. Try again.");
-                            setNewPinInput("");
-                            setConfirmPinInput("");
-                          }
-                        }
-                      }
-                    }}
-                    autoFocus
-                  >
-                    <InputOTPGroup className="gap-2">
-                      <InputOTPSlot index={0} className="w-12 h-14 text-2xl rounded-lg border-y border-x" />
-                      <InputOTPSlot index={1} className="w-12 h-14 text-2xl rounded-lg border-y border-x" />
-                      <InputOTPSlot index={2} className="w-12 h-14 text-2xl rounded-lg border-y border-x" />
-                      <InputOTPSlot index={3} className="w-12 h-14 text-2xl rounded-lg border-y border-x" />
-                    </InputOTPGroup>
-                  </InputOTP>
-                </div>
-                <Button variant="ghost" className="w-full text-muted-foreground h-10" onClick={() => { setSwapTarget(null); setPinInput(""); setRequiresNewPin(false); setNewPinInput(""); setConfirmPinInput(""); }}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-4 space-y-4">
-              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl border">
-                <Avatar className="w-10 h-10">
-                  <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                    {activeOperators.find(o => o.id === swapTarget)?.fullName.split(" ").map(n => n[0]).join("").toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-sm font-semibold">{activeOperators.find(o => o.id === swapTarget)?.fullName}</p>
-                  <p className="text-xs text-muted-foreground">Please enter 4-digit PIN</p>
-                </div>
-              </div>
-              <div className="space-y-4 pt-2">
-                <div className="flex justify-center py-2">
-                  <InputOTP
-                    maxLength={4}
-                    value={pinInput}
-                    onChange={async (val) => {
-                      setPinInput(val);
-                      if (val.length === 4) {
-                        const success = await switchOperator(activeOperators.find(o => o.id === swapTarget)?.username || "", val);
-                        if (success === "success") {
-                          toast.success(`Swapped to ${activeOperators.find(o => o.id === swapTarget)?.fullName}`);
-                          setKioskOperator(swapTarget);
-                          setShowSwapModal(false);
-                          setSwapTarget(null);
-                          setPinInput("");
-                        } else if (success === "requires_pin_change" || success === "requires_pin_change_new_account" || success === "requires_pin_change_reset") {
-                          if (success === "requires_pin_change_new_account") {
-                            setPinChangeMessage("Welcome! An Admin created this account. Please set your new secure PIN.");
-                          } else if (success === "requires_pin_change_reset") {
-                            setPinChangeMessage("Welcome back! Your PIN was recently reset. Please set your new secure PIN.");
-                          } else {
-                            setPinChangeMessage("Please set a new secure 4-digit PIN to continue.");
-                          }
-                          setRequiresNewPin(true);
-                          setPinInput("");
-                        } else if (success === "inactive") {
-                          toast.error("Account Inactive", { description: "Your account is inactive. Please contact an administrator." });
-                          setPinInput("");
-                        } else {
-                          toast.error("Invalid PIN code");
-                          setPinInput("");
-                        }
-                      }
-                    }}
-                    autoFocus
-                  >
-                    <InputOTPGroup className="gap-2">
-                      <InputOTPSlot index={0} className="w-12 h-14 text-2xl rounded-lg border-y border-x" />
-                      <InputOTPSlot index={1} className="w-12 h-14 text-2xl rounded-lg border-y border-x" />
-                      <InputOTPSlot index={2} className="w-12 h-14 text-2xl rounded-lg border-y border-x" />
-                      <InputOTPSlot index={3} className="w-12 h-14 text-2xl rounded-lg border-y border-x" />
-                    </InputOTPGroup>
-                  </InputOTP>
-                </div>
-                <Button variant="ghost" className="w-full text-muted-foreground h-10" onClick={() => { setSwapTarget(null); setPinInput(""); }}>
-                  Cancel & Back to Users
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <KioskOperatorSwap
+        open={showSwapModal}
+        onOpenChange={setShowSwapModal}
+        operators={activeOperators}
+        currentOperatorId={kioskOperator}
+        onSwapSuccess={(id) => setKioskOperator(id)}
+      />
 
       {/* Select Source Modal */}
       <Dialog open={showSourceModal} onOpenChange={setShowSourceModal}>
