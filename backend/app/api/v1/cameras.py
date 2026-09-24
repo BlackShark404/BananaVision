@@ -46,11 +46,11 @@ async def generate_frames(camera_index: int, fps: int = 15):
             # Capture frame
             capture = await loop.run_in_executor(None, camera_manager._capture_single, camera_index)
             
-            # Downscale frame for preview to save bandwidth (e.g. to 640x480)
-            downscaled = cv2.resize(capture.frame, (640, 480))
+            # Downscale frame for preview (HD 1280x720 for kiosk clarity)
+            downscaled = cv2.resize(capture.frame, (1280, 720))
             
             # Encode as JPEG
-            success, buffer = cv2.imencode('.jpg', downscaled, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            success, buffer = cv2.imencode('.jpg', downscaled, [cv2.IMWRITE_JPEG_QUALITY, 85])
             if not success:
                 logger.warning(f"Failed to encode frame from camera {camera_index}")
                 await asyncio.sleep(interval)
