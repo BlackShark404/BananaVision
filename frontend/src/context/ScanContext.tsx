@@ -166,7 +166,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
         }
         generateQRCodeDataUrl(scanResult).then((qrCode) => {
           const scanWithQR = { ...scanResult, qrCode }
-          setScans((prev) => [scanWithQR, ...prev])
+          setScans((prev) => [scanWithQR, ...prev.filter((s) => s.id !== scanWithQR.id)])
           setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: scanWithQR })
         })
         break

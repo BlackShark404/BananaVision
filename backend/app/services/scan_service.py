@@ -267,6 +267,9 @@ async def execute_scan_pipeline(
         db.add(status_log)
         db.add(original_ai)
 
+        scan.detections = db_detections
+        scan.images = db_images
+
         for det in db_detections:
             db.add(det)
         for img in db_images:
