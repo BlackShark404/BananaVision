@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     camera_resolution_h: int = 480
     camera_warmup_frames: int = 30
     camera_capture_timeout_ms: int = 3000
+    camera_autofocus: bool = False
+    camera_manual_focus_value: int = 25
 
     # ── Sensor ───────────────────────────────────────────────────────────────
     sensor_serial_port: str = "/dev/ttyUSB0"

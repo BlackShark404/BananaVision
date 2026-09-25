@@ -72,6 +72,10 @@ class CameraManager:
                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, settings.camera_resolution_w)
                 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, settings.camera_resolution_h)
 
+                if not settings.camera_autofocus:
+                    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+                    cap.set(cv2.CAP_PROP_FOCUS, settings.camera_manual_focus_value)
+
                 # Discard warmup frames to stabilize exposure/white-balance
                 for _ in range(settings.camera_warmup_frames):
                     cap.read()
