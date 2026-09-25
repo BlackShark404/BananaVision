@@ -346,10 +346,10 @@ export default function Kiosk() {
         {/* Left Panel — Camera + Scan */}
         <div className="lg:flex-[4] flex flex-col gap-3 lg:gap-4 shrink-0 lg:shrink lg:min-h-0">
           {/* Main Camera View */}
-          <Card className="shrink-0 lg:shrink h-64 sm:h-80 lg:flex-[2] lg:h-auto bg-card border-border rounded-2xl overflow-hidden relative lg:min-h-64">
+          <Card className="shrink-0 lg:shrink h-64 sm:h-80 lg:flex-[2] lg:h-auto bg-black border-border rounded-2xl overflow-hidden relative lg:min-h-64">
             <CardContent className="p-0 h-full flex flex-col relative">
               {/* Main Feed */}
-              <div className="flex-1 w-full flex items-center justify-center relative bg-black rounded-2xl overflow-hidden">
+              <div className="flex-1 w-full flex items-center justify-center relative overflow-hidden">
                 {isScanning ? (
                   <div className="text-center space-y-4 animate-pulse z-10">
                     <div className="w-20 h-20 lg:w-24 lg:h-24 rounded-full bg-primary/20 flex items-center justify-center mx-auto border-2 border-primary/40">
