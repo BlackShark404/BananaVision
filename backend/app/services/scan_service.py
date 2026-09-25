@@ -48,7 +48,7 @@ async def execute_scan_pipeline(
         1. Broadcast scan:started
         2. Capture from all cameras (parallel)
         3. Broadcast per-camera capture status
-        4. Run YOLOv8n on each image
+        4. Run YOLO on each image
         5. Broadcast detection results
         6. Fuse multi-camera results
         7. Get sensor data + predict spoilage
@@ -93,7 +93,7 @@ async def execute_scan_pipeline(
             })
 
         # ── Step 3: Banana pre-detection gate ────────────────────────────
-        # Run base COCO YOLOv8n on each frame to verify a banana is present
+        # Run base COCO YOLO on each frame to verify a banana is present
         # before running the custom cultivar/ripeness model.
         await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_DETECTING, {
             "scan_id": scan_id_str,
@@ -113,7 +113,7 @@ async def execute_scan_pipeline(
                 "🍌 No banana found — please place the banana on the tray and try again.",
             )
 
-        # ── Step 4: YOLOv8n cultivar/ripeness inference on each image ────
+        # ── Step 4: YOLO cultivar/ripeness inference on each image ────
         await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_DETECTING, {
             "scan_id": scan_id_str,
             "progress_pct": 50,

@@ -1,7 +1,7 @@
 """
-YOLOv8n classification wrapper.
+YOLO classification wrapper.
 
-Loads the trained YOLOv8n model once and provides inference on banana images.
+Loads the trained YOLO model once and provides inference on banana images.
 Detects cultivar (Lakatan/Latundan/Cardaba) and ripeness (Unripe/Semi Ripe/Ripe/Overripe).
 """
 
@@ -90,9 +90,18 @@ def _parse_class_label(label: str) -> tuple[str | None, str | None]:
     return None, None
 
 
+def _model_name_from_path(path: str) -> str:
+    """Extract a human-readable model name from the weights file path.
+
+    Example: 'app/ml/weights/banana_yolov26n.pt' → 'banana_yolov26n'
+    """
+    from pathlib import Path
+    return Path(path).stem
+
+
 class BananaClassifier:
     """
-    YOLOv8n banana classification model wrapper.
+    YOLO banana classification model wrapper.
 
     Usage:
         classifier = BananaClassifier()
@@ -109,15 +118,22 @@ class BananaClassifier:
         return self._loaded
 
     def load(self) -> None:
-        """Load YOLOv8n model from disk. Call once at startup."""
+        """Load YOLO model from disk. Call once at startup."""
         try:
             from ultralytics import YOLO
 
             model_path = settings.yolo_model_path
-            logger.info(f"Loading YOLOv8n model from {model_path}")
+            self._model_name = _model_name_from_path(model_path)
+            logger.info(f"Loading {self._model_name} model from {model_path}")
             self._model = YOLO(model_path)
             self._loaded = True
-            logger.info("YOLOv8n model loaded successfully")
+
+            # Try to read extra info from the loaded model
+            model_type = getattr(self._model, "type", None) or "detect"
+            logger.info(
+                f"{self._model_name} model loaded successfully "
+                f"(task={model_type}, banana classifier)"
+            )
         except FileNotFoundError:
             logger.error(
                 f"Model file not found at {settings.yolo_model_path}. "
@@ -126,7 +142,7 @@ class BananaClassifier:
             self._model = None
             self._loaded = False
         except Exception as exc:
-            logger.error(f"Failed to load YOLOv8n model: {exc}")
+            logger.error(f"Failed to load YOLO model: {exc}")
             self._model = None
             self._loaded = False
 
@@ -136,13 +152,13 @@ class BananaClassifier:
             try:
                 dummy = np.zeros((640, 640, 3), dtype=np.uint8)
                 self._model.predict(dummy, verbose=False)
-                logger.info("YOLOv8n warmup complete")
+                logger.info(f"{self._model_name} warmup complete")
             except Exception as exc:
-                logger.warning(f"YOLOv8n warmup failed: {exc}")
+                logger.warning(f"{self._model_name} warmup failed: {exc}")
 
     def predict(self, image: np.ndarray) -> ClassificationResult:
         """
-        Run YOLOv8n inference on a single image.
+        Run YOLO inference on a single image.
 
         Args:
             image: BGR numpy array (from OpenCV)
@@ -152,9 +168,10 @@ class BananaClassifier:
         """
         start = time.time()
 
+        model_name = getattr(self, '_model_name', 'YOLO')
         if self._model is None:
             raise ModelInferenceError(
-                "YOLOv8n",
+                model_name,
                 "Model not loaded. Ensure a valid .pt model file is available.",
             )
 
@@ -166,7 +183,7 @@ class BananaClassifier:
                 verbose=False,
             )
         except Exception as exc:
-            raise ModelInferenceError("YOLOv8n", str(exc))
+            raise ModelInferenceError(model_name, str(exc))
 
         elapsed_ms = (time.time() - start) * 1000
 

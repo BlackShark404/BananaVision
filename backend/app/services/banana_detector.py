@@ -50,26 +50,36 @@ class BananaPreDetector:
     # Minimum confidence to consider a banana detection valid
     CONFIDENCE_THRESHOLD = 0.30
 
+    _COCO_MODEL = "yolo26n.pt"
+
     def __init__(self):
         self._model = None
         self._loaded = False
+        self._model_name: str = "YOLO"
 
     @property
     def is_loaded(self) -> bool:
         return self._loaded
 
     def load(self) -> None:
-        """Load base COCO YOLOv8n model. Auto-downloads on first run."""
+        """Load base COCO YOLO model. Auto-downloads on first run."""
         try:
+            from pathlib import Path
             from ultralytics import YOLO
 
-            logger.info("Loading base COCO YOLOv26n model for banana pre-detection...")
-            # This will auto-download yolo26n.pt if not cached
-            self._model = YOLO("yolo26n.pt")
+            self._model_name = Path(self._COCO_MODEL).stem  # e.g. "yolo26n"
+            logger.info(f"Loading base COCO {self._model_name} model for banana pre-detection...")
+            self._model = YOLO(self._COCO_MODEL)
             self._loaded = True
-            logger.info("Base COCO YOLOv26n loaded successfully (banana pre-detector)")
+
+            # Try to read extra info from the loaded model
+            model_type = getattr(self._model, "type", None) or "detect"
+            logger.info(
+                f"Base COCO {self._model_name} loaded successfully "
+                f"(task={model_type}, banana pre-detector)"
+            )
         except Exception as exc:
-            logger.error(f"Failed to load base COCO YOLOv26n: {exc}")
+            logger.error(f"Failed to load base COCO {self._model_name}: {exc}")
             self._model = None
             self._loaded = False
 

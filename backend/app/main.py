@@ -75,7 +75,7 @@ app = FastAPI(
     title="BananaVision API",
     description=(
         "Banana Classification & Spoilage Prediction System — "
-        "YOLOv8n + Random Forest Regression"
+        "YOLO + Random Forest Regression"
     ),
     version="0.1.0",
     lifespan=lifespan,

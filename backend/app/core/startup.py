@@ -78,12 +78,15 @@ async def run_startup():
 
     # ── Phase 3: ML Models ───────────────────────────────────────────────
     logger.info("[Phase 3] Loading ML models...")
+    logger.info(f"  Pre-detector: {banana_pre_detector._COCO_MODEL}")
+    logger.info(f"  Classifier:   {settings.yolo_model_path}")
+    logger.info(f"  Spoilage:     {settings.rfr_model_path}")
     banana_pre_detector.load()
     banana_pre_detector.warmup()
     banana_classifier.load()
     banana_classifier.warmup()
     spoilage_predictor.load()
-    logger.info("  ML models ready")
+    logger.info("  All ML models ready")
 
     # ── Phase 4: Camera Initialization ───────────────────────────────────
     logger.info("[Phase 4] Initializing cameras...")
