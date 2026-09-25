@@ -162,8 +162,7 @@ export function AppDataTable<T>({
                 <TableRow
                   key={rowKey(row)}
                   onClick={isClickable ? () => onRowClick(row) : undefined}
-                  className={`animate-fade-in-row ${isClickable ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''} ${rowClassName ? rowClassName(row, i) : ''}`}
-                  style={{ animationDelay: `${(i % pageSize) * 30}ms` }}
+                  className={`${isClickable ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''} ${rowClassName ? rowClassName(row, i) : ''}`}
                 >
                   {columns.map((col, colIdx) => (
                     <TableCell 
