@@ -73,7 +73,7 @@ class BananaPreDetector:
             self._loaded = True
 
             # Try to read extra info from the loaded model
-            model_type = getattr(self._model, "type", None) or "detect"
+            model_type = getattr(self._model, "task", None) or "detect"
             logger.info(
                 f"Base COCO {self._model_name} loaded successfully "
                 f"(task={model_type}, banana pre-detector)"
