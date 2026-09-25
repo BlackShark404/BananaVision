@@ -75,6 +75,8 @@ class CameraManager:
                 if not settings.camera_autofocus:
                     cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
                     cap.set(cv2.CAP_PROP_FOCUS, settings.camera_manual_focus_value)
+                else:
+                    cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)
 
                 # Discard warmup frames to stabilize exposure/white-balance
                 for _ in range(settings.camera_warmup_frames):
