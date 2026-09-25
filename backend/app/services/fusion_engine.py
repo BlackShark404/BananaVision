@@ -1,7 +1,7 @@
 """
 Multi-camera fusion engine.
 
-Merges YOLOv8n detections from 4 cameras into a single authoritative
+Merges YOLO detections from 4 cameras into a single authoritative
 classification using confidence-weighted majority voting.
 """
 
