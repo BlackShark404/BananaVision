@@ -200,6 +200,8 @@ export default function QualityControl() {
     },
     {
       header: "Date/Time",
+      sortable: true,
+      sortKey: "dateTime",
       cell: (scan) => (
         <div className="text-sm">
           {new Date(scan.dateTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
@@ -210,6 +212,8 @@ export default function QualityControl() {
     },
     {
       header: "Operator",
+      sortable: true,
+      sortKey: "operator",
       cell: (scan) => (
         <div className="flex items-center gap-2">
           <Avatar className="w-8 h-8">
@@ -223,6 +227,8 @@ export default function QualityControl() {
     },
     {
       header: "Cultivar",
+      sortable: true,
+      sortKey: "cultivar",
       cell: (scan) => <span className="font-medium">{scan.cultivar}</span>,
     },
     {
@@ -241,6 +247,8 @@ export default function QualityControl() {
     },
     {
       header: "Confidence",
+      sortable: true,
+      sortKey: "confidence",
       cell: (scan) => (
         <div className="flex items-center gap-2">
           <span className={`text-sm font-medium ${scan.confidence < config.confidenceThreshold ? 'text-yellow-600' : ''}`}>

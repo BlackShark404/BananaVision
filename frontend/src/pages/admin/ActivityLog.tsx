@@ -101,6 +101,8 @@ export default function ActivityLog() {
   const columns: ColumnDef<any>[] = [
     {
       header: "Timestamp",
+      sortable: true,
+      sortKey: "timestamp",
       cell: (log) => (
         <div className="text-sm">
           {new Date(log.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
@@ -111,6 +113,8 @@ export default function ActivityLog() {
     },
     {
       header: "User",
+      sortable: true,
+      sortKey: "user",
       cell: (log) => (
         <div className="flex items-center gap-2">
           <Avatar className="w-8 h-8">
@@ -124,6 +128,8 @@ export default function ActivityLog() {
     },
     {
       header: "Action",
+      sortable: true,
+      sortKey: "action",
       cell: (log) => (
         <Badge variant="outline" className={`text-xs font-medium rounded-md ${actionTypeColors[log.action] || 'bg-muted'}`}>
           {formatAction(log.action)}

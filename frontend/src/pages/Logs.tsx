@@ -156,6 +156,8 @@ const columns: ColumnDef<ScanResult>[] = [
     },
     {
       header: "Date/Time",
+      sortable: true,
+      sortKey: "dateTime",
       cell: (scan) => (
         <div className="text-sm">
           {new Date(scan.dateTime).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
@@ -166,6 +168,8 @@ const columns: ColumnDef<ScanResult>[] = [
     },
     {
       header: "Cultivar",
+      sortable: true,
+      sortKey: "cultivar",
       cell: (scan) => <span className="font-medium">{scan.cultivar}</span>,
     },
     {
@@ -182,6 +186,8 @@ const columns: ColumnDef<ScanResult>[] = [
     },
     {
       header: "Confidence",
+      sortable: true,
+      sortKey: "confidence",
       cell: (scan) => (
         <div className="flex items-center gap-2">
           <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
@@ -215,10 +221,14 @@ const columns: ColumnDef<ScanResult>[] = [
     },
     {
       header: "Est. Spoilage",
+      sortable: true,
+      sortKey: "spoilageDays",
       cell: (scan) => <span className="text-sm">{scan.spoilageDays} days</span>,
     },
     {
       header: "Est. Fingers",
+      sortable: true,
+      sortKey: "fingerCount",
       cell: (scan) => <span className="text-sm">{scan.fingerCount}</span>,
     },
     ...(user?.role === "Admin" ? [{

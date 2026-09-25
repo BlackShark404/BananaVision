@@ -163,12 +163,16 @@ export default function DeliveryIntake() {
     },
     {
       header: "Date",
+      sortable: true,
+      sortKey: "date",
       cell: (intake) => new Date(intake.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
     },
     {
       header: "Supplier",
       headerClassName: "",
       className: "font-medium",
+      sortable: true,
+      sortKey: "supplierName",
       cell: (intake) => intake.supplierName || "Unknown",
     },
     {
@@ -179,10 +183,14 @@ export default function DeliveryIntake() {
     },
     {
       header: "Items Scanned",
+      sortable: true,
+      sortKey: "scanCount",
       cell: (intake) => `${intake.scanCount || 0} bananas`,
     },
     {
       header: "Status",
+      sortable: true,
+      sortKey: "status",
       cell: (intake) => intake.status === "Active" ? (
         <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
           <CheckCircle className="w-3 h-3 mr-1" />

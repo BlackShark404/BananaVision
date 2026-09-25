@@ -11,7 +11,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { ChevronsLeft, ChevronsRight } from "lucide-react"
+import { ChevronsLeft, ChevronsRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 
 export interface ColumnDef<T> {
   header: React.ReactNode
@@ -19,6 +19,8 @@ export interface ColumnDef<T> {
   className?: string
   headerClassName?: string
   stopPropagation?: boolean
+  sortable?: boolean
+  sortKey?: string | ((row: T) => any)
 }
 
 export interface AppDataTableProps<T> {
@@ -49,6 +51,7 @@ export function AppDataTable<T>({
   rowClassName,
 }: AppDataTableProps<T>) {
   const [page, setPage] = useState(1)
+  const [sortConfig, setSortConfig] = useState<{ columnIdx: number, direction: 'asc' | 'desc' } | null>(null)
 
   const pageSize = pagination?.pageSize || data.length || 1
   const totalPages = Math.max(1, Math.ceil(data.length / pageSize))
@@ -58,7 +61,49 @@ export function AppDataTable<T>({
     setPage((prev) => (prev > totalPages ? totalPages : prev))
   }, [totalPages])
 
-  const paginatedData = pagination ? data.slice((page - 1) * pageSize, page * pageSize) : data
+  const handleSort = (colIdx: number, column: ColumnDef<T>) => {
+    if (!column.sortable) return
+
+    setSortConfig(current => {
+      if (current?.columnIdx === colIdx) {
+        if (current.direction === 'asc') return { columnIdx: colIdx, direction: 'desc' }
+        return null // remove sort
+      }
+      return { columnIdx: colIdx, direction: 'asc' }
+    })
+  }
+
+  const sortedData = React.useMemo(() => {
+    if (!sortConfig) return data
+
+    const column = columns[sortConfig.columnIdx]
+    if (!column || !column.sortable) return data
+
+    return [...data].sort((a, b) => {
+      let valA: any
+      let valB: any
+      
+      if (typeof column.sortKey === 'function') {
+        valA = column.sortKey(a)
+        valB = column.sortKey(b)
+      } else if (typeof column.sortKey === 'string') {
+        valA = (a as any)[column.sortKey]
+        valB = (b as any)[column.sortKey]
+      } else {
+        return 0
+      }
+
+      // Handle null/undefined values
+      if (valA == null) valA = ''
+      if (valB == null) valB = ''
+
+      if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1
+      if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [data, sortConfig, columns])
+
+  const paginatedData = pagination ? sortedData.slice((page - 1) * pageSize, page * pageSize) : sortedData
 
   return (
     <div className={`rounded-xl sm:rounded-2xl border bg-card text-card-foreground shadow-sm overflow-hidden ${className || ''}`}>
@@ -66,8 +111,23 @@ export function AppDataTable<T>({
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30">
             {columns.map((col, i) => (
-              <TableHead key={i} className={`font-semibold ${col.headerClassName || col.className || ''}`}>
-                {col.header}
+              <TableHead 
+                key={i} 
+                className={`font-semibold ${col.headerClassName || col.className || ''} ${col.sortable ? 'cursor-pointer select-none hover:text-foreground hover:bg-muted/50 transition-colors' : ''}`}
+                onClick={col.sortable ? () => handleSort(i, col) : undefined}
+              >
+                <div className={`flex items-center gap-1.5 ${col.className?.includes('text-right') ? 'justify-end' : ''} ${col.className?.includes('text-center') ? 'justify-center' : ''}`}>
+                  {col.header}
+                  {col.sortable && (
+                    <span className="text-muted-foreground shrink-0">
+                      {sortConfig?.columnIdx === i ? (
+                        sortConfig.direction === 'asc' ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />
+                      ) : (
+                        <ArrowUpDown className="w-3.5 h-3.5 opacity-50" />
+                      )}
+                    </span>
+                  )}
+                </div>
               </TableHead>
             ))}
           </TableRow>

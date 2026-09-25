@@ -121,6 +121,8 @@ export default function UserManagement() {
   const columns: ColumnDef<any>[] = [
     {
       header: "User",
+      sortable: true,
+      sortKey: "fullName",
       cell: (user) => (
         <div className="flex items-center gap-3">
           <Avatar className="w-9 h-9">
@@ -137,6 +139,8 @@ export default function UserManagement() {
     },
     {
       header: "Role",
+      sortable: true,
+      sortKey: "role",
       cell: (user) => (
         <Badge variant="outline" className={`gap-1 ${user.role === "Admin" ? "bg-primary/10 text-primary border-primary/20" : ""}`}>
           {user.role === "Admin" ? <ShieldAlert className="w-3 h-3" /> : <ShieldCheck className="w-3 h-3" />}
@@ -146,6 +150,8 @@ export default function UserManagement() {
     },
     {
       header: "Status",
+      sortable: true,
+      sortKey: "status",
       cell: (user) => (
         <Badge variant="secondary" className={user.status === "Active" ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : "bg-muted text-muted-foreground"}>
           {user.status}
@@ -155,6 +161,8 @@ export default function UserManagement() {
     {
       header: "Last Active",
       className: "text-sm text-muted-foreground",
+      sortable: true,
+      sortKey: "lastActive",
       cell: (user) => user.lastActive === "Never" ? "Never" : new Date(user.lastActive).toLocaleDateString(),
     },
     {

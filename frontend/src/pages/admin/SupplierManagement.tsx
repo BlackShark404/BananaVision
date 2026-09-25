@@ -123,6 +123,8 @@ export default function SupplierManagement() {
   const columns: ColumnDef<Supplier>[] = [
     {
       header: "Supplier Details",
+      sortable: true,
+      sortKey: "name",
       cell: (supplier) => (
         <div className="flex flex-col">
           <span className="font-medium text-base">{supplier.name}</span>
@@ -156,10 +158,14 @@ export default function SupplierManagement() {
     },
     {
       header: "Date Added",
+      sortable: true,
+      sortKey: "dateAdded",
       cell: (supplier) => <span className="text-sm">{new Date(supplier.dateAdded).toLocaleDateString()}</span>
     },
     {
       header: "Status",
+      sortable: true,
+      sortKey: "status",
       cell: (supplier) => supplier.status === "Active" ? (
         <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
           <CheckCircle2 className="w-3 h-3 mr-1" />
