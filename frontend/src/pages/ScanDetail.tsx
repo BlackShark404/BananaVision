@@ -270,9 +270,6 @@ export default function ScanDetail() {
                       {cameraViews[activeCamera]?.label || "View"}
                     </div>
                     <div className="absolute top-2 right-2 flex items-center gap-1.5">
-                      <div className="bg-black/60 text-white px-2 py-1 rounded-md text-[10px] font-medium">
-                        {scan.confidence}%
-                      </div>
                       {scanDetections.length > 0 && (
                         <button
                           onClick={() => setShowBoxes(!showBoxes)}
@@ -325,12 +322,6 @@ export default function ScanDetail() {
               })}
             </div>
 
-            <div className="mt-4 text-center">
-              <h2 className="text-xl font-bold">{scan.cultivar}</h2>
-              <div className="mt-2">
-                <AppStatusBadge type="ripeness" status={scan.ripeness} size="lg" />
-              </div>
-            </div>
 
             {/* Detection Legend */}
             {detectionLegend.length > 0 && (
@@ -751,16 +742,6 @@ export default function ScanDetail() {
                   <p className="font-semibold">{dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                 </div>
 
-                <Separator orientation="vertical" className="hidden sm:block h-10" />
-
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
-                    <Calendar className="w-3.5 h-3.5 text-rose-500" /> Est. Spoilage Range
-                  </div>
-                  <p className="font-bold text-rose-600">
-                    {scan.spoilageDays} days
-                  </p>
-                </div>
               </div>
             </CardContent>
           </Card>
