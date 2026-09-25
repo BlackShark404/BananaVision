@@ -346,7 +346,7 @@ export default function Kiosk() {
         {/* Left Panel — Camera + Scan */}
         <div className="lg:flex-[4] flex flex-col gap-3 lg:gap-4 shrink-0 lg:shrink lg:min-h-0">
           {/* Main Camera View */}
-          <Card className="shrink-0 lg:shrink h-64 sm:h-80 lg:flex-[2] lg:h-auto bg-black border-border rounded-2xl overflow-hidden relative lg:min-h-64">
+          <Card className="shrink-0 lg:shrink h-64 sm:h-80 lg:flex-[2] lg:h-auto bg-black border-border rounded-2xl overflow-hidden relative lg:min-h-64 py-0 gap-0">
             <CardContent className="p-0 h-full flex flex-col relative">
               {/* Main Feed */}
               <div className="flex-1 w-full flex items-center justify-center relative overflow-hidden">
@@ -365,7 +365,7 @@ export default function Kiosk() {
                         key={`cam-feed-${activeCameraIndex}`}
                         src={`${BASE_URL}/api/v1/cameras/preview/${cameras[activeCameraIndex]?.deviceId ?? activeCameraIndex}`}
                         alt={`Live Camera Feed - ${cameras[activeCameraIndex]?.label}`}
-                        className="w-full h-full object-cover opacity-90 z-0 absolute animate-fade-in"
+                        className="inset-0 w-full h-full object-cover z-0 absolute animate-fade-in"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
                           const fallback = e.currentTarget.parentElement?.querySelector('[data-camera-fallback]');
