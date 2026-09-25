@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import { useScans } from "@/context/ScanContext"
@@ -36,13 +36,18 @@ import {
   QrCode,
   Download,
   Printer,
+  Eye,
+  EyeOff,
+  Box,
 } from "lucide-react"
 import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
 import { printQRTag } from "@/lib/qrcode"
-import { CULTIVARS, RIPENESS_LEVELS, type Cultivar, type Ripeness, type ScanResult } from "@/types"
+import { CULTIVARS, RIPENESS_LEVELS, type Cultivar, type Ripeness, type ScanResult, type ScanDetection, type BoundingBox } from "@/types"
 import { AppChangePreview } from "@/components/AppChangePreview"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
+import BoundingBoxOverlay from "@/components/BoundingBoxOverlay"
+import { api } from "@/lib/api"
 
 export default function ScanDetail() {
   const { scanId } = useParams<{ scanId: string }>()
@@ -54,6 +59,8 @@ export default function ScanDetail() {
   const [editMode, setEditMode] = useState(false)
   const [editData, setEditData] = useState<Partial<{ cultivar: Cultivar; ripeness: Ripeness; spoilageDays: string; fingerCount: number | string }>>({})
   const [activeCamera, setActiveCamera] = useState(0)
+  const [showBoxes, setShowBoxes] = useState(true)
+  const [scanDetections, setScanDetections] = useState<ScanDetection[]>([])
 
   const scan = scans.find((s) => s.id === scanId)
   const notes = scan ? getScanNotes(scan.id) : []
@@ -64,6 +71,26 @@ export default function ScanDetail() {
       loadScanNotes(scanId)
     }
   }, [scanId, loadScanNotes])
+
+  // Fetch full scan detail (with detections) from the API
+  useEffect(() => {
+    if (!scanId) return
+    // Use detections from context if available (from WebSocket real-time data)
+    if (scan?.detections && scan.detections.length > 0) {
+      setScanDetections(scan.detections)
+      return
+    }
+    // Otherwise fetch from API
+    api.scans.detail(scanId)
+      .then((data: any) => {
+        if (data.detections && data.detections.length > 0) {
+          setScanDetections(data.detections)
+        }
+      })
+      .catch((err: Error) => {
+        console.warn("[ScanDetail] Failed to fetch detections:", err.message)
+      })
+  }, [scanId, scan?.detections])
 
   // Dynamically generate camera views from config
   const cameraViews = config.cameraIds.split(",").map((s, index) => {
@@ -79,6 +106,33 @@ export default function ScanDetail() {
     )
     return match?.file_path
   }
+
+  // Get bounding boxes for a given camera ID
+  const getCameraBoundingBoxes = (cameraId: string): BoundingBox[] => {
+    const detection = scanDetections.find((d) => d.camera_id === cameraId)
+    return detection?.bounding_boxes || []
+  }
+
+  // Compute unique detection classes for legend
+  const detectionLegend = useMemo(() => {
+    const allBoxes = scanDetections.flatMap((d) => d.bounding_boxes || [])
+    const classMap = new Map<string, { count: number; avgConf: number }>()
+    for (const box of allBoxes) {
+      const existing = classMap.get(box.cls)
+      if (existing) {
+        existing.count++
+        existing.avgConf = (existing.avgConf * (existing.count - 1) + box.conf) / existing.count
+      } else {
+        classMap.set(box.cls, { count: 1, avgConf: box.conf })
+      }
+    }
+    return Array.from(classMap.entries()).map(([cls, data]) => ({
+      cls,
+      label: cls.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+      count: data.count,
+      avgConf: Math.round(data.avgConf * 100),
+    }))
+  }, [scanDetections])
 
   const handleFlag = () => {
     if (!scan) return
@@ -198,17 +252,37 @@ export default function ScanDetail() {
             <AspectRatio ratio={4/3} className="rounded-xl overflow-hidden bg-muted/50 border-2 relative group">
               {(() => {
                 const activeImageUrl = getCameraImageUrl(cameraViews[activeCamera]?.id)
+                const activeBoxes = showBoxes ? getCameraBoundingBoxes(cameraViews[activeCamera]?.id) : []
                 return activeImageUrl ? (
                   <>
-                    <img src={activeImageUrl} alt={`${cameraViews[activeCamera].label}`} className="w-full h-full object-cover transition-all duration-300" />
+                    <BoundingBoxOverlay
+                      src={activeImageUrl}
+                      alt={cameraViews[activeCamera].label}
+                      boxes={activeBoxes}
+                      className="w-full h-full"
+                      showLabels={true}
+                      showConfidence={true}
+                    />
                     <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-[10px] font-medium flex items-center gap-1">
                       {cameraViews[activeCamera]?.id || "CAM"}
                     </div>
                     <div className="absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-xs font-medium">
                       {cameraViews[activeCamera]?.label || "View"}
                     </div>
-                    <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded-md text-[10px] font-medium">
-                      {scan.confidence}%
+                    <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                      <div className="bg-black/60 text-white px-2 py-1 rounded-md text-[10px] font-medium">
+                        {scan.confidence}%
+                      </div>
+                      {scanDetections.length > 0 && (
+                        <button
+                          onClick={() => setShowBoxes(!showBoxes)}
+                          className="bg-black/60 hover:bg-black/80 text-white px-2 py-1 rounded-md text-[10px] font-medium flex items-center gap-1 transition-colors"
+                          title={showBoxes ? "Hide bounding boxes" : "Show bounding boxes"}
+                        >
+                          {showBoxes ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                          {showBoxes ? "Boxes" : "Boxes"}
+                        </button>
+                      )}
                     </div>
                   </>
                 ) : (
@@ -257,6 +331,36 @@ export default function ScanDetail() {
                 <AppStatusBadge type="ripeness" status={scan.ripeness} size="lg" />
               </div>
             </div>
+
+            {/* Detection Legend */}
+            {detectionLegend.length > 0 && (
+              <>
+                <Separator className="my-4" />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold">
+                    <Box className="w-3.5 h-3.5 text-primary" />
+                    YOLO Detections
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 rounded-full ml-auto">
+                      {scanDetections.reduce((acc, d) => acc + (d.bounding_boxes?.length || 0), 0)} boxes
+                    </Badge>
+                  </div>
+                  <div className="space-y-1.5">
+                    {detectionLegend.map(({ cls, label, count, avgConf }) => (
+                      <div key={cls} className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/50">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: `hsl(${(cls.charCodeAt(0) * 37 + cls.charCodeAt(cls.length - 1) * 53) % 360}, 70%, 55%)` }} />
+                          <span className="font-medium">{label}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <span>{count}×</span>
+                          <span className="font-mono">{avgConf}%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* QR Code Section — inside camera card */}
             {scan.qrCode && (

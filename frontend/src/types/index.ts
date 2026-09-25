@@ -65,6 +65,26 @@ export type NotificationType =
   | "system_alert"
   | "quality_warning"
 
+export interface BoundingBox {
+  x: number
+  y: number
+  w: number
+  h: number
+  cls: string
+  conf: number
+}
+
+export interface ScanDetection {
+  camera_id: string
+  camera_label: string
+  detected_cultivar: string | null
+  detected_ripeness: string | null
+  confidence: number | null
+  finger_count: number
+  bounding_boxes: BoundingBox[]
+  inference_time_ms: number | null
+}
+
 export interface ScanResult {
   id: string
   dateTime: string
@@ -91,6 +111,7 @@ export interface ScanResult {
   qrCode?: string
   hasNotes?: boolean
   images?: { camera_id: string; file_path: string }[]
+  detections?: ScanDetection[]
 }
 
 export interface DailyIntake {

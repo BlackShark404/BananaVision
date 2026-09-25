@@ -45,7 +45,7 @@ class BoundingBox(BaseModel):
     w: float
     h: float
     cls: str
-    confidence: float
+    conf: float
 
 
 class ScanDetectionResponse(BaseModel):

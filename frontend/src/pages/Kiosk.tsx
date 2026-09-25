@@ -26,6 +26,9 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
+import BoundingBoxOverlay from "@/components/BoundingBoxOverlay"
+import { getImageUrl } from "@/lib/utils"
+import type { BoundingBox, ScanDetection } from "@/types"
 
 const ripenessIcon: Record<string, string> = {
   Unripe: "🟢",
@@ -73,6 +76,8 @@ export default function Kiosk() {
   const activeOperators = kioskOperatorsList.length > 0 ? kioskOperatorsList : adminOperators
   const [showSwapModal, setShowSwapModal] = useState(true)
   const [scanAction, setScanAction] = useState<{ id: string, action: 'accepted' | 'flagged' } | null>(null)
+  const [showKioskBoxes, setShowKioskBoxes] = useState(true)
+  const [kioskActiveDetImg, setKioskActiveDetImg] = useState(0)
 
   // Backend camera list with actual device IDs (excludes laptop camera)
   const [backendCameras, setBackendCameras] = useState<{ device_id: number; label: string; online: boolean }[]>([])
@@ -152,6 +157,7 @@ export default function Kiosk() {
       return
     }
     startScan(undefined, activeIntake?.id)
+    setKioskActiveDetImg(0)
   }
 
   // Count scans for today
@@ -623,6 +629,84 @@ export default function Kiosk() {
                   )}
                 </div>
 
+                {/* Detection Images with Bounding Boxes */}
+                {lastResult.detections && lastResult.detections.length > 0 && lastResult.images && lastResult.images.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                        <Target className="w-3.5 h-3.5 text-primary" />
+                        YOLO Detection
+                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 rounded-full">
+                          {lastResult.detections.reduce((acc: number, d: ScanDetection) => acc + (d.bounding_boxes?.length || 0), 0)} boxes
+                        </Badge>
+                      </div>
+                      <button
+                        onClick={() => setShowKioskBoxes(!showKioskBoxes)}
+                        className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-muted"
+                      >
+                        {showKioskBoxes ? "Hide" : "Show"} Boxes
+                      </button>
+                    </div>
+                    {/* Image thumbnails with bounding box overlays */}
+                    <div className="flex gap-2 overflow-x-auto pb-1 kiosk-scroll">
+                      {lastResult.images.map((img: { camera_id: string; file_path: string }, idx: number) => {
+                        const detection = lastResult.detections?.find((d: ScanDetection) => d.camera_id === img.camera_id)
+                        const boxes: BoundingBox[] = showKioskBoxes ? (detection?.bounding_boxes || []) : []
+                        const imgUrl = img.file_path.startsWith('http') ? img.file_path : getImageUrl(img.file_path)
+                        return (
+                          <div
+                            key={img.camera_id}
+                            className={`relative shrink-0 w-36 lg:w-44 rounded-xl overflow-hidden border-2 cursor-pointer transition-all duration-200 ${
+                              kioskActiveDetImg === idx
+                                ? 'border-primary ring-2 ring-primary/20'
+                                : 'border-border hover:border-primary/40'
+                            }`}
+                            onClick={() => setKioskActiveDetImg(idx)}
+                          >
+                            <BoundingBoxOverlay
+                              src={imgUrl}
+                              alt={`${img.camera_id} detection`}
+                              boxes={boxes}
+                              className="w-full aspect-[4/3]"
+                              showLabels={false}
+                              showConfidence={false}
+                            />
+                            <div className="absolute top-1 left-1 bg-black/60 text-white px-1.5 py-0.5 rounded text-[8px] font-medium">
+                              {detection?.camera_label || img.camera_id}
+                            </div>
+                            {detection && detection.bounding_boxes && detection.bounding_boxes.length > 0 && (
+                              <div className="absolute top-1 right-1 bg-primary/80 text-white px-1.5 py-0.5 rounded text-[8px] font-bold">
+                                {detection.bounding_boxes.length}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                    {/* Expanded active detection image */}
+                    {lastResult.images[kioskActiveDetImg] && (() => {
+                      const activeImg = lastResult.images![kioskActiveDetImg]
+                      const activeDet = lastResult.detections?.find((d: ScanDetection) => d.camera_id === activeImg.camera_id)
+                      const activeBoxes: BoundingBox[] = showKioskBoxes ? (activeDet?.bounding_boxes || []) : []
+                      const activeUrl = activeImg.file_path.startsWith('http') ? activeImg.file_path : getImageUrl(activeImg.file_path)
+                      return (
+                        <div className="rounded-xl overflow-hidden border border-border relative">
+                          <BoundingBoxOverlay
+                            src={activeUrl}
+                            alt={`${activeImg.camera_id} detection expanded`}
+                            boxes={activeBoxes}
+                            className="w-full aspect-[4/3]"
+                            showLabels={true}
+                            showConfidence={true}
+                          />
+                          <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-0.5 rounded-md text-[10px] font-medium">
+                            {activeDet?.camera_label || activeImg.camera_id}
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
 
                 {/* QR Code Preview */}
                 {lastResult.qrCode && (

@@ -177,7 +177,7 @@ async def get_scan(scan_id: uuid.UUID, db: DbSession, user: CurrentUser):
             selectinload(Scan.detections),
             selectinload(Scan.images),
             selectinload(Scan.notes),
-            selectinload(Scan.operator),
+            selectinload(Scan.operator).selectinload(OperatorProfile.account),
         )
     )
     scan = result.scalar_one_or_none()
@@ -198,7 +198,7 @@ async def get_scan(scan_id: uuid.UUID, db: DbSession, user: CurrentUser):
         treatment=scan.classification.treatment.value if scan.classification and scan.classification.treatment else None,
         spoilage_days=scan.classification.spoilage_days if scan.classification else "Unknown",
         finger_count=scan.classification.finger_count if scan.classification else 0,
-        operator_name=scan.operator.full_name if scan.operator else "Unknown",
+        operator_name=scan.operator.account.full_name if scan.operator and scan.operator.account else "Unknown",
         source_text=scan.source_text,
         intake_id=scan.intake_id,
         inventory_status=scan.status_logs[-1].inventory_status if scan.status_logs else "Unknown",

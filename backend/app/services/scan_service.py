@@ -332,6 +332,19 @@ async def execute_scan_pipeline(
             "camera_count": fused.camera_count,
             "scanned_at": scan.date_time.isoformat(),
             "images": [{"camera_id": img.camera_id, "file_path": img.file_path} for img in db_images],
+            "detections": [
+                {
+                    "camera_id": det.camera_id,
+                    "camera_label": det.camera_label,
+                    "detected_cultivar": det.detected_cultivar,
+                    "detected_ripeness": det.detected_ripeness,
+                    "confidence": float(det.confidence) if det.confidence else None,
+                    "finger_count": det.finger_count,
+                    "bounding_boxes": det.bounding_boxes or [],
+                    "inference_time_ms": float(det.inference_time_ms) if det.inference_time_ms else None,
+                }
+                for det in db_detections
+            ],
         }
 
         await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_COMPLETED, scan_result)
