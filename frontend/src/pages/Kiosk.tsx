@@ -344,9 +344,9 @@ export default function Kiosk() {
       <div className="flex-1 flex flex-col lg:flex-row gap-4 lg:gap-6 p-4 lg:p-6 overflow-y-auto lg:overflow-hidden kiosk-scroll">
 
         {/* Left Panel — Camera + Scan */}
-        <div className="lg:flex-3 flex flex-col gap-3 lg:gap-4 shrink-0 lg:shrink lg:min-h-0">
+        <div className="lg:flex-[4] flex flex-col gap-3 lg:gap-4 shrink-0 lg:shrink lg:min-h-0">
           {/* Main Camera View */}
-          <Card className="shrink-0 lg:shrink h-50 sm:h-70 lg:flex-1 lg:h-auto bg-card border-border rounded-2xl overflow-hidden relative lg:min-h-50">
+          <Card className="shrink-0 lg:shrink h-64 sm:h-80 lg:flex-[2] lg:h-auto bg-card border-border rounded-2xl overflow-hidden relative lg:min-h-64">
             <CardContent className="p-0 h-full flex flex-col relative">
               {/* Main Feed */}
               <div className="flex-1 w-full flex items-center justify-center relative bg-black rounded-2xl overflow-hidden">
@@ -462,10 +462,10 @@ export default function Kiosk() {
             </CardContent>
           </Card>
 
-          {/* Camera Status Indicators — clickable to switch live view */}
-          <div className={`grid gap-2 lg:gap-3 shrink-0 ${cameras.length > 4 ? 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6' : 'grid-cols-2 sm:grid-cols-4'}`}>
+          {/* Camera Status Indicators — compact horizontal strip */}
+          <div className="flex gap-2 shrink-0">
             {cameras.length === 0 ? (
-              <div className="col-span-full text-center text-muted-foreground text-xs py-4 border rounded-xl border-dashed">
+              <div className="flex-1 text-center text-muted-foreground text-xs py-3 border rounded-xl border-dashed">
                 No cameras configured. Go to Settings to add cameras.
               </div>
             ) : cameras.map((cam, idx) => {
@@ -474,63 +474,30 @@ export default function Kiosk() {
               const isDoneCapture = isScanning && scanStep > 1
               const isActiveView = !isScanning && idx === activeCameraIndex
 
-              // Find the captured image for this camera from the last scan result
-              const scanImage = !isScanning && lastResult?.images?.find(i => i.camera_id === String(cam.label) || i.camera_id === String(cam.id))?.file_path
-
               return (
                 <button
                   key={cam.id}
                   onClick={() => { if (!isScanning) selectCamera(idx); }}
-                  className={`relative aspect-video rounded-xl border-2 transition-all duration-300 overflow-hidden flex items-center justify-center bg-card ${isCapturing
-                    ? "border-primary shadow-lg shadow-primary/30 ring-2 ring-primary/20"
+                  className={`relative flex-1 h-9 rounded-lg border transition-all duration-200 flex items-center justify-center gap-1.5 text-xs font-medium ${isCapturing
+                    ? "border-primary bg-primary/10 text-primary shadow-sm shadow-primary/20"
                     : isActiveView
-                      ? "border-primary/60 ring-1 ring-primary/20 shadow-md shadow-primary/10"
-                      : (isCaptured || isDoneCapture || scanImage)
-                        ? "border-emerald-500/40"
-                        : "border-border hover:border-primary/30 hover:shadow-sm"
+                      ? "border-primary/60 bg-primary/5 text-primary"
+                      : (isCaptured || isDoneCapture)
+                        ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-600"
+                        : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:bg-accent"
                     } ${!isScanning ? 'cursor-pointer active:scale-95' : ''}`}
                   disabled={isScanning}
                 >
-                  {/* Camera content — prominent position number */}
-                  {scanImage ? (
-                    <img src={scanImage} alt={cam.label} className="w-full h-full object-cover" />
+                  {isCapturing ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (isCaptured || isDoneCapture) ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                  ) : isActiveView ? (
+                    <Camera className="w-3.5 h-3.5" />
                   ) : (
-                    <div className="text-center flex flex-col items-center justify-center">
-                      {isCapturing ? (
-                        <Loader2 className="w-5 h-5 lg:w-6 lg:h-6 text-primary animate-spin" />
-                      ) : (isCaptured || isDoneCapture) ? (
-                        <CheckCircle2 className="w-5 h-5 lg:w-6 lg:h-6 text-emerald-500" />
-                      ) : (
-                        <span className={`text-xs lg:text-sm font-bold transition-colors leading-tight ${isActiveView ? 'text-primary' : 'text-muted-foreground/30'
-                          }`}>{cam.angle}</span>
-                      )}
-                    </div>
+                    <div className={`w-1.5 h-1.5 rounded-full ${isCapturing ? "bg-red-500 animate-pulse" : "bg-emerald-500/50"}`} />
                   )}
-
-                  {/* Label */}
-                  <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between">
-                    <span className={`text-[9px] lg:text-[10px] font-medium transition-colors ${isActiveView ? 'text-primary' : 'text-muted-foreground'
-                      }`}>{cam.label}</span>
-                    <div className={`w-1.5 h-1.5 rounded-full ${isCapturing ? "bg-red-500 animate-pulse"
-                      : isActiveView ? "bg-primary animate-pulse"
-                        : (isCaptured || isDoneCapture) ? "bg-emerald-500"
-                          : "bg-emerald-500/50"
-                      }`} />
-                  </div>
-
-                  {/* Active view indicator with position number */}
-                  {isActiveView && (
-                    <div className="absolute top-1 right-1">
-                      <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center">
-                        <Camera className="w-2.5 h-2.5 text-primary" />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Capturing pulse ring */}
-                  {isCapturing && (
-                    <div className="absolute inset-0 rounded-[10px] border-2 border-primary animate-ping opacity-20 pointer-events-none" />
-                  )}
+                  <span>{cam.angle}</span>
                 </button>
               )
             })}
@@ -573,7 +540,7 @@ export default function Kiosk() {
         </div>
 
         {/* Right Panel — Results + History */}
-        <div className="lg:flex-2 flex flex-col gap-4 shrink-0 lg:shrink lg:min-h-0 lg:overflow-y-auto kiosk-scroll">
+        <div className="lg:flex-[3] flex flex-col gap-4 shrink-0 lg:shrink lg:min-h-0 lg:overflow-y-auto kiosk-scroll">
 
           {/* Last Scan Result */}
           {lastResult ? (
