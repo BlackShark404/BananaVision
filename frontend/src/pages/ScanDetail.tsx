@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import { useScans } from "@/context/ScanContext"
+import { useInventory } from "@/context/InventoryContext"
 import { useAdmin } from "@/context/AdminContext"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -54,10 +55,11 @@ export default function ScanDetail() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { scans, flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData } = useScans()
+  const { suppliers } = useInventory()
   const { config } = useAdmin()
   const [noteText, setNoteText] = useState("")
   const [editMode, setEditMode] = useState(false)
-  const [editData, setEditData] = useState<Partial<{ cultivar: Cultivar; ripeness: Ripeness; spoilageDays: string; fingerCount: number | string }>>({})
+  const [editData, setEditData] = useState<Partial<{ cultivar: Cultivar; ripeness: Ripeness; spoilageDays: string; fingerCount: number | string; source: string }>>({})
   const [activeCamera, setActiveCamera] = useState(0)
   const [showBoxes, setShowBoxes] = useState(true)
   const [scanDetections, setScanDetections] = useState<ScanDetection[]>([])
@@ -156,11 +158,12 @@ export default function ScanDetail() {
       ripeness: scan.ripeness,
       spoilageDays: scan.spoilageDays,
       fingerCount: scan.fingerCount,
+      source: scan.source,
     })
     setEditMode(true)
   }
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (scan && editData) {
       const saveData = {
         ...editData,
@@ -174,9 +177,13 @@ export default function ScanDetail() {
           spoilageDays: scan.spoilageDays,
         }
       } as Partial<ScanResult>
-      updateScanData(scan.id, saveData)
-      setEditMode(false)
-      toast.success("Scan data updated successfully")
+      try {
+        await updateScanData(scan.id, saveData)
+        setEditMode(false)
+        toast.success("Scan data updated successfully")
+      } catch (err) {
+        toast.error("Failed to update scan data. Please check connection.")
+      }
     }
   }
 
@@ -424,6 +431,19 @@ export default function ScanDetail() {
               {editMode ? (
                 <div className="space-y-4 p-4 bg-muted/30 rounded-xl">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
+                      <Label htmlFor="edit-source" className="text-xs">Source</Label>
+                      <Select value={editData.source} onValueChange={(v) => setEditData({...editData, source: v})}>
+                        <SelectTrigger id="edit-source" className="rounded-xl mt-1">
+                          <SelectValue placeholder="Select a Source" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {suppliers.filter(s => s.status === "Active").map(s => s.name).sort().map((src) => (
+                            <SelectItem key={src} value={src}>{src}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div>
                       <Label htmlFor="edit-cultivar" className="text-xs">Cultivar</Label>
                       <Select value={editData.cultivar} onValueChange={(v) => {

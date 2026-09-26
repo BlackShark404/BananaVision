@@ -131,7 +131,7 @@ export const api = {
     flag: (id: string, flagged: boolean) =>
       patch<any>(`/api/v1/scans/${id}/flag`, { flagged }),
 
-    override: (id: string, data: { cultivar?: string; ripeness?: string; finger_count?: number; spoilage_days?: string }) =>
+    override: (id: string, data: { cultivar?: string; ripeness?: string; finger_count?: number; spoilage_days?: string; source_text?: string }) =>
       patch<any>(`/api/v1/scans/${id}`, data),
 
     updateStatus: (id: string, status: string) =>

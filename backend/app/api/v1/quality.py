@@ -46,7 +46,7 @@ async def get_flagged_scans(
                 "ripeness": s.classification.ripeness if s.classification else "Unknown",
                 "confidence": float(s.classification.confidence) if s.classification else 0.0,
                 "finger_count": s.classification.finger_count if s.classification else 0,
-                "operator_name": s.operator.full_name if s.operator else "Unknown",
+                "operator_name": s.operator.account.full_name if s.operator and s.operator.account else "Unknown",
                 "flagged": s.flagged,
             }
             for s in scans

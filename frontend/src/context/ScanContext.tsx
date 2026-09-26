@@ -27,7 +27,7 @@ interface ScanContextType {
   addScanNote: (scanId: string, note: string) => void
   getScanNotes: (scanId: string) => ScanNote[]
   loadScanNotes: (scanId: string) => void
-  updateScanData: (id: string, data: Partial<ScanResult>) => void
+  updateScanData: (id: string, data: Partial<ScanResult>) => Promise<any>
   /** Update inventory status on scans belonging to an intake. Used by InventoryContext. */
   updateScansForIntake: (intakeId: string, status: InventoryStatus) => void
 }
@@ -53,7 +53,7 @@ const mapApiScan = (s: any): ScanResult => ({
   spoilageDays: s.spoilage_days || s.spoilageDays,
   fingerCount: s.finger_count || s.fingerCount,
   operator: s.operator_name || s.operator || "Unknown",
-  source: s.supplier_name || s.source,
+  source: s.source_text || s.supplier_name || s.source,
   thumbnailUrl: s.thumbnail_url || s.thumbnailUrl ? getImageUrl(s.thumbnail_url || s.thumbnailUrl) : undefined,
   intakeId: s.intake_id || s.intakeId,
   inventoryStatus: s.inventory_status || s.inventoryStatus || "In Stock",
@@ -265,10 +265,17 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       ripeness: data.ripeness,
       finger_count: data.fingerCount,
       spoilage_days: data.spoilageDays,
+      source_text: data.source,
     }
-    api.scans.override(id, apiData)
-      .then(() => setScans((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s))))
-      .catch(() => setScans((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s))))
+    return api.scans.override(id, apiData)
+      .then((res) => {
+        setScans((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s)))
+        return res
+      })
+      .catch((err) => {
+        console.error("Failed to update scan data", err)
+        throw err
+      })
   }, [])
 
   // ── Cross-context helper for InventoryContext ───────────────────────────

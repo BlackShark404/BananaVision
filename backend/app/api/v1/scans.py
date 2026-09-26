@@ -264,7 +264,7 @@ async def override_scan(
             selectinload(Scan.status_logs),
             selectinload(Scan.original_ai_result),
             selectinload(Scan.notes),
-            selectinload(Scan.operator),
+            selectinload(Scan.operator).selectinload(OperatorProfile.account),
         )
     )
     scan = result.scalar_one_or_none()
@@ -290,6 +290,11 @@ async def override_scan(
             scan.classification.ripeness = body.ripeness
         if body.finger_count is not None:
             scan.classification.finger_count = body.finger_count
+        if body.spoilage_days is not None:
+            scan.classification.spoilage_days = body.spoilage_days
+
+    if body.source_text is not None:
+        scan.source_text = body.source_text
 
     scan.is_overridden = True
 
@@ -312,7 +317,7 @@ async def override_scan(
         humidity=float(scan.classification.humidity) if scan.classification and scan.classification.humidity else None,
         spoilage_days=scan.classification.spoilage_days if scan.classification else "Unknown",
         finger_count=scan.classification.finger_count if scan.classification else 0,
-        operator_name=scan.operator.full_name if scan.operator else "Unknown",
+        operator_name=scan.operator.account.full_name if scan.operator and scan.operator.account else "Unknown",
         source_text=scan.source_text,
         intake_id=scan.intake_id,
         inventory_status=scan.status_logs[-1].inventory_status if scan.status_logs else "Unknown",

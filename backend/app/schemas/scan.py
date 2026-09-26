@@ -27,6 +27,8 @@ class ScanOverrideRequest(BaseModel):
     cultivar: CultivarEnum | None = None
     ripeness: RipenessEnum | None = None
     finger_count: int | None = None
+    spoilage_days: str | None = None
+    source_text: str | None = None
 
 
 class ScanNoteCreate(BaseModel):

@@ -2,6 +2,7 @@ import { useState, useMemo } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import { useScans } from "@/context/ScanContext"
+import { useInventory } from "@/context/InventoryContext"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -21,7 +22,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
-import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, QrCode, X, Printer } from "lucide-react"
+import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, QrCode, X, Printer, Edit } from "lucide-react"
 import { toast } from "sonner"
 import { parseSpoilageAvg } from "@/lib/utils"
 import { printQRTag } from "@/lib/qrcode"
@@ -35,6 +36,7 @@ export default function Logs() {
   const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const { scans, updateScanData } = useScans()
+  const { suppliers } = useInventory()
   const [search, setSearch] = useState("")
   const [cultivarFilter, setCultivarFilter] = useState<string>("all")
   const [ripenessFilter, setRipenessFilter] = useState<string>("all")
@@ -70,7 +72,7 @@ export default function Logs() {
       if (statusFilter !== "all" && (s.inventoryStatus || "In Stock") !== statusFilter) return false
       if (search) {
         const q = search.toLowerCase()
-        return s.cultivar.toLowerCase().includes(q) || s.operator.toLowerCase().includes(q) || (s.source?.toLowerCase().includes(q) ?? false) || (s.intakeId?.toLowerCase().includes(q) ?? false)
+        return s.cultivar.toLowerCase().includes(q) || s.operator.toLowerCase().includes(q) || (s.source?.toLowerCase().includes(q) ?? false) || (s.intakeId?.toLowerCase().includes(q) ?? false) || s.id.toLowerCase().includes(q)
       }
       return true
     })
@@ -170,7 +172,12 @@ const columns: ColumnDef<ScanResult>[] = [
       header: "Cultivar",
       sortable: true,
       sortKey: "cultivar",
-      cell: (scan) => <span className="font-medium">{scan.cultivar}</span>,
+      cell: (scan) => (
+        <div className="flex items-center gap-1.5">
+          <span className="font-medium">{scan.cultivar}</span>
+          {scan.isOverridden && <Edit className="w-3.5 h-3.5 text-amber-500" title="Overridden" />}
+        </div>
+      ),
     },
     {
       header: "Ripeness",
@@ -389,8 +396,8 @@ const columns: ColumnDef<ScanResult>[] = [
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Sources</SelectItem>
-            {Array.from(new Set(scans.map(s => s.source).filter(Boolean))).map((src) => (
-              <SelectItem key={src as string} value={src as string}>{src}</SelectItem>
+            {suppliers.filter(s => s.status === "Active").map(s => s.name).sort().map((src) => (
+              <SelectItem key={src} value={src}>{src}</SelectItem>
             ))}
           </SelectContent>
         </Select>
