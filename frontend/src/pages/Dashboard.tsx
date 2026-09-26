@@ -1,8 +1,10 @@
-import { useMemo } from "react"
+import { useMemo, useState, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import { useScans } from "@/context/ScanContext"
 import { useAdmin } from "@/context/AdminContext"
+import { useWebSocket } from "@/hooks/useWebSocket"
+import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -30,50 +32,80 @@ export default function Dashboard() {
   const { scans } = useScans()
   const { devices, config } = useAdmin()
 
-  // --- RBAC Filtering ---
+  // --- Real-time Backend Metrics State ---
+  const [summary, setSummary] = useState<any>(null)
+  const [operatorPerf, setOperatorPerf] = useState<any>(null)
+  const [activeSourcesList, setActiveSourcesList] = useState<{name: string, count: number}[]>([])
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      const sum = await api.analytics.summary({ range: "today" })
+      setSummary(sum)
+      setActiveSourcesList(sum.scans_by_source || [])
+
+      const perf = await api.analytics.operatorPerformance({ range: "today" })
+      if (user?.role === "Operator") {
+        const myPerf = perf.items?.find((i: any) => i.name === user.fullName)
+        setOperatorPerf(myPerf || null)
+      } else {
+        setOperatorPerf({ activeCount: perf.items?.length || 0 })
+      }
+    } catch (e) {
+      console.error("Failed to fetch dashboard metrics", e)
+    }
+  }, [user])
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [fetchDashboardData])
+
+  // Listen for websocket events to keep backend metrics real-time
+  useWebSocket({
+    rooms: ["dashboard"],
+    onEvent: (event) => {
+      if (event === "scan:completed") {
+        fetchDashboardData()
+      }
+    },
+    enabled: !!user
+  })
+
+  // --- RBAC Filtering for Recent Scans ---
   const roleFilteredScans = useMemo(() => {
     return user?.role === "Operator" ? scans.filter(s => s.operator === user?.fullName) : scans
   }, [scans, user])
 
+  const recentScans = useMemo(() => {
+    return roleFilteredScans.slice(0, 5)
+  }, [roleFilteredScans])
+
   // --- Derived Metrics ---
   const todayScans = useMemo(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    return roleFilteredScans.filter(s => new Date(s.dateTime) >= today).length
-  }, [roleFilteredScans])
-
-  const activeSources = useMemo(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const scansToday = roleFilteredScans.filter(s => new Date(s.dateTime) >= today)
-    return Array.from(new Set(scansToday.map(s => s.source).filter(Boolean)))
-  }, [roleFilteredScans])
+    return user?.role === "Operator" ? (operatorPerf?.total_scans || 0) : (summary?.total_scans || 0)
+  }, [summary, operatorPerf, user])
 
   const operatorMetric = useMemo(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const scansToday = roleFilteredScans.filter(s => new Date(s.dateTime) >= today)
-
     if (user?.role === "Operator") {
-      // Show operator's average confidence today
-      const avgConf = scansToday.length 
-        ? Math.round(scansToday.reduce((sum, s) => sum + s.confidence, 0) / scansToday.length)
-        : 0
-      return { value: avgConf ? `${avgConf}%` : "—", label: "My Avg Confidence", icon: Target, desc: "Accuracy today" }
+      const avgConf = operatorPerf?.avg_confidence
+      return { 
+        value: avgConf ? `${Math.round(avgConf)}%` : "—", 
+        label: "My Avg Confidence", 
+        icon: Target, 
+        desc: "Accuracy today" 
+      }
     } else {
-      // Show total active operators today
-      const operatorsToday = new Set(scansToday.map(s => s.operator))
-      return { value: operatorsToday.size, label: "Active Operators", icon: Users, desc: "Staff working today" }
+      return { 
+        value: operatorPerf?.activeCount || 0, 
+        label: "Active Operators", 
+        icon: Users, 
+        desc: "Staff working today" 
+      }
     }
-  }, [roleFilteredScans, user])
+  }, [operatorPerf, user])
 
   const onlineCameras = useMemo(() => {
     return devices.filter(d => d.status === "Online").length
   }, [devices])
-
-  const recentScans = useMemo(() => {
-    return roleFilteredScans.slice(0, 5)
-  }, [roleFilteredScans])
 
   const sortedDevices = useMemo(() => {
     const order = config.cameraIds.split(",").map(id => id.trim()).filter(Boolean)
@@ -118,7 +150,7 @@ export default function Dashboard() {
         />
         <AppStatsCard
           title={user?.role === "Operator" ? "My Sources Today" : "Active Sources"}
-          value={activeSources.length}
+          value={activeSourcesList.length}
           icon={Package}
           iconColor="text-yellow-600"
           iconBgColor="bg-yellow-500/10"
@@ -129,8 +161,8 @@ export default function Dashboard() {
           title="System Health"
           value={`${onlineCameras}/${devices.length}`}
           icon={Activity}
-          iconColor={onlineCameras === devices.length ? "text-emerald-600" : "text-amber-600"}
-          iconBgColor={onlineCameras === devices.length ? "bg-emerald-500/10" : "bg-amber-500/10"}
+          iconColor={onlineCameras === devices.length && devices.length > 0 ? "text-emerald-600" : "text-amber-600"}
+          iconBgColor={onlineCameras === devices.length && devices.length > 0 ? "bg-emerald-500/10" : "bg-amber-500/10"}
           delay={200}
           description="Cameras online"
         />
@@ -222,30 +254,25 @@ export default function Dashboard() {
             </Button>
           </CardHeader>
           <CardContent className="p-0 flex-1">
-            {activeSources.length === 0 ? (
+            {activeSourcesList.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
                 <Package className="w-8 h-8 mb-2 opacity-20" />
                 <p className="text-sm">No active sources today</p>
               </div>
             ) : (
               <div className="divide-y overflow-y-auto" style={{ maxHeight: "400px" }}>
-                {activeSources.map((source) => {
-                  const today = new Date()
-                  today.setHours(0, 0, 0, 0)
-                  const sourceScans = roleFilteredScans.filter(s => s.source === source && new Date(s.dateTime) >= today).length
-                  return (
-                    <div key={source as string} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
-                      <div className="min-w-0 pr-4">
-                        <p className="text-sm font-semibold truncate text-foreground/90">{source}</p>
-                      </div>
-                      <div className="flex flex-col items-end shrink-0">
-                        <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
-                          {sourceScans} scans
-                        </Badge>
-                      </div>
+                {activeSourcesList.map((sourceItem) => (
+                  <div key={sourceItem.name} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
+                    <div className="min-w-0 pr-4">
+                      <p className="text-sm font-semibold truncate text-foreground/90">{sourceItem.name}</p>
                     </div>
-                  )
-                })}
+                    <div className="flex flex-col items-end shrink-0">
+                      <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
+                        {sourceItem.count} scans
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>
@@ -278,7 +305,7 @@ export default function Dashboard() {
                       </div>
                       <div className="absolute bottom-1.5 sm:bottom-2 left-1.5 sm:left-2">
                         <span className="text-[9px] sm:text-[10px] text-white/80 bg-black/40 px-1 sm:px-1.5 py-0.5 rounded backdrop-blur-sm">
-                          {new Date().toLocaleTimeString()}
+                          {new Date(device.lastSeen || Date.now()).toLocaleTimeString()}
                         </span>
                       </div>
                     </>
