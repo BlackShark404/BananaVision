@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext"
 import { useScans } from "@/context/ScanContext"
 import { useAdmin } from "@/context/AdminContext"
 import { useWebSocket } from "@/hooks/useWebSocket"
-import { api } from "@/lib/api"
+import { api, BASE_URL } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -288,29 +288,43 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {sortedDevices.map((device) => {
             const isOnline = device.status === "Online"
+            const camIndex = parseInt(device.cameraId.replace(/[^0-9]/g, '')) - 1
+            
             return (
               <Card key={device.id} className="rounded-lg sm:rounded-xl overflow-hidden group">
-                <div className={`aspect-video relative flex items-center justify-center ${isOnline ? 'bg-muted/60' : 'bg-destructive/5'}`}>
+                <div className={`aspect-video relative flex items-center justify-center ${isOnline ? 'bg-black' : 'bg-destructive/5'}`}>
                   {isOnline ? (
                     <>
-                      <div className="absolute inset-0 bg-linear-to-b from-transparent to-black/20" />
-                      <div className="text-center space-y-1.5 sm:space-y-2">
-                        <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground/40 mx-auto" />
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">{device.cameraId} Ready</p>
+                      <img
+                        src={`${BASE_URL}/api/v1/cameras/preview/${camIndex}`}
+                        alt={`Live Camera Feed - ${device.cameraId}`}
+                        className="inset-0 w-full h-full object-cover z-0 absolute animate-fade-in"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const fallback = e.currentTarget.parentElement?.querySelector('.camera-fallback');
+                          if (fallback) (fallback as HTMLElement).style.display = 'block';
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-linear-to-b from-transparent to-black/40 z-0 pointer-events-none" />
+                      
+                      <div className="camera-fallback hidden text-center space-y-1.5 sm:space-y-2 z-10 relative">
+                        <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-white/40 mx-auto" />
+                        <p className="text-[10px] sm:text-xs text-white/60">{device.cameraId} Ready</p>
                       </div>
-                      <div className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2">
+
+                      <div className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2 z-10">
                         <Badge variant="outline" className="bg-emerald-500/90 text-white border-0 text-[9px] sm:text-[10px] px-1 sm:px-1.5 h-4 sm:h-auto">
                           ONLINE
                         </Badge>
                       </div>
-                      <div className="absolute bottom-1.5 sm:bottom-2 left-1.5 sm:left-2">
-                        <span className="text-[9px] sm:text-[10px] text-white/80 bg-black/40 px-1 sm:px-1.5 py-0.5 rounded backdrop-blur-sm">
-                          {new Date(device.lastSeen || Date.now()).toLocaleTimeString()}
+                      <div className="absolute bottom-1.5 sm:bottom-2 left-1.5 sm:left-2 z-10">
+                        <span className="text-[9px] sm:text-[10px] text-white/90 bg-black/50 px-1.5 sm:px-2 py-0.5 rounded backdrop-blur-sm shadow-sm font-medium">
+                          {device.cameraId}
                         </span>
                       </div>
                     </>
                   ) : (
-                    <div className="text-center space-y-1.5 sm:space-y-2">
+                    <div className="text-center space-y-1.5 sm:space-y-2 relative z-10">
                       <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-destructive/40 mx-auto" />
                       <p className="text-[10px] sm:text-xs text-destructive/60 font-medium">{device.cameraId} Offline</p>
                     </div>
