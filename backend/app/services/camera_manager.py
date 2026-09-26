@@ -83,10 +83,27 @@ class CameraManager:
                     cap.read()
 
                 if cap.isOpened():
-                    self._cameras[dev_id] = cap
-                    self._locks[dev_id] = threading.Lock()
-                    results[dev_id] = True
-                    logger.info(f"Camera {dev_id} ({self._get_label(dev_id)}) initialized OK")
+                    # Validate the camera feed is not blank or black
+                    ret, frame = cap.read()
+                    if ret and frame is not None:
+                        mean, stddev = cv2.meanStdDev(frame)
+                        
+                        # Check for a solid color (blank) or pure black screen
+                        # A low standard deviation (< 2.0) indicates a solid color with no details.
+                        # A low mean (< 2.0) indicates a completely black image.
+                        if float(np.max(stddev)) < 2.0 or float(np.max(mean)) < 2.0:
+                            logger.error(f"Camera {dev_id} returned a blank or black feed. Discarding.")
+                            cap.release()
+                            results[dev_id] = False
+                        else:
+                            self._cameras[dev_id] = cap
+                            self._locks[dev_id] = threading.Lock()
+                            results[dev_id] = True
+                            logger.info(f"Camera {dev_id} ({self._get_label(dev_id)}) initialized OK")
+                    else:
+                        logger.error(f"Camera {dev_id} failed to read validation frame. Discarding.")
+                        cap.release()
+                        results[dev_id] = False
                 else:
                     results[dev_id] = False
                     logger.error(f"Camera {dev_id} failed to open")
