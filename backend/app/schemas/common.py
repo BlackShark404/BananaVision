@@ -128,6 +128,21 @@ class AnalyticsSummary(BaseModel):
     scan_trend: list[ScanTrend]
 
 
+class OperatorPerformance(BaseModel):
+    operator_id: uuid.UUID
+    name: str
+    total_scans: int
+    avg_confidence: float
+    flagged_scans: int
+    flag_rate: float
+    overridden_scans: int
+
+
+class OperatorPerformanceList(BaseModel):
+    items: list[OperatorPerformance]
+    total_operators: int
+
+
 # ── Activity ─────────────────────────────────────────────────────────────────
 
 class ActivityLogResponse(BaseModel):

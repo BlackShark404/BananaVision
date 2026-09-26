@@ -352,7 +352,7 @@ async def update_scan_status(
 
 @router.post("/{scan_id}/notes", response_model=ScanNoteResponse)
 async def add_note(
-    scan_id: uuid.UUID, body: ScanNoteCreate, db: DbSession, user: CurrentUser
+    scan_id: uuid.UUID, body: ScanNoteCreate, db: DbSession, user: AdminUser
 ):
     """Add a note to a scan."""
     result = await db.execute(select(Scan).where(Scan.id == scan_id))
@@ -373,7 +373,7 @@ async def add_note(
 
 
 @router.get("/{scan_id}/notes", response_model=list[ScanNoteResponse])
-async def get_notes(scan_id: uuid.UUID, db: DbSession, user: CurrentUser):
+async def get_notes(scan_id: uuid.UUID, db: DbSession, user: AdminUser):
     """Get all notes for a scan."""
     result = await db.execute(
         select(ScanNote)
