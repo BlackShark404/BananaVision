@@ -182,7 +182,10 @@ export const api = {
 
   // ── Analytics ────────────────────────────────────────────────────────────
   analytics: {
-    summary: (params?: { days?: number }) => get<any>("/api/v1/analytics/summary", params as any),
+    summary: (params?: { range?: string; source?: string; confidence_threshold?: number }) =>
+      get<any>("/api/v1/analytics/summary", params as any),
+    operatorPerformance: (params?: { range?: string; source?: string }) =>
+      get<any>("/api/v1/analytics/operator-performance", params as any),
   },
 
   // ── Activity ─────────────────────────────────────────────────────────────

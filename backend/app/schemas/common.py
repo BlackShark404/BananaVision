@@ -119,13 +119,50 @@ class ScanTrend(BaseModel):
     count: int
 
 
+class CultivarRipeness(BaseModel):
+    """Per-cultivar breakdown of ripeness counts."""
+    name: str
+    Unripe: int = 0
+    Semi_Ripe: int = Field(0, alias="Semi Ripe")
+    Ripe: int = 0
+    Overripe: int = 0
+
+    model_config = {"populate_by_name": True}
+
+
+class RipenessConfidence(BaseModel):
+    """Avg confidence and count per ripeness level."""
+    ripeness: str
+    avgConfidence: float
+    count: int
+
+
+class SourceCount(BaseModel):
+    """Scan count per source/supplier."""
+    name: str
+    count: int
+
+
+class HourlyCount(BaseModel):
+    """Scan count per hour-of-day."""
+    hour: str
+    count: int
+
+
 class AnalyticsSummary(BaseModel):
     total_scans: int
     avg_confidence: float
     most_common_cultivar: str
+    low_confidence_count: int = 0
+    low_confidence_rate: float = 0.0
+    at_risk_count: int = 0
     ripeness_distribution: list[RipenessDistribution]
     cultivar_counts: list[CultivarCount]
     scan_trend: list[ScanTrend]
+    cultivar_ripeness: list[CultivarRipeness] = []
+    ripeness_confidence: list[RipenessConfidence] = []
+    scans_by_source: list[SourceCount] = []
+    hourly_distribution: list[HourlyCount] = []
 
 
 class OperatorPerformance(BaseModel):
