@@ -144,7 +144,7 @@ export function AppNotifications() {
           <Bell className="w-4.5 h-4.5" />
           {unreadCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4.5 h-4.5 rounded-full bg-destructive text-white text-[10px] font-bold px-1 shadow-sm animate-in zoom-in-50 duration-200">
-              {unreadCount}
+              {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
         </Button>
@@ -161,7 +161,7 @@ export function AppNotifications() {
             <h3 className="text-sm font-semibold">Notifications</h3>
             {unreadCount > 0 && (
               <Badge variant="destructive" className="text-[10px] h-5 px-1.5">
-                {unreadCount} new
+                {unreadCount > 9 ? '9+' : unreadCount} new
               </Badge>
             )}
           </div>
