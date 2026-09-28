@@ -199,7 +199,7 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES=480  # 8-hour shift
 
 # ── Camera Configuration ──
 CAMERA_DEVICE_IDS=0,1,2,3            # /dev/video0..3
-CAMERA_LABELS=Top,Left,Right,Back
+CAMERA_LABELS=Front,Left,Right,Top
 CAMERA_RESOLUTION_W=1920
 CAMERA_RESOLUTION_H=1080
 CAMERA_WARMUP_FRAMES=5               # Frames to discard on init
