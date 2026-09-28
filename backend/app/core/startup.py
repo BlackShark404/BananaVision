@@ -169,21 +169,23 @@ async def start_background_tasks():
 
     # Camera health monitor — polls every 10s, updates DB + broadcasts on change
     async def camera_health_monitor():
-        """Periodically check which cameras are online and sync to DB + WS."""
+        """Periodically check which cameras are truly online (producing real
+        images, not black/blank feeds) and sync changes to DB + WS."""
+        loop = asyncio.get_event_loop()
+
         # Build the initial known state from camera_manager
-        last_known: dict[int, bool] = {
-            dev_id: (dev_id in camera_manager.online_cameras)
-            for dev_id in settings.camera_device_ids
-        }
+        initial_probe = await loop.run_in_executor(None, camera_manager.probe_all)
+        last_known: dict[int, bool] = dict(initial_probe)
 
         while True:
             await asyncio.sleep(10)
             try:
-                current_online = set(camera_manager.online_cameras)
+                # probe_all validates each camera's feed (reads frame + mean/stddev check)
+                # Run in executor to avoid blocking the event loop
+                current_probe = await loop.run_in_executor(None, camera_manager.probe_all)
                 changes: list[tuple[int, bool]] = []
 
-                for dev_id in settings.camera_device_ids:
-                    is_online = dev_id in current_online
+                for dev_id, is_online in current_probe.items():
                     was_online = last_known.get(dev_id, False)
                     if is_online != was_online:
                         changes.append((dev_id, is_online))

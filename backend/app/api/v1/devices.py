@@ -23,7 +23,7 @@ router = APIRouter(prefix="/devices", tags=["Devices"])
 @router.get("", response_model=list[DeviceResponse])
 async def list_devices(db: DbSession, user: CurrentUser):
     """List all camera devices with live status from camera_manager."""
-    online_ids = set(camera_manager.online_cameras)
+    probe_results = camera_manager.probe_all()
     now = datetime.now(timezone.utc)
 
     result = await db.execute(select(Device).order_by(Device.camera_id))
@@ -40,7 +40,7 @@ async def list_devices(db: DbSession, user: CurrentUser):
             dev_id = None
 
         if dev_id is not None:
-            live_status = DeviceStatusEnum.ONLINE if dev_id in online_ids else DeviceStatusEnum.OFFLINE
+            live_status = DeviceStatusEnum.ONLINE if probe_results.get(dev_id, False) else DeviceStatusEnum.OFFLINE
             if device.status != live_status:
                 device.status = live_status
                 if live_status == DeviceStatusEnum.ONLINE:
