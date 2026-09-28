@@ -2,11 +2,11 @@
 
 // Define the digital pin connected to the DHT sensor
 // Pin 2 is a common choice for Arduino Uno
-#define DHTPIN 2     
+#define DHTPIN 4
 
 // Uncomment whatever type you're using!
 // #define DHTTYPE DHT11   // DHT 11
-#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+#define DHTTYPE DHT22 // DHT 22  (AM2302), AM2321
 // #define DHTTYPE DHT21   // DHT 21 (AM2301)
 
 // Initialize DHT sensor.
@@ -16,7 +16,7 @@ void setup() {
   // Start the serial connection with 9600 baud rate
   // This must match the backend's settings (sensor_baud_rate=9600)
   Serial.begin(9600);
-  
+
   // Wait for serial monitor to open (optional)
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
@@ -39,8 +39,9 @@ void loop() {
 
   // Check if any reads failed and exit early (to try again).
   if (isnan(humidity) || isnan(temperature)) {
-    // We do not print anything if reading fails, to prevent 
-    // sending malformed data to the Python backend.
+    // Print an error message so it doesn't fail silently
+    Serial.println("ERROR: Failed to read from DHT sensor! (Check wiring, pin, "
+                   "or DHTTYPE)");
     return;
   }
 

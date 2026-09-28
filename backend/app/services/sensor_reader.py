@@ -95,6 +95,10 @@ class SensorReader:
         Parse Arduino serial output.
         Expected format: TEMP:26.5,HUM:72.3
         """
+        if line.startswith("ERROR:"):
+            logger.warning(f"Arduino reported a hardware issue: {line}")
+            return None
+            
         try:
             parts = {}
             for segment in line.split(","):

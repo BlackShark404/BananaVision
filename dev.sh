@@ -54,15 +54,6 @@ echo -e "${GREEN}▶  Starting Frontend (Vite) on http://localhost:5173${NC}"
 (cd "$FRONTEND_DIR" && npm run dev) &
 FRONTEND_PID=$!
 
-# ── Start Sensor Debug Terminal ──────────────────────────────────────────────
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  echo -e "${GREEN}▶  Opening Sensor Debugger in a new Terminal window${NC}"
-  osascript -e 'tell app "Terminal" to do script "cd \"'$BACKEND_DIR'\" && source venv/bin/activate && python debug_sensor.py"'
-else
-  echo -e "${GREEN}▶  Starting Sensor Debugger in background${NC}"
-  (cd "$BACKEND_DIR" && source venv/bin/activate && python debug_sensor.py) &
-  DEBUGGER_PID=$!
-fi
 
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -80,9 +71,7 @@ cleanup() {
   echo -e "${YELLOW}Shutting down...${NC}"
   kill $BACKEND_PID 2>/dev/null
   kill $FRONTEND_PID 2>/dev/null
-  if [ ! -z "$DEBUGGER_PID" ]; then
-    kill $DEBUGGER_PID 2>/dev/null
-  fi
+
   wait $BACKEND_PID 2>/dev/null
   wait $FRONTEND_PID 2>/dev/null
   echo -e "${GREEN}Done.${NC}"

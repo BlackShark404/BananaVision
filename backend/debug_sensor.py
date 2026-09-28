@@ -22,9 +22,36 @@ def monitor_api():
     print(f"Monitoring API: {API_URL}")
     print("Press Ctrl+C to exit.\n")
     
+    # Authenticate to get a token
+    auth_url = "http://localhost:8000/api/v1/auth/login"
+    token = None
+    headers = {}
+    
+    try:
+        auth_resp = requests.post(auth_url, json={"username": "admin", "password": "admin"}, timeout=2)
+        if auth_resp.status_code == 200:
+            auth_data = auth_resp.json()
+            if auth_data.get("status") == "success":
+                token = auth_data["token"]["access_token"]
+                headers["Authorization"] = f"Bearer {token}"
+                print("✅ Successfully authenticated with API.")
+            else:
+                print(f"⚠️ Auth failed: {auth_data.get('reason', 'Unknown')}")
+        else:
+            print(f"⚠️ Auth endpoint returned HTTP {auth_resp.status_code}")
+    except requests.exceptions.ConnectionError:
+        print("❌ Connection Error: Backend server is not running.")
+        return
+    except Exception as e:
+        print(f"❌ Unexpected auth error: {e}")
+        return
+        
+    if not token:
+        print("❌ Could not obtain auth token. API requests will likely fail with 401.")
+
     while True:
         try:
-            response = requests.get(API_URL, timeout=2)
+            response = requests.get(API_URL, headers=headers, timeout=2)
             if response.status_code == 200:
                 data = response.json()
                 if data:
@@ -44,7 +71,7 @@ def monitor_api():
                 else:
                     print("⚠️ No data received from API (sensor might be disconnected).")
             else:
-                print(f"❌ API Error: HTTP {response.status_code}")
+                print(f"❌ API Error: HTTP {response.status_code} (Check token validity)")
         except requests.exceptions.ConnectionError:
             print("❌ Connection Error: Backend server is not running.")
         except Exception as e:
