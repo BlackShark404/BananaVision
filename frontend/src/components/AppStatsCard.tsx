@@ -14,6 +14,8 @@ interface AppStatsCardProps {
   className?: string
   delay?: number
   description?: string
+  onClick?: () => void
+  active?: boolean
 }
 
 export function AppStatsCard({
@@ -25,14 +27,19 @@ export function AppStatsCard({
   className,
   delay = 0,
   description,
+  onClick,
+  active,
 }: AppStatsCardProps) {
   return (
     <Card 
       className={cn(
         "relative overflow-hidden rounded-2xl border border-border/40 bg-card shadow-sm hover:shadow-md transition-all duration-300 ease-out group animate-fade-in",
+        onClick && "cursor-pointer",
+        active && "ring-2 ring-primary/40 border-primary/30 shadow-md",
         className
       )}
       style={{ animationDelay: `${delay}ms` }}
+      onClick={onClick}
     >
       {/* Accent gradient bar */}
       <div className={cn(

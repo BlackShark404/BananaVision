@@ -167,6 +167,80 @@ async def start_background_tasks():
     sensor_task = asyncio.create_task(sensor_reader.start_polling(on_sensor_reading))
     tasks.append(sensor_task)
 
+    # Camera health monitor — polls every 10s, updates DB + broadcasts on change
+    async def camera_health_monitor():
+        """Periodically check which cameras are truly online (producing real
+        images, not black/blank feeds) and sync changes to DB + WS."""
+        loop = asyncio.get_event_loop()
+
+        # Build the initial known state from camera_manager
+        initial_probe = await loop.run_in_executor(None, camera_manager.probe_all)
+        last_known: dict[int, bool] = dict(initial_probe)
+
+        while True:
+            await asyncio.sleep(10)
+            try:
+                # probe_all validates each camera's feed (reads frame + mean/stddev check)
+                # Run in executor to avoid blocking the event loop
+                current_probe = await loop.run_in_executor(None, camera_manager.probe_all)
+                changes: list[tuple[int, bool]] = []
+
+                for dev_id, is_online in current_probe.items():
+                    was_online = last_known.get(dev_id, False)
+                    if is_online != was_online:
+                        changes.append((dev_id, is_online))
+                        last_known[dev_id] = is_online
+
+                if not changes:
+                    continue
+
+                # Apply DB updates and broadcast WS events
+                async with async_session_factory() as db:
+                    for dev_id, is_online in changes:
+                        idx = settings.camera_device_ids.index(dev_id)
+                        camera_id = f"CAM-{idx + 1:03d}"
+                        label = (
+                            settings.camera_labels[idx]
+                            if idx < len(settings.camera_labels)
+                            else f"Camera {idx + 1}"
+                        )
+                        new_status = DeviceStatusEnum.ONLINE if is_online else DeviceStatusEnum.OFFLINE
+                        now = datetime.now(timezone.utc)
+
+                        # Update DB
+                        result = await db.execute(select(Device).where(Device.camera_id == camera_id))
+                        device = result.scalar_one_or_none()
+                        if device:
+                            device.status = new_status
+                            if is_online:
+                                device.last_seen = now
+                        else:
+                            db.add(Device(
+                                camera_id=camera_id,
+                                label=label,
+                                status=new_status,
+                                last_seen=now if is_online else None,
+                            ))
+
+                        logger.info(f"Camera {camera_id} status changed: {'Online' if is_online else 'Offline'}")
+
+                        # Broadcast to WS rooms
+                        ws_data = {
+                            "camera_id": camera_id,
+                            "status": new_status.value,
+                            "last_seen": now.isoformat() if is_online else None,
+                        }
+                        await ws_manager.send_to_room(events.ROOM_DEVICES, events.DEVICE_STATUS, ws_data)
+                        await ws_manager.send_to_room(events.ROOM_DASHBOARD, events.DEVICE_STATUS, ws_data)
+
+                    await db.commit()
+
+            except Exception as exc:
+                logger.warning(f"Camera health monitor error: {exc}")
+
+    camera_task = asyncio.create_task(camera_health_monitor())
+    tasks.append(camera_task)
+
     return tasks
 
 

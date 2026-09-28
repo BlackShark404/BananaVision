@@ -54,13 +54,98 @@ class CameraManager:
     def is_initialized(self) -> bool:
         return self._initialized
 
+    # ── Frame validation thresholds ────────────────────────────────────────
+    # USB cameras produce noisy near-black frames with mean ~3-8 and
+    # stddev ~2-4 due to sensor dark current.  These thresholds must be
+    # high enough to reject those while still accepting dim-but-real scenes.
+    _MEAN_THRESHOLD = 15.0     # max channel mean must be above this
+    _STDDEV_THRESHOLD = 8.0    # max channel stddev must be above this
+    _VALIDATION_FRAMES = 3     # number of consecutive frames to check
+
     @property
     def online_cameras(self) -> list[int]:
+        """Return device IDs whose handles are open.
+
+        NOTE: This does NOT validate frame content — use probe_all() for
+        thorough black-screen detection.  Kept lightweight so the MJPEG
+        preview stream and scan pipeline can call it without consuming
+        frames.
+        """
         return [dev_id for dev_id, cap in self._cameras.items() if cap.isOpened()]
+
+    def _is_frame_valid(self, frame: np.ndarray) -> bool:
+        """Check a single frame is not solid black, a uniform solid color, or a noisy black screen."""
+        mean, stddev = cv2.meanStdDev(frame)
+        max_mean = float(np.max(mean))
+        max_stddev = float(np.max(stddev))
+        
+        # Basic check for completely blank or completely uniform solid colors
+        if max_mean < self._MEAN_THRESHOLD or max_stddev < self._STDDEV_THRESHOLD:
+            return False
+            
+        # Strict visual validation check for noisy black screens
+        # Convert to grayscale to evaluate overall brightness
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        # A valid frame must have a reasonable amount of pixels that are distinctly NOT black/dark.
+        # Threshold at 30 (out of 255) to filter out dark noise.
+        # If less than 1% of pixels are brighter than 30, it's effectively a black screen.
+        non_dark_pixels = cv2.countNonZero(cv2.threshold(gray, 30, 255, cv2.THRESH_BINARY)[1])
+        total_pixels = gray.size
+        
+        if non_dark_pixels < (total_pixels * 0.01):
+            return False
+            
+        return True
+
+    def _validate_feed(self, device_id: int) -> bool:
+        """
+        Thread-safe multi-frame validation — reads several consecutive
+        frames and checks ALL are non-black / non-blank.
+
+        Returns True only if every sampled frame contains a real image.
+        """
+        if device_id not in self._cameras:
+            return False
+
+        cap = self._cameras[device_id]
+        if not cap.isOpened():
+            return False
+
+        with self._locks.get(device_id, threading.Lock()):
+            try:
+                for _ in range(self._VALIDATION_FRAMES):
+                    ret, frame = cap.read()
+                    if not ret or frame is None:
+                        return False
+                    if not self._is_frame_valid(frame):
+                        return False
+                return True
+            except Exception:
+                return False
+
+    def probe_all(self) -> dict[int, bool]:
+        """
+        Probe every configured camera. Returns device_id → is_truly_online.
+
+        A camera is only 'online' if its handle is open AND it is
+        producing real images (not black / solid-color) across multiple
+        consecutive frames.
+        """
+        results: dict[int, bool] = {}
+        for dev_id in self._device_ids:
+            if dev_id in self._cameras and self._cameras[dev_id].isOpened():
+                results[dev_id] = self._validate_feed(dev_id)
+            else:
+                results[dev_id] = False
+        return results
 
     def initialize(self) -> dict[int, bool]:
         """
         Open all cameras and set resolution. Called once at boot.
+
+        Each camera must produce multiple consecutive valid (non-black)
+        frames to be considered online.
 
         Returns dict mapping device_id → success boolean.
         """
@@ -82,31 +167,38 @@ class CameraManager:
                 for _ in range(settings.camera_warmup_frames):
                     cap.read()
 
-                if cap.isOpened():
-                    # Validate the camera feed is not blank or black
-                    ret, frame = cap.read()
-                    if ret and frame is not None:
-                        mean, stddev = cv2.meanStdDev(frame)
-                        
-                        # Check for a solid color (blank) or pure black screen
-                        # A low standard deviation (< 2.0) indicates a solid color with no details.
-                        # A low mean (< 2.0) indicates a completely black image.
-                        if float(np.max(stddev)) < 2.0 or float(np.max(mean)) < 2.0:
-                            logger.error(f"Camera {dev_id} returned a blank or black feed. Discarding.")
-                            cap.release()
-                            results[dev_id] = False
-                        else:
-                            self._cameras[dev_id] = cap
-                            self._locks[dev_id] = threading.Lock()
-                            results[dev_id] = True
-                            logger.info(f"Camera {dev_id} ({self._get_label(dev_id)}) initialized OK")
-                    else:
-                        logger.error(f"Camera {dev_id} failed to read validation frame. Discarding.")
-                        cap.release()
-                        results[dev_id] = False
-                else:
+                if not cap.isOpened():
                     results[dev_id] = False
                     logger.error(f"Camera {dev_id} failed to open")
+                    continue
+
+                # Validate with multiple consecutive frames
+                valid = True
+                for i in range(self._VALIDATION_FRAMES):
+                    ret, frame = cap.read()
+                    if not ret or frame is None:
+                        logger.error(f"Camera {dev_id} failed to read validation frame {i + 1}")
+                        valid = False
+                        break
+                    if not self._is_frame_valid(frame):
+                        mean, stddev = cv2.meanStdDev(frame)
+                        logger.error(
+                            f"Camera {dev_id} frame {i + 1} failed validation "
+                            f"(mean={float(np.max(mean)):.1f}, stddev={float(np.max(stddev)):.1f}) "
+                            f"— black or blank feed detected. Discarding."
+                        )
+                        valid = False
+                        break
+
+                if valid:
+                    self._cameras[dev_id] = cap
+                    self._locks[dev_id] = threading.Lock()
+                    results[dev_id] = True
+                    logger.info(f"Camera {dev_id} ({self._get_label(dev_id)}) initialized OK")
+                else:
+                    cap.release()
+                    results[dev_id] = False
+
             except Exception as exc:
                 results[dev_id] = False
                 logger.error(f"Camera {dev_id} init error: {exc}")
