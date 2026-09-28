@@ -22,7 +22,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
-import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, QrCode, X, Printer, Edit } from "lucide-react"
+import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, QrCode, X, Printer, Edit, Flag } from "lucide-react"
 import { toast } from "sonner"
 import { parseSpoilageAvg } from "@/lib/utils"
 import { printQRTag } from "@/lib/qrcode"
@@ -44,6 +44,7 @@ export default function Logs() {
   const [operatorFilter, setOperatorFilter] = useState<string>("all")
   const [intakeFilter, setIntakeFilter] = useState<string>(searchParams.get("intake") || "all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [cardFilter, setCardFilter] = useState<"at-risk" | "flagged" | null>(null)
   const [qrModalScan, setQrModalScan] = useState<ScanResult | null>(null)
 
   const roleFilteredScans = useMemo(() => {
@@ -53,13 +54,36 @@ export default function Logs() {
 
   const operators = useMemo(() => Array.from(new Set(scans.map(s => s.operator))).sort(), [scans])
 
+  const clearAllFilters = () => {
+    setSearch("")
+    setCultivarFilter("all")
+    setRipenessFilter("all")
+    setSourceFilter("all")
+    setOperatorFilter("all")
+    setStatusFilter("all")
+    setCardFilter(null)
+    if (intakeFilter !== "all") {
+      setIntakeFilter("all")
+      navigate('/logs', { replace: true })
+    }
+  }
+
   const handleStatusUpdate = (scanId: string, status: InventoryStatus) => {
     updateScanData(scanId, { inventoryStatus: status, statusUpdatedAt: new Date().toISOString() })
     toast.success(`Scan marked as ${status}`)
   }
 
-  const getStatus = (status?: InventoryStatus) => {
-    return <AppStatusBadge status={status || "In Stock"} type="inventory" />
+  const getStatus = (scan: ScanResult) => {
+    return (
+      <div className="flex items-center gap-1.5">
+        {scan.flagged && (
+          <span className="relative flex" title="Flagged for QC Review">
+            <Flag className="w-3.5 h-3.5 text-red-500 fill-red-500" />
+          </span>
+        )}
+        <AppStatusBadge status={scan.inventoryStatus || "In Stock"} type="inventory" />
+      </div>
+    )
   }
 
   const filtered = useMemo(() => {
@@ -69,21 +93,25 @@ export default function Logs() {
       if (ripenessFilter !== "all" && s.ripeness !== ripenessFilter) return false
       if (sourceFilter !== "all" && s.source !== sourceFilter) return false
       if (operatorFilter !== "all" && s.operator !== operatorFilter) return false
-      if (statusFilter !== "all" && (s.inventoryStatus || "In Stock") !== statusFilter) return false
+      if (statusFilter === "Flagged" && !s.flagged) return false
+      if (statusFilter !== "all" && statusFilter !== "Flagged" && (s.inventoryStatus || "In Stock") !== statusFilter) return false
+      if (cardFilter === "at-risk" && parseSpoilageAvg(s.spoilageDays) > 2) return false
+      if (cardFilter === "flagged" && !s.flagged) return false
       if (search) {
         const q = search.toLowerCase()
         return s.cultivar.toLowerCase().includes(q) || s.operator.toLowerCase().includes(q) || (s.source?.toLowerCase().includes(q) ?? false) || (s.intakeId?.toLowerCase().includes(q) ?? false) || s.id.toLowerCase().includes(q)
       }
       return true
     })
-  }, [roleFilteredScans, search, cultivarFilter, ripenessFilter, sourceFilter, operatorFilter, statusFilter, intakeFilter])
+  }, [roleFilteredScans, search, cultivarFilter, ripenessFilter, sourceFilter, operatorFilter, statusFilter, intakeFilter, cardFilter])
 
   const stats = useMemo(() => {
     const avgConfidence = filtered.length 
       ? (filtered.reduce((sum, s) => sum + s.confidence, 0) / filtered.length).toFixed(1)
       : 0
     const spoilingSoon = filtered.filter(s => parseSpoilageAvg(s.spoilageDays) <= 2).length
-    return { avgConfidence, spoilingSoon }
+    const flaggedCount = filtered.filter(s => s.flagged).length
+    return { avgConfidence, spoilingSoon, flaggedCount }
   }, [filtered])
 
   const exportToCSV = () => {
@@ -253,7 +281,7 @@ const columns: ColumnDef<ScanResult>[] = [
     }] : []),
     {
       header: "Status",
-      cell: (scan) => getStatus(scan.inventoryStatus),
+      cell: (scan) => getStatus(scan),
     },
     ...(user?.role === "Admin" ? [{
       header: "Actions",
@@ -318,13 +346,14 @@ const columns: ColumnDef<ScanResult>[] = [
       />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+      <div className={`grid grid-cols-1 gap-3 sm:gap-4 ${stats.flaggedCount > 0 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
         <AppStatsCard
           title="Total Scans"
           value={filtered.length}
           icon={TrendingUp}
           delay={50}
-          description="All time records"
+          description={cardFilter ? "Click to show all" : "All time records"}
+          onClick={clearAllFilters}
         />
         <AppStatsCard
           title="Avg Confidence"
@@ -343,7 +372,22 @@ const columns: ColumnDef<ScanResult>[] = [
           iconBgColor="bg-orange-500/10"
           delay={150}
           description="Spoiling in ≤2 days"
+          onClick={() => setCardFilter(cardFilter === "at-risk" ? null : "at-risk")}
+          active={cardFilter === "at-risk"}
         />
+        {stats.flaggedCount > 0 && (
+          <AppStatsCard
+            title="Flagged Scans"
+            value={stats.flaggedCount}
+            icon={Flag}
+            iconColor="text-red-600"
+            iconBgColor="bg-red-500/10"
+            delay={200}
+            description="Pending QC review"
+            onClick={() => setCardFilter(cardFilter === "flagged" ? null : "flagged")}
+            active={cardFilter === "flagged"}
+          />
+        )}
       </div>
 
       {/* Filters */}
@@ -351,19 +395,8 @@ const columns: ColumnDef<ScanResult>[] = [
         searchQuery={search}
         onSearchChange={(value) => { setSearch(value) }}
         searchPlaceholder="Search by cultivar, operator, or ID..."
-        hasActiveFilters={search !== "" || cultivarFilter !== "all" || ripenessFilter !== "all" || sourceFilter !== "all" || operatorFilter !== "all" || statusFilter !== "all" || intakeFilter !== "all"}
-        onClearFilters={() => {
-          setSearch("")
-          setCultivarFilter("all")
-          setRipenessFilter("all")
-          setSourceFilter("all")
-          setOperatorFilter("all")
-          setStatusFilter("all")
-          if (intakeFilter !== "all") {
-            setIntakeFilter("all")
-            navigate('/logs', { replace: true })
-          }
-        }}
+        hasActiveFilters={search !== "" || cultivarFilter !== "all" || ripenessFilter !== "all" || sourceFilter !== "all" || operatorFilter !== "all" || statusFilter !== "all" || intakeFilter !== "all" || cardFilter !== null}
+        onClearFilters={clearAllFilters}
       >
         <Select value={cultivarFilter} onValueChange={(v) => { setCultivarFilter(v) }}>
           <SelectTrigger className="w-full sm:w-35 h-10!">
@@ -426,6 +459,12 @@ const columns: ColumnDef<ScanResult>[] = [
             <SelectItem value="Sold">Sold</SelectItem>
             <SelectItem value="For Processing">For Processing</SelectItem>
             <SelectItem value="Spoiled">Spoiled</SelectItem>
+            <SelectItem value="Flagged">
+              <span className="flex items-center gap-1.5">
+                <Flag className="w-3 h-3 text-red-500 fill-red-500" />
+                Flagged
+              </span>
+            </SelectItem>
           </SelectContent>
         </Select>
       </AppTableFilters>
@@ -437,6 +476,7 @@ const columns: ColumnDef<ScanResult>[] = [
         rowKey={(scan) => scan.id}
         onRowClick={(scan) => navigate(`/scans/${scan.id}`)}
         pagination={{ pageSize: PAGE_SIZE }}
+        rowClassName={(scan) => scan.flagged ? 'border-l-3 border-l-red-500 bg-red-500/[0.03]' : ''}
         emptyState={{
           icon: Banana,
           title: "No scans match your filters",
