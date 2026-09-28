@@ -97,11 +97,7 @@ export default function ScanDetail() {
   // Dynamically generate camera views from config
   const cameraViews = config.cameraIds.split(",").map((s, index) => {
     const id = s.trim()
-<<<<<<< HEAD
     const labels = ["Top View", "Left View", "Right View", "Rear View"]
-=======
-    const labels = ["Front View", "Left View", "Right View", "Top View"]
->>>>>>> 5662a0308495e115cd29e745eaee6001b16ba045
     return { id, label: labels[index] || `View ${index + 1}` }
   }).filter(cam => cam.id)
 
