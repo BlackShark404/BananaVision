@@ -49,6 +49,10 @@ timeout /t 3 /nobreak >nul
 echo [INFO] Starting Frontend (Vite) on http://localhost:5173
 start "BananaVision Frontend" cmd /c "cd /d "%FRONTEND_DIR%" && npm run dev"
 
+:: Start sensor debugger in a new window
+echo [INFO] Starting Sensor Debugger
+start "BananaVision Sensor Debugger" cmd /c "cd /d "%BACKEND_DIR%" && call venv\Scripts\activate.bat && python debug_sensor.py"
+
 echo.
 echo ============================================================
 echo   Frontend  -^>  http://localhost:5173
