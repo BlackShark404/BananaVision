@@ -333,6 +333,25 @@ export default function KioskOperatorSwap({
     [phase, pin, newPin, confirmPin, isProcessing, handlePinVerify, handleNewPinConfirm]
   )
 
+  // ── Keyboard Support ─────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!open || phase === "select" || isProcessing) return
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key >= "0" && e.key <= "9") {
+        e.preventDefault()
+        handleKeyPress(e.key)
+      } else if (e.key === "Backspace") {
+        e.preventDefault()
+        handleKeyPress("backspace")
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [open, phase, isProcessing, handleKeyPress])
+
   // ── Prevent closing when no operator selected yet ────────────────────────
 
   const handleOpenChange = useCallback(
