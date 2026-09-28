@@ -90,7 +90,11 @@ export default function Kiosk() {
   }, [])
 
   // Angle labels for each camera position (expandable for more cameras)
+<<<<<<< HEAD
   const cameraAngles = ["Top", "Left", "Right", "Rear"]
+=======
+  const cameraAngles = ["Front", "Left", "Right", "Top"]
+>>>>>>> 5662a0308495e115cd29e745eaee6001b16ba045
 
   // Generate cameras from backend device list (preferred) or fall back to config labels
   const cameras = backendCameras.length > 0

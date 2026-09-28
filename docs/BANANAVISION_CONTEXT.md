@@ -136,7 +136,7 @@ Frontend entry point: `frontend/src/main.tsx`, rendering `frontend/src/App.tsx`.
 | `database_url`           | PostgreSQL async URL on localhost database `bananavision`.    |
 | `jwt_algorithm` / expiry | `HS256` / 480 minutes.                                        |
 | `camera_device_ids`      | `[0, 1, 2, 3]`; comma-separated values are parsed.            |
-| `camera_labels`          | `Top, Left, Right, Back`.                                     |
+| `camera_labels`          | `Front, Left, Right, Top`.                                    |
 | camera resolution        | `640x480` in implemented settings.                            |
 | sensor                   | `/dev/ttyUSB0`, baud `9600`, interval `5` seconds.            |
 | ML paths                 | `app/ml/weights/banana_yolov8n.pt` and `spoilage_rfr.joblib`. |
