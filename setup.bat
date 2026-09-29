@@ -19,7 +19,11 @@ echo [INFO] Setting up backend environment variables...
 if not exist "%BACKEND_DIR%\.env" (
     if exist "%BACKEND_DIR%\.env.example" (
         copy "%BACKEND_DIR%\.env.example" "%BACKEND_DIR%\.env"
-        echo [OK] Created backend\.env from .env.example
+        
+        echo [INFO] Generating secure secret keys...
+        python -c "import secrets; p=r'%BACKEND_DIR%\.env'; c=open(p).read(); c=c.replace('APP_SECRET_KEY=change-me-to-a-secure-random-string', f'APP_SECRET_KEY={secrets.token_hex(32)}').replace('JWT_SECRET_KEY=your-jwt-secret-key-here', f'JWT_SECRET_KEY={secrets.token_hex(32)}'); open(p,'w').write(c)"
+        
+        echo [OK] Created backend\.env and generated secure secret keys
     ) else (
         echo [WARNING] .env.example not found in backend.
     )

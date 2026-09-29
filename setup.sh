@@ -25,7 +25,17 @@ echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━�
 echo -e "${YELLOW}⚙  Setting up backend environment variables...${NC}"
 if [ ! -f "$BACKEND_DIR/.env" ]; then
     cp "$BACKEND_DIR/.env.example" "$BACKEND_DIR/.env"
-    echo -e "${GREEN}✔ Created backend/.env from .env.example${NC}"
+    
+    # Auto-generate secure secret keys
+    SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+    JWT_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+    
+    # Replace placeholders in the new .env (works on macOS/BSD and GNU sed)
+    sed -i.bak "s/APP_SECRET_KEY=.*/APP_SECRET_KEY=$SECRET_KEY/" "$BACKEND_DIR/.env"
+    sed -i.bak "s/JWT_SECRET_KEY=.*/JWT_SECRET_KEY=$JWT_KEY/" "$BACKEND_DIR/.env"
+    rm -f "$BACKEND_DIR/.env.bak"
+    
+    echo -e "${GREEN}✔ Created backend/.env and generated secure secret keys${NC}"
 else
     echo -e "${YELLOW}ℹ backend/.env already exists, skipping.${NC}"
 fi
