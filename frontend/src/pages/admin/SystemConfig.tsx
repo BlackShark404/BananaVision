@@ -20,6 +20,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, Edit2, Plus } from "lucide-react"
 import { toast } from "sonner"
+import { CameraCalibrationModal } from "@/components/CameraCalibrationModal"
 
 export default function SystemConfig() {
   const { config, updateConfig } = useAdmin()
@@ -205,6 +206,9 @@ export default function SystemConfig() {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">These cameras will be used for round-robin scanning.</p>
+                <div className="pt-2">
+                  <CameraCalibrationModal />
+                </div>
               </div>
             </CardContent>
             <CardFooter className="bg-muted/30 border-t px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between gap-2 sm:gap-0 rounded-b-xl sm:rounded-b-2xl">

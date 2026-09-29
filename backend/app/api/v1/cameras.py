@@ -3,6 +3,9 @@ from fastapi.responses import StreamingResponse
 import asyncio
 import cv2
 import logging
+import os
+from typing import List
+from pydantic import BaseModel
 
 from app.services.camera_manager import camera_manager
 from app.config import get_settings
@@ -87,3 +90,39 @@ async def video_feed(camera_index: int, fps: int = 15):
         generate_frames(camera_index, fps),
         media_type="multipart/x-mixed-replace; boundary=frame"
     )
+
+class CameraMappingUpdate(BaseModel):
+    device_ids: List[int]
+
+@router.post("/mapping")
+async def update_camera_mapping(mapping: CameraMappingUpdate):
+    """
+    Updates the CAMERA_DEVICE_IDS in .env, clears settings cache, 
+    and restarts the camera manager.
+    """
+    env_path = ".env"
+    try:
+        with open(env_path, "r") as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        lines = []
+    
+    updated = False
+    with open(env_path, "w") as f:
+        for line in lines:
+            if line.startswith("CAMERA_DEVICE_IDS="):
+                f.write(f"CAMERA_DEVICE_IDS={mapping.device_ids}\n")
+                updated = True
+            else:
+                f.write(line)
+        if not updated:
+            f.write(f"\nCAMERA_DEVICE_IDS={mapping.device_ids}\n")
+                
+    get_settings.cache_clear()
+    new_settings = get_settings()
+    
+    camera_manager.release_all()
+    camera_manager._device_ids = new_settings.camera_device_ids
+    results = camera_manager.initialize()
+    
+    return {"message": "Camera mapping updated", "results": results}
