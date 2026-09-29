@@ -36,6 +36,33 @@ if [ ! -f "$BACKEND_DIR/.env" ]; then
     rm -f "$BACKEND_DIR/.env.bak"
     
     echo -e "${GREEN}✔ Created backend/.env and generated secure secret keys${NC}"
+    
+    # Prompt for database credentials
+    echo ""
+    echo -e "${YELLOW}⚙  Database Configuration${NC}"
+    read -p "Do you want to configure database credentials now? (y/n): " config_db
+    if [[ "$config_db" =~ ^[Yy]$ ]]; then
+        read -p "PostgreSQL Username [postgres]: " DB_USER
+        DB_USER=${DB_USER:-postgres}
+        
+        read -s -p "PostgreSQL Password: " DB_PASS
+        echo ""
+        
+        read -p "PostgreSQL Host [localhost]: " DB_HOST
+        DB_HOST=${DB_HOST:-localhost}
+        
+        read -p "PostgreSQL Port [5432]: " DB_PORT
+        DB_PORT=${DB_PORT:-5432}
+        
+        read -p "Database Name [bananavision]: " DB_NAME
+        DB_NAME=${DB_NAME:-bananavision}
+        
+        export NEW_DB_URL="postgresql+asyncpg://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+        python3 -c "import os, re; p='$BACKEND_DIR/.env'; c=open(p).read(); c=re.sub(r'^DATABASE_URL=.*', 'DATABASE_URL=' + os.environ['NEW_DB_URL'], c, flags=re.MULTILINE); open(p,'w').write(c)"
+        echo -e "${GREEN}✔ Database configuration saved to .env${NC}"
+    else
+        echo -e "${YELLOW}ℹ Skipping database configuration. (Using defaults)${NC}"
+    fi
 else
     echo -e "${YELLOW}ℹ backend/.env already exists, skipping.${NC}"
 fi
