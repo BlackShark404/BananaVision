@@ -2,11 +2,10 @@
 Random Forest Regression spoilage predictor.
 
 Predicts remaining shelf life (days) based on cultivar, ripeness,
-temperature, humidity, and engineered chemical features (dew point,
-VPD, heat index, treatment).
+temperature, humidity, VPD, and treatment.
 
 Auto-detects whether the loaded model expects 4 features (legacy) or
-8 features (enhanced with chemical engineering), so existing models
+6 features (enhanced with VPD + treatment), so existing models
 continue to work while upgraded models benefit from richer inputs.
 """
 
@@ -20,7 +19,7 @@ import numpy as np
 from app.config import get_settings
 from app.core.exceptions import ModelInferenceError
 from app.schemas.enums import CultivarEnum, RipenessEnum, TreatmentEnum
-from app.services.feature_engineering import calc_dew_point, calc_vpd, calc_heat_index
+from app.services.feature_engineering import calc_vpd
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -30,9 +29,8 @@ CULTIVAR_MAP = {CultivarEnum.LAKATAN.value: 0, CultivarEnum.LATUNDAN.value: 1, C
 RIPENESS_MAP = {RipenessEnum.UNRIPE.value: 0, RipenessEnum.SEMI_RIPE.value: 1, RipenessEnum.RIPE.value: 2, RipenessEnum.OVERRIPE.value: 3}
 TREATMENT_MAP = {TreatmentEnum.NATURAL.value: 0, TreatmentEnum.ETHEPHON.value: 1}
 
-# Number of features for each mode
-LEGACY_FEATURE_COUNT = 4    # [cultivar, ripeness, temp, humidity]
-ENHANCED_FEATURE_COUNT = 8  # + [dew_point, vpd, heat_index, treatment]
+LEGACY_FEATURE_COUNT = 4
+ENHANCED_FEATURE_COUNT = 6  # + [vpd, treatment]
 
 
 class SpoilagePredictor:
@@ -42,9 +40,9 @@ class SpoilagePredictor:
     Legacy features (4):
         [cultivar_encoded, ripeness_encoded, temperature, humidity]
 
-    Enhanced features (8):
+    Enhanced features (6):
         [cultivar_encoded, ripeness_encoded, temperature, humidity,
-         dew_point, vpd, heat_index, treatment_encoded]
+         vpd, treatment_encoded]
 
     The model's expected feature count is auto-detected on load via
     ``model.n_features_in_``, so both legacy and enhanced models work
@@ -109,17 +107,14 @@ class SpoilagePredictor:
         ripeness: str,
         temperature: float | None = None,
         humidity: float | None = None,
-        dew_point: float | None = None,
         vpd: float | None = None,
-        heat_index: float | None = None,
         treatment: str | None = None,
     ) -> str:
         """
         Predict days until spoilage.
 
-        If the loaded model expects enhanced features, the chemical
-        features are computed automatically from temperature/humidity
-        when not explicitly provided.
+        If the loaded model expects enhanced features, VPD is computed
+        automatically from temperature/humidity when not explicitly provided.
 
         Returns:
             String like "3-5" or "2" representing estimated days.
@@ -130,9 +125,7 @@ class SpoilagePredictor:
         if self._model is not None:
             return self._model_predict(
                 cultivar, ripeness, temp, hum,
-                dew_point=dew_point,
                 vpd=vpd,
-                heat_index=heat_index,
                 treatment=treatment,
             )
         else:
@@ -144,9 +137,7 @@ class SpoilagePredictor:
         ripeness: str,
         temperature: float,
         humidity: float,
-        dew_point: float | None = None,
         vpd: float | None = None,
-        heat_index: float | None = None,
         treatment: str | None = None,
     ) -> str:
         """Use the loaded RFR model for prediction."""
@@ -155,15 +146,13 @@ class SpoilagePredictor:
             ripeness_enc = RIPENESS_MAP.get(ripeness, 1)
 
             if self.uses_enhanced_features:
-                # Compute chemical features if not provided
-                dp = dew_point if dew_point is not None else calc_dew_point(temperature, humidity)
+                # Compute VPD if not provided
                 v = vpd if vpd is not None else calc_vpd(temperature, humidity)
-                hi = heat_index if heat_index is not None else calc_heat_index(temperature, humidity)
                 treat_enc = TREATMENT_MAP.get(treatment, 0) if treatment else 0
 
                 features = np.array([[
                     cultivar_enc, ripeness_enc, temperature, humidity,
-                    dp, v, hi, treat_enc,
+                    v, treat_enc,
                 ]])
             else:
                 # Legacy 4-feature model

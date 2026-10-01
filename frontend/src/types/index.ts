@@ -93,9 +93,7 @@ export interface ScanResult {
   confidence: number
   temperature?: number
   humidity?: number
-  dewPoint?: number
   vpd?: number
-  heatIndex?: number
   treatment?: Treatment
   spoilageDays: string
   fingerCount: number

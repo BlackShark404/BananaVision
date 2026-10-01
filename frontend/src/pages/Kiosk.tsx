@@ -606,25 +606,11 @@ export default function Kiosk() {
                       <p className="text-lg font-bold">{lastResult.humidity}%</p>
                     </div>
                   )}
-                  {lastResult.dewPoint !== undefined && lastResult.dewPoint !== null && (
-                    <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                      <p className="text-xl mx-auto mb-1">🌫️</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Dew Point</p>
-                      <p className="text-lg font-bold">{lastResult.dewPoint}°C</p>
-                    </div>
-                  )}
                   {lastResult.vpd !== undefined && lastResult.vpd !== null && (
                     <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
                       <p className="text-xl mx-auto mb-1">💨</p>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider">VPD</p>
                       <p className="text-lg font-bold">{lastResult.vpd} kPa</p>
-                    </div>
-                  )}
-                  {lastResult.heatIndex !== undefined && lastResult.heatIndex !== null && (
-                    <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                      <p className="text-xl mx-auto mb-1">🔥</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Heat Index</p>
-                      <p className="text-lg font-bold">{lastResult.heatIndex}°C</p>
                     </div>
                   )}
                 </div>
