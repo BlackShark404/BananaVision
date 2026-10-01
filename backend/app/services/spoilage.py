@@ -160,11 +160,17 @@ class SpoilagePredictor:
 
             prediction = float(self._model.predict(features)[0])
 
-            # Convert to range string with ±RMSE margin
-            pred_int = max(0, round(prediction))
-            margin = max(1, round(prediction * 0.15))
-            low = max(0, pred_int - margin)
-            high = pred_int + margin
+            # Extract empirical tree quantiles (10th and 90th percentiles)
+            if hasattr(self._model, 'estimators_'):
+                tree_preds = np.array([tree.predict(features)[0] for tree in self._model.estimators_])
+                low = max(0, round(np.percentile(tree_preds, 10)))
+                high = round(np.percentile(tree_preds, 90))
+            else:
+                # Fallback if estimators are missing
+                pred_int = max(0, round(prediction))
+                margin = max(1, round(prediction * 0.15))
+                low = max(0, pred_int - margin)
+                high = pred_int + margin
 
             if low == high:
                 return str(low)
@@ -179,38 +185,43 @@ class SpoilagePredictor:
         treatment: str | None = None,
     ) -> str:
         """
-        Rule-based fallback matching the frontend's getSpoilageDays() logic.
+        Rule-based fallback based on literature values for natural vs ethephon-treated bananas.
         Used when no RFR model file is available.
         """
         base_min, base_max = 0, 0
 
+        # Base shelf life adjusted to align with literature averages:
+        # Natural averages: Unripe (6-9d), Semi-ripe (3-5d), Ripe (2-4d), Overripe (1-2d)
         if cultivar == CultivarEnum.LAKATAN.value:
             if ripeness == RipenessEnum.UNRIPE.value:
-                base_min, base_max = 4, 6
-            elif ripeness == RipenessEnum.RIPE.value:
-                base_min, base_max = 2, 3
-            elif ripeness == RipenessEnum.OVERRIPE.value:
-                base_min, base_max = 1, 2
+                base_min, base_max = 5, 8
             elif ripeness == RipenessEnum.SEMI_RIPE.value:
                 base_min, base_max = 3, 5
+            elif ripeness == RipenessEnum.RIPE.value:
+                base_min, base_max = 2, 4
+            elif ripeness == RipenessEnum.OVERRIPE.value:
+                base_min, base_max = 1, 2
         elif cultivar == CultivarEnum.LATUNDAN.value:
             if ripeness == RipenessEnum.UNRIPE.value:
-                base_min, base_max = 3, 5
-            elif ripeness == RipenessEnum.RIPE.value:
-                base_min, base_max = 1, 2
-            elif ripeness == RipenessEnum.OVERRIPE.value:
-                base_min, base_max = 1, 1
+                base_min, base_max = 4, 7
             elif ripeness == RipenessEnum.SEMI_RIPE.value:
                 base_min, base_max = 2, 4
+            elif ripeness == RipenessEnum.RIPE.value:
+                base_min, base_max = 1, 3
+            elif ripeness == RipenessEnum.OVERRIPE.value:
+                base_min, base_max = 1, 1
         elif cultivar == CultivarEnum.CARDABA.value:
             if ripeness == RipenessEnum.UNRIPE.value:
-                base_min, base_max = 6, 8
+                base_min, base_max = 7, 10
+            elif ripeness == RipenessEnum.SEMI_RIPE.value:
+                base_min, base_max = 4, 6
             elif ripeness == RipenessEnum.RIPE.value:
-                base_min, base_max = 3, 4
+                base_min, base_max = 3, 5
             elif ripeness == RipenessEnum.OVERRIPE.value:
                 base_min, base_max = 2, 3
-            elif ripeness == RipenessEnum.SEMI_RIPE.value:
-                base_min, base_max = 5, 7
+        else:
+            # Fallback for unknown cultivars
+            base_min, base_max = 5, 8
 
         # Environmental multiplier
         multiplier = 1.0
@@ -223,9 +234,17 @@ class SpoilagePredictor:
         elif humidity < 60:
             multiplier += 0.1
 
-        # Ethephon-treated bananas spoil faster
+        # Ethephon treatment accelerates ripening significantly depending on the current stage
+        # Based on literature: Unripe drops from 6-9d -> 3-6d (~35-40% reduction)
         if treatment == TreatmentEnum.ETHEPHON.value:
-            multiplier -= 0.15
+            if ripeness == RipenessEnum.UNRIPE.value:
+                multiplier -= 0.40
+            elif ripeness == RipenessEnum.SEMI_RIPE.value:
+                multiplier -= 0.25
+            elif ripeness == RipenessEnum.RIPE.value:
+                multiplier -= 0.30
+            elif ripeness == RipenessEnum.OVERRIPE.value:
+                multiplier -= 0.15
 
         multiplier = max(0.2, min(2.0, multiplier))
         base_min = max(1, round(base_min * multiplier))
