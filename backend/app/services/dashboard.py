@@ -60,8 +60,8 @@ def _mean(value) -> float | None:
     return None if value is None else round(float(value), 1)
 
 
-def _remaining_days(now: datetime):
-    """Guarded SQL parsing lets expiry counts and pagination stay in the DB.
+def _prediction_days():
+    """Guarded SQL parsing keeps sorting, expiry counts and pagination in the DB.
 
     Nonnegative scalars and ascending ranges are accepted. Invalid, negative,
     reversed and nonfinite predictions become null instead of expiring stock.
@@ -72,13 +72,16 @@ def _remaining_days(now: datetime):
     lower = case((valid, cast(func.split_part(raw, "-", 1), Float)), else_=None)
     upper_text = func.nullif(func.btrim(func.split_part(raw, "-", 2), WHITESPACE), "")
     upper = case((valid, cast(upper_text, Float)), else_=None)
-    predicted = case(
+    return case(
         (upper.is_(None), lower),
         (upper >= lower, (lower + upper) / 2.0),
         else_=None,
     )
+
+
+def _remaining_days(now: datetime):
     elapsed = (extract("epoch", now) - extract("epoch", Scan.date_time)) / 86400.0
-    return predicted - elapsed
+    return _prediction_days() - elapsed
 
 
 def _scoped_projection(user: UserAccount, now: datetime):
@@ -88,6 +91,14 @@ def _scoped_projection(user: UserAccount, now: datetime):
 
     latest_status = (
         select(ScanStatusLog.inventory_status)
+        .where(ScanStatusLog.scan_id == Scan.id)
+        .order_by(ScanStatusLog.updated_at.desc(), ScanStatusLog.id.desc())
+        .limit(1)
+        .correlate(Scan)
+        .scalar_subquery()
+    )
+    latest_status_time = (
+        select(ScanStatusLog.updated_at)
         .where(ScanStatusLog.scan_id == Scan.id)
         .order_by(ScanStatusLog.updated_at.desc(), ScanStatusLog.id.desc())
         .limit(1)
@@ -108,6 +119,10 @@ def _scoped_projection(user: UserAccount, now: datetime):
             Scan.id,
             Scan.date_time,
             Scan.flagged,
+            Scan.is_overridden,
+            Scan.intake_id,
+            Scan.source_text.label("original_source_text"),
+            Intake.source.label("legacy_intake_source"),
             Scan.operator_id,
             UserAccount.full_name.label("operator_name"),
             UserAccount.username,
@@ -118,7 +133,13 @@ def _scoped_projection(user: UserAccount, now: datetime):
             ScanClassification.ripeness,
             ScanClassification.confidence,
             ScanClassification.spoilage_days,
+            ScanClassification.temperature,
+            ScanClassification.humidity,
+            ScanClassification.finger_count,
+            ScanClassification.thumbnail_url,
+            _prediction_days().label("predicted_days"),
             status.label("inventory_status"),
+            latest_status_time.label("status_updated_at"),
             _remaining_days(now).label("remaining_days"),
         )
         .select_from(Scan)
@@ -196,9 +217,11 @@ def _source_filter(scans, key: str):
     return false()
 
 
-async def get_summary(db: AsyncSession, user: UserAccount) -> DashboardSummary:
+async def get_summary(
+    db: AsyncSession, user: UserAccount, business_date: date | None = None,
+) -> DashboardSummary:
     now = utc_now()
-    day = now.astimezone(MANILA).date()
+    day = business_date or now.astimezone(MANILA).date()
     scans = _scoped_projection(user, now)
     threshold = await _threshold(db)
     today = _day(scans, day)
@@ -213,7 +236,7 @@ async def get_summary(db: AsyncSession, user: UserAccount) -> DashboardSummary:
         select(
             scans.c.supplier_id, scans.c.source_text, scans.c.source_name,
             func.count().label("count"),
-        )
+        ).where(today)
         .group_by(scans.c.supplier_id, scans.c.source_text, scans.c.source_name)
         .order_by(func.count().desc(), scans.c.source_name, scans.c.supplier_id)
     )).all()
@@ -222,7 +245,7 @@ async def get_summary(db: AsyncSession, user: UserAccount) -> DashboardSummary:
             scans.c.operator_id, scans.c.operator_name, scans.c.username,
             func.count().label("scan_count"),
             func.avg(scans.c.confidence).label("avg_confidence"),
-        )
+        ).where(today)
         .group_by(scans.c.operator_id, scans.c.operator_name, scans.c.username)
         .order_by(func.count().desc(), scans.c.operator_name, scans.c.operator_id)
     )).all()
@@ -238,7 +261,7 @@ async def get_summary(db: AsyncSession, user: UserAccount) -> DashboardSummary:
     return DashboardSummary(
         generated_at=now, business_date=day,
         total_scans=totals.total, avg_confidence=_mean(totals.confidence),
-        active_operator_count=len(operator_rows),
+        active_operator_count=totals.operators,
         sources=[
             DashboardSource(key=_source(r)[0], name=r.source_name, count=r.count)
             for r in source_rows

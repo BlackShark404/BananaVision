@@ -34,6 +34,13 @@ export interface AppDataTableProps<T> {
   pagination?: {
     pageSize: number
   }
+  serverState?: {
+    page: number
+    total: number
+    sort: { key: string; direction: "asc" | "desc" }
+    onPageChange: (page: number) => void
+    onSortChange: (key: string, direction: "asc" | "desc") => void
+  }
   onRowClick?: (row: T) => void
   rowKey: (row: T) => string | number
   className?: string
@@ -49,20 +56,29 @@ export function AppDataTable<T>({
   rowKey,
   className,
   rowClassName,
+  serverState,
 }: AppDataTableProps<T>) {
-  const [page, setPage] = useState(1)
-  const [sortConfig, setSortConfig] = useState<{ columnIdx: number, direction: 'asc' | 'desc' } | null>(null)
+  const [localPage, setLocalPage] = useState(1)
+  const [localSort, setSortConfig] = useState<{ columnIdx: number, direction: 'asc' | 'desc' } | null>(null)
+  const page = serverState?.page ?? localPage
+  const setPage = (next: number) => serverState ? serverState.onPageChange(next) : setLocalPage(next)
+  const sortConfig = serverState ? { columnIdx: columns.findIndex(column => column.sortKey === serverState.sort.key), direction: serverState.sort.direction } : localSort
 
   const pageSize = pagination?.pageSize || data.length || 1
-  const totalPages = Math.max(1, Math.ceil(data.length / pageSize))
+  const total = serverState?.total ?? data.length
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   // Clamp page if data shrinks so the current page exceeds the new total
   useEffect(() => {
-    setPage((prev) => (prev > totalPages ? totalPages : prev))
+    setLocalPage((prev) => (prev > totalPages ? totalPages : prev))
   }, [totalPages])
 
   const handleSort = (colIdx: number, column: ColumnDef<T>) => {
     if (!column.sortable) return
+    if (serverState && typeof column.sortKey === "string") {
+      serverState.onSortChange(column.sortKey, serverState.sort.key === column.sortKey && serverState.sort.direction === "asc" ? "desc" : "asc")
+      return
+    }
 
     setSortConfig(current => {
       if (current?.columnIdx === colIdx) {
@@ -74,7 +90,7 @@ export function AppDataTable<T>({
   }
 
   const sortedData = React.useMemo(() => {
-    if (!sortConfig) return data
+    if (serverState || !sortConfig) return data
 
     const column = columns[sortConfig.columnIdx]
     if (!column || !column.sortable) return data
@@ -101,9 +117,9 @@ export function AppDataTable<T>({
       if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1
       return 0
     })
-  }, [data, sortConfig, columns])
+  }, [data, sortConfig, columns, serverState])
 
-  const paginatedData = pagination ? sortedData.slice((page - 1) * pageSize, page * pageSize) : sortedData
+  const paginatedData = pagination && !serverState ? sortedData.slice((page - 1) * pageSize, page * pageSize) : sortedData
 
   return (
     <div className={`rounded-xl sm:rounded-2xl border bg-card text-card-foreground shadow-sm overflow-hidden ${className || ''}`}>
@@ -181,10 +197,10 @@ export function AppDataTable<T>({
       </Table>
 
       {/* Pagination */}
-      {pagination && data.length > pageSize && (
+      {pagination && total > pageSize && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t bg-muted/20">
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, data.length)} of {data.length}
+            Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, total)} of {total}
           </p>
           <div className="flex justify-end">
             <Pagination>

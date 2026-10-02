@@ -1,8 +1,6 @@
-import { useState, useMemo } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useState, useCallback, useEffect } from "react"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
-import { useScans } from "@/context/ScanContext"
-import { useInventory } from "@/context/InventoryContext"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -22,58 +20,120 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
-import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, QrCode, X, Printer, Edit, Flag } from "lucide-react"
+import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, QrCode, X, Printer, Edit, Flag, Calendar, RefreshCw, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { parseSpoilageAvg } from "@/lib/utils"
-import { printQRTag } from "@/lib/qrcode"
+import { getImageUrl } from "@/lib/utils"
+import { api } from "@/lib/api"
+import { scanLogParams } from "@/lib/scanLogFilters"
+import { useDashboardResource } from "@/hooks/useDashboardResource"
+import type { ScanLogRow, ScanLogParams } from "@/types/scanLogs"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { generateQRCodeDataUrl, printQRTag } from "@/lib/qrcode"
 import type { Cultivar, Ripeness, InventoryStatus, ScanResult } from "@/types"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 
 const PAGE_SIZE = 10
 
+type LogScan = Omit<ScanResult, "cultivar" | "ripeness" | "confidence"> & {
+  cultivar: string
+  ripeness: string
+  confidence: number | null
+  remainingDays: number | null
+}
+
+async function mapScan(row: ScanLogRow): Promise<LogScan> {
+  const scan: LogScan = {
+    id: row.id, dateTime: row.date_time, cultivar: row.cultivar ?? "Unknown", ripeness: row.ripeness ?? "Unknown",
+    confidence: row.confidence, temperature: row.temperature ?? undefined, humidity: row.humidity ?? undefined,
+    spoilageDays: row.spoilage_days ?? "Unknown", fingerCount: row.finger_count, operator: row.operator_name,
+    source: row.source_name, intakeId: row.intake_id ?? undefined, inventoryStatus: row.inventory_status as InventoryStatus,
+    statusUpdatedAt: row.status_updated_at ?? undefined, flagged: row.flagged, isOverridden: row.is_overridden,
+    thumbnailUrl: row.thumbnail_url ? getImageUrl(row.thumbnail_url) : undefined, remainingDays: row.remaining_days,
+  }
+  // A QR rendering failure must not hide the scan history.
+  try { scan.qrCode = await generateQRCodeDataUrl(scan) } catch { /* Thumbnail fallback remains available. */ }
+  return scan
+}
+
 export default function Logs() {
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
   const { user } = useAuth()
-  const { scans, updateScanData } = useScans()
-  const { suppliers } = useInventory()
-  const [search, setSearch] = useState("")
-  const [cultivarFilter, setCultivarFilter] = useState<string>("all")
-  const [ripenessFilter, setRipenessFilter] = useState<string>("all")
-  const [sourceFilter, setSourceFilter] = useState<string>(searchParams.get("source") || "all")
-  const [operatorFilter, setOperatorFilter] = useState<string>("all")
-  const [intakeFilter, setIntakeFilter] = useState<string>(searchParams.get("intake") || "all")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [cardFilter, setCardFilter] = useState<"at-risk" | "flagged" | null>(null)
-  const [qrModalScan, setQrModalScan] = useState<ScanResult | null>(null)
+  return user ? <LogsContent key={`${user.id}:${user.role}`} /> : null
+}
 
-  const roleFilteredScans = useMemo(() => {
-    return user?.role === "Operator" ? scans.filter(s => s.operator === user.fullName) : scans
-  }, [scans, user])
+function LogsContent() {
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { user } = useAuth()
+  const queryKey = searchParams.toString()
+  const requestParams = scanLogParams(searchParams)
+  const search = searchParams.get("search") || ""
+  const cultivarFilter = searchParams.get("cultivar") || "all"
+  const ripenessFilter = searchParams.get("ripeness") || "all"
+  const sourceFilter = searchParams.get("source_key") || (searchParams.get("source") ? `legacy:${searchParams.get("source")}` : "all")
+  const operatorFilter = searchParams.get("operator_id") || "all"
+  const intakeFilter = searchParams.get("intake") || "all"
+  const statusFilter = searchParams.get("status") || "all"
+  const dateFilter = searchParams.get("date") || ""
+  const cardFilter = requestParams.attention === "all" ? null : requestParams.attention
+  const [qrModalScan, setQrModalScan] = useState<LogScan | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [pendingScan, setPendingScan] = useState<string | null>(null)
 
+  const load = useCallback(async (signal: AbortSignal) => {
+    const result = await api.scanLogs.list(scanLogParams(new URLSearchParams(queryKey)), signal)
+    const rows = await Promise.all(result.items.map(mapScan))
+    return { result, rows }
+  }, [queryKey])
+  const resource = useDashboardResource(load)
+  const response = resource.data?.result
+  const filtered = resource.data?.rows ?? []
+  const stats = { avgConfidence: response?.avg_confidence, spoilingSoon: response?.at_risk_count, reviewCount: response?.review_count ?? 0 }
+  const operators = response?.options.operators ?? []
+  const sources = response?.options.sources ?? []
 
-  const operators = useMemo(() => Array.from(new Set(scans.map(s => s.operator))).sort(), [scans])
+  const updateFilters = (changes: Record<string, string | undefined>, replace = false) => {
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous)
+      for (const [key, value] of Object.entries(changes)) {
+        if (!value || value === "all") next.delete(key)
+        else next.set(key, value)
+      }
+      if (!("page" in changes)) next.delete("page")
+      return next
+    }, { replace })
+  }
+  const clearAllFilters = () => setSearchParams({})
+  const setSearch = (value: string) => updateFilters({ search: value }, true)
+  const setCultivarFilter = (value: string) => updateFilters({ cultivar: value })
+  const setRipenessFilter = (value: string) => updateFilters({ ripeness: value })
+  const setSourceFilter = (value: string) => updateFilters({ source_key: value, source: undefined })
+  const setOperatorFilter = (value: string) => updateFilters({ operator_id: value })
+  const setStatusFilter = (value: string) => updateFilters({ status: value })
+  const setCardFilter = (value: string | null) => updateFilters({ attention: value ?? undefined })
 
-  const clearAllFilters = () => {
-    setSearch("")
-    setCultivarFilter("all")
-    setRipenessFilter("all")
-    setSourceFilter("all")
-    setOperatorFilter("all")
-    setStatusFilter("all")
-    setCardFilter(null)
-    if (intakeFilter !== "all") {
-      setIntakeFilter("all")
-      navigate('/logs', { replace: true })
+  // A deletion/status change can shrink the final page while this view is open.
+  useEffect(() => {
+    if (response && response.page > 1 && response.items.length === 0) {
+      setSearchParams(previous => {
+        const next = new URLSearchParams(previous)
+        next.set("page", String(Math.max(1, Math.ceil(response.total / PAGE_SIZE))))
+        return next
+      }, { replace: true })
     }
+  }, [response, setSearchParams])
+
+  const handleStatusUpdate = async (scanId: string, status: InventoryStatus) => {
+    setPendingScan(scanId)
+    try {
+      await api.scans.updateStatus(scanId, status)
+      toast.success(`Scan marked as ${status}`)
+      await resource.refresh()
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Status update failed") }
+    finally { setPendingScan(null) }
   }
 
-  const handleStatusUpdate = (scanId: string, status: InventoryStatus) => {
-    updateScanData(scanId, { inventoryStatus: status, statusUpdatedAt: new Date().toISOString() })
-    toast.success(`Scan marked as ${status}`)
-  }
-
-  const getStatus = (scan: ScanResult) => {
+  const getStatus = (scan: LogScan) => {
     return (
       <div className="flex items-center gap-1.5">
         {scan.flagged && (
@@ -86,69 +146,16 @@ export default function Logs() {
     )
   }
 
-  const filtered = useMemo(() => {
-    return roleFilteredScans.filter((s) => {
-      if (intakeFilter !== "all" && s.intakeId !== intakeFilter) return false
-      if (cultivarFilter !== "all" && s.cultivar !== cultivarFilter) return false
-      if (ripenessFilter !== "all" && s.ripeness !== ripenessFilter) return false
-      if (sourceFilter !== "all" && s.source !== sourceFilter) return false
-      if (operatorFilter !== "all" && s.operator !== operatorFilter) return false
-      if (statusFilter === "Flagged" && !s.flagged) return false
-      if (statusFilter !== "all" && statusFilter !== "Flagged" && (s.inventoryStatus || "In Stock") !== statusFilter) return false
-      if (cardFilter === "at-risk" && parseSpoilageAvg(s.spoilageDays) > 2) return false
-      if (cardFilter === "flagged" && !s.flagged) return false
-      if (search) {
-        const q = search.toLowerCase()
-        return s.cultivar.toLowerCase().includes(q) || s.operator.toLowerCase().includes(q) || (s.source?.toLowerCase().includes(q) ?? false) || (s.intakeId?.toLowerCase().includes(q) ?? false) || s.id.toLowerCase().includes(q)
-      }
-      return true
-    })
-  }, [roleFilteredScans, search, cultivarFilter, ripenessFilter, sourceFilter, operatorFilter, statusFilter, intakeFilter, cardFilter])
-
-  const stats = useMemo(() => {
-    const avgConfidence = filtered.length 
-      ? (filtered.reduce((sum, s) => sum + s.confidence, 0) / filtered.length).toFixed(1)
-      : 0
-    const spoilingSoon = filtered.filter(s => parseSpoilageAvg(s.spoilageDays) <= 2).length
-    const flaggedCount = filtered.filter(s => s.flagged).length
-    return { avgConfidence, spoilingSoon, flaggedCount }
-  }, [filtered])
-
-  const exportToCSV = () => {
-    const headers = ["Date/Time", "Cultivar", "Ripeness", "Confidence (%)", "Temperature (°C)", "Humidity (%)", "Spoilage (days)", "Fingers", "Operator"]
-    const rows = filtered.map(scan => [
-      new Date(scan.dateTime).toLocaleString(),
-      scan.cultivar,
-      scan.ripeness,
-      scan.confidence,
-      scan.temperature || "—",
-      scan.humidity || "—",
-      scan.spoilageDays,
-      scan.fingerCount,
-      scan.operator
-    ])
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
-    ].join("\n")
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", `banana-scans-${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    
-    toast.success("Export successful", { description: `${filtered.length} scans exported to CSV` })
+  const exportToCSV = async () => {
+    setExporting(true)
+    try {
+      await api.scanLogs.export(requestParams, AbortSignal.timeout(60_000))
+      toast.success("Exported all matching scan records")
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Export failed") }
+    finally { setExporting(false) }
   }
 
-
-
-const columns: ColumnDef<ScanResult>[] = [
+const columns: ColumnDef<LogScan>[] = [
     {
       header: "Image",
       className: "w-20",
@@ -187,12 +194,12 @@ const columns: ColumnDef<ScanResult>[] = [
     {
       header: "Date/Time",
       sortable: true,
-      sortKey: "dateTime",
+      sortKey: "date_time",
       cell: (scan) => (
         <div className="text-sm">
-          {new Date(scan.dateTime).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+          <Link to={`/scans/${scan.id}`} className="hover:underline focus-visible:underline">{new Date(scan.dateTime).toLocaleDateString("en-US", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" })}</Link>
           <br />
-          <span className="text-xs text-muted-foreground">{new Date(scan.dateTime).toLocaleTimeString()}</span>
+          <span className="text-xs text-muted-foreground">{new Date(scan.dateTime).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila" })}</span>
         </div>
       ),
     },
@@ -226,9 +233,9 @@ const columns: ColumnDef<ScanResult>[] = [
       cell: (scan) => (
         <div className="flex items-center gap-2">
           <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-primary rounded-full" style={{ width: `${scan.confidence}%` }} />
+            <div className="h-full bg-primary rounded-full" style={{ width: `${scan.confidence ?? 0}%` }} />
           </div>
-          <span className="text-sm">{scan.confidence}%</span>
+          <span className="text-sm">{scan.confidence === null ? "—" : `${scan.confidence}%`}</span>
         </div>
       ),
     },
@@ -257,18 +264,18 @@ const columns: ColumnDef<ScanResult>[] = [
     {
       header: "Est. Spoilage",
       sortable: true,
-      sortKey: "spoilageDays",
-      cell: (scan) => <span className="text-sm">{scan.spoilageDays} days</span>,
+      sortKey: "spoilage_days",
+      cell: (scan) => <div className="text-sm"><span title="Estimate when scanned">{scan.spoilageDays} days</span>{scan.remainingDays !== null && <span className="block text-xs text-muted-foreground">{scan.remainingDays <= 0 ? "Estimated expiry reached" : `${scan.remainingDays.toFixed(1)} days left`}</span>}</div>,
     },
     {
       header: "Est. Fingers",
       sortable: true,
-      sortKey: "fingerCount",
+      sortKey: "finger_count",
       cell: (scan) => <span className="text-sm">{scan.fingerCount}</span>,
     },
     ...(user?.role === "Admin" ? [{
       header: "Operator",
-      cell: (scan: ScanResult) => (
+      cell: (scan: LogScan) => (
         <div className="flex items-center gap-2">
           <Avatar className="w-8 h-8">
             <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
@@ -287,7 +294,7 @@ const columns: ColumnDef<ScanResult>[] = [
       header: "Actions",
       className: "text-right",
       stopPropagation: true,
-      cell: (scan: ScanResult) => (
+      cell: (scan: LogScan) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-8 w-8 p-0">
@@ -304,7 +311,7 @@ const columns: ColumnDef<ScanResult>[] = [
               { actionStatus: "Sold" as InventoryStatus, icon: DollarSign, color: "text-emerald-500" },
               { actionStatus: "Spoiled" as InventoryStatus, icon: AlertTriangle, color: "text-red-500" },
             ] as const).map(({ actionStatus, icon: ItemIcon, color }) => {
-              const isDisabled = scan.inventoryStatus === actionStatus
+              const isDisabled = scan.inventoryStatus === actionStatus || pendingScan === scan.id
               return (
                 <DropdownMenuItem
                   key={actionStatus}
@@ -328,45 +335,55 @@ const columns: ColumnDef<ScanResult>[] = [
     <div className="space-y-6">
       <AppPageHeader
         title={intakeFilter !== "all" ? `Logs for Intake ${intakeFilter.substring(0, 8)}` : "Scan Logs"}
-        description={intakeFilter !== "all" ? "Viewing all scans grouped under this delivery" : "View all banana scan results"}
+        description={intakeFilter !== "all" ? "Viewing scans grouped under this delivery · Asia/Manila" : "View all banana scan results · Dates use Asia/Manila"}
         icon={ScrollText}
         action={
           <div className="flex items-center gap-2 w-full sm:w-auto">
             {intakeFilter !== "all" && (
-              <Button variant="ghost" onClick={() => { setIntakeFilter("all"); navigate('/logs', { replace: true }) }}>
+              <Button variant="ghost" onClick={() => { updateFilters({ intake: undefined }) }}>
                 Clear Intake Filter
               </Button>
             )}
-            <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={exportToCSV}>
+            <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={exportToCSV} disabled={exporting || !response}>
               <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Export CSV</span>
+              <span className="hidden sm:inline">{exporting ? "Exporting…" : "Export CSV"}</span>
             </Button>
           </div>
         }
       />
 
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" role="status" aria-live="polite">
+        <span>{resource.error ? response ? "Stale Data" : "Unavailable" : resource.loading ? "Loading…" : "Updated"}</span>
+        {response && <span>Last refreshed {new Date(response.generated_at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila" })}</span>}
+        <Button variant="ghost" size="sm" onClick={() => void resource.refresh()} disabled={resource.loading}><RefreshCw className="size-3.5" /> Refresh</Button>
+      </div>
+      {resource.error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+        <strong>{response ? "Scan Logs refresh failed. Showing the last successful results." : "Scan Logs unavailable."}</strong> {resource.error}
+        <Button variant="link" size="sm" onClick={() => void resource.refresh()}>Retry</Button>
+      </div>}
+
       {/* Stats Cards */}
-      <div className={`grid grid-cols-1 gap-3 sm:gap-4 ${stats.flaggedCount > 0 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
+      <div className={`grid grid-cols-1 gap-3 sm:gap-4 ${(stats.reviewCount > 0 || cardFilter === "review") ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
         <AppStatsCard
           title="Total Scans"
-          value={filtered.length}
+          value={response ? response.total : resource.loading ? "…" : "—"}
           icon={TrendingUp}
           delay={50}
-          description={cardFilter ? "Click to show all" : "All time records"}
+          description={response ? "Matching records · click to reset filters" : resource.loading ? "Loading…" : "Unavailable"}
           onClick={clearAllFilters}
         />
         <AppStatsCard
           title="Avg Confidence"
-          value={`${stats.avgConfidence}%`}
+          value={response ? stats.avgConfidence == null ? "—" : `${stats.avgConfidence.toFixed(1)}%` : resource.loading ? "…" : "—"}
           icon={Target}
           iconColor="text-emerald-600"
           iconBgColor="bg-emerald-500/10"
           delay={100}
-          description="Detection accuracy"
+          description="Model confidence"
         />
         <AppStatsCard
           title="At-Risk Scans"
-          value={stats.spoilingSoon}
+          value={response ? stats.spoilingSoon ?? 0 : resource.loading ? "…" : "—"}
           icon={Clock}
           iconColor="text-orange-600"
           iconBgColor="bg-orange-500/10"
@@ -375,17 +392,17 @@ const columns: ColumnDef<ScanResult>[] = [
           onClick={() => setCardFilter(cardFilter === "at-risk" ? null : "at-risk")}
           active={cardFilter === "at-risk"}
         />
-        {stats.flaggedCount > 0 && (
+        {(stats.reviewCount > 0 || cardFilter === "review") && (
           <AppStatsCard
-            title="Flagged Scans"
-            value={stats.flaggedCount}
+            title="Pending Quality Reviews"
+            value={stats.reviewCount}
             icon={Flag}
             iconColor="text-red-600"
             iconBgColor="bg-red-500/10"
             delay={200}
-            description="Pending QC review"
-            onClick={() => setCardFilter(cardFilter === "flagged" ? null : "flagged")}
-            active={cardFilter === "flagged"}
+            description="Flagged or below confidence threshold"
+            onClick={() => setCardFilter(cardFilter === "review" ? null : "review")}
+            active={cardFilter === "review"}
           />
         )}
       </div>
@@ -395,7 +412,7 @@ const columns: ColumnDef<ScanResult>[] = [
         searchQuery={search}
         onSearchChange={(value) => { setSearch(value) }}
         searchPlaceholder="Search by cultivar, operator, or ID..."
-        hasActiveFilters={search !== "" || cultivarFilter !== "all" || ripenessFilter !== "all" || sourceFilter !== "all" || operatorFilter !== "all" || statusFilter !== "all" || intakeFilter !== "all" || cardFilter !== null}
+        hasActiveFilters={search !== "" || cultivarFilter !== "all" || ripenessFilter !== "all" || sourceFilter !== "all" || operatorFilter !== "all" || statusFilter !== "all" || intakeFilter !== "all" || cardFilter !== null || dateFilter !== ""}
         onClearFilters={clearAllFilters}
       >
         <Select value={cultivarFilter} onValueChange={(v) => { setCultivarFilter(v) }}>
@@ -429,9 +446,8 @@ const columns: ColumnDef<ScanResult>[] = [
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Sources</SelectItem>
-            {suppliers.filter(s => s.status === "Active").map(s => s.name).sort().map((src) => (
-              <SelectItem key={src} value={src}>{src}</SelectItem>
-            ))}
+            {sourceFilter !== "all" && !sources.some(source => source.key === sourceFilter) && <SelectItem value={sourceFilter}>{searchParams.get("source") || "Selected source"}</SelectItem>}
+            {sources.map(source => <SelectItem key={source.key} value={source.key}>{source.name}</SelectItem>)}
           </SelectContent>
         </Select>
         {user?.role === "Admin" && (
@@ -442,9 +458,8 @@ const columns: ColumnDef<ScanResult>[] = [
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Operators</SelectItem>
-              {operators.map((op) => (
-                <SelectItem key={op} value={op}>{op}</SelectItem>
-              ))}
+              {operatorFilter !== "all" && !operators.some(operator => operator.operator_id === operatorFilter) && <SelectItem value={operatorFilter}>Selected operator</SelectItem>}
+              {operators.map(operator => <SelectItem key={operator.operator_id} value={operator.operator_id}>{operator.name} (@{operator.username})</SelectItem>)}
             </SelectContent>
           </Select>
         )}
@@ -467,15 +482,32 @@ const columns: ColumnDef<ScanResult>[] = [
             </SelectItem>
           </SelectContent>
         </Select>
+        <div className="flex w-full sm:w-auto items-center gap-1">
+          <label htmlFor="scan-date" className="sr-only">Scan date</label>
+          <Input id="scan-date" type="date" value={dateFilter} onChange={event => updateFilters({ date: event.target.value })}
+            className="w-full sm:w-44 h-10" title="Filter by calendar date in Asia/Manila" />
+          {dateFilter && <Button type="button" variant="ghost" size="icon" aria-label="Clear scan date" title="All dates" onClick={() => updateFilters({ date: undefined })}><X className="size-4" /></Button>}
+        </div>
       </AppTableFilters>
 
+      {cardFilter && <div className="flex flex-wrap items-center gap-2 text-sm">
+        <Badge variant="secondary">{cardFilter === "at-risk" ? "At-Risk Scans" : "Pending Quality Reviews"}</Badge>
+        <span className="text-xs text-muted-foreground">{cardFilter === "at-risk" ? "In stock with estimated spoilage in 2 days or less, including overdue estimates." : `Flagged for review or below ${response?.confidence_threshold ?? "the configured"}${response ? "%" : ""} confidence threshold.`}</span>
+        <Button variant="ghost" size="sm" onClick={() => setCardFilter(null)}>Clear {cardFilter === "at-risk" ? "risk" : "review"} filter</Button>
+      </div>}
+
       {/* Table */}
+      {!response ? <Card className="p-10 text-center text-muted-foreground" role="status">{resource.loading ? <span className="inline-flex items-center gap-2"><Loader2 className="size-4 animate-spin" /> Loading scan records…</span> : "Records could not be loaded. Retry above."}</Card> : (
       <AppDataTable
         data={filtered}
         columns={columns}
         rowKey={(scan) => scan.id}
         onRowClick={(scan) => navigate(`/scans/${scan.id}`)}
         pagination={{ pageSize: PAGE_SIZE }}
+        serverState={{ page: response.page, total: response.total, sort: { key: requestParams.sort, direction: requestParams.direction },
+          onPageChange: page => updateFilters({ page: String(page) }),
+          onSortChange: (sort, direction) => updateFilters({ sort, direction }),
+        }}
         rowClassName={(scan) => scan.flagged ? 'border-l-3 border-l-red-500 bg-red-500/[0.03]' : ''}
         emptyState={{
           icon: Banana,
@@ -483,6 +515,7 @@ const columns: ColumnDef<ScanResult>[] = [
           description: "Try adjusting your search or filter criteria"
         }}
       />
+      )}
     </div>
 
       {/* QR Code Modal */}
@@ -519,7 +552,7 @@ const columns: ColumnDef<ScanResult>[] = [
               <Button
                 variant="outline"
                 className="w-full gap-2"
-                onClick={() => printQRTag(qrModalScan as any)}
+                onClick={() => printQRTag(qrModalScan)}
               >
                 <Printer className="w-4 h-4" />
                 Print Tag

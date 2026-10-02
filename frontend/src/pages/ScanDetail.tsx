@@ -40,21 +40,89 @@ import {
   Eye,
   EyeOff,
   Box,
+  Loader2,
 } from "lucide-react"
 import { toast } from "sonner"
-import { getSpoilageDays } from "@/lib/utils"
-import { printQRTag } from "@/lib/qrcode"
+import { getImageUrl, getSpoilageDays } from "@/lib/utils"
+import { generateQRCodeDataUrl, printQRTag } from "@/lib/qrcode"
 import { CULTIVARS, RIPENESS_LEVELS, type Cultivar, type Ripeness, type ScanResult, type ScanDetection, type BoundingBox } from "@/types"
 import { AppChangePreview } from "@/components/AppChangePreview"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import BoundingBoxOverlay from "@/components/BoundingBoxOverlay"
 import { api } from "@/lib/api"
 
+interface StoredScanDetail {
+  id: string
+  date_time: string
+  cultivar: Cultivar
+  ripeness: Ripeness
+  confidence: number
+  temperature?: number | null
+  humidity?: number | null
+  vpd?: number | null
+  treatment?: ScanResult["treatment"] | null
+  spoilage_days: string
+  finger_count: number
+  operator_name: string
+  source_text?: string | null
+  intake_id?: string | null
+  inventory_status?: ScanResult["inventoryStatus"]
+  status_updated_at?: string | null
+  flagged: boolean
+  is_overridden: boolean
+  original_ai_result?: { cultivar: Cultivar; ripeness: Ripeness; confidence: number; finger_count: number; spoilage_days?: string } | null
+  thumbnail_url?: string | null
+  has_notes?: boolean
+  images?: { camera_id: string; file_path: string }[]
+  detections?: ScanDetection[]
+}
+
+const EMPTY_DETECTIONS: ScanDetection[] = []
+
+function mapStoredScan(data: StoredScanDetail): ScanResult {
+  return {
+    id: data.id,
+    dateTime: data.date_time,
+    cultivar: data.cultivar,
+    ripeness: data.ripeness,
+    confidence: data.confidence,
+    temperature: data.temperature ?? undefined,
+    humidity: data.humidity ?? undefined,
+    vpd: data.vpd ?? undefined,
+    treatment: data.treatment ?? undefined,
+    spoilageDays: data.spoilage_days,
+    fingerCount: data.finger_count,
+    operator: data.operator_name,
+    source: data.source_text ?? undefined,
+    intakeId: data.intake_id ?? undefined,
+    inventoryStatus: data.inventory_status,
+    statusUpdatedAt: data.status_updated_at ?? undefined,
+    flagged: data.flagged,
+    isOverridden: data.is_overridden,
+    originalAiResult: data.original_ai_result ? {
+      cultivar: data.original_ai_result.cultivar,
+      ripeness: data.original_ai_result.ripeness,
+      confidence: data.original_ai_result.confidence,
+      fingerCount: data.original_ai_result.finger_count,
+      spoilageDays: data.original_ai_result.spoilage_days,
+    } : undefined,
+    thumbnailUrl: data.thumbnail_url ? getImageUrl(data.thumbnail_url) : undefined,
+    hasNotes: data.has_notes,
+    images: (data.images ?? []).map(image => ({ ...image, file_path: getImageUrl(image.file_path) })),
+    detections: data.detections ?? [],
+  }
+}
+
 export default function ScanDetail() {
   const { scanId } = useParams<{ scanId: string }>()
+  const { user } = useAuth()
+  return user ? <ScanDetailRecord key={`${user.id}:${user.role}:${scanId}`} scanId={scanId} /> : null
+}
+
+function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { scans, flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData } = useScans()
+  const { addScanNote, getScanNotes, loadScanNotes, updateScanData } = useScans()
   const { suppliers } = useInventory()
   const { config } = useAdmin()
   const [noteText, setNoteText] = useState("")
@@ -62,44 +130,53 @@ export default function ScanDetail() {
   const [editData, setEditData] = useState<Partial<{ cultivar: Cultivar; ripeness: Ripeness; spoilageDays: string; fingerCount: number | string; source: string }>>({})
   const [activeCamera, setActiveCamera] = useState(0)
   const [showBoxes, setShowBoxes] = useState(true)
-  const [scanDetections, setScanDetections] = useState<ScanDetection[]>([])
+  const [retry, setRetry] = useState(0)
+  const [detail, setDetail] = useState<{ retry: number; scan: ScanResult | null; error: string | null; notFound: boolean } | null>(null)
+  const [flagPending, setFlagPending] = useState(false)
 
-  const scan = scans.find((s) => s.id === scanId)
+  const currentDetail = detail?.retry === retry ? detail : null
+  const scan = currentDetail?.scan
+  const scanDetections = scan?.detections ?? EMPTY_DETECTIONS
   const notes = scan ? getScanNotes(scan.id) : []
   const isAdmin = user?.role === "Admin"
 
   useEffect(() => {
-    if (scanId) {
+    if (scanId && isAdmin) {
       loadScanNotes(scanId)
     }
-  }, [scanId, loadScanNotes])
+  }, [scanId, isAdmin, loadScanNotes])
 
-  // Fetch full scan detail (with detections) from the API
+  // Historical scan links load independently of the latest page in ScanContext.
   useEffect(() => {
     if (!scanId) return
-    // Use detections from context if available (from WebSocket real-time data)
-    if (scan?.detections && scan.detections.length > 0) {
-      setScanDetections(scan.detections)
-      return
-    }
-    // Otherwise fetch from API
-    api.scans.detail(scanId)
-      .then((data: any) => {
-        if (data.detections && data.detections.length > 0) {
-          setScanDetections(data.detections)
-        }
+    const controller = new AbortController()
+    let cancelled = false
+    let timedOut = false
+    const timeout = window.setTimeout(() => {
+      timedOut = true
+      if (!cancelled) setDetail({ retry, scan: null, notFound: false, error: "Loading took too long. Please retry." })
+      controller.abort()
+    }, 15_000)
+    api.scans.detail(scanId, controller.signal)
+      .then((data: StoredScanDetail) => {
+        if (cancelled || timedOut) return
+        const record = mapStoredScan(data)
+        setDetail({ retry, scan: record, error: null, notFound: false })
+        generateQRCodeDataUrl(record).then(qrCode => {
+          if (!cancelled) setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, qrCode } } : previous)
+        }).catch(() => {})
       })
-      .catch((err: Error) => {
-        console.warn("[ScanDetail] Failed to fetch detections:", err.message)
+      .catch((error: unknown) => {
+        if (cancelled || timedOut) return
+        const notFound = typeof error === "object" && error !== null && "status" in error && error.status === 404
+        setDetail({ retry, scan: null, notFound, error: error instanceof Error ? error.message : "Check your connection and try again." })
       })
-  }, [scanId, scan?.detections])
+      .finally(() => window.clearTimeout(timeout))
+    return () => { cancelled = true; window.clearTimeout(timeout); controller.abort() }
+  }, [scanId, retry])
 
-  // Dynamically generate camera views from config
-  const cameraViews = config.cameraIds.split(",").map((s, index) => {
-    const id = s.trim()
-    const labels = ["Top View", "Left View", "Right View", "Rear View"]
-    return { id, label: labels[index] || `View ${index + 1}` }
-  }).filter(cam => cam.id)
+  const recordedCameraIds = [...new Set([...(scan?.images ?? []).map(image => image.camera_id), ...scanDetections.map(detection => detection.camera_id)])]
+  const cameraViews = recordedCameraIds.map(id => ({ id, label: scanDetections.find(detection => detection.camera_id === id)?.camera_label || id }))
 
   // Resolve the image URL for a given camera — no fallback to avoid showing a duplicate
   const getCameraImageUrl = (cameraId: string): string | undefined => {
@@ -136,11 +213,19 @@ export default function ScanDetail() {
     }))
   }, [scanDetections])
 
-  const handleFlag = () => {
-    if (!scan) return
+  const handleFlag = async () => {
+    if (!scan || flagPending) return
     const isNowFlagged = !scan.flagged
-    flagScan(scan.id, isNowFlagged)
-    toast.success(isNowFlagged ? "Scan flagged for review" : "Flag removed")
+    setFlagPending(true)
+    try {
+      await api.scans.flag(scan.id, isNowFlagged)
+      setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, flagged: isNowFlagged } } : previous)
+      toast.success(isNowFlagged ? "Scan flagged for review" : "Flag removed")
+    } catch {
+      toast.error("Could not update the flag. Please try again.")
+    } finally {
+      setFlagPending(false)
+    }
   }
 
   const handleAddNote = () => {
@@ -179,27 +264,31 @@ export default function ScanDetail() {
       } as Partial<ScanResult>
       try {
         await updateScanData(scan.id, saveData)
+        setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, ...saveData } } : previous)
         setEditMode(false)
         toast.success("Scan data updated successfully")
-      } catch (err) {
+      } catch {
         toast.error("Failed to update scan data. Please check connection.")
       }
     }
   }
 
   if (!scan) {
+    const loading = Boolean(scanId) && !currentDetail
+    const notFound = !scanId || currentDetail?.notFound
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon" className="size-12 rounded-full bg-primary/10 text-primary [&_svg]:size-6">
-              <ScanLine className="w-4 h-4" />
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanLine className="w-4 h-4" />}
             </EmptyMedia>
-            <EmptyTitle className="text-base sm:text-lg font-semibold mt-1">Scan not found</EmptyTitle>
+            <EmptyTitle className="text-base sm:text-lg font-semibold mt-1" role={loading ? "status" : "alert"}>{loading ? "Loading scan…" : notFound ? "Scan not found" : "Scan could not be loaded"}</EmptyTitle>
             <EmptyDescription className="text-sm sm:text-base max-w-md mx-auto text-balance">
-              The scan record you're looking for doesn't exist or has been deleted.
+              {loading ? "Retrieving the stored scan and camera images." : notFound ? "The scan record you're looking for doesn't exist or has been deleted." : currentDetail?.error || "Check your connection and try again."}
             </EmptyDescription>
           </EmptyHeader>
+          {!loading && !notFound && <Button className="mt-4" onClick={() => setRetry(value => value + 1)}>Retry</Button>}
           <Button variant="outline" className="mt-4 gap-2" onClick={() => navigate(-1)}>
             <ArrowLeft className="w-4 h-4" /> Go Back
           </Button>
@@ -389,7 +478,7 @@ export default function ScanDetail() {
                         variant="ghost"
                         size="sm"
                         className="gap-1 text-[10px] h-6 px-2"
-                        onClick={() => printQRTag(scan as any)}
+                        onClick={() => printQRTag(scan)}
                       >
                         <Printer className="w-3 h-3" />
                         Print Tag
@@ -650,6 +739,7 @@ export default function ScanDetail() {
                     size="sm"
                     className={`gap-1.5 text-xs h-8 ${scan.flagged ? 'text-red-600 bg-red-50 hover:bg-red-100 border border-red-200' : ''}`}
                     onClick={handleFlag}
+                    disabled={flagPending}
                   >
                     <Flag className={`w-3.5 h-3.5 ${scan.flagged ? 'fill-current' : ''}`} />
                     {scan.flagged ? 'Remove Flag' : 'Flag for Review'}

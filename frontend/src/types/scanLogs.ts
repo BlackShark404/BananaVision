@@ -1,0 +1,46 @@
+import type { DashboardScan } from "@/types/dashboard"
+
+export interface ScanLogRow extends DashboardScan {
+  temperature: number | null
+  humidity: number | null
+  finger_count: number
+  thumbnail_url: string | null
+  intake_id: string | null
+  is_overridden: boolean
+  status_updated_at: string | null
+}
+
+export interface ScanLogParams {
+  business_date?: string
+  source_key?: string
+  source?: string
+  operator_id?: string
+  intake_id?: string
+  cultivar?: string
+  ripeness?: string
+  inventory_status?: string
+  flagged_only?: boolean
+  attention?: "all" | "at-risk" | "review"
+  search?: string
+  page: number
+  page_size: number
+  sort: "date_time" | "cultivar" | "confidence" | "spoilage_days" | "finger_count"
+  direction: "asc" | "desc"
+}
+
+export interface ScanLogPage {
+  items: ScanLogRow[]
+  total: number
+  page: number
+  page_size: number
+  avg_confidence: number | null
+  at_risk_count: number
+  review_count: number
+  flagged_count: number
+  generated_at: string
+  confidence_threshold: number
+  options: {
+    sources: { key: string; name: string }[]
+    operators: { operator_id: string; name: string; username: string }[]
+  }
+}

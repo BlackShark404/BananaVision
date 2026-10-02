@@ -1,4 +1,4 @@
-export type DashboardView = "today" | "confidence" | "sources" | "operators" | "all" | "review" | "expiring"
+export type DashboardView = "sources" | "operators"
 
 export interface DashboardScan {
   id: string

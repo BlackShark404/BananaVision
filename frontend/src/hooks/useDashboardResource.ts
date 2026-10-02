@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
 interface ResourceState<T> {
+  source: (signal: AbortSignal) => Promise<T>
   data: T | null
   receivedAt: number | null
   error: string | null
@@ -9,7 +10,7 @@ interface ResourceState<T> {
 
 /** Retain successful snapshots on errors; failed initial loads never become zero activity. */
 export function useDashboardResource<T>(load: (signal: AbortSignal) => Promise<T>) {
-  const [state, setState] = useState<ResourceState<T>>({ data: null, receivedAt: null, error: null, loading: true })
+  const [state, setState] = useState<ResourceState<T>>({ source: load, data: null, receivedAt: null, error: null, loading: true })
   const mounted = useRef(false)
   const sequence = useRef(0)
   const request = useRef<AbortController | null>(null)
@@ -21,12 +22,12 @@ export function useDashboardResource<T>(load: (signal: AbortSignal) => Promise<T
     const controller = new AbortController()
     request.current = controller
     const timeout = window.setTimeout(() => controller.abort(), 15_000)
-    setState(previous => ({ ...previous, loading: true }))
+    setState(previous => previous.source === load ? { ...previous, loading: true } : { source: load, data: null, receivedAt: null, error: null, loading: true })
     try {
       const data = await load(controller.signal)
       if (controller.signal.aborted) throw new Error("Request timed out")
       if (mounted.current && current === sequence.current) {
-        setState({ data, receivedAt: Date.now(), error: null, loading: false })
+        setState({ source: load, data, receivedAt: Date.now(), error: null, loading: false })
       }
     } catch (error) {
       if (mounted.current && current === sequence.current) {
@@ -50,7 +51,7 @@ export function useDashboardResource<T>(load: (signal: AbortSignal) => Promise<T
     document.addEventListener("visibilitychange", onResume)
     return () => {
       mounted.current = false
-      ++sequence.current
+      // A future request increments the sequence; mounted also guards unmounts.
       request.current?.abort()
       window.clearInterval(interval)
       window.removeEventListener("focus", onResume)
@@ -58,5 +59,5 @@ export function useDashboardResource<T>(load: (signal: AbortSignal) => Promise<T
       document.removeEventListener("visibilitychange", onResume)
     }
   }, [refresh])
-  return { ...state, refresh }
+  return state.source === load ? { ...state, refresh } : { data: null, receivedAt: null, error: null, loading: true, refresh }
 }

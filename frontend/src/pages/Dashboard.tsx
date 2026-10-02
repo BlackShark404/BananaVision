@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react"
-import { Link, useNavigate, useSearchParams } from "react-router-dom"
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import { useDashboardResource } from "@/hooks/useDashboardResource"
 import { DashboardRecords } from "@/components/DashboardRecords"
 import { useWebSocket } from "@/hooks/useWebSocket"
 import { api, BASE_URL } from "@/lib/api"
+import { buildScanLogsUrl } from "@/lib/scanLogFilters"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -34,6 +35,21 @@ const manilaTime = new Intl.DateTimeFormat("en-PH", {
   timeZone: "Asia/Manila", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit",
 })
 const manilaDate = (time: number) => new Date(time + 28_800_000).toISOString().slice(0, 10)
+
+function legacyScanLogsUrl(params: URLSearchParams, selectedDate: string): string | null {
+  const view = params.get("view")
+  if (!view || !["today", "confidence", "all", "review", "expiring"].includes(view)) return null
+  const sourceKey = params.get("source_key") || undefined
+  const operatorId = params.get("operator_id") || undefined
+  return buildScanLogsUrl({
+    date: view === "today" || view === "confidence" || (view === "all" && (sourceKey || operatorId)) ? selectedDate : undefined,
+    source_key: sourceKey,
+    operator_id: operatorId,
+    attention: view === "review" ? "review" : view === "expiring" ? "at-risk" : undefined,
+    sort: view === "confidence" || params.get("sort") === "confidence" ? "confidence" : undefined,
+    direction: view === "confidence" || params.get("direction") === "asc" ? "asc" : params.get("direction") === "desc" ? "desc" : undefined,
+  })
+}
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -89,6 +105,14 @@ function DashboardContent() {
   }, [refreshMetrics])
 
   const summary = metrics.data
+  const selectedBusinessDate = params.get("business_date") || summary?.business_date || manilaDate(now)
+  const groupView = params.get("view") === "sources" || params.get("view") === "operators"
+  useEffect(() => {
+    if (!groupView || params.get("business_date")) return
+    const next = new URLSearchParams(params)
+    next.set("business_date", selectedBusinessDate)
+    setParams(next, { replace: true })
+  }, [groupView, params, selectedBusinessDate, setParams])
   const previousDay = !!summary && summary.business_date !== manilaDate(now)
   const staleMetrics = !!summary && (!!metrics.error || previousDay || (metrics.receivedAt !== null && now - metrics.receivedAt > 90_000))
   const staleCameras = !!cameras.data && (!!cameras.error || (cameras.receivedAt !== null && now - cameras.receivedAt > 90_000))
@@ -102,16 +126,26 @@ function DashboardContent() {
     value: summary?.avg_confidence == null ? "—" : `${summary.avg_confidence.toFixed(1)}%`,
     label: "My Avg Confidence", icon: Target, desc: "Model confidence",
   } : {
-    value: summary?.active_operator_count, label: "Active Operators", icon: Users, desc: "Operators across all time",
+    value: summary?.active_operator_count, label: "Active Operators", icon: Users, desc: "Operators with scans today",
   }
-  const openRecords = (view: string, filters?: { source_key?: string; operator_id?: string }) => {
-    const next = new URLSearchParams({ view })
-    if (summary) next.set("business_date", summary.business_date)
-    if (filters?.source_key) next.set("source_key", filters.source_key)
-    if (filters?.operator_id) next.set("operator_id", filters.operator_id)
-    setParams(next)
+  const openRecords = (view: string, filters?: { source_key?: string; operator_id?: string; business_date?: string }) => {
+    const date = filters?.business_date ?? summary?.business_date ?? selectedBusinessDate
+    if (view === "sources" || view === "operators") {
+      setParams(new URLSearchParams({ view, business_date: date }))
+      return
+    }
+    navigate(buildScanLogsUrl({
+      date: view === "review" || view === "expiring" ? undefined : date,
+      source_key: filters?.source_key,
+      operator_id: filters?.operator_id,
+      attention: view === "review" ? "review" : view === "expiring" ? "at-risk" : undefined,
+      sort: view === "confidence" ? "confidence" : undefined,
+      direction: view === "confidence" ? "asc" : undefined,
+    }))
   }
   const refreshAll = () => { void refreshMetrics(); void refreshCameras() }
+  const legacyTarget = legacyScanLogsUrl(params, selectedBusinessDate)
+  if (legacyTarget) return <Navigate to={legacyTarget} replace />
 
   return (
     <div className="space-y-4 sm:space-y-6 pb-4 sm:pb-6">
@@ -173,7 +207,7 @@ function DashboardContent() {
           iconColor="text-yellow-600"
           iconBgColor="bg-yellow-500/10"
           delay={150}
-          description={metricDescription("Sources scanned across all time")}
+          description={metricDescription("Sources scanned today")}
           onClick={() => openRecords("sources")}
           disabled={!summary}
         />
@@ -283,8 +317,8 @@ function DashboardContent() {
         <Card className="col-span-1 rounded-xl sm:rounded-2xl shadow-sm flex flex-col">
           <CardHeader className="pb-3 border-b bg-muted/10 flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-base sm:text-lg">Active Sources</CardTitle>
-              <CardDescription className="text-xs">Suppliers & sources with activity</CardDescription>
+              <CardTitle className="text-base sm:text-lg">Today's Sources</CardTitle>
+              <CardDescription className="text-xs">Suppliers &amp; Sources with Activity</CardDescription>
             </div>
             <Button variant="ghost" size="icon" aria-label="Open Today's Sources in Scan Logs" onClick={() => navigate("/logs")} className="h-8 w-8 text-muted-foreground hover:text-primary">
               <ArrowRight className="w-4 h-4" />
@@ -299,7 +333,7 @@ function DashboardContent() {
             ) : (
               <div className="divide-y overflow-y-auto" style={{ maxHeight: "400px" }}>
                 {activeSourcesList.map((sourceItem) => (
-                  <div key={sourceItem.key} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
+                  <Link key={sourceItem.key} to={buildScanLogsUrl({ date: summary.business_date, source_key: sourceItem.key })} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors focus-visible:outline-2 focus-visible:outline-primary">
                     <div className="min-w-0 pr-4">
                       <p className="text-sm font-semibold truncate text-foreground/90">{sourceItem.name}</p>
                     </div>
@@ -308,7 +342,7 @@ function DashboardContent() {
                         {sourceItem.count} scans
                       </Badge>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
@@ -332,8 +366,7 @@ function DashboardContent() {
         </div>
       </div>
       <DashboardRecords summary={summary} view={params.get("view")} onClose={() => setParams({})} onSelectView={openRecords}
-        sourceKey={params.get("source_key") ?? undefined} operatorId={params.get("operator_id") ?? undefined}
-        businessDate={params.get("business_date") ?? undefined} revision={metrics.receivedAt ?? 0} />
+        businessDate={params.get("business_date") || undefined} revision={metrics.receivedAt ?? 0} />
     </div>
   )
 }

@@ -13,9 +13,11 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
 @router.get("", response_model=DashboardSummary)
-async def dashboard_summary(db: DbSession, user: CurrentUser):
-    """Today's business metrics and all-time scoped recent scans/alert queues."""
-    return await get_summary(db, user)
+async def dashboard_summary(
+    db: DbSession, user: CurrentUser, business_date: date | None = None,
+):
+    """Selected Manila day's metrics; recent scans and alert queues are all-time."""
+    return await get_summary(db, user, business_date=business_date)
 
 
 @router.get("/scans", response_model=DashboardScanList)

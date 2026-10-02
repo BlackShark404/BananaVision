@@ -6,6 +6,7 @@
 
 import { getToken, clearAuth } from "@/lib/auth"
 import type { DashboardScanPage, DashboardScanParams, DashboardSummary } from "@/types/dashboard"
+import type { ScanLogPage, ScanLogParams } from "@/types/scanLogs"
 
 const host = window.location.hostname
 export const BASE_URL = import.meta.env.VITE_API_URL || `http://${host}:8000`
@@ -52,7 +53,9 @@ async function request<T>(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new Error(err.detail || `API error ${res.status}`)
+    const detail = typeof err.detail === "string" ? err.detail : Array.isArray(err.detail)
+      ? err.detail.map((item: { msg?: string }) => item.msg).filter(Boolean).join("; ") : `API error ${res.status}`
+    throw Object.assign(new Error(detail), { status: res.status })
   }
 
   // 204 No Content
@@ -129,7 +132,7 @@ export const api = {
     list: (params?: { page?: number; per_page?: number; cultivar?: string; ripeness?: string; flagged?: boolean; source?: string; operator?: string }) =>
       get<{ items: any[]; total: number; page: number; per_page: number }>("/api/v1/scans", params as any),
 
-    detail: (id: string) => get<any>(`/api/v1/scans/${id}`),
+    detail: (id: string, signal?: AbortSignal) => get<any>(`/api/v1/scans/${id}`, undefined, signal),
 
     flag: (id: string, flagged: boolean) =>
       patch<any>(`/api/v1/scans/${id}/flag`, { flagged }),
@@ -138,7 +141,7 @@ export const api = {
       patch<any>(`/api/v1/scans/${id}`, data),
 
     updateStatus: (id: string, status: string) =>
-      patch<any>(`/api/v1/scans/${id}`, { inventory_status: status }),
+      patch<any>(`/api/v1/scans/${id}/status`, { inventory_status: status }),
 
     notes: {
       list: (scanId: string) => get<any[]>(`/api/v1/scans/${scanId}/notes`),
@@ -185,9 +188,28 @@ export const api = {
 
   // Dashboard metrics and their record views share server-enforced user scope.
   dashboard: {
-    summary: (signal?: AbortSignal) => get<DashboardSummary>("/api/v1/dashboard", undefined, signal),
+    summary: (signal?: AbortSignal, businessDate?: string) => get<DashboardSummary>("/api/v1/dashboard", { business_date: businessDate }, signal),
     scans: (params: DashboardScanParams, signal?: AbortSignal) =>
       get<DashboardScanPage>("/api/v1/dashboard/scans", { ...params }, signal),
+  },
+
+  scanLogs: {
+    list: (params: ScanLogParams, signal?: AbortSignal) => get<ScanLogPage>("/api/v1/scan-logs", { ...params }, signal),
+    export: async (params: ScanLogParams, signal?: AbortSignal) => {
+      const query = new URLSearchParams()
+      for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== "") query.set(key, String(value))
+      const token = getToken()
+      const response = await fetch(`${BASE_URL}/api/v1/scan-logs/export?${query}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}, signal, cache: "no-store",
+      })
+      if (!response.ok) throw new Error("Scan export failed. Please retry.")
+      const url = URL.createObjectURL(await response.blob())
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `banana-scans-${params.business_date || "filtered"}.csv`
+      link.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    },
   },
 
   // ── Analytics ────────────────────────────────────────────────────────────
