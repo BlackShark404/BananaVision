@@ -5,6 +5,7 @@
  */
 
 import { getToken, clearAuth } from "@/lib/auth"
+import type { DashboardScanPage, DashboardScanParams, DashboardSummary } from "@/types/dashboard"
 
 const host = window.location.hostname
 export const BASE_URL = import.meta.env.VITE_API_URL || `http://${host}:8000`
@@ -15,7 +16,7 @@ async function request<T>(
   method: string,
   path: string,
   body?: unknown,
-  opts?: { params?: Record<string, string | number | boolean | undefined> }
+  opts?: { params?: Record<string, string | number | boolean | undefined>; signal?: AbortSignal }
 ): Promise<T> {
   const token = getToken()
   const headers: Record<string, string> = {
@@ -38,6 +39,7 @@ async function request<T>(
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
+    signal: opts?.signal,
   })
 
   // Handle 401 — token expired / invalid
@@ -58,8 +60,8 @@ async function request<T>(
   return res.json()
 }
 
-function get<T>(path: string, params?: Record<string, string | number | boolean | undefined>) {
-  return request<T>("GET", path, undefined, { params })
+function get<T>(path: string, params?: Record<string, string | number | boolean | undefined>, signal?: AbortSignal) {
+  return request<T>("GET", path, undefined, { params, signal })
 }
 
 function post<T>(path: string, body?: unknown) {
@@ -145,7 +147,7 @@ export const api = {
 
   // ── Cameras ─────────────────────────────────────────────────────────────
   cameras: {
-    list: () => get<{ device_id: number; label: string; online: boolean }[]>("/api/v1/cameras"),
+    list: (signal?: AbortSignal) => get<{ device_id: number; label: string; online: boolean }[]>("/api/v1/cameras", undefined, signal),
   },
 
   // ── Devices ──────────────────────────────────────────────────────────────
@@ -178,6 +180,13 @@ export const api = {
     list: () => get<any[]>("/api/v1/intakes"),
     create: (data: { supplier_id: string; batch_number: string; source?: string; treatment?: string }) => post<any>("/api/v1/intakes", data),
     update: (id: string, data: any) => patch<any>(`/api/v1/intakes/${id}`, data),
+  },
+
+  // Dashboard metrics and their record views share server-enforced user scope.
+  dashboard: {
+    summary: (signal?: AbortSignal) => get<DashboardSummary>("/api/v1/dashboard", undefined, signal),
+    scans: (params: DashboardScanParams, signal?: AbortSignal) =>
+      get<DashboardScanPage>("/api/v1/dashboard/scans", { ...params }, signal),
   },
 
   // ── Analytics ────────────────────────────────────────────────────────────

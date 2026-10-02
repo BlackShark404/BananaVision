@@ -16,6 +16,7 @@ interface AppStatsCardProps {
   description?: string
   onClick?: () => void
   active?: boolean
+  disabled?: boolean
 }
 
 export function AppStatsCard({
@@ -29,17 +30,27 @@ export function AppStatsCard({
   description,
   onClick,
   active,
+  disabled = false,
 }: AppStatsCardProps) {
   return (
     <Card 
       className={cn(
         "relative overflow-hidden rounded-2xl border border-border/40 bg-card shadow-sm hover:shadow-md transition-all duration-300 ease-out group animate-fade-in",
-        onClick && "cursor-pointer",
+        onClick && !disabled && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
         active && "ring-2 ring-primary/40 border-primary/30 shadow-md",
         className
       )}
       style={{ animationDelay: `${delay}ms` }}
-      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick && !disabled ? 0 : undefined}
+      aria-disabled={onClick ? disabled : undefined}
+      onClick={disabled ? undefined : onClick}
+      onKeyDown={onClick ? (event) => {
+        if (!disabled && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault()
+          onClick()
+        }
+      } : undefined}
     >
       {/* Accent gradient bar */}
       <div className={cn(
