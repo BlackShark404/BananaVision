@@ -40,6 +40,7 @@ async function request<T>(
     headers,
     body: body ? JSON.stringify(body) : undefined,
     signal: opts?.signal,
+    cache: "no-store",
   })
 
   // Handle 401 — token expired / invalid

@@ -21,8 +21,8 @@ interface DashboardRecordsProps {
 const TITLES: Record<DashboardView, string> = {
   today: "Today's scans",
   confidence: "Confidence by scan",
-  sources: "Today's delivery sources",
-  operators: "Today's active operators",
+  sources: "Delivery sources",
+  operators: "Active operators",
   all: "All scan records",
   review: "Scans awaiting review",
   expiring: "Stock expiring soon",
@@ -79,12 +79,12 @@ function GroupRecords({ summary, view, onSelectView, revision = 0 }: Pick<Dashbo
   const groups = view === "sources" ? data.sources : data.operators
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">{data.business_date} · Asia/Manila · Select a row to see its scans.</p>
-      {groups.length === 0 ? <p className="py-10 text-center text-muted-foreground">No {view === "sources" ? "delivery sources" : "operators"} recorded for this day.</p> : (
+      <p className="text-xs text-muted-foreground">{data.business_date} · Select a row to see its scans.</p>
+      {groups.length === 0 ? <p className="py-10 text-center text-muted-foreground">No {view === "sources" ? "delivery sources" : "operators"} recorded.</p> : (
         <ul className="divide-y rounded-lg border">
           {view === "sources" ? data.sources.map(source => (
             <li key={source.key}>
-              <button type="button" onClick={() => onSelectView("today", { source_key: source.key })} className="flex w-full items-center gap-3 p-4 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2">
+              <button type="button" onClick={() => onSelectView("all", { source_key: source.key })} className="flex w-full items-center gap-3 p-4 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2">
                 <span className="min-w-0 flex-1 break-words font-medium">{source.name}</span>
                 <span className="shrink-0 text-sm text-muted-foreground">{source.count} {source.count === 1 ? "scan" : "scans"}</span>
                 <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
@@ -92,7 +92,7 @@ function GroupRecords({ summary, view, onSelectView, revision = 0 }: Pick<Dashbo
             </li>
           )) : data.operators.map(operator => (
             <li key={operator.operator_id}>
-              <button type="button" onClick={() => onSelectView("today", { operator_id: operator.operator_id })} className="flex w-full items-center gap-3 p-4 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2">
+              <button type="button" onClick={() => onSelectView("all", { operator_id: operator.operator_id })} className="flex w-full items-center gap-3 p-4 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2">
                 <span className="min-w-0 flex-1"><span className="block break-words font-medium">{operator.name}</span><span className="block text-xs text-muted-foreground">@{operator.username}</span></span>
                 <span className="shrink-0 text-right text-sm text-muted-foreground"><span className="block">{operator.scan_count} {operator.scan_count === 1 ? "scan" : "scans"}</span><span className="block text-xs">{operator.avg_confidence == null ? "Confidence unavailable" : `${operator.avg_confidence.toFixed(1)}% average confidence`}</span></span>
                 <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
@@ -150,7 +150,7 @@ function ScanRecords({ view, sourceKey, operatorId, businessDate, revision = 0 }
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-        <p>{data.total.toLocaleString()} matching {data.total === 1 ? "scan" : "scans"}{view === "today" || view === "confidence" ? ` · ${data.business_date}` : ""} · Asia/Manila</p>
+        <p>{data.total.toLocaleString()} matching {data.total === 1 ? "scan" : "scans"}{view === "today" || view === "confidence" ? ` · ${data.business_date}` : ""}</p>
         <p>Updated {new Date(data.generated_at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit" })}</p>
       </div>
       {data.items.length === 0 ? <p className="py-10 text-center text-muted-foreground">No scans match this view.</p> : (
@@ -184,9 +184,9 @@ export function DashboardRecords({ summary, view, onClose, onSelectView, sourceK
   const description = validView === "review" ? "Flagged scans and scans below the configured confidence threshold, across all dates."
     : validView === "expiring" ? "In-stock scans with an estimated two days or less remaining, including estimates already reached."
       : validView === "all" ? "Browse the complete scan history."
-        : groupedView ? summary ? `Records for ${summary.business_date} in Asia/Manila.` : "Records for the current Manila business date."
-          : validView === "confidence" ? "Scans for the selected Manila business date, ordered by confidence."
-            : "Records for the selected Manila business date."
+        : groupedView ? summary ? `Records for ${summary.business_date}.` : "Records for the current business date."
+          : validView === "confidence" ? "Scans for the selected business date, ordered by confidence."
+            : "Records for the selected business date."
 
   return (
     <Dialog open={validView !== null} onOpenChange={open => { if (!open) onClose() }}>

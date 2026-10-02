@@ -213,7 +213,7 @@ async def get_summary(db: AsyncSession, user: UserAccount) -> DashboardSummary:
         select(
             scans.c.supplier_id, scans.c.source_text, scans.c.source_name,
             func.count().label("count"),
-        ).where(today)
+        )
         .group_by(scans.c.supplier_id, scans.c.source_text, scans.c.source_name)
         .order_by(func.count().desc(), scans.c.source_name, scans.c.supplier_id)
     )).all()
@@ -222,7 +222,7 @@ async def get_summary(db: AsyncSession, user: UserAccount) -> DashboardSummary:
             scans.c.operator_id, scans.c.operator_name, scans.c.username,
             func.count().label("scan_count"),
             func.avg(scans.c.confidence).label("avg_confidence"),
-        ).where(today)
+        )
         .group_by(scans.c.operator_id, scans.c.operator_name, scans.c.username)
         .order_by(func.count().desc(), scans.c.operator_name, scans.c.operator_id)
     )).all()
@@ -238,7 +238,7 @@ async def get_summary(db: AsyncSession, user: UserAccount) -> DashboardSummary:
     return DashboardSummary(
         generated_at=now, business_date=day,
         total_scans=totals.total, avg_confidence=_mean(totals.confidence),
-        active_operator_count=totals.operators,
+        active_operator_count=len(operator_rows),
         sources=[
             DashboardSource(key=_source(r)[0], name=r.source_name, count=r.count)
             for r in source_rows

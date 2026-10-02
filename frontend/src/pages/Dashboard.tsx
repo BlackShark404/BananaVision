@@ -102,7 +102,7 @@ function DashboardContent() {
     value: summary?.avg_confidence == null ? "—" : `${summary.avg_confidence.toFixed(1)}%`,
     label: "My Avg Confidence", icon: Target, desc: "Model confidence",
   } : {
-    value: summary?.active_operator_count, label: "Active Operators", icon: Users, desc: "Operators with scans today",
+    value: summary?.active_operator_count, label: "Active Operators", icon: Users, desc: "Operators across all time",
   }
   const openRecords = (view: string, filters?: { source_key?: string; operator_id?: string }) => {
     const next = new URLSearchParams({ view })
@@ -130,7 +130,7 @@ function DashboardContent() {
         <Badge variant={staleMetrics || metrics.error ? "destructive" : "secondary"}>
           {staleMetrics ? "Stale Data" : !summary ? metrics.loading ? "Loading" : "Unavailable" : "Updated"}
         </Badge>
-        <span>{summary ? `Last refreshed ${manilaTime.format(new Date(summary.generated_at))} (Asia/Manila)` : "No successful refresh yet"}</span>
+        <span>{summary ? `Last refreshed ${manilaTime.format(new Date(summary.generated_at))}` : "No successful refresh yet"}</span>
         <span aria-hidden="true">·</span>
         <span>{connectionStatus === "connected" ? "Live updates connected" : connectionStatus === "connecting" ? "Connecting live updates" : "Live updates disconnected"}</span>
       </div>
@@ -139,7 +139,7 @@ function DashboardContent() {
         {summary && " Showing the last successful snapshot."}
         <Button variant="link" size="sm" onClick={() => void refreshMetrics()}>Retry metrics</Button>
       </div>}
-      {previousDay && <p className="text-xs text-amber-700">Showing {summary.business_date} while today's Manila totals refresh.</p>}
+      {previousDay && <p className="text-xs text-amber-700">Showing {summary.business_date} while today's totals refresh.</p>}
       {connectionStatus !== "connected" && <p className="text-xs text-muted-foreground">Live changes may be delayed. Checking for updates every 30 seconds and on reconnection.</p>}
 
       {/* KPI StatsRow */}
@@ -151,7 +151,7 @@ function DashboardContent() {
           iconColor="text-blue-600"
           iconBgColor="bg-blue-500/10"
           delay={50}
-          description={metricDescription("Scan records today · Asia/Manila")}
+          description={metricDescription("Scan records today")}
           onClick={() => openRecords("today")}
           disabled={!summary}
         />
@@ -167,13 +167,13 @@ function DashboardContent() {
           disabled={!summary}
         />
         <AppStatsCard
-          title={user?.role === "Operator" ? "My Sources Today" : "Active Sources"}
+          title={user?.role === "Operator" ? "My Sources" : "Active Sources"}
           value={metricValue(summary?.sources.length)}
           icon={Package}
           iconColor="text-yellow-600"
           iconBgColor="bg-yellow-500/10"
           delay={150}
-          description={metricDescription("Sources scanned today · Asia/Manila")}
+          description={metricDescription("Sources scanned across all time")}
           onClick={() => openRecords("sources")}
           disabled={!summary}
         />
@@ -209,7 +209,7 @@ function DashboardContent() {
           <CardHeader className="pb-3 flex flex-row items-center justify-between border-b bg-muted/10">
             <div>
               <CardTitle className="text-base sm:text-lg">Recent Scans</CardTitle>
-              <CardDescription className="text-xs">Latest classification results · times in Asia/Manila</CardDescription>
+              <CardDescription className="text-xs">Latest classification results</CardDescription>
             </div>
             <Button variant="ghost" size="sm" onClick={() => navigate("/logs")} className="hidden sm:flex text-muted-foreground hover:text-primary">
               View All Logs <ArrowRight className="w-4 h-4 ml-2" />
@@ -283,8 +283,8 @@ function DashboardContent() {
         <Card className="col-span-1 rounded-xl sm:rounded-2xl shadow-sm flex flex-col">
           <CardHeader className="pb-3 border-b bg-muted/10 flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-base sm:text-lg">Today's Sources</CardTitle>
-              <CardDescription className="text-xs">Suppliers & sources with activity today</CardDescription>
+              <CardTitle className="text-base sm:text-lg">Active Sources</CardTitle>
+              <CardDescription className="text-xs">Suppliers & sources with activity</CardDescription>
             </div>
             <Button variant="ghost" size="icon" aria-label="Open Today's Sources in Scan Logs" onClick={() => navigate("/logs")} className="h-8 w-8 text-muted-foreground hover:text-primary">
               <ArrowRight className="w-4 h-4" />
@@ -294,7 +294,7 @@ function DashboardContent() {
             {!summary ? <p className="p-8 text-center text-sm text-muted-foreground">{metrics.loading ? "Loading sources…" : "Source data unavailable."}</p> : activeSourcesList.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
                 <Package className="w-8 h-8 mb-2 opacity-20" />
-                <p className="text-sm">No active sources today</p>
+                <p className="text-sm">No active sources</p>
               </div>
             ) : (
               <div className="divide-y overflow-y-auto" style={{ maxHeight: "400px" }}>
@@ -322,7 +322,7 @@ function DashboardContent() {
         <h2 className="text-base sm:text-lg font-semibold mb-3 flex items-center gap-2 px-1">
           <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" /> Hardware Monitoring
         </h2>
-        <p className="text-xs text-muted-foreground mb-3">{cameras.receivedAt ? `${staleCameras ? "Stale Data · " : ""}Last checked ${manilaTime.format(cameras.receivedAt)} (Asia/Manila)` : "No camera status received yet"}</p>
+        <p className="text-xs text-muted-foreground mb-3">{cameras.receivedAt ? `${staleCameras ? "Stale Data · " : ""}Last checked ${manilaTime.format(cameras.receivedAt)}` : "No camera status received yet"}</p>
         {cameras.error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 mb-3 text-sm">{cameras.data ? "Camera status refresh failed; showing last known status." : "Camera status unavailable."} <Button variant="link" size="sm" onClick={() => void refreshCameras()}>Retry cameras</Button></div>}
         {cameras.data && devices.length > 0 && onlineCameras === 0 && <p className="text-sm text-muted-foreground mb-3">No cameras are currently online. <Link to="/devices" className="underline">Check Device Status</Link> to troubleshoot.</p>}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

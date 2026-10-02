@@ -167,7 +167,7 @@ export default function Analytics() {
   const pieChartConfig = useMemo(() => {
     if (!summary) return {} as ChartConfig
     const cfg: ChartConfig = {}
-    summary.ripeness_distribution.forEach((item) => {
+    summary.ripeness_distribution?.forEach((item) => {
       const key = item.name as keyof typeof ripenessChartConfig
       if (ripenessChartConfig[key]) {
         cfg[item.name] = ripenessChartConfig[key]
@@ -294,7 +294,7 @@ export default function Analytics() {
             <ChartContainer config={pieChartConfig} className="h-[240px] sm:h-[280px] w-full">
               <PieChart>
                 <Pie
-                  data={summary.ripeness_distribution}
+                  data={summary.ripeness_distribution || []}
                   cx="50%"
                   cy="50%"
                   innerRadius={50}
@@ -304,7 +304,7 @@ export default function Analytics() {
                   nameKey="name"
                   label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                 >
-                  {summary.ripeness_distribution.map((entry) => (
+                  {(summary.ripeness_distribution || []).map((entry) => (
                     <Cell
                       key={entry.name}
                       fill={ripenessChartConfig[entry.name as keyof typeof ripenessChartConfig]?.color ?? "#888"}
@@ -325,13 +325,13 @@ export default function Analytics() {
           </CardHeader>
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
             <ChartContainer config={cultivarChartConfig} className="h-[240px] sm:h-[280px] w-full">
-              <BarChart data={summary.cultivar_counts}>
+              <BarChart data={summary.cultivar_counts || []}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar dataKey="count" radius={[8, 8, 0, 0]}>
-                  {summary.cultivar_counts.map((entry) => (
+                  {(summary.cultivar_counts || []).map((entry) => (
                     <Cell key={entry.name} fill={CULTIVAR_COLORS[entry.name] ?? "#eab308"} />
                   ))}
                 </Bar>
@@ -347,7 +347,7 @@ export default function Analytics() {
           </CardHeader>
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
             <ChartContainer config={cultivarRipenessChartConfig} className="h-[240px] sm:h-[280px] w-full">
-              <BarChart data={summary.cultivar_ripeness}>
+              <BarChart data={summary.cultivar_ripeness || []}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
@@ -369,7 +369,7 @@ export default function Analytics() {
           </CardHeader>
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
             <ChartContainer config={confidenceChartConfig} className="h-[240px] sm:h-[280px] w-full">
-              <ComposedChart data={summary.ripeness_confidence}>
+              <ComposedChart data={summary.ripeness_confidence || []}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="ripeness" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
@@ -384,14 +384,14 @@ export default function Analytics() {
         </Card>
 
         {/* Scans by Source */}
-        {summary.scans_by_source.length > 0 && (
+        {summary.scans_by_source?.length > 0 && (
           <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-8-5 lg:col-span-2">
             <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
               <CardTitle className="text-sm sm:text-base font-semibold">Scans by Source</CardTitle>
             </CardHeader>
             <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
               <ChartContainer config={sourceChartConfig} className="h-[240px] sm:h-[280px] w-full">
-                <BarChart data={summary.scans_by_source}>
+                <BarChart data={summary.scans_by_source || []}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-25} textAnchor="end" height={60} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
@@ -411,7 +411,7 @@ export default function Analytics() {
         </CardHeader>
         <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
           <ChartContainer config={scanTrendChartConfig} className="h-[240px] sm:h-[280px] w-full">
-            <LineChart data={summary.scan_trend}>
+            <LineChart data={summary.scan_trend || []}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="date" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={60} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
@@ -487,14 +487,14 @@ export default function Analytics() {
       )}
 
       {/* Hourly Distribution */}
-      {summary.hourly_distribution.length > 0 && (
+      {summary.hourly_distribution?.length > 0 && (
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-11">
           <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
             <CardTitle className="text-sm sm:text-base font-semibold">Peak Scanning Hours</CardTitle>
           </CardHeader>
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
             <ChartContainer config={hourlyChartConfig} className="h-[240px] sm:h-[280px] w-full">
-              <BarChart data={summary.hourly_distribution}>
+              <BarChart data={summary.hourly_distribution || []}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="hour" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={60} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />

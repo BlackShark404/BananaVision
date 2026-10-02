@@ -203,7 +203,7 @@ const columns: ColumnDef<ScanResult>[] = [
       cell: (scan) => (
         <div className="flex items-center gap-1.5">
           <span className="font-medium">{scan.cultivar}</span>
-          {scan.isOverridden && <Edit className="w-3.5 h-3.5 text-amber-500" title="Overridden" />}
+          {scan.isOverridden && <span title="Overridden"><Edit className="w-3.5 h-3.5 text-amber-500" /></span>}
         </div>
       ),
     },
