@@ -206,7 +206,7 @@ function DashboardContent() {
         />
         <AppStatsCard
           title={user?.role === "Operator" ? "My Sources" : "Active Sources"}
-          value={metricValue(summary?.sources.length)}
+          value={metricValue(summary?.active_source_count ?? summary?.sources.length)}
           icon={Package}
           iconColor="text-yellow-600"
           iconBgColor="bg-yellow-500/10"
@@ -316,11 +316,11 @@ function DashboardContent() {
           </div>
         </Card>
 
-        {/* Active Sources Side Panel */}
+        {/* Today's Sources Side Panel */}
         <Card className="col-span-1 rounded-xl sm:rounded-2xl shadow-sm flex flex-col">
           <CardHeader className="pb-3 border-b bg-muted/10 flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-base sm:text-lg">Active Sources</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Today's Sources</CardTitle>
               <CardDescription className="text-xs">Suppliers &amp; Sources with Activity</CardDescription>
             </div>
             <Button variant="ghost" size="icon" aria-label="Open Today's Sources in Scan Logs" onClick={() => navigate("/logs")} className="h-8 w-8 text-muted-foreground hover:text-primary">

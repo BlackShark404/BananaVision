@@ -48,6 +48,7 @@ class DashboardSummary(BaseModel):
     avg_confidence: float | None
     success_rate: float | None
     active_operator_count: int
+    active_source_count: int
     sources: list[DashboardSource]
     operators: list[DashboardOperator]
     recent_scans: list[DashboardScan]

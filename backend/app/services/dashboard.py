@@ -236,6 +236,7 @@ async def get_summary(
             scans.c.supplier_id, scans.c.source_text, scans.c.source_name,
             func.count().label("count"),
         )
+        .where(today)
         .group_by(scans.c.supplier_id, scans.c.source_text, scans.c.source_name)
         .order_by(func.count().desc(), scans.c.source_name, scans.c.supplier_id)
     )).all()
@@ -260,11 +261,18 @@ async def get_summary(
         ).select_from(scans)
     )).one()
     success_rate = (alerts.success_count / alerts.total * 100.0) if alerts.total > 0 else None
+    
+    active_sources_query = (await db.execute(
+        select(scans.c.supplier_id, scans.c.source_text)
+        .group_by(scans.c.supplier_id, scans.c.source_text)
+    )).all()
+    
     return DashboardSummary(
         generated_at=now, business_date=day,
         total_scans=totals.total, avg_confidence=_mean(totals.confidence),
         success_rate=None if success_rate is None else round(success_rate, 1),
         active_operator_count=len(operator_rows),
+        active_source_count=len(active_sources_query),
         sources=[
             DashboardSource(key=_source(r)[0], name=r.source_name, count=r.count)
             for r in source_rows
