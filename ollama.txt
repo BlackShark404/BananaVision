@@ -1,0 +1,14 @@
+# 1. Qwen 3.5 27B
+ollama run qwen3.5:27b
+
+# 2. Qwen 3 Coder 30B
+ollama run qwen3-coder:30b
+
+# 3. Devstral 24B
+ollama run devstral:24b
+
+# 4. DeepSeek R1 14B
+ollama run deepseek-r1:14b
+
+# 5. Codestral 22B
+ollama run codestral:22b
