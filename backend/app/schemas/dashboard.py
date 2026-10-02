@@ -46,6 +46,7 @@ class DashboardSummary(BaseModel):
     timezone: Literal["Asia/Manila"] = "Asia/Manila"
     total_scans: int
     avg_confidence: float | None
+    success_rate: float | None
     active_operator_count: int
     sources: list[DashboardSource]
     operators: list[DashboardOperator]

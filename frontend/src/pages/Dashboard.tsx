@@ -45,7 +45,8 @@ function legacyScanLogsUrl(params: URLSearchParams, selectedDate: string): strin
     date: view === "today" || view === "confidence" || (view === "all" && (sourceKey || operatorId)) ? selectedDate : undefined,
     source_key: sourceKey,
     operator_id: operatorId,
-    attention: view === "review" ? "review" : view === "expiring" ? "at-risk" : undefined,
+    attention: view === "expiring" ? "at-risk" : undefined,
+    status: view === "review" ? "Flagged" : undefined,
     sort: view === "confidence" || params.get("sort") === "confidence" ? "confidence" : undefined,
     direction: view === "confidence" || params.get("direction") === "asc" ? "asc" : params.get("direction") === "desc" ? "desc" : undefined,
   })
@@ -61,7 +62,9 @@ function DashboardContent() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [params, setParams] = useSearchParams()
-  const metrics = useDashboardResource(api.dashboard.summary)
+  const urlBusinessDate = params.get("business_date") || undefined
+  const fetchSummary = useCallback((signal: AbortSignal) => api.dashboard.summary(signal, urlBusinessDate), [urlBusinessDate])
+  const metrics = useDashboardResource(fetchSummary)
   const cameras = useDashboardResource(api.cameras.list)
   const { refresh: refreshMetrics } = metrics
   const { refresh: refreshCameras } = cameras
@@ -123,10 +126,10 @@ function DashboardContent() {
   const metricValue = (value: string | number | undefined) => summary ? value ?? "—" : metrics.loading ? "…" : "—"
   const metricDescription = (description: string) => summary ? description : metrics.loading ? "Loading…" : "Unavailable · refresh to retry"
   const operatorMetric = user?.role === "Operator" ? {
-    value: summary?.avg_confidence == null ? "—" : `${summary.avg_confidence.toFixed(1)}%`,
-    label: "My Avg Confidence", icon: Target, desc: "Model confidence",
+    value: summary?.success_rate == null ? "N/A" : `${summary.success_rate.toFixed(1)}%`,
+    label: "Scan Success Rate", icon: ClipboardCheck, desc: "Auto-approved scans",
   } : {
-    value: summary?.active_operator_count, label: "Active Operators", icon: Users, desc: "Operators with scans today",
+    value: summary?.active_operator_count, label: "Active Operators", icon: Users, desc: "Operators with scan records",
   }
   const openRecords = (view: string, filters?: { source_key?: string; operator_id?: string; business_date?: string }) => {
     const date = filters?.business_date ?? summary?.business_date ?? selectedBusinessDate
@@ -138,7 +141,8 @@ function DashboardContent() {
       date: view === "review" || view === "expiring" ? undefined : date,
       source_key: filters?.source_key,
       operator_id: filters?.operator_id,
-      attention: view === "review" ? "review" : view === "expiring" ? "at-risk" : undefined,
+      attention: view === "expiring" ? "at-risk" : undefined,
+      status: view === "review" ? "Flagged" : undefined,
       sort: view === "confidence" ? "confidence" : undefined,
       direction: view === "confidence" ? "asc" : undefined,
     }))
@@ -197,7 +201,7 @@ function DashboardContent() {
           iconBgColor="bg-emerald-500/10"
           delay={100}
           description={metricDescription(operatorMetric.desc)}
-          onClick={() => openRecords(user?.role === "Operator" ? "confidence" : "operators")}
+          onClick={user?.role === "Operator" ? undefined : () => openRecords("operators")}
           disabled={!summary}
         />
         <AppStatsCard
@@ -207,7 +211,7 @@ function DashboardContent() {
           iconColor="text-yellow-600"
           iconBgColor="bg-yellow-500/10"
           delay={150}
-          description={metricDescription("Sources scanned today")}
+          description={metricDescription("Sources with scan records")}
           onClick={() => openRecords("sources")}
           disabled={!summary}
         />
@@ -232,7 +236,6 @@ function DashboardContent() {
           <Clock className="w-4 h-4 text-rose-600" /> Expiring stock
           <Badge variant="secondary">{metricValue(summary?.expiring_stock_count)}</Badge>
         </Button>
-        <p className="w-full text-xs text-muted-foreground">All dates · reviews include flagged or low-confidence scans; expiring stock includes overdue estimates.</p>
       </div>
 
       {/* Main Content Grid */}
@@ -317,7 +320,7 @@ function DashboardContent() {
         <Card className="col-span-1 rounded-xl sm:rounded-2xl shadow-sm flex flex-col">
           <CardHeader className="pb-3 border-b bg-muted/10 flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-base sm:text-lg">Today's Sources</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Active Sources</CardTitle>
               <CardDescription className="text-xs">Suppliers &amp; Sources with Activity</CardDescription>
             </div>
             <Button variant="ghost" size="icon" aria-label="Open Today's Sources in Scan Logs" onClick={() => navigate("/logs")} className="h-8 w-8 text-muted-foreground hover:text-primary">
@@ -333,7 +336,7 @@ function DashboardContent() {
             ) : (
               <div className="divide-y overflow-y-auto" style={{ maxHeight: "400px" }}>
                 {activeSourcesList.map((sourceItem) => (
-                  <Link key={sourceItem.key} to={buildScanLogsUrl({ date: summary.business_date, source_key: sourceItem.key })} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors focus-visible:outline-2 focus-visible:outline-primary">
+                  <Link key={sourceItem.key} to={buildScanLogsUrl({ source_key: sourceItem.key })} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors focus-visible:outline-2 focus-visible:outline-primary">
                     <div className="min-w-0 pr-4">
                       <p className="text-sm font-semibold truncate text-foreground/90">{sourceItem.name}</p>
                     </div>

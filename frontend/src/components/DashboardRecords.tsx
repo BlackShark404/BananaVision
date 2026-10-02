@@ -56,7 +56,7 @@ function GroupRecords({ summary, view, onClose, onSelectView, businessDate, revi
     <Dialog open onOpenChange={open => { if (!open) onClose() }}>
       <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-5xl">
         <DialogHeader className="shrink-0 pr-8">
-          <DialogTitle>{view === "sources" ? "Delivery sources" : "Active operators"} for {selectedDate}</DialogTitle>
+          <DialogTitle>{view === "sources" ? "Delivery sources" : "Active operators"}</DialogTitle>
           <DialogDescription>Select a row to see its scans.</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 overflow-y-auto">
@@ -76,7 +76,7 @@ function GroupRecords({ summary, view, onClose, onSelectView, businessDate, revi
             <ul className="divide-y rounded-lg border">
               {view === "sources" ? data.sources.map(source => (
                 <li key={source.key}>
-                  <button type="button" onClick={() => onSelectView("all", { source_key: source.key, business_date: selectedDate })} className="flex w-full items-center gap-3 p-4 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2">
+                  <button type="button" onClick={() => onSelectView("all", { source_key: source.key, business_date: "" })} className="flex w-full items-center gap-3 p-4 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2">
                     <span className="min-w-0 flex-1 break-words font-medium">{source.name}</span>
                     <span className="shrink-0 text-sm text-muted-foreground">{source.count} {source.count === 1 ? "scan" : "scans"}</span>
                     <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
@@ -84,7 +84,7 @@ function GroupRecords({ summary, view, onClose, onSelectView, businessDate, revi
                 </li>
               )) : data.operators.map(operator => (
                 <li key={operator.operator_id}>
-                  <button type="button" onClick={() => onSelectView("all", { operator_id: operator.operator_id, business_date: selectedDate })} className="flex w-full items-center gap-3 p-4 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2">
+                  <button type="button" onClick={() => onSelectView("all", { operator_id: operator.operator_id, business_date: "" })} className="flex w-full items-center gap-3 p-4 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2">
                     <span className="min-w-0 flex-1"><span className="block break-words font-medium">{operator.name}</span><span className="block text-xs text-muted-foreground">@{operator.username}</span></span>
                     <span className="shrink-0 text-right text-sm text-muted-foreground"><span className="block">{operator.scan_count} {operator.scan_count === 1 ? "scan" : "scans"}</span><span className="block text-xs">{operator.avg_confidence == null ? "Confidence unavailable" : `${operator.avg_confidence.toFixed(1)}% average confidence`}</span></span>
                     <ArrowRight className="size-4 shrink-0" aria-hidden="true" />

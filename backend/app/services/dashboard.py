@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import Float, and_, case, cast, extract, false, func, literal, or_, select
+from sqlalchemy import Float, and_, case, cast, extract, false, func, literal, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ForbiddenException
@@ -229,14 +229,13 @@ async def get_summary(
         select(
             func.count().label("total"),
             func.avg(scans.c.confidence).label("confidence"),
-            func.count(func.distinct(scans.c.operator_id)).label("operators"),
         ).select_from(scans).where(today)
     )).one()
     source_rows = (await db.execute(
         select(
             scans.c.supplier_id, scans.c.source_text, scans.c.source_name,
             func.count().label("count"),
-        ).where(today)
+        )
         .group_by(scans.c.supplier_id, scans.c.source_text, scans.c.source_name)
         .order_by(func.count().desc(), scans.c.source_name, scans.c.supplier_id)
     )).all()
@@ -245,7 +244,7 @@ async def get_summary(
             scans.c.operator_id, scans.c.operator_name, scans.c.username,
             func.count().label("scan_count"),
             func.avg(scans.c.confidence).label("avg_confidence"),
-        ).where(today)
+        )
         .group_by(scans.c.operator_id, scans.c.operator_name, scans.c.username)
         .order_by(func.count().desc(), scans.c.operator_name, scans.c.operator_id)
     )).all()
@@ -254,14 +253,18 @@ async def get_summary(
     )).all()
     alerts = (await db.execute(
         select(
+            func.count().label("total"),
             func.count().filter(_review(scans, threshold)).label("review"),
             func.count().filter(_expiring(scans)).label("expiring"),
+            func.count().filter(not_(_review(scans, threshold))).label("success_count"),
         ).select_from(scans)
     )).one()
+    success_rate = (alerts.success_count / alerts.total * 100.0) if alerts.total > 0 else None
     return DashboardSummary(
         generated_at=now, business_date=day,
         total_scans=totals.total, avg_confidence=_mean(totals.confidence),
-        active_operator_count=totals.operators,
+        success_rate=None if success_rate is None else round(success_rate, 1),
+        active_operator_count=len(operator_rows),
         sources=[
             DashboardSource(key=_source(r)[0], name=r.source_name, count=r.count)
             for r in source_rows

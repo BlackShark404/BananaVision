@@ -5,6 +5,7 @@ export interface ScanLogNavigation {
   operator_id?: string
   source_key?: string
   attention?: "at-risk" | "review"
+  status?: string
   sort?: ScanLogParams["sort"]
   direction?: ScanLogParams["direction"]
 }

@@ -22,6 +22,7 @@ export interface DashboardSummary {
   timezone: "Asia/Manila"
   total_scans: number
   avg_confidence: number | null
+  success_rate: number | null
   active_operator_count: number
   sources: { key: string; name: string; count: number }[]
   operators: { operator_id: string; name: string; username: string; scan_count: number; avg_confidence: number | null }[]

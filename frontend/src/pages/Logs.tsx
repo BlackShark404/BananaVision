@@ -335,7 +335,7 @@ const columns: ColumnDef<LogScan>[] = [
     <div className="space-y-6">
       <AppPageHeader
         title={intakeFilter !== "all" ? `Logs for Intake ${intakeFilter.substring(0, 8)}` : "Scan Logs"}
-        description={intakeFilter !== "all" ? "Viewing scans grouped under this delivery · Asia/Manila" : "View all banana scan results · Dates use Asia/Manila"}
+        description={intakeFilter !== "all" ? "Viewing scans grouped under this delivery" : "View all banana scan results"}
         icon={ScrollText}
         action={
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -363,7 +363,7 @@ const columns: ColumnDef<LogScan>[] = [
       </div>}
 
       {/* Stats Cards */}
-      <div className={`grid grid-cols-1 gap-3 sm:gap-4 ${(stats.reviewCount > 0 || cardFilter === "review") ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-3">
         <AppStatsCard
           title="Total Scans"
           value={response ? response.total : resource.loading ? "…" : "—"}
@@ -392,19 +392,6 @@ const columns: ColumnDef<LogScan>[] = [
           onClick={() => setCardFilter(cardFilter === "at-risk" ? null : "at-risk")}
           active={cardFilter === "at-risk"}
         />
-        {(stats.reviewCount > 0 || cardFilter === "review") && (
-          <AppStatsCard
-            title="Pending Quality Reviews"
-            value={stats.reviewCount}
-            icon={Flag}
-            iconColor="text-red-600"
-            iconBgColor="bg-red-500/10"
-            delay={200}
-            description="Flagged or below confidence threshold"
-            onClick={() => setCardFilter(cardFilter === "review" ? null : "review")}
-            active={cardFilter === "review"}
-          />
-        )}
       </div>
 
       {/* Filters */}
@@ -474,12 +461,7 @@ const columns: ColumnDef<LogScan>[] = [
             <SelectItem value="Sold">Sold</SelectItem>
             <SelectItem value="For Processing">For Processing</SelectItem>
             <SelectItem value="Spoiled">Spoiled</SelectItem>
-            <SelectItem value="Flagged">
-              <span className="flex items-center gap-1.5">
-                <Flag className="w-3 h-3 text-red-500 fill-red-500" />
-                Flagged
-              </span>
-            </SelectItem>
+            <SelectItem value="Flagged">Flagged</SelectItem>
           </SelectContent>
         </Select>
         <div className="flex w-full sm:w-auto items-center gap-1">
@@ -490,10 +472,10 @@ const columns: ColumnDef<LogScan>[] = [
         </div>
       </AppTableFilters>
 
-      {cardFilter && <div className="flex flex-wrap items-center gap-2 text-sm">
-        <Badge variant="secondary">{cardFilter === "at-risk" ? "At-Risk Scans" : "Pending Quality Reviews"}</Badge>
-        <span className="text-xs text-muted-foreground">{cardFilter === "at-risk" ? "In stock with estimated spoilage in 2 days or less, including overdue estimates." : `Flagged for review or below ${response?.confidence_threshold ?? "the configured"}${response ? "%" : ""} confidence threshold.`}</span>
-        <Button variant="ghost" size="sm" onClick={() => setCardFilter(null)}>Clear {cardFilter === "at-risk" ? "risk" : "review"} filter</Button>
+      {cardFilter === "at-risk" && <div className="flex flex-wrap items-center gap-2 text-sm">
+        <Badge variant="secondary">At-Risk Scans</Badge>
+        <span className="text-xs text-muted-foreground">In stock with estimated spoilage in 2 days or less, including overdue estimates.</span>
+        <Button variant="ghost" size="sm" onClick={() => setCardFilter(null)}>Clear risk filter</Button>
       </div>}
 
       {/* Table */}
