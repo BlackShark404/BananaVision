@@ -237,8 +237,6 @@ async def start_background_tasks():
                         await ws_manager.send_to_room(events.ROOM_DEVICES, events.DEVICE_STATUS, ws_data)
                         await ws_manager.send_to_room(events.ROOM_DASHBOARD, events.DEVICE_STATUS, ws_data)
 
-                    await db.commit()
-
             except Exception as exc:
                 logger.warning(f"Camera health monitor error: {exc}")
 

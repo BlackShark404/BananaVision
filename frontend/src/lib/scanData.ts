@@ -40,7 +40,7 @@ export interface ApiScanNote {
   timestamp: string
 }
 
-function storedTimestamp(value: string | undefined | null): string {
+export function storedTimestamp(value: string | undefined | null): string {
   if (!value || !Number.isFinite(Date.parse(value))) throw new Error("A stored scan timestamp is missing or invalid. Please refresh or contact an administrator.")
   return value
 }
