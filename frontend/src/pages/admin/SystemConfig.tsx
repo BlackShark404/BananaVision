@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, Edit2, Plus, AlertTriangle } from "lucide-react"
+import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, Edit2, Plus, AlertTriangle, Undo2 } from "lucide-react"
 import { toast } from "sonner"
 import {
   Alert,
@@ -88,6 +88,11 @@ export default function SystemConfig() {
     }, 800)
   }
 
+  const handleUndo = () => {
+    setLocalConfig(config)
+    toast.info("Changes discarded")
+  }
+
   const handleReset = () => {
     setLocalConfig({ cameraIds: "CAM-001, CAM-002, CAM-003, CAM-004", confidenceThreshold: 85, dataRetentionEnabled: true })
     toast.info("Settings reset to defaults")
@@ -139,29 +144,32 @@ export default function SystemConfig() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Settings className="w-6 h-6 sm:w-7 sm:h-7" /> System Configuration
-          </h1>
-          <p className="text-muted-foreground text-xs sm:text-sm mt-1">Manage global BananaVision settings</p>
-        </div>
-        
-        {hasChanges && (
-          <Alert className="bg-amber-500/10 text-amber-600 border-amber-500/20 md:max-w-md animate-in fade-in zoom-in-95 duration-200 py-2.5">
+      <div className="mb-2">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
+          <Settings className="w-6 h-6 sm:w-7 sm:h-7" /> System Configuration
+        </h1>
+        <p className="text-muted-foreground text-xs sm:text-sm mt-1">Manage global BananaVision settings</p>
+      </div>
+
+      {hasChanges && (
+        <div className="fixed bottom-6 left-0 right-0 flex justify-center px-4 z-50 pointer-events-none">
+          <Alert className="bg-amber-500/10 text-amber-600 border-amber-500/30 max-w-md animate-in slide-in-from-bottom-5 fade-in duration-300 py-3 shadow-lg shadow-amber-500/5 backdrop-blur-md pointer-events-auto">
             <AlertTriangle className="w-4 h-4 mt-0.5" />
-            <AlertTitle className="text-sm font-semibold mb-0.5">Unsaved Changes</AlertTitle>
-            <AlertDescription className="text-amber-600/80 text-xs">
+            <AlertTitle className="text-sm font-bold mb-0.5">Unsaved Changes</AlertTitle>
+            <AlertDescription className="text-amber-600/90 text-xs font-medium">
               You have pending configuration changes.
             </AlertDescription>
-            <AlertAction>
-              <Button size="sm" onClick={handleSave} disabled={saving} className="h-7 px-3 text-xs mt-1">
+            <AlertAction className="flex gap-2 items-center absolute top-2 right-2">
+              <Button size="sm" variant="outline" onClick={handleUndo} disabled={saving} className="h-7 px-3 text-xs bg-background/50 border-amber-500/40 hover:bg-amber-500/20 hover:text-amber-700 text-amber-700">
+                Discard
+              </Button>
+              <Button size="sm" onClick={handleSave} disabled={saving} className="h-7 px-3 text-xs shadow-sm">
                 {saving ? "Saving..." : "Save Now"}
               </Button>
             </AlertAction>
           </Alert>
-        )}
-      </div>
+        </div>
+      )}
 
       <Tabs defaultValue="scanner" orientation="vertical" className="flex flex-col md:flex-row gap-4 sm:gap-6 w-full">
         <TabsList className="flex flex-col h-auto justify-start items-stretch rounded-xl sm:rounded-2xl bg-muted/50 p-2 shrink-0 md:w-60">
@@ -236,13 +244,20 @@ export default function SystemConfig() {
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="bg-muted/30 border-t px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between gap-2 sm:gap-0 rounded-b-xl sm:rounded-b-2xl">
+            <CardFooter className="bg-muted/30 border-t px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between gap-3 sm:gap-0 rounded-b-xl sm:rounded-b-2xl">
               <Button variant="ghost" onClick={handleReset} className="w-full sm:w-auto">
                 <RefreshCw className="w-4 h-4 mr-2" /> Reset Defaults
               </Button>
-              <Button onClick={handleSave} disabled={saving || !hasChanges} className="w-full sm:w-auto">
-                {saving ? "Saving..." : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+                {hasChanges && (
+                  <Button variant="outline" onClick={handleUndo} disabled={saving} className="w-full sm:w-auto text-muted-foreground hover:text-foreground">
+                    <Undo2 className="w-4 h-4 mr-2" /> Undo Changes
+                  </Button>
+                )}
+                <Button onClick={handleSave} disabled={saving || !hasChanges} className="w-full sm:w-auto">
+                  {saving ? "Saving..." : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
+                </Button>
+              </div>
             </CardFooter>
           </Card>
         </TabsContent>
@@ -272,13 +287,20 @@ export default function SystemConfig() {
                 </p>
               </div>
             </CardContent>
-            <CardFooter className="bg-muted/30 border-t px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between gap-2 sm:gap-0 rounded-b-xl sm:rounded-b-2xl">
+            <CardFooter className="bg-muted/30 border-t px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between gap-3 sm:gap-0 rounded-b-xl sm:rounded-b-2xl">
               <Button variant="ghost" onClick={handleReset} className="w-full sm:w-auto">
                 <RefreshCw className="w-4 h-4 mr-2" /> Reset Defaults
               </Button>
-              <Button onClick={handleSave} disabled={saving || !hasChanges} className="w-full sm:w-auto">
-                {saving ? "Saving..." : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+                {hasChanges && (
+                  <Button variant="outline" onClick={handleUndo} disabled={saving} className="w-full sm:w-auto text-muted-foreground hover:text-foreground">
+                    <Undo2 className="w-4 h-4 mr-2" /> Undo Changes
+                  </Button>
+                )}
+                <Button onClick={handleSave} disabled={saving || !hasChanges} className="w-full sm:w-auto">
+                  {saving ? "Saving..." : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
+                </Button>
+              </div>
             </CardFooter>
           </Card>
         </TabsContent>
