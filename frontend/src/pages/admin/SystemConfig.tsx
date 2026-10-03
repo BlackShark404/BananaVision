@@ -152,21 +152,25 @@ export default function SystemConfig() {
       </div>
 
       {hasChanges && (
-        <div className="fixed bottom-6 left-0 right-0 flex justify-center px-4 z-50 pointer-events-none">
-          <Alert className="bg-amber-500/10 text-amber-600 border-amber-500/30 max-w-md animate-in slide-in-from-bottom-5 fade-in duration-300 py-3 shadow-lg shadow-amber-500/5 backdrop-blur-md pointer-events-auto">
-            <AlertTriangle className="w-4 h-4 mt-0.5" />
-            <AlertTitle className="text-sm font-bold mb-0.5">Unsaved Changes</AlertTitle>
-            <AlertDescription className="text-amber-600/90 text-xs font-medium">
-              You have pending configuration changes.
-            </AlertDescription>
-            <AlertAction className="flex gap-2 items-center absolute top-2 right-2">
-              <Button size="sm" variant="outline" onClick={handleUndo} disabled={saving} className="h-7 px-3 text-xs bg-background/50 border-amber-500/40 hover:bg-amber-500/20 hover:text-amber-700 text-amber-700">
+        <div className="fixed bottom-4 sm:bottom-6 left-0 right-0 flex justify-center px-4 z-50 pointer-events-none">
+          <Alert className="bg-amber-500/10 text-amber-600 border-amber-500/30 w-full max-w-xl animate-in slide-in-from-bottom-5 fade-in duration-300 py-3 sm:py-4 px-4 sm:px-5 shadow-xl shadow-amber-500/10 backdrop-blur-md pointer-events-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 !pr-4 sm:!pr-5">
+            <div className="flex items-start gap-3 w-full sm:w-auto">
+              <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
+              <div className="flex flex-col gap-1">
+                <AlertTitle className="text-sm font-bold mb-0 leading-none">Unsaved Changes</AlertTitle>
+                <AlertDescription className="text-amber-600/90 text-xs font-medium leading-tight">
+                  You have pending configuration changes.
+                </AlertDescription>
+              </div>
+            </div>
+            <div className="flex gap-2 items-center shrink-0 w-full sm:w-auto mt-1 sm:mt-0">
+              <Button size="sm" variant="outline" onClick={handleUndo} disabled={saving} className="flex-1 sm:flex-none h-8 px-4 text-xs font-semibold bg-background/50 border-amber-500/40 hover:bg-amber-500/20 hover:text-amber-700 text-amber-700">
                 Discard
               </Button>
-              <Button size="sm" onClick={handleSave} disabled={saving} className="h-7 px-3 text-xs shadow-sm">
+              <Button size="sm" onClick={handleSave} disabled={saving} className="flex-1 sm:flex-none h-8 px-4 text-xs font-semibold shadow-sm text-amber-50 bg-amber-600 hover:bg-amber-700 border-none">
                 {saving ? "Saving..." : "Save Now"}
               </Button>
-            </AlertAction>
+            </div>
           </Alert>
         </div>
       )}
