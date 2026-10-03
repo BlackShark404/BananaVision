@@ -18,8 +18,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, Edit2, Plus } from "lucide-react"
+import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, Edit2, Plus, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
+import {
+  Alert,
+  AlertTitle,
+  AlertDescription,
+  AlertAction
+} from "@/components/ui/alert"
 import { CameraCalibrationModal } from "@/components/CameraCalibrationModal"
 
 export default function SystemConfig() {
@@ -34,6 +40,8 @@ export default function SystemConfig() {
   useEffect(() => {
     setLocalConfig(config)
   }, [config])
+
+  const hasChanges = JSON.stringify(localConfig) !== JSON.stringify(config)
 
   const activeCameraIds = localConfig.cameraIds.split(",").map(s => s.trim()).filter(Boolean)
 
@@ -131,11 +139,28 @@ export default function SystemConfig() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
-          <Settings className="w-6 h-6 sm:w-7 sm:h-7" /> System Configuration
-        </h1>
-        <p className="text-muted-foreground text-xs sm:text-sm mt-1">Manage global BananaVision settings</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
+            <Settings className="w-6 h-6 sm:w-7 sm:h-7" /> System Configuration
+          </h1>
+          <p className="text-muted-foreground text-xs sm:text-sm mt-1">Manage global BananaVision settings</p>
+        </div>
+        
+        {hasChanges && (
+          <Alert className="bg-amber-500/10 text-amber-600 border-amber-500/20 md:max-w-md animate-in fade-in zoom-in-95 duration-200 py-2.5">
+            <AlertTriangle className="w-4 h-4 mt-0.5" />
+            <AlertTitle className="text-sm font-semibold mb-0.5">Unsaved Changes</AlertTitle>
+            <AlertDescription className="text-amber-600/80 text-xs">
+              You have pending configuration changes.
+            </AlertDescription>
+            <AlertAction>
+              <Button size="sm" onClick={handleSave} disabled={saving} className="h-7 px-3 text-xs mt-1">
+                {saving ? "Saving..." : "Save Now"}
+              </Button>
+            </AlertAction>
+          </Alert>
+        )}
       </div>
 
       <Tabs defaultValue="scanner" orientation="vertical" className="flex flex-col md:flex-row gap-4 sm:gap-6 w-full">
@@ -215,7 +240,7 @@ export default function SystemConfig() {
               <Button variant="ghost" onClick={handleReset} className="w-full sm:w-auto">
                 <RefreshCw className="w-4 h-4 mr-2" /> Reset Defaults
               </Button>
-              <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
+              <Button onClick={handleSave} disabled={saving || !hasChanges} className="w-full sm:w-auto">
                 {saving ? "Saving..." : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
               </Button>
             </CardFooter>
@@ -251,7 +276,7 @@ export default function SystemConfig() {
               <Button variant="ghost" onClick={handleReset} className="w-full sm:w-auto">
                 <RefreshCw className="w-4 h-4 mr-2" /> Reset Defaults
               </Button>
-              <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
+              <Button onClick={handleSave} disabled={saving || !hasChanges} className="w-full sm:w-auto">
                 {saving ? "Saving..." : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
               </Button>
             </CardFooter>
