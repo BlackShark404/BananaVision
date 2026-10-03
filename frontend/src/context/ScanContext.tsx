@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react"
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react"
 import { getBananaImageUrl, getImageUrl } from "@/lib/utils"
 import { api } from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
@@ -8,6 +8,7 @@ import { generateQRCodeDataUrl } from "@/lib/qrcode"
 import { toast } from "sonner"
 import { useLocation } from "react-router-dom"
 import type { ScanResult, ScanNote, InventoryStatus } from "@/types"
+import { collectScanPages, mapApiScan, mapApiScanNote, type ApiScan } from "@/lib/scanData"
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -23,50 +24,30 @@ interface ScanContextType {
   scans: ScanResult[]
   scanState: ScanState
   startScan: (source?: string, intakeId?: string) => void
-  flagScan: (id: string, flagged: boolean) => void
-  addScanNote: (scanId: string, note: string) => void
+  flagScan: (id: string, flagged: boolean) => Promise<void>
+  addScanNote: (scanId: string, note: string) => Promise<void>
   getScanNotes: (scanId: string) => ScanNote[]
   loadScanNotes: (scanId: string) => void
-  updateScanData: (id: string, data: Partial<ScanResult>) => Promise<any>
+  updateScanData: (id: string, data: Partial<ScanResult>) => Promise<ScanResult>
+  scansLoading: boolean
+  scansError: string | null
+  refreshScans: () => Promise<void>
   /** Update inventory status on scans belonging to an intake. Used by InventoryContext. */
-  updateScansForIntake: (intakeId: string, status: InventoryStatus) => void
+  updateScansForIntake: (scanIds: string[], status: InventoryStatus, statusUpdatedAt: string) => void
 }
 
 // ── Context ─────────────────────────────────────────────────────────────────
 
 const ScanContext = createContext<ScanContextType | null>(null)
 
-// ── Mapper ──────────────────────────────────────────────────────────────────
-
-const mapApiScan = (s: any): ScanResult => ({
-  id: s.id,
-  dateTime: s.scanned_at || s.dateTime || new Date().toISOString(),
-  cultivar: s.cultivar,
-  ripeness: s.ripeness,
-  confidence: s.confidence,
-  temperature: s.temperature,
-  humidity: s.humidity,
-  vpd: s.vpd,
-  treatment: s.treatment,
-  spoilageDays: s.spoilage_days || s.spoilageDays,
-  fingerCount: s.finger_count || s.fingerCount,
-  operator: s.operator_name || s.operator || "Unknown",
-  source: s.source_text || s.supplier_name || s.source,
-  thumbnailUrl: s.thumbnail_url || s.thumbnailUrl ? getImageUrl(s.thumbnail_url || s.thumbnailUrl) : undefined,
-  intakeId: s.intake_id || s.intakeId,
-  inventoryStatus: s.inventory_status || s.inventoryStatus || "In Stock",
-  statusUpdatedAt: s.status_updated_at || s.statusUpdatedAt || new Date().toISOString(),
-  flagged: s.flagged,
-  isOverridden: s.is_overridden || s.isOverridden,
-  originalAiResult: s.original_ai_result || s.originalAiResult,
-  hasNotes: s.has_notes || s.hasNotes || false,
-  images: (s.images || []).map((img: any) => ({ ...img, file_path: getImageUrl(img.file_path) })),
-  detections: s.detections || [],
-})
-
 // ── Provider ────────────────────────────────────────────────────────────────
 
 export function ScanProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
+  return <ScanStore key={user ? `${user.id}:${user.role}` : "anonymous"}>{children}</ScanStore>
+}
+
+function ScanStore({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const { updateDeviceFromWs } = useAdmin()
   const { pathname } = useLocation()
@@ -82,34 +63,46 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
   })
 
 
-  // ── Load scans on mount / navigation ────────────────────────────────────
+  const [scansLoading, setScansLoading] = useState(Boolean(user))
+  const [scansError, setScansError] = useState<string | null>(null)
+  const historyRequest = useRef<AbortController | null>(null)
+  const mounted = useRef(true)
 
-  useEffect(() => {
+  const refreshScans = useCallback(async () => {
+    historyRequest.current?.abort()
     if (!user) return
-
-    const loadData = async () => {
-      try {
-        const scansRes = await api.scans.list({ per_page: 100 })
-        const raw = scansRes.items || scansRes as any
-        const mapped = Array.isArray(raw) ? raw.map(mapApiScan) : []
-        const withQr = await Promise.all(mapped.map(async (s: ScanResult) => ({ ...s, qrCode: await generateQRCodeDataUrl(s) })))
-        setScans(withQr)
-      } catch {
-        console.warn("[ScanContext] Scans API unavailable")
+    const controller = new AbortController()
+    historyRequest.current = controller
+    setScansLoading(true)
+    setScansError(null)
+    try {
+      const raw = await collectScanPages((page, page_size, signal) => api.scans.list({ page, page_size }, signal), controller.signal)
+      const mapped = raw.map(record => mapApiScan(record, getImageUrl))
+      if (!controller.signal.aborted && mounted.current) setScans(mapped)
+    } catch (error) {
+      if (!controller.signal.aborted && mounted.current) {
+        setScansError(error instanceof Error ? error.message : "Scan history could not be loaded. Please retry.")
       }
-    }
-
-    loadData()
-  }, [user, pathname])
-
-  // ── Reset on logout ─────────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!user) {
-      setScans([])
-      setScanNotes([])
+    } finally {
+      if (!controller.signal.aborted && mounted.current) setScansLoading(false)
     }
   }, [user])
+
+  useEffect(() => {
+    mounted.current = true
+    void refreshScans()
+    return () => { mounted.current = false; historyRequest.current?.abort() }
+  }, [refreshScans, pathname])
+
+  const acceptCompletedScan = useCallback(async (result: ApiScan) => {
+    const scanResult = mapApiScan(result, getImageUrl)
+    if (!scanResult.thumbnailUrl) scanResult.thumbnailUrl = getBananaImageUrl(scanResult.cultivar, scanResult.ripeness)
+    try { scanResult.qrCode = await generateQRCodeDataUrl(scanResult) } catch { /* The persisted result is still usable without a QR preview. */ }
+    if (!mounted.current) return
+    setScans(prev => [scanResult, ...prev.filter(scan => scan.id !== scanResult.id)])
+    setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: scanResult })
+    void refreshScans()
+  }, [refreshScans])
 
   // ── WebSocket — real-time updates ───────────────────────────────────────
 
@@ -141,31 +134,9 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
 
       case "scan:completed": {
         const result = data.result || data
-        const scanResult: ScanResult = {
-          id: result.id || result.scan_id,
-          dateTime: result.scanned_at || result.dateTime || new Date().toISOString(),
-          cultivar: result.cultivar,
-          ripeness: result.ripeness,
-          confidence: result.confidence,
-          temperature: result.temperature,
-          humidity: result.humidity,
-          vpd: result.vpd,
-          treatment: result.treatment,
-          spoilageDays: result.spoilage_days || result.spoilageDays,
-          fingerCount: result.finger_count || result.fingerCount,
-          operator: result.operator || user?.fullName || "Unknown",
-          source: result.source,
-          thumbnailUrl: result.thumbnail_url ? getImageUrl(result.thumbnail_url) : getBananaImageUrl(result.cultivar, result.ripeness),
-          intakeId: result.intake_id || result.intakeId,
-          inventoryStatus: result.inventory_status || "In Stock",
-          statusUpdatedAt: result.status_updated_at || new Date().toISOString(),
-          images: (result.images || []).map((img: any) => ({ ...img, file_path: getImageUrl(img.file_path) })),
-          detections: result.detections || [],
-        }
-        generateQRCodeDataUrl(scanResult).then((qrCode) => {
-          const scanWithQR = { ...scanResult, qrCode }
-          setScans((prev) => [scanWithQR, ...prev.filter((s) => s.id !== scanWithQR.id)])
-          setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: scanWithQR })
+        void acceptCompletedScan({ ...result, id: result.id ?? result.scan_id, source_text: result.source_text ?? result.supplier ?? result.source }).catch(() => {
+          setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: null })
+          toast.error("The completed scan could not be loaded. Please refresh Scan Logs.")
         })
         break
       }
@@ -183,7 +154,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
         updateDeviceFromWs(data.camera_id, data.status, data.last_seen)
         break
     }
-  }, [user, updateDeviceFromWs])
+  }, [acceptCompletedScan, updateDeviceFromWs])
 
   useWebSocket({
     rooms: ["kiosk", "dashboard", "devices"],
@@ -200,36 +171,30 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
     // Try backend API first
     const reqData = intakeId ? { intake_id: intakeId } : { source }
     api.scans.trigger(reqData)
-      .then(() => {
-        // WebSocket events will drive the progress from here
-      })
+      .then(acceptCompletedScan)
       .catch((err: Error) => {
         console.warn("[ScanContext] Scan API error:", err.message)
         setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: null })
         toast.error(err.message || "Scan failed. Please try again.")
       })
-  }, [scanState.isScanning])
+  }, [scanState.isScanning, acceptCompletedScan])
 
   // ── CRUD Operations ─────────────────────────────────────────────────────
 
-  const flagScan = useCallback((id: string, flagged: boolean) => {
-    api.scans.flag(id, flagged)
-      .then(() => setScans((prev) => prev.map((s) => (s.id === id ? { ...s, flagged } : s))))
-      .catch(() => setScans((prev) => prev.map((s) => (s.id === id ? { ...s, flagged } : s))))
-  }, [])
+  const flagScan = useCallback(async (id: string, flagged: boolean) => {
+    await api.scans.flag(id, flagged)
+    if (!mounted.current) return
+    setScans(prev => prev.map(scan => scan.id === id ? { ...scan, flagged } : scan))
+    setScanState(previous => previous.lastResult?.id === id ? { ...previous, lastResult: { ...previous.lastResult, flagged } } : previous)
+    void refreshScans()
+  }, [refreshScans])
 
-  const addScanNote = useCallback((scanId: string, note: string) => {
-    const tempNote: ScanNote = {
-      id: Math.random().toString(36).substring(2, 10),
-      scanId,
-      note,
-      author: user?.fullName || "Unknown",
-      timestamp: new Date().toISOString(),
-    }
-    setScanNotes((prev) => [...prev, tempNote])
-    setScans((prev) => prev.map((s) => (s.id === scanId ? { ...s, hasNotes: true } : s)))
-    api.scans.notes.add(scanId, note).catch(() => {})
-  }, [user])
+  const addScanNote = useCallback(async (scanId: string, note: string) => {
+    const saved = mapApiScanNote(await api.scans.notes.add(scanId, note))
+    if (!mounted.current) return
+    setScanNotes(prev => [...prev.filter(existing => existing.id !== saved.id), saved])
+    setScans(prev => prev.map(scan => scan.id === scanId ? { ...scan, hasNotes: true } : scan))
+  }, [])
 
   const getScanNotes = useCallback((scanId: string) => {
     return scanNotes.filter((n) => n.scanId === scanId)
@@ -242,56 +207,42 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
           const others = prev.filter((n) => n.scanId !== scanId)
           return [
             ...others,
-            ...notes.map((n: any) => ({
-              id: n.id,
-              scanId: n.scan_id || scanId,
-              note: n.text || n.note,
-              author: n.author_name || "Unknown",
-              timestamp: n.timestamp || new Date().toISOString()
-            }))
+            ...notes.map(mapApiScanNote)
           ]
         })
       })
-      .catch(() => {})
+      .catch(() => toast.error("Review notes could not be loaded. Please retry."))
   }, [])
 
-  const updateScanData = useCallback((id: string, data: Partial<ScanResult>) => {
-    const apiData = {
+  const updateScanData = useCallback(async (id: string, data: Partial<ScanResult>) => {
+    const saved = mapApiScan(await api.scans.override(id, {
       cultivar: data.cultivar,
       ripeness: data.ripeness,
       finger_count: data.fingerCount,
       spoilage_days: data.spoilageDays,
       source_text: data.source,
+    }), getImageUrl)
+    if (mounted.current) {
+      setScans(prev => prev.map(scan => scan.id === id ? { ...scan, ...saved, images: scan.images, detections: scan.detections } : scan))
+      void refreshScans()
     }
-    return api.scans.override(id, apiData)
-      .then((res) => {
-        setScans((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s)))
-        return res
-      })
-      .catch((err) => {
-        console.error("Failed to update scan data", err)
-        throw err
-      })
-  }, [])
+    return saved
+  }, [refreshScans])
 
   // ── Cross-context helper for InventoryContext ───────────────────────────
 
-  const updateScansForIntake = useCallback((intakeId: string, status: InventoryStatus) => {
-    setScans((prev) =>
-      prev.map((s) => {
-        if (s.intakeId === intakeId) {
-          if (s.inventoryStatus !== "Sold" && s.inventoryStatus !== "Spoiled") {
-            return { ...s, inventoryStatus: status, statusUpdatedAt: new Date().toISOString() }
-          }
-        }
-        return s
-      })
-    )
-  }, [])
+  const updateScansForIntake = useCallback((scanIds: string[], status: InventoryStatus, statusUpdatedAt: string) => {
+    const ids = new Set(scanIds)
+    setScans(prev => prev.map(scan => ids.has(scan.id) ? { ...scan, inventoryStatus: status, statusUpdatedAt } : scan))
+    void refreshScans()
+  }, [refreshScans])
 
   return (
     <ScanContext value={{
       scans,
+      scansLoading,
+      scansError,
+      refreshScans,
       scanState,
       startScan,
       flagScan,

@@ -36,7 +36,7 @@ const PAGE_SIZE = 15
 
 import { useEffect } from "react"
 export default function QualityControl() {
-  const { scans, flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData } = useScans()
+  const { scans, scansLoading, scansError, refreshScans, flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData } = useScans()
   const { config } = useAdmin()
   const [selectedScan, setSelectedScan] = useState<ScanResult | null>(null)
   const [noteText, setNoteText] = useState("")
@@ -45,6 +45,7 @@ export default function QualityControl() {
   const [filterView, setFilterView] = useState<"all" | "flagged" | "low-confidence" | "overridden">("all")
   const [sourceFilter, setSourceFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
+  const [pendingWrite, setPendingWrite] = useState(false)
 
   const activeSources = useMemo(() => {
     return Array.from(new Set(scans.map(s => s.source).filter(Boolean)))
@@ -75,31 +76,37 @@ export default function QualityControl() {
       )
     }
     
-    return filtered.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
+    return [...filtered].sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
   }, [scans, filterView, sourceFilter, searchQuery, config.confidenceThreshold])
 
-  const handleFlag = (scan: ScanResult) => {
+  const handleFlag = async (scan: ScanResult) => {
+    if (pendingWrite) return
     const isNowFlagged = !scan.flagged
-    flagScan(scan.id, isNowFlagged)
-    
-    // Update local modal state so the UI reflects the change immediately
-    if (selectedScan?.id === scan.id) {
-      setSelectedScan(prev => prev ? { ...prev, flagged: isNowFlagged } : null)
-    }
-    
-    toast.success(isNowFlagged ? "Scan flagged for review" : "Flag removed")
+    setPendingWrite(true)
+    try {
+      await flagScan(scan.id, isNowFlagged)
+      setSelectedScan(prev => prev?.id === scan.id ? { ...prev, flagged: isNowFlagged } : prev)
+      toast.success(isNowFlagged ? "Scan flagged for review" : "Flag removed")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update the flag. Please retry.")
+    } finally { setPendingWrite(false) }
   }
 
-  const handleAddNote = () => {
-    if (selectedScan && noteText.trim()) {
-      addScanNote(selectedScan.id, noteText.trim())
+  const handleAddNote = async () => {
+    if (!selectedScan || !noteText.trim() || pendingWrite) return
+    setPendingWrite(true)
+    try {
+      await addScanNote(selectedScan.id, noteText.trim())
       setNoteText("")
       toast.success("Note added successfully")
-    }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not add the note. Please retry.")
+    } finally { setPendingWrite(false) }
   }
 
-  const handleSaveEdit = () => {
-    if (selectedScan && editData) {
+  const handleSaveEdit = async () => {
+    if (selectedScan && editData && !pendingWrite) {
+      setPendingWrite(true)
       const saveData = {
         ...editData,
         fingerCount: typeof editData.fingerCount === 'string' ? (parseInt(editData.fingerCount) || 0) : editData.fingerCount,
@@ -112,11 +119,15 @@ export default function QualityControl() {
           spoilageDays: selectedScan.spoilageDays,
         }
       } as Partial<ScanResult>
-      updateScanData(selectedScan.id, saveData)
-      setEditMode(false)
-      setSelectedScan(null)
-      setEditData({})
-      toast.success("Scan data updated successfully")
+      try {
+        await updateScanData(selectedScan.id, saveData)
+        setEditMode(false)
+        setSelectedScan(null)
+        setEditData({})
+        toast.success("Scan data updated successfully")
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not save changes. Please retry.")
+      } finally { setPendingWrite(false) }
     }
   }
 
@@ -145,10 +156,14 @@ export default function QualityControl() {
   }, [scans, config.confidenceThreshold])
 
   const exportToCSV = () => {
+    if (scansLoading || scansError) {
+      toast.error("Wait for the complete scan history to load before exporting.")
+      return
+    }
     const headers = ["Scan ID", "Date/Time", "Operator", "Cultivar", "Ripeness", "Confidence (%)", "Temperature (°C)", "Humidity (%)", "Spoilage (days)", "Fingers", "Source", "Flagged", "Status"]
     const rows = filteredScans.map(scan => [
       scan.id,
-      new Date(scan.dateTime).toLocaleString(),
+      scan.dateTime,
       scan.operator,
       scan.cultivar,
       scan.ripeness,
@@ -321,7 +336,7 @@ export default function QualityControl() {
           tooltip={scan.flagged ? "Unflag Issue" : "Flag for Review"}
           icon={Flag}
           iconClassName={scan.flagged ? 'fill-current text-red-600' : ''}
-          onClick={() => handleFlag(scan)}
+          onClick={() => handleFlag(scan)} disabled={pendingWrite}
         />
       ),
     },
@@ -335,13 +350,19 @@ export default function QualityControl() {
         description="Review and manage scan quality"
         icon={ShieldCheck}
         action={
-          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={exportToCSV}>
+          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={exportToCSV} disabled={scansLoading || Boolean(scansError)}>
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export CSV</span>
           </Button>
         }
       />
 
+      {(scansLoading || scansError) && (
+        <Card className="rounded-2xl"><CardContent className="p-4 flex items-center justify-between gap-3" role={scansError ? "alert" : "status"}>
+          <p className="text-sm text-muted-foreground">{scansError || "Loading complete scan history…"}</p>
+          {scansError && <Button variant="outline" size="sm" onClick={() => void refreshScans()}>Retry</Button>}
+        </CardContent></Card>
+      )}
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <AppStatsCard
@@ -746,7 +767,7 @@ export default function QualityControl() {
                     className="resize-none"
                     rows={2}
                   />
-                  <Button onClick={handleAddNote} disabled={!noteText.trim()}>
+                  <Button onClick={handleAddNote} disabled={!noteText.trim() || pendingWrite}>
                     Add
                   </Button>
                 </div>
@@ -760,7 +781,7 @@ export default function QualityControl() {
                 <Button variant="outline" onClick={() => setEditMode(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSaveEdit}>
+                <Button onClick={handleSaveEdit} disabled={pendingWrite}>
                   Save Changes
                 </Button>
               </>

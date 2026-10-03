@@ -5,13 +5,15 @@ ScanStatusLog ORM model — tracks inventory lifecycle.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
+from app.core.time import now_manila
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Integer
+from sqlalchemy import Enum as SAEnum, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.db_types import ManilaDateTime
 
 
 from app.schemas.enums import InventoryStatusEnum
@@ -25,7 +27,7 @@ class ScanStatusLog(Base):
     inventory_status: Mapped[InventoryStatusEnum] = mapped_column(SAEnum(InventoryStatusEnum),
         nullable=False,
     )
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    updated_at: Mapped[datetime] = mapped_column(ManilaDateTime(), default=now_manila
     )
 
     # Relationships

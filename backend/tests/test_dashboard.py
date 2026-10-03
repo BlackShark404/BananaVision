@@ -59,7 +59,7 @@ class Database:
 
 @pytest.fixture
 def db(monkeypatch):
-    monkeypatch.setattr(dashboard, "utc_now", lambda: NOW)
+    monkeypatch.setattr(dashboard, "now_manila", lambda: NOW)
     engine = create_engine(
         "sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False}
     )
@@ -308,7 +308,7 @@ def test_router_authentication_validation_and_json_contract(db):
         assert response.status_code == 200
         data = response.json()
         assert data["business_date"] == "2026-10-02" and data["timezone"] == "Asia/Manila"
-        assert data["generated_at"].endswith("Z") and data["avg_confidence"] is None
+        assert data["generated_at"].endswith("+08:00") and data["avg_confidence"] is None
         scan_id = scan(db, user)
         scans_response = client.get("/api/v1/dashboard/scans")
         assert scans_response.status_code == 200

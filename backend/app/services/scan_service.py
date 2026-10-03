@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
+from app.core.time import now_manila
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -219,7 +220,7 @@ async def execute_scan_pipeline(
             id=scan_id,
             operator_id=operator_id,
             intake_id=intake_id,
-            date_time=datetime.now(timezone.utc),
+            date_time=now_manila(),
             flagged=fused.auto_flagged,
             source_text=supplier_name,
         )
@@ -306,8 +307,12 @@ async def execute_scan_pipeline(
 
         await db.flush()
 
+        # Completion events must never advertise an uncommitted scan.
+        await db.commit()
+
         # ── Step 8: Broadcast completed ──────────────────────────────────
         scan_result = {
+            "id": scan_id_str,
             "scan_id": scan_id_str,
             "cultivar": fused.cultivar,
             "ripeness": fused.ripeness,
@@ -319,11 +324,20 @@ async def execute_scan_pipeline(
             "treatment": intake_treatment.value if intake_treatment else None,
             "spoilage_days": spoilage_days,
             "operator": operator_name,
+            "operator_name": operator_name,
             "supplier": supplier_name,
+            "source_text": supplier_name,
+            "intake_id": str(scan.intake_id) if scan.intake_id else None,
+            "inventory_status": status_log.inventory_status.value,
+            "status_updated_at": status_log.updated_at.isoformat(),
+            "thumbnail_url": classification.thumbnail_url,
+            "is_overridden": scan.is_overridden,
+            "updated_at": scan.updated_at.isoformat(),
             "flagged": fused.auto_flagged,
             "conflict_detected": fused.conflict_detected,
             "camera_count": fused.camera_count,
             "scanned_at": scan.date_time.isoformat(),
+            "date_time": scan.date_time.isoformat(),
             "images": [{"camera_id": img.camera_id, "file_path": img.file_path} for img in db_images],
             "detections": [
                 {

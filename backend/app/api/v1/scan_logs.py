@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentUser, DbSession, StreamDbSession
 from app.schemas.scan_logs import ScanLogList, ScanLogQuery
 from app.services.scan_logs import export_scan_logs, list_scan_logs
 
@@ -20,7 +20,7 @@ async def scan_logs(db: DbSession, user: CurrentUser, query: Annotated[ScanLogQu
 
 @router.get("/export")
 async def scan_logs_export(
-    db: DbSession, user: CurrentUser, query: Annotated[ScanLogQuery, Query()],
+    db: StreamDbSession, user: CurrentUser, query: Annotated[ScanLogQuery, Query()],
 ):
     """Export every matching row in the same sort order; pagination is ignored."""
     contents = await export_scan_logs(db, user, query)

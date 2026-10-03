@@ -1,6 +1,7 @@
 """Shared filter/response contracts for Scan Logs and its complete CSV export."""
 
-from datetime import date, datetime
+from datetime import date
+from app.schemas.timestamps import Timestamp
 from typing import Literal
 from uuid import UUID
 
@@ -35,7 +36,7 @@ class ScanLogRow(DashboardScan):
     thumbnail_url: str | None
     intake_id: UUID | None
     is_overridden: bool
-    status_updated_at: datetime | None
+    status_updated_at: Timestamp | None
 
 
 class SourceOption(BaseModel):
@@ -63,6 +64,6 @@ class ScanLogList(BaseModel):
     at_risk_count: int
     review_count: int
     flagged_count: int
-    generated_at: datetime
+    generated_at: Timestamp
     confidence_threshold: float
     options: ScanLogOptions

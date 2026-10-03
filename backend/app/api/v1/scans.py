@@ -19,6 +19,7 @@ from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.models.scan_note import ScanNote
 from app.models.activity_log import ActivityLog
 from app.core.exceptions import NotFoundException, ModelInferenceError
+from app.core.time import now_manila
 from app.schemas.scan import (
     ScanTriggerRequest,
     ScanFlagRequest,
@@ -102,7 +103,7 @@ async def list_scans(
         selectinload(Scan.notes),
         selectinload(Scan.images),
         selectinload(Scan.operator).selectinload(OperatorProfile.account),
-    ).order_by(desc(Scan.date_time))
+    ).order_by(desc(Scan.date_time), desc(Scan.id))
 
     if cultivar:
         query = query.where(ScanClassification.cultivar == cultivar)
@@ -340,13 +341,15 @@ async def update_scan_status(
     if not scan:
         raise NotFoundException("Scan")
 
+    now = now_manila()
     new_log = ScanStatusLog(
         scan_id=scan.id,
-        inventory_status=body.inventory_status
+        inventory_status=body.inventory_status,
+        updated_at=now,
     )
     db.add(new_log)
-    scan.updated_at = func.now()
-    return {"message": "Status updated"}
+    scan.updated_at = now
+    return {"message": "Status updated", "inventory_status": body.inventory_status, "status_updated_at": now}
 
 
 @router.post("/{scan_id}/notes", response_model=ScanNoteResponse)

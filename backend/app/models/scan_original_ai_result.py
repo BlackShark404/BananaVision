@@ -5,13 +5,15 @@ ScanOriginalAiResult ORM model — tracks the pre-override fused AI result.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
+from app.core.time import now_manila
 
-from sqlalchemy import DateTime, Enum as SAEnum, DECIMAL, ForeignKey, Integer
+from sqlalchemy import Enum as SAEnum, DECIMAL, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.db_types import ManilaDateTime
 
 
 from app.schemas.enums import CultivarEnum, RipenessEnum
@@ -28,7 +30,7 @@ class ScanOriginalAiResult(Base):
     )
     confidence: Mapped[float] = mapped_column(DECIMAL(5,2), nullable=False)
     finger_count: Mapped[int] = mapped_column(Integer, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    created_at: Mapped[datetime] = mapped_column(ManilaDateTime(), default=now_manila
     )
 
     # Relationships

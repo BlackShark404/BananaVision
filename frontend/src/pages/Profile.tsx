@@ -34,31 +34,45 @@ export default function Profile() {
   const [pinStep, setPinStep] = useState<"current" | "new" | "confirm">("current")
   const [pinData, setPinData] = useState({ current: "", new: "", confirm: "" })
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [savingAvatar, setSavingAvatar] = useState(false)
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
+    e.target.value = ""
+    if (!file || !user || savingAvatar) return
 
     if (file.size > 2 * 1024 * 1024) {
       toast.error("Image size must be less than 2MB")
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string
-      if (user) {
-        updateUser(user.id, { avatar: base64 })
-        toast.success("Avatar updated successfully")
-      }
+    setSavingAvatar(true)
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("Could not read image"))
+        reader.onerror = () => reject(new Error("Could not read image"))
+        reader.readAsDataURL(file)
+      })
+      await updateUser(user.id, { avatar: base64 })
+      toast.success("Avatar updated successfully")
+    } catch (error) {
+      toast.error("Could not update avatar", { description: error instanceof Error ? error.message : "Please try again." })
+    } finally {
+      setSavingAvatar(false)
     }
-    reader.readAsDataURL(file)
   }
 
-  const handleRemoveAvatar = () => {
-    if (user) {
-      updateUser(user.id, { avatar: "" })
+  const handleRemoveAvatar = async () => {
+    if (!user || savingAvatar) return
+    setSavingAvatar(true)
+    try {
+      await updateUser(user.id, { avatar: "" })
       toast.success("Avatar removed successfully")
+    } catch (error) {
+      toast.error("Could not remove avatar", { description: error instanceof Error ? error.message : "Please try again." })
+    } finally {
+      setSavingAvatar(false)
     }
   }
 
@@ -270,7 +284,7 @@ export default function Profile() {
               <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
                 <div 
                   className="relative group cursor-pointer inline-block rounded-full" 
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => !savingAvatar && fileInputRef.current?.click()}
                   title="Upload new avatar"
                 >
                   <Avatar className="w-20 h-20 sm:w-24 sm:h-24 border-[3px] border-background ring-1 ring-border shadow-sm transition-all group-hover:ring-primary/50 group-hover:shadow-md">
@@ -288,6 +302,7 @@ export default function Profile() {
                     className="hidden"
                     accept="image/*"
                     onChange={handleAvatarUpload}
+                    disabled={savingAvatar}
                   />
                 </div>
                 <div className="flex-1 space-y-1">
@@ -301,6 +316,7 @@ export default function Profile() {
                         variant="ghost" 
                         size="sm" 
                         onClick={handleRemoveAvatar} 
+                        disabled={savingAvatar}
                         className="text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
                       >
                         Remove Photo

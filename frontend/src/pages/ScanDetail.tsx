@@ -50,68 +50,9 @@ import { AppChangePreview } from "@/components/AppChangePreview"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import BoundingBoxOverlay from "@/components/BoundingBoxOverlay"
 import { api } from "@/lib/api"
-
-interface StoredScanDetail {
-  id: string
-  date_time: string
-  cultivar: Cultivar
-  ripeness: Ripeness
-  confidence: number
-  temperature?: number | null
-  humidity?: number | null
-  vpd?: number | null
-  treatment?: ScanResult["treatment"] | null
-  spoilage_days: string
-  finger_count: number
-  operator_name: string
-  source_text?: string | null
-  intake_id?: string | null
-  inventory_status?: ScanResult["inventoryStatus"]
-  status_updated_at?: string | null
-  flagged: boolean
-  is_overridden: boolean
-  original_ai_result?: { cultivar: Cultivar; ripeness: Ripeness; confidence: number; finger_count: number; spoilage_days?: string } | null
-  thumbnail_url?: string | null
-  has_notes?: boolean
-  images?: { camera_id: string; file_path: string }[]
-  detections?: ScanDetection[]
-}
+import { mapApiScan } from "@/lib/scanData"
 
 const EMPTY_DETECTIONS: ScanDetection[] = []
-
-function mapStoredScan(data: StoredScanDetail): ScanResult {
-  return {
-    id: data.id,
-    dateTime: data.date_time,
-    cultivar: data.cultivar,
-    ripeness: data.ripeness,
-    confidence: data.confidence,
-    temperature: data.temperature ?? undefined,
-    humidity: data.humidity ?? undefined,
-    vpd: data.vpd ?? undefined,
-    treatment: data.treatment ?? undefined,
-    spoilageDays: data.spoilage_days,
-    fingerCount: data.finger_count,
-    operator: data.operator_name,
-    source: data.source_text ?? undefined,
-    intakeId: data.intake_id ?? undefined,
-    inventoryStatus: data.inventory_status,
-    statusUpdatedAt: data.status_updated_at ?? undefined,
-    flagged: data.flagged,
-    isOverridden: data.is_overridden,
-    originalAiResult: data.original_ai_result ? {
-      cultivar: data.original_ai_result.cultivar,
-      ripeness: data.original_ai_result.ripeness,
-      confidence: data.original_ai_result.confidence,
-      fingerCount: data.original_ai_result.finger_count,
-      spoilageDays: data.original_ai_result.spoilage_days,
-    } : undefined,
-    thumbnailUrl: data.thumbnail_url ? getImageUrl(data.thumbnail_url) : undefined,
-    hasNotes: data.has_notes,
-    images: (data.images ?? []).map(image => ({ ...image, file_path: getImageUrl(image.file_path) })),
-    detections: data.detections ?? [],
-  }
-}
 
 export default function ScanDetail() {
   const { scanId } = useParams<{ scanId: string }>()
@@ -122,7 +63,7 @@ export default function ScanDetail() {
 function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { addScanNote, getScanNotes, loadScanNotes, updateScanData } = useScans()
+  const { flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData } = useScans()
   const { suppliers } = useInventory()
   const { config } = useAdmin()
   const [noteText, setNoteText] = useState("")
@@ -133,6 +74,8 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const [retry, setRetry] = useState(0)
   const [detail, setDetail] = useState<{ retry: number; scan: ScanResult | null; error: string | null; notFound: boolean } | null>(null)
   const [flagPending, setFlagPending] = useState(false)
+  const [notePending, setNotePending] = useState(false)
+  const [editPending, setEditPending] = useState(false)
 
   const currentDetail = detail?.retry === retry ? detail : null
   const scan = currentDetail?.scan
@@ -158,9 +101,9 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
       controller.abort()
     }, 15_000)
     api.scans.detail(scanId, controller.signal)
-      .then((data: StoredScanDetail) => {
+      .then(data => {
         if (cancelled || timedOut) return
-        const record = mapStoredScan(data)
+        const record = mapApiScan(data, getImageUrl)
         setDetail({ retry, scan: record, error: null, notFound: false })
         generateQRCodeDataUrl(record).then(qrCode => {
           if (!cancelled) setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, qrCode } } : previous)
@@ -218,7 +161,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
     const isNowFlagged = !scan.flagged
     setFlagPending(true)
     try {
-      await api.scans.flag(scan.id, isNowFlagged)
+      await flagScan(scan.id, isNowFlagged)
       setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, flagged: isNowFlagged } } : previous)
       toast.success(isNowFlagged ? "Scan flagged for review" : "Flag removed")
     } catch {
@@ -228,11 +171,17 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
     }
   }
 
-  const handleAddNote = () => {
-    if (scan && noteText.trim()) {
-      addScanNote(scan.id, noteText.trim())
+  const handleAddNote = async () => {
+    if (!scan || !noteText.trim() || notePending) return
+    setNotePending(true)
+    try {
+      await addScanNote(scan.id, noteText.trim())
       setNoteText("")
       toast.success("Note added successfully")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not add the note. Please retry.")
+    } finally {
+      setNotePending(false)
     }
   }
 
@@ -249,7 +198,8 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   }
 
   const handleSaveEdit = async () => {
-    if (scan && editData) {
+    if (scan && editData && !editPending) {
+      setEditPending(true)
       const saveData = {
         ...editData,
         fingerCount: typeof editData.fingerCount === 'string' ? (parseInt(editData.fingerCount) || 0) : editData.fingerCount,
@@ -263,12 +213,14 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
         }
       } as Partial<ScanResult>
       try {
-        await updateScanData(scan.id, saveData)
-        setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, ...saveData } } : previous)
+        const saved = await updateScanData(scan.id, saveData)
+        setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, ...saved, images: previous.scan.images, detections: previous.scan.detections, qrCode: previous.scan.qrCode } } : previous)
         setEditMode(false)
         toast.success("Scan data updated successfully")
       } catch {
         toast.error("Failed to update scan data. Please check connection.")
+      } finally {
+        setEditPending(false)
       }
     }
   }
@@ -601,7 +553,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setEditMode(false)}>
                       <X className="w-3.5 h-3.5" /> Cancel
                     </Button>
-                    <Button size="sm" className="gap-1.5" onClick={handleSaveEdit}>
+                    <Button size="sm" className="gap-1.5" onClick={handleSaveEdit} disabled={editPending}>
                       <Save className="w-3.5 h-3.5" /> Save Changes
                     </Button>
                   </div>
@@ -782,11 +734,12 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     <Textarea
                       placeholder="Add a review note..."
                       value={noteText}
+                      disabled={notePending}
                       onChange={(e) => setNoteText(e.target.value)}
                       className="rounded-xl resize-none"
                       rows={2}
                     />
-                    <Button onClick={handleAddNote} disabled={!noteText.trim()} className="self-end">
+                    <Button onClick={handleAddNote} disabled={!noteText.trim() || notePending} className="self-end">
                       Add
                     </Button>
                   </div>

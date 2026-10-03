@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react"
 import { useInventory } from "@/context/InventoryContext"
-import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { AppActionButton } from "@/components/AppActionButton"
@@ -36,6 +35,7 @@ export default function SupplierManagement() {
   const [newSupplier, setNewSupplier] = useState<Partial<Supplier>>({ status: "Active" })
   const [editTarget, setEditTarget] = useState<Supplier | null>(null)
   const [editForm, setEditForm] = useState<Partial<Supplier>>({})
+  const [saving, setSaving] = useState(false)
 
   const stats = useMemo(() => {
     const active = suppliers.filter(s => s.status === "Active").length
@@ -56,7 +56,8 @@ export default function SupplierManagement() {
     })
   }, [suppliers, search, statusFilter])
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
+    if (saving) return
     if (!newSupplier.name?.trim()) {
       toast.error("Supplier name is required")
       return
@@ -68,32 +69,53 @@ export default function SupplierManagement() {
       return
     }
 
-    addSupplier({
-      name: newSupplier.name.trim(),
-      contactPerson: newSupplier.contactPerson?.trim() || undefined,
-      contactPhone: newSupplier.contactPhone?.trim() || undefined,
-      status: "Active"
-    })
-    
-    toast.success("Supplier added successfully")
-    setIsAddOpen(false)
-    setNewSupplier({ status: "Active" })
-  }
-
-  const handleToggleStatus = (supplier: Supplier) => {
-    if (supplier.status === "Active") {
-      setDeactivateTarget(supplier)
-    } else {
-      updateSupplierStatus(supplier.id, "Active")
-      toast.success(`${supplier.name} has been activated`)
+    setSaving(true)
+    try {
+      await addSupplier({
+        name: newSupplier.name.trim(),
+        contactPerson: newSupplier.contactPerson?.trim() || undefined,
+        contactPhone: newSupplier.contactPhone?.trim() || undefined,
+        status: "Active"
+      })
+      toast.success("Supplier added successfully")
+      setIsAddOpen(false)
+      setNewSupplier({ status: "Active" })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to add supplier")
+    } finally {
+      setSaving(false)
     }
   }
 
-  const confirmDeactivate = () => {
-    if (!deactivateTarget) return
-    updateSupplierStatus(deactivateTarget.id, "Inactive")
-    toast.success(`${deactivateTarget.name} has been deactivated`)
-    setDeactivateTarget(null)
+  const handleToggleStatus = async (supplier: Supplier) => {
+    if (saving) return
+    if (supplier.status === "Active") {
+      setDeactivateTarget(supplier)
+    } else {
+      setSaving(true)
+      try {
+        await updateSupplierStatus(supplier.id, "Active")
+        toast.success(`${supplier.name} has been activated`)
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to activate supplier")
+      } finally {
+        setSaving(false)
+      }
+    }
+  }
+
+  const confirmDeactivate = async () => {
+    if (!deactivateTarget || saving) return
+    setSaving(true)
+    try {
+      await updateSupplierStatus(deactivateTarget.id, "Inactive")
+      toast.success(`${deactivateTarget.name} has been deactivated`)
+      setDeactivateTarget(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to deactivate supplier")
+    } finally {
+      setSaving(false)
+    }
   }
 
   const openEditDialog = (supplier: Supplier) => {
@@ -101,8 +123,8 @@ export default function SupplierManagement() {
     setEditTarget(supplier)
   }
 
-  const handleSaveEdit = () => {
-    if (!editTarget) return
+  const handleSaveEdit = async () => {
+    if (!editTarget || saving) return
     if (!editForm.name?.trim()) {
       toast.error("Supplier name is required")
       return
@@ -111,13 +133,20 @@ export default function SupplierManagement() {
       toast.error("A supplier with this exact name already exists")
       return
     }
-    updateSupplier(editTarget.id, {
-      name: editForm.name.trim(),
-      contactPerson: editForm.contactPerson?.trim() || undefined,
-      contactPhone: editForm.contactPhone?.trim() || undefined,
-    })
-    toast.success("Supplier updated successfully")
-    setEditTarget(null)
+    setSaving(true)
+    try {
+      await updateSupplier(editTarget.id, {
+        name: editForm.name.trim(),
+        contactPerson: editForm.contactPerson?.trim() || "",
+        contactPhone: editForm.contactPhone?.trim() || "",
+      })
+      toast.success("Supplier updated successfully")
+      setEditTarget(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update supplier")
+    } finally {
+      setSaving(false)
+    }
   }
 
   const columns: ColumnDef<Supplier>[] = [
@@ -160,7 +189,7 @@ export default function SupplierManagement() {
       header: "Date Added",
       sortable: true,
       sortKey: "dateAdded",
-      cell: (supplier) => <span className="text-sm">{new Date(supplier.dateAdded).toLocaleDateString()}</span>
+      cell: (supplier) => <span className="text-sm">{supplier.dateAdded ? new Date(supplier.dateAdded).toLocaleDateString() : "—"}</span>
     },
     {
       header: "Status",
@@ -185,11 +214,13 @@ export default function SupplierManagement() {
       cell: (supplier) => (
         <div className="flex items-center justify-end gap-1">
           <AppActionButton
+            disabled={saving}
             tooltip="Edit supplier"
             icon={Pencil}
             onClick={() => openEditDialog(supplier)}
           />
           <AppActionButton
+            disabled={saving}
             tooltip={supplier.status === "Active" ? "Deactivate supplier" : "Activate supplier"}
             icon={supplier.status === "Active" ? XCircle : CheckCircle2}
             iconClassName={supplier.status === "Active" ? "text-red-500" : "text-emerald-500"}
@@ -204,7 +235,7 @@ export default function SupplierManagement() {
     <TooltipProvider>
     <div className="space-y-4 sm:space-y-6">
       {/* Deactivation Confirmation Dialog */}
-      <AlertDialog open={!!deactivateTarget} onOpenChange={(open) => !open && setDeactivateTarget(null)}>
+      <AlertDialog open={!!deactivateTarget} onOpenChange={(open) => !open && !saving && setDeactivateTarget(null)}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -216,9 +247,10 @@ export default function SupplierManagement() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmDeactivate}
+              disabled={saving}
+              onClick={(event) => { event.preventDefault(); void confirmDeactivate() }}
               className="bg-red-600 hover:bg-red-700"
             >
               Deactivate
@@ -228,7 +260,7 @@ export default function SupplierManagement() {
       </AlertDialog>
 
       {/* Edit Supplier Dialog */}
-      <Dialog open={!!editTarget} onOpenChange={(open) => { if (!open) setEditTarget(null) }}>
+      <Dialog open={!!editTarget} onOpenChange={(open) => { if (!open && !saving) setEditTarget(null) }}>
         <DialogContent className="sm:max-w-106.25">
           <DialogHeader>
             <DialogTitle>Edit Supplier</DialogTitle>
@@ -238,6 +270,7 @@ export default function SupplierManagement() {
               <Label htmlFor="edit-name">Business / Source Name *</Label>
               <Input 
                 id="edit-name" 
+                disabled={saving}
                 placeholder="e.g. Farmer Joe"
                 value={editForm.name || ""}
                 onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))}
@@ -247,6 +280,7 @@ export default function SupplierManagement() {
               <Label htmlFor="edit-contact">Contact Person (Optional)</Label>
               <Input 
                 id="edit-contact" 
+                disabled={saving}
                 placeholder="e.g. John Doe"
                 value={editForm.contactPerson || ""}
                 onChange={e => setEditForm(prev => ({ ...prev, contactPerson: e.target.value }))}
@@ -256,6 +290,7 @@ export default function SupplierManagement() {
               <Label htmlFor="edit-phone">Phone Number (Optional)</Label>
               <Input 
                 id="edit-phone" 
+                disabled={saving}
                 placeholder="e.g. 09123456789"
                 value={editForm.contactPhone || ""}
                 onChange={e => setEditForm(prev => ({ ...prev, contactPhone: e.target.value }))}
@@ -263,8 +298,8 @@ export default function SupplierManagement() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
-            <Button onClick={handleSaveEdit}>Save Changes</Button>
+            <Button variant="outline" disabled={saving} onClick={() => setEditTarget(null)}>Cancel</Button>
+            <Button disabled={saving} onClick={handleSaveEdit}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -274,9 +309,9 @@ export default function SupplierManagement() {
         description="Manage your inventory sources and supplier contacts"
         icon={Package}
         action={
-          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+          <Dialog open={isAddOpen} onOpenChange={(open) => { if (!saving) setIsAddOpen(open) }}>
             <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto gap-2">
+              <Button disabled={saving} className="w-full sm:w-auto gap-2">
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Add Supplier</span>
               </Button>
@@ -290,6 +325,7 @@ export default function SupplierManagement() {
                   <Label htmlFor="name">Business / Source Name *</Label>
                   <Input 
                     id="name" 
+                    disabled={saving}
                     placeholder="e.g. Farmer Joe"
                     value={newSupplier.name || ""}
                     onChange={e => setNewSupplier(prev => ({ ...prev, name: e.target.value }))}
@@ -299,6 +335,7 @@ export default function SupplierManagement() {
                   <Label htmlFor="contact">Contact Person (Optional)</Label>
                   <Input 
                     id="contact" 
+                    disabled={saving}
                     placeholder="e.g. John Doe"
                     value={newSupplier.contactPerson || ""}
                     onChange={e => setNewSupplier(prev => ({ ...prev, contactPerson: e.target.value }))}
@@ -308,6 +345,7 @@ export default function SupplierManagement() {
                   <Label htmlFor="phone">Phone Number (Optional)</Label>
                   <Input 
                     id="phone" 
+                    disabled={saving}
                     placeholder="e.g. 09123456789"
                     value={newSupplier.contactPhone || ""}
                     onChange={e => setNewSupplier(prev => ({ ...prev, contactPhone: e.target.value }))}
@@ -315,8 +353,8 @@ export default function SupplierManagement() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-                <Button onClick={handleAdd}>Save Supplier</Button>
+                <Button disabled={saving} variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+                <Button disabled={saving} onClick={handleAdd}>Save Supplier</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

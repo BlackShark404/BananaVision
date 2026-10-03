@@ -50,6 +50,8 @@ export default function Kiosk() {
   const [showSourceModal, setShowSourceModal] = useState(false)
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null)
   const [selectedTreatment, setSelectedTreatment] = useState<"Natural" | "Ethephon">("Natural")
+  const [startingIntake, setStartingIntake] = useState(false)
+  const [flaggingScan, setFlaggingScan] = useState(false)
 
   const [kioskOperatorsList, setKioskOperatorsList] = useState<{ id: string; username: string; fullName: string; role: string; status: string; avatar?: string }[]>([])
   const [kioskOperator, setKioskOperator] = useState<string | null>(null)
@@ -176,7 +178,7 @@ export default function Kiosk() {
       />
 
       {/* Select Source Modal */}
-      <Dialog open={showSourceModal} onOpenChange={setShowSourceModal}>
+      <Dialog open={showSourceModal} onOpenChange={(open) => { if (!startingIntake) setShowSourceModal(open) }}>
         <DialogContent className="sm:max-w-2xl max-h-[90dvh] flex flex-col gap-0 p-0 overflow-hidden">
           <DialogHeader className="text-center sm:text-center p-6 pb-4 shrink-0 border-b">
             <div className="mx-auto w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-4">
@@ -260,13 +262,20 @@ export default function Kiosk() {
             <Button
               className="w-full h-14 text-lg font-bold rounded-xl"
               size="lg"
-              disabled={!selectedSupplierId}
+              disabled={!selectedSupplierId || startingIntake}
               onClick={async () => {
-                if (!selectedSupplierId) return;
-                const generatedBatch = `BCH-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-                await startIntake(selectedSupplierId, generatedBatch, selectedTreatment);
-                toast.success("Started new delivery intake!");
-                setShowSourceModal(false);
+                if (!selectedSupplierId || startingIntake) return
+                setStartingIntake(true)
+                try {
+                  const generatedBatch = `BCH-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+                  await startIntake(selectedSupplierId, generatedBatch, selectedTreatment)
+                  toast.success("Started new delivery intake!")
+                  setShowSourceModal(false)
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Failed to start delivery intake")
+                } finally {
+                  setStartingIntake(false)
+                }
               }}
             >
               Start Intake Session
@@ -714,7 +723,7 @@ export default function Kiosk() {
                 <div className="flex gap-3 pt-2">
                   <Button
                     size="lg"
-                    disabled={lastResult.id === scanAction?.id}
+                    disabled={lastResult.id === scanAction?.id || flaggingScan}
                     className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white gap-2 font-bold h-12 lg:h-14 text-sm lg:text-base"
                     onClick={() => {
                       if (lastResult && lastResult.id !== scanAction?.id) {
@@ -729,13 +738,20 @@ export default function Kiosk() {
                   <Button
                     size="lg"
                     variant="outline"
-                    disabled={lastResult.id === scanAction?.id}
+                    disabled={lastResult.id === scanAction?.id || flaggingScan}
                     className="flex-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 gap-2 font-bold h-12 lg:h-14 text-sm lg:text-base"
-                    onClick={() => {
-                      if (lastResult && lastResult.id !== scanAction?.id) {
-                        flagScan(lastResult.id, true)
-                        setScanAction({ id: lastResult.id, action: 'flagged' })
-                        toast.success("Flagged for review", { description: "Item routed to quality control dashboard." })
+                    onClick={async () => {
+                      if (lastResult && lastResult.id !== scanAction?.id && !flaggingScan) {
+                        setFlaggingScan(true)
+                        try {
+                          await flagScan(lastResult.id, true)
+                          setScanAction({ id: lastResult.id, action: 'flagged' })
+                          toast.success("Flagged for review", { description: "Item routed to quality control dashboard." })
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : "Failed to flag scan")
+                        } finally {
+                          setFlaggingScan(false)
+                        }
                       }
                     }}
                   >

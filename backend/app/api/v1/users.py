@@ -64,6 +64,7 @@ async def create_user(body: UserCreate, db: DbSession, admin: AdminUser, request
         full_name=body.full_name,
         password_hash=hash_password(body.password),
         role_id=user_role.id,
+        status=body.status,
         requires_password_change=True,
         password_setup_reason=PasswordSetupReasonEnum.NEW_ACCOUNT,
     )
@@ -104,6 +105,10 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin
         raise NotFoundException("User")
 
     update_data = body.model_dump(exclude_none=True)
+    if body.username is not None and body.username != user.username:
+        existing = await db.scalar(select(UserAccount.id).where(UserAccount.username == body.username))
+        if existing is not None:
+            raise ConflictException(f"Username '{body.username}' already exists")
     for field, value in update_data.items():
         if field in ["requires_pin_change", "pin_setup_reason"]:
             if user.operator_profile:

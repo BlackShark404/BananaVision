@@ -5,13 +5,15 @@ ScanImage ORM model — captured image metadata.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
+from app.core.time import now_manila
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.db_types import ManilaDateTime
 
 
 class ScanImage(Base):
@@ -26,7 +28,7 @@ class ScanImage(Base):
     width: Mapped[int | None] = mapped_column(Integer, nullable=True)
     height: Mapped[int | None] = mapped_column(Integer, nullable=True)
     file_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    captured_at: Mapped[datetime] = mapped_column(ManilaDateTime(), default=now_manila
     )
 
     # Relationships

@@ -7,6 +7,8 @@
 import { getToken, clearAuth } from "@/lib/auth"
 import type { DashboardScanPage, DashboardScanParams, DashboardSummary } from "@/types/dashboard"
 import type { ScanLogPage, ScanLogParams } from "@/types/scanLogs"
+import type { ApiScan, ApiScanNote, RecordPage } from "@/lib/scanData"
+import type { InventoryStatus, IntakeStatus } from "@/types"
 
 const host = window.location.hostname
 export const BASE_URL = import.meta.env.VITE_API_URL || `http://${host}:8000`
@@ -127,25 +129,25 @@ export const api = {
   // ── Scans ────────────────────────────────────────────────────────────────
   scans: {
     trigger: (data: { source?: string; intake_id?: string }) =>
-      post<{ scan_id: string; status: string }>("/api/v1/scans/trigger", { source_text: data.source, intake_id: data.intake_id }),
+      post<ApiScan>("/api/v1/scans/trigger", { source_text: data.source, intake_id: data.intake_id }),
 
-    list: (params?: { page?: number; per_page?: number; cultivar?: string; ripeness?: string; flagged?: boolean; source?: string; operator?: string }) =>
-      get<{ items: any[]; total: number; page: number; per_page: number }>("/api/v1/scans", params as any),
+    list: (params?: { page?: number; page_size?: number; cultivar?: string; ripeness?: string; flagged?: boolean }, signal?: AbortSignal) =>
+      get<RecordPage<ApiScan>>("/api/v1/scans", params, signal),
 
-    detail: (id: string, signal?: AbortSignal) => get<any>(`/api/v1/scans/${id}`, undefined, signal),
+    detail: (id: string, signal?: AbortSignal) => get<ApiScan>(`/api/v1/scans/${id}`, undefined, signal),
 
     flag: (id: string, flagged: boolean) =>
       patch<any>(`/api/v1/scans/${id}/flag`, { flagged }),
 
     override: (id: string, data: { cultivar?: string; ripeness?: string; finger_count?: number; spoilage_days?: string; source_text?: string }) =>
-      patch<any>(`/api/v1/scans/${id}`, data),
+      patch<ApiScan>(`/api/v1/scans/${id}`, data),
 
     updateStatus: (id: string, status: string) =>
       patch<any>(`/api/v1/scans/${id}/status`, { inventory_status: status }),
 
     notes: {
-      list: (scanId: string) => get<any[]>(`/api/v1/scans/${scanId}/notes`),
-      add: (scanId: string, note: string) => post<any>(`/api/v1/scans/${scanId}/notes`, { note }),
+      list: (scanId: string) => get<ApiScanNote[]>(`/api/v1/scans/${scanId}/notes`),
+      add: (scanId: string, note: string) => post<ApiScanNote>(`/api/v1/scans/${scanId}/notes`, { note }),
     },
   },
 
@@ -170,6 +172,8 @@ export const api = {
     list: () => get<{ items: any[]; total: number }>("/api/v1/users"),
     create: (data: any) => post<any>("/api/v1/users", data),
     update: (id: string, data: any) => patch<any>(`/api/v1/users/${id}`, data),
+    resetPassword: (id: string, newPassword: string) => post<{ message: string }>(`/api/v1/users/${id}/reset-password`, { new_password: newPassword }),
+    resetPin: (id: string, newPin: string) => post<{ message: string }>(`/api/v1/users/${id}/reset-pin`, { new_pin: newPin }),
   },
 
   // ── Suppliers ────────────────────────────────────────────────────────────
@@ -183,7 +187,9 @@ export const api = {
   intakes: {
     list: () => get<any[]>("/api/v1/intakes"),
     create: (data: { supplier_id: string; batch_number: string; source?: string; treatment?: string }) => post<any>("/api/v1/intakes", data),
-    update: (id: string, data: any) => patch<any>(`/api/v1/intakes/${id}`, data),
+    update: (id: string, data: { status: IntakeStatus }) => patch<{ message: string }>(`/api/v1/intakes/${id}/status`, data),
+    bulkInventory: (id: string, data: { inventory_status: InventoryStatus }) =>
+      patch<{ updated_count: number; updated_scan_ids: string[]; status_updated_at: string; intake_status: IntakeStatus }>(`/api/v1/intakes/${id}/bulk-inventory`, data),
   },
 
   // Dashboard metrics and their record views share server-enforced user scope.

@@ -11,12 +11,12 @@ interface InventoryContextType {
   intakes: DailyIntake[]
   activeIntake: DailyIntake | null
   setActiveIntake: (intake: DailyIntake | null) => void
-  startIntake: (supplierId: string, batchNumber: string, treatment?: string) => Promise<DailyIntake | undefined>
-  bulkUpdateIntakeInventory: (intakeId: string, status: InventoryStatus) => void
+  startIntake: (supplierId: string, batchNumber: string, treatment?: string) => Promise<DailyIntake>
+  bulkUpdateIntakeInventory: (intakeId: string, status: InventoryStatus) => Promise<void>
   suppliers: Supplier[]
-  addSupplier: (supplierData: Omit<Supplier, "id" | "dateAdded">) => void
-  updateSupplier: (id: string, data: Partial<Omit<Supplier, "id" | "dateAdded">>) => void
-  updateSupplierStatus: (id: string, status: "Active" | "Inactive") => void
+  addSupplier: (supplierData: Omit<Supplier, "id" | "dateAdded">) => Promise<void>
+  updateSupplier: (id: string, data: Partial<Omit<Supplier, "id" | "dateAdded">>) => Promise<void>
+  updateSupplierStatus: (id: string, status: "Active" | "Inactive") => Promise<void>
 }
 
 // ── Context ─────────────────────────────────────────────────────────────────
@@ -31,16 +31,17 @@ const mapApiSupplier = (s: any): Supplier => ({
   contactPerson: s.contact_person || s.contactPerson,
   contactPhone: s.contact_phone || s.contactPhone,
   status: s.status,
-  dateAdded: s.date_added || s.dateAdded || new Date().toISOString(),
+  dateAdded: s.date_added || s.dateAdded || "",
 })
 
 const mapApiIntake = (i: any): DailyIntake => ({
   id: i.id,
   supplierId: i.supplier_id || i.supplierId,
   supplierName: i.supplier_name || i.supplierName || i.source || "Unknown",
+  source: i.source || i.supplier_name || i.supplierName,
   batchNumber: i.batch_number || i.batchNumber,
   qrCode: i.qr_code || i.qrCode,
-  date: i.intake_date || i.date || new Date().toISOString().split("T")[0],
+  date: i.intake_date || i.date || "",
   status: i.status as "Active" | "Depleted",
   treatment: i.treatment,
   harvestedAt: i.harvested_at || i.harvestedAt,
@@ -104,60 +105,48 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   // ── Intake Operations ───────────────────────────────────────────────────
 
   const startIntake = useCallback(async (supplierId: string, batchNumber: string, treatment?: string) => {
-    try {
-      const resp = await api.intakes.create({ supplier_id: supplierId, batch_number: batchNumber, source: "Kiosk", treatment: treatment || "Natural" })
-      const newIntake = mapApiIntake(resp)
-      setIntakes((prev) => [newIntake, ...prev])
-      setActiveIntake(newIntake)
-      return newIntake
-    } catch (error) {
-      console.error("[InventoryContext] Failed to create intake", error)
-    }
+    const resp = await api.intakes.create({ supplier_id: supplierId, batch_number: batchNumber, source: "Kiosk", treatment: treatment || "Natural" })
+    const newIntake = mapApiIntake(resp)
+    setIntakes((prev) => [newIntake, ...prev])
+    setActiveIntake(newIntake)
+    return newIntake
   }, [])
 
-  const bulkUpdateIntakeInventory = useCallback((intakeId: string, status: InventoryStatus) => {
-    const intakeStatus = status === "In Stock" ? "Active" : "Depleted"
-    api.intakes.update(intakeId, { status: intakeStatus, inventory_status: status }).catch(() => {})
-    setIntakes((prev) => prev.map((i) => (i.id === intakeId ? { ...i, status: intakeStatus as "Active" | "Depleted" } : i)))
-    // Update scans via ScanContext
-    updateScansForIntake(intakeId, status)
+  const bulkUpdateIntakeInventory = useCallback(async (intakeId: string, status: InventoryStatus) => {
+    const result = await api.intakes.bulkInventory(intakeId, { inventory_status: status })
+    setIntakes((prev) => prev.map((i) => (i.id === intakeId ? { ...i, status: result.intake_status } : i)))
+    setActiveIntake((current) => current?.id === intakeId ? { ...current, status: result.intake_status } : current)
+    // Only change records and timestamps confirmed by the persisted response.
+    updateScansForIntake(result.updated_scan_ids, status, result.status_updated_at)
   }, [updateScansForIntake])
 
   // ── Supplier Operations ─────────────────────────────────────────────────
 
-  const addSupplier = useCallback((supplierData: Omit<Supplier, "id" | "dateAdded">) => {
+  const addSupplier = useCallback(async (supplierData: Omit<Supplier, "id" | "dateAdded">) => {
     const apiData = {
       name: supplierData.name,
       contact_person: supplierData.contactPerson,
       contact_phone: supplierData.contactPhone,
       status: supplierData.status,
     }
-    api.suppliers.create(apiData)
-      .then((newSup) => setSuppliers((prev) => [...prev, mapApiSupplier(newSup)]))
-      .catch(() => {
-        const newSupplier: Supplier = {
-          ...supplierData,
-          id: `SUP-${Math.floor(Math.random() * 1000000)}`.padStart(11, "0"),
-          dateAdded: new Date().toISOString(),
-        }
-        setSuppliers((prev) => [...prev, newSupplier])
-      })
+    const newSup = await api.suppliers.create(apiData)
+    setSuppliers((prev) => [...prev, mapApiSupplier(newSup)])
   }, [])
 
-  const updateSupplier = useCallback((id: string, data: Partial<Omit<Supplier, "id" | "dateAdded">>) => {
-    const apiData: any = { ...data }
+  const updateSupplier = useCallback(async (id: string, data: Partial<Omit<Supplier, "id" | "dateAdded">>) => {
+    const apiData: Record<string, unknown> = {}
+    if (data.name !== undefined) apiData.name = data.name
+    if (data.status !== undefined) apiData.status = data.status
     if (data.contactPerson !== undefined) apiData.contact_person = data.contactPerson
     if (data.contactPhone !== undefined) apiData.contact_phone = data.contactPhone
 
-    api.suppliers.update(id, apiData)
-      .then((updated) => setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, ...mapApiSupplier(updated) } : s))))
-      .catch(() => setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s))))
+    const updated = await api.suppliers.update(id, apiData)
+    setSuppliers((prev) => prev.map((s) => (s.id === id ? mapApiSupplier(updated) : s)))
   }, [])
 
-  const updateSupplierStatus = useCallback((id: string, status: "Active" | "Inactive") => {
-    api.suppliers.update(id, { status })
-      .then((updated) => setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, ...mapApiSupplier(updated) } : s))))
-      .catch(() => setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s))))
+  const updateSupplierStatus = useCallback(async (id: string, status: "Active" | "Inactive") => {
+    const updated = await api.suppliers.update(id, { status })
+    setSuppliers((prev) => prev.map((s) => (s.id === id ? mapApiSupplier(updated) : s)))
   }, [])
 
   return (

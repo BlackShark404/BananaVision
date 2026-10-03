@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
+from app.core.time import now_manila
 
 from fastapi import WebSocket
 
@@ -61,7 +62,7 @@ class ConnectionManager:
         message = json.dumps({
             "event": event,
             "data": data,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": now_manila().isoformat(),
         })
 
         clients = self._connections.get(room, [])
@@ -81,7 +82,7 @@ class ConnectionManager:
         message = json.dumps({
             "event": event,
             "data": data,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": now_manila().isoformat(),
         })
 
         all_clients = set()
@@ -103,7 +104,7 @@ class ConnectionManager:
         message = json.dumps({
             "event": event,
             "data": data,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": now_manila().isoformat(),
         })
         try:
             await websocket.send_text(message)

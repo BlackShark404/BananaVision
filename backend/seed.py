@@ -7,7 +7,8 @@ import base64
 import json
 import sqlalchemy
 import qrcode
-from datetime import datetime, timezone, timedelta
+from datetime import timedelta
+from app.core.time import now_manila
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -51,7 +52,7 @@ async def clear_database():
 async def seed_data():
     async with async_session_factory() as db:
         logger.info("Seeding data...")
-        now = datetime.now(timezone.utc)
+        now = now_manila()
 
         # 1. Roles
         admin_role = UserRole(name=RoleEnum.ADMIN.value, description="Full system access")

@@ -1,6 +1,7 @@
 """Dashboard response contracts; absent measurements remain null."""
 
-from datetime import date, datetime
+from datetime import date
+from app.schemas.timestamps import Timestamp
 from typing import Literal
 from uuid import UUID
 
@@ -12,7 +13,7 @@ DashboardSort = Literal["date", "confidence"]
 
 class DashboardScan(BaseModel):
     id: UUID
-    date_time: datetime
+    date_time: Timestamp
     cultivar: str | None
     ripeness: str | None
     confidence: float | None
@@ -41,7 +42,7 @@ class DashboardOperator(BaseModel):
 
 
 class DashboardSummary(BaseModel):
-    generated_at: datetime
+    generated_at: Timestamp
     business_date: date
     timezone: Literal["Asia/Manila"] = "Asia/Manila"
     total_scans: int
@@ -62,6 +63,6 @@ class DashboardScanList(BaseModel):
     total: int
     page: int
     page_size: int
-    generated_at: datetime
+    generated_at: Timestamp
     business_date: date
     timezone: Literal["Asia/Manila"] = "Asia/Manila"

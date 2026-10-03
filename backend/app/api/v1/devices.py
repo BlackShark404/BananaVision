@@ -4,7 +4,8 @@ Device routes.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+from app.core.time import now_manila
 
 from fastapi import APIRouter
 from sqlalchemy import select
@@ -24,7 +25,7 @@ router = APIRouter(prefix="/devices", tags=["Devices"])
 async def list_devices(db: DbSession, user: CurrentUser):
     """List all camera devices with live status from camera_manager."""
     probe_results = camera_manager.probe_all()
-    now = datetime.now(timezone.utc)
+    now = now_manila()
 
     result = await db.execute(select(Device).order_by(Device.camera_id))
     devices = result.scalars().all()

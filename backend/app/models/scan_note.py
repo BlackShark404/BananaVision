@@ -5,13 +5,15 @@ ScanNote ORM model.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
+from app.core.time import now_manila
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.db_types import ManilaDateTime
 
 
 class ScanNote(Base):
@@ -23,7 +25,7 @@ class ScanNote(Base):
     )
     text: Mapped[str] = mapped_column(Text, nullable=False)
     author_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    timestamp: Mapped[datetime] = mapped_column(ManilaDateTime(), default=now_manila
     )
 
     # Relationships

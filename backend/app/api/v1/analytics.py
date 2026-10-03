@@ -5,6 +5,7 @@ Analytics routes.
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
+from app.core.time import TIMEZONE_NAME, business_day_bounds, now_manila
 
 from fastapi import APIRouter, Query
 from sqlalchemy import select, func, case, extract, and_
@@ -35,7 +36,7 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 def _date_filter(range_key: str) -> datetime | None:
     """Return the start datetime for the given range key, or None for 'all'."""
-    now = datetime.now(timezone.utc)
+    now = now_manila()
     if range_key == "today":
         return now.replace(hour=0, minute=0, second=0, microsecond=0)
     elif range_key == "week":
@@ -119,10 +120,11 @@ async def analytics_summary(
 
     # ── 5. Scan trend (last 14 days) ────────────────────────────────────────
     scan_trend: list[ScanTrend] = []
-    today = datetime.now(timezone.utc).date()
+    today = now_manila().date()
     for i in range(13, -1, -1):
         day = today - timedelta(days=i)
-        q = select(func.count()).select_from(Scan).where(func.date(Scan.date_time) == day)
+        start, end = business_day_bounds(day)
+        q = select(func.count()).select_from(Scan).where(Scan.date_time >= start, Scan.date_time < end)
         if source != "all":
             q = q.where(Scan.source_text == source)
         count = (await db.execute(q)).scalar() or 0
@@ -221,14 +223,15 @@ async def analytics_summary(
     scans_by_source = [SourceCount(name=r.src, count=r.cnt) for r in source_rows]
 
     # ── 11. Hourly distribution ─────────────────────────────────────────────
+    local_hour = extract("hour", func.timezone(TIMEZONE_NAME, Scan.date_time))
     q = (
         select(
-            extract("hour", Scan.date_time).label("hr"),
+            local_hour.label("hr"),
             func.count().label("cnt"),
         )
         .select_from(Scan)
-        .group_by(extract("hour", Scan.date_time))
-        .order_by(extract("hour", Scan.date_time))
+        .group_by(local_hour)
+        .order_by(local_hour)
     )
     if conditions:
         q = q.where(and_(*conditions))

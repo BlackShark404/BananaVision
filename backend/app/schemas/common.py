@@ -5,7 +5,8 @@ Pydantic schemas for devices, sensors, suppliers, intakes, analytics, activity, 
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import date
+from app.schemas.timestamps import InputTimestamp, Timestamp
 
 from pydantic import BaseModel, Field
 
@@ -20,7 +21,7 @@ class DeviceResponse(BaseModel):
     label: str
     status: DeviceStatusEnum
     resolution: str | None = None
-    last_seen: datetime | None = None
+    last_seen: Timestamp | None = None
 
     model_config = {"from_attributes": True}
 
@@ -30,7 +31,7 @@ class DeviceResponse(BaseModel):
 class SensorReadingResponse(BaseModel):
     temperature: float
     humidity: float
-    recorded_at: datetime
+    recorded_at: Timestamp
     source: str = "DHT22"
 
     model_config = {"from_attributes": True}
@@ -63,7 +64,7 @@ class SupplierResponse(BaseModel):
     contact_person: str | None = None
     contact_phone: str | None = None
     status: ActiveStatusEnum
-    date_added: datetime
+    date_added: Timestamp
 
     model_config = {"from_attributes": True}
 
@@ -75,23 +76,24 @@ class IntakeCreate(BaseModel):
     batch_number: str | None = None
     source: str = "Kiosk"
     treatment: str | None = "Natural"  # "Natural" or "Ethephon"
-    harvested_at: datetime | None = None
-    treated_at: datetime | None = None
+    harvested_at: InputTimestamp | None = None
+    treated_at: InputTimestamp | None = None
 
 class IntakeResponse(BaseModel):
     id: uuid.UUID
     supplier_id: uuid.UUID | None = None
     supplier_name: str | None = None
+    source: str | None = None
     batch_number: str | None = None
     qr_code: str | None = None
     intake_date: date
     status: IntakeStatusEnum
     treatment: str | None = None
-    harvested_at: datetime | None = None
-    treated_at: datetime | None = None
-    spoiled_at: datetime | None = None
+    harvested_at: Timestamp | None = None
+    treated_at: Timestamp | None = None
+    spoiled_at: Timestamp | None = None
     scan_count: int = 0
-    created_at: datetime
+    created_at: Timestamp
 
 
 class IntakeStatusUpdate(BaseModel):
@@ -188,7 +190,7 @@ class ActivityLogResponse(BaseModel):
     action: str
     details: str | None = None
     ip_address: str | None = None
-    created_at: datetime
+    created_at: Timestamp
 
 
 class ActivityLogListResponse(BaseModel):

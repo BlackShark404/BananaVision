@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react"
 import { api } from "@/lib/api"
-import { setStoredUser } from "@/lib/auth"
+import { collectScanPages, storedTimestamp } from "@/lib/scanData"
 import { useAuth } from "@/context/AuthContext"
 import type { User, Device, ActivityLog, SystemConfig } from "@/types"
 import { useLocation } from "react-router-dom"
@@ -11,10 +11,14 @@ interface AdminContextType {
   users: User[]
   devices: Device[]
   activityLogs: ActivityLog[]
+  activityLoading: boolean
+  activityError: string | null
   config: SystemConfig
-  addUser: (user: Omit<User, "id">) => void
-  updateUser: (id: string, data: Partial<User>) => void
-  updateConfig: (cfg: Partial<SystemConfig>) => void
+  addUser: (user: Omit<User, "id">) => Promise<User>
+  updateUser: (id: string, data: Partial<User>) => Promise<User>
+  resetPassword: (id: string) => Promise<void>
+  resetPin: (id: string) => Promise<void>
+  updateConfig: (cfg: Partial<SystemConfig>) => Promise<SystemConfig>
   /** Called by ScanContext WebSocket handler when a device:status event arrives. */
   updateDeviceFromWs: (cameraId: string, status: string, lastSeen?: string) => void
 }
@@ -50,7 +54,7 @@ const mapApiDevice = (d: any): Device => ({
 
 const mapApiActivityLog = (a: any): ActivityLog => ({
   id: a.id,
-  timestamp: a.created_at || a.timestamp || new Date().toISOString(),
+  timestamp: storedTimestamp(a.created_at ?? a.timestamp),
   user: a.user_name || a.user || "System",
   action: a.action,
   details: a.details,
@@ -66,21 +70,27 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [users, setUsers] = useState<User[]>([])
   const [devices, setDevices] = useState<Device[]>([])
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([])
+  const [activityLoading, setActivityLoading] = useState(false)
+  const [activityError, setActivityError] = useState<string | null>(null)
   const [config, setConfig] = useState<SystemConfig>({ cameraIds: "CAM-001, CAM-002", confidenceThreshold: 85, dataRetentionEnabled: true })
 
   // ── Load data on mount / navigation ─────────────────────────────────────
 
   useEffect(() => {
     if (!user) return
+    const controller = new AbortController()
+    setActivityLoading(true)
+    setActivityError(null)
 
     const loadData = async () => {
       try {
         const [usersRes, devicesRes, activityRes, configRes] = await Promise.allSettled([
           api.users.list(),
           api.devices.list(),
-          api.activity.list({ per_page: 100 }),
+          collectScanPages((page, page_size, signal) => api.activity.list({ page, page_size }, signal), controller.signal),
           api.config.get(),
         ])
+        if (controller.signal.aborted) return
 
         if (usersRes.status === "fulfilled") {
           const raw = usersRes.value.items || usersRes.value as any
@@ -96,11 +106,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (activityRes.status === "fulfilled") {
-          const raw = (activityRes.value as any).items || activityRes.value as any
-          setActivityLogs(Array.isArray(raw) ? raw.map(mapApiActivityLog) : [])
+          setActivityLogs(activityRes.value.map(mapApiActivityLog))
         } else {
           console.warn("[AdminContext] Activity API unavailable")
+          setActivityError("Activity history could not be loaded completely. Please reload to retry.")
         }
+        setActivityLoading(false)
 
         if (configRes.status === "fulfilled") {
           setConfig({
@@ -116,7 +127,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    loadData()
+    void loadData()
+    return () => controller.abort()
   }, [user, pathname])
 
   // ── Reset on logout ─────────────────────────────────────────────────────
@@ -126,25 +138,28 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       setUsers([])
       setDevices([])
       setActivityLogs([])
+      setActivityLoading(false)
+      setActivityError(null)
     }
   }, [user])
 
   // ── CRUD Operations ─────────────────────────────────────────────────────
 
-  const addUser = useCallback((data: Omit<User, "id">) => {
+  const addUser = useCallback(async (data: Omit<User, "id">) => {
     const apiData = {
       username: data.username,
       full_name: data.fullName,
       role: data.role,
+      status: data.status,
       password: data.password || "banana123",
       pin: data.pin
     }
-    api.users.create(apiData)
-      .then((newUser) => setUsers((prev) => [...prev, mapApiUser(newUser)]))
-      .catch(() => setUsers((prev) => [...prev, { ...data, id: Math.random().toString(36).substring(2, 10) } as User]))
+    const savedUser = mapApiUser(await api.users.create(apiData))
+    setUsers((prev) => [...prev, savedUser])
+    return savedUser
   }, [])
 
-  const updateUser = useCallback((id: string, data: Partial<User>) => {
+  const updateUser = useCallback(async (id: string, data: Partial<User>) => {
     const apiData: any = { ...data }
     if (data.fullName !== undefined) apiData.full_name = data.fullName
     if (data.requiresPasswordChange !== undefined) apiData.requires_password_change = data.requiresPasswordChange
@@ -156,26 +171,34 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       delete apiData.avatar
     }
 
-    const applyLocally = () => {
-      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...data } : u)))
-      // Update auth user if editing own profile
-      if (user && user.id === id) {
-        updateAuthUser(data as any)
-      }
-    }
-
-    api.users.update(id, apiData)
-      .then((updated) => {
-        const mapped = mapApiUser(updated)
-        setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...mapped } : u)))
-        if (user && user.id === id) {
-          updateAuthUser(data as any)
-        }
+    const mapped = mapApiUser(await api.users.update(id, apiData))
+    setUsers((prev) => prev.map((u) => (u.id === id ? mapped : u)))
+    if (user?.id === id) {
+      updateAuthUser({
+        username: mapped.username,
+        fullName: mapped.fullName,
+        role: mapped.role,
+        avatar: mapped.avatar,
       })
-      .catch(() => applyLocally())
+    }
+    return mapped
   }, [user, updateAuthUser])
 
-  const updateConfig = useCallback((cfg: Partial<SystemConfig>) => {
+  const resetPassword = useCallback(async (id: string) => {
+    await api.users.resetPassword(id, "banana123")
+    setUsers(prev => prev.map(u => u.id === id
+      ? { ...u, requiresPasswordChange: true, passwordSetupReason: "password_reset" }
+      : u))
+  }, [])
+
+  const resetPin = useCallback(async (id: string) => {
+    await api.users.resetPin(id, "1234")
+    setUsers(prev => prev.map(u => u.id === id
+      ? { ...u, requiresPinChange: true, pinSetupReason: "pin_reset" }
+      : u))
+  }, [])
+
+  const updateConfig = useCallback(async (cfg: Partial<SystemConfig>) => {
     const apiData: Record<string, unknown> = {
       camera_ids: cfg.cameraIds,
       confidence_threshold: cfg.confidenceThreshold,
@@ -184,15 +207,17 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     // Remove undefined
     Object.keys(apiData).forEach(k => apiData[k] === undefined && delete apiData[k])
 
-    api.config.update(apiData)
-      .then(() => {
-        // Try to fetch updated devices from backend
-        api.devices.list().then(res => setDevices((res as any[]).map(mapApiDevice))).catch(console.error)
-      })
-      .catch(() => {
-        console.warn("[AdminContext] Config update failed")
-      })
-    setConfig((prev) => ({ ...prev, ...cfg }))
+    const saved = await api.config.update(apiData)
+    const mapped: SystemConfig = {
+      cameraIds: saved.camera_ids,
+      confidenceThreshold: saved.confidence_threshold,
+      dataRetentionEnabled: saved.data_retention_enabled,
+    }
+    setConfig(mapped)
+    if (cfg.cameraIds !== undefined) {
+      api.devices.list().then(res => setDevices(res.map(mapApiDevice))).catch(console.error)
+    }
+    return mapped
   }, [])
 
   // ── WebSocket handler for device status ─────────────────────────────────
@@ -212,9 +237,13 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       users,
       devices,
       activityLogs,
+      activityLoading,
+      activityError,
       config,
       addUser,
       updateUser,
+      resetPassword,
+      resetPin,
       updateConfig,
       updateDeviceFromWs,
     }}>

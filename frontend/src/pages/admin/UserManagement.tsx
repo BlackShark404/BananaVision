@@ -31,7 +31,8 @@ import type { Role } from "@/types"
 const PAGE_SIZE = 10
 
 export default function UserManagement() {
-  const { users, addUser, updateUser } = useAdmin()
+  const { users, addUser, updateUser, resetPassword, resetPin } = useAdmin()
+  const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -74,47 +75,63 @@ export default function UserManagement() {
     setIsDialogOpen(true)
   }
 
-  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (editingId) {
-      updateUser(editingId, formData)
-      toast.success("User updated")
-    } else {
-      const isOperator = formData.role === "Operator"
-      addUser({
-        ...formData,
-        lastActive: "Never",
-        password: "banana123",
-        requiresPasswordChange: true,
-        passwordSetupReason: "new_account",
-        ...(isOperator ? { pin: "1234", requiresPinChange: true, pinSetupReason: "new_account" as const } : {}),
-      })
-      toast.success(
-        isOperator
-          ? "User created with temporary credentials: password 'banana123' and PIN '1234'"
-          : "User created with temporary password 'banana123'"
-      )
+    if (saving) return
+    setSaving(true)
+    try {
+      if (editingId) {
+        await updateUser(editingId, formData)
+        toast.success("User updated")
+      } else {
+        const isOperator = formData.role === "Operator"
+        await addUser({
+          ...formData,
+          lastActive: "Never",
+          password: "banana123",
+          requiresPasswordChange: true,
+          passwordSetupReason: "new_account",
+          ...(isOperator ? { pin: "1234", requiresPinChange: true, pinSetupReason: "new_account" as const } : {}),
+        })
+        toast.success(
+          isOperator
+            ? "User created with temporary credentials: password 'banana123' and PIN '1234'"
+            : "User created with temporary password 'banana123'"
+        )
+      }
+      setIsDialogOpen(false)
+    } catch (error) {
+      toast.error("Could not save user", { description: error instanceof Error ? error.message : "Please try again." })
+    } finally {
+      setSaving(false)
     }
-    setIsDialogOpen(false)
   }
 
-  const confirmResetPassword = () => {
-    if (resetConfirmUser) {
-      updateUser(resetConfirmUser.id, {
-        requiresPasswordChange: true,
-        password: "banana123",
-        passwordSetupReason: "password_reset",
-      })
+  const confirmResetPassword = async () => {
+    if (!resetConfirmUser || saving) return
+    setSaving(true)
+    try {
+      await resetPassword(resetConfirmUser.id)
       toast.success(`Password for ${resetConfirmUser.fullName} reset to 'banana123'`)
       setResetConfirmUser(null)
+    } catch (error) {
+      toast.error("Could not reset password", { description: error instanceof Error ? error.message : "Please try again." })
+    } finally {
+      setSaving(false)
     }
   }
 
-  const confirmResetPin = () => {
-    if (resetConfirmPin) {
-      updateUser(resetConfirmPin.id, { requiresPinChange: true, pin: "1234", pinSetupReason: "pin_reset" })
+  const confirmResetPin = async () => {
+    if (!resetConfirmPin || saving) return
+    setSaving(true)
+    try {
+      await resetPin(resetConfirmPin.id)
       toast.success(`Kiosk PIN for ${resetConfirmPin.fullName} reset to '1234'`)
       setResetConfirmPin(null)
+    } catch (error) {
+      toast.error("Could not reset PIN", { description: error instanceof Error ? error.message : "Please try again." })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -288,7 +305,7 @@ export default function UserManagement() {
         }}
       />
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={open => !saving && setIsDialogOpen(open)}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit User" : "Add New User"}</DialogTitle>
@@ -332,14 +349,14 @@ export default function UserManagement() {
               </div>
             )}
             <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-              <Button type="submit">{editingId ? "Save Changes" : "Create User"}</Button>
+              <Button type="button" variant="outline" disabled={saving} onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={saving}>{saving ? "Saving..." : editingId ? "Save Changes" : "Create User"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!resetConfirmUser} onOpenChange={(open) => !open && setResetConfirmUser(null)}>
+      <AlertDialog open={!!resetConfirmUser} onOpenChange={(open) => !saving && !open && setResetConfirmUser(null)}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Reset Password</AlertDialogTitle>
@@ -350,15 +367,15 @@ export default function UserManagement() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-amber-600 focus:ring-amber-600 hover:bg-amber-700" onClick={confirmResetPassword}>
+            <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={saving} className="bg-amber-600 focus:ring-amber-600 hover:bg-amber-700" onClick={event => { event.preventDefault(); void confirmResetPassword() }}>
               Reset Password
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!resetConfirmPin} onOpenChange={(open) => !open && setResetConfirmPin(null)}>
+      <AlertDialog open={!!resetConfirmPin} onOpenChange={(open) => !saving && !open && setResetConfirmPin(null)}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Reset Kiosk PIN</AlertDialogTitle>
@@ -369,8 +386,8 @@ export default function UserManagement() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-amber-600 focus:ring-amber-600 hover:bg-amber-700" onClick={confirmResetPin}>
+            <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={saving} className="bg-amber-600 focus:ring-amber-600 hover:bg-amber-700" onClick={event => { event.preventDefault(); void confirmResetPin() }}>
               Reset PIN
             </AlertDialogAction>
           </AlertDialogFooter>

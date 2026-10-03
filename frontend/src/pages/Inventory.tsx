@@ -5,6 +5,7 @@ import { parseSpoilageAvg } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { Progress } from "@/components/ui/progress"
@@ -12,7 +13,7 @@ import { Package, AlertTriangle, TrendingDown, CheckCircle, Clock, Banana } from
 import { IntakeStatusEnum, InventoryStatusEnum, RipenessEnum, CultivarEnum } from "@/types"
 
 export default function Inventory() {
-  const { scans } = useScans()
+  const { scans, scansLoading, scansError, refreshScans } = useScans()
   const { intakes } = useInventory()
   const [sourceFilter, setSourceFilter] = useState<string>("all")
 
@@ -48,6 +49,8 @@ export default function Inventory() {
       if (existing) {
         existing.count += 1
         existing.fingers += s.fingerCount
+        const scanDate = new Date(s.dateTime)
+        if (scanDate < existing.oldestScanDate) existing.oldestScanDate = scanDate
         if (daysNum < existing.daysNum) {
           existing.daysNum = daysNum
           existing.spoilageDays = s.spoilageDays
@@ -133,6 +136,21 @@ export default function Inventory() {
     }
   }, [scans, intakes, sourceFilter])
 
+  if (scansLoading || scansError) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <AppPageHeader title="Inventory" description="Track stock levels and manage banana inventory" icon={Package} />
+        <Card className="rounded-xl sm:rounded-2xl">
+          <CardContent className="p-4 sm:p-6" role={scansError ? "alert" : "status"}>
+            <p className="text-sm text-muted-foreground">
+              {scansError ? "Complete scan history is unavailable. Refresh to view stock and FIFO recommendations." : "Loading complete scan history…"}
+            </p>
+            {scansError && <Button variant="outline" className="mt-3" onClick={() => { void refreshScans() }}>Retry</Button>}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">

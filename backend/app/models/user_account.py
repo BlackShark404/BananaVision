@@ -5,13 +5,15 @@ UserAccount ORM model.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
+from app.core.time import now_manila
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, Enum as SAEnum
+from sqlalchemy import Boolean, ForeignKey, String, Text, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.db_types import ManilaDateTime
 
 
 from app.schemas.enums import ActiveStatusEnum
@@ -43,15 +45,15 @@ class UserAccount(Base):
         String(50), nullable=True
     )
     last_active: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
+        ManilaDateTime(), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        ManilaDateTime(), default=now_manila
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        ManilaDateTime(),
+        default=now_manila,
+        onupdate=now_manila,
     )
 
     # Relationships

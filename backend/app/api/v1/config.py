@@ -9,9 +9,10 @@ import io
 import os
 import platform
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime
+from app.core.time import now_manila
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
@@ -77,7 +78,7 @@ async def update_config(body: SystemConfigUpdate, db: DbSession, admin: AdminUse
                 label=f"Scanner {idx + 1}",
                 status="Online",
                 resolution="1920x1080",
-                last_seen=datetime.now(timezone.utc)
+                last_seen=now_manila()
             ))
 
     if body.confidence_threshold is not None:
@@ -105,12 +106,13 @@ async def export_database(db: DbSession, admin: AdminUser):
     result = await db.execute(
         select(Scan)
         .options(selectinload(Scan.classification), selectinload(Scan.status_logs))
+        .order_by(Scan.date_time, Scan.id)
     )
     scans = result.scalars().all()
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Scan ID", "Date Time", "Cultivar", "Ripeness", "Confidence", "Inventory Status"])
+    writer.writerow(["Scan ID", "Date Time (UTC+08:00)", "Cultivar", "Ripeness", "Confidence", "Inventory Status"])
 
     for scan in scans:
         cultivar = scan.classification.cultivar if scan.classification else "N/A"
@@ -149,7 +151,7 @@ async def shutdown_system(db: DbSession, admin: AdminUser, request: Request):
         else:  # Linux
             subprocess.Popen(["sudo", "shutdown", "-h", "now"])
     except Exception as e:
-        print(f"Failed to execute shutdown: {e}")
+        raise HTTPException(status_code=503, detail="Failed to initiate system shutdown") from e
 
     return {"message": "System shutdown initiated"}
 
@@ -175,6 +177,6 @@ async def restart_system(db: DbSession, admin: AdminUser, request: Request):
         else:  # Linux
             subprocess.Popen(["sudo", "shutdown", "-r", "now"])
     except Exception as e:
-        print(f"Failed to execute restart: {e}")
+        raise HTTPException(status_code=503, detail="Failed to initiate system restart") from e
 
     return {"message": "System restart initiated"}

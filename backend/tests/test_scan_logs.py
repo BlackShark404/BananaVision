@@ -12,7 +12,7 @@ from sqlalchemy import update
 
 from app.api.deps import get_current_user
 from app.api.v1.scan_logs import router
-from app.core.database import get_db
+from app.core.database import get_db, get_stream_db
 from app.models.intake import Intake
 from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
@@ -229,6 +229,7 @@ def test_api_query_validation_authentication_export_and_page_independent_metrics
         yield db
 
     app.dependency_overrides[get_db] = database
+    app.dependency_overrides[get_stream_db] = database
     with TestClient(app) as client:
         assert client.get("/api/v1/scan-logs").status_code == 401
         assert client.get("/api/v1/scan-logs/export").status_code == 401

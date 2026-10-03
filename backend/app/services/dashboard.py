@@ -7,13 +7,14 @@ Intake status does not change a scan's inventory status.
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy import Float, and_, case, cast, extract, false, func, literal, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ForbiddenException
+from app.core.time import MANILA, as_manila, business_day_bounds, now_manila
 from app.models.intake import Intake
 from app.models.operator_profile import OperatorProfile
 from app.models.scan import Scan
@@ -33,27 +34,8 @@ from app.schemas.dashboard import (
 )
 from app.schemas.enums import InventoryStatusEnum, RoleEnum
 
-# Manila has no daylight-saving transitions for this system's operational dates.
-# The offset also works on Windows without an optional tzdata installation.
-MANILA = timezone(timedelta(hours=8), name="Asia/Manila")
 DEFAULT_CONFIDENCE_THRESHOLD = 85.0
 WHITESPACE = " \t\r\n\v\f\u00a0"
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def business_day_bounds(day: date) -> tuple[datetime, datetime]:
-    start = datetime.combine(day, time.min, tzinfo=MANILA).astimezone(timezone.utc)
-    return start, start + timedelta(days=1)
-
-
-def _as_utc(value: datetime) -> datetime:
-    # PostgreSQL preserves the zone; SQLite test projections return naive UTC.
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
 
 
 def _mean(value) -> float | None:
@@ -80,7 +62,7 @@ def _prediction_days():
 
 
 def _remaining_days(now: datetime):
-    elapsed = (extract("epoch", now) - extract("epoch", Scan.date_time)) / 86400.0
+    elapsed = (literal(now.timestamp()) - extract("epoch", Scan.date_time)) / 86400.0
     return _prediction_days() - elapsed
 
 
@@ -166,7 +148,7 @@ def _scan(row) -> DashboardScan:
     source_key, source_name = _source(row)
     return DashboardScan(
         id=row.id,
-        date_time=_as_utc(row.date_time),
+        date_time=as_manila(row.date_time),
         cultivar=row.cultivar,
         ripeness=row.ripeness,
         confidence=None if row.confidence is None else float(row.confidence),
@@ -220,7 +202,7 @@ def _source_filter(scans, key: str):
 async def get_summary(
     db: AsyncSession, user: UserAccount, business_date: date | None = None,
 ) -> DashboardSummary:
-    now = utc_now()
+    now = now_manila()
     day = business_date or now.astimezone(MANILA).date()
     scans = _scoped_projection(user, now)
     threshold = await _threshold(db)
@@ -246,6 +228,7 @@ async def get_summary(
             func.count().label("scan_count"),
             func.avg(scans.c.confidence).label("avg_confidence"),
         )
+        .where(today)
         .group_by(scans.c.operator_id, scans.c.operator_name, scans.c.username)
         .order_by(func.count().desc(), scans.c.operator_name, scans.c.operator_id)
     )).all()
@@ -262,17 +245,12 @@ async def get_summary(
     )).one()
     success_rate = (alerts.success_count / alerts.total * 100.0) if alerts.total > 0 else None
     
-    active_sources_query = (await db.execute(
-        select(scans.c.supplier_id, scans.c.source_text)
-        .group_by(scans.c.supplier_id, scans.c.source_text)
-    )).all()
-    
     return DashboardSummary(
         generated_at=now, business_date=day,
         total_scans=totals.total, avg_confidence=_mean(totals.confidence),
         success_rate=None if success_rate is None else round(success_rate, 1),
         active_operator_count=len(operator_rows),
-        active_source_count=len(active_sources_query),
+        active_source_count=len(source_rows),
         sources=[
             DashboardSource(key=_source(r)[0], name=r.source_name, count=r.count)
             for r in source_rows
@@ -293,7 +271,7 @@ async def list_scans(
     source_key: str | None = None, operator_id: UUID | None = None,
     sort: DashboardSort = "date",
 ) -> DashboardScanList:
-    now = utc_now()
+    now = now_manila()
     day = business_date if view == "today" and business_date else now.astimezone(MANILA).date()
     scans = _scoped_projection(user, now)
     conditions = []

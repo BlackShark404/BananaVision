@@ -5,7 +5,7 @@ Pydantic schemas for user management.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from app.schemas.timestamps import Timestamp
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -24,9 +24,11 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=4, max_length=128)
     pin: str | None = Field(None, min_length=4, max_length=4)
     role: RoleEnum = RoleEnum.OPERATOR
+    status: ActiveStatusEnum = ActiveStatusEnum.ACTIVE
 
 
 class UserUpdate(BaseModel):
+    username: str | None = Field(None, min_length=2, max_length=50)
     full_name: str | None = None
     role: RoleEnum | None = None
     status: ActiveStatusEnum | None = None
@@ -58,8 +60,8 @@ class UserResponse(BaseModel):
     avatar_url: str | None = None
     requires_password_change: bool = False
     requires_pin_change: bool = False
-    last_active: datetime | None = None
-    created_at: datetime
+    last_active: Timestamp | None = None
+    created_at: Timestamp
 
     model_config = {"from_attributes": True}
 

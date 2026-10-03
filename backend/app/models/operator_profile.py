@@ -5,13 +5,15 @@ OperatorProfile ORM model.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
+from app.core.time import now_manila
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.db_types import ManilaDateTime
 
 
 class OperatorProfile(Base):
@@ -28,11 +30,11 @@ class OperatorProfile(Base):
     )
     total_scans: Mapped[int] = mapped_column(Integer, default=0)
     flagged_scans: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    created_at: Mapped[datetime] = mapped_column(ManilaDateTime(), default=now_manila
     )
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+    updated_at: Mapped[datetime] = mapped_column(ManilaDateTime(),
+        default=now_manila,
+        onupdate=now_manila,
     )
 
     # Relationships

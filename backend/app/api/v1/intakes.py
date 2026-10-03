@@ -9,7 +9,8 @@ import qrcode
 import io
 import base64
 import json
-from datetime import datetime, timezone
+from datetime import datetime
+from app.core.time import now_manila
 
 from fastapi import APIRouter, Request
 from sqlalchemy import select, func, desc
@@ -37,7 +38,7 @@ router = APIRouter(prefix="/intakes", tags=["Intakes"])
 @router.post("", response_model=IntakeResponse)
 async def create_intake(body: IntakeCreate, db: DbSession, user: CurrentUser, request: Request):
     """Create a new delivery intake."""
-    now = datetime.now(timezone.utc)
+    now = now_manila()
 
     # Parse treatment enum
     treatment_val = None
@@ -92,6 +93,7 @@ async def create_intake(body: IntakeCreate, db: DbSession, user: CurrentUser, re
         id=new_intake.id,
         supplier_id=new_intake.supplier_id,
         supplier_name=sup.name if sup else None,
+        source=new_intake.source,
         batch_number=new_intake.batch_number,
         qr_code=new_intake.qr_code,
         intake_date=new_intake.intake_date,
@@ -124,6 +126,7 @@ async def list_intakes(db: DbSession, user: CurrentUser):
             id=intake.id,
             supplier_id=intake.supplier_id,
             supplier_name=intake.supplier.name if intake.supplier else None,
+            source=intake.source,
             batch_number=intake.batch_number,
             qr_code=intake.qr_code,
             intake_date=intake.intake_date,
@@ -177,14 +180,14 @@ async def bulk_update_intake_inventory(
     )
     scans = scans_result.scalars().all()
 
-    now = datetime.now(timezone.utc)
-    updated = 0
+    now = now_manila()
+    updated_ids = []
     for scan in scans:
         current_status = scan.status_logs[-1].inventory_status if scan.status_logs else InventoryStatusEnum.IN_STOCK
         if current_status not in (InventoryStatusEnum.SOLD, InventoryStatusEnum.SPOILED):
-            db.add(ScanStatusLog(scan_id=scan.id, inventory_status=body.inventory_status))
+            db.add(ScanStatusLog(scan_id=scan.id, inventory_status=body.inventory_status, updated_at=now))
             scan.updated_at = now
-            updated += 1
+            updated_ids.append(str(scan.id))
 
     # Update intake status based on inventory
     intake.status = IntakeStatusEnum.ACTIVE if body.inventory_status == InventoryStatusEnum.IN_STOCK else IntakeStatusEnum.DEPLETED
@@ -192,8 +195,12 @@ async def bulk_update_intake_inventory(
     db.add(ActivityLog(
         user_id=admin.id,
         action="intake_status_changed",
-        details=f"Bulk updated {updated} scans in intake {intake_id} → {body.inventory_status}",
+        details=f"Bulk updated {len(updated_ids)} scans in intake {intake_id} → {body.inventory_status}",
         ip_address=request.client.host if request.client else None,
     ))
 
-    return {"message": f"Updated {updated} scans", "updated_count": updated}
+    return {
+        "message": f"Updated {len(updated_ids)} scans", "updated_count": len(updated_ids),
+        "updated_scan_ids": updated_ids, "status_updated_at": now,
+        "intake_status": intake.status,
+    }

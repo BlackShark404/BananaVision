@@ -87,7 +87,7 @@ def _row(row) -> ScanLogRow:
         intake_id=row.intake_id,
         is_overridden=bool(row.is_overridden),
         status_updated_at=(
-            None if row.status_updated_at is None else dashboard._as_utc(row.status_updated_at)
+            None if row.status_updated_at is None else dashboard.as_manila(row.status_updated_at)
         ),
     )
 
@@ -112,7 +112,7 @@ async def _options(db: AsyncSession, scans) -> ScanLogOptions:
 async def list_scan_logs(
     db: AsyncSession, user: UserAccount, query: ScanLogQuery,
 ) -> ScanLogList:
-    now = dashboard.utc_now()
+    now = dashboard.now_manila()
     scans = dashboard._scoped_projection(user, now)
     threshold = await dashboard._threshold(db)
     conditions = _conditions(scans, query, threshold)
@@ -149,7 +149,7 @@ def _safe_cell(value):
 
 async def export_scan_logs(db: AsyncSession, user: UserAccount, query: ScanLogQuery):
     """Return a stream over ALL matching records, with bounded fetch/output buffers."""
-    now = dashboard.utc_now()
+    now = dashboard.now_manila()
     scans = dashboard._scoped_projection(user, now)
     threshold = await dashboard._threshold(db)
     statement = (
@@ -163,10 +163,10 @@ async def export_scan_logs(db: AsyncSession, user: UserAccount, query: ScanLogQu
         output = io.StringIO(newline="")
         writer = csv.writer(output)
         writer.writerow([
-            "Scan ID", "Scanned At (UTC)", "Operator", "Operator Username", "Source",
+            "Scan ID", "Scanned At (UTC+08:00)", "Operator", "Operator Username", "Source",
             "Cultivar", "Ripeness", "Confidence (%)", "Inventory Status", "Flagged",
             "Original Shelf Life (days)", "Remaining Shelf Life (days)", "Finger Count",
-            "Temperature (C)", "Humidity (%)", "Intake ID", "Overridden", "Status Updated At (UTC)",
+            "Temperature (C)", "Humidity (%)", "Intake ID", "Overridden", "Status Updated At (UTC+08:00)",
         ])
         try:
             yield "\ufeff" + output.getvalue()

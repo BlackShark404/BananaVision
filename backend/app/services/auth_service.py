@@ -5,7 +5,8 @@ Authentication service — login, PIN swap, password/PIN changes.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
+from app.core.time import now_manila
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,7 +53,7 @@ async def authenticate_user(
         return "requires_password_change", user, reason
 
     # Update last_active
-    user.last_active = datetime.now(timezone.utc)
+    user.last_active = now_manila()
     return "success", user, None
 
 
@@ -83,7 +84,7 @@ async def swap_operator(
         reason = user.operator_profile.pin_setup_reason or "pin_change"
         return "requires_pin_change", user, reason
 
-    user.last_active = datetime.now(timezone.utc)
+    user.last_active = now_manila()
     return "success", user, None
 
 
@@ -104,7 +105,7 @@ async def change_password(
     user.password_hash = hash_password(new_password)
     user.requires_password_change = False
     user.password_setup_reason = None
-    user.last_active = datetime.now(timezone.utc)
+    user.last_active = now_manila()
     return user
 
 
@@ -125,7 +126,7 @@ async def change_pin(
     user.operator_profile.pin_hash = hash_pin(new_pin)
     user.operator_profile.requires_pin_change = False
     user.operator_profile.pin_setup_reason = None
-    user.last_active = datetime.now(timezone.utc)
+    user.last_active = now_manila()
     return user
 
 

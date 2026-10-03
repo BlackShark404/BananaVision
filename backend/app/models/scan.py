@@ -5,13 +5,15 @@ Scan ORM model — the core scan record.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
+from app.core.time import now_manila
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.db_types import ManilaDateTime
 
 
 class Scan(Base):
@@ -19,7 +21,7 @@ class Scan(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    date_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
+    date_time: Mapped[datetime] = mapped_column(ManilaDateTime(), default=now_manila, index=True
     )
     flagged: Mapped[bool] = mapped_column(Boolean, default=False)
     is_overridden: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -28,16 +30,16 @@ class Scan(Base):
     intake_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("delivery_intake.id", ondelete="SET NULL"), nullable=True, index=True
     )
     source_text: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+    updated_at: Mapped[datetime] = mapped_column(ManilaDateTime(),
+        default=now_manila,
+        onupdate=now_manila,
     )
 
     # Relationships
     operator = relationship("OperatorProfile", back_populates="scans", lazy="selectin")
     intake = relationship("Intake", back_populates="scans", lazy="selectin")
     classification = relationship("ScanClassification", back_populates="scan", uselist=False, lazy="selectin", cascade="all, delete-orphan")
-    status_logs = relationship("ScanStatusLog", back_populates="scan", lazy="selectin", cascade="all, delete-orphan")
+    status_logs = relationship("ScanStatusLog", back_populates="scan", lazy="selectin", cascade="all, delete-orphan", order_by="(ScanStatusLog.updated_at, ScanStatusLog.id)")
     original_ai_result = relationship("ScanOriginalAiResult", back_populates="scan", uselist=False, lazy="selectin", cascade="all, delete-orphan")
     detections = relationship("ScanDetection", back_populates="scan", lazy="selectin", cascade="all, delete-orphan")
     images = relationship("ScanImage", back_populates="scan", lazy="selectin", cascade="all, delete-orphan")

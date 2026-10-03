@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 
 import { api } from "@/lib/api"
+import { toast } from "sonner"
 import type { AppNotification, NotificationType } from "@/types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -80,6 +81,7 @@ export function AppNotifications() {
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [open, setOpen] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [markingRead, setMarkingRead] = useState(false)
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -114,18 +116,31 @@ export function AppNotifications() {
 
   const unreadCount = useMemo(() => filteredNotifications.filter((n) => !n.read).length, [filteredNotifications])
 
-  const markAsRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
-    api.notifications.markRead(id).catch(() => {})
+  const markAsRead = async (id: string) => {
+    try {
+      await api.notifications.markRead(id)
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+    } catch (error) {
+      toast.error("Could not mark notification as read", { description: error instanceof Error ? error.message : "Please try again." })
+    }
   }
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-    api.notifications.markAllRead().catch(() => {})
+  const markAllAsRead = async () => {
+    if (markingRead) return
+    setMarkingRead(true)
+    const ids = new Set(notifications.map(notification => notification.id))
+    try {
+      await api.notifications.markAllRead()
+      setNotifications((prev) => prev.map((n) => ids.has(n.id) ? { ...n, read: true } : n))
+    } catch (error) {
+      toast.error("Could not mark notifications as read", { description: error instanceof Error ? error.message : "Please try again." })
+    } finally {
+      setMarkingRead(false)
+    }
   }
 
   const handleNotificationClick = (notification: AppNotification) => {
-    markAsRead(notification.id)
+    if (!notification.read) void markAsRead(notification.id)
     if (notification.href) {
       navigate(notification.href)
       setOpen(false)
@@ -171,6 +186,7 @@ export function AppNotifications() {
               size="sm"
               className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground"
               onClick={markAllAsRead}
+              disabled={markingRead}
             >
               <Check className="w-3 h-3 mr-1" />
               Mark all read

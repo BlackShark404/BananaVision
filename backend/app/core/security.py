@@ -7,7 +7,8 @@ bcrypt >= 4.1 and Python >= 3.13).
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+from app.core.time import now_manila
 
 import jwt
 from jwt.exceptions import PyJWTError
@@ -50,7 +51,7 @@ def create_access_token(
 ) -> str:
     """Create a signed JWT access token."""
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (
+    expire = now_manila() + (
         expires_delta
         or timedelta(minutes=settings.jwt_access_token_expire_minutes)
     )

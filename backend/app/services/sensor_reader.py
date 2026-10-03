@@ -11,7 +11,8 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
+from app.core.time import now_manila
 
 from app.config import get_settings
 from app.core.exceptions import SensorError
@@ -109,7 +110,7 @@ class SensorReader:
                 data = SensorData(
                     temperature=parts["TEMP"],
                     humidity=parts["HUM"],
-                    recorded_at=datetime.now(timezone.utc),
+                    recorded_at=now_manila(),
                 )
                 self._latest = data
                 return data

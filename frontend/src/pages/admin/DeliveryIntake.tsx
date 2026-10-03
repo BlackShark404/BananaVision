@@ -2,7 +2,6 @@ import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { useScans } from "@/context/ScanContext"
 import { useInventory } from "@/context/InventoryContext"
-import { Card } from "@/components/ui/card"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,8 +34,6 @@ import {
   Download, 
   Activity, 
   ArchiveRestore, 
-  ChevronsLeft, 
-  ChevronsRight, 
   CheckCircle, 
   MoreVertical, 
   Box, 
@@ -62,12 +59,13 @@ const PAGE_SIZE = 15
 
 export default function DeliveryIntake() {
   const navigate = useNavigate()
-  const { scans } = useScans()
+  const { scans, scansLoading, scansError } = useScans()
   const { intakes, bulkUpdateIntakeInventory } = useInventory()
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("Active")
   const [confirmAction, setConfirmAction] = useState<{ intakeId: string; status: InventoryStatus; scanCount: number } | null>(null)
   const [sourceFilter, setSourceFilter] = useState<string>("all")
+  const [saving, setSaving] = useState(false)
 
   const activeSources = useMemo(() => Array.from(new Set(intakes.map(i => i.source).filter(Boolean))).sort(), [intakes])
 
@@ -138,20 +136,35 @@ export default function DeliveryIntake() {
     toast.success("Export successful", { description: `${filtered.length} intakes exported to CSV` })
   }
 
-  const handleBulkUpdate = (intake: { id: string; inventoryStatus: InventoryStatus; scanCount: number }, status: InventoryStatus) => {
+  const handleBulkUpdate = async (intake: { id: string; inventoryStatus: InventoryStatus; scanCount: number }, status: InventoryStatus) => {
+    if (saving || scansLoading || scansError) return
     if (TERMINAL_STATUSES.includes(status)) {
       setConfirmAction({ intakeId: intake.id, status, scanCount: intake.scanCount })
       return
     }
-    bulkUpdateIntakeInventory(intake.id, status)
-    toast.success(`Intake and scans marked as ${status}`)
+    setSaving(true)
+    try {
+      await bulkUpdateIntakeInventory(intake.id, status)
+      toast.success(`Intake and scans marked as ${status}`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update intake")
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const confirmBulkUpdate = () => {
-    if (!confirmAction) return
-    bulkUpdateIntakeInventory(confirmAction.intakeId, confirmAction.status)
-    toast.success(`Intake and scans marked as ${confirmAction.status}`)
-    setConfirmAction(null)
+  const confirmBulkUpdate = async () => {
+    if (!confirmAction || saving || scansLoading || scansError) return
+    setSaving(true)
+    try {
+      await bulkUpdateIntakeInventory(confirmAction.intakeId, confirmAction.status)
+      toast.success(`Intake and scans marked as ${confirmAction.status}`)
+      setConfirmAction(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update intake")
+    } finally {
+      setSaving(false)
+    }
   }
 
   const columns: ColumnDef<any>[] = [
@@ -165,7 +178,7 @@ export default function DeliveryIntake() {
       header: "Date",
       sortable: true,
       sortKey: "date",
-      cell: (intake) => new Date(intake.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      cell: (intake) => intake.date ? new Date(intake.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—",
     },
     {
       header: "Supplier",
@@ -271,7 +284,7 @@ export default function DeliveryIntake() {
               { status: "Spoiled" as InventoryStatus, icon: AlertTriangle, color: "text-red-500" },
             ] as const).map(({ status, icon: ItemIcon, color }) => {
               const allowed = VALID_TRANSITIONS[intake.inventoryStatus] || []
-              const isDisabled = !allowed.includes(status) || intake.inventoryStatus === status
+              const isDisabled = saving || scansLoading || !!scansError || !allowed.includes(status) || intake.inventoryStatus === status
               return (
                 <DropdownMenuItem
                   key={status}
@@ -293,7 +306,7 @@ export default function DeliveryIntake() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Confirmation Dialog for terminal statuses */}
-      <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
+      <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && !saving && setConfirmAction(null)}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -309,9 +322,10 @@ export default function DeliveryIntake() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmBulkUpdate}
+              disabled={saving || scansLoading || !!scansError}
+              onClick={(event) => { event.preventDefault(); void confirmBulkUpdate() }}
               className={confirmAction?.status === "Spoiled" ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}
             >
               Confirm
@@ -325,12 +339,18 @@ export default function DeliveryIntake() {
         description="Monitor automated, scan-driven implicit delivery intakes"
         icon={Package}
         action={
-          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={exportToCSV}>
+          <Button variant="outline" className="gap-2 w-full sm:w-auto" disabled={scansLoading || !!scansError} onClick={exportToCSV}>
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export CSV</span>
           </Button>
         }
       />
+
+      {(scansLoading || scansError) && (
+        <p role={scansError ? "alert" : "status"} className="text-sm text-muted-foreground">
+          {scansError ? "Scan history is unavailable. Reload before updating or exporting intakes." : "Loading complete scan history…"}
+        </p>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useAdmin } from "@/context/AdminContext"
 import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -31,6 +31,7 @@ import { CameraCalibrationModal } from "@/components/CameraCalibrationModal"
 export default function SystemConfig() {
   const { config, updateConfig } = useAdmin()
   const [localConfig, setLocalConfig] = useState(config)
+  const previousConfig = useRef(config)
   const [saving, setSaving] = useState(false)
   const [showShutdownDialog, setShowShutdownDialog] = useState(false)
   const [showRestartDialog, setShowRestartDialog] = useState(false)
@@ -38,7 +39,13 @@ export default function SystemConfig() {
   const [editCameraValue, setEditCameraValue] = useState("")
 
   useEffect(() => {
-    setLocalConfig(config)
+    const previous = previousConfig.current
+    previousConfig.current = config
+    setLocalConfig(draft => ({
+      cameraIds: draft.cameraIds === previous.cameraIds ? config.cameraIds : draft.cameraIds,
+      confidenceThreshold: draft.confidenceThreshold === previous.confidenceThreshold ? config.confidenceThreshold : draft.confidenceThreshold,
+      dataRetentionEnabled: draft.dataRetentionEnabled === previous.dataRetentionEnabled ? config.dataRetentionEnabled : draft.dataRetentionEnabled,
+    }))
   }, [config])
 
   const hasChanges = JSON.stringify(localConfig) !== JSON.stringify(config)
@@ -79,13 +86,17 @@ export default function SystemConfig() {
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (saving) return
     setSaving(true)
-    setTimeout(() => {
-      updateConfig(localConfig)
-      setSaving(false)
+    try {
+      setLocalConfig(await updateConfig(localConfig))
       toast.success("Settings saved successfully")
-    }, 800)
+    } catch (error) {
+      toast.error("Settings could not be saved", { description: error instanceof Error ? error.message : "Please try again." })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleUndo = () => {
@@ -107,14 +118,24 @@ export default function SystemConfig() {
     }
   }
 
-  const toggleDataRetention = () => {
+  const toggleDataRetention = async () => {
+    if (saving) return
     const newState = !localConfig.dataRetentionEnabled
-    setLocalConfig({...localConfig, dataRetentionEnabled: newState})
-    updateConfig({ dataRetentionEnabled: newState })
-    toast.success(
-      newState ? "Data Retention Enabled" : "Data Retention Disabled",
-      { description: newState ? "Logs older than 30 days will be deleted automatically" : "All logs will be kept indefinitely" }
-    )
+    const draft = localConfig
+    setSaving(true)
+    try {
+      const saved = await updateConfig({ dataRetentionEnabled: newState })
+      // Retention saves independently; keep unsaved camera/threshold edits.
+      setLocalConfig({ ...draft, dataRetentionEnabled: saved.dataRetentionEnabled })
+      toast.success(
+        saved.dataRetentionEnabled ? "Data Retention Enabled" : "Data Retention Disabled",
+        { description: saved.dataRetentionEnabled ? "Logs older than 30 days will be deleted automatically" : "All logs will be kept indefinitely" }
+      )
+    } catch (error) {
+      toast.error("Data retention could not be updated", { description: error instanceof Error ? error.message : "Please try again." })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleShutdown = async () => {
@@ -324,6 +345,7 @@ export default function SystemConfig() {
                 <Button 
                   variant={localConfig.dataRetentionEnabled ? "default" : "outline"} 
                   onClick={toggleDataRetention} 
+                  disabled={saving}
                   className="w-full sm:w-auto"
                 >
                   {localConfig.dataRetentionEnabled ? "Enabled" : "Disabled"}

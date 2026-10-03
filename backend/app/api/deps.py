@@ -11,7 +11,7 @@ from fastapi import Depends, Header
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.database import get_db, get_stream_db
 from app.core.exceptions import CredentialsException, ForbiddenException
 from app.core.security import decode_access_token
 from app.models.user_account import UserAccount
@@ -19,7 +19,7 @@ from sqlalchemy.orm import selectinload
 from app.schemas.enums import ActiveStatusEnum, RoleEnum
 
 async def get_current_user(
-    db: Annotated[AsyncSession, Depends(get_db)],
+    db: Annotated[AsyncSession, Depends(get_db, scope="function")],
     authorization: str = Header(default=""),
 ) -> UserAccount:
     """Extract and validate the current user from the Authorization header."""
@@ -63,6 +63,7 @@ async def require_admin(
 
 
 # Type aliases for dependency injection
-DbSession = Annotated[AsyncSession, Depends(get_db)]
+DbSession = Annotated[AsyncSession, Depends(get_db, scope="function")]
+StreamDbSession = Annotated[AsyncSession, Depends(get_stream_db, scope="request")]
 CurrentUser = Annotated[UserAccount, Depends(get_current_user)]
 AdminUser = Annotated[UserAccount, Depends(require_admin)]

@@ -5,12 +5,14 @@ Sensor reading model for storing continuous background environment logs.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
+from app.core.time import now_manila
 
-from sqlalchemy import Float, String, DateTime
+from sqlalchemy import Float, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.core.db_types import ManilaDateTime
 
 
 class SensorReading(Base):
@@ -20,6 +22,6 @@ class SensorReading(Base):
     temperature: Mapped[float] = mapped_column(Float, nullable=False)
     humidity: Mapped[float] = mapped_column(Float, nullable=False)
     recorded_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        ManilaDateTime(), default=now_manila
     )
     source: Mapped[str] = mapped_column(String(50), default="DHT22")

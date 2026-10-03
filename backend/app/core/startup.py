@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
+from app.core.time import now_manila
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -205,7 +206,7 @@ async def start_background_tasks():
                             else f"Camera {idx + 1}"
                         )
                         new_status = DeviceStatusEnum.ONLINE if is_online else DeviceStatusEnum.OFFLINE
-                        now = datetime.now(timezone.utc)
+                        now = now_manila()
 
                         # Update DB
                         result = await db.execute(select(Device).where(Device.camera_id == camera_id))
@@ -222,6 +223,9 @@ async def start_background_tasks():
                                 last_seen=now if is_online else None,
                             ))
 
+                        # Do not announce a state that the database rejected.
+                        await db.commit()
+                        last_known[dev_id] = is_online
                         logger.info(f"Camera {camera_id} status changed: {'Online' if is_online else 'Offline'}")
 
                         # Broadcast to WS rooms
@@ -295,14 +299,14 @@ async def _register_cameras(db: AsyncSession, results: dict[int, bool]):
         if device:
             device.status = DeviceStatusEnum.ONLINE if success else DeviceStatusEnum.OFFLINE
             device.resolution = resolution
-            device.last_seen = datetime.now(timezone.utc) if success else device.last_seen
+            device.last_seen = now_manila() if success else device.last_seen
         else:
             db.add(Device(
                 camera_id=camera_id,
                 label=label,
                 status=DeviceStatusEnum.ONLINE if success else DeviceStatusEnum.OFFLINE,
                 resolution=resolution,
-                last_seen=datetime.now(timezone.utc) if success else None,
+                last_seen=now_manila() if success else None,
             ))
 
     await db.commit()
