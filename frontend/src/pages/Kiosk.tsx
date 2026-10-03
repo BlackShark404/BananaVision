@@ -80,7 +80,7 @@ export default function Kiosk() {
   const [kioskActiveDetImg, setKioskActiveDetImg] = useState(0)
 
   // Backend camera list with actual device IDs (excludes laptop camera)
-  const [backendCameras, setBackendCameras] = useState<{ device_id: number; label: string; online: boolean }[]>([])
+  const [backendCameras, setBackendCameras] = useState<{ device_id: number; camera_id: string; label: string; online: boolean }[]>([])
 
   // Fetch camera list from backend on mount to get actual device IDs
   useEffect(() => {
@@ -95,13 +95,13 @@ export default function Kiosk() {
   // Generate cameras from backend device list (preferred) or fall back to config labels
   const cameras = backendCameras.length > 0
     ? backendCameras.map((cam, index) => ({
-      id: `CAM-${String(index + 1).padStart(3, "0")}`,
+      id: cam.camera_id,
       deviceId: cam.device_id,
       label: cam.label,
       angle: cameraAngles[index] || `Angle ${index + 1}`,
     }))
     : config.cameraIds.split(",").map(s => s.trim()).filter(Boolean).map((id, index) => ({
-      id: `CAM-${String(index + 1).padStart(3, "0")}`,
+      id: id,
       deviceId: index,
       label: id,
       angle: cameraAngles[index] || `Angle ${index + 1}`,

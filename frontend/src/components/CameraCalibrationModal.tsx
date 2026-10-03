@@ -93,7 +93,7 @@ export function CameraCalibrationModal() {
           <div className="py-8 flex justify-center"><RefreshCw className="animate-spin w-8 h-8 text-primary" /></div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {cameras.map((cam) => (
+            {cameras.map((cam, index) => (
               <div key={cam.device_id} className="border rounded-xl p-2 bg-muted/10 space-y-2">
                 <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
                   {cam.online ? (
@@ -111,7 +111,7 @@ export function CameraCalibrationModal() {
                     </div>
                   )}
                   <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
-                    ID: {cam.device_id}
+                    {cam.camera_id}
                   </div>
                 </div>
                 

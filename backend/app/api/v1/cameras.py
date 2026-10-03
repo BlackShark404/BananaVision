@@ -16,21 +16,41 @@ settings = get_settings()
 router = APIRouter(prefix="/cameras", tags=["Cameras"])
 
 
+from app.api.deps import DbSession
+from sqlalchemy.future import select
+from app.models.system_config import SystemConfig
+
 @router.get("")
-async def list_cameras():
+async def list_cameras(db: DbSession):
     """
     List all configured cameras with their device IDs and online status.
     No auth required — used by the kiosk to map cameras to preview streams.
     """
-    result = []
+    # Fetch configured camera IDs from system config
+    result = await db.execute(select(SystemConfig).limit(1))
+    config = result.scalar_one_or_none()
+    
+    configured_ids = []
+    if config and config.camera_ids:
+        configured_ids = [s.strip() for s in config.camera_ids.split(",") if s.strip()]
+
+    cameras = []
     for idx, dev_id in enumerate(settings.camera_device_ids):
         label = settings.camera_labels[idx] if idx < len(settings.camera_labels) else f"CAM-{dev_id}"
-        result.append({
+        
+        # Use custom ID from config if available, otherwise fallback
+        if idx < len(configured_ids):
+            camera_id = configured_ids[idx]
+        else:
+            camera_id = f"CAM-{idx + 1:03d}"
+            
+        cameras.append({
             "device_id": dev_id,
+            "camera_id": camera_id,
             "label": label,
             "online": dev_id in camera_manager.online_cameras,
         })
-    return result
+    return cameras
 
 async def generate_frames(camera_index: int, fps: int = 15):
     """

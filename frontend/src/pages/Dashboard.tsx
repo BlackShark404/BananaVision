@@ -364,7 +364,7 @@ function DashboardContent() {
         {cameras.data && devices.length > 0 && onlineCameras === 0 && <p className="text-sm text-muted-foreground mb-3">No cameras are currently online. <Link to="/devices" className="underline">Check Device Status</Link> to troubleshoot.</p>}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {cameras.data ? devices.length ? devices.map((camera, index) => (
-            <DashboardCamera key={`${camera.device_id}:${camera.online}`} camera={camera} cameraId={`CAM-${String(index + 1).padStart(3, "0")}`} stale={staleCameras} />
+            <DashboardCamera key={`${camera.device_id}:${camera.online}`} camera={camera} cameraId={camera.camera_id} stale={staleCameras} />
           )) : <Card className="col-span-full rounded-lg sm:rounded-xl"><CardContent className="py-6 text-center text-sm text-muted-foreground">No cameras configured. <Link to="/devices" className="underline">Open Device Status</Link> to review the setup.</CardContent></Card> : <p className="col-span-full py-6 text-center text-sm text-muted-foreground">{cameras.loading ? "Loading cameras…" : "Camera status unavailable."}</p>}
         </div>
       </div>
