@@ -176,18 +176,18 @@ export default function SystemConfig() {
       )}
 
       <Tabs defaultValue="scanner" orientation="vertical" className="flex flex-col md:flex-row gap-4 sm:gap-6 w-full">
-        <TabsList className="flex flex-col h-auto justify-start items-stretch rounded-xl sm:rounded-2xl bg-muted/50 p-2 shrink-0 md:w-60">
-          <TabsTrigger value="scanner" className="justify-start w-full px-4 py-2.5 sm:py-3 text-left rounded-lg sm:rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm">
-            <Camera className="w-4 h-4 mr-2" /> Scanner Config
+        <TabsList className="flex !flex-row md:!flex-col h-auto justify-start items-stretch rounded-xl sm:rounded-2xl bg-muted/50 p-1.5 sm:p-2 shrink-0 !w-full md:!w-60 overflow-x-auto overflow-y-hidden snap-x gap-1 sm:gap-1.5 border border-muted/50 no-scrollbar">
+          <TabsTrigger value="scanner" className="justify-start px-4 py-2.5 sm:py-3 text-left rounded-lg sm:rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap snap-start shrink-0 !w-auto md:!w-full">
+            <Camera className="w-4 h-4 mr-2 shrink-0" /> Scanner Config
           </TabsTrigger>
-          <TabsTrigger value="ai" className="justify-start w-full px-4 py-2.5 sm:py-3 text-left rounded-lg sm:rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm mt-1">
-            <Cpu className="w-4 h-4 mr-2" /> AI Settings
+          <TabsTrigger value="ai" className="justify-start px-4 py-2.5 sm:py-3 text-left rounded-lg sm:rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap snap-start shrink-0 !w-auto md:!w-full">
+            <Cpu className="w-4 h-4 mr-2 shrink-0" /> AI Settings
           </TabsTrigger>
-          <TabsTrigger value="data" className="justify-start w-full px-4 py-2.5 sm:py-3 text-left rounded-lg sm:rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm mt-1">
-            <Database className="w-4 h-4 mr-2" /> Data Storage
+          <TabsTrigger value="data" className="justify-start px-4 py-2.5 sm:py-3 text-left rounded-lg sm:rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap snap-start shrink-0 !w-auto md:!w-full">
+            <Database className="w-4 h-4 mr-2 shrink-0" /> Data Storage
           </TabsTrigger>
-          <TabsTrigger value="power" className="justify-start w-full px-4 py-2.5 sm:py-3 text-left rounded-lg sm:rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm mt-1">
-            <Power className="w-4 h-4 mr-2" /> System Power
+          <TabsTrigger value="power" className="justify-start px-4 py-2.5 sm:py-3 text-left rounded-lg sm:rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap snap-start shrink-0 !w-auto md:!w-full">
+            <Power className="w-4 h-4 mr-2 shrink-0" /> System Power
           </TabsTrigger>
         </TabsList>
 
