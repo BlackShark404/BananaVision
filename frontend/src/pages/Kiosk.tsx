@@ -95,13 +95,13 @@ export default function Kiosk() {
   // Generate cameras from backend device list (preferred) or fall back to config labels
   const cameras = backendCameras.length > 0
     ? backendCameras.map((cam, index) => ({
-      id: index + 1,
+      id: `CAM-${String(index + 1).padStart(3, "0")}`,
       deviceId: cam.device_id,
       label: cam.label,
       angle: cameraAngles[index] || `Angle ${index + 1}`,
     }))
     : config.cameraIds.split(",").map(s => s.trim()).filter(Boolean).map((id, index) => ({
-      id: index + 1,
+      id: `CAM-${String(index + 1).padStart(3, "0")}`,
       deviceId: index,
       label: id,
       angle: cameraAngles[index] || `Angle ${index + 1}`,
@@ -131,10 +131,10 @@ export default function Kiosk() {
     }
   }, [cameras.length, activeCameraIndex])
 
-  // Determine which camera is actively capturing during scan step 1
-  const activeCaptureCamera = isScanning && scanStep === 1
-    ? Math.min(cameras.length, Math.floor((scanProgress / 33) * cameras.length) + 1)
-    : 0
+  // Determine which camera index is actively capturing during scan step 1 (0-based)
+  const activeCaptureIndex = isScanning && scanStep === 1
+    ? Math.min(cameras.length - 1, Math.floor((scanProgress / 33) * cameras.length))
+    : -1
 
   // Update clock every second
   useEffect(() => {
@@ -421,7 +421,7 @@ export default function Kiosk() {
                   <div className="absolute top-3 right-3 z-20">
                     <Badge variant="outline" className="bg-background/80 backdrop-blur-sm border-border text-xs gap-1.5 py-1">
                       <Camera className="w-3 h-3" />
-                      {cameras[activeCameraIndex]?.angle}
+                      {cameras[activeCameraIndex]?.id}
                     </Badge>
                   </div>
                 )}
@@ -475,8 +475,8 @@ export default function Kiosk() {
                 No cameras configured. Go to Settings to add cameras.
               </div>
             ) : cameras.map((cam, idx) => {
-              const isCapturing = isScanning && scanStep === 1 && activeCaptureCamera === cam.id
-              const isCaptured = isScanning && scanStep === 1 && activeCaptureCamera > cam.id
+              const isCapturing = isScanning && scanStep === 1 && activeCaptureIndex === idx
+              const isCaptured = isScanning && scanStep === 1 && activeCaptureIndex > idx
               const isDoneCapture = isScanning && scanStep > 1
               const isActiveView = !isScanning && idx === activeCameraIndex
 
