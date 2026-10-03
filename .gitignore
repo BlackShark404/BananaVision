@@ -43,3 +43,6 @@ backend/captures/*
 backend/app/ml/weights/*.pt
 backend/app/ml/weights/*.joblib
 !backend/app/ml/weights/.gitkeep
+
+# Matrix testing output
+matrix_results_*.txt
