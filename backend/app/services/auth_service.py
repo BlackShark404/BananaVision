@@ -103,6 +103,7 @@ async def change_password(
     user.password_hash = hash_password(new_password)
     user.requires_password_change = False
     user.password_setup_reason = None
+    user.token_version += 1  # Revoke all prior sessions (AUTH-02)
     user.last_active = now_manila()
     return user
 
@@ -135,6 +136,7 @@ async def setup_password(
     user.password_hash = hash_password(new_password)
     user.requires_password_change = False
     user.password_setup_reason = None
+    user.token_version += 1  # Revoke all prior sessions (AUTH-02)
     user.last_active = now_manila()
     return user
 
@@ -157,6 +159,7 @@ async def change_pin(
     user.operator_profile.pin_hash = hash_pin(new_pin)
     user.operator_profile.requires_pin_change = False
     user.operator_profile.pin_setup_reason = None
+    user.token_version += 1  # Revoke all prior sessions (AUTH-02)
     user.last_active = now_manila()
     return user
 
@@ -186,6 +189,7 @@ async def setup_pin(
     user.operator_profile.pin_hash = hash_pin(new_pin)
     user.operator_profile.requires_pin_change = False
     user.operator_profile.pin_setup_reason = None
+    user.token_version += 1  # Revoke all prior sessions (AUTH-02)
     user.last_active = now_manila()
     return user
 
@@ -200,5 +204,6 @@ def create_user_token(user: UserAccount) -> str:
             "sub": str(user.id),
             "username": user.username,
             "role": role_name,
+            "tv": user.token_version,
         }
     )

@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from app.core.time import now_manila
 
-from sqlalchemy import Boolean, ForeignKey, String, Text, Enum as SAEnum
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -54,6 +54,10 @@ class UserAccount(Base):
         ManilaDateTime(),
         default=now_manila,
         onupdate=now_manila,
+    )
+    token_version: Mapped[int] = mapped_column(
+        Integer, default=1, server_default="1", nullable=False,
+        doc="Incremented on logout/credential change to revoke prior JWTs.",
     )
 
     # Relationships

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 
 from fastapi import WebSocket, WebSocketDisconnect, Query
 
@@ -31,6 +32,42 @@ async def websocket_endpoint(
         user_data = decode_access_token(token)
         if not user_data:
             await websocket.close(code=4001, reason="Invalid token")
+            return
+
+        # ── Token version check (AUTH-02 fix) ────────────────────────────
+        # Reject WebSocket connections with revoked tokens.
+        try:
+            from sqlalchemy import select
+            from app.core.database import async_session_factory
+            from app.models.user_account import UserAccount
+            from app.schemas.enums import ActiveStatusEnum
+
+            token_version = user_data.get("tv")
+            user_id = uuid.UUID(user_data["sub"])
+
+            async with async_session_factory() as db:
+                result = await db.execute(
+                    select(UserAccount.token_version, UserAccount.status)
+                    .where(UserAccount.id == user_id)
+                )
+                row = result.one_or_none()
+
+                if not row:
+                    await websocket.close(code=4001, reason="User not found")
+                    return
+
+                db_version, status = row
+
+                if status != ActiveStatusEnum.ACTIVE:
+                    await websocket.close(code=4003, reason="Account is inactive")
+                    return
+
+                if token_version is None or token_version != db_version:
+                    await websocket.close(code=4001, reason="Session revoked")
+                    return
+        except Exception as exc:
+            logger.error(f"WebSocket token validation error: {exc}")
+            await websocket.close(code=4001, reason="Token validation failed")
             return
 
     room_list = [r.strip() for r in rooms.split(",") if r.strip()]

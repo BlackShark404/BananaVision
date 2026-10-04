@@ -146,6 +146,7 @@ async def reset_user_password(
     user.password_hash = hash_password(body.new_password)
     user.requires_password_change = True
     user.password_setup_reason = body.password_setup_reason
+    user.token_version += 1  # Revoke all prior sessions (AUTH-02)
     return {"message": "Password reset successfully"}
 
 
@@ -166,4 +167,5 @@ async def reset_user_pin(
     user.operator_profile.pin_hash = hash_pin(body.new_pin)
     user.operator_profile.requires_pin_change = True
     user.operator_profile.pin_setup_reason = body.pin_setup_reason
+    user.token_version += 1  # Revoke all prior sessions (AUTH-02)
     return {"message": "PIN reset successfully"}

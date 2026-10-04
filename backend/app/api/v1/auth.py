@@ -270,7 +270,10 @@ async def setup_pin_route(body: SetupPinRequest, db: DbSession, request: Request
 
 @router.post("/logout")
 async def logout(user: CurrentUser, db: DbSession, request: Request):
-    """Logout (client-side token removal; server acknowledges)."""
+    """Logout — revokes all existing tokens by bumping token_version."""
+    # Increment token_version so every previously issued JWT becomes invalid
+    user.token_version += 1
+
     db.add(ActivityLog(
         user_id=user.id,
         action="logout",

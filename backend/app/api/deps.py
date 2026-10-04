@@ -50,6 +50,12 @@ async def get_current_user(
     if user.status != ActiveStatusEnum.ACTIVE:
         raise ForbiddenException("Account is inactive")
 
+    # ── Token version check (AUTH-02 fix) ────────────────────────────────
+    # Reject tokens issued before the latest logout / credential change.
+    token_version = payload.get("tv")
+    if token_version is None or token_version != user.token_version:
+        raise CredentialsException("Session has been revoked — please log in again")
+
     return user
 
 
