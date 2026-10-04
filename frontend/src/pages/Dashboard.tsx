@@ -129,7 +129,7 @@ function DashboardContent() {
     value: summary?.success_rate == null ? "N/A" : `${summary.success_rate.toFixed(1)}%`,
     label: "Scan Success Rate", icon: ClipboardCheck, desc: "Auto-approved scans",
   } : {
-    value: summary?.active_operator_count, label: "Active Operators", icon: Users, desc: "Operators with scan records",
+    value: summary?.active_operator_count, label: "Active Operators", icon: Users, desc: "Operators with scan records today",
   }
   const openRecords = (view: string, filters?: { source_key?: string; operator_id?: string; business_date?: string }) => {
     const date = filters?.business_date ?? summary?.business_date ?? selectedBusinessDate
@@ -211,7 +211,7 @@ function DashboardContent() {
           iconColor="text-yellow-600"
           iconBgColor="bg-yellow-500/10"
           delay={150}
-          description={metricDescription("Sources with scan records")}
+          description={metricDescription(user?.role === "Operator" ? "Sources processed today" : "Sources with scan records today")}
           onClick={() => openRecords("sources")}
           disabled={!summary}
         />
