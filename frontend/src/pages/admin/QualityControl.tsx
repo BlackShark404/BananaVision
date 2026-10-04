@@ -57,7 +57,7 @@ export default function QualityControl() {
     if (filterView === "flagged") {
       filtered = filtered.filter(s => s.flagged)
     } else if (filterView === "low-confidence") {
-      filtered = filtered.filter(s => s.confidence < config.confidenceThreshold)
+      filtered = filtered.filter(s => s.confidence !== null && s.confidence < config.confidenceThreshold)
     } else if (filterView === "overridden") {
       filtered = filtered.filter(s => s.isOverridden)
     }
@@ -143,12 +143,12 @@ export default function QualityControl() {
     loadScanNotes(scan.id)
   }
 
-  const lowConfidenceCount = scans.filter(s => s.confidence < config.confidenceThreshold).length
+  const lowConfidenceCount = scans.filter(s => s.confidence !== null && s.confidence < config.confidenceThreshold).length
   const flaggedCount = scans.filter(s => s.flagged).length
   const sourcesWithIssues = useMemo(() => {
     const sourceNames = new Set(
       scans
-        .filter(s => s.flagged || s.confidence < config.confidenceThreshold)
+        .filter(s => s.flagged || s.confidence !== null && s.confidence < config.confidenceThreshold)
         .map(s => s.source)
         .filter(Boolean)
     )
@@ -174,7 +174,7 @@ export default function QualityControl() {
       scan.fingerCount,
       scan.source || "—",
       scan.flagged ? "Yes" : "No",
-      scan.flagged ? "Flagged" : scan.confidence < config.confidenceThreshold ? "Review" : "Verified"
+      scan.flagged ? "Flagged" : scan.confidence !== null && scan.confidence < config.confidenceThreshold ? "Review" : "Verified"
     ])
 
     const csvContent = [
@@ -266,10 +266,10 @@ export default function QualityControl() {
       sortKey: "confidence",
       cell: (scan) => (
         <div className="flex items-center gap-2">
-          <span className={`text-sm font-medium ${scan.confidence < config.confidenceThreshold ? 'text-yellow-600' : ''}`}>
-            {scan.confidence}%
+          <span className={`text-sm font-medium ${scan.confidence !== null && scan.confidence < config.confidenceThreshold ? 'text-yellow-600' : ''}`}>
+            {scan.confidence === null ? "—" : `${scan.confidence}%`}
           </span>
-          {scan.confidence < config.confidenceThreshold && (
+          {scan.confidence !== null && scan.confidence < config.confidenceThreshold && (
             <AlertTriangle className="w-4 h-4 text-yellow-600" />
           )}
         </div>
@@ -313,7 +313,7 @@ export default function QualityControl() {
               <Flag className="w-3 h-3 mr-1" />
               Flagged
             </Badge>
-          ) : scan.confidence < config.confidenceThreshold ? (
+          ) : scan.confidence !== null && scan.confidence < config.confidenceThreshold ? (
             <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs">
               <AlertTriangle className="w-3 h-3 mr-1" />
               Review
@@ -501,10 +501,10 @@ export default function QualityControl() {
                 <div>
                   <Label className="text-xs text-muted-foreground">Confidence</Label>
                   <div className="flex items-center gap-2 mt-1">
-                    <p className={`text-sm font-semibold ${selectedScan.confidence < config.confidenceThreshold ? 'text-yellow-600' : 'text-emerald-600'}`}>
-                      {selectedScan.confidence}%
+                    <p className={`text-sm font-semibold ${selectedScan.confidence !== null && selectedScan.confidence < config.confidenceThreshold ? 'text-yellow-600' : 'text-emerald-600'}`}>
+                      {selectedScan.confidence === null ? "—" : `${selectedScan.confidence}%`}
                     </p>
-                    {selectedScan.confidence < config.confidenceThreshold && (
+                    {selectedScan.confidence !== null && selectedScan.confidence < config.confidenceThreshold && (
                       <AlertTriangle className="w-4 h-4 text-yellow-600" />
                     )}
                   </div>
@@ -545,7 +545,7 @@ export default function QualityControl() {
                               >
                                 {/* Label */}
                                 <div className="absolute -top-6 left-0 bg-primary text-primary-foreground px-2 py-0.5 rounded text-[10px] font-semibold">
-                                  {selectedScan.cultivar} {selectedScan.confidence}%
+                                  {selectedScan.cultivar} {selectedScan.confidence === null ? "—" : `${selectedScan.confidence}%`}
                                 </div>
                               </div>
                               
@@ -584,7 +584,7 @@ export default function QualityControl() {
                             </div>
                             {/* Confidence indicator */}
                             <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-[10px] font-medium">
-                              {selectedScan.confidence}%
+                              {selectedScan.confidence === null ? "—" : `${selectedScan.confidence}%`}
                             </div>
                           </>
                         ) : (
@@ -623,7 +623,7 @@ export default function QualityControl() {
                         <Label htmlFor="cultivar">Cultivar</Label>
                         <Select value={editData.cultivar} onValueChange={(v) => {
                           const newCultivar = v as Cultivar;
-                          setEditData({...editData, cultivar: newCultivar, spoilageDays: editData.ripeness ? getSpoilageDays(newCultivar, editData.ripeness) : editData.spoilageDays});
+                          setEditData({...editData, cultivar: newCultivar, spoilageDays: editData.ripeness && editData.ripeness !== "Unknown" ? getSpoilageDays(newCultivar, editData.ripeness) : editData.spoilageDays});
                         }}>
                           <SelectTrigger id="cultivar">
                             <SelectValue />
@@ -639,7 +639,7 @@ export default function QualityControl() {
                         <Label htmlFor="ripeness">Ripeness</Label>
                         <Select value={editData.ripeness} onValueChange={(v) => {
                           const newRipeness = v as Ripeness;
-                          setEditData({...editData, ripeness: newRipeness, spoilageDays: editData.cultivar ? getSpoilageDays(editData.cultivar, newRipeness) : editData.spoilageDays});
+                          setEditData({...editData, ripeness: newRipeness, spoilageDays: editData.cultivar && editData.cultivar !== "Unknown" ? getSpoilageDays(editData.cultivar, newRipeness) : editData.spoilageDays});
                         }}>
                           <SelectTrigger id="ripeness">
                             <SelectValue />

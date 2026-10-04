@@ -129,8 +129,8 @@ const BANANA_IMAGES: Record<string, string[]> = {
 /**
  * Returns an actual photo URL based on the banana's cultivar and ripeness.
  */
-export function getBananaImageUrl(cultivar: Cultivar, ripeness: Ripeness): string {
-  const images = BANANA_IMAGES[ripeness] || BANANA_IMAGES[RipenessEnum.RIPE];
+export function getBananaImageUrl(cultivar: ScanResult["cultivar"], ripeness: ScanResult["ripeness"]): string {
+  const images = BANANA_IMAGES[ripeness as Ripeness] || BANANA_IMAGES[RipenessEnum.RIPE];
   // Use cultivar string length to pseudo-randomly pick an image from the array consistently
   const index = (cultivar.length + ripeness.length) % images.length;
   return images[index];
@@ -160,9 +160,9 @@ export function getAnalyticsData(scans: ScanResult[]) {
     .reverse()
     .slice(-14)
 
-  const avgConfidence = scans.length
+  const avgConfidence = scans.some(s => s.confidence !== null)
     ? parseFloat(
-        (scans.reduce((a, s) => a + s.confidence, 0) / scans.length).toFixed(1)
+        (scans.reduce((a, s) => a + (s.confidence ?? 0), 0) / scans.filter(s => s.confidence !== null).length).toFixed(1)
       )
     : 0
   const cultivarCountMap: Record<string, number> = {}

@@ -14,6 +14,7 @@ interface AppStatsCardProps {
   className?: string
   delay?: number
   description?: string
+  helpText?: string
   onClick?: () => void
   active?: boolean
   disabled?: boolean
@@ -28,6 +29,7 @@ export function AppStatsCard({
   className,
   delay = 0,
   description,
+  helpText,
   onClick,
   active,
   disabled = false,
@@ -41,6 +43,8 @@ export function AppStatsCard({
         className
       )}
       style={{ animationDelay: `${delay}ms` }}
+      title={helpText}
+      aria-description={helpText}
       role={onClick ? "button" : undefined}
       tabIndex={onClick && !disabled ? 0 : undefined}
       aria-disabled={onClick ? disabled : undefined}

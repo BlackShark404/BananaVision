@@ -120,18 +120,20 @@ export default function Profile() {
 
   const stats = useMemo(() => {
     if (user?.role === "Admin") {
-      const avgConfidence = scans.length
-        ? (scans.reduce((sum, s) => sum + s.confidence, 0) / scans.length).toFixed(1)
-        : 0
+      const samples = scans.filter(s => s.confidence !== null)
+      const avgConfidence = samples.length
+        ? (samples.reduce((sum, s) => sum + (s.confidence ?? 0), 0) / samples.length).toFixed(1)
+        : null
       return { 
         totalScans: scans.length,
         avgConfidence,
         totalUsers: users.length
       }
     } else {
-      const avgConfidence = userScans.length
-        ? (userScans.reduce((sum, s) => sum + s.confidence, 0) / userScans.length).toFixed(1)
-        : 0
+      const samples = userScans.filter(s => s.confidence !== null)
+      const avgConfidence = samples.length
+        ? (samples.reduce((sum, s) => sum + (s.confidence ?? 0), 0) / samples.length).toFixed(1)
+        : null
       const currentTime = new Date().getTime()
       const last7Days = userScans.filter(s => {
         const scanTime = new Date(s.dateTime).getTime()
@@ -264,7 +266,7 @@ export default function Profile() {
         )}
         <AppStatsCard
           title={user.role === "Admin" ? "System Avg Confidence" : "Avg Confidence"}
-          value={`${stats.avgConfidence}%`}
+          value={stats.avgConfidence === null ? "—" : `${stats.avgConfidence === null ? "—" : `${stats.avgConfidence}%`}`}
           icon={Target}
           iconColor="text-emerald-600"
           iconBgColor="bg-emerald-500/10"

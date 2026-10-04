@@ -4,7 +4,7 @@ import tailwindcss from "@tailwindcss/vite"
 import { pathToFileURL, fileURLToPath } from "node:url"
 import path from "node:path"
 
-export async function startBrowser() {
+export async function startBrowser({ fixture = "dashboard.fixture.tsx", auth = "dashboard.auth.tsx", port } = {}) {
   const modulePath = process.env.PLAYWRIGHT_MODULE
   let playwright
   try {
@@ -20,18 +20,18 @@ export async function startBrowser() {
       configureServer(vite) {
         vite.middlewares.use(async (req, res, next) => {
           if (!(req.url ?? "").match(/^\/(dashboard|logs|devices|scans)(\?|\/|$)/)) return next()
-          const html = await vite.transformIndexHtml(req.url, '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1" /></head><body><div id="root"></div><script type="module" src="/tests/dashboard.fixture.tsx"></script></body></html>')
+          const html = await vite.transformIndexHtml(req.url, `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1" /></head><body><div id="root"></div><script type="module" src="/tests/${fixture}"></script></body></html>`)
           res.setHeader("Content-Type", "text/html")
           res.end(html)
         })
       },
     }],
     resolve: { alias: [
-      { find: "@/context/AuthContext", replacement: path.join(root, "tests/dashboard.auth.tsx") },
+      { find: "@/context/AuthContext", replacement: path.join(root, "tests", auth) },
       { find: "@", replacement: path.join(root, "src") },
     ] },
-    optimizeDeps: { entries: ["tests/dashboard.fixture.tsx"] },
-    server: { host: "127.0.0.1", port: Number(process.env.DASHBOARD_TEST_PORT) || 5189 },
+    optimizeDeps: { entries: [`tests/${fixture}`] },
+    server: { host: "127.0.0.1", port: port || Number(process.env.DASHBOARD_TEST_PORT) || 5189 },
   })
   await server.listen()
   let browser

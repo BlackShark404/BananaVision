@@ -586,7 +586,7 @@ export default function Kiosk() {
                   <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
                     <Target className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Confidence</p>
-                    <p className="text-lg font-bold">{lastResult.confidence}%</p>
+                    <p className="text-lg font-bold">{lastResult.confidence === null ? "—" : `${lastResult.confidence}%`}</p>
                     <Progress value={lastResult.confidence} className="h-1 mt-1.5" />
                   </div>
                   <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
@@ -802,7 +802,7 @@ export default function Kiosk() {
                           <AppStatusBadge type="ripeness" status={scan.ripeness} size="sm" />
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(scan.dateTime).toLocaleTimeString()} · {scan.confidence}% confidence
+                          {new Date(scan.dateTime).toLocaleTimeString()} · {scan.confidence === null ? "Unknown" : `${scan.confidence}%`} confidence
                         </p>
                       </div>
                       <div className="text-right shrink-0">

@@ -9,6 +9,7 @@ import type { DashboardScanPage, DashboardScanParams, DashboardSummary } from "@
 import type { ScanLogPage, ScanLogParams } from "@/types/scanLogs"
 import type { ApiScan, ApiScanNote, RecordPage } from "@/lib/scanData"
 import type { InventoryStatus, IntakeStatus } from "@/types"
+import type { AnalyticsRange, AnalyticsSummary, AnalyticsOperator } from "@/types/analytics"
 
 const host = window.location.hostname
 export const BASE_URL = import.meta.env.VITE_API_URL || `http://${host}:8000`
@@ -153,7 +154,7 @@ export const api = {
 
   // ── Cameras ─────────────────────────────────────────────────────────────
   cameras: {
-    list: (signal?: AbortSignal) => get<{ device_id: number; label: string; online: boolean }[]>("/api/v1/cameras", undefined, signal),
+    list: (signal?: AbortSignal) => get<{ device_id: number; camera_id: string; label: string; online: boolean }[]>("/api/v1/cameras", undefined, signal),
   },
 
   // ── Devices ──────────────────────────────────────────────────────────────
@@ -220,16 +221,16 @@ export const api = {
 
   // ── Analytics ────────────────────────────────────────────────────────────
   analytics: {
-    summary: (params?: { range?: string; source?: string; confidence_threshold?: number }) =>
-      get<any>("/api/v1/analytics/summary", params as any),
-    operatorPerformance: (params?: { range?: string; source?: string }) =>
-      get<any>("/api/v1/analytics/operator-performance", params as any),
+    summary: (params?: { range?: AnalyticsRange; source?: string; source_key?: string; confidence_threshold?: number }, signal?: AbortSignal) =>
+      get<AnalyticsSummary>("/api/v1/analytics/summary", params, signal),
+    operatorPerformance: (params?: { range?: AnalyticsRange; source?: string; source_key?: string }, signal?: AbortSignal) =>
+      get<{ items: AnalyticsOperator[]; total_operators: number }>("/api/v1/analytics/operator-performance", params, signal),
   },
 
   // ── Activity ─────────────────────────────────────────────────────────────
   activity: {
-    list: (params?: { page?: number; per_page?: number; action?: string }) =>
-      get<{ items: any[]; total: number }>("/api/v1/activity", params as any),
+    list: (params?: { page?: number; page_size?: number; action?: string }, signal?: AbortSignal) =>
+      get<RecordPage<{ id: string; created_at: string; user_name?: string; action: string; details: string; ip_address?: string }>>("/api/v1/activity", params, signal),
   },
 
   // ── Config ───────────────────────────────────────────────────────────────

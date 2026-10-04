@@ -88,9 +88,9 @@ export interface ScanDetection {
 export interface ScanResult {
   id: string
   dateTime: string
-  cultivar: Cultivar
-  ripeness: Ripeness
-  confidence: number
+  cultivar: Cultivar | "Unknown"
+  ripeness: Ripeness | "Unknown"
+  confidence: number | null
   temperature?: number
   humidity?: number
   vpd?: number

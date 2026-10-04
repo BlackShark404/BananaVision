@@ -190,7 +190,6 @@ async def start_background_tasks():
                     was_online = last_known.get(dev_id, False)
                     if is_online != was_online:
                         changes.append((dev_id, is_online))
-                        last_known[dev_id] = is_online
 
                 if not changes:
                     continue

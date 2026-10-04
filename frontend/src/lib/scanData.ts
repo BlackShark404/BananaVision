@@ -6,14 +6,14 @@ export interface ApiScan {
   date_time?: string
   scanned_at?: string
   dateTime?: string
-  cultivar: ScanResult["cultivar"]
-  ripeness: ScanResult["ripeness"]
-  confidence: number
+  cultivar: ScanResult["cultivar"] | null
+  ripeness: ScanResult["ripeness"] | null
+  confidence: number | null
   temperature?: number | null
   humidity?: number | null
   vpd?: number | null
   treatment?: ScanResult["treatment"] | null
-  spoilage_days: string
+  spoilage_days: string | null
   finger_count: number
   operator_name?: string
   operator?: string
@@ -49,14 +49,14 @@ export function mapApiScan(scan: ApiScan, imageUrl: (path: string) => string = p
   return {
     id: scan.id,
     dateTime: storedTimestamp(scan.date_time ?? scan.scanned_at ?? scan.dateTime),
-    cultivar: scan.cultivar,
-    ripeness: scan.ripeness,
-    confidence: scan.confidence,
+    cultivar: scan.cultivar ?? "Unknown",
+    ripeness: scan.ripeness ?? "Unknown",
+    confidence: scan.confidence !== null && Number.isFinite(scan.confidence) && scan.confidence >= 0 && scan.confidence <= 100 ? scan.confidence : null,
     temperature: scan.temperature ?? undefined,
     humidity: scan.humidity ?? undefined,
     vpd: scan.vpd ?? undefined,
     treatment: scan.treatment ?? undefined,
-    spoilageDays: scan.spoilage_days,
+    spoilageDays: scan.spoilage_days ?? "Unknown",
     fingerCount: scan.finger_count,
     operator: scan.operator_name ?? scan.operator ?? "Unknown",
     source: scan.source_text ?? scan.supplier_name ?? scan.source ?? undefined,
@@ -96,12 +96,15 @@ export async function collectScanPages<T extends { id: string }>(
     signal?.throwIfAborted()
     const response = await fetchPage(page, pageSize, signal)
     signal?.throwIfAborted()
-    if (!Array.isArray(response.items) || response.page !== page || !Number.isInteger(response.page_size) || response.page_size < 1 || !Number.isInteger(response.total) || response.total < 0) {
+    if (!Array.isArray(response.items) || response.page !== page || !Number.isInteger(response.page_size) || response.page_size < 1 || response.items.length > response.page_size || !Number.isInteger(response.total) || response.total < 0) {
       throw new Error("The server returned an invalid scan history page.")
     }
     const previousSize = records.size
     response.items.forEach(record => records.set(record.id, record))
-    if (page * response.page_size >= response.total) return [...records.values()]
+    if (page * response.page_size >= response.total) {
+      if (records.size !== response.total) throw new Error("Scan history changed or is incomplete. Please retry.")
+      return [...records.values()]
+    }
     if (response.items.length === 0 || previousSize === records.size) throw new Error("Scan history is incomplete. Please retry.")
   }
 }

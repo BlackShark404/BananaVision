@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { useAuth } from "@/context/AuthContext"
-import { useAdmin } from "@/context/AdminContext"
+import { useDashboardResource } from "@/hooks/useDashboardResource"
+import type { AnalyticsRange, AnalyticsSummary } from "@/types/analytics"
+import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -73,7 +75,7 @@ const hourlyChartConfig = {
   count: { label: "Scans", color: "#eab308" },
 } satisfies ChartConfig
 
-type DateRange = "today" | "week" | "month" | "all"
+type DateRange = AnalyticsRange
 
 const CULTIVAR_COLORS: Record<string, string> = {
   [CultivarEnum.LAKATAN]: "#f59e0b",
@@ -81,86 +83,32 @@ const CULTIVAR_COLORS: Record<string, string> = {
   [CultivarEnum.CARDABA]: "#d97706",
 }
 
-// ── API response types ──────────────────────────────────────────────────────
-
-interface AnalyticsSummaryData {
-  total_scans: number
-  avg_confidence: number
-  most_common_cultivar: string
-  low_confidence_count: number
-  low_confidence_rate: number
-  at_risk_count: number
-  ripeness_distribution: { name: string; value: number }[]
-  cultivar_counts: { name: string; count: number }[]
-  scan_trend: { date: string; count: number }[]
-  cultivar_ripeness: Record<string, any>[]
-  ripeness_confidence: { ripeness: string; avgConfidence: number; count: number }[]
-  scans_by_source: { name: string; count: number }[]
-  hourly_distribution: { hour: string; count: number }[]
-}
-
-interface OperatorPerf {
-  operator_id: string
-  name: string
-  total_scans: number
-  avg_confidence: number
-  flagged_scans: number
-  flag_rate: number
-  overridden_scans: number
-}
-
-interface OperatorPerfData {
-  items: OperatorPerf[]
-  total_operators: number
-}
-
 export default function Analytics() {
   const { user } = useAuth()
-  const { config } = useAdmin()
+  return user ? <AnalyticsContent key={`${user.id}:${user.role}`} /> : null
+}
+
+function AnalyticsContent() {
   const [dateRange, setDateRange] = useState<DateRange>("week")
-  const [sourceFilter, setSourceFilter] = useState<string>("all")
-  const [loading, setLoading] = useState(true)
-  const [summary, setSummary] = useState<AnalyticsSummaryData | null>(null)
-  const [operators, setOperators] = useState<OperatorPerfData | null>(null)
-  const [availableSources, setAvailableSources] = useState<string[]>([])
-
-  // ── Fetch analytics from backend API ─────────────────────────────────────
-
-  const fetchAnalytics = useCallback(async () => {
-    if (!user) return
-    setLoading(true)
-    try {
-      const [summaryRes, operatorRes] = await Promise.all([
-        api.analytics.summary({
-          range: dateRange,
-          source: sourceFilter,
-          confidence_threshold: config.confidenceThreshold,
-        }),
-        api.analytics.operatorPerformance({
-          range: dateRange,
-          source: sourceFilter,
-        }),
-      ])
-      setSummary(summaryRes)
-      setOperators(operatorRes)
-
-      // Extract available sources from "all" scans_by_source for the filter dropdown
-      if (summaryRes.scans_by_source) {
-        const sources = summaryRes.scans_by_source
-          .map((s: { name: string }) => s.name)
-          .filter((s: string) => s !== "Unknown")
-        setAvailableSources(sources)
-      }
-    } catch (err) {
-      console.error("[Analytics] Failed to fetch analytics:", err)
-    } finally {
-      setLoading(false)
-    }
-  }, [user, dateRange, sourceFilter, config.confidenceThreshold])
+  const [sourceFilter, setSourceFilter] = useState("all")
+  const [availableSources, setAvailableSources] = useState<AnalyticsSummary["source_options"]>([])
+  const fetchAnalytics = useCallback(async (signal: AbortSignal) => {
+    const response = await api.analytics.summary({ range: dateRange, source_key: sourceFilter === "all" ? undefined : sourceFilter }, signal)
+    if (!signal.aborted) setAvailableSources(response.source_options)
+    return response
+  }, [dateRange, sourceFilter])
+  const resource = useDashboardResource(fetchAnalytics)
+  // A failed request is never presented as a successful empty dataset or old filter result.
+  const summary = resource.error ? null : resource.data
+  const loading = resource.loading
 
   useEffect(() => {
-    fetchAnalytics()
-  }, [fetchAnalytics])
+    if (!summary?.next_refresh_at) return
+    const delay = Date.parse(summary.next_refresh_at) - Date.now()
+    if (!Number.isFinite(delay) || delay < 0) return
+    const timer = window.setTimeout(() => void resource.refresh(), delay + 100)
+    return () => window.clearTimeout(timer)
+  }, [summary?.next_refresh_at, resource.refresh])
 
   // ── Derived chart data ──────────────────────────────────────────────────
 
@@ -175,37 +123,16 @@ export default function Analytics() {
     })
     cfg.value = { label: "Count" }
     return cfg
-  }, [summary?.ripeness_distribution])
+  }, [summary])
 
-  // Operator table data mapped for the table component
-  const operatorPerformance = useMemo(() => {
-    if (!operators?.items) return []
-    return operators.items.map((op) => ({
-      name: op.name,
-      scans: op.total_scans,
-      avgConfidence: op.avg_confidence,
-    }))
-  }, [operators])
-
-  // ── Loading state ───────────────────────────────────────────────────────
-
-  if (loading && !summary) {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-
-  // Fallback when no data
-  if (!summary) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-muted-foreground">
-        <BarChart3 className="w-12 h-12 mb-4" />
-        <p>No analytics data available.</p>
-      </div>
-    )
-  }
+  const operatorPerformance = (summary?.operator_performance ?? []).map(op => ({
+    id: op.operator_id, name: op.name, scans: op.total_scans,
+    avgConfidence: op.avg_confidence, confidenceSamples: op.confidence_sample_count,
+  }))
+  const percent = (value: number | null | undefined) => value == null ? "—" : `${value}%`
+  const emptyChart = (message = "No classified scans in this selection.") => (
+    <div className="h-[240px] sm:h-[280px] w-full flex items-center justify-center text-sm text-muted-foreground" role="status">{message}</div>
+  )
 
   return (
     <div className="space-y-4 sm:space-y-6 pb-4 sm:pb-6">
@@ -216,21 +143,21 @@ export default function Analytics() {
         action={
           <div className="flex gap-2 w-full sm:w-auto">
             <Select value={sourceFilter} onValueChange={setSourceFilter}>
-              <SelectTrigger className="w-[160px] h-10">
+              <SelectTrigger className="w-[160px] h-10" aria-label="Analytics source">
                 <Package className="w-4 h-4 mr-2" />
                 <SelectValue placeholder="All Sources" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Sources</SelectItem>
                 {availableSources.map((src) => (
-                  <SelectItem key={src} value={src}>
-                    {src}
+                  <SelectItem key={src.key} value={src.key}>
+                    {src.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
-              <SelectTrigger className="w-[140px] h-10">
+              <SelectTrigger className="w-[140px] h-10" aria-label="Analytics date range">
                 <Calendar className="w-4 h-4 mr-2" />
                 <SelectValue />
               </SelectTrigger>
@@ -245,6 +172,11 @@ export default function Analytics() {
         }
       />
 
+      {!summary ? (
+        <div className="flex flex-col items-center justify-center h-[60vh] text-muted-foreground" role={resource.error ? "alert" : "status"}>
+          {loading ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : <><BarChart3 className="w-12 h-12 mb-4" /><p>{resource.error || "Analytics unavailable."}</p><Button variant="outline" className="mt-4" onClick={() => void resource.refresh()}>Retry</Button></>}
+        </div>
+      ) : <>
       {/* Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <AppStatsCard
@@ -252,25 +184,28 @@ export default function Analytics() {
           value={summary.total_scans}
           icon={TrendingUp}
           delay={50}
-          description={sourceFilter !== "all" ? "In selected source" : "All sources"}
+          description="Throughput · Selected range"
+          helpText={summary.metric_definitions.total_scans}
         />
         <AppStatsCard
           title="Avg Confidence"
-          value={`${summary.avg_confidence}%`}
+          value={percent(summary.avg_confidence)}
           icon={Target}
           iconColor="text-emerald-600"
           iconBgColor="bg-emerald-500/10"
           delay={100}
-          description="Detection accuracy"
+          description={`Model confidence · ${summary.confidence_sample_count} valid results`}
+          helpText={summary.metric_definitions.avg_confidence}
         />
         <AppStatsCard
           title="Low Confidence"
-          value={`${summary.low_confidence_rate}%`}
+          value={percent(summary.low_confidence_rate)}
           icon={AlertTriangle}
           iconColor="text-yellow-600"
           iconBgColor="bg-yellow-500/10"
           delay={150}
-          description="Below threshold"
+          description={`Model confidence · Below ${summary.confidence_threshold}%`}
+          helpText={summary.metric_definitions.low_confidence_rate}
         />
         <AppStatsCard
           title="At-Risk Scans"
@@ -279,18 +214,30 @@ export default function Analytics() {
           iconColor="text-orange-600"
           iconBgColor="bg-orange-500/10"
           delay={200}
-          description="Spoiling in ≤2 days"
+          description="Current stock · ≤2 days remaining"
+          helpText={summary.metric_definitions.at_risk_count}
         />
       </div>
+
+      {summary.total_scans === 0 && <p className="text-sm text-muted-foreground" role="status">No scans match this source and date range. The trend below shows its separate 14-day period.</p>}
+      <details className="text-xs text-muted-foreground">
+        <summary className="cursor-pointer">Metric definitions</summary>
+        <div className="space-y-2 mt-2">
+          {Object.entries(summary.metric_definitions).map(([key, definition]) => <p key={key}>{definition}</p>)}
+          <p>{summary.incomplete_count} scans have incomplete classifications. {summary.risk_unknown_count} current-stock scans have no usable spoilage estimate.</p>
+          <p>Human-verified model accuracy: unavailable. No recorded ground-truth verification is available to calculate accuracy.</p>
+        </div>
+      </details>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Ripeness Pie */}
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-5">
           <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="text-sm sm:text-base font-semibold">Ripeness Distribution</CardTitle>
+            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.ripeness_distribution}>Ripeness Distribution</CardTitle>
           </CardHeader>
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
+            {summary.classification_count === 0 ? emptyChart() : (
             <ChartContainer config={pieChartConfig} className="h-[240px] sm:h-[280px] w-full">
               <PieChart>
                 <Pie
@@ -315,15 +262,17 @@ export default function Analytics() {
                 <ChartLegend content={<ChartLegendContent />} />
               </PieChart>
             </ChartContainer>
+            )}
           </CardContent>
         </Card>
 
         {/* Cultivar Bar */}
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-6">
           <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="text-sm sm:text-base font-semibold">Cultivar Counts</CardTitle>
+            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.cultivar_counts}>Cultivar Counts</CardTitle>
           </CardHeader>
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
+            {summary.classification_count === 0 ? emptyChart() : (
             <ChartContainer config={cultivarChartConfig} className="h-[240px] sm:h-[280px] w-full">
               <BarChart data={summary.cultivar_counts || []}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -337,15 +286,17 @@ export default function Analytics() {
                 </Bar>
               </BarChart>
             </ChartContainer>
+            )}
           </CardContent>
         </Card>
 
         {/* Ripeness by Cultivar */}
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-7">
           <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="text-sm sm:text-base font-semibold">Ripeness by Cultivar</CardTitle>
+            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.cultivar_ripeness}>Ripeness by Cultivar</CardTitle>
           </CardHeader>
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
+            {summary.classification_count === 0 ? emptyChart() : (
             <ChartContainer config={cultivarRipenessChartConfig} className="h-[240px] sm:h-[280px] w-full">
               <BarChart data={summary.cultivar_ripeness || []}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -359,15 +310,17 @@ export default function Analytics() {
                 <Bar dataKey={RipenessEnum.OVERRIPE} stackId="a" fill={cultivarRipenessChartConfig[RipenessEnum.OVERRIPE].color} radius={[8, 8, 0, 0]} />
               </BarChart>
             </ChartContainer>
+            )}
           </CardContent>
         </Card>
 
         {/* Confidence by Ripeness */}
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-8">
           <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="text-sm sm:text-base font-semibold">Confidence by Ripeness</CardTitle>
+            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.ripeness_confidence}>Confidence by Ripeness</CardTitle>
           </CardHeader>
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
+            {summary.confidence_sample_count === 0 ? emptyChart("No valid model-confidence results in this selection.") : (
             <ChartContainer config={confidenceChartConfig} className="h-[240px] sm:h-[280px] w-full">
               <ComposedChart data={summary.ripeness_confidence || []}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -380,6 +333,7 @@ export default function Analytics() {
                 <Line yAxisId="right" type="monotone" dataKey="avgConfidence" stroke="var(--color-avgConfidence)" strokeWidth={2.5} name="Avg Confidence %" />
               </ComposedChart>
             </ChartContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -387,7 +341,7 @@ export default function Analytics() {
         {summary.scans_by_source?.length > 0 && (
           <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-8-5 lg:col-span-2">
             <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-              <CardTitle className="text-sm sm:text-base font-semibold">Scans by Source</CardTitle>
+              <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.scans_by_source}>Scans by Source</CardTitle>
             </CardHeader>
             <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
               <ChartContainer config={sourceChartConfig} className="h-[240px] sm:h-[280px] w-full">
@@ -408,6 +362,7 @@ export default function Analytics() {
       <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-9">
         <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
           <CardTitle className="text-sm sm:text-base font-semibold">Scan Trend (Last 14 Days)</CardTitle>
+          <p className="text-xs text-muted-foreground">Fixed period: {summary.trend_start} – {summary.trend_end}. Uses the selected source, independent of the date-range filter.</p>
         </CardHeader>
         <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
           <ChartContainer config={scanTrendChartConfig} className="h-[240px] sm:h-[280px] w-full">
@@ -438,7 +393,7 @@ export default function Analytics() {
           </div>
           <AppDataTable
             data={operatorPerformance}
-            rowKey={(op) => op.name}
+            rowKey={(op) => op.id}
             columns={[
               {
                 header: "#",
@@ -476,8 +431,8 @@ export default function Analytics() {
                 sortKey: "avgConfidence",
                 className: "text-right",
                 cell: (op) => (
-                  <Badge variant="outline" className={`${op.avgConfidence >= config.confidenceThreshold ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
-                    {op.avgConfidence}%
+                  <Badge title={`${op.confidenceSamples} valid model-confidence results`} variant="outline" className={`${op.avgConfidence !== null && op.avgConfidence >= summary.confidence_threshold ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+                    {percent(op.avgConfidence)}
                   </Badge>
                 ),
               },
@@ -490,7 +445,7 @@ export default function Analytics() {
       {summary.hourly_distribution?.length > 0 && (
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-11">
           <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="text-sm sm:text-base font-semibold">Peak Scanning Hours</CardTitle>
+            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.hourly_distribution}>Peak Scanning Hours</CardTitle>
           </CardHeader>
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
             <ChartContainer config={hourlyChartConfig} className="h-[240px] sm:h-[280px] w-full">
@@ -505,6 +460,7 @@ export default function Analytics() {
           </CardContent>
         </Card>
       )}
+      </>}
     </div>
   )
 }

@@ -103,14 +103,14 @@ class ScanImageRef(BaseModel):
 class ScanResponse(BaseModel):
     id: uuid.UUID
     date_time: Timestamp
-    cultivar: CultivarEnum
-    ripeness: RipenessEnum
-    confidence: float
+    cultivar: CultivarEnum | None
+    ripeness: RipenessEnum | None
+    confidence: float | None
     temperature: float | None = None
     humidity: float | None = None
     vpd: float | None = None
     treatment: str | None = None
-    spoilage_days: str
+    spoilage_days: str | None
     finger_count: int
     operator_name: str
     source_text: str | None = None

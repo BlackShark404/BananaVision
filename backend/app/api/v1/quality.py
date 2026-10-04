@@ -27,7 +27,7 @@ async def get_flagged_scans(
         select(Scan)
         .options(selectinload(Scan.classification), selectinload(Scan.operator))
         .where(Scan.flagged == True)  # noqa: E712
-        .order_by(desc(Scan.date_time))
+        .order_by(desc(Scan.date_time), desc(Scan.id))
     )
 
     count_query = select(func.count()).select_from(query.subquery())

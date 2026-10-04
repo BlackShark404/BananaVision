@@ -188,8 +188,8 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const startEdit = () => {
     if (!scan) return
     setEditData({
-      cultivar: scan.cultivar,
-      ripeness: scan.ripeness,
+      cultivar: scan.cultivar === "Unknown" ? undefined : scan.cultivar,
+      ripeness: scan.ripeness === "Unknown" ? undefined : scan.ripeness,
       spoilageDays: scan.spoilageDays,
       fingerCount: scan.fingerCount,
       source: scan.source,
@@ -278,7 +278,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
               <Flag className="w-3 h-3 fill-current" />
               Flagged
             </Badge>
-          ) : scan.confidence < config.confidenceThreshold ? (
+          ) : scan.confidence !== null && scan.confidence < config.confidenceThreshold ? (
             <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs gap-1">
               <AlertTriangle className="w-3 h-3" />
               Needs Review
@@ -574,13 +574,13 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all ${scan.confidence < config.confidenceThreshold ? 'bg-yellow-500' : 'bg-primary'}`}
-                            style={{ width: `${scan.confidence}%` }}
+                            className={`h-full rounded-full transition-all ${scan.confidence !== null && scan.confidence < config.confidenceThreshold ? 'bg-yellow-500' : 'bg-primary'}`}
+                            style={{ width: `${scan.confidence ?? 0}%` }}
                           />
                         </div>
-                        <span className={`font-semibold text-sm ${scan.confidence < config.confidenceThreshold ? 'text-yellow-600' : ''}`}>{scan.confidence}%</span>
+                        <span className={`font-semibold text-sm ${scan.confidence !== null && scan.confidence < config.confidenceThreshold ? 'text-yellow-600' : ''}`}>{scan.confidence === null ? "—" : `${scan.confidence}%`}</span>
                       </div>
-                      {scan.confidence < config.confidenceThreshold && (
+                      {scan.confidence !== null && scan.confidence < config.confidenceThreshold && (
                         <p className="text-[10px] text-yellow-600 mt-1 flex items-center gap-1">
                           <AlertTriangle className="w-3 h-3" /> Below {config.confidenceThreshold}% threshold
                         </p>

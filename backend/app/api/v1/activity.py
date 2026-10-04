@@ -25,7 +25,9 @@ async def list_activity(
     action: str | None = None,
 ):
     """List activity logs with pagination."""
-    query = select(ActivityLog).options(selectinload(ActivityLog.user)).order_by(desc(ActivityLog.timestamp))
+    query = select(ActivityLog).options(selectinload(ActivityLog.user)).order_by(
+        desc(ActivityLog.timestamp), desc(ActivityLog.id)
+    )
 
     if action:
         query = query.where(ActivityLog.action == action)
