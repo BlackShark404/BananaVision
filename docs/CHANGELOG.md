@@ -96,3 +96,20 @@ User logs in again → New JWT issued with tv=2 → Works normally
 - `backend/app/api/v1/users.py` — Bump version on admin password/PIN resets
 - `backend/app/ws/handlers.py` — Token version + active status validation on WebSocket connect
 
+
+---
+
+## Upcoming / To-Do List (Pending Features & Security Fixes)
+
+Based on the `KENT_ASSIGNED_FEATURES_REVIEW.md` priority roadmap, the following tasks are up next:
+
+### 1. Security & Access Control
+- **[ ] SCANNER-01 (High):** Protect the Camera Hardware Mapping API (`POST /api/v1/cameras/mapping`). Currently, it modifies backend `.env` without any authentication. Needs Admin authorization and JWT passed from the frontend calibration modal.
+- **[ ] ACCESS-01 (High):** Restrict User Directory (`GET /api/v1/users`) and Audit Logs (`GET /api/v1/activity`) to Admins. They currently use `CurrentUser` which exposes all users/logs to regular operators.
+
+### 2. User Management Accuracy
+- **[ ] SAVE-01 & CREATE-01 (High/Medium):** Fix account creation. If backend creation fails, the UI creates a fake local user in state. Also, the Active/Inactive dropdown is currently ignored during creation.
+- **[ ] ADMIN-01 & SAVE-02 (High):** Prevent the last active Admin from being deactivated/demoted. Fix UI state incorrectly updating to "Inactive" when the backend request fails.
+- **[ ] PROFILE-01 (High):** Fix operator profile avatar uploads. The UI currently uses `PATCH /users/{id}` which is admin-only, causing operator uploads to fail silently on the backend.
+
+*(Note: **RESET-01** was verified and is already successfully implemented!)*
