@@ -104,19 +104,37 @@ export const api = {
         reason?: string | null
       }>("/api/v1/auth/swap", { username, pin }),
 
-    changePassword: (username: string, currentPassword: string, newPassword: string) =>
-      post<{
-        status: string
-        token: { access_token: string; token_type: string } | null
-        user: { id: string; username: string; full_name: string; role: string } | null
-      }>("/api/v1/auth/change-password", { username, current_password: currentPassword, new_password: newPassword }),
-
-    changePin: (username: string, newPin: string) =>
+    /** Self-service password change — requires JWT auth + current password. */
+    changePassword: (currentPassword: string, newPassword: string) =>
       post<{
         status: string
         token: { access_token: string; token_type: string } | null
         user: { id: string; username: string; full_name: string; role: string; avatar_url?: string } | null
-      }>("/api/v1/auth/change-pin", { username, new_pin: newPin }),
+      }>("/api/v1/auth/change-password", { current_password: currentPassword, new_password: newPassword }),
+
+    /** First-time / post-reset password setup — no JWT needed, server checks requires_password_change flag. */
+    setupPassword: (username: string, newPassword: string) =>
+      post<{
+        status: string
+        token: { access_token: string; token_type: string } | null
+        user: { id: string; username: string; full_name: string; role: string; avatar_url?: string } | null
+      }>("/api/v1/auth/setup-password", { username, new_password: newPassword }),
+
+    /** Self-service PIN change — requires JWT auth + current PIN. */
+    changePin: (currentPin: string, newPin: string) =>
+      post<{
+        status: string
+        token: { access_token: string; token_type: string } | null
+        user: { id: string; username: string; full_name: string; role: string; avatar_url?: string } | null
+      }>("/api/v1/auth/change-pin", { current_pin: currentPin, new_pin: newPin }),
+
+    /** First-time / post-reset PIN setup — no JWT needed, server checks requires_pin_change flag. */
+    setupPin: (username: string, newPin: string) =>
+      post<{
+        status: string
+        token: { access_token: string; token_type: string } | null
+        user: { id: string; username: string; full_name: string; role: string; avatar_url?: string } | null
+      }>("/api/v1/auth/setup-pin", { username, new_pin: newPin }),
 
     logout: () => post<void>("/api/v1/auth/logout"),
 

@@ -20,7 +20,7 @@ export default function Login() {
     "Welcome back! Please set a new secure password to continue."
   )
 
-  const { login, changePasswordAndLogin } = useAuth()
+  const { login, setupPasswordAndLogin } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
@@ -36,7 +36,7 @@ export default function Login() {
         return
       }
       setLoading(true)
-      const ok = await changePasswordAndLogin(username, newPassword)
+      const ok = await setupPasswordAndLogin(username, newPassword)
       if (ok) {
         toast.success("Welcome back!", { description: "Your password was updated successfully." })
         navigate("/dashboard")

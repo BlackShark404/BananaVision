@@ -17,8 +17,15 @@ class LoginRequest(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
+    """Self-service password change — requires current password for verification."""
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=6, max_length=128)
+
+
+class SetupPasswordRequest(BaseModel):
+    """First-time / post-reset password setup — user proved identity at login."""
     username: str
-    new_password: str = Field(..., min_length=4, max_length=128)
+    new_password: str = Field(..., min_length=6, max_length=128)
 
 
 class PinSwapRequest(BaseModel):
@@ -27,6 +34,13 @@ class PinSwapRequest(BaseModel):
 
 
 class ChangePinRequest(BaseModel):
+    """Self-service PIN change — requires current PIN for verification."""
+    current_pin: str = Field(..., min_length=4, max_length=4)
+    new_pin: str = Field(..., min_length=4, max_length=4)
+
+
+class SetupPinRequest(BaseModel):
+    """First-time / post-reset PIN setup — user proved identity at PIN swap."""
     username: str
     new_pin: str = Field(..., min_length=4, max_length=4)
 

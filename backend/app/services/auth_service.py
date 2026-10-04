@@ -89,9 +89,34 @@ async def swap_operator(
 
 
 async def change_password(
+    db: AsyncSession, user: UserAccount, current_password: str, new_password: str
+) -> UserAccount:
+    """
+    Self-service password change — requires the authenticated user object
+    and their current password for verification.
+
+    Raises CredentialsException if current_password does not match.
+    """
+    if not verify_password(current_password, user.password_hash):
+        raise CredentialsException("Current password is incorrect")
+
+    user.password_hash = hash_password(new_password)
+    user.requires_password_change = False
+    user.password_setup_reason = None
+    user.last_active = now_manila()
+    return user
+
+
+async def setup_password(
     db: AsyncSession, username: str, new_password: str
 ) -> UserAccount:
-    """Change user password and clear the requires_password_change flag."""
+    """
+    First-time / post-reset password setup.
+    Only allowed when the account has requires_password_change=True.
+
+    This is called after the user proved identity by logging in with their
+    temporary password.
+    """
     result = await db.execute(
         select(UserAccount)
         .options(selectinload(UserAccount.role))
@@ -102,6 +127,11 @@ async def change_password(
     if not user:
         raise NotFoundException("User")
 
+    if not user.requires_password_change:
+        raise CredentialsException(
+            "Password setup is only allowed for accounts that require a password change"
+        )
+
     user.password_hash = hash_password(new_password)
     user.requires_password_change = False
     user.password_setup_reason = None
@@ -110,9 +140,34 @@ async def change_password(
 
 
 async def change_pin(
+    db: AsyncSession, user: UserAccount, current_pin: str, new_pin: str
+) -> UserAccount:
+    """
+    Self-service PIN change — requires the authenticated user object
+    and their current PIN for verification.
+
+    Raises CredentialsException if current_pin does not match.
+    """
+    if not user.operator_profile:
+        raise NotFoundException("Operator Profile")
+
+    if not user.operator_profile.pin_hash or not verify_pin(current_pin, user.operator_profile.pin_hash):
+        raise CredentialsException("Current PIN is incorrect")
+
+    user.operator_profile.pin_hash = hash_pin(new_pin)
+    user.operator_profile.requires_pin_change = False
+    user.operator_profile.pin_setup_reason = None
+    user.last_active = now_manila()
+    return user
+
+
+async def setup_pin(
     db: AsyncSession, username: str, new_pin: str
 ) -> UserAccount:
-    """Change user PIN and clear the requires_pin_change flag."""
+    """
+    First-time / post-reset PIN setup.
+    Only allowed when the operator profile has requires_pin_change=True.
+    """
     result = await db.execute(
         select(UserAccount)
         .options(selectinload(UserAccount.role), selectinload(UserAccount.operator_profile))
@@ -122,6 +177,11 @@ async def change_pin(
 
     if not user or not user.operator_profile:
         raise NotFoundException("Operator Profile")
+
+    if not user.operator_profile.requires_pin_change:
+        raise CredentialsException(
+            "PIN setup is only allowed for accounts that require a PIN change"
+        )
 
     user.operator_profile.pin_hash = hash_pin(new_pin)
     user.operator_profile.requires_pin_change = False

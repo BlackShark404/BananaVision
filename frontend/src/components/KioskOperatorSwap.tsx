@@ -168,7 +168,7 @@ export default function KioskOperatorSwap({
   currentOperatorId,
   onSwapSuccess,
 }: KioskOperatorSwapProps) {
-  const { user, switchOperator, changePinAndLogin } = useAuth()
+  const { user, switchOperator, setupPinAndLogin } = useAuth()
 
   // ── Local State ──────────────────────────────────────────────────────────
 
@@ -271,7 +271,7 @@ export default function KioskOperatorSwap({
 
       setIsProcessing(true)
       try {
-        const success = await changePinAndLogin(targetOperator.username, confirmed)
+        const success = await setupPinAndLogin(targetOperator.username, confirmed)
         if (success) {
           toast.success(`PIN updated and swapped to ${targetOperator.fullName}`)
           onSwapSuccess(targetOperator.id)
@@ -286,7 +286,7 @@ export default function KioskOperatorSwap({
         setIsProcessing(false)
       }
     },
-    [targetOperator, newPin, changePinAndLogin, onSwapSuccess, onOpenChange, triggerShake]
+    [targetOperator, newPin, setupPinAndLogin, onSwapSuccess, onOpenChange, triggerShake]
   )
 
   // ── Key Press Router ─────────────────────────────────────────────────────

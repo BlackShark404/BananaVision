@@ -13,14 +13,18 @@ from app.schemas.auth import (
     TokenResponse,
     AuthUser,
     ChangePasswordRequest,
+    SetupPasswordRequest,
     PinSwapRequest,
     ChangePinRequest,
+    SetupPinRequest,
 )
 from app.services.auth_service import (
     authenticate_user,
     swap_operator,
     change_password,
+    setup_password,
     change_pin,
+    setup_pin,
     create_user_token,
 )
 from app.models.activity_log import ActivityLog
@@ -139,9 +143,14 @@ async def swap(body: PinSwapRequest, db: DbSession, request: Request):
 
 
 @router.post("/change-password", response_model=LoginResponse)
-async def change_password_route(body: ChangePasswordRequest, db: DbSession, request: Request):
-    """Change password and auto-login."""
-    user = await change_password(db, body.username, body.new_password)
+async def change_password_route(
+    body: ChangePasswordRequest, user: CurrentUser, db: DbSession, request: Request
+):
+    """
+    Self-service password change — requires authentication (JWT) and
+    current password verification.
+    """
+    user = await change_password(db, user, body.current_password, body.new_password)
     token = create_user_token(user)
 
     db.add(ActivityLog(
@@ -165,16 +174,83 @@ async def change_password_route(body: ChangePasswordRequest, db: DbSession, requ
     )
 
 
+@router.post("/setup-password", response_model=LoginResponse)
+async def setup_password_route(body: SetupPasswordRequest, db: DbSession, request: Request):
+    """
+    First-time / post-reset password setup.
+    Only allowed for accounts with requires_password_change=True.
+    The user proved identity by logging in with the temporary password.
+    """
+    user = await setup_password(db, body.username, body.new_password)
+    token = create_user_token(user)
+
+    db.add(ActivityLog(
+        user_id=user.id,
+        action="user_updated",
+        details=f"User {user.username} completed password setup",
+        ip_address=request.client.host if request.client else None,
+    ))
+    await db.flush()
+
+    return LoginResponse(
+        status="success",
+        token=TokenResponse(access_token=token),
+        user=AuthUser(
+            id=user.id,
+            username=user.username,
+            full_name=user.full_name,
+            role=getattr(user.role, "name", "Unknown") if user.role else "Unknown",
+            avatar_url=user.avatar_url,
+        ),
+    )
+
+
 @router.post("/change-pin", response_model=LoginResponse)
-async def change_pin_route(body: ChangePinRequest, db: DbSession, request: Request):
-    """Change PIN and auto-login."""
-    user = await change_pin(db, body.username, body.new_pin)
+async def change_pin_route(
+    body: ChangePinRequest, user: CurrentUser, db: DbSession, request: Request
+):
+    """
+    Self-service PIN change — requires authentication (JWT) and
+    current PIN verification.
+    """
+    user = await change_pin(db, user, body.current_pin, body.new_pin)
     token = create_user_token(user)
 
     db.add(ActivityLog(
         user_id=user.id,
         action="user_updated",
         details=f"User {user.username} changed PIN",
+        ip_address=request.client.host if request.client else None,
+    ))
+    await db.flush()
+
+    return LoginResponse(
+        status="success",
+        token=TokenResponse(access_token=token),
+        user=AuthUser(
+            id=user.id,
+            username=user.username,
+            full_name=user.full_name,
+            role=getattr(user.role, "name", "Unknown") if user.role else "Unknown",
+            avatar_url=user.avatar_url,
+        ),
+    )
+
+
+@router.post("/setup-pin", response_model=LoginResponse)
+async def setup_pin_route(body: SetupPinRequest, db: DbSession, request: Request):
+    """
+    First-time / post-reset PIN setup.
+    Only allowed for operator accounts with requires_pin_change=True.
+    The user proved identity by authenticating with the temporary PIN.
+    """
+    user = await setup_pin(db, body.username, body.new_pin)
+    token = create_user_token(user)
+
+    db.add(ActivityLog(
+        user_id=user.id,
+        action="user_updated",
+        details=f"User {user.username} completed PIN setup",
         ip_address=request.client.host if request.client else None,
     ))
     await db.flush()

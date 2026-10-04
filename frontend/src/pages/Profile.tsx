@@ -23,7 +23,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner"
 
 export default function Profile() {
-  const { user, changePasswordAndLogin, changePinAndLogin, switchOperator } = useAuth()
+  const { user, changePassword, changePin } = useAuth()
   const { scans } = useScans()
   const { activityLogs, updateUser, users } = useAdmin()
   const { theme, setTheme } = useTheme()
@@ -154,10 +154,14 @@ export default function Profile() {
       toast.error("Password must be at least 6 characters")
       return
     }
+    if (!passwordData.current) {
+      toast.error("Please enter your current password")
+      return
+    }
     
     if (user) {
       try {
-        const success = await changePasswordAndLogin(user.username, passwordData.new)
+        const success = await changePassword(passwordData.current, passwordData.new)
         if (success) {
           toast.success("Password changed successfully")
           setPasswordData({ current: "", new: "", confirm: "" })
@@ -176,17 +180,7 @@ export default function Profile() {
       setPinData(prev => ({ ...prev, current: val }))
       if (val.length === 4) {
         if (!user) return
-        const status = await switchOperator(user.username, val)
-        if (status === "inactive") {
-          toast.error("Account Inactive", { description: "Your account is inactive. Please contact an administrator." })
-          setPinData(prev => ({ ...prev, current: "" }))
-          return
-        }
-        if (status === "failed") {
-          toast.error("Current PIN is incorrect")
-          setPinData(prev => ({ ...prev, current: "" }))
-          return
-        }
+        // Current PIN will be verified server-side when we submit the change
         setPinStep("new")
       }
     } else if (pinStep === "new") {
@@ -204,14 +198,22 @@ export default function Profile() {
           return
         }
         if (user) {
-          const success = await changePinAndLogin(user.username, val)
-          if (success) {
-            toast.success("Kiosk PIN changed successfully")
+          try {
+            const success = await changePin(pinData.current, val)
+            if (success) {
+              toast.success("Kiosk PIN changed successfully")
+              setPinData({ current: "", new: "", confirm: "" })
+              setPinStep("current")
+              setIsEditingPin(false)
+            } else {
+              toast.error("Failed to change Kiosk PIN. Please check your current PIN.")
+              setPinData({ current: "", new: "", confirm: "" })
+              setPinStep("current")
+            }
+          } catch (err) {
+            toast.error("Current PIN is incorrect")
             setPinData({ current: "", new: "", confirm: "" })
             setPinStep("current")
-            setIsEditingPin(false)
-          } else {
-            toast.error("Failed to change Kiosk PIN")
           }
         }
       }
