@@ -20,10 +20,10 @@ from app.core.security import (
     verify_pin,
     decode_access_token,
 )
-from app.core.exceptions import CredentialsException, NotFoundException
+from app.core.exceptions import CredentialsException, NotFoundException, ForbiddenException
 from app.models.user_account import UserAccount
 from sqlalchemy.orm import selectinload
-from app.schemas.enums import ActiveStatusEnum
+from app.schemas.enums import ActiveStatusEnum, RoleEnum
 
 
 def create_setup_token(user: UserAccount, purpose: str) -> str:
@@ -47,11 +47,26 @@ async def verify_setup_token(db: AsyncSession, token: str, purpose: str) -> User
         .options(selectinload(UserAccount.role), selectinload(UserAccount.operator_profile))
         .where(UserAccount.id == user_id)
         .with_for_update()
+        .execution_options(populate_existing=True)
     )
     user = result.scalar_one_or_none()
     if not user or user.status != ActiveStatusEnum.ACTIVE or payload.get("tv") != user.token_version:
         raise CredentialsException("Setup authorization revoked; sign in again")
     return user
+
+
+async def lock_current_account(db: AsyncSession, user: UserAccount) -> UserAccount:
+    """Refresh under lock so concurrent credential changes cannot reuse a version."""
+    version = user.token_version
+    account = (await db.execute(
+        select(UserAccount)
+        .options(selectinload(UserAccount.role), selectinload(UserAccount.operator_profile))
+        .where(UserAccount.id == user.id)
+        .with_for_update().execution_options(populate_existing=True)
+    )).scalar_one_or_none()
+    if not account or account.status != ActiveStatusEnum.ACTIVE or account.token_version != version:
+        raise CredentialsException("Session has been revoked; sign in again")
+    return account
 
 
 async def authenticate_user(
@@ -104,7 +119,9 @@ async def swap_operator(
     )
     user = result.scalar_one_or_none()
 
-    if not user or not user.operator_profile or not user.operator_profile.pin_hash or not verify_pin(pin, user.operator_profile.pin_hash):
+    if (not user or not user.role or user.role.name != RoleEnum.OPERATOR.value
+            or not user.operator_profile or not user.operator_profile.pin_hash
+            or not verify_pin(pin, user.operator_profile.pin_hash)):
         return "failed", None, None
 
     if user.status == ActiveStatusEnum.INACTIVE:
@@ -127,6 +144,7 @@ async def change_password(
 
     Raises CredentialsException if current_password does not match.
     """
+    user = await lock_current_account(db, user)
     if not verify_password(current_password, user.password_hash):
         raise CredentialsException("Current password is incorrect")
 
@@ -175,6 +193,9 @@ async def change_pin(
 
     Raises CredentialsException if current_pin does not match.
     """
+    user = await lock_current_account(db, user)
+    if user.role.name != RoleEnum.OPERATOR.value:
+        raise ForbiddenException("PIN credentials are only available to operators")
     if not user.operator_profile:
         raise NotFoundException("Operator Profile")
 
@@ -197,6 +218,9 @@ async def setup_pin(
     Only allowed when the operator profile has requires_pin_change=True.
     """
     user = await verify_setup_token(db, setup_token, "setup_pin")
+
+    if user.role.name != RoleEnum.OPERATOR.value:
+        raise ForbiddenException("PIN credentials are only available to operators")
 
     if not user or not user.operator_profile:
         raise NotFoundException("Operator Profile")

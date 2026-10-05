@@ -10,6 +10,7 @@ import type { ScanLogPage, ScanLogParams } from "@/types/scanLogs"
 import type { ApiScan, ApiScanNote, RecordPage } from "@/lib/scanData"
 import type { InventoryStatus, IntakeStatus } from "@/types"
 import type { AnalyticsRange, AnalyticsSummary, AnalyticsOperator } from "@/types/analytics"
+import type { ApiActivity, ApiConfig, ApiDevice, ApiIntake, ApiMessage, ApiNotification, ApiSensor, ApiSupplier, ApiSupplierWrite, ApiUser, ApiUserCreate, ApiUserCreated, ApiUserUpdate } from "@/types/api"
 
 const host = window.location.hostname
 export const BASE_URL = import.meta.env.VITE_API_URL || `http://${host}:8000`
@@ -77,10 +78,6 @@ function post<T>(path: string, body?: unknown) {
 
 function patch<T>(path: string, body?: unknown) {
   return request<T>("PATCH", path, body)
-}
-
-function del<T>(path: string) {
-  return request<T>("DELETE", path)
 }
 
 // ── API Namespaces ──────────────────────────────────────────────────────────
@@ -158,13 +155,13 @@ export const api = {
     detail: (id: string, signal?: AbortSignal) => get<ApiScan>(`/api/v1/scans/${id}`, undefined, signal),
 
     flag: (id: string, flagged: boolean) =>
-      patch<any>(`/api/v1/scans/${id}/flag`, { flagged }),
+      patch<ApiMessage>(`/api/v1/scans/${id}/flag`, { flagged }),
 
     override: (id: string, data: { cultivar?: string; ripeness?: string; finger_count?: number; spoilage_days?: string; source_text?: string }) =>
       patch<ApiScan>(`/api/v1/scans/${id}`, data),
 
     updateStatus: (id: string, status: string) =>
-      patch<any>(`/api/v1/scans/${id}/status`, { inventory_status: status }),
+      patch<ApiMessage>(`/api/v1/scans/${id}/status`, { inventory_status: status }),
 
     notes: {
       list: (scanId: string) => get<ApiScanNote[]>(`/api/v1/scans/${scanId}/notes`),
@@ -179,38 +176,38 @@ export const api = {
 
   // ── Devices ──────────────────────────────────────────────────────────────
   devices: {
-    list: () => get<any[]>("/api/v1/devices"),
+    list: () => get<ApiDevice[]>("/api/v1/devices"),
   },
 
   // ── Sensors ──────────────────────────────────────────────────────────────
   sensors: {
-    latest: () => get<{ temperature: number; humidity: number; recorded_at: string }>("/api/v1/sensors/latest"),
-    history: (params?: { hours?: number }) => get<any[]>("/api/v1/sensors/history", params as any),
+    latest: () => get<ApiSensor | null>("/api/v1/sensors/latest"),
+    history: (params?: { limit?: number }) => get<{ items: ApiSensor[]; total: number }>("/api/v1/sensors/history", params),
   },
 
   // ── Users ────────────────────────────────────────────────────────────────
   users: {
     summary: (signal?: AbortSignal) => get<{ total_scans: number; avg_confidence: number | null; last_7_days: number; total_users: number | null; activity: { id: string; action: string; details: string; timestamp: string }[] }>("/api/v1/users/me/summary", undefined, signal),
-    list: () => get<{ items: any[]; total: number }>("/api/v1/users"),
-    create: (data: any) => post<any>("/api/v1/users", data),
-    update: (id: string, data: any) => patch<any>(`/api/v1/users/${id}`, data),
+    list: () => get<{ items: ApiUser[]; total: number }>("/api/v1/users"),
+    create: (data: ApiUserCreate) => post<ApiUserCreated>("/api/v1/users", data),
+    update: (id: string, data: ApiUserUpdate) => patch<ApiUser>(`/api/v1/users/${id}`, data),
     resetPassword: (id: string) => post<{ message: string; temporary_password: string }>(`/api/v1/users/${id}/reset-password`, {}),
     resetPin: (id: string) => post<{ message: string; temporary_pin: string }>(`/api/v1/users/${id}/reset-pin`, {}),
     /** Self-service profile update — any authenticated user can update their own avatar. (PROFILE-01) */
-    updateProfile: (data: { avatar_url?: string }) => patch<any>(`/api/v1/users/me/profile`, data),
+    updateProfile: (data: { avatar_url?: string }) => patch<ApiUser>(`/api/v1/users/me/profile`, data),
   },
 
   // ── Suppliers ────────────────────────────────────────────────────────────
   suppliers: {
-    list: () => get<any[]>("/api/v1/suppliers"),
-    create: (data: any) => post<any>("/api/v1/suppliers", data),
-    update: (id: string, data: any) => patch<any>(`/api/v1/suppliers/${id}`, data),
+    list: () => get<ApiSupplier[]>("/api/v1/suppliers"),
+    create: (data: ApiSupplierWrite) => post<ApiSupplier>("/api/v1/suppliers", data),
+    update: (id: string, data: Partial<ApiSupplierWrite>) => patch<ApiSupplier>(`/api/v1/suppliers/${id}`, data),
   },
 
   // ── Intakes ──────────────────────────────────────────────────────────────
   intakes: {
-    list: () => get<any[]>("/api/v1/intakes"),
-    create: (data: { supplier_id: string; batch_number: string; source?: string; treatment?: string }) => post<any>("/api/v1/intakes", data),
+    list: () => get<ApiIntake[]>("/api/v1/intakes"),
+    create: (data: { supplier_id: string; batch_number: string; source?: string; treatment?: string }) => post<ApiIntake>("/api/v1/intakes", data),
     update: (id: string, data: { status: IntakeStatus }) => patch<{ message: string }>(`/api/v1/intakes/${id}/status`, data),
     bulkInventory: (id: string, data: { inventory_status: InventoryStatus }) =>
       patch<{ updated_count: number; updated_scan_ids: string[]; status_updated_at: string; intake_status: IntakeStatus }>(`/api/v1/intakes/${id}/bulk-inventory`, data),
@@ -253,13 +250,13 @@ export const api = {
   // ── Activity ─────────────────────────────────────────────────────────────
   activity: {
     list: (params?: { page?: number; page_size?: number; action?: string }, signal?: AbortSignal) =>
-      get<RecordPage<{ id: string; created_at: string; user_name?: string; action: string; details: string; ip_address?: string }>>("/api/v1/activity", params, signal),
+      get<RecordPage<ApiActivity>>("/api/v1/activity", params, signal),
   },
 
   // ── Config ───────────────────────────────────────────────────────────────
   config: {
-    get: () => get<any>("/api/v1/config"),
-    update: (data: any) => patch<any>("/api/v1/config", data),
+    get: () => get<ApiConfig>("/api/v1/config"),
+    update: (data: Partial<ApiConfig>) => patch<ApiConfig>("/api/v1/config", data),
     export: async () => {
       const token = getToken()
       const res = await fetch(`${BASE_URL}/api/v1/config/export`, {
@@ -274,21 +271,21 @@ export const api = {
       a.click()
       window.URL.revokeObjectURL(url)
     },
-    shutdown: () => post<any>("/api/v1/config/shutdown"),
-    restart: () => post<any>("/api/v1/config/restart"),
+    shutdown: () => post<ApiMessage>("/api/v1/config/shutdown"),
+    restart: () => post<ApiMessage>("/api/v1/config/restart"),
   },
 
   // ── Quality Control ──────────────────────────────────────────────────────
   quality: {
-    flagged: (params?: { page?: number; per_page?: number }) =>
-      get<{ items: any[]; total: number }>("/api/v1/quality/flagged", params as any),
+    flagged: (params?: { page?: number; page_size?: number }) =>
+      get<RecordPage<Pick<ApiScan, "id" | "scanned_at" | "cultivar" | "ripeness" | "confidence" | "finger_count" | "operator_name" | "flagged">>>("/api/v1/quality/flagged", params),
   },
 
   // ── Notifications ───────────────────────────────────────────────────────
   notifications: {
-    list: () => get<{ items: any[]; total: number }>("/api/v1/notifications"),
-    markRead: (id: string) => patch<any>(`/api/v1/notifications/${id}/read`),
-    markAllRead: () => post<any>("/api/v1/notifications/read-all"),
+    list: () => get<{ items: ApiNotification[]; total: number }>("/api/v1/notifications"),
+    markRead: (id: string) => patch<ApiMessage>(`/api/v1/notifications/${id}/read`),
+    markAllRead: () => post<ApiMessage>("/api/v1/notifications/read-all"),
   },
 
   // ── System ─────────────────────────────────────────────────────────────

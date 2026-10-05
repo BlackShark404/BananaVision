@@ -15,9 +15,22 @@ async function setup(t, screen, role = "Admin") {
   t.after(async () => { await context.close(); assert.deepEqual(errors, []) })
   const user = { id: "owner", username: "owner", fullName: "Same Name", role }
   await page.addInitScript(({ user, screen }) => {
-    if (screen !== "auth") {
+    if (screen !== "auth" && location.pathname !== "/login") {
       localStorage.setItem("bananavision_user", JSON.stringify(user))
       localStorage.setItem("bananavision_token", "access")
+    }
+    if (screen === "socket") {
+      window.fixtureSockets = []
+      const NativeWebSocket = window.WebSocket
+      window.WebSocket = class {
+        constructor(url, protocols) {
+          if (!url.includes("/api/v1/ws")) return new NativeWebSocket(url, protocols)
+          this.url = url
+          window.fixtureSockets.push(this)
+          queueMicrotask(() => this.onopen?.({}))
+        }
+        close(code = 1000) { this.onclose?.({ code }) }
+      }
     }
   }, { user, screen })
   await page.route("**/api/v1/**", async route => {
@@ -85,4 +98,72 @@ test("password and PIN setup carry limited proofs and do not persist setup token
   await page.getByText("true", { exact: true }).waitFor()
   assert.deepEqual(requests.find(r => r.path === "/api/v1/auth/setup-pin").body, { setup_token: "pin-proof", new_pin: "2468" })
   assert.ok(!(await page.evaluate(() => JSON.stringify(localStorage))).includes("-proof"))
+})
+
+test("role changes clear admin data and reject late responses while preserving child state", async t => {
+  const { page } = await setup(t, "scope")
+  const state = () => page.getByTestId("scope-state").textContent().then(JSON.parse)
+  await page.waitForFunction(() => JSON.parse(document.querySelector('[data-testid="scope-state"]').textContent).users.length === 1)
+  await page.getByRole("button", { name: "Keep child state" }).click()
+  let release
+  const held = new Promise(resolve => { release = resolve })
+  await page.route("**/api/v1/users", async route => {
+    if (route.request().method() !== "POST") return route.fallback()
+    await held
+    return route.fulfill({ status: 201, headers: { "access-control-allow-origin": "*" }, json: {
+      id: "late", username: "late-owner", full_name: "Late private owner", role: "Operator", status: "Active",
+      temporary_password: "temporary-handoff", temporary_pin: "5678",
+    } })
+  })
+  t.after(() => release())
+  const started = page.waitForRequest(request => request.url().endsWith("/api/v1/users") && request.method() === "POST")
+  await page.getByRole("button", { name: "Create pending user" }).click()
+  await started
+  await page.getByRole("button", { name: "Become operator" }).click()
+  assert.equal((await state()).role, "Operator")
+  assert.equal((await state()).count, 1)
+  assert.deepEqual((await state()).users, [])
+  release()
+  await page.waitForFunction(() => JSON.parse(document.querySelector('[data-testid="scope-state"]').textContent).result === "complete")
+  assert.deepEqual((await state()).users, [])
+})
+
+test("WebSocket revocation clears current auth but an old socket cannot clear a rotated token", async t => {
+  const { page } = await setup(t, "socket")
+  await page.waitForFunction(() => document.querySelector('[data-testid="socket-state"]').textContent === "connected")
+  await page.evaluate(() => {
+    localStorage.setItem("bananavision_token", "rotated-access")
+    window.fixtureSockets[0].close(4001)
+  })
+  await page.waitForFunction(() => window.fixtureSockets.length === 2)
+  await page.evaluate(() => window.fixtureSockets[0].close(4001))
+  assert.equal(await page.evaluate(() => localStorage.getItem("bananavision_token")), "rotated-access")
+  await page.route(`${runtime.url}/login`, route => route.fulfill({ contentType: "text/html", body: "<p>Sign in again</p>" }))
+  await page.evaluate(() => window.fixtureSockets[1].close(4001))
+  await page.waitForURL(`${runtime.url}/login`)
+  assert.equal(await page.evaluate(() => localStorage.getItem("bananavision_token")), null)
+  assert.equal(await page.evaluate(() => localStorage.getItem("bananavision_user")), null)
+})
+
+test("a delayed profile response cannot overwrite auth metadata after a role change", async t => {
+  const { page } = await setup(t, "scope")
+  let release
+  const held = new Promise(resolve => { release = resolve })
+  await page.route("**/api/v1/users/me/profile", async route => {
+    if (route.request().method() !== "PATCH") return route.fallback()
+    await held
+    return route.fulfill({ headers: { "access-control-allow-origin": "*" }, json: {
+      id: "owner", username: "owner", full_name: "Same Name", role: "Admin", status: "Active", avatar_url: "private-avatar.png",
+    } })
+  })
+  t.after(() => release())
+  const started = page.waitForRequest(request => request.url().endsWith("/me/profile") && request.method() === "PATCH")
+  await page.getByRole("button", { name: "Update pending profile" }).click()
+  await started
+  await page.getByRole("button", { name: "Become operator" }).click()
+  release()
+  await page.waitForFunction(() => JSON.parse(document.querySelector('[data-testid="scope-state"]').textContent).result === "complete")
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("bananavision_user")))
+  assert.equal(stored.role, "Operator")
+  assert.equal(stored.avatar, undefined)
 })

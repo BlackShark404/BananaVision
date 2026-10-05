@@ -254,6 +254,13 @@ Based on the `KENT_ASSIGNED_FEATURES_REVIEW.md` priority roadmap, the implementa
 - **[x] RETENTION-03 (Medium):** "Database Backup" label is misleading — it's a limited CSV export.
 - **[x] LANDING-01 (Medium):** Logo container lacks keyboard/button accessibility.
 
+### 5. Follow-up security and schema gaps (Completed)
+- **[x] AUTH-02 / AUTH-03:** Existing WebSocket sessions revalidate on delivery, incoming messages and idle checks.
+- **[x] ROLE-01:** PIN access requires the current Operator role; promotion retires the PIN and role/status changes revoke sessions.
+- **[x] ADMIN-01:** A shared database transaction lock makes the last-admin safeguard safe across concurrent requests and workers.
+- **[x] Database upgrades:** Recorded Alembic revisions run before startup account reads, including legacy `token_version` upgrades.
+- **[x] API/AdminContext cleanup:** Typed contracts and account-scoped state replace explicit `any` types and synchronous effect resets.
+
 ---
 
 ## [Date: October 5, 2026] - Remaining Assigned Issues and Setup Authorization
@@ -285,3 +292,139 @@ Deployment notes are in `backend/README.md` and `backend/.env.example`. No deplo
 - Validate existing database schema upgrades and rotate any credentials issued under the old shared-credential workflow.
 - Exercise the full role/access/live-session matrix and retention cutoffs on disposable deployment data; code completion alone is not a deployed-system certification.
 - Check landing-page layouts, keyboard navigation, contact destination and product claims against demonstrated behavior.
+
+---
+
+## [Date: October 5, 2026] - Live Sessions, Role Transitions and Versioned Upgrades
+
+### Status: Implementation and automated regression verification completed; station acceptance pending
+
+- **Live WebSockets:** Every delivery and incoming message validates JWT expiry, access scope, account status, session version and current database role. Idle sessions recheck every 15 seconds. Invalid sessions are removed from rooms and closed; database validation failures stop delivery. Subscriptions update membership without accepting the socket twice. The browser returns to login for a revoked current token, while delayed closes from an older socket cannot clear a rotated token.
+- **Roles and PINs:** PIN login/setup/change/reset require the current Operator role, including legacy promoted accounts that still contain a PIN hash. Promotion clears the PIN and its setup flags while keeping historical scan ownership. Demotion clears any old PIN, requires fresh administrator handoff and preserves existing profiles. Role/status changes increment the session version, so reactivation cannot restore a revoked session.
+- **Concurrent account changes:** All user updates acquire a common role-row transaction lock before loading/counting targets. Waiting requests recheck the administrator's current status, role and token version. This protects both simultaneous self-changes and admins attempting to change each other. Credential changes, logout and resets lock/refresh the account to prevent stale session versions from overwriting a concurrent revocation.
+- **Migrations:** Added Alembic configuration, revision templates and explicit session-revocation/feature-column revisions. Startup and `python -m app.core.migrations` initialize missing tables and apply recorded upgrades before ORM reads. Existing rows/credentials and already-present columns survive upgrades. PostgreSQL startup uses a transaction advisory lock; concurrent starts are tested. Historical engineered features are not recomputed and unsafe automatic downgrades are blocked.
+- **Frontend contracts and account state:** API responses and write bodies have explicit types, including nullable values and actual pagination parameters. API/AdminContext explicit `any` types, the unused delete helper and synchronous effect-state warnings are removed. Cached admin data clears on account/role changes without remounting child screens; late responses from the old scope are ignored. Delayed profile responses cannot overwrite the current account's displayed identity. Missing stored device timestamps are not replaced with the current time.
+
+### Verification
+
+- **Backend: 96 passed**, including real simultaneous transactions on SQLite and an isolated PostgreSQL 17 instance, fresh/legacy/repeated schema upgrades, concurrent startup, connected/idle WebSocket revocation, JWT expiry, legacy PIN denial, preserved scan ownership and stale credential updates. PostgreSQL tests use unique temporary schemas and leave the station database untouched.
+- **Browser: 16 passed** in headless Chrome with fixture APIs. Added cases verify account-cache clearing, late-response rejection, preserved setup-screen state, stale profile protection and WebSocket token rotation/logout behavior.
+- **Frontend:** TypeScript/Vite production build and focused ESLint checks for API, AdminContext, AuthContext, API/domain types and the updated fixture passed. This resolves the reported API/AdminContext debt; it does not claim repository-wide lint cleanup.
+- The Windows default pytest temporary folder was inaccessible; verification used a writable ignored workspace test directory with cache writes disabled. No production schema upgrade, real power command, station reboot, real camera remapping or model benchmark was performed.
+
+### Remaining acceptance work
+
+Rehearse migrations against a disposable copy of the deployed database and verify its recorded revision. Complete physical camera/reboot, power permissions, offline startup, autostart, model asset/performance/latency and full station acceptance checks listed above. Automated code checks do not establish hardware or deployment readiness.
+
+---
+
+## Team Testing Guide — Account Handoff and Follow-up Fixes
+
+Use the branch/commit containing these updates. The commands below use **Windows PowerShell** and each block starts from the **BananaVision repository root**. Install backend requirements in `backend/venv` and frontend dependencies first; see [backend setup](../backend/README.md). Use test accounts and a disposable database for manual checks, role/status changes, credential resets and migration rehearsals.
+
+### 1. Run the backend regression suite
+
+```powershell
+cd backend
+New-Item -ItemType Directory -Force node_modules | Out-Null
+.\venv\Scripts\python.exe -m pytest tests -q -p no:cacheprovider --basetemp=node_modules\verify-temp
+cd ..
+```
+
+**Expected:** No failures or errors. Without a PostgreSQL test URL, the current suite should report **90 passed, 6 skipped**. The six skipped cases require PostgreSQL; skipping them does not verify PostgreSQL locking or migrations. `verify-temp` is a disposable directory that pytest clears on reruns; `node_modules` is ignored by Git. This avoids the inaccessible default Windows temporary folder encountered during verification.
+
+Coverage includes credential handoff/setup, revoked sessions, PIN/role restrictions, last-admin protection, stale credential writes, profile totals, persistence failures, camera settings, mocked power outcomes and capture cleanup. The tests do not boot the physical station or execute real power commands.
+
+### 2. Include PostgreSQL concurrency and migration tests
+
+Start a disposable PostgreSQL test database. Replace the example connection values below with that database's credentials; the test user needs permission to create schemas. These tests create unique temporary schemas and remove those schemas afterward.
+
+```powershell
+cd backend
+$env:BANANAVISION_TEST_DATABASE_URL = 'postgresql+asyncpg://TEST_USER:TEST_PASSWORD@localhost:5432/bananavision_test'
+New-Item -ItemType Directory -Force node_modules | Out-Null
+.\venv\Scripts\python.exe -m pytest tests -q -p no:cacheprovider --basetemp=node_modules\verify-postgresql
+Remove-Item Env:\BANANAVISION_TEST_DATABASE_URL
+cd ..
+```
+
+**Expected:** **96 passed**, with no PostgreSQL skips. This verifies simultaneous self-demotion/deactivation, admins changing each other, fresh/legacy/repeated schema upgrades and concurrent startup. At least one active admin must remain after the concurrent account changes.
+
+### 3. Check frontend compilation and the cleaned-up files
+
+```powershell
+cd frontend
+npm run build
+npx eslint src/lib/api.ts src/context/AdminContext.tsx src/context/AuthContext.tsx src/types/api.ts src/types/index.ts tests/assigned.fixture.tsx
+cd ..
+```
+
+**Expected:** Both commands exit successfully. Build checks TypeScript and produces the production bundle. Focused lint checks the files covered by this cleanup; `npm run lint` checks the wider repository and may still report unrelated legacy issues.
+
+### 4. Run browser regression tests
+
+These tests start isolated Vite servers and use fixture APIs, so the real backend and cameras are not required. They require Node.js, installed Google Chrome and Playwright. See [browser test setup](../frontend/tests/dashboard.README.md) for alternate browser/module paths. If Playwright is not already installed, the following optional command installs the version used for verification into an ignored test-tools folder:
+
+```powershell
+cd frontend
+npm install --prefix node_modules/.qa-tools --no-save --package-lock=false playwright@1.63.0
+$env:PLAYWRIGHT_MODULE = (Resolve-Path 'node_modules/.qa-tools/node_modules/playwright/index.mjs').Path
+node --test --test-concurrency=1 tests/persistence.test.mjs tests/assigned.test.mjs
+Remove-Item Env:\PLAYWRIGHT_MODULE
+cd ..
+```
+
+If using an existing Playwright installation, skip the install command and set `PLAYWRIGHT_MODULE` to its absolute `playwright/index.mjs` path instead.
+
+**Expected:** **16 passed**, with no failures or uncaught browser errors. These checks cover one-time credential display, setup proofs, complete history, failed writes, account-cache clearing, late-response rejection, profile metadata protection and WebSocket token rotation/logout behavior.
+
+### 5. Check the behavior in the running app
+
+Run the backend using [its startup instructions](../backend/README.md), configured for the test database. In another terminal, run `npm run dev` from `frontend`. Use separate browser profiles or a normal and an incognito window for independent sessions; two normal tabs share local storage.
+
+| Change | Test steps | Expected result |
+| --- | --- | --- |
+| Temporary credential handoff | Create two test operators. Inspect each handoff dialog, close it, and complete password/PIN setup using the issued temporary credentials. | Temporary passwords differ; each operator receives a generated four-digit PIN. Setup requires replacement. Values disappear when the dialog closes and are absent from browser storage and audit logs. |
+| Live WebSocket revocation | Sign the same test account into two independent browser sessions. Open a live page and confirm its WebSocket is connected. Log out in one session. Repeat with an admin password/PIN reset or account deactivation. | The other socket stops receiving events, closes and returns to login. Idle revocation occurs by the next 15-second check; outgoing events are checked before delivery. Browser DevTools → Network → WS can show the close/frame behavior. |
+| Promotion retires the PIN | Start with a working operator PIN and an existing scan. Promote that operator to Admin, then retry the old PIN and old session. | PIN login fails, old sessions are revoked, and historical scans retain their owner. A fresh administrator session uses password authentication. |
+| Demotion requires fresh handoff | Demote that test Admin back to Operator while keeping another active Admin. Retry the old PIN, then issue a new PIN through **Reset PIN** and finish PIN setup. | The old PIN remains unusable. The fresh temporary PIN requires replacement before normal PIN login. |
+| Reactivation does not revive tokens | Sign in as a test operator, deactivate and reactivate it from a separate Admin session, then reuse its original token. | The old token is rejected; a fresh sign-in is required. |
+| Last-active-admin safeguard | On the disposable database, leave one active Admin. Try to demote or deactivate it. For direct API verification, authorize a test Admin in Swagger at `/docs` and call `PATCH /api/v1/users/{user_id}`. | The backend returns **409** and preserves the active Admin. Use the automated PostgreSQL tests above for genuinely simultaneous requests. |
+| Account-state cleanup | Switch between accounts/roles after loading admin data. Also inspect the browser regression cases for delayed responses during a switch. | Previous admin data disappears; late responses cannot restore it or overwrite the new account's displayed identity. Setup screens retain their own state. |
+| Full profile totals | Seed more than 100 retained test scans, including scans belonging to different operators. Compare Profile totals with the test database. | Operators see all their own retained scans and personal activity; Admins see platform totals. Results are not limited to the first history page. |
+
+### 6. Rehearse an existing database upgrade
+
+Restore an old database backup into a **disposable copy**. This step uses **`DATABASE_URL`**, which selects the application database; `BANANAVISION_TEST_DATABASE_URL` only selects optional automated-test connections. Replace the URL below before running the commands:
+
+```powershell
+cd backend
+$env:DATABASE_URL = 'postgresql+asyncpg://TEST_USER:TEST_PASSWORD@localhost:5432/bananavision_upgrade_copy'
+.\venv\Scripts\python.exe -m app.core.migrations
+.\venv\Scripts\python.exe -m app.core.migrations
+Remove-Item Env:\DATABASE_URL
+cd ..
+```
+
+Run these read-only queries against that copy using your PostgreSQL client:
+
+```sql
+SELECT version_num FROM alembic_version;
+
+SELECT column_name, is_nullable, column_default
+FROM information_schema.columns
+WHERE table_schema = current_schema()
+  AND table_name = 'user_account'
+  AND column_name = 'token_version';
+```
+
+**Expected:** Revision `0002_feature_engineering`; a non-null `token_version` column with default `1` when added by the migration; both upgrade runs succeed without duplicate columns. Compare account/scan counts and credential hashes before and after. Existing data must survive. Start the backend against the copy, verify sign-in, and confirm logout/reset invalidates old tokens. Never use the scan-summary CSV as the recovery backup.
+
+### 7. Record station acceptance separately
+
+- Verify real camera mapping, labels, unplug/reconnect behavior and capture evidence.
+- Test an actual restart/shutdown on the designated test station, then confirm frontend/backend autostart after reboot.
+- Test offline startup with required dependencies and model assets already provisioned.
+- Record model version/class map, classification/regression performance and station latency.
+
+For each check, record **tester, date, branch/commit, environment, steps, expected result, actual result and pass/fail**, with screenshots or sanitized logs where useful. Keep passwords, PINs and tokens out of the report. Report skipped or blocked checks separately from passes; automated test results do not certify hardware or deployment readiness.

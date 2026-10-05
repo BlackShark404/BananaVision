@@ -6,7 +6,7 @@ Python/FastAPI backend for the BananaVision banana classification and spoilage p
 
 - **Framework:** FastAPI (async)
 - **Database:** PostgreSQL + SQLAlchemy (async) + Alembic
-- **Auth:** JWT (python-jose) + bcrypt
+- **Auth:** JWT (PyJWT) + bcrypt
 - **ML:** YOLO26 (ultralytics) + Random Forest Regression (scikit-learn)
 - **Camera:** OpenCV (multi-camera parallel capture)
 - **Sensor:** Arduino DHT22 via pyserial
@@ -26,10 +26,13 @@ pip install -r requirements.txt
 createdb bananavision
 # Edit .env with your DB credentials
 
-# 4. Run the server
+# 4. Initialize or upgrade the schema (also runs during server startup)
+python -m app.core.migrations
+
+# 5. Run the server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-# 5. Open API docs
+# 6. Open API docs
 open http://localhost:8000/docs
 ```
 
@@ -76,6 +79,20 @@ Account creation and administrator resets generate unique temporary credentials.
 
 The destructive demo seed utility requires a non-production environment and the same bootstrap configuration. Its fixture operator is inactive with no usable PIN; an administrator must reset credentials and activate it for use.
 
+Role and active-status changes revoke existing sessions. Promoting an operator clears their PIN while preserving the profile and scan-history links. Demotion requires an administrator to issue a new temporary PIN through **Reset PIN**; old PINs are never restored. PIN login, PIN setup/change and administrator PIN reset require the current Operator role. Account updates serialize the last-active-admin check inside the database transaction; a waiting request also rechecks its administrator's status, role and session version.
+
+## Existing database upgrades
+
+From `backend/`, run `python -m app.core.migrations` with the deployment environment configured. This initializes missing tables and applies the versioned revisions in `migrations/versions/`. Startup runs the same upgrade before reading users or seeding accounts, and fails if an upgrade cannot complete. PostgreSQL uses a transaction advisory lock so simultaneous starts serialize schema changes.
+
+- `0001_session_revocation` adds a non-null `user_account.token_version` with default `1` to older schemas, preserving account credentials and existing rows.
+- `0002_feature_engineering` adds missing batch lifecycle/treatment and engineered-feature columns from the earlier manual SQL migration. Already-present columns are retained. Historical engineered values remain unchanged; the schema upgrade does not recompute model features.
+- `alembic_version` records successful upgrades. Fresh databases and databases already upgraded manually adopt the revision without duplicate columns. Automatic downgrade is intentionally blocked because removing session revocation or historical columns would discard safeguards/data.
+
+Before upgrading the station, take a PostgreSQL backup and rehearse against a disposable copy. Confirm `alembic_version.version_num` is `0002_feature_engineering`, `user_account.token_version` exists, existing accounts can sign in, and pre-reset tokens are rejected. The scan-summary CSV is insufficient for database recovery.
+
+Regression tests use disposable databases. To include PostgreSQL cases, set `BANANAVISION_TEST_DATABASE_URL` to a test PostgreSQL URL; the tests create unique temporary schemas and remove only those schemas. On Windows, if the default pytest temporary directory is inaccessible, pass `--basetemp` pointing to a writable test directory whose parent exists.
+
 ## Power commands and data retention
 
 Power endpoints check the command exit code and report OS acceptance, not proof of completed reboot. They reject requests during an active scan or camera mapping. Windows schedules power actions after ten seconds; Linux/macOS use a one-minute delay and noninteractive `sudo -n`. Configure host permissions and service autostart using [the kiosk guide](../docs/kiosk-autostart-guide.md); verify these on the deployed station.
@@ -89,3 +106,5 @@ ws://localhost:8000/api/v1/ws?token=JWT&rooms=kiosk,dashboard
 ```
 
 Events: `scan:started`, `scan:capturing`, `scan:captured`, `scan:detecting`, `scan:detected`, `scan:analyzing`, `scan:completed`, `scan:failed`, `sensor:update`, `device:status`, `notification`
+
+Every connection, incoming message and outgoing delivery checks JWT expiry and the account's current role, status and session version. Idle connections recheck every 15 seconds. Invalid sessions close with code `4001`; the frontend clears the matching session and returns to login. A socket from before credential rotation cannot clear the newer token. Operators may subscribe only to `kiosk`; administrators may also subscribe to `dashboard`, `devices` and `admin`.

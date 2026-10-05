@@ -3,6 +3,7 @@ import { api } from "@/lib/api"
 import { collectScanPages, storedTimestamp } from "@/lib/scanData"
 import { useAuth } from "@/context/AuthContext"
 import type { User, Device, ActivityLog, SystemConfig } from "@/types"
+import type { ApiUser, ApiDevice, ApiActivity, ApiUserUpdate, ApiConfig } from "@/types/api"
 import { useLocation } from "react-router-dom"
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -31,60 +32,75 @@ const AdminContext = createContext<AdminContextType | null>(null)
 
 // ── Mappers ─────────────────────────────────────────────────────────────────
 
-const mapApiUser = (u: any): User => ({
+const mapApiUser = (u: ApiUser): User => ({
   id: u.id,
   username: u.username,
-  fullName: u.full_name || u.fullName || "",
+  fullName: u.full_name,
   role: u.role,
-  status: u.status || "Active",
-  lastActive: u.last_active || u.lastActive || "Never",
-  avatar: u.avatar_url || u.avatar,
-  requiresPasswordChange: u.requires_password_change ?? u.requiresPasswordChange,
-  passwordSetupReason: u.password_setup_reason || u.passwordSetupReason,
-  requiresPinChange: u.requires_pin_change ?? u.requiresPinChange,
-  pinSetupReason: u.pin_setup_reason || u.pinSetupReason,
+  status: u.status,
+  lastActive: u.last_active ?? "Never",
+  avatar: u.avatar_url || undefined,
+  requiresPasswordChange: u.requires_password_change,
+  requiresPinChange: u.requires_pin_change,
 })
 
-const mapApiDevice = (d: any): Device => ({
+const mapApiDevice = (d: ApiDevice): Device => ({
   id: d.id,
-  cameraId: d.camera_id || d.cameraId,
+  cameraId: d.camera_id,
   label: d.label,
   status: d.status,
-  resolution: d.resolution,
-  lastSeen: d.last_seen || d.lastSeen || new Date().toISOString(),
+  resolution: d.resolution ?? "Unknown",
+  lastSeen: d.last_seen ?? "Never",
 })
 
-const mapApiActivityLog = (a: any): ActivityLog => ({
+const mapApiActivityLog = (a: ApiActivity): ActivityLog => ({
   id: a.id,
-  timestamp: storedTimestamp(a.created_at ?? a.timestamp),
-  user: a.user_name || a.user || "System",
+  timestamp: storedTimestamp(a.created_at),
+  user: a.user_name ?? "System",
   action: a.action,
-  details: a.details,
-  ipAddress: a.ip_address || a.ipAddress,
+  details: a.details ?? "",
+  ipAddress: a.ip_address ?? undefined,
 })
 
 // ── Provider ────────────────────────────────────────────────────────────────
 
+function useScopedState<T>(scope: string, initial: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [state, setState] = useState({ scope, value: initial })
+  // React discards this render and retries with the new scope before children commit.
+  if (state.scope !== scope) setState({ scope, value: initial })
+  const setValue = useCallback((action: React.SetStateAction<T>) => {
+    setState(previous => {
+      // Ignore late requests issued by an account that has since signed out/swapped.
+      if (previous.scope !== scope) return previous
+      const value = typeof action === "function" ? (action as (value: T) => T)(previous.value) : action
+      return { scope, value }
+    })
+  }, [scope])
+  return [state.scope === scope ? state.value : initial, setValue]
+}
+
 export function AdminProvider({ children }: { children: React.ReactNode }) {
   const { user, updateAuthUser } = useAuth()
   const { pathname } = useLocation()
+  const scope = `${user?.id ?? "anonymous"}:${user?.role ?? "none"}`
 
-  const [users, setUsers] = useState<User[]>([])
-  const [devices, setDevices] = useState<Device[]>([])
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([])
-  const [activityLoading, setActivityLoading] = useState(false)
-  const [activityError, setActivityError] = useState<string | null>(null)
-  const [config, setConfig] = useState<SystemConfig>({ cameraIds: "CAM-001, CAM-002", confidenceThreshold: 85, dataRetentionEnabled: true })
+  const [users, setUsers] = useScopedState<User[]>(scope, [])
+  const [devices, setDevices] = useScopedState<Device[]>(scope, [])
+  const [activityLogs, setActivityLogs] = useScopedState<ActivityLog[]>(scope, [])
+  const [activityLoading, setActivityLoading] = useScopedState(scope, user?.role === "Admin")
+  const [activityError, setActivityError] = useScopedState<string | null>(scope, null)
+  const [config, setConfig] = useScopedState<SystemConfig>(scope, { cameraIds: "CAM-001, CAM-002", confidenceThreshold: 85, dataRetentionEnabled: true })
 
   // ── Load data on mount / navigation ─────────────────────────────────────
 
   useEffect(() => {
     if (!user) return
     const controller = new AbortController()
-    setActivityLoading(true)
-    setActivityError(null)
-
     const loadData = async () => {
+      await Promise.resolve()
+      if (controller.signal.aborted) return
+      setActivityLoading(user.role === "Admin")
+      setActivityError(null)
       try {
         const [usersRes, devicesRes, activityRes, configRes] = await Promise.allSettled([
           user.role === "Admin" ? api.users.list() : Promise.resolve({ items: [], total: 0 }),
@@ -95,14 +111,13 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         if (controller.signal.aborted) return
 
         if (usersRes.status === "fulfilled") {
-          const raw = usersRes.value.items || usersRes.value as any
-          setUsers(Array.isArray(raw) ? raw.map(mapApiUser) : [])
+          setUsers(usersRes.value.items.map(mapApiUser))
         } else {
           console.warn("[AdminContext] Users API unavailable")
         }
 
         if (devicesRes.status === "fulfilled") {
-          setDevices((devicesRes.value as any[]).map(mapApiDevice))
+          setDevices(devicesRes.value.map(mapApiDevice))
         } else {
           console.warn("[AdminContext] Devices API unavailable")
         }
@@ -125,25 +140,16 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           console.warn("[AdminContext] Config API unavailable")
         }
       } catch (err) {
+        if (controller.signal.aborted) return
+        setActivityLoading(false)
+        setActivityError("Activity history could not be loaded completely. Please reload to retry.")
         console.warn("[AdminContext] Backend unreachable", err)
       }
     }
 
     void loadData()
     return () => controller.abort()
-  }, [user, pathname])
-
-  // ── Reset on logout ─────────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!user) {
-      setUsers([])
-      setDevices([])
-      setActivityLogs([])
-      setActivityLoading(false)
-      setActivityError(null)
-    }
-  }, [user])
+  }, [user, pathname, setUsers, setDevices, setActivityLogs, setActivityLoading, setActivityError, setConfig])
 
   // ── CRUD Operations ─────────────────────────────────────────────────────
 
@@ -157,19 +163,20 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     const result = await api.users.create(apiData)
     const savedUser = mapApiUser(result)
     setUsers((prev) => [...prev, savedUser])
-    return { user: savedUser, password: result.temporary_password, pin: result.temporary_pin }
-  }, [])
+    return { user: savedUser, password: result.temporary_password, pin: result.temporary_pin ?? undefined }
+  }, [setUsers])
 
   const updateUser = useCallback(async (id: string, data: Partial<User>) => {
-    const apiData: any = { ...data }
-    if (data.fullName !== undefined) apiData.full_name = data.fullName
-    if (data.requiresPasswordChange !== undefined) apiData.requires_password_change = data.requiresPasswordChange
-    if (data.passwordSetupReason !== undefined) apiData.password_setup_reason = data.passwordSetupReason
-    if (data.requiresPinChange !== undefined) apiData.requires_pin_change = data.requiresPinChange
-    if (data.pinSetupReason !== undefined) apiData.pin_setup_reason = data.pinSetupReason
-    if (data.avatar !== undefined) {
-      apiData.avatar_url = data.avatar
-      delete apiData.avatar
+    const apiData: ApiUserUpdate = {
+      username: data.username,
+      full_name: data.fullName,
+      role: data.role,
+      status: data.status,
+      requires_password_change: data.requiresPasswordChange,
+      password_setup_reason: data.passwordSetupReason,
+      requires_pin_change: data.requiresPinChange,
+      pin_setup_reason: data.pinSetupReason,
+      avatar_url: data.avatar,
     }
 
     const mapped = mapApiUser(await api.users.update(id, apiData))
@@ -180,10 +187,10 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         fullName: mapped.fullName,
         role: mapped.role,
         avatar: mapped.avatar,
-      })
+      }, user)
     }
     return mapped
-  }, [user, updateAuthUser])
+  }, [user, updateAuthUser, setUsers])
 
   const resetPassword = useCallback(async (id: string) => {
     const result = await api.users.resetPassword(id)
@@ -191,7 +198,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       ? { ...u, requiresPasswordChange: true, passwordSetupReason: "password_reset" }
       : u))
     return result.temporary_password
-  }, [])
+  }, [setUsers])
 
   const resetPin = useCallback(async (id: string) => {
     const result = await api.users.resetPin(id)
@@ -199,16 +206,14 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       ? { ...u, requiresPinChange: true, pinSetupReason: "pin_reset" }
       : u))
     return result.temporary_pin
-  }, [])
+  }, [setUsers])
 
   const updateConfig = useCallback(async (cfg: Partial<SystemConfig>) => {
-    const apiData: Record<string, unknown> = {
+    const apiData: Partial<ApiConfig> = {
       camera_ids: cfg.cameraIds,
       confidence_threshold: cfg.confidenceThreshold,
       data_retention_enabled: cfg.dataRetentionEnabled,
     }
-    // Remove undefined
-    Object.keys(apiData).forEach(k => apiData[k] === undefined && delete apiData[k])
 
     const saved = await api.config.update(apiData)
     const mapped: SystemConfig = {
@@ -221,7 +226,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       api.devices.list().then(res => setDevices(res.map(mapApiDevice))).catch(console.error)
     }
     return mapped
-  }, [])
+  }, [setConfig, setDevices])
 
   // ── PROFILE-01: Self-service avatar update ──────────────────────────────
 
@@ -229,21 +234,22 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     const saved = mapApiUser(await api.users.updateProfile({ avatar_url: data.avatar }))
     setUsers((prev) => prev.map((u) => (u.id === saved.id ? saved : u)))
     if (user?.id === saved.id) {
-      updateAuthUser({ avatar: saved.avatar })
+      updateAuthUser({ avatar: saved.avatar }, user)
     }
-  }, [user, updateAuthUser])
+  }, [user, updateAuthUser, setUsers])
 
   // ── WebSocket handler for device status ─────────────────────────────────
 
   const updateDeviceFromWs = useCallback((cameraId: string, status: string, lastSeen?: string) => {
+    if (status !== "Online" && status !== "Offline") return
     setDevices((prev) =>
       prev.map((d) =>
         d.cameraId === cameraId
-          ? { ...d, status: status as any, lastSeen: lastSeen || new Date().toISOString() }
+          ? { ...d, status, lastSeen: lastSeen ?? d.lastSeen }
           : d
       )
     )
-  }, [])
+  }, [setDevices])
 
   return (
     <AdminContext value={{

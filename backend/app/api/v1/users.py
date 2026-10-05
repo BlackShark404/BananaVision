@@ -13,11 +13,11 @@ from datetime import timedelta
 
 from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel
-from sqlalchemy import select, func, case
+from sqlalchemy import select, func, case, update
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import DbSession, CurrentUser, AdminUser
-from app.core.exceptions import NotFoundException, ConflictException
+from app.core.exceptions import NotFoundException, ConflictException, ForbiddenException
 from app.core.security import hash_password, hash_pin
 from app.core.temporary_credentials import temporary_password, temporary_pin
 from app.models.user_account import UserAccount
@@ -167,6 +167,19 @@ async def update_own_profile(body: SelfProfileUpdate, db: DbSession, user: Curre
 @router.patch("/{user_id}", response_model=UserResponse)
 async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin: AdminUser, request: Request):
     """Update a user (admin only). ROLE-01: Role transitions reconcile profiles."""
+    actor_version = getattr(admin, "token_version", None)
+    # A common transaction lock serializes the count and every role/status update.
+    # A no-op UPDATE also acquires SQLite's write lock; PostgreSQL locks this row.
+    # Acquire it before any target-account lock to avoid cross-admin deadlocks.
+    await db.execute(update(UserRole).where(UserRole.name == RoleEnum.ADMIN.value)
+                     .values(name=UserRole.name))
+    actor = (await db.execute(
+        select(UserAccount.status, UserAccount.token_version, UserRole.name)
+        .join(UserRole, UserAccount.role_id == UserRole.id).where(UserAccount.id == admin.id)
+    )).one_or_none()
+    if (not actor or actor.status != ActiveStatusEnum.ACTIVE or actor.name != RoleEnum.ADMIN.value
+            or (actor_version is not None and actor.token_version != actor_version)):
+        raise ForbiddenException("Administrator session changed; sign in again")
     result = await db.execute(
         select(UserAccount)
         .options(
@@ -175,6 +188,7 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin
             selectinload(UserAccount.admin_profile),
         )
         .where(UserAccount.id == user_id)
+        .with_for_update().execution_options(populate_existing=True)
     )
     user = result.scalar_one_or_none()
     if not user:
@@ -185,7 +199,6 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin
         user.role and user.role.name == RoleEnum.ADMIN.value
         and user.status == ActiveStatusEnum.ACTIVE
     )
-    would_lose_admin = False
     if is_currently_active_admin:
         # Check if this update demotes or deactivates the user
         demoting = body.role is not None and body.role != RoleEnum.ADMIN
@@ -211,6 +224,7 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin
 
     # ── Detect role changes for ROLE-01 reconciliation ──────────────────
     old_role_name = user.role.name if user.role else None
+    old_status = user.status
     new_role_name = None
 
     update_data = body.model_dump(exclude_none=True)
@@ -238,8 +252,11 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin
             # Promoted to Admin — create AdminProfile if missing
             if not user.admin_profile:
                 user.admin_profile = AdminProfile()
-            # Don't delete operator_profile — preserve scan history linkage
-            # But clear the PIN requirement since admin doesn't use PIN
+            # Keep historical scan ownership, but retire the operator credential.
+            if user.operator_profile:
+                user.operator_profile.pin_hash = None
+                user.operator_profile.requires_pin_change = False
+                user.operator_profile.pin_setup_reason = None
         elif new_role_name == RoleEnum.OPERATOR.value:
             # Demoted to Operator — create OperatorProfile if missing
             if not user.operator_profile:
@@ -247,7 +264,13 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin
                     requires_pin_change=True,
                     pin_setup_reason=PinSetupReasonEnum.NEW_ACCOUNT,
                 )
-            # Don't delete admin_profile — preserve historical context
+            user.operator_profile.pin_hash = None
+            user.operator_profile.requires_pin_change = True
+            user.operator_profile.pin_setup_reason = PinSetupReasonEnum.NEW_ACCOUNT
+            # Admin must issue a fresh temporary PIN through reset-pin.
+
+    if user.role.name != old_role_name or user.status != old_status:
+        user.token_version += 1
 
     detail_parts = list(update_data.keys())
     if new_role_name and new_role_name != old_role_name:
@@ -270,7 +293,8 @@ async def reset_user_password(
 ):
     """Reset a user's password (admin only). Now records an activity log."""
     response.headers["Cache-Control"] = "no-store"
-    result = await db.execute(select(UserAccount).where(UserAccount.id == user_id))
+    result = await db.execute(select(UserAccount).where(UserAccount.id == user_id)
+                              .with_for_update().execution_options(populate_existing=True))
     user = result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User")
@@ -301,12 +325,15 @@ async def reset_user_pin(
     response.headers["Cache-Control"] = "no-store"
     result = await db.execute(
         select(UserAccount)
-        .options(selectinload(UserAccount.operator_profile))
+        .options(selectinload(UserAccount.operator_profile), selectinload(UserAccount.role))
         .where(UserAccount.id == user_id)
+        .with_for_update().execution_options(populate_existing=True)
     )
     user = result.scalar_one_or_none()
     if not user or not user.operator_profile:
         raise NotFoundException("User Operator Profile")
+    if user.role.name != RoleEnum.OPERATOR.value:
+        raise ForbiddenException("PIN credentials are only available to operators")
 
     pin = body.new_pin or temporary_pin()
     user.operator_profile.pin_hash = hash_pin(pin)

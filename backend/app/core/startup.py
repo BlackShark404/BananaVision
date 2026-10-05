@@ -21,7 +21,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.core.database import async_session_factory, engine, Base
+from app.core.database import async_session_factory, engine
+from app.core.migrations import initialize_schema
 from app.core.security import hash_password, hash_pin
 from app.models.user_account import UserAccount
 from app.models.user_role import UserRole
@@ -71,9 +72,8 @@ async def run_startup():
 
     # ── Phase 2: Database ────────────────────────────────────────────────
     logger.info("[Phase 2] Connecting to database...")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("  Database tables created/verified")
+    await initialize_schema(engine)
+    logger.info("  Database tables initialized and versioned migrations applied")
 
     # Seed default admin user if no users exist
     async with async_session_factory() as db:

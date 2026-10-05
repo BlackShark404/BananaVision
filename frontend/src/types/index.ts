@@ -168,6 +168,8 @@ export interface ActivityLog {
   user: string
   action:
     | "login"
+    | "login_failed"
+    | "pin_failed"
     | "logout"
     | "scan_created"
     | "scan_edited"

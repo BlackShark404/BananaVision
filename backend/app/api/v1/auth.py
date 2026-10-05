@@ -29,6 +29,7 @@ from app.services.auth_service import (
     setup_pin,
     create_user_token,
     create_setup_token,
+    lock_current_account,
 )
 from app.models.activity_log import ActivityLog
 from app.core.rate_limiter import login_limiter, pin_limiter
@@ -326,6 +327,7 @@ async def setup_pin_route(body: SetupPinRequest, db: DbSession, request: Request
 @router.post("/logout")
 async def logout(user: CurrentUser, db: DbSession, request: Request):
     """Logout — revokes all existing tokens by bumping token_version."""
+    user = await lock_current_account(db, user)
     # Increment token_version so every previously issued JWT becomes invalid
     user.token_version += 1
 

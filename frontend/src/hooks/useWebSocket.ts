@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import { getToken } from "@/lib/auth"
+import { getToken, clearAuth } from "@/lib/auth"
 
 const host = window.location.hostname
 const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
@@ -74,8 +74,15 @@ export function useWebSocket({ rooms = [], onEvent, enabled = true }: UseWebSock
     }
 
     ws.onclose = (e) => {
+      if (wsRef.current !== ws) return
       setStatus("disconnected")
       wsRef.current = null
+
+      if ((e.code === 4001 || e.code === 4003) && getToken() === token) {
+        clearAuth()
+        window.location.href = "/login"
+        return
+      }
 
       // Don't reconnect if closed cleanly (code 1000) or disabled
       if (e.code === 1000 || !enabled) return

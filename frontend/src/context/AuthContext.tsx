@@ -33,7 +33,7 @@ interface AuthContextType {
   logout: () => void
   switchOperator: (username: string, pin: string) => Promise<"success" | "failed" | "inactive" | "requires_pin_change" | "requires_pin_change_new_account" | "requires_pin_change_reset">
   /** Update the currently authenticated user's data (for cross-context profile edits). */
-  updateAuthUser: (data: Partial<AuthUser>) => void
+  updateAuthUser: (data: Partial<AuthUser>, expectedUser?: Pick<AuthUser, "id" | "role">) => void
 }
 
 // ── Context ─────────────────────────────────────────────────────────────────
@@ -203,9 +203,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ── Update Auth User (cross-context) ────────────────────────────────────
 
-  const updateAuthUser = useCallback((data: Partial<AuthUser>) => {
+  const updateAuthUser = useCallback((data: Partial<AuthUser>, expectedUser?: Pick<AuthUser, "id" | "role">) => {
     setUser((prev) => {
       if (!prev) return prev
+      if (expectedUser && (prev.id !== expectedUser.id || prev.role !== expectedUser.role)) return prev
       const updated = { ...prev, ...data }
       setStoredUser(updated)
       return updated
