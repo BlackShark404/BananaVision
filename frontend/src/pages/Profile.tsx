@@ -25,7 +25,7 @@ import { toast } from "sonner"
 export default function Profile() {
   const { user, changePassword, changePin } = useAuth()
   const { scans } = useScans()
-  const { activityLogs, updateUser, users } = useAdmin()
+  const { activityLogs, updateOwnProfile, users } = useAdmin()
   const { theme, setTheme } = useTheme()
   const [isEditingPassword, setIsEditingPassword] = useState(false)
   const [isEditingPin, setIsEditingPin] = useState(false)
@@ -54,7 +54,7 @@ export default function Profile() {
         reader.onerror = () => reject(new Error("Could not read image"))
         reader.readAsDataURL(file)
       })
-      await updateUser(user.id, { avatar: base64 })
+      await updateOwnProfile({ avatar: base64 })
       toast.success("Avatar updated successfully")
     } catch (error) {
       toast.error("Could not update avatar", { description: error instanceof Error ? error.message : "Please try again." })
@@ -67,7 +67,7 @@ export default function Profile() {
     if (!user || savingAvatar) return
     setSavingAvatar(true)
     try {
-      await updateUser(user.id, { avatar: "" })
+      await updateOwnProfile({ avatar: "" })
       toast.success("Avatar removed successfully")
     } catch (error) {
       toast.error("Could not remove avatar", { description: error instanceof Error ? error.message : "Please try again." })

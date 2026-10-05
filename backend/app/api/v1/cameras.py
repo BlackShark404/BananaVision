@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 import asyncio
 import cv2
@@ -16,7 +16,7 @@ settings = get_settings()
 router = APIRouter(prefix="/cameras", tags=["Cameras"])
 
 
-from app.api.deps import DbSession
+from app.api.deps import DbSession, AdminUser
 from sqlalchemy.future import select
 from app.models.system_config import SystemConfig
 
@@ -115,7 +115,7 @@ class CameraMappingUpdate(BaseModel):
     device_ids: List[int]
 
 @router.post("/mapping")
-async def update_camera_mapping(mapping: CameraMappingUpdate):
+async def update_camera_mapping(mapping: CameraMappingUpdate, admin: AdminUser):
     """
     Updates the CAMERA_DEVICE_IDS in .env, clears settings cache, 
     and restarts the camera manager.

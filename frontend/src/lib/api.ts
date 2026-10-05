@@ -193,6 +193,8 @@ export const api = {
     update: (id: string, data: any) => patch<any>(`/api/v1/users/${id}`, data),
     resetPassword: (id: string, newPassword: string) => post<{ message: string }>(`/api/v1/users/${id}/reset-password`, { new_password: newPassword }),
     resetPin: (id: string, newPin: string) => post<{ message: string }>(`/api/v1/users/${id}/reset-pin`, { new_pin: newPin }),
+    /** Self-service profile update — any authenticated user can update their own avatar. (PROFILE-01) */
+    updateProfile: (data: { avatar_url?: string }) => patch<any>(`/api/v1/users/me/profile`, data),
   },
 
   // ── Suppliers ────────────────────────────────────────────────────────────

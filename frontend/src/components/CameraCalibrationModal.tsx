@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { BASE_URL } from "@/lib/api"
+import { getToken } from "@/lib/auth"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -16,7 +17,10 @@ export function CameraCalibrationModal() {
 
   const fetchCameras = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/api/v1/cameras`)
+      const token = getToken()
+      const res = await fetch(`${BASE_URL}/api/v1/cameras`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
       const data = await res.json()
       setCameras(data)
       
@@ -57,9 +61,13 @@ export function CameraCalibrationModal() {
 
     setLoading(true)
     try {
+      const token = getToken()
       const res = await fetch(`${BASE_URL}/api/v1/cameras/mapping`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ device_ids })
       })
       if (!res.ok) throw new Error("Failed to update mapping")

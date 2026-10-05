@@ -99,17 +99,91 @@ User logs in again → New JWT issued with tv=2 → Works normally
 
 ---
 
-## Upcoming / To-Do List (Pending Features & Security Fixes)
+## [Date: October 5, 2026] - Security Patch: SCANNER-01 Resolution
 
-Based on the `KENT_ASSIGNED_FEATURES_REVIEW.md` priority roadmap, the following tasks are up next:
+### Status: ✅ COMPLETED
+**Feature/Issue:** SCANNER-01 (High) - Camera mapping API was publicly writable without authentication.
 
-### 1. Security & Access Control
-- **[ ] SCANNER-01 (High):** Protect the Camera Hardware Mapping API (`POST /api/v1/cameras/mapping`). Currently, it modifies backend `.env` without any authentication. Needs Admin authorization and JWT passed from the frontend calibration modal.
-- **[ ] ACCESS-01 (High):** Restrict User Directory (`GET /api/v1/users`) and Audit Logs (`GET /api/v1/activity`) to Admins. They currently use `CurrentUser` which exposes all users/logs to regular operators.
+### What was the issue?
+`POST /api/v1/cameras/mapping` allowed anyone to modify the backend `.env` file and restart the camera manager without any authentication or authorization.
 
-### 2. User Management Accuracy
-- **[ ] SAVE-01 & CREATE-01 (High/Medium):** Fix account creation. If backend creation fails, the UI creates a fake local user in state. Also, the Active/Inactive dropdown is currently ignored during creation.
-- **[ ] ADMIN-01 & SAVE-02 (High):** Prevent the last active Admin from being deactivated/demoted. Fix UI state incorrectly updating to "Inactive" when the backend request fails.
-- **[ ] PROFILE-01 (High):** Fix operator profile avatar uploads. The UI currently uses `PATCH /users/{id}` which is admin-only, causing operator uploads to fail silently on the backend.
+### What did we change?
+- Added `AdminUser` dependency to the `/mapping` endpoint — now requires a valid JWT with Admin role.
+- Updated `CameraCalibrationModal.tsx` to send the `Authorization: Bearer` header with both camera list fetch and mapping save requests.
 
-*(Note: **RESET-01** was verified and is already successfully implemented!)*
+### Files Modified:
+- `backend/app/api/v1/cameras.py` — Added `AdminUser` dependency to `update_camera_mapping`
+- `frontend/src/components/CameraCalibrationModal.tsx` — Added JWT auth headers to fetch calls
+
+---
+
+## [Date: October 5, 2026] - Security Patch: ACCESS-01 Resolution
+
+### Status: ✅ COMPLETED
+**Feature/Issue:** ACCESS-01 (High) - User directory and audit logs were accessible to all authenticated users.
+
+### What was the issue?
+`GET /api/v1/users` and `GET /api/v1/activity` used `CurrentUser` dependency, meaning any logged-in operator could see the full user directory (names, statuses, roles) and system audit logs (IPs, admin actions).
+
+### What did we change?
+- Changed both endpoints to require `AdminUser` instead of `CurrentUser`.
+- Operators can no longer access user listings or activity logs directly.
+
+### Files Modified:
+- `backend/app/api/v1/users.py` — `list_users` now requires `AdminUser`
+- `backend/app/api/v1/activity.py` — `list_activity` now requires `AdminUser`
+
+---
+
+## [Date: October 5, 2026] - Security Patch: ADMIN-01 & SAVE-02 Resolution
+
+### Status: ✅ COMPLETED
+**Feature/Issue:** ADMIN-01 (High) - Last active admin could be deactivated/demoted, locking everyone out.
+
+### What was the issue?
+The `PATCH /users/{id}` endpoint allowed an admin to deactivate or demote themselves (or another admin) even if they were the last active administrator. This could make the system unrecoverable without direct database access.
+
+### What did we change?
+- Added a guard in `update_user` that checks if the target user is the last active admin before allowing demotion or deactivation.
+- Counts other active admins via a database query. If none exist, the request is rejected with a 409 Conflict error.
+- SAVE-02 was already resolved: `AdminContext.updateUser` correctly awaits the API response and only updates state from the committed backend data. Errors propagate and are shown via `toast.error`.
+
+### Files Modified:
+- `backend/app/api/v1/users.py` — Added last-active-admin guard with `func.count()` query
+
+---
+
+## [Date: October 5, 2026] - Feature Fix: PROFILE-01 Resolution
+
+### Status: ✅ COMPLETED
+**Feature/Issue:** PROFILE-01 (High) - Operator avatar uploads failed silently because they used an admin-only endpoint.
+
+### What was the issue?
+The Profile page called `updateUser` (which sends `PATCH /users/{id}`) for avatar changes. This endpoint requires `AdminUser`, so operator avatar uploads were silently rejected by the backend, while the frontend showed a success message based on local state.
+
+### What did we change?
+
+**1. New Self-Service Endpoint: `PATCH /users/me/profile`**
+- Any authenticated user can update their own avatar without admin privileges.
+- Route is registered before `/{user_id}` to ensure correct FastAPI path matching.
+
+**2. Frontend API Method: `api.users.updateProfile()`**
+- New method in the API client that calls the self-service endpoint.
+
+**3. AdminContext: `updateOwnProfile()`**
+- New context method that calls the self-service API, updates the user list, and syncs auth state.
+
+**4. Profile Page**
+- `handleAvatarUpload` and `handleRemoveAvatar` now use `updateOwnProfile` instead of `updateUser`.
+
+### Files Modified:
+- `backend/app/api/v1/users.py` — Added `SelfProfileUpdate` schema and `PATCH /me/profile` endpoint
+- `frontend/src/lib/api.ts` — Added `users.updateProfile()` method
+- `frontend/src/context/AdminContext.tsx` — Added `updateOwnProfile` method
+- `frontend/src/pages/Profile.tsx` — Switched avatar handlers to use `updateOwnProfile`
+
+---
+
+## Previously Completed
+
+*(Note: **SAVE-01 & CREATE-01** were verified and are already correctly implemented — `addUser` awaits the API response and the `status` field is properly passed through. **RESET-01** was also verified as already successfully implemented!)*

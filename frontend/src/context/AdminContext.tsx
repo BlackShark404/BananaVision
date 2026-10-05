@@ -19,6 +19,8 @@ interface AdminContextType {
   resetPassword: (id: string) => Promise<void>
   resetPin: (id: string) => Promise<void>
   updateConfig: (cfg: Partial<SystemConfig>) => Promise<SystemConfig>
+  /** Self-service profile update — avatar changes that any user can perform. */
+  updateOwnProfile: (data: { avatar?: string }) => Promise<void>
   /** Called by ScanContext WebSocket handler when a device:status event arrives. */
   updateDeviceFromWs: (cameraId: string, status: string, lastSeen?: string) => void
 }
@@ -220,6 +222,16 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     return mapped
   }, [])
 
+  // ── PROFILE-01: Self-service avatar update ──────────────────────────────
+
+  const updateOwnProfile = useCallback(async (data: { avatar?: string }) => {
+    const saved = mapApiUser(await api.users.updateProfile({ avatar_url: data.avatar }))
+    setUsers((prev) => prev.map((u) => (u.id === saved.id ? saved : u)))
+    if (user?.id === saved.id) {
+      updateAuthUser({ avatar: saved.avatar })
+    }
+  }, [user, updateAuthUser])
+
   // ── WebSocket handler for device status ─────────────────────────────────
 
   const updateDeviceFromWs = useCallback((cameraId: string, status: string, lastSeen?: string) => {
@@ -245,6 +257,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       resetPassword,
       resetPin,
       updateConfig,
+      updateOwnProfile,
       updateDeviceFromWs,
     }}>
       {children}

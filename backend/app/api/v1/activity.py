@@ -8,7 +8,7 @@ from fastapi import APIRouter, Query
 from sqlalchemy import select, func, desc
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import DbSession, CurrentUser
+from app.api.deps import DbSession, AdminUser
 from app.models.activity_log import ActivityLog
 from app.schemas.common import ActivityLogResponse, ActivityLogListResponse
 
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/activity", tags=["Activity"])
 @router.get("", response_model=ActivityLogListResponse)
 async def list_activity(
     db: DbSession,
-    user: CurrentUser,
+    admin: AdminUser,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     action: str | None = None,

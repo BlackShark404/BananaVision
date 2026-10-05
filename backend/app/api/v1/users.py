@@ -7,7 +7,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Request
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import DbSession, CurrentUser, AdminUser
@@ -26,14 +26,14 @@ from app.schemas.user import (
     UserPasswordReset,
     UserPinReset,
 )
-from app.schemas.enums import RoleEnum, PasswordSetupReasonEnum, PinSetupReasonEnum
+from app.schemas.enums import RoleEnum, ActiveStatusEnum, PasswordSetupReasonEnum, PinSetupReasonEnum
 
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
 @router.get("", response_model=UserListResponse)
-async def list_users(db: DbSession, user: CurrentUser):
+async def list_users(db: DbSession, admin: AdminUser):
     """List all users."""
     result = await db.execute(
         select(UserAccount)
@@ -92,6 +92,34 @@ async def create_user(body: UserCreate, db: DbSession, admin: AdminUser, request
     return UserResponse.from_db_model(user)
 
 
+# ── PROFILE-01: Self-service profile update (any authenticated user) ────────
+
+class SelfProfileUpdate(BaseModel):
+    avatar_url: str | None = None
+
+
+@router.patch("/me/profile", response_model=UserResponse)
+async def update_own_profile(body: SelfProfileUpdate, db: DbSession, user: CurrentUser):
+    """
+    Self-service profile update — any authenticated user can update their own
+    avatar without needing admin privileges.  (PROFILE-01 fix)
+    """
+    result = await db.execute(
+        select(UserAccount)
+        .options(selectinload(UserAccount.role), selectinload(UserAccount.operator_profile))
+        .where(UserAccount.id == user.id)
+    )
+    account = result.scalar_one_or_none()
+    if not account:
+        raise NotFoundException("User")
+
+    if body.avatar_url is not None:
+        account.avatar_url = body.avatar_url
+
+    await db.flush()
+    return UserResponse.from_db_model(account)
+
+
 @router.patch("/{user_id}", response_model=UserResponse)
 async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin: AdminUser, request: Request):
     """Update a user (admin only)."""
@@ -103,6 +131,35 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin
     user = result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User")
+
+    # ── ADMIN-01: Guard against losing the last active admin ────────────
+    is_currently_active_admin = (
+        user.role and user.role.name == RoleEnum.ADMIN.value
+        and user.status == ActiveStatusEnum.ACTIVE
+    )
+    would_lose_admin = False
+    if is_currently_active_admin:
+        # Check if this update demotes or deactivates the user
+        demoting = body.role is not None and body.role != RoleEnum.ADMIN
+        deactivating = body.status is not None and body.status != ActiveStatusEnum.ACTIVE
+        if demoting or deactivating:
+            # Count other active admins
+            active_admin_count_result = await db.execute(
+                select(func.count())
+                .select_from(UserAccount)
+                .join(UserRole, UserAccount.role_id == UserRole.id)
+                .where(
+                    UserRole.name == RoleEnum.ADMIN.value,
+                    UserAccount.status == ActiveStatusEnum.ACTIVE,
+                    UserAccount.id != user_id,
+                )
+            )
+            other_active_admins = active_admin_count_result.scalar() or 0
+            if other_active_admins == 0:
+                raise ConflictException(
+                    "Cannot deactivate or demote the last active administrator. "
+                    "Promote or activate another admin first."
+                )
 
     update_data = body.model_dump(exclude_none=True)
     if body.username is not None and body.username != user.username:
