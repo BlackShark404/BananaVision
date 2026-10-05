@@ -26,6 +26,9 @@ async def current_socket_role(token: str) -> str | None:
     except (KeyError, ValueError, TypeError):
         return None
     async with database.async_session_factory() as db:
+        from app.services.maintenance_state import generation_matches
+        if not await generation_matches(db, payload):
+            return None
         row = (await db.execute(
             select(UserAccount.token_version, UserAccount.status, UserRole.name)
             .join(UserRole, UserAccount.role_id == UserRole.id)

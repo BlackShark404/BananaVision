@@ -156,46 +156,7 @@ class BananaClassifier:
             except Exception as exc:
                 logger.warning(f"{self._model_name} warmup failed: {exc}")
 
-    def _get_db_confidence_threshold(self) -> float:
-        """Read the confidence threshold from the database SystemConfig.
-
-        Falls back to the environment setting if the DB is unavailable.
-        This is called synchronously (model inference is already blocking),
-        so we use a direct sync read via asyncio.
-
-        AI-01 fix: connects the admin UI slider to actual inference.
-        """
-        try:
-            import asyncio
-            from sqlalchemy import select as sa_select
-            from app.core.database import async_session_factory
-            from app.models.system_config import SystemConfig
-
-            async def _read():
-                async with async_session_factory() as db:
-                    result = await db.execute(sa_select(SystemConfig).limit(1))
-                    config = result.scalar_one_or_none()
-                    if config and config.confidence_threshold is not None:
-                        # DB stores as integer percentage (e.g. 85), YOLO needs 0-1 float
-                        return config.confidence_threshold / 100.0
-                return None
-
-            # Try to get an existing event loop (we're in executor thread)
-            try:
-                loop = asyncio.get_running_loop()
-                # If we're in the event loop thread, fall back to env setting
-                return settings.yolo_confidence_threshold
-            except RuntimeError:
-                # No running loop — safe to create one (we're in executor)
-                db_value = asyncio.run(_read())
-                if db_value is not None:
-                    return db_value
-        except Exception:
-            pass
-
-        return settings.yolo_confidence_threshold
-
-    def predict(self, image: np.ndarray) -> ClassificationResult:
+    def predict(self, image: np.ndarray, *, confidence_threshold: float) -> ClassificationResult:
         """
         Run YOLO inference on a single image.
 
@@ -214,13 +175,13 @@ class BananaClassifier:
                 "Model not loaded. Ensure a valid .pt model file is available.",
             )
 
-        # AI-01: Read confidence threshold from DB (admin UI slider)
-        conf_threshold = self._get_db_confidence_threshold()
+        if not 0 < confidence_threshold <= 1:
+            raise ValueError("Confidence threshold must be in (0, 1]")
 
         try:
             results = self._model.predict(
                 image,
-                conf=conf_threshold,
+                conf=confidence_threshold,
                 iou=settings.yolo_iou_threshold,
                 verbose=False,
             )

@@ -10,7 +10,7 @@ import type { ScanLogPage, ScanLogParams } from "@/types/scanLogs"
 import type { ApiScan, ApiScanNote, RecordPage } from "@/lib/scanData"
 import type { InventoryStatus, IntakeStatus } from "@/types"
 import type { AnalyticsRange, AnalyticsSummary, AnalyticsOperator } from "@/types/analytics"
-import type { ApiActivity, ApiConfig, ApiDevice, ApiIntake, ApiMessage, ApiNotification, ApiSensor, ApiSupplier, ApiSupplierWrite, ApiUser, ApiUserCreate, ApiUserCreated, ApiUserUpdate } from "@/types/api"
+import type { ApiConfigUpdate, MaintenanceOperation, MaintenanceStatus, RestoreValidation, ApiActivity, ApiConfig, ApiDevice, ApiIntake, ApiMessage, ApiNotification, ApiSensor, ApiSupplier, ApiSupplierWrite, ApiUser, ApiUserCreate, ApiUserCreated, ApiUserUpdate } from "@/types/api"
 
 const host = window.location.hostname
 export const BASE_URL = import.meta.env.VITE_API_URL || `http://${host}:8000`
@@ -27,6 +27,7 @@ async function request<T>(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   }
+  if (body instanceof FormData) delete headers["Content-Type"]
   if (token) headers["Authorization"] = `Bearer ${token}`
 
   // Build query string
@@ -43,7 +44,7 @@ async function request<T>(
   const res = await fetch(url, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
     signal: opts?.signal,
     cache: "no-store",
   })
@@ -171,6 +172,7 @@ export const api = {
 
   // ── Cameras ─────────────────────────────────────────────────────────────
   cameras: {
+    map: (device_ids: number[], expected_revision: number) => post<ApiConfig>("/api/v1/cameras/mapping", { device_ids, expected_revision }),
     list: (signal?: AbortSignal) => get<{ device_id: number; camera_id: string; label: string; online: boolean }[]>("/api/v1/cameras", undefined, signal),
   },
 
@@ -255,8 +257,8 @@ export const api = {
 
   // ── Config ───────────────────────────────────────────────────────────────
   config: {
-    get: () => get<ApiConfig>("/api/v1/config"),
-    update: (data: Partial<ApiConfig>) => patch<ApiConfig>("/api/v1/config", data),
+    get: (signal?: AbortSignal) => get<ApiConfig>("/api/v1/config", undefined, signal),
+    update: (data: ApiConfigUpdate) => patch<ApiConfig>("/api/v1/config", data),
     export: async () => {
       const token = getToken()
       const res = await fetch(`${BASE_URL}/api/v1/config/export`, {
@@ -271,8 +273,26 @@ export const api = {
       a.click()
       window.URL.revokeObjectURL(url)
     },
-    shutdown: () => post<ApiMessage>("/api/v1/config/shutdown"),
-    restart: () => post<ApiMessage>("/api/v1/config/restart"),
+    maintenance: () => get<MaintenanceStatus>("/api/v1/config/maintenance"),
+    operation: (id: string) => get<MaintenanceOperation>(`/api/v1/config/operations/${encodeURIComponent(id)}`),
+    backup: (operation_id: string) => post<MaintenanceOperation>("/api/v1/config/backups", { operation_id }),
+    downloadBackup: async (id: string, filename: string) => {
+      const token = getToken()
+      const response = await fetch(`${BASE_URL}/api/v1/config/backups/${encodeURIComponent(id)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      if (!response.ok) throw new Error("Backup download failed")
+      const url = URL.createObjectURL(await response.blob())
+      const link = document.createElement("a")
+      link.href = url; link.download = filename; link.click()
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    },
+    validateRestore: (file: File) => {
+      const form = new FormData(); form.append("file", file)
+      return request<RestoreValidation>("POST", "/api/v1/config/restores/validate", form)
+    },
+    restore: (body: { operation_id: string; validation_id: string; token: string; password: string; confirmation: "REPLACE" }) => post<MaintenanceOperation>("/api/v1/config/restores", body),
+    recoverPower: (body: { operation_id: string; password: string; confirmation: "RECOVER" }) => post<MaintenanceOperation>("/api/v1/config/power/recover", body),
+    shutdown: (operation_id: string) => post<MaintenanceOperation>("/api/v1/config/shutdown", { operation_id }),
+    restart: (operation_id: string) => post<MaintenanceOperation>("/api/v1/config/restart", { operation_id }),
   },
 
   // ── Quality Control ──────────────────────────────────────────────────────

@@ -32,6 +32,10 @@ async def get_current_user(
     if not payload or "sub" not in payload or payload.get("scope", "access") != "access":
         raise CredentialsException("Invalid or expired token")
 
+    from app.services.maintenance_state import generation_matches
+    if not await generation_matches(db, payload):
+        raise CredentialsException("Station data changed; please log in again")
+
     try:
         user_id = uuid.UUID(payload["sub"])
     except (ValueError, TypeError):

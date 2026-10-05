@@ -8,7 +8,7 @@ import uuid
 from datetime import date
 from app.schemas.timestamps import InputTimestamp, Timestamp
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StrictInt, StrictBool, field_validator, model_validator
 
 from .enums import ActiveStatusEnum, DeviceStatusEnum, IntakeStatusEnum, InventoryStatusEnum
 
@@ -204,23 +204,51 @@ class ActivityLogListResponse(BaseModel):
 
 class SystemConfigResponse(BaseModel):
     camera_ids: str
-    confidence_threshold: float
+    camera_device_ids: list[int]
+    confidence_threshold: int
     data_retention_enabled: bool
+    revision: int
+    applied_camera_ids: str | None
+    applied_camera_device_ids: list[int]
+    applied_revision: int | None
+    application_status: str
+    application_error: str | None
+    restart_required: bool
+    retention_days: int
+    retention_policy: str
+    legacy_conflict: bool
 
 
 class SystemConfigUpdate(BaseModel):
+    model_config = {'extra': 'forbid'}
+    expected_revision: StrictInt = Field(ge=1)
     camera_ids: str | None = None
-    confidence_threshold: float | None = Field(None, ge=1, le=100)
-    data_retention_enabled: bool | None = None
+    camera_device_ids: list[StrictInt] | None = Field(None, min_length=1, max_length=4)
+    confidence_threshold: StrictInt | None = Field(None, ge=1, le=100)
+    data_retention_enabled: StrictBool | None = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def reject_explicit_null(cls, values):
+        if isinstance(values, dict) and any(value is None for value in values.values()):
+            raise ValueError('Configuration fields cannot be null')
+        return values
+
+    @field_validator('camera_device_ids')
+    @classmethod
+    def validate_physical_ids(cls, ids):
+        if ids is not None and (len(ids) != len(set(ids)) or any(value < 0 for value in ids)):
+            raise ValueError('Camera indices must be distinct and nonnegative')
+        return ids
 
     @field_validator("camera_ids")
     @classmethod
     def validate_camera_ids(cls, v: str | None) -> str | None:
         if v is None:
             return v
-        ids = [s.strip() for s in v.split(",") if s.strip()]
-        if not ids:
-            raise ValueError("At least one camera ID is required")
+        ids = [s.strip() for s in v.split(",")]
+        if not 1 <= len(ids) <= 4 or any(not value or len(value) > 50 for value in ids):
+            raise ValueError("Provide 1–4 nonempty camera IDs, each at most 50 characters")
         if len(ids) != len(set(ids)):
             raise ValueError("Camera IDs must be unique")
         return ", ".join(ids)

@@ -3,10 +3,7 @@ from fastapi.responses import StreamingResponse
 import asyncio
 import cv2
 import logging
-import os
-import json
-from pathlib import Path
-from app.services.runtime_operations import station_lock
+from app.services.runtime_operations import station_lock, run_blocking, coordinator
 from pydantic import BaseModel, Field, StrictInt, field_validator
 
 from app.services.camera_manager import camera_manager
@@ -20,7 +17,9 @@ router = APIRouter(prefix="/cameras", tags=["Cameras"])
 
 from app.api.deps import DbSession, AdminUser
 from sqlalchemy.future import select
-from app.models.system_config import SystemConfig
+from app.services import configuration
+from app.models.admin_profile import AdminProfile
+from app.models.activity_log import ActivityLog
 
 @router.get("")
 async def list_cameras(db: DbSession):
@@ -28,31 +27,13 @@ async def list_cameras(db: DbSession):
     List all configured cameras with their device IDs and online status.
     No auth required — used by the kiosk to map cameras to preview streams.
     """
-    # Fetch configured camera IDs from system config
-    result = await db.execute(select(SystemConfig).limit(1))
-    config = result.scalar_one_or_none()
-    
-    configured_ids = []
-    if config and config.camera_ids:
-        configured_ids = [s.strip() for s in config.camera_ids.split(",") if s.strip()]
-
-    cameras = []
-    for idx, dev_id in enumerate(settings.camera_device_ids):
-        label = settings.camera_labels[idx] if idx < len(settings.camera_labels) else f"CAM-{dev_id}"
-        
-        # Use custom ID from config if available, otherwise fallback
-        if idx < len(configured_ids):
-            camera_id = configured_ids[idx]
-        else:
-            camera_id = f"CAM-{idx + 1:03d}"
-            
-        cameras.append({
-            "device_id": dev_id,
-            "camera_id": camera_id,
-            "label": label,
-            "online": dev_id in camera_manager.online_cameras,
-        })
-    return cameras
+    config = await configuration.get_config(db)
+    names = [name.strip() for name in config.camera_ids.split(',')]
+    applied = dict(zip(camera_manager._device_ids, camera_manager._logical_ids))
+    return [{"device_id": device_id, "camera_id": names[index],
+             "label": settings.camera_labels[index] if index < len(settings.camera_labels) else f"Scanner {index + 1}",
+             "online": device_id in camera_manager.online_cameras and applied.get(device_id) == names[index]}
+            for index, device_id in enumerate(config.camera_device_ids)]
 
 async def generate_frames(camera_index: int, fps: int = 15):
     """
@@ -65,11 +46,16 @@ async def generate_frames(camera_index: int, fps: int = 15):
     interval = 1.0 / fps
     loop = asyncio.get_event_loop()
 
-    while True:
+    generation = camera_manager.generation
+    while generation == camera_manager.generation:
+        coordinator.assert_ready()
         start_time = loop.time()
         try:
             # Capture frame
-            capture = await loop.run_in_executor(None, camera_manager._capture_single, camera_index)
+            async with coordinator.operation():
+                capture = await run_blocking(camera_manager._capture_single, camera_index)
+            if generation != camera_manager.generation:
+                break
             
             # Downscale frame for preview (HD 1280x720 for kiosk clarity)
             downscaled = cv2.resize(capture.frame, (1280, 720))
@@ -114,6 +100,8 @@ async def video_feed(camera_index: int, fps: int = 15):
     )
 
 class CameraMappingUpdate(BaseModel):
+    model_config = {'extra': 'forbid'}
+    expected_revision: StrictInt = Field(ge=1)
     device_ids: list[StrictInt] = Field(min_length=1, max_length=4)
 
     @field_validator("device_ids")
@@ -124,35 +112,19 @@ class CameraMappingUpdate(BaseModel):
         return ids
 
 @router.post("/mapping")
-async def update_camera_mapping(mapping: CameraMappingUpdate, admin: AdminUser):
-    """
-    Updates the CAMERA_DEVICE_IDS in .env, clears settings cache, 
-    and restarts the camera manager.
-    """
+async def update_camera_mapping(mapping: CameraMappingUpdate, db: DbSession, admin: AdminUser):
+    """Persist physical slots atomically, then apply and report actual hardware results."""
     if station_lock.locked():
         raise HTTPException(409, "Finish the active scan before remapping cameras")
     async with station_lock:
-        env_path = Path(".env")
-        lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
-        replacement = "CAMERA_DEVICE_IDS=" + json.dumps(mapping.device_ids)
-        lines = [line for line in lines if not line.strip().startswith("CAMERA_DEVICE_IDS=")]
-        lines.append(replacement)
-        temporary = env_path.with_name(env_path.name + ".tmp")
-        try:
-            temporary.write_text("\n".join(lines) + "\n", encoding="utf-8")
-            os.replace(temporary, env_path)
-        except OSError as exc:
-            try:
-                temporary.unlink(missing_ok=True)
-            except OSError:
-                logger.warning("Could not remove temporary camera settings file")
-            raise HTTPException(503, "Could not persist camera mapping") from exc
-
-        # Update the existing settings object: modules holding it see the same mapping.
-        # Recreating the cached object previously left startup and camera listing stale.
-        settings.camera_device_ids = list(mapping.device_ids)
-        camera_manager.release_all()
-        camera_manager._device_ids = list(mapping.device_ids)
-        camera_manager._labels = list(settings.camera_labels)
-        results = await asyncio.to_thread(camera_manager.initialize)
-        return {"message": "Camera mapping updated", "results": results}
+        admin_profile_id = await db.scalar(select(AdminProfile.id).where(AdminProfile.account_id == admin.id))
+        config = await configuration.update_config(db, {'camera_device_ids': mapping.device_ids},
+            mapping.expected_revision, admin_profile_id)
+        db.add(ActivityLog(user_id=admin.id, action='config_changed',
+            details=f'Camera mapping saved at revision {config.revision}: {mapping.device_ids}'))
+        await db.commit()
+        await configuration.apply_camera_config(config)
+        response = configuration.config_response(config)
+        response['results'] = {device_id: device_id in camera_manager.online_cameras for device_id in mapping.device_ids}
+        response['message'] = 'Camera mapping saved; see application status for hardware results'
+        return response

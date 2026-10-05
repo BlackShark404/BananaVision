@@ -11,7 +11,7 @@ import asyncio
 import logging
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from functools import wraps
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -36,6 +36,15 @@ class CaptureResult:
     file_path: str | None = None
 
 
+def synchronized(method):
+    """Keep handle lookup/read/release and mapping changes in one critical section."""
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with self._state_lock:
+            return method(self, *args, **kwargs)
+    return wrapped
+
+
 class CameraManager:
     """
     Manages all USB webcams. Initialized once at boot, keeps handles open.
@@ -44,15 +53,34 @@ class CameraManager:
     """
 
     def __init__(self):
+        self._state_lock = threading.RLock()
+        self._health: dict[int, bool] = {}
+        self.application_error: str | None = None
+        self.generation = 0
         self._cameras: dict[int, cv2.VideoCapture] = {}
         self._locks: dict[int, threading.Lock] = {}
-        self._device_ids: list[int] = settings.camera_device_ids
-        self._labels: list[str] = settings.camera_labels
+        self._device_ids: list[int] = list(settings.camera_device_ids)
+        self._labels: list[str] = list(settings.camera_labels)
         self._initialized = False
         self._logical_ids: list[str] = []
 
+    @synchronized
     def set_logical_ids(self, ids: list[str]) -> None:
+        if self._logical_ids != ids:
+            self.generation += 1
         self._logical_ids = list(ids)
+
+    @synchronized
+    def configure(self, ids: list[str], device_ids: list[int]) -> dict[int, bool]:
+        if len(ids) != len(device_ids) or len(set(device_ids)) != len(device_ids):
+            raise ValueError('Camera slots require distinct physical devices and matching names')
+        remap = self._device_ids != device_ids or not self._initialized
+        self.set_logical_ids(ids)
+        if remap:
+            self.release_all()
+            self._device_ids = list(device_ids)
+            return self.initialize()
+        return dict(self._health)
 
     @property
     def is_initialized(self) -> bool:
@@ -67,18 +95,17 @@ class CameraManager:
     _VALIDATION_FRAMES = 3     # number of consecutive frames to check
 
     @property
+    @synchronized
     def online_cameras(self) -> list[int]:
-        """Return device IDs whose handles are open.
-
-        NOTE: This does NOT validate frame content — use probe_all() for
-        thorough black-screen detection.  Kept lightweight so the MJPEG
-        preview stream and scan pipeline can call it without consuming
-        frames.
-        """
-        return [dev_id for dev_id, cap in self._cameras.items() if cap.isOpened()]
+        """Only handles with a successful frame probe/read are considered online."""
+        return [device_id for device_id in self._device_ids
+                if self._health.get(device_id, False) and device_id in self._cameras
+                and self._cameras[device_id].isOpened()]
 
     def _is_frame_valid(self, frame: np.ndarray) -> bool:
         """Check a single frame is not solid black, a uniform solid color, or a noisy black screen."""
+        if frame is None or frame.size == 0 or frame.ndim != 3 or frame.shape[2] != 3:
+            return False
         mean, stddev = cv2.meanStdDev(frame)
         max_mean = float(np.max(mean))
         max_stddev = float(np.max(stddev))
@@ -128,6 +155,7 @@ class CameraManager:
             except Exception:
                 return False
 
+    @synchronized
     def probe_all(self) -> dict[int, bool]:
         """
         Probe every configured camera. Returns device_id → is_truly_online.
@@ -142,8 +170,12 @@ class CameraManager:
                 results[dev_id] = self._validate_feed(dev_id)
             else:
                 results[dev_id] = False
+        self._health = dict(results)
+        failed = [str(device_id) for device_id, success in results.items() if not success]
+        self.application_error = 'Unusable camera feed: ' + ', '.join(failed) if failed else None
         return results
 
+    @synchronized
     def initialize(self) -> dict[int, bool]:
         """
         Open all cameras and set resolution. Called once at boot.
@@ -153,9 +185,11 @@ class CameraManager:
 
         Returns dict mapping device_id → success boolean.
         """
+        self.release_all()
         results: dict[int, bool] = {}
 
         for dev_id in self._device_ids:
+            cap = None
             try:
                 cap = cv2.VideoCapture(dev_id)
                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, settings.camera_resolution_w)
@@ -174,6 +208,7 @@ class CameraManager:
                 if not cap.isOpened():
                     results[dev_id] = False
                     logger.error(f"Camera {dev_id} failed to open")
+                    cap.release()
                     continue
 
                 # Validate with multiple consecutive frames
@@ -204,10 +239,15 @@ class CameraManager:
                     results[dev_id] = False
 
             except Exception as exc:
+                if cap is not None:
+                    cap.release()
                 results[dev_id] = False
                 logger.error(f"Camera {dev_id} init error: {exc}")
 
         self._initialized = True
+        self._health = dict(results)
+        failed = [str(device_id) for device_id, success in results.items() if not success]
+        self.application_error = 'Unusable camera feed: ' + ', '.join(failed) if failed else None
         return results
 
     def _get_label(self, device_id: int) -> str:
@@ -218,6 +258,7 @@ class CameraManager:
         idx = self._device_ids.index(device_id) if device_id in self._device_ids else 0
         return self._logical_ids[idx] if idx < len(self._logical_ids) else f"CAM-{idx + 1:03d}"
 
+    @synchronized
     def _capture_single(self, device_id: int) -> CaptureResult:
         """Thread-safe single frame capture from one camera."""
         if device_id not in self._cameras:
@@ -225,8 +266,11 @@ class CameraManager:
 
         with self._locks[device_id]:
             ret, frame = self._cameras[device_id].read()
-            if not ret or frame is None:
-                raise CameraError(device_id, "Failed to read frame")
+            if not ret or not self._is_frame_valid(frame):
+                self._health[device_id] = False
+                self.application_error = f"Unusable camera feed: {device_id}"
+                raise CameraError(device_id, "Failed to read usable frame")
+            self._health[device_id] = True
 
             return CaptureResult(
                 camera_index=device_id,
@@ -245,13 +289,11 @@ class CameraManager:
         if not online:
             raise CameraError("all", "No cameras online")
 
-        loop = asyncio.get_event_loop()
-        with ThreadPoolExecutor(max_workers=len(online)) as pool:
-            futures = [
-                loop.run_in_executor(pool, self._capture_single, dev_id)
-                for dev_id in online
-            ]
-            results = await asyncio.gather(*futures, return_exceptions=True)
+        from app.services.runtime_operations import run_blocking
+        results = await asyncio.gather(
+            *(run_blocking(self._capture_single, device_id) for device_id in online),
+            return_exceptions=True,
+        )
 
         captures: list[CaptureResult] = []
         for result in results:
@@ -270,11 +312,11 @@ class CameraManager:
         Sequential fallback: capture one camera at a time.
         """
         captures: list[CaptureResult] = []
-        loop = asyncio.get_event_loop()
+        from app.services.runtime_operations import run_blocking
 
         for dev_id in self.online_cameras:
             try:
-                result = await loop.run_in_executor(None, self._capture_single, dev_id)
+                result = await run_blocking(self._capture_single, dev_id)
                 captures.append(result)
                 await asyncio.sleep(0.15)  # Hardware breathing room for USB controller
             except CameraError as exc:
@@ -310,6 +352,7 @@ class CameraManager:
 
         return captures
 
+    @synchronized
     def release_all(self):
         """Release all camera handles. Called on shutdown."""
         for dev_id, cap in self._cameras.items():
@@ -319,6 +362,8 @@ class CameraManager:
             except Exception as exc:
                 logger.warning(f"Error releasing camera {dev_id}: {exc}")
         self._cameras.clear()
+        self._health.clear()
+        self.generation += 1
         self._locks.clear()
         self._initialized = False
 

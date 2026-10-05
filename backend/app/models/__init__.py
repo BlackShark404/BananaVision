@@ -20,6 +20,7 @@ from app.models.activity_log import ActivityLog
 from app.models.system_config import SystemConfig
 from app.models.app_notification import AppNotification
 from app.models.sensor_reading import SensorReading
+from app.models.maintenance_state import MaintenanceState
 
 __all__ = [
     "UserRole",
@@ -40,4 +41,5 @@ __all__ = [
     "SystemConfig",
     "AppNotification",
     "SensorReading",
+    "MaintenanceState",
 ]

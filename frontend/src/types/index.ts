@@ -202,6 +202,15 @@ export interface AppNotification {
 }
 
 export interface SystemConfig {
+  revision?: number
+  cameraDeviceIds?: number[]
+  appliedRevision?: number | null
+  applicationStatus?: "pending" | "applied" | "partial" | "failed"
+  applicationError?: string | null
+  restartRequired?: boolean
+  retentionDays?: number
+  retentionPolicy?: string
+  legacyConflict?: boolean
   cameraIds: string
   confidenceThreshold: number
   dataRetentionEnabled: boolean

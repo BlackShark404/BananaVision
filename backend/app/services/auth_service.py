@@ -38,6 +38,9 @@ async def verify_setup_token(db: AsyncSession, token: str, purpose: str) -> User
     payload = decode_access_token(token)
     if not payload or payload.get("scope") != purpose:
         raise CredentialsException("Invalid or expired setup authorization; sign in again")
+    from app.services.maintenance_state import generation_matches
+    if not await generation_matches(db, payload):
+        raise CredentialsException("Station data changed; sign in again")
     try:
         user_id = uuid.UUID(payload["sub"])
     except (KeyError, ValueError, TypeError):

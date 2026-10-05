@@ -51,6 +51,17 @@ export interface ApiActivity {
 }
 
 export interface ApiConfig {
+  revision: number
+  camera_device_ids: number[]
+  applied_camera_ids: string | null
+  applied_camera_device_ids: number[]
+  applied_revision: number | null
+  application_status: "pending" | "applied" | "partial" | "failed"
+  application_error: string | null
+  restart_required: boolean
+  retention_days: number
+  retention_policy: string
+  legacy_conflict: boolean
   camera_ids: string
   confidence_threshold: number
   data_retention_enabled: boolean
@@ -104,3 +115,8 @@ export interface ApiNotification {
 }
 
 export interface ApiMessage { message: string }
+
+export type ApiConfigUpdate = Partial<Pick<ApiConfig, "camera_ids" | "camera_device_ids" | "confidence_threshold" | "data_retention_enabled">> & { expected_revision: number }
+export interface MaintenanceOperation { id: string; status: string; message?: string; filename?: string; manifest?: Record<string, unknown> }
+export interface MaintenanceStatus { state: string; active_operations: number; power?: { status?: string; operation_id?: string }; retention?: Record<string, unknown> }
+export interface RestoreValidation { validation_id: string; token: string; manifest: Record<string, unknown>; expires_at: string }

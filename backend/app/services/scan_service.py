@@ -9,7 +9,8 @@ import uuid
 import asyncio
 from app.config import get_settings
 from app.services.capture_cleanup import remove_scan_captures
-from app.services.runtime_operations import station_lock
+from app.services.runtime_operations import station_lock, coordinator, run_blocking
+from app.services.configuration import get_config
 from datetime import datetime
 from app.core.time import now_manila
 
@@ -48,10 +49,12 @@ async def execute_scan_pipeline(
     intake_id: uuid.UUID | None = None,
     supplier_name: str | None = None,
 ) -> Scan:
-    async with station_lock:
-        return await _execute_scan_pipeline(
-            db, operator_id, account_id, operator_name, intake_id, supplier_name,
-        )
+    async with coordinator.operation():
+        async with station_lock:
+            coordinator.assert_ready()
+            return await _execute_scan_pipeline(
+                db, operator_id, account_id, operator_name, intake_id, supplier_name,
+            )
 
 
 async def _execute_scan_pipeline(
@@ -85,6 +88,7 @@ async def _execute_scan_pipeline(
     })
 
     try:
+        confidence_threshold = (await get_config(db)).confidence_threshold / 100.0
         # ── Step 2: Capture from all cameras ─────────────────────────────
         await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_CAPTURING, {
             "scan_id": scan_id_str,
@@ -95,7 +99,7 @@ async def _execute_scan_pipeline(
         })
 
         captures = await camera_manager.capture_all()
-        captures = camera_manager.save_captures(captures, scan_id_str)
+        captures = await run_blocking(camera_manager.save_captures, captures, scan_id_str)
 
         # Broadcast individual captures
         for i, cap in enumerate(captures):
@@ -118,7 +122,7 @@ async def _execute_scan_pipeline(
 
         any_banana_found = False
         for cap in captures:
-            pre_result = banana_pre_detector.detect(cap.frame)
+            pre_result = await run_blocking(banana_pre_detector.detect, cap.frame)
             if pre_result.banana_detected:
                 any_banana_found = True
                 break
@@ -141,7 +145,7 @@ async def _execute_scan_pipeline(
 
         for cap in captures:
             # Classify
-            result = banana_classifier.predict(cap.frame)
+            result = await run_blocking(banana_classifier.predict, cap.frame, confidence_threshold=confidence_threshold)
             classification_results.append((cap.camera_id, cap.camera_label, result))
 
             # Store per-camera detection record
@@ -221,7 +225,7 @@ async def _execute_scan_pipeline(
             if intake_obj and intake_obj.treatment:
                 intake_treatment = intake_obj.treatment
 
-        spoilage_days = spoilage_predictor.predict(
+        spoilage_days = await run_blocking(spoilage_predictor.predict,
             cultivar=fused.cultivar,
             ripeness=fused.ripeness,
             temperature=temperature,

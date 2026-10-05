@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react"
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react"
 import { api } from "@/lib/api"
 import { collectScanPages, storedTimestamp } from "@/lib/scanData"
 import { useAuth } from "@/context/AuthContext"
 import type { User, Device, ActivityLog, SystemConfig } from "@/types"
-import type { ApiUser, ApiDevice, ApiActivity, ApiUserUpdate, ApiConfig } from "@/types/api"
+import type { ApiUser, ApiDevice, ApiActivity, ApiUserUpdate, ApiConfigUpdate, ApiConfig } from "@/types/api"
 import { useLocation } from "react-router-dom"
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -14,6 +14,11 @@ interface AdminContextType {
   activityLogs: ActivityLog[]
   activityLoading: boolean
   activityError: string | null
+  configReady: boolean
+  configError: string | null
+  configConflict: boolean
+  reloadConfig: () => Promise<void>
+  acceptConfig: (saved: ApiConfig) => void
   config: SystemConfig
   addUser: (user: Omit<User, "id">) => Promise<{ user: User; password: string; pin?: string }>
   updateUser: (id: string, data: Partial<User>) => Promise<User>
@@ -64,6 +69,15 @@ const mapApiActivityLog = (a: ApiActivity): ActivityLog => ({
 
 // ── Provider ────────────────────────────────────────────────────────────────
 
+const mapConfig = (saved: ApiConfig): SystemConfig => ({
+  cameraIds: saved.camera_ids, confidenceThreshold: saved.confidence_threshold,
+  dataRetentionEnabled: saved.data_retention_enabled, revision: saved.revision,
+  cameraDeviceIds: saved.camera_device_ids, appliedRevision: saved.applied_revision,
+  applicationStatus: saved.application_status, applicationError: saved.application_error,
+  restartRequired: saved.restart_required, retentionDays: saved.retention_days,
+  retentionPolicy: saved.retention_policy, legacyConflict: saved.legacy_conflict,
+})
+
 function useScopedState<T>(scope: string, initial: T): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [state, setState] = useState({ scope, value: initial })
   // React discards this render and retries with the new scope before children commit.
@@ -93,6 +107,28 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   // ── Load data on mount / navigation ─────────────────────────────────────
 
+  const [configReady, setConfigReady] = useScopedState(scope, false)
+  const [configError, setConfigError] = useScopedState<string | null>(scope, null)
+  const [configConflict, setConfigConflict] = useScopedState(scope, false)
+  const configRequests = useRef(0)
+  const acceptConfig = useCallback((saved: ApiConfig) => {
+    setConfig(previous => (previous.revision ?? 0) > saved.revision ? previous : mapConfig(saved))
+    setConfigReady(true)
+    setConfigError(null)
+  }, [setConfig, setConfigReady, setConfigError])
+  const reloadConfig = useCallback(async () => {
+    const generation = ++configRequests.current
+    try {
+      const saved = await api.config.get()
+      if (generation !== configRequests.current) return
+      acceptConfig(saved)
+      setConfigConflict(false)
+    } catch (error) {
+      if (generation === configRequests.current) setConfigError(error instanceof Error ? error.message : "Configuration unavailable")
+    }
+  }, [acceptConfig, setConfigConflict, setConfigError])
+  useEffect(() => { void reloadConfig(); return () => { configRequests.current++ } }, [reloadConfig])
+
   useEffect(() => {
     if (!user) return
     const controller = new AbortController()
@@ -102,11 +138,10 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       setActivityLoading(user.role === "Admin")
       setActivityError(null)
       try {
-        const [usersRes, devicesRes, activityRes, configRes] = await Promise.allSettled([
+        const [usersRes, devicesRes, activityRes] = await Promise.allSettled([
           user.role === "Admin" ? api.users.list() : Promise.resolve({ items: [], total: 0 }),
           api.devices.list(),
           user.role === "Admin" ? collectScanPages((page, page_size, signal) => api.activity.list({ page, page_size }, signal), controller.signal) : Promise.resolve([]),
-          api.config.get(),
         ])
         if (controller.signal.aborted) return
 
@@ -130,15 +165,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         }
         setActivityLoading(false)
 
-        if (configRes.status === "fulfilled") {
-          setConfig({
-            cameraIds: configRes.value.camera_ids,
-            confidenceThreshold: configRes.value.confidence_threshold,
-            dataRetentionEnabled: configRes.value.data_retention_enabled,
-          })
-        } else {
-          console.warn("[AdminContext] Config API unavailable")
-        }
+
       } catch (err) {
         if (controller.signal.aborted) return
         setActivityLoading(false)
@@ -209,24 +236,23 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   }, [setUsers])
 
   const updateConfig = useCallback(async (cfg: Partial<SystemConfig>) => {
-    const apiData: Partial<ApiConfig> = {
-      camera_ids: cfg.cameraIds,
-      confidence_threshold: cfg.confidenceThreshold,
-      data_retention_enabled: cfg.dataRetentionEnabled,
+    if (!configReady || configConflict || !config.revision) throw new Error("Reload saved settings before making changes")
+    const apiData: ApiConfigUpdate = { expected_revision: config.revision }
+    if (cfg.cameraIds !== undefined && cfg.cameraIds !== config.cameraIds) apiData.camera_ids = cfg.cameraIds
+    if (cfg.confidenceThreshold !== undefined && cfg.confidenceThreshold !== config.confidenceThreshold) apiData.confidence_threshold = cfg.confidenceThreshold
+    if (cfg.dataRetentionEnabled !== undefined && cfg.dataRetentionEnabled !== config.dataRetentionEnabled) apiData.data_retention_enabled = cfg.dataRetentionEnabled
+    if (Object.keys(apiData).length === 1) return config
+    ++configRequests.current
+    try {
+      const saved = await api.config.update(apiData)
+      acceptConfig(saved)
+      if (cfg.cameraIds !== undefined) api.devices.list().then(res => setDevices(res.map(mapApiDevice))).catch(console.error)
+      return mapConfig(saved)
+    } catch (error) {
+      if ((error as { status?: number }).status === 409) setConfigConflict(true)
+      throw error
     }
-
-    const saved = await api.config.update(apiData)
-    const mapped: SystemConfig = {
-      cameraIds: saved.camera_ids,
-      confidenceThreshold: saved.confidence_threshold,
-      dataRetentionEnabled: saved.data_retention_enabled,
-    }
-    setConfig(mapped)
-    if (cfg.cameraIds !== undefined) {
-      api.devices.list().then(res => setDevices(res.map(mapApiDevice))).catch(console.error)
-    }
-    return mapped
-  }, [setConfig, setDevices])
+  }, [config, configReady, configConflict, acceptConfig, setConfigConflict, setDevices])
 
   // ── PROFILE-01: Self-service avatar update ──────────────────────────────
 
@@ -258,7 +284,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       activityLogs,
       activityLoading,
       activityError,
-      config,
+      config, configReady, configError, configConflict, reloadConfig, acceptConfig,
       addUser,
       updateUser,
       resetPassword,
