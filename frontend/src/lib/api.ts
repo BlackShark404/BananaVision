@@ -94,6 +94,7 @@ export const api = {
         token: { access_token: string; token_type: string } | null
         user: { id: string; username: string; full_name: string; role: string; avatar_url?: string } | null
         reason?: string | null
+        setup_token?: string | null
       }>("/api/v1/auth/login", { username, password }),
 
     swap: (username: string, pin: string) =>
@@ -102,6 +103,7 @@ export const api = {
         token: { access_token: string; token_type: string } | null
         user: { id: string; username: string; full_name: string; role: string; avatar_url?: string } | null
         reason?: string | null
+        setup_token?: string | null
       }>("/api/v1/auth/swap", { username, pin }),
 
     /** Self-service password change — requires JWT auth + current password. */
@@ -112,13 +114,13 @@ export const api = {
         user: { id: string; username: string; full_name: string; role: string; avatar_url?: string } | null
       }>("/api/v1/auth/change-password", { current_password: currentPassword, new_password: newPassword }),
 
-    /** First-time / post-reset password setup — no JWT needed, server checks requires_password_change flag. */
-    setupPassword: (username: string, newPassword: string) =>
+    /** First-time / post-reset password setup — requires limited setup authorization issued at login. */
+    setupPassword: (setupToken: string, newPassword: string) =>
       post<{
         status: string
         token: { access_token: string; token_type: string } | null
         user: { id: string; username: string; full_name: string; role: string; avatar_url?: string } | null
-      }>("/api/v1/auth/setup-password", { username, new_password: newPassword }),
+      }>("/api/v1/auth/setup-password", { setup_token: setupToken, new_password: newPassword }),
 
     /** Self-service PIN change — requires JWT auth + current PIN. */
     changePin: (currentPin: string, newPin: string) =>
@@ -128,13 +130,13 @@ export const api = {
         user: { id: string; username: string; full_name: string; role: string; avatar_url?: string } | null
       }>("/api/v1/auth/change-pin", { current_pin: currentPin, new_pin: newPin }),
 
-    /** First-time / post-reset PIN setup — no JWT needed, server checks requires_pin_change flag. */
-    setupPin: (username: string, newPin: string) =>
+    /** First-time / post-reset PIN setup — requires limited setup authorization issued at PIN swap. */
+    setupPin: (setupToken: string, newPin: string) =>
       post<{
         status: string
         token: { access_token: string; token_type: string } | null
         user: { id: string; username: string; full_name: string; role: string; avatar_url?: string } | null
-      }>("/api/v1/auth/setup-pin", { username, new_pin: newPin }),
+      }>("/api/v1/auth/setup-pin", { setup_token: setupToken, new_pin: newPin }),
 
     logout: () => post<void>("/api/v1/auth/logout"),
 
@@ -188,11 +190,12 @@ export const api = {
 
   // ── Users ────────────────────────────────────────────────────────────────
   users: {
+    summary: (signal?: AbortSignal) => get<{ total_scans: number; avg_confidence: number | null; last_7_days: number; total_users: number | null; activity: { id: string; action: string; details: string; timestamp: string }[] }>("/api/v1/users/me/summary", undefined, signal),
     list: () => get<{ items: any[]; total: number }>("/api/v1/users"),
     create: (data: any) => post<any>("/api/v1/users", data),
     update: (id: string, data: any) => patch<any>(`/api/v1/users/${id}`, data),
-    resetPassword: (id: string, newPassword: string) => post<{ message: string }>(`/api/v1/users/${id}/reset-password`, { new_password: newPassword }),
-    resetPin: (id: string, newPin: string) => post<{ message: string }>(`/api/v1/users/${id}/reset-pin`, { new_pin: newPin }),
+    resetPassword: (id: string) => post<{ message: string; temporary_password: string }>(`/api/v1/users/${id}/reset-password`, {}),
+    resetPin: (id: string) => post<{ message: string; temporary_pin: string }>(`/api/v1/users/${id}/reset-pin`, {}),
     /** Self-service profile update — any authenticated user can update their own avatar. (PROFILE-01) */
     updateProfile: (data: { avatar_url?: string }) => patch<any>(`/api/v1/users/me/profile`, data),
   },

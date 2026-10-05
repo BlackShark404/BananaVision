@@ -5,6 +5,7 @@ Authentication service — login, PIN swap, password/PIN changes.
 from __future__ import annotations
 
 import uuid
+from datetime import timedelta
 from datetime import datetime
 from app.core.time import now_manila
 
@@ -17,11 +18,40 @@ from app.core.security import (
     hash_pin,
     verify_password,
     verify_pin,
+    decode_access_token,
 )
 from app.core.exceptions import CredentialsException, NotFoundException
 from app.models.user_account import UserAccount
 from sqlalchemy.orm import selectinload
 from app.schemas.enums import ActiveStatusEnum
+
+
+def create_setup_token(user: UserAccount, purpose: str) -> str:
+    """Ten-minute proof of temporary-credential authentication, never an access token."""
+    return create_access_token(
+        {"sub": str(user.id), "tv": user.token_version, "scope": purpose},
+        expires_delta=timedelta(minutes=10),
+    )
+
+
+async def verify_setup_token(db: AsyncSession, token: str, purpose: str) -> UserAccount:
+    payload = decode_access_token(token)
+    if not payload or payload.get("scope") != purpose:
+        raise CredentialsException("Invalid or expired setup authorization; sign in again")
+    try:
+        user_id = uuid.UUID(payload["sub"])
+    except (KeyError, ValueError, TypeError):
+        raise CredentialsException("Invalid setup authorization")
+    result = await db.execute(
+        select(UserAccount)
+        .options(selectinload(UserAccount.role), selectinload(UserAccount.operator_profile))
+        .where(UserAccount.id == user_id)
+        .with_for_update()
+    )
+    user = result.scalar_one_or_none()
+    if not user or user.status != ActiveStatusEnum.ACTIVE or payload.get("tv") != user.token_version:
+        raise CredentialsException("Setup authorization revoked; sign in again")
+    return user
 
 
 async def authenticate_user(
@@ -109,7 +139,7 @@ async def change_password(
 
 
 async def setup_password(
-    db: AsyncSession, username: str, new_password: str
+    db: AsyncSession, setup_token: str, new_password: str
 ) -> UserAccount:
     """
     First-time / post-reset password setup.
@@ -118,20 +148,15 @@ async def setup_password(
     This is called after the user proved identity by logging in with their
     temporary password.
     """
-    result = await db.execute(
-        select(UserAccount)
-        .options(selectinload(UserAccount.role))
-        .where(UserAccount.username == username)
-    )
-    user = result.scalar_one_or_none()
-
-    if not user:
-        raise NotFoundException("User")
+    user = await verify_setup_token(db, setup_token, "setup_password")
 
     if not user.requires_password_change:
         raise CredentialsException(
             "Password setup is only allowed for accounts that require a password change"
         )
+
+    if verify_password(new_password, user.password_hash):
+        raise CredentialsException("Choose a different password from the temporary password")
 
     user.password_hash = hash_password(new_password)
     user.requires_password_change = False
@@ -165,18 +190,13 @@ async def change_pin(
 
 
 async def setup_pin(
-    db: AsyncSession, username: str, new_pin: str
+    db: AsyncSession, setup_token: str, new_pin: str
 ) -> UserAccount:
     """
     First-time / post-reset PIN setup.
     Only allowed when the operator profile has requires_pin_change=True.
     """
-    result = await db.execute(
-        select(UserAccount)
-        .options(selectinload(UserAccount.role), selectinload(UserAccount.operator_profile))
-        .where(UserAccount.username == username)
-    )
-    user = result.scalar_one_or_none()
+    user = await verify_setup_token(db, setup_token, "setup_pin")
 
     if not user or not user.operator_profile:
         raise NotFoundException("Operator Profile")
@@ -185,6 +205,9 @@ async def setup_pin(
         raise CredentialsException(
             "PIN setup is only allowed for accounts that require a PIN change"
         )
+
+    if user.operator_profile.pin_hash and verify_pin(new_pin, user.operator_profile.pin_hash):
+        raise CredentialsException("Choose a different PIN from the temporary PIN")
 
     user.operator_profile.pin_hash = hash_pin(new_pin)
     user.operator_profile.requires_pin_change = False

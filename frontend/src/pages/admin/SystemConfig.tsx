@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react"
 import { useAdmin } from "@/context/AdminContext"
 import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
@@ -18,13 +17,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, Edit2, Plus, AlertTriangle, Undo2 } from "lucide-react"
+import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, Edit2, AlertTriangle, Undo2 } from "lucide-react"
 import { toast } from "sonner"
 import {
   Alert,
   AlertTitle,
-  AlertDescription,
-  AlertAction
+  AlertDescription
 } from "@/components/ui/alert"
 import { CameraCalibrationModal } from "@/components/CameraCalibrationModal"
 
@@ -112,9 +110,9 @@ export default function SystemConfig() {
   const handleExportData = async () => {
     try {
       await api.config.export()
-      toast.success("Database Exported", { description: "bananavision_inventory_export.csv saved to downloads" })
+      toast.success("Scan summaries exported", { description: "bananavision_inventory_export.csv saved to downloads" })
     } catch {
-      toast.error("Export Failed", { description: "Could not export database" })
+      toast.error("Export Failed", { description: "Could not export scan summaries" })
     }
   }
 
@@ -141,25 +139,22 @@ export default function SystemConfig() {
   const handleShutdown = async () => {
     try {
       await api.config.shutdown()
-      toast.success("Shutdown initiated", { description: "System will power off in 10 seconds..." })
+      toast.success("Shutdown initiated", { description: "The operating system accepted the scheduled shutdown." })
       setShowShutdownDialog(false)
       
-      // Simulate countdown
-      setTimeout(() => {
-        toast.info("System shutting down...", { description: "Please wait while the system powers off" })
-      }, 3000)
-    } catch {
-      toast.error("Shutdown Failed", { description: "Could not initiate shutdown" })
+
+    } catch (error) {
+      toast.error("Shutdown Failed", { description: error instanceof Error ? error.message : "Could not initiate shutdown" })
     }
   }
 
   const handleRestart = async () => {
     try {
       await api.config.restart()
-      toast.success("Restart initiated", { description: "System will reboot in 10 seconds..." })
+      toast.success("Restart initiated", { description: "The operating system accepted the scheduled restart." })
       setShowRestartDialog(false)
-    } catch {
-      toast.error("Restart Failed", { description: "Could not initiate restart" })
+    } catch (error) {
+      toast.error("Restart Failed", { description: error instanceof Error ? error.message : "Could not initiate restart" })
     }
   }
 
@@ -263,7 +258,7 @@ export default function SystemConfig() {
                     ))}
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">These cameras will be used for round-robin scanning.</p>
+                <p className="text-xs text-muted-foreground">These cameras capture in parallel, with sequential fallback when needed.</p>
                 <div className="pt-2">
                   <CameraCalibrationModal />
                 </div>
@@ -290,7 +285,7 @@ export default function SystemConfig() {
         <TabsContent value="ai" className="m-0 border-0 outline-none">
           <Card className="rounded-xl sm:rounded-2xl">
             <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
-              <CardTitle className="text-base sm:text-lg">YOLOv8 Detection Parameters</CardTitle>
+              <CardTitle className="text-base sm:text-lg">YOLO26 Detection Parameters</CardTitle>
               <CardDescription className="text-xs sm:text-sm">Tune the AI model confidence and detection thresholds.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 px-4 sm:px-6">
@@ -353,8 +348,8 @@ export default function SystemConfig() {
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border">
                 <div>
-                  <h4 className="font-medium text-sm sm:text-base">Export Database Backup</h4>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Download all logs and inventory data as CSV</p>
+                  <h4 className="font-medium text-sm sm:text-base">Export Scan Summaries</h4>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Download scan summaries as CSV. Accounts, settings, audit logs and images are excluded; this export cannot restore the database.</p>
                 </div>
                 <Button variant="outline" onClick={handleExportData} className="w-full sm:w-auto">
                   <Download className="w-4 h-4 mr-2" /> Export CSV
@@ -385,7 +380,7 @@ export default function SystemConfig() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border">
                 <div>
                   <h4 className="font-medium text-sm sm:text-base">Restart System</h4>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Reboot the mini PC and restart all services</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Reboot the mini PC. Services resume if host autostart is configured.</p>
                 </div>
                 <Button variant="outline" className="w-full sm:w-auto gap-2" onClick={() => setShowRestartDialog(true)}>
                   <RefreshCw className="w-4 h-4" />
@@ -445,7 +440,7 @@ export default function SystemConfig() {
           <AlertDialogHeader>
             <AlertDialogTitle>Restart System?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will reboot the mini PC and restart all services. Any active scans will be interrupted.
+              This schedules a reboot of the mini PC. Services resume if host autostart is configured. Finish active scans first.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

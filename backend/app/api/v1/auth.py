@@ -1,10 +1,12 @@
 """
 Authentication routes — login, logout, operator swap, password/PIN changes.
+
+AUTH-04: Login and PIN swap endpoints are rate-limited per-username.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException
 
 from app.api.deps import DbSession, CurrentUser
 from app.schemas.auth import (
@@ -26,8 +28,10 @@ from app.services.auth_service import (
     change_pin,
     setup_pin,
     create_user_token,
+    create_setup_token,
 )
 from app.models.activity_log import ActivityLog
+from app.core.rate_limiter import login_limiter, pin_limiter
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -69,19 +73,44 @@ async def list_kiosk_operators(db: DbSession):
 
 @router.post("/login", response_model=LoginResponse)
 async def login(body: LoginRequest, db: DbSession, request: Request):
-    """Authenticate a user by username + password."""
+    """Authenticate a user by username + password. Rate-limited (AUTH-04)."""
+    # ── AUTH-04: Check rate limit ────────────────────────────────────────
+    locked, remaining = login_limiter.is_locked(body.username)
+    if locked:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many failed login attempts. Try again in {remaining} seconds.",
+        )
+
     status, user, reason = await authenticate_user(db, body.username, body.password)
 
     if status == "failed":
+        is_locked, info = login_limiter.record_failure(body.username)
+        # AUDIT-02: Record failed login attempt
+        db.add(ActivityLog(
+            user_id=None,
+            action="login_failed",
+            details=f"Failed login attempt for username '{body.username}'",
+            ip_address=request.client.host if request.client else None,
+        ))
+        await db.flush()
+        if is_locked:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many failed login attempts. Account locked for {info} seconds.",
+            )
         return LoginResponse(status="failed")
 
     if status == "inactive":
         return LoginResponse(status="inactive", reason="Account is inactive")
 
     if status == "requires_password_change":
-        return LoginResponse(status="requires_password_change", reason=reason)
+        login_limiter.record_success(body.username)
+        return LoginResponse(status="requires_password_change", reason=reason,
+                             setup_token=create_setup_token(user, "setup_password"))
 
-    # Success
+    # Success — clear rate limit record
+    login_limiter.record_success(body.username)
     token = create_user_token(user)
 
     db.add(ActivityLog(
@@ -107,18 +136,44 @@ async def login(body: LoginRequest, db: DbSession, request: Request):
 
 @router.post("/swap", response_model=LoginResponse)
 async def swap(body: PinSwapRequest, db: DbSession, request: Request):
-    """Swap operator using username + PIN (kiosk mode)."""
+    """Swap operator using username + PIN (kiosk mode). Rate-limited (AUTH-04)."""
+    # ── AUTH-04: Check rate limit ────────────────────────────────────────
+    locked, remaining = pin_limiter.is_locked(body.username)
+    if locked:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many failed PIN attempts. Try again in {remaining} seconds.",
+        )
+
     status, user, reason = await swap_operator(db, body.username, body.pin)
 
     if status == "failed":
+        is_locked, info = pin_limiter.record_failure(body.username)
+        # AUDIT-02: Record failed PIN attempt
+        db.add(ActivityLog(
+            user_id=None,
+            action="pin_failed",
+            details=f"Failed PIN swap attempt for username '{body.username}'",
+            ip_address=request.client.host if request.client else None,
+        ))
+        await db.flush()
+        if is_locked:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many failed PIN attempts. Account locked for {info} seconds.",
+            )
         return LoginResponse(status="failed")
 
     if status == "inactive":
         return LoginResponse(status="inactive", reason="Account is inactive")
 
     if status == "requires_pin_change":
-        return LoginResponse(status="requires_pin_change", reason=reason)
+        pin_limiter.record_success(body.username)
+        return LoginResponse(status="requires_pin_change", reason=reason,
+                             setup_token=create_setup_token(user, "setup_pin"))
 
+    # Success
+    pin_limiter.record_success(body.username)
     token = create_user_token(user)
 
     db.add(ActivityLog(
@@ -181,7 +236,7 @@ async def setup_password_route(body: SetupPasswordRequest, db: DbSession, reques
     Only allowed for accounts with requires_password_change=True.
     The user proved identity by logging in with the temporary password.
     """
-    user = await setup_password(db, body.username, body.new_password)
+    user = await setup_password(db, body.setup_token, body.new_password)
     token = create_user_token(user)
 
     db.add(ActivityLog(
@@ -244,7 +299,7 @@ async def setup_pin_route(body: SetupPinRequest, db: DbSession, request: Request
     Only allowed for operator accounts with requires_pin_change=True.
     The user proved identity by authenticating with the temporary PIN.
     """
-    user = await setup_pin(db, body.username, body.new_pin)
+    user = await setup_pin(db, body.setup_token, body.new_pin)
     token = create_user_token(user)
 
     db.add(ActivityLog(

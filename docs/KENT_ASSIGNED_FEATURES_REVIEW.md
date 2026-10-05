@@ -1,5 +1,10 @@
 # Kent RG A. Baguio — Assigned Features Review and Panel Preparation
 
+> **Status update — October 5, 2026:** This report's source findings describe the October 4 review revision and are preserved as historical evidence. The [changelog](CHANGELOG.md) tracks subsequent fixes. The six remaining implementation issues—CREATE-02, PROFILE-03, CONFIG-03, SCANNER-03, RETENTION-02 and RETENTION-03—have now been addressed, together with a follow-up correction requiring actual authentication proof for password/PIN setup. Current deployment instructions are in [backend/README.md](../backend/README.md).
+>
+> **Still required:** Physical camera/reboot checks, host permissions/autostart, offline asset provisioning, model identity/performance/latency evidence, deployed schema validation, legacy credential rotation, full live-session/role acceptance checks, and landing/contact/claim verification. Do not infer deployment readiness from the historical report or checked implementation items.
+
+
 **Project:** BananaVision  
 **Reviewed:** October 4, 2026  
 **Repository:** `C:\Users\Kent\Documents\GitHub\BananaVision`  
@@ -281,7 +286,7 @@ The task is to understand and assess Kent's assigned modules, produce this repor
 
 Relevant sources: [project context](C:/Users/Kent/Documents/GitHub/BananaVision/docs/BANANAVISION_CONTEXT.md:1), [backend README](C:/Users/Kent/Documents/GitHub/BananaVision/backend/README.md:1), [workflow README](C:/Users/Kent/Documents/GitHub/BananaVision/docs/bananavision-docs/docs/workflows/README.md:1), [revised workflows](C:/Users/Kent/Documents/GitHub/BananaVision/docs/bananavision-docs/docs/workflows/REVISED_PROGRAM_WORKFLOWS.md:1), [backend plan](C:/Users/Kent/Documents/GitHub/BananaVision/docs/backend_plan.md:1).
 
-## Recommended Next Step — Do Not Execute Yet
+## Original Recommended Roadmap — Historical October 4 Review
 
 1. **Close account takeover and public write paths:** AUTH-01 and SCANNER-01; then establish WebSocket access controls and a session invalidation policy.
 2. **Make account operations real and reviewable:** fix creation/edit/status failure feedback, use dedicated reset endpoints, provide self-profile ownership, and reconcile role transitions/admin recovery rules.
@@ -314,4 +319,4 @@ These checks are proposed only. Use isolated fixtures/test accounts and disposab
 
 Explain each feature as **UI action → API endpoint → authorization/validation → database or hardware effect → displayed result**. Show evidence of the backend effect, not only a toast message. Keep answers honest: source exists does not mean a live workflow has passed; a model filename does not establish architecture/accuracy; storing a retention flag does not establish deletion; and exporting scan summaries does not establish backup/restore.
 
-The strongest panel preparation is to resolve the critical/high findings, demonstrate failed as well as successful requests, and clearly identify any remaining limitation. This document is the review deliverable; implementation changes remain pending your instruction.
+The strongest panel preparation is to resolve the critical/high findings, demonstrate failed as well as successful requests, and clearly identify any remaining limitation. The original review was delivered without implementation changes. The October 5 status update and changelog supersede this historical implementation status.

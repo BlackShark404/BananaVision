@@ -6,6 +6,10 @@ from __future__ import annotations
 
 import logging
 import uuid
+import asyncio
+from app.config import get_settings
+from app.services.capture_cleanup import remove_scan_captures
+from app.services.runtime_operations import station_lock
 from datetime import datetime
 from app.core.time import now_manila
 
@@ -44,6 +48,16 @@ async def execute_scan_pipeline(
     intake_id: uuid.UUID | None = None,
     supplier_name: str | None = None,
 ) -> Scan:
+    async with station_lock:
+        return await _execute_scan_pipeline(
+            db, operator_id, account_id, operator_name, intake_id, supplier_name,
+        )
+
+
+async def _execute_scan_pipeline(
+    db: AsyncSession, operator_id: uuid.UUID, account_id: uuid.UUID, operator_name: str,
+    intake_id: uuid.UUID | None = None, supplier_name: str | None = None,
+) -> Scan:
     """
     Execute the full scan pipeline:
         1. Broadcast scan:started
@@ -61,6 +75,7 @@ async def execute_scan_pipeline(
     """
     scan_id = uuid.uuid4()
     scan_id_str = str(scan_id)
+    committed = False
 
     # ── Step 1: Broadcast scan started ───────────────────────────────────
     await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_STARTED, {
@@ -309,6 +324,7 @@ async def execute_scan_pipeline(
 
         # Completion events must never advertise an uncommitted scan.
         await db.commit()
+        committed = True
 
         # ── Step 8: Broadcast completed ──────────────────────────────────
         scan_result = {
@@ -376,7 +392,11 @@ async def execute_scan_pipeline(
 
         return scan
 
-    except Exception as exc:
+    except (Exception, asyncio.CancelledError) as exc:
+        if not committed:
+            remove_scan_captures(get_settings().capture_path, scan_id_str)
+        if isinstance(exc, asyncio.CancelledError):
+            raise
         # Broadcast failure — use .message for ModelInferenceError to avoid
         # showing internal model names to the operator.
         if isinstance(exc, ModelInferenceError):

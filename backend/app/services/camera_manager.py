@@ -49,6 +49,10 @@ class CameraManager:
         self._device_ids: list[int] = settings.camera_device_ids
         self._labels: list[str] = settings.camera_labels
         self._initialized = False
+        self._logical_ids: list[str] = []
+
+    def set_logical_ids(self, ids: list[str]) -> None:
+        self._logical_ids = list(ids)
 
     @property
     def is_initialized(self) -> bool:
@@ -212,7 +216,7 @@ class CameraManager:
 
     def _get_camera_id(self, device_id: int) -> str:
         idx = self._device_ids.index(device_id) if device_id in self._device_ids else 0
-        return f"CAM-{idx + 1:03d}"
+        return self._logical_ids[idx] if idx < len(self._logical_ids) else f"CAM-{idx + 1:03d}"
 
     def _capture_single(self, device_id: int) -> CaptureResult:
         """Thread-safe single frame capture from one camera."""
@@ -296,9 +300,11 @@ class CameraManager:
         scan_dir.mkdir(parents=True, exist_ok=True)
 
         for capture in captures:
-            filename = f"{capture.camera_id}_{capture.camera_label.lower()}.jpg"
+            # Hardware index makes filenames independent of editable display labels.
+            filename = f"camera_{capture.camera_index}.jpg"
             file_path = scan_dir / filename
-            cv2.imwrite(str(file_path), capture.frame)
+            if not cv2.imwrite(str(file_path), capture.frame):
+                raise CameraError(capture.camera_index, "Could not save captured image")
             capture.file_path = str(file_path)
             logger.info(f"Saved capture: {file_path}")
 

@@ -1,25 +1,36 @@
 """
 User management routes.
+
+ROLE-01: Role transitions now reconcile profiles — promoting an operator to admin
+creates an AdminProfile, demoting an admin to operator creates an OperatorProfile
+with requires_pin_change=True.
 """
 
 from __future__ import annotations
 
 import uuid
+from datetime import timedelta
 
-from fastapi import APIRouter, Request
-from sqlalchemy import select, func
+from fastapi import APIRouter, Request, Response
+from pydantic import BaseModel
+from sqlalchemy import select, func, case
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import DbSession, CurrentUser, AdminUser
 from app.core.exceptions import NotFoundException, ConflictException
 from app.core.security import hash_password, hash_pin
+from app.core.temporary_credentials import temporary_password, temporary_pin
 from app.models.user_account import UserAccount
 from app.models.user_role import UserRole
 from app.models.admin_profile import AdminProfile
 from app.models.operator_profile import OperatorProfile
 from app.models.activity_log import ActivityLog
+from app.models.scan import Scan
+from app.models.scan_classification import ScanClassification
+from app.core.time import now_manila
 from app.schemas.user import (
     UserCreate,
+    UserCreatedResponse,
     UserUpdate,
     UserResponse,
     UserListResponse,
@@ -47,9 +58,10 @@ async def list_users(db: DbSession, admin: AdminUser):
     )
 
 
-@router.post("", response_model=UserResponse, status_code=201)
-async def create_user(body: UserCreate, db: DbSession, admin: AdminUser, request: Request):
+@router.post("", response_model=UserCreatedResponse, status_code=201)
+async def create_user(body: UserCreate, db: DbSession, admin: AdminUser, request: Request, response: Response):
     """Create a new user (admin only)."""
+    response.headers["Cache-Control"] = "no-store"
     existing = await db.execute(select(UserAccount).where(UserAccount.username == body.username))
     if existing.scalar_one_or_none():
         raise ConflictException(f"Username '{body.username}' already exists")
@@ -59,10 +71,12 @@ async def create_user(body: UserCreate, db: DbSession, admin: AdminUser, request
     if not user_role:
         raise NotFoundException(f"Role '{body.role}' not found")
 
+    password = body.password or temporary_password()
+    pin = (body.pin or temporary_pin()) if body.role == RoleEnum.OPERATOR else None
     user = UserAccount(
         username=body.username,
         full_name=body.full_name,
-        password_hash=hash_password(body.password),
+        password_hash=hash_password(password),
         role_id=user_role.id,
         status=body.status,
         requires_password_change=True,
@@ -74,9 +88,9 @@ async def create_user(body: UserCreate, db: DbSession, admin: AdminUser, request
         user.admin_profile = AdminProfile()
     elif body.role == RoleEnum.OPERATOR.value:
         user.operator_profile = OperatorProfile(
-            pin_hash=hash_pin(body.pin) if body.pin else None,
-            requires_pin_change=True if body.pin else False,
-            pin_setup_reason=PinSetupReasonEnum.NEW_ACCOUNT if body.pin else None,
+            pin_hash=hash_pin(pin),
+            requires_pin_change=True,
+            pin_setup_reason=PinSetupReasonEnum.NEW_ACCOUNT,
         )
 
     db.add(user)
@@ -89,13 +103,43 @@ async def create_user(body: UserCreate, db: DbSession, admin: AdminUser, request
     ))
 
     await db.flush()
-    return UserResponse.from_db_model(user)
+    return UserCreatedResponse(**UserResponse.from_db_model(user).model_dump(),
+                               temporary_password=password, temporary_pin=pin)
 
 
 # ── PROFILE-01: Self-service profile update (any authenticated user) ────────
 
 class SelfProfileUpdate(BaseModel):
     avatar_url: str | None = None
+
+
+@router.get("/me/summary")
+async def own_profile_summary(db: DbSession, user: CurrentUser):
+    """All retained scan records; operators can only see their own aggregates/activity."""
+    now = now_manila()
+    query = select(
+        func.count(Scan.id).label("total_scans"),
+        func.avg(ScanClassification.confidence).label("avg_confidence"),
+        func.sum(case((Scan.date_time.between(now - timedelta(days=7), now), 1), else_=0)).label("last_7_days"),
+    ).select_from(Scan).outerjoin(ScanClassification, ScanClassification.scan_id == Scan.id)
+    is_admin = user.role.name == RoleEnum.ADMIN.value
+    if not is_admin:
+        query = query.join(OperatorProfile, Scan.operator_id == OperatorProfile.id).where(
+            OperatorProfile.account_id == user.id
+        )
+    row = (await db.execute(query)).one()
+    logs = (await db.execute(
+        select(ActivityLog).where(ActivityLog.user_id == user.id)
+        .order_by(ActivityLog.timestamp.desc(), ActivityLog.id.desc()).limit(8)
+    )).scalars().all()
+    return {
+        "total_scans": row.total_scans,
+        "avg_confidence": float(row.avg_confidence) if row.avg_confidence is not None else None,
+        "last_7_days": row.last_7_days or 0,
+        "total_users": (await db.scalar(select(func.count(UserAccount.id)))) if is_admin else None,
+        "activity": [{"id": str(log.id), "action": log.action, "details": log.details or "",
+                      "timestamp": log.timestamp.isoformat()} for log in logs],
+    }
 
 
 @router.patch("/me/profile", response_model=UserResponse)
@@ -122,10 +166,14 @@ async def update_own_profile(body: SelfProfileUpdate, db: DbSession, user: Curre
 
 @router.patch("/{user_id}", response_model=UserResponse)
 async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin: AdminUser, request: Request):
-    """Update a user (admin only)."""
+    """Update a user (admin only). ROLE-01: Role transitions reconcile profiles."""
     result = await db.execute(
         select(UserAccount)
-        .options(selectinload(UserAccount.role), selectinload(UserAccount.operator_profile))
+        .options(
+            selectinload(UserAccount.role),
+            selectinload(UserAccount.operator_profile),
+            selectinload(UserAccount.admin_profile),
+        )
         .where(UserAccount.id == user_id)
     )
     user = result.scalar_one_or_none()
@@ -161,6 +209,10 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin
                     "Promote or activate another admin first."
                 )
 
+    # ── Detect role changes for ROLE-01 reconciliation ──────────────────
+    old_role_name = user.role.name if user.role else None
+    new_role_name = None
+
     update_data = body.model_dump(exclude_none=True)
     if body.username is not None and body.username != user.username:
         existing = await db.scalar(select(UserAccount.id).where(UserAccount.username == body.username))
@@ -176,13 +228,35 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin
             if user_role:
                 user.role_id = user_role.id
                 user.role = user_role
+                new_role_name = value
         else:
             setattr(user, field, value)
+
+    # ── ROLE-01: Reconcile profiles on role change ──────────────────────
+    if new_role_name and new_role_name != old_role_name:
+        if new_role_name == RoleEnum.ADMIN.value:
+            # Promoted to Admin — create AdminProfile if missing
+            if not user.admin_profile:
+                user.admin_profile = AdminProfile()
+            # Don't delete operator_profile — preserve scan history linkage
+            # But clear the PIN requirement since admin doesn't use PIN
+        elif new_role_name == RoleEnum.OPERATOR.value:
+            # Demoted to Operator — create OperatorProfile if missing
+            if not user.operator_profile:
+                user.operator_profile = OperatorProfile(
+                    requires_pin_change=True,
+                    pin_setup_reason=PinSetupReasonEnum.NEW_ACCOUNT,
+                )
+            # Don't delete admin_profile — preserve historical context
+
+    detail_parts = list(update_data.keys())
+    if new_role_name and new_role_name != old_role_name:
+        detail_parts.append(f"role_change:{old_role_name}->{new_role_name}")
 
     db.add(ActivityLog(
         user_id=admin.id,
         action="user_updated",
-        details=f"Updated user '{user.username}': {list(update_data.keys())}",
+        details=f"Updated user '{user.username}': {detail_parts}",
         ip_address=request.client.host if request.client else None,
     ))
 
@@ -192,26 +266,39 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin
 
 @router.post("/{user_id}/reset-password")
 async def reset_user_password(
-    user_id: uuid.UUID, body: UserPasswordReset, db: DbSession, admin: AdminUser
+    user_id: uuid.UUID, body: UserPasswordReset, db: DbSession, admin: AdminUser, request: Request, response: Response
 ):
-    """Reset a user's password (admin only)."""
+    """Reset a user's password (admin only). Now records an activity log."""
+    response.headers["Cache-Control"] = "no-store"
     result = await db.execute(select(UserAccount).where(UserAccount.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User")
 
-    user.password_hash = hash_password(body.new_password)
+    password = body.new_password or temporary_password()
+    user.password_hash = hash_password(password)
     user.requires_password_change = True
     user.password_setup_reason = body.password_setup_reason
     user.token_version += 1  # Revoke all prior sessions (AUTH-02)
-    return {"message": "Password reset successfully"}
+
+    # AUDIT-02: Record password reset in activity log
+    db.add(ActivityLog(
+        user_id=admin.id,
+        action="user_updated",
+        details=f"Admin reset password for user '{user.username}'",
+        ip_address=request.client.host if request.client else None,
+    ))
+    await db.flush()
+
+    return {"message": "Password reset successfully", "temporary_password": password}
 
 
 @router.post("/{user_id}/reset-pin")
 async def reset_user_pin(
-    user_id: uuid.UUID, body: UserPinReset, db: DbSession, admin: AdminUser
+    user_id: uuid.UUID, body: UserPinReset, db: DbSession, admin: AdminUser, request: Request, response: Response
 ):
-    """Reset a user's PIN (admin only)."""
+    """Reset a user's PIN (admin only). Now records an activity log."""
+    response.headers["Cache-Control"] = "no-store"
     result = await db.execute(
         select(UserAccount)
         .options(selectinload(UserAccount.operator_profile))
@@ -221,8 +308,19 @@ async def reset_user_pin(
     if not user or not user.operator_profile:
         raise NotFoundException("User Operator Profile")
 
-    user.operator_profile.pin_hash = hash_pin(body.new_pin)
+    pin = body.new_pin or temporary_pin()
+    user.operator_profile.pin_hash = hash_pin(pin)
     user.operator_profile.requires_pin_change = True
     user.operator_profile.pin_setup_reason = body.pin_setup_reason
     user.token_version += 1  # Revoke all prior sessions (AUTH-02)
-    return {"message": "PIN reset successfully"}
+
+    # AUDIT-02: Record PIN reset in activity log
+    db.add(ActivityLog(
+        user_id=admin.id,
+        action="user_updated",
+        details=f"Admin reset PIN for user '{user.username}'",
+        ip_address=request.client.host if request.client else None,
+    ))
+    await db.flush()
+
+    return {"message": "PIN reset successfully", "temporary_pin": pin}

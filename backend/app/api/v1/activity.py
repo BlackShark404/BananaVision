@@ -1,11 +1,13 @@
 """
 Activity log routes.
+
+AUDIT-01: True server-side pagination, filtering by action/user/search query.
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter, Query
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, or_
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import DbSession, AdminUser
@@ -23,14 +25,35 @@ async def list_activity(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     action: str | None = None,
+    user_name: str | None = None,
+    search: str | None = None,
 ):
-    """List activity logs with pagination."""
+    """List activity logs with server-side pagination, filtering, and search."""
     query = select(ActivityLog).options(selectinload(ActivityLog.user)).order_by(
         desc(ActivityLog.timestamp), desc(ActivityLog.id)
     )
 
+    # Filter by action type
     if action:
         query = query.where(ActivityLog.action == action)
+
+    # Filter by user name (join with user table)
+    if user_name:
+        from app.models.user_account import UserAccount
+        query = query.join(ActivityLog.user).where(UserAccount.full_name == user_name)
+
+    # Full-text search across user name, action, and details
+    if search:
+        from app.models.user_account import UserAccount
+        search_pattern = f"%{search}%"
+        # Need left outer join since user might be null
+        query = query.outerjoin(ActivityLog.user).where(
+            or_(
+                ActivityLog.action.ilike(search_pattern),
+                ActivityLog.details.ilike(search_pattern),
+                UserAccount.full_name.ilike(search_pattern),
+            )
+        )
 
     count_query = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_query)).scalar() or 0

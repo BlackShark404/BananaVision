@@ -24,25 +24,25 @@ class ChangePasswordRequest(BaseModel):
 
 class SetupPasswordRequest(BaseModel):
     """First-time / post-reset password setup — user proved identity at login."""
-    username: str
+    setup_token: str
     new_password: str = Field(..., min_length=6, max_length=128)
 
 
 class PinSwapRequest(BaseModel):
     username: str
-    pin: str = Field(..., min_length=4, max_length=4)
+    pin: str = Field(..., min_length=4, max_length=4, pattern=r"^\d{4}$")
 
 
 class ChangePinRequest(BaseModel):
     """Self-service PIN change — requires current PIN for verification."""
-    current_pin: str = Field(..., min_length=4, max_length=4)
-    new_pin: str = Field(..., min_length=4, max_length=4)
+    current_pin: str = Field(..., min_length=4, max_length=4, pattern=r"^\d{4}$")
+    new_pin: str = Field(..., min_length=4, max_length=4, pattern=r"^\d{4}$")
 
 
 class SetupPinRequest(BaseModel):
     """First-time / post-reset PIN setup — user proved identity at PIN swap."""
-    username: str
-    new_pin: str = Field(..., min_length=4, max_length=4)
+    setup_token: str
+    new_pin: str = Field(..., min_length=4, max_length=4, pattern=r"^\d{4}$")
 
 
 # ── Responses ────────────────────────────────────────────────────────────────
@@ -65,3 +65,4 @@ class LoginResponse(BaseModel):
     token: TokenResponse | None = None
     user: AuthUser | None = None
     reason: str | None = None  # "new_account" | "password_reset" etc.
+    setup_token: str | None = None

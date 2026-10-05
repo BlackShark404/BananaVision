@@ -7,7 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import SecretStr, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "change-me"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 480
+    bootstrap_admin_username: str = "admin"
+    bootstrap_admin_password: SecretStr | None = None
 
     # ── Camera ───────────────────────────────────────────────────────────────
     camera_device_ids: list[int] = [0, 1, 2, 3]
@@ -55,14 +57,14 @@ class Settings(BaseSettings):
     sensor_read_interval_s: int = 5
 
     # ── ML Models ────────────────────────────────────────────────────────────
-    yolo_model_path: str = "app/ml/weights/banana_yolov26n.pt"
+    yolo_model_path: str = "app/ml/weights/banana_yolo26m.pt"
     yolo_confidence_threshold: float = 0.50
     yolo_iou_threshold: float = 0.45
     rfr_model_path: str = "app/ml/weights/spoilage_rfr.joblib"
 
     # ── Storage ──────────────────────────────────────────────────────────────
     capture_dir: str = "captures"
-    max_captures_retention_days: int = 30
+    max_captures_retention_days: int = Field(30, ge=1)
 
     # ── Validators ───────────────────────────────────────────────────────────
     @field_validator("app_cors_origins", mode="before")
@@ -85,6 +87,20 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [x.strip() for x in v.split(",")]
         return v
+
+    @field_validator("camera_device_ids")
+    @classmethod
+    def validate_camera_ids(cls, ids: list[int]) -> list[int]:
+        if not ids or len(ids) > 4 or len(set(ids)) != len(ids) or any(i < 0 for i in ids):
+            raise ValueError("Select one to four distinct nonnegative camera indices")
+        return ids
+
+    @field_validator("bootstrap_admin_password")
+    @classmethod
+    def validate_bootstrap_password(cls, password: SecretStr | None) -> SecretStr | None:
+        if password is not None and not 12 <= len(password.get_secret_value().encode("utf-8")) <= 72:
+            raise ValueError("Bootstrap password must contain 12 to 72 UTF-8 bytes")
+        return password
 
     # ── Derived Properties ───────────────────────────────────────────────────
     @property

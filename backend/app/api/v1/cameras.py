@@ -4,8 +4,10 @@ import asyncio
 import cv2
 import logging
 import os
-from typing import List
-from pydantic import BaseModel
+import json
+from pathlib import Path
+from app.services.runtime_operations import station_lock
+from pydantic import BaseModel, Field, StrictInt, field_validator
 
 from app.services.camera_manager import camera_manager
 from app.config import get_settings
@@ -112,7 +114,14 @@ async def video_feed(camera_index: int, fps: int = 15):
     )
 
 class CameraMappingUpdate(BaseModel):
-    device_ids: List[int]
+    device_ids: list[StrictInt] = Field(min_length=1, max_length=4)
+
+    @field_validator("device_ids")
+    @classmethod
+    def valid_mapping(cls, ids: list[int]) -> list[int]:
+        if len(set(ids)) != len(ids) or any(i < 0 for i in ids):
+            raise ValueError("Camera indices must be distinct and nonnegative")
+        return ids
 
 @router.post("/mapping")
 async def update_camera_mapping(mapping: CameraMappingUpdate, admin: AdminUser):
@@ -120,29 +129,30 @@ async def update_camera_mapping(mapping: CameraMappingUpdate, admin: AdminUser):
     Updates the CAMERA_DEVICE_IDS in .env, clears settings cache, 
     and restarts the camera manager.
     """
-    env_path = ".env"
-    try:
-        with open(env_path, "r") as f:
-            lines = f.readlines()
-    except FileNotFoundError:
-        lines = []
-    
-    updated = False
-    with open(env_path, "w") as f:
-        for line in lines:
-            if line.startswith("CAMERA_DEVICE_IDS="):
-                f.write(f"CAMERA_DEVICE_IDS={mapping.device_ids}\n")
-                updated = True
-            else:
-                f.write(line)
-        if not updated:
-            f.write(f"\nCAMERA_DEVICE_IDS={mapping.device_ids}\n")
-                
-    get_settings.cache_clear()
-    new_settings = get_settings()
-    
-    camera_manager.release_all()
-    camera_manager._device_ids = new_settings.camera_device_ids
-    results = camera_manager.initialize()
-    
-    return {"message": "Camera mapping updated", "results": results}
+    if station_lock.locked():
+        raise HTTPException(409, "Finish the active scan before remapping cameras")
+    async with station_lock:
+        env_path = Path(".env")
+        lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+        replacement = "CAMERA_DEVICE_IDS=" + json.dumps(mapping.device_ids)
+        lines = [line for line in lines if not line.strip().startswith("CAMERA_DEVICE_IDS=")]
+        lines.append(replacement)
+        temporary = env_path.with_name(env_path.name + ".tmp")
+        try:
+            temporary.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            os.replace(temporary, env_path)
+        except OSError as exc:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("Could not remove temporary camera settings file")
+            raise HTTPException(503, "Could not persist camera mapping") from exc
+
+        # Update the existing settings object: modules holding it see the same mapping.
+        # Recreating the cached object previously left startup and camera listing stale.
+        settings.camera_device_ids = list(mapping.device_ids)
+        camera_manager.release_all()
+        camera_manager._device_ids = list(mapping.device_ids)
+        camera_manager._labels = list(settings.camera_labels)
+        results = await asyncio.to_thread(camera_manager.initialize)
+        return {"message": "Camera mapping updated", "results": results}

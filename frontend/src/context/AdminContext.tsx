@@ -14,10 +14,10 @@ interface AdminContextType {
   activityLoading: boolean
   activityError: string | null
   config: SystemConfig
-  addUser: (user: Omit<User, "id">) => Promise<User>
+  addUser: (user: Omit<User, "id">) => Promise<{ user: User; password: string; pin?: string }>
   updateUser: (id: string, data: Partial<User>) => Promise<User>
-  resetPassword: (id: string) => Promise<void>
-  resetPin: (id: string) => Promise<void>
+  resetPassword: (id: string) => Promise<string>
+  resetPin: (id: string) => Promise<string>
   updateConfig: (cfg: Partial<SystemConfig>) => Promise<SystemConfig>
   /** Self-service profile update — avatar changes that any user can perform. */
   updateOwnProfile: (data: { avatar?: string }) => Promise<void>
@@ -87,9 +87,9 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     const loadData = async () => {
       try {
         const [usersRes, devicesRes, activityRes, configRes] = await Promise.allSettled([
-          api.users.list(),
+          user.role === "Admin" ? api.users.list() : Promise.resolve({ items: [], total: 0 }),
           api.devices.list(),
-          collectScanPages((page, page_size, signal) => api.activity.list({ page, page_size }, signal), controller.signal),
+          user.role === "Admin" ? collectScanPages((page, page_size, signal) => api.activity.list({ page, page_size }, signal), controller.signal) : Promise.resolve([]),
           api.config.get(),
         ])
         if (controller.signal.aborted) return
@@ -153,12 +153,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       full_name: data.fullName,
       role: data.role,
       status: data.status,
-      password: data.password || "banana123",
-      pin: data.pin
     }
-    const savedUser = mapApiUser(await api.users.create(apiData))
+    const result = await api.users.create(apiData)
+    const savedUser = mapApiUser(result)
     setUsers((prev) => [...prev, savedUser])
-    return savedUser
+    return { user: savedUser, password: result.temporary_password, pin: result.temporary_pin }
   }, [])
 
   const updateUser = useCallback(async (id: string, data: Partial<User>) => {
@@ -187,17 +186,19 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   }, [user, updateAuthUser])
 
   const resetPassword = useCallback(async (id: string) => {
-    await api.users.resetPassword(id, "banana123")
+    const result = await api.users.resetPassword(id)
     setUsers(prev => prev.map(u => u.id === id
       ? { ...u, requiresPasswordChange: true, passwordSetupReason: "password_reset" }
       : u))
+    return result.temporary_password
   }, [])
 
   const resetPin = useCallback(async (id: string) => {
-    await api.users.resetPin(id, "1234")
+    const result = await api.users.resetPin(id)
     setUsers(prev => prev.map(u => u.id === id
       ? { ...u, requiresPinChange: true, pinSetupReason: "pin_reset" }
       : u))
+    return result.temporary_pin
   }, [])
 
   const updateConfig = useCallback(async (cfg: Partial<SystemConfig>) => {

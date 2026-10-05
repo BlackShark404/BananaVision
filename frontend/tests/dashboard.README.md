@@ -20,3 +20,11 @@ Manila midnight, KPI drilldown, `/logs` navigation, and camera failures.
 
 Optional desktop/mobile screenshots are saved when `DASHBOARD_SCREENSHOT_DIR`
 is set. These are local QA artifacts and should not be committed.
+
+## Assigned-feature and persistence checks
+
+```text
+node --test --test-concurrency=1 tests/persistence.test.mjs tests/assigned.test.mjs
+```
+
+These suites use the same existing Chrome/Playwright setup and fixture API responses. Assigned-feature checks cover the administrator's one-time credential handoff, password/PIN setup proof propagation, browser-storage exclusions and operator profile totals/access scope. Vite caches are separated by fixture. No real account, camera, power or cleanup operation is performed.

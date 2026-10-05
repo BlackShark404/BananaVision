@@ -2,13 +2,13 @@
 
 **Banana Classification & Spoilage Prediction System**
 
-BananaVision is a full-stack system designed to classify bananas using computer vision (YOLOv8n) and predict spoilage using machine learning (Random Forest Regression) combined with environmental sensor data. 
+BananaVision is a full-stack system designed to classify bananas using computer vision (YOLO26) and predict spoilage using machine learning (Random Forest Regression) combined with environmental sensor data.
 
 ## 🛠️ Tech Stack
 
 ### Backend
 * **Framework:** FastAPI (Python)
-* **Computer Vision:** YOLOv8n (Ultralytics) for banana detection and classification
+* **Computer Vision:** YOLO26 (Ultralytics) for banana detection and classification
 * **Machine Learning:** Random Forest Regression (scikit-learn) for spoilage prediction
 * **Real-time Communication:** WebSockets
 * **Hardware Integration:** Camera stream management and sensor data aggregation

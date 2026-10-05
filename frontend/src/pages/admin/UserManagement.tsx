@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react"
 import { useAdmin } from "@/context/AdminContext"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -24,9 +23,9 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppActionButton } from "@/components/AppActionButton"
 import { AppTableFilters } from "@/components/AppTableFilters"
 import { AppPageHeader } from "@/components/AppPageHeader"
-import { Users, Plus, Pencil, ShieldAlert, ShieldCheck, UserCheck, Filter, ChevronsLeft, ChevronsRight, KeyRound, Key } from "lucide-react"
+import { Users, Plus, Pencil, ShieldAlert, ShieldCheck, UserCheck, Filter, KeyRound, Key } from "lucide-react"
 import { toast } from "sonner"
-import type { Role } from "@/types"
+import type { Role, User } from "@/types"
 
 const PAGE_SIZE = 10
 
@@ -42,6 +41,8 @@ export default function UserManagement() {
   const [resetConfirmUser, setResetConfirmUser] = useState<{id: string, fullName: string} | null>(null)
   const [resetConfirmPin, setResetConfirmPin] = useState<{id: string, fullName: string} | null>(null)
   
+  const [handoff, setHandoff] = useState<{ username: string; password?: string; pin?: string } | null>(null)
+
   const [formData, setFormData] = useState({
     username: "",
     fullName: "",
@@ -84,20 +85,9 @@ export default function UserManagement() {
         await updateUser(editingId, formData)
         toast.success("User updated")
       } else {
-        const isOperator = formData.role === "Operator"
-        await addUser({
-          ...formData,
-          lastActive: "Never",
-          password: "banana123",
-          requiresPasswordChange: true,
-          passwordSetupReason: "new_account",
-          ...(isOperator ? { pin: "1234", requiresPinChange: true, pinSetupReason: "new_account" as const } : {}),
-        })
-        toast.success(
-          isOperator
-            ? "User created with temporary credentials: password 'banana123' and PIN '1234'"
-            : "User created with temporary password 'banana123'"
-        )
+        const result = await addUser({ ...formData, lastActive: "Never" })
+        setHandoff({ username: result.user.username, password: result.password, pin: result.pin })
+        toast.success("User created")
       }
       setIsDialogOpen(false)
     } catch (error) {
@@ -111,8 +101,9 @@ export default function UserManagement() {
     if (!resetConfirmUser || saving) return
     setSaving(true)
     try {
-      await resetPassword(resetConfirmUser.id)
-      toast.success(`Password for ${resetConfirmUser.fullName} reset to 'banana123'`)
+      const password = await resetPassword(resetConfirmUser.id)
+      setHandoff({ username: users.find(u => u.id === resetConfirmUser.id)?.username || resetConfirmUser.fullName, password })
+      toast.success("Password reset")
       setResetConfirmUser(null)
     } catch (error) {
       toast.error("Could not reset password", { description: error instanceof Error ? error.message : "Please try again." })
@@ -125,8 +116,9 @@ export default function UserManagement() {
     if (!resetConfirmPin || saving) return
     setSaving(true)
     try {
-      await resetPin(resetConfirmPin.id)
-      toast.success(`Kiosk PIN for ${resetConfirmPin.fullName} reset to '1234'`)
+      const pin = await resetPin(resetConfirmPin.id)
+      setHandoff({ username: users.find(u => u.id === resetConfirmPin.id)?.username || resetConfirmPin.fullName, pin })
+      toast.success("PIN reset")
       setResetConfirmPin(null)
     } catch (error) {
       toast.error("Could not reset PIN", { description: error instanceof Error ? error.message : "Please try again." })
@@ -135,7 +127,7 @@ export default function UserManagement() {
     }
   }
 
-  const columns: ColumnDef<any>[] = [
+  const columns: ColumnDef<User>[] = [
     {
       header: "User",
       sortable: true,
@@ -317,7 +309,7 @@ export default function UserManagement() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
-              <Input id="username" value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} required />
+              <Input id="username" value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} required disabled={!!editingId} className={editingId ? "opacity-60 cursor-not-allowed" : ""} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -343,8 +335,7 @@ export default function UserManagement() {
             </div>
             {!editingId && (
               <div className="bg-muted/50 border text-muted-foreground p-4 rounded-xl text-sm leading-relaxed mt-2">
-                <p>New users are created with a default password of <span className="font-mono font-medium text-foreground bg-background px-1.5 py-0.5 rounded border">banana123</span>.</p>
-                {formData.role === "Operator" && <p className="mt-2">Operators also receive a default PIN of <span className="font-mono font-medium text-foreground bg-background px-1.5 py-0.5 rounded border">1234</span>.</p>}
+                <p>A unique temporary password and, for operators, PIN will be displayed once after creation. Share them privately with the account owner.</p>
                 <p className="mt-2">They will be required to change their credentials upon first login.</p>
               </div>
             )}
@@ -356,6 +347,17 @@ export default function UserManagement() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!handoff} onOpenChange={open => !open && setHandoff(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Temporary credentials</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Share these privately with the account owner before closing. They are displayed only now and must be replaced on first use.</p>
+          <p>Username: <strong>{handoff?.username}</strong></p>
+          {handoff?.password && <p>Temporary password: <code className="select-all break-all">{handoff.password}</code></p>}
+          {handoff?.pin && <p>Temporary PIN: <code className="select-all">{handoff.pin}</code></p>}
+          <DialogFooter><Button onClick={() => setHandoff(null)}>Done</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={!!resetConfirmUser} onOpenChange={(open) => !saving && !open && setResetConfirmUser(null)}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
@@ -363,7 +365,7 @@ export default function UserManagement() {
             <AlertDialogDescription>
               Are you sure you want to reset the password for <span className="font-semibold text-foreground">{resetConfirmUser?.fullName}</span>?
               <br /><br />
-              Their new temporary password will be set to: <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-foreground">banana123</span>
+              A unique temporary password will be displayed once after reset. The user must replace it on their next login.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -382,7 +384,7 @@ export default function UserManagement() {
             <AlertDialogDescription>
               Are you sure you want to reset the Kiosk PIN for <span className="font-semibold text-foreground">{resetConfirmPin?.fullName}</span>?
               <br /><br />
-              Their new temporary PIN will be set to: <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-foreground">1234</span>. They will be required to change it on their next Kiosk login.
+              A unique temporary PIN will be displayed once after reset. They will be required to change it on their next Kiosk login.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

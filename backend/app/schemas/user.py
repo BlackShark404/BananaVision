@@ -21,15 +21,15 @@ if TYPE_CHECKING:
 class UserCreate(BaseModel):
     username: str = Field(..., min_length=2, max_length=50)
     full_name: str = Field(..., min_length=2, max_length=100)
-    password: str = Field(..., min_length=4, max_length=128)
-    pin: str | None = Field(None, min_length=4, max_length=4)
+    password: str | None = Field(None, min_length=6, max_length=128)
+    pin: str | None = Field(None, min_length=4, max_length=4, pattern=r"^\d{4}$")
     role: RoleEnum = RoleEnum.OPERATOR
     status: ActiveStatusEnum = ActiveStatusEnum.ACTIVE
 
 
 class UserUpdate(BaseModel):
     username: str | None = Field(None, min_length=2, max_length=50)
-    full_name: str | None = None
+    full_name: str | None = Field(None, min_length=2, max_length=100)
     role: RoleEnum | None = None
     status: ActiveStatusEnum | None = None
     avatar_url: str | None = None
@@ -40,12 +40,12 @@ class UserUpdate(BaseModel):
 
 
 class UserPasswordReset(BaseModel):
-    new_password: str = Field(..., min_length=4, max_length=128)
+    new_password: str | None = Field(None, min_length=6, max_length=128)
     password_setup_reason: PasswordSetupReasonEnum = PasswordSetupReasonEnum.PASSWORD_RESET
 
 
 class UserPinReset(BaseModel):
-    new_pin: str = Field(..., min_length=4, max_length=4)
+    new_pin: str | None = Field(None, min_length=4, max_length=4, pattern=r"^\d{4}$")
     pin_setup_reason: PinSetupReasonEnum = PinSetupReasonEnum.PIN_RESET
 
 
@@ -84,3 +84,8 @@ class UserResponse(BaseModel):
 class UserListResponse(BaseModel):
     items: list[UserResponse]
     total: int
+
+
+class UserCreatedResponse(UserResponse):
+    temporary_password: str
+    temporary_pin: str | None = None

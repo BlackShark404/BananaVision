@@ -17,7 +17,7 @@ BananaVision is a browser-based banana inventory and quality-control system. It 
 - DHT22 temperature/humidity readings from an Arduino serial connection.
 - Operator and administrator workflows, scan history, inventory, quality review, analytics, notifications, device status, and system controls.
 
-The current repository is an actively implemented foundation. Some frontend behavior still has local/mock fallbacks, and some planned production features are not present.
+The current repository is an actively implemented foundation. See `docs/CHANGELOG.md` for implementation status and remaining station/panel verification. Planned production features are not automatically implemented.
 
 ## 2. System Shape
 
@@ -89,7 +89,7 @@ Frontend entry point: `frontend/src/main.tsx`, rendering `frontend/src/App.tsx`.
 | Models    | `models/user_account.py`, `user_role.py`, `operator_profile.py`, `admin_profile.py`, `device.py`, `supplier.py`, `intake.py`, `scan.py`, `scan_classification.py`, `scan_detection.py`, `scan_image.py`, `scan_note.py`, `scan_original_ai_result.py`, `scan_status_log.py`, `sensor_reading.py`, `activity_log.py`, `app_notification.py`, and `system_config.py` are SQLAlchemy ORM entities. |
 | Schemas   | `schemas/auth.py`, `common.py`, `enums.py`, `scan.py`, and `user.py` define Pydantic request/response models and domain enums.                                                                                                                                                                                                                                                                  |
 | WebSocket | `ws/manager.py` tracks connections/rooms and broadcasts; `ws/events.py` defines event names/rooms; `ws/handlers.py` accepts WebSocket clients and dispatches events.                                                                                                                                                                                                                            |
-| ML assets | `ml/__init__.py` and `ml/weights/.gitkeep`. The model weight files referenced by settings are not present in the repository tree.                                                                                                                                                                                                                                                               |
+| ML assets | `ml/__init__.py` and `ml/weights/.gitkeep`. Weight files exist in the local workspace but are ignored by Git; a fresh checkout requires separately provisioned model assets. Filename alone does not verify model architecture or accuracy.                                                                                                                                                                                                                                                               |
 
 ### 3.4 Frontend
 
@@ -139,7 +139,7 @@ Frontend entry point: `frontend/src/main.tsx`, rendering `frontend/src/App.tsx`.
 | `camera_labels`          | `Front, Left, Right, Top`.                                    |
 | camera resolution        | `640x480` in implemented settings.                            |
 | sensor                   | `/dev/ttyUSB0`, baud `9600`, interval `5` seconds.            |
-| ML paths                 | `app/ml/weights/banana_yolov8n.pt` and `spoilage_rfr.joblib`. |
+| ML paths                 | `app/ml/weights/banana_yolo26m.pt` and `spoilage_rfr.joblib`. |
 | storage                  | `captures`, retention default `30` days.                      |
 
 `main.py` configures console plus rotating file logging, mounts `/captures`, adds CORS, includes `/api/v1`, registers `/api/v1/ws`, and exposes `/health`.
@@ -150,7 +150,7 @@ All endpoints are rooted at `/api/v1` unless stated otherwise. Authentication is
 
 | Area            | Implemented operations                                                                                                                                                                                |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth            | `POST /auth/login`, `/auth/logout`, `/auth/swap`, `/auth/change-password`, `/auth/change-pin`.                                                                                                        |
+| Auth            | `POST /auth/login`, `/auth/logout`, `/auth/swap`, `/auth/change-password`, `/auth/change-pin`, `/auth/setup-password`, `/auth/setup-pin` (limited setup proof required).                                                                                                        |
 | Scans           | `POST /scans/trigger`; `GET /scans`; `GET /scans/{id}`; `PATCH /scans/{id}` for override; `PATCH /scans/{id}/flag`; `PATCH /scans/{id}` for inventory status; notes via `GET/POST /scans/{id}/notes`. |
 | Devices/cameras | `GET /devices` and camera endpoints in `cameras.py`.                                                                                                                                                  |
 | Sensors         | `GET /sensors/latest`, `GET /sensors/history`.                                                                                                                                                        |
@@ -307,10 +307,10 @@ These are important for any future AI or developer session:
 
 - `docs/backend_plan.md` describes proposed architecture and files that are not all present. Treat it as design guidance, not an implementation inventory.
 - The current backend startup uses `Base.metadata.create_all`; it does not automatically run the SQL migration file as an Alembic migration.
-- Model weight files are referenced by settings but are absent from `backend/app/ml/weights/` in the scanned tree.
+- Model weights exist locally under `backend/app/ml/weights/` but are ignored by Git. Provision them separately and verify metadata/hash for the deployed station.
 - Frontend API typing is permissive in several places (`any`) and may not exactly match backend response schemas.
 - Frontend scan trigger/client behavior and backend response details must be checked together when changing scan flows.
-- Some frontend contexts/pages retain local or mock fallback behavior when API operations fail; this can make the UI appear successful while persistence failed.
+- Account creation/edit/reset, profile avatars and configuration saves await backend results; rejected requests must not publish local success. Keep failed-input/persistence behavior covered when changing other workflows.
 - The frontend analytics experience primarily derives/display metrics locally in parts of the implementation even though backend analytics endpoints exist.
 - Database naming/documentation has multiple naming conventions (`scan` vs `SCAN`, `intake` vs `DELIVERY_INTAKE`); confirm ORM `__tablename__` before writing SQL.
 - WebSocket authentication and browser token handling should be reviewed together before production deployment.

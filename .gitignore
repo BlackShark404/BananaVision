@@ -20,6 +20,7 @@ backend/node_modules/
 .env.local
 .env.development.local
 .env.test.local
+.env*.tmp
 .env.production.local
 
 # Build output

@@ -62,6 +62,9 @@ class SessionAdapter:
     async def flush(self):
         self.session.flush()
 
+    async def delete(self, value):
+        self.session.delete(value)
+
     async def commit(self):
         self.state.events.append("commit")
         if self.state.fail_commit:
@@ -335,13 +338,14 @@ async def test_camera_monitor_retries_persistence_failure_before_announcing_stat
     monkeypatch.setattr(startup.asyncio, "sleep", tick)
     monkeypatch.setattr(startup.asyncio, "get_event_loop", lambda: Loop())
     monkeypatch.setattr(startup, "sensor_reader", SimpleNamespace(start_polling=no_sensor))
-    monkeypatch.setattr(startup, "camera_manager", SimpleNamespace(probe_all=probe))
+    monkeypatch.setattr(startup, "camera_manager", SimpleNamespace(probe_all=probe, _get_camera_id=lambda _: "CAM-001"))
     monkeypatch.setattr(startup, "settings", SimpleNamespace(camera_device_ids=[0], camera_labels=["Camera 1"]))
     monkeypatch.setattr(startup, "async_session_factory", CameraSession)
     monkeypatch.setattr(startup.ws_manager, "send_to_room", send)
     await startup.start_background_tasks()
-    tasks[0].close()
+    for task in tasks[:-1]:
+        task.close()
     with pytest.raises(asyncio.CancelledError):
-        await tasks[1]
+        await tasks[-1]
     assert calls["commit"] == 2
     assert events == ["commit:failed", "commit:saved", "ws:devices", "ws:dashboard"]

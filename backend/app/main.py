@@ -118,8 +118,18 @@ async def health_check():
     from app.services.spoilage import spoilage_predictor
     from app.services.sensor_reader import sensor_reader
 
+    models_ready = banana_classifier.is_loaded and banana_pre_detector.is_loaded
+    cameras_ok = len(camera_manager.online_cameras) > 0
+
+    if models_ready and cameras_ok:
+        status = "healthy"
+    elif models_ready:
+        status = "degraded"  # Models loaded but no cameras
+    else:
+        status = "degraded"  # Critical models not loaded
+
     return {
-        "status": "healthy",
+        "status": status,
         "version": "0.1.0",
         "cameras_online": len(camera_manager.online_cameras),
         "cameras_total": len(settings.camera_device_ids),

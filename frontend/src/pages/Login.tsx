@@ -67,7 +67,7 @@ export default function Login() {
     } else if (result === "inactive") {
       toast.error("Account Inactive", { description: "Your account is inactive. Please contact an administrator." })
     } else {
-      toast.error("Login failed", { description: "Invalid credentials. Try 'admin' or any operator username." })
+      toast.error("Login failed", { description: "Check your username and password, or contact an administrator." })
     }
     setLoading(false)
   }

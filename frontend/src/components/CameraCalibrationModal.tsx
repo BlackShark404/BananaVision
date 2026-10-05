@@ -70,11 +70,14 @@ export function CameraCalibrationModal() {
         },
         body: JSON.stringify({ device_ids })
       })
-      if (!res.ok) throw new Error("Failed to update mapping")
-      toast.success("Camera mapping saved! Restarting camera manager...")
+      if (!res.ok) {
+        const error = await res.json().catch(() => null)
+        throw new Error(typeof error?.detail === "string" ? error.detail : "Failed to update mapping")
+      }
+      toast.success("Camera mapping saved and camera manager refreshed")
       setOpen(false)
-    } catch (e) {
-      toast.error("Failed to save camera mapping")
+    } catch (error) {
+      toast.error("Failed to save camera mapping", { description: error instanceof Error ? error.message : "Please try again." })
     } finally {
       setLoading(false)
     }

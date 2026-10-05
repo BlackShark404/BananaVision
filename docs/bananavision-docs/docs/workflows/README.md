@@ -78,10 +78,10 @@ This folder contains **four** separate program workflow diagrams for the BananaV
 ### 4. IoT Scanning Workflow (Hardware)
 
 - Mini PC / Raspberry Pi controller
-- 4-Camera sequential capture
-- YOLOv8 AI detection
+- Multi-camera parallel capture with sequential fallback
+- YOLO26-configured AI detection (verify deployed model metadata)
 - Real-time classification pipeline
-- Local SQLite database storage
+- PostgreSQL database storage via async SQLAlchemy/asyncpg
 - Web server synchronization
 
 ---

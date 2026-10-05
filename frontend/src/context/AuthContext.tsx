@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from "react"
+import React, { createContext, useContext, useState, useCallback, useRef } from "react"
 import { api } from "@/lib/api"
 import {
   setToken,
@@ -45,14 +45,20 @@ const AuthContext = createContext<AuthContextType | null>(null)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => getStoredUser())
 
+  const passwordSetup = useRef<{ username: string; token: string } | null>(null)
+  const pinSetup = useRef<{ username: string; token: string } | null>(null)
+
   // ── Login ───────────────────────────────────────────────────────────────
 
   const login = useCallback(async (username: string, password?: string) => {
     try {
+      passwordSetup.current = null
       const res = await api.auth.login(username, password || "")
 
       // Check status for password change requirements
       if (res.status === "requires_password_change") {
+        if (!res.setup_token) return "failed" as const
+        passwordSetup.current = { username, token: res.setup_token }
         if (res.reason === "new_account") return "requires_password_change_new_account" as const
         if (res.reason === "password_reset") return "requires_password_change_reset" as const
         return "requires_password_change" as const
@@ -82,10 +88,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const switchOperator = useCallback(async (username: string, pin: string) => {
     try {
+      pinSetup.current = null
       const res = await api.auth.swap(username, pin)
 
       // Check status for PIN change requirements
       if (res.status === "requires_pin_change") {
+        if (!res.setup_token) return "failed" as const
+        pinSetup.current = { username, token: res.setup_token }
         if (res.reason === "new_account") return "requires_pin_change_new_account" as const
         if (res.reason === "pin_reset") return "requires_pin_change_reset" as const
         return "requires_pin_change" as const
@@ -114,6 +123,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     api.auth.logout().catch(() => {})
+    passwordSetup.current = null
+    pinSetup.current = null
     clearAuth()
     setUser(null)
   }, [])
@@ -138,9 +149,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // ── First-time / Post-reset Password Setup ──────────────────────────────
 
   const setupPasswordAndLogin = useCallback(async (username: string, newPassword: string) => {
-    if (!newPassword) return false
+    if (!newPassword || passwordSetup.current?.username !== username) return false
     try {
-      const res = await api.auth.setupPassword(username, newPassword)
+      const res = await api.auth.setupPassword(passwordSetup.current.token, newPassword)
+      passwordSetup.current = null
       if (!res.token || !res.user) return false
       setToken(res.token.access_token)
       const u = res.user
@@ -173,9 +185,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // ── First-time / Post-reset PIN Setup ───────────────────────────────────
 
   const setupPinAndLogin = useCallback(async (username: string, newPin: string) => {
-    if (!newPin) return false
+    if (!newPin || pinSetup.current?.username !== username) return false
     try {
-      const res = await api.auth.setupPin(username, newPin)
+      const res = await api.auth.setupPin(pinSetup.current.token, newPin)
+      pinSetup.current = null
       if (!res.token || !res.user) return false
       setToken(res.token.access_token)
       const u = res.user

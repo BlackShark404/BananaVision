@@ -8,7 +8,7 @@ import uuid
 from datetime import date
 from app.schemas.timestamps import InputTimestamp, Timestamp
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .enums import ActiveStatusEnum, DeviceStatusEnum, IntakeStatusEnum, InventoryStatusEnum
 
@@ -210,5 +210,17 @@ class SystemConfigResponse(BaseModel):
 
 class SystemConfigUpdate(BaseModel):
     camera_ids: str | None = None
-    confidence_threshold: float | None = None
+    confidence_threshold: float | None = Field(None, ge=1, le=100)
     data_retention_enabled: bool | None = None
+
+    @field_validator("camera_ids")
+    @classmethod
+    def validate_camera_ids(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        ids = [s.strip() for s in v.split(",") if s.strip()]
+        if not ids:
+            raise ValueError("At least one camera ID is required")
+        if len(ids) != len(set(ids)):
+            raise ValueError("Camera IDs must be unique")
+        return ", ".join(ids)

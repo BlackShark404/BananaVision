@@ -29,7 +29,7 @@ async def get_current_user(
     token = authorization.removeprefix("Bearer ").strip()
     payload = decode_access_token(token)
 
-    if not payload or "sub" not in payload:
+    if not payload or "sub" not in payload or payload.get("scope", "access") != "access":
         raise CredentialsException("Invalid or expired token")
 
     try:

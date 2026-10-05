@@ -9,6 +9,8 @@ import sqlalchemy
 import qrcode
 from datetime import timedelta
 from app.core.time import now_manila
+from app.config import get_settings
+from app.core.temporary_credentials import temporary_password
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -62,9 +64,11 @@ async def seed_data():
 
         # 2. Admin User
         admin_user = UserAccount(
-            username="admin",
+            username=get_settings().bootstrap_admin_username,
             full_name="Admin User",
-            password_hash=hash_password("admin"),
+            password_hash=hash_password(get_settings().bootstrap_admin_password.get_secret_value()),
+            requires_password_change=True,
+            password_setup_reason="new_account",
             role_id=admin_role.id,
             status=ActiveStatusEnum.ACTIVE,
         )
@@ -80,9 +84,11 @@ async def seed_data():
         operator_user = UserAccount(
             username="operator",
             full_name="Kiosk Operator",
-            password_hash=hash_password("operator"),
+            password_hash=hash_password(temporary_password()),
+            requires_password_change=True,
+            password_setup_reason="new_account",
             role_id=operator_role.id,
-            status=ActiveStatusEnum.ACTIVE,
+            status=ActiveStatusEnum.INACTIVE,
         )
         db.add(operator_user)
         await db.flush()
@@ -90,7 +96,7 @@ async def seed_data():
         # Operator profile — pin_hash goes here; no `assigned_station` field in the model
         operator_prof = OperatorProfile(
             account_id=operator_user.id,
-            pin_hash=hash_pin("1234"),
+            pin_hash=None,
         )
         db.add(operator_prof)
         await db.flush()
@@ -203,6 +209,9 @@ async def seed_data():
         logger.info("Database seeding completed successfully.")
 
 async def main():
+    settings = get_settings()
+    if settings.is_production or settings.bootstrap_admin_password is None:
+        raise RuntimeError("Demo seeding requires a non-production environment and BOOTSTRAP_ADMIN_PASSWORD")
     await clear_database()
     await seed_data()
 

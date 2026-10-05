@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef } from "react"
+import { useState, useMemo, useRef, useEffect } from "react"
 import { useAuth } from "@/context/AuthContext"
-import { useScans } from "@/context/ScanContext"
+import { api } from "@/lib/api"
 import { useAdmin } from "@/context/AdminContext"
 import { useTheme } from "@/components/theme-provider"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,8 +24,7 @@ import { toast } from "sonner"
 
 export default function Profile() {
   const { user, changePassword, changePin } = useAuth()
-  const { scans } = useScans()
-  const { activityLogs, updateOwnProfile, users } = useAdmin()
+  const { updateOwnProfile } = useAdmin()
   const { theme, setTheme } = useTheme()
   const [isEditingPassword, setIsEditingPassword] = useState(false)
   const [isEditingPin, setIsEditingPin] = useState(false)
@@ -81,8 +80,21 @@ export default function Profile() {
     toast.success(`Switched to ${theme === "dark" ? "light" : "dark"} mode`)
   }
 
-  const userScans = useMemo(() => scans.filter(s => s.operator === user?.fullName), [scans, user])
-  const userActivity = useMemo(() => activityLogs.filter(log => log.user === user?.fullName), [activityLogs, user])
+  const [summary, setSummary] = useState<Awaited<ReturnType<typeof api.users.summary>> | null>(null)
+  const [summaryError, setSummaryError] = useState(false)
+  useEffect(() => {
+    const controller = new AbortController()
+    setSummary(null)
+    setSummaryError(false)
+    if (user) {
+      api.users.summary(controller.signal).then(data => {
+        if (!controller.signal.aborted) setSummary(data)
+      }).catch(() => {
+        if (!controller.signal.aborted) setSummaryError(true)
+      })
+    }
+    return () => controller.abort()
+  }, [user])
 
   const formatActivityLabel = (action: string, details: string) => {
     switch (action) {
@@ -108,6 +120,7 @@ export default function Profile() {
   }
 
   const recentActivityFeed = useMemo(() => {
+    const userActivity = summary?.activity ?? []
     if (userActivity.length > 0) {
       return userActivity.slice(0, 8).map((activity) => ({
         id: activity.id,
@@ -116,33 +129,14 @@ export default function Profile() {
       }))
     }
     return []
-  }, [userActivity])
+  }, [summary])
 
-  const stats = useMemo(() => {
-    if (user?.role === "Admin") {
-      const samples = scans.filter(s => s.confidence !== null)
-      const avgConfidence = samples.length
-        ? (samples.reduce((sum, s) => sum + (s.confidence ?? 0), 0) / samples.length).toFixed(1)
-        : null
-      return { 
-        totalScans: scans.length,
-        avgConfidence,
-        totalUsers: users.length
-      }
-    } else {
-      const samples = userScans.filter(s => s.confidence !== null)
-      const avgConfidence = samples.length
-        ? (samples.reduce((sum, s) => sum + (s.confidence ?? 0), 0) / samples.length).toFixed(1)
-        : null
-      const currentTime = new Date().getTime()
-      const last7Days = userScans.filter(s => {
-        const scanTime = new Date(s.dateTime).getTime()
-        return currentTime - scanTime < 7 * 24 * 60 * 60 * 1000
-      }).length
-
-      return { avgConfidence, last7Days, totalScans: userScans.length }
-    }
-  }, [userScans, scans, user, users])
+  const stats = {
+    totalScans: summary?.total_scans ?? "—",
+    avgConfidence: summary?.avg_confidence?.toFixed(1) ?? null,
+    totalUsers: summary?.total_users ?? "—",
+    last7Days: summary?.last_7_days ?? "—",
+  }
 
   const handlePasswordChange = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -169,7 +163,7 @@ export default function Profile() {
         } else {
           toast.error("Failed to change password. Please check your current password.")
         }
-      } catch (err) {
+      } catch {
         toast.error("An error occurred while changing password.")
       }
     }
@@ -210,7 +204,7 @@ export default function Profile() {
               setPinData({ current: "", new: "", confirm: "" })
               setPinStep("current")
             }
-          } catch (err) {
+          } catch {
             toast.error("Current PIN is incorrect")
             setPinData({ current: "", new: "", confirm: "" })
             setPinStep("current")
@@ -236,6 +230,7 @@ export default function Profile() {
         icon={User}
       />
 
+      {summaryError && <p role="alert" className="text-sm text-destructive">Profile statistics and activity could not be loaded. Reload to retry.</p>}
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <AppStatsCard
@@ -243,7 +238,7 @@ export default function Profile() {
           value={stats.totalScans}
           icon={Activity}
           delay={50}
-          description={user.role === "Admin" ? "Platform lifetime scans" : "Your lifetime scans"}
+          description={user.role === "Admin" ? "All retained platform scans" : "All your retained scans"}
         />
         {user.role === "Admin" ? (
           <AppStatsCard
@@ -268,12 +263,12 @@ export default function Profile() {
         )}
         <AppStatsCard
           title={user.role === "Admin" ? "System Avg Confidence" : "Avg Confidence"}
-          value={stats.avgConfidence === null ? "—" : `${stats.avgConfidence === null ? "—" : `${stats.avgConfidence}%`}`}
+          value={stats.avgConfidence === null ? "—" : `${stats.avgConfidence}%`}
           icon={Target}
           iconColor="text-emerald-600"
           iconBgColor="bg-emerald-500/10"
           delay={150}
-          description={user.role === "Admin" ? "Platform detection accuracy" : "Personal detection accuracy"}
+          description={user.role === "Admin" ? "Average platform model confidence" : "Average model confidence on your scans"}
         />
       </div>
 

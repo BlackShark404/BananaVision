@@ -59,12 +59,12 @@ export default function Landing() {
       {/* Navigation Bar */}
       <header className="sticky top-0 z-50 w-full border-b border-white/20 dark:border-white/5 bg-white/70 dark:bg-background/70 backdrop-blur-xl shadow-sm">
         <div className="container mx-auto px-4 h-16 sm:h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => scrollToSection("home")}>
+          <button className="flex items-center gap-2 cursor-pointer bg-transparent border-none p-0" onClick={() => scrollToSection("home")} aria-label="Go to home section">
             <div className="flex items-center justify-center">
               <img src="/bananavision-logo.svg" alt="Logo" className="w-10 h-10 object-contain" />
             </div>
             <span className="font-bold text-lg text-foreground">BananaVision</span>
-          </div>
+          </button>
 
           {/* Desktop Nav */}
           <nav className="hidden lg:flex items-center gap-1">
