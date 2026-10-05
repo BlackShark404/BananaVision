@@ -1,5 +1,10 @@
 export type AnalyticsRange = "today" | "week" | "month" | "all"
 
+export type AnalyticsMetricKey =
+  | "throughput" | "classifications" | "model_confidence" | "low_confidence"
+  | "inventory_risk" | "confidence_by_ripeness" | "trend" | "sources"
+  | "operators" | "hourly" | "human_verified_accuracy"
+
 export interface AnalyticsOperator {
   operator_id: string
   name: string
@@ -35,7 +40,7 @@ export interface AnalyticsSummary {
   range_end: string
   trend_start: string
   trend_end: string
-  metric_definitions: Record<string, string>
+  metric_definitions: Record<AnalyticsMetricKey, string>
   ripeness_distribution: { name: string; value: number }[]
   cultivar_counts: { name: string; count: number }[]
   scan_trend: { date: string; count: number }[]

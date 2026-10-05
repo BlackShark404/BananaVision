@@ -42,9 +42,9 @@ async def get_flagged_scans(
             {
                 "id": str(s.id),
                 "scanned_at": s.date_time.isoformat(),
-                "cultivar": s.classification.cultivar if s.classification else "Unknown",
-                "ripeness": s.classification.ripeness if s.classification else "Unknown",
-                "confidence": float(s.classification.confidence) if s.classification else 0.0,
+                "cultivar": s.classification.cultivar if s.classification else None,
+                "ripeness": s.classification.ripeness if s.classification else None,
+                "confidence": float(s.classification.confidence) if s.classification else None,
                 "finger_count": s.classification.finger_count if s.classification else 0,
                 "operator_name": s.operator.account.full_name if s.operator and s.operator.account else "Unknown",
                 "flagged": s.flagged,

@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_current_user
-from app.api.v1 import activity, config, intakes, scans, suppliers, users
+from app.api.v1 import activity, config, intakes, quality, scans, suppliers, users
 from app.core import database
 from app.core.db_types import ManilaDateTime
 from app.core.time import MANILA, as_manila, business_day_bounds, input_manila, now_manila
@@ -117,7 +117,7 @@ def application(monkeypatch):
 
     app = FastAPI()
     for router in (scans.router, suppliers.router, users.router, intakes.router,
-                   config.router, activity.router):
+                   config.router, activity.router, quality.router):
         app.include_router(router, prefix="/api/v1")
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
         id=ids.admin, full_name="Admin User", role=SimpleNamespace(name="Admin"),
@@ -132,7 +132,7 @@ def application(monkeypatch):
             await app(scope, receive, observe)
 
     with TestClient(ResponseObserver(), raise_server_exceptions=False) as client:
-        yield SimpleNamespace(engine=engine, state=state, client=client, ids=ids,
+        yield SimpleNamespace(app=app, engine=engine, state=state, client=client, ids=ids,
                               historical=historical)
     engine.dispose()
 
@@ -189,6 +189,50 @@ def test_history_pagination_preserves_old_instants_incomplete_rows_and_csv(appli
     assert [(row["Date Time (UTC+08:00)"], row["Scan ID"]) for row in rows] == sorted(ordering)
 
 
+@pytest.mark.parametrize("vpd", [0, None, 1.25])
+def test_trigger_response_preserves_zero_and_missing_vpd(application, monkeypatch, vpd):
+    app = application
+    app.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id=app.ids.operator, full_name="Operator", role=SimpleNamespace(name="Operator"),
+        operator_profile=SimpleNamespace(id=app.ids.profile),
+    )
+
+    async def persisted_scan(**kwargs):
+        scan = (await kwargs["db"].execute(select(Scan).where(Scan.id == app.ids.scan))).scalar_one()
+        scan.classification.vpd = vpd
+        return scan
+
+    monkeypatch.setattr(scans, "execute_scan_pipeline", persisted_scan)
+    response = app.client.post("/api/v1/scans/trigger", json={})
+    assert response.status_code == 200, response.text
+    assert response.json()["vpd"] == vpd
+    detail = app.client.get(f"/api/v1/scans/{app.ids.scan}")
+    assert detail.status_code == 200 and detail.json()["vpd"] == vpd
+
+
+def test_quality_queue_distinguishes_missing_classification_from_zero_confidence(application):
+    app = application
+    incomplete_id = uuid4()
+    with Session(app.engine) as db:
+        classified = db.get(Scan, app.ids.scan)
+        classified.flagged = True
+        classified.classification.confidence = 0
+        db.add(Scan(id=incomplete_id, operator_id=app.ids.profile,
+                    date_time=app.historical, flagged=True))
+        db.commit()
+
+    response = app.client.get("/api/v1/quality/flagged")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["total"] == 2 and payload["page"] == 1 and payload["page_size"] == 20
+    rows = {row["id"]: row for row in payload["items"]}
+    incomplete = rows[str(incomplete_id)]
+    assert incomplete["cultivar"] is incomplete["ripeness"] is incomplete["confidence"] is None
+    assert rows[str(app.ids.scan)]["confidence"] == 0
+    assert rows[str(app.ids.scan)]["cultivar"] == "Lakatan"
+    assert incomplete["scanned_at"].endswith("+08:00")
+
+
 @pytest.mark.parametrize("operation", [
     "flag", "note", "supplier_create", "supplier_update", "user_update",
     "intake_create", "intake_status", "inventory_status", "bulk_inventory", "settings",
@@ -233,7 +277,8 @@ def test_http_write_only_succeeds_after_commit_and_failure_rolls_back(applicatio
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("fail_commit", [False, True])
-async def test_scan_pipeline_never_announces_completion_before_persistence(application, monkeypatch, fail_commit):
+@pytest.mark.parametrize("detection_values", [(0, 0), (None, None), (50, 1)])
+async def test_scan_pipeline_never_announces_completion_before_persistence(application, monkeypatch, fail_commit, detection_values):
     from app.services import scan_service
     from app.ws import events
 
@@ -252,13 +297,15 @@ async def test_scan_pipeline_never_announces_completion_before_persistence(appli
     result = SimpleNamespace(cultivar=CultivarEnum.LAKATAN, ripeness=RipenessEnum.RIPE,
                              confidence=50, finger_count=5, detections=[], inference_time_ms=1,
                              auto_flagged=True, conflict_detected=False, camera_count=1)
+    detection_result = SimpleNamespace(**vars(result))
+    detection_result.confidence, detection_result.inference_time_ms = detection_values
     monkeypatch.setattr(scan_service, "camera_manager", SimpleNamespace(
         online_cameras=[0], capture_all=capture_all, save_captures=lambda captures, _: captures,
     ))
     monkeypatch.setattr(scan_service, "banana_pre_detector", SimpleNamespace(
         detect=lambda _: SimpleNamespace(banana_detected=True),
     ))
-    monkeypatch.setattr(scan_service, "banana_classifier", SimpleNamespace(predict=lambda _: result))
+    monkeypatch.setattr(scan_service, "banana_classifier", SimpleNamespace(predict=lambda _: detection_result))
     monkeypatch.setattr(scan_service, "fusion_engine", SimpleNamespace(fuse=lambda _: result))
     monkeypatch.setattr(scan_service, "spoilage_predictor", SimpleNamespace(predict=lambda **_: "1"))
     monkeypatch.setattr(scan_service, "sensor_reader", SimpleNamespace(latest=None))
@@ -279,6 +326,8 @@ async def test_scan_pipeline_never_announces_completion_before_persistence(appli
             assert completed["date_time"] == created.date_time.isoformat()
             assert completed["date_time"].endswith("+08:00")
             assert completed["status_updated_at"].endswith("+08:00")
+            assert completed["detections"][0]["confidence"] == detection_values[0]
+            assert completed["detections"][0]["inference_time_ms"] == detection_values[1]
     with Session(app.engine) as db:
         assert db.scalar(select(func.count()).select_from(Scan)) == (1 if fail_commit else 2)
 

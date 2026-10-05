@@ -361,10 +361,10 @@ async def _execute_scan_pipeline(
                     "camera_label": det.camera_label,
                     "detected_cultivar": det.detected_cultivar,
                     "detected_ripeness": det.detected_ripeness,
-                    "confidence": float(det.confidence) if det.confidence else None,
+                    "confidence": float(det.confidence) if det.confidence is not None else None,
                     "finger_count": det.finger_count,
                     "bounding_boxes": det.bounding_boxes or [],
-                    "inference_time_ms": float(det.inference_time_ms) if det.inference_time_ms else None,
+                    "inference_time_ms": float(det.inference_time_ms) if det.inference_time_ms is not None else None,
                 }
                 for det in db_detections
             ],

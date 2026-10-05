@@ -185,7 +185,7 @@ function AnalyticsContent() {
           icon={TrendingUp}
           delay={50}
           description="Throughput · Selected range"
-          helpText={summary.metric_definitions.total_scans}
+          helpText={summary.metric_definitions.throughput}
         />
         <AppStatsCard
           title="Avg Confidence"
@@ -195,7 +195,7 @@ function AnalyticsContent() {
           iconBgColor="bg-emerald-500/10"
           delay={100}
           description={`Model confidence · ${summary.confidence_sample_count} valid results`}
-          helpText={summary.metric_definitions.avg_confidence}
+          helpText={summary.metric_definitions.model_confidence}
         />
         <AppStatsCard
           title="Low Confidence"
@@ -205,7 +205,7 @@ function AnalyticsContent() {
           iconBgColor="bg-yellow-500/10"
           delay={150}
           description={`Model confidence · Below ${summary.confidence_threshold}%`}
-          helpText={summary.metric_definitions.low_confidence_rate}
+          helpText={summary.metric_definitions.low_confidence}
         />
         <AppStatsCard
           title="At-Risk Scans"
@@ -215,7 +215,7 @@ function AnalyticsContent() {
           iconBgColor="bg-orange-500/10"
           delay={200}
           description="Current stock · ≤2 days remaining"
-          helpText={summary.metric_definitions.at_risk_count}
+          helpText={summary.metric_definitions.inventory_risk}
         />
       </div>
 
@@ -234,7 +234,7 @@ function AnalyticsContent() {
         {/* Ripeness Pie */}
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-5">
           <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.ripeness_distribution}>Ripeness Distribution</CardTitle>
+            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.classifications}>Ripeness Distribution</CardTitle>
           </CardHeader>
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
             {summary.classification_count === 0 ? emptyChart() : (
@@ -269,7 +269,7 @@ function AnalyticsContent() {
         {/* Cultivar Bar */}
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-6">
           <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.cultivar_counts}>Cultivar Counts</CardTitle>
+            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.classifications}>Cultivar Counts</CardTitle>
           </CardHeader>
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
             {summary.classification_count === 0 ? emptyChart() : (
@@ -293,7 +293,7 @@ function AnalyticsContent() {
         {/* Ripeness by Cultivar */}
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-7">
           <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.cultivar_ripeness}>Ripeness by Cultivar</CardTitle>
+            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.classifications}>Ripeness by Cultivar</CardTitle>
           </CardHeader>
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
             {summary.classification_count === 0 ? emptyChart() : (
@@ -317,7 +317,7 @@ function AnalyticsContent() {
         {/* Confidence by Ripeness */}
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-8">
           <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.ripeness_confidence}>Confidence by Ripeness</CardTitle>
+            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.confidence_by_ripeness}>Confidence by Ripeness</CardTitle>
           </CardHeader>
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
             {summary.confidence_sample_count === 0 ? emptyChart("No valid model-confidence results in this selection.") : (
@@ -341,7 +341,7 @@ function AnalyticsContent() {
         {summary.scans_by_source?.length > 0 && (
           <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-8-5 lg:col-span-2">
             <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-              <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.scans_by_source}>Scans by Source</CardTitle>
+              <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.sources}>Scans by Source</CardTitle>
             </CardHeader>
             <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
               <ChartContainer config={sourceChartConfig} className="h-[240px] sm:h-[280px] w-full">
@@ -361,7 +361,7 @@ function AnalyticsContent() {
       {/* Scan Trend */}
       <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-9">
         <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-          <CardTitle className="text-sm sm:text-base font-semibold">Scan Trend (Last 14 Days)</CardTitle>
+          <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.trend}>Scan Trend (Last 14 Days)</CardTitle>
           <p className="text-xs text-muted-foreground">Fixed period: {summary.trend_start} – {summary.trend_end}. Uses the selected source, independent of the date-range filter.</p>
         </CardHeader>
         <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
@@ -389,7 +389,7 @@ function AnalyticsContent() {
         <div className="space-y-3 animate-fade-in stagger-10">
           <div className="flex items-center gap-2 px-1">
             <Users className="w-4 h-4" />
-            <h3 className="text-sm sm:text-base font-semibold">Operator Performance Table</h3>
+            <h3 className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.operators}>Operator Performance Table</h3>
           </div>
           <AppDataTable
             data={operatorPerformance}
@@ -445,7 +445,7 @@ function AnalyticsContent() {
       {summary.hourly_distribution?.length > 0 && (
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-11">
           <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.hourly_distribution}>Peak Scanning Hours</CardTitle>
+            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.hourly}>Peak Scanning Hours</CardTitle>
           </CardHeader>
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
             <ChartContainer config={hourlyChartConfig} className="h-[240px] sm:h-[280px] w-full">

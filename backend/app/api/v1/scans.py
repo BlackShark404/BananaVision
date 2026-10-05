@@ -66,7 +66,7 @@ async def trigger_scan(body: ScanTriggerRequest, db: DbSession, user: CurrentUse
         confidence=scan.classification.confidence,
         temperature=scan.classification.temperature,
         humidity=scan.classification.humidity,
-        vpd=float(scan.classification.vpd) if scan.classification.vpd else None,
+        vpd=float(scan.classification.vpd) if scan.classification.vpd is not None else None,
         treatment=scan.classification.treatment.value if scan.classification.treatment else None,
         spoilage_days=scan.classification.spoilage_days,
         finger_count=scan.classification.finger_count,
