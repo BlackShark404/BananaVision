@@ -5,6 +5,7 @@
  */
 
 import { getToken, clearAuth } from "@/lib/auth"
+import { scanWrite, requireScanRevision } from "@/lib/scanWrites"
 import type { DashboardScanPage, DashboardScanParams, DashboardSummary } from "@/types/dashboard"
 import type { ScanLogPage, ScanLogParams } from "@/types/scanLogs"
 import type { ApiScan, ApiScanNote, RecordPage } from "@/lib/scanData"
@@ -53,7 +54,7 @@ async function request<T>(
   if (res.status === 401) {
     clearAuth()
     window.location.href = "/login"
-    throw new Error("Session expired")
+    throw Object.assign(new Error("Session expired"), { status: 401 })
   }
 
   if (!res.ok) {
@@ -155,18 +156,18 @@ export const api = {
 
     detail: (id: string, signal?: AbortSignal) => get<ApiScan>(`/api/v1/scans/${id}`, undefined, signal),
 
-    flag: (id: string, flagged: boolean) =>
-      patch<ApiMessage>(`/api/v1/scans/${id}/flag`, { flagged }),
+    flag: (id: string, flagged: boolean, revision: number) =>
+      scanWrite(`${getToken()}:${id}`, { flagged, expected_revision: requireScanRevision(revision) }, body => patch<ApiScan>(`/api/v1/scans/${id}/flag`, body)),
 
-    override: (id: string, data: { cultivar?: string; ripeness?: string; finger_count?: number; spoilage_days?: string; source_text?: string }) =>
-      patch<ApiScan>(`/api/v1/scans/${id}`, data),
+    override: (id: string, data: { cultivar?: string; ripeness?: string; finger_count?: number; spoilage_days?: string; source_text?: string }, revision: number, reason: string) =>
+      scanWrite(`${getToken()}:${id}`, { ...data, expected_revision: requireScanRevision(revision), reason: reason.trim() }, body => patch<ApiScan>(`/api/v1/scans/${id}`, body)),
 
-    updateStatus: (id: string, status: string) =>
-      patch<ApiMessage>(`/api/v1/scans/${id}/status`, { inventory_status: status }),
+    updateStatus: (id: string, status: string, revision: number, reason: string) =>
+      scanWrite(`${getToken()}:${id}`, { inventory_status: status, expected_revision: requireScanRevision(revision), reason: reason.trim() }, body => patch<ApiScan>(`/api/v1/scans/${id}/status`, body)),
 
     notes: {
       list: (scanId: string) => get<ApiScanNote[]>(`/api/v1/scans/${scanId}/notes`),
-      add: (scanId: string, note: string) => post<ApiScanNote>(`/api/v1/scans/${scanId}/notes`, { note }),
+      add: (scanId: string, note: string, revision: number) => scanWrite(`${getToken()}:${scanId}`, { note, expected_revision: requireScanRevision(revision) }, body => post<ApiScanNote>(`/api/v1/scans/${scanId}/notes`, body)),
     },
   },
 
@@ -211,8 +212,8 @@ export const api = {
     list: () => get<ApiIntake[]>("/api/v1/intakes"),
     create: (data: { supplier_id: string; batch_number: string; source?: string; treatment?: string }) => post<ApiIntake>("/api/v1/intakes", data),
     update: (id: string, data: { status: IntakeStatus }) => patch<{ message: string }>(`/api/v1/intakes/${id}/status`, data),
-    bulkInventory: (id: string, data: { inventory_status: InventoryStatus }) =>
-      patch<{ updated_count: number; updated_scan_ids: string[]; status_updated_at: string; intake_status: IntakeStatus }>(`/api/v1/intakes/${id}/bulk-inventory`, data),
+    bulkInventory: (id: string, data: { inventory_status: InventoryStatus; expected_revisions: Record<string, number>; reason: string }) =>
+      scanWrite(`${getToken()}:intake:${id}`, data, body => patch<{ updated_count: number; updated_scan_ids: string[]; status_updated_at: string; intake_status: IntakeStatus }>(`/api/v1/intakes/${id}/bulk-inventory`, body)),
   },
 
   // Dashboard metrics and their record views share server-enforced user scope.

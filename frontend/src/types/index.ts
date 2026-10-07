@@ -87,6 +87,9 @@ export interface ScanDetection {
 
 export interface ScanResult {
   id: string
+  revision: number
+  history?: ScanHistoryEvent[]
+  notes?: ScanNote[]
   dateTime: string
   cultivar: Cultivar | "Unknown"
   ripeness: Ripeness | "Unknown"
@@ -110,6 +113,17 @@ export interface ScanResult {
   hasNotes?: boolean
   images?: { camera_id: string; file_path: string }[]
   detections?: ScanDetection[]
+}
+
+export interface ScanHistoryEvent {
+  id: string
+  kind: "created" | "status" | "correction" | "flag" | "note"
+  timestamp: string
+  actor_name: string | null
+  reason: string | null
+  previous_values: Record<string, unknown> | null
+  new_values: Record<string, unknown>
+  revision: number | null
 }
 
 export interface DailyIntake {

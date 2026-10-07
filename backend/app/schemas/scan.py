@@ -7,7 +7,7 @@ from __future__ import annotations
 import uuid
 from app.schemas.timestamps import Timestamp
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from .enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
 
@@ -19,23 +19,49 @@ class ScanTriggerRequest(BaseModel):
     intake_id: uuid.UUID | None = None
 
 
-class ScanFlagRequest(BaseModel):
+class ScanMutationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_revision: int = Field(..., ge=1)
+    request_id: uuid.UUID
+
+
+class ReasonedScanMutation(ScanMutationRequest):
+    reason: str = Field(..., min_length=1, max_length=2000)
+
+    @field_validator("reason")
+    @classmethod
+    def meaningful_reason(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("A reason is required")
+        return value
+
+
+class ScanFlagRequest(ScanMutationRequest):
     flagged: bool
 
 
-class ScanOverrideRequest(BaseModel):
+class ScanOverrideRequest(ReasonedScanMutation):
     cultivar: CultivarEnum | None = None
     ripeness: RipenessEnum | None = None
-    finger_count: int | None = None
-    spoilage_days: str | None = None
-    source_text: str | None = None
+    finger_count: int | None = Field(None, ge=0)
+    spoilage_days: str | None = Field(None, max_length=50)
+    source_text: str | None = Field(None, max_length=100)
 
 
-class ScanNoteCreate(BaseModel):
+class ScanNoteCreate(ScanMutationRequest):
     note: str = Field(..., min_length=1, max_length=2000)
 
+    @field_validator("note")
+    @classmethod
+    def meaningful_note(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("A note is required")
+        return value
 
-class ScanStatusUpdate(BaseModel):
+
+class ScanStatusUpdate(ReasonedScanMutation):
     inventory_status: InventoryStatusEnum
 
 
@@ -82,15 +108,17 @@ class ScanNoteResponse(BaseModel):
     text: str
     author_name: str
     timestamp: Timestamp
+    revision: int | None = None
 
     model_config = {"from_attributes": True}
 
 
 class OriginalAiResult(BaseModel):
-    cultivar: CultivarEnum
-    ripeness: RipenessEnum
-    confidence: float
+    cultivar: CultivarEnum | None
+    ripeness: RipenessEnum | None
+    confidence: float | None
     finger_count: int
+    spoilage_days: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -124,14 +152,27 @@ class ScanResponse(BaseModel):
     has_notes: bool = False
     images: list[ScanImageRef] = []
     updated_at: Timestamp
+    revision: int = 1
 
     model_config = {"from_attributes": True}
+
+
+class ScanHistoryResponse(BaseModel):
+    id: str
+    kind: str
+    timestamp: Timestamp
+    actor_name: str | None = None
+    reason: str | None = None
+    previous_values: dict | None = None
+    new_values: dict
+    revision: int | None = None
 
 
 class ScanDetailResponse(ScanResponse):
     detections: list[ScanDetectionResponse] = []
     images: list[ScanImageResponse] = []
     notes: list[ScanNoteResponse] = []
+    history: list[ScanHistoryResponse] = []
 
 
 class ScanListResponse(BaseModel):

@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from app.core.time import now_manila
 
-from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy import Boolean, ForeignKey, String, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,6 +24,7 @@ class Scan(Base):
     date_time: Mapped[datetime] = mapped_column(ManilaDateTime(), default=now_manila, index=True
     )
     flagged: Mapped[bool] = mapped_column(Boolean, default=False)
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
     is_overridden: Mapped[bool] = mapped_column(Boolean, default=False)
     operator_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("operator_profile.id", ondelete="RESTRICT"), nullable=False, index=True
     )

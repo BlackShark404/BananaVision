@@ -9,6 +9,7 @@ from app.models.operator_profile import OperatorProfile
 from app.models.supplier import Supplier
 from app.models.intake import Intake
 from app.models.scan import Scan
+from app.models.scan_history import ScanEvent, ScanMutation, ScanTombstone
 from app.models.scan_classification import ScanClassification
 from app.models.scan_status_log import ScanStatusLog
 from app.models.scan_original_ai_result import ScanOriginalAiResult
@@ -30,6 +31,7 @@ __all__ = [
     "Supplier",
     "Intake",
     "Scan",
+    "ScanEvent", "ScanMutation", "ScanTombstone",
     "ScanClassification",
     "ScanStatusLog",
     "ScanOriginalAiResult",
