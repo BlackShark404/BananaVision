@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import { useScans } from "@/context/ScanContext"
@@ -51,8 +51,6 @@ import { AppStatusBadge } from "@/components/AppStatusBadge"
 import BoundingBoxOverlay from "@/components/BoundingBoxOverlay"
 import { api } from "@/lib/api"
 import { mapApiScan } from "@/lib/scanData"
-import { errorStatus } from "@/lib/scanWrites"
-import { ScanImage } from "@/components/ScanImage"
 
 const EMPTY_DETECTIONS: ScanDetection[] = []
 
@@ -65,7 +63,7 @@ export default function ScanDetail() {
 function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { flagScan, addScanNote, updateScanData } = useScans()
+  const { flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData } = useScans()
   const { suppliers } = useInventory()
   const { config } = useAdmin()
   const [noteText, setNoteText] = useState("")
@@ -74,26 +72,26 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const [activeCamera, setActiveCamera] = useState(0)
   const [showBoxes, setShowBoxes] = useState(true)
   const [retry, setRetry] = useState(0)
-  const [detail, setDetail] = useState<{ retry: number; scan: ScanResult | null; error: string | null; notFound: boolean; status?: number } | null>(null)
-  const [detailLoading, setDetailLoading] = useState(true)
-  const [reason, setReason] = useState("")
-  const [writeError, setWriteError] = useState<string | null>(null)
-  const editBaseline = useRef<ScanResult | null>(null)
+  const [detail, setDetail] = useState<{ retry: number; scan: ScanResult | null; error: string | null; notFound: boolean } | null>(null)
   const [flagPending, setFlagPending] = useState(false)
   const [notePending, setNotePending] = useState(false)
   const [editPending, setEditPending] = useState(false)
 
-  const currentDetail = detail
+  const currentDetail = detail?.retry === retry ? detail : null
   const scan = currentDetail?.scan
   const scanDetections = scan?.detections ?? EMPTY_DETECTIONS
-  const notes = scan?.notes ?? []
+  const notes = scan ? getScanNotes(scan.id) : []
   const isAdmin = user?.role === "Admin"
-  const writePending = flagPending || notePending || editPending
+
+  useEffect(() => {
+    if (scanId && isAdmin) {
+      loadScanNotes(scanId)
+    }
+  }, [scanId, isAdmin, loadScanNotes])
 
   // Historical scan links load independently of the latest page in ScanContext.
   useEffect(() => {
     if (!scanId) return
-    setDetailLoading(true)
     const controller = new AbortController()
     let cancelled = false
     let timedOut = false
@@ -106,29 +104,19 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
       .then(data => {
         if (cancelled || timedOut) return
         const record = mapApiScan(data, getImageUrl)
-        setDetail(previous => previous?.scan && previous.scan.revision > record.revision ? previous : { retry, scan: record, error: null, notFound: false })
+        setDetail({ retry, scan: record, error: null, notFound: false })
         generateQRCodeDataUrl(record).then(qrCode => {
           if (!cancelled) setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, qrCode } } : previous)
         }).catch(() => {})
       })
       .catch((error: unknown) => {
         if (cancelled || timedOut) return
-        const status = errorStatus(error)
-        const notFound = status === 404
-        setDetail(previous => ({ retry, scan: status === 403 || status === 404 || status === 410 ? null : previous?.scan ?? null, notFound, status, error: error instanceof Error ? error.message : "Check your connection and try again." }))
+        const notFound = typeof error === "object" && error !== null && "status" in error && error.status === 404
+        setDetail({ retry, scan: null, notFound, error: error instanceof Error ? error.message : "Check your connection and try again." })
       })
-      .finally(() => { window.clearTimeout(timeout); if (!cancelled) setDetailLoading(false) })
+      .finally(() => window.clearTimeout(timeout))
     return () => { cancelled = true; window.clearTimeout(timeout); controller.abort() }
   }, [scanId, retry])
-
-  const acceptSaved = (saved: ScanResult) => setDetail(previous => previous?.scan && previous.scan.revision > saved.revision ? previous : { retry, scan: saved, error: null, notFound: false })
-  const failedWrite = (error: unknown) => {
-    const status = errorStatus(error)
-    const message = status === 409 ? "This scan changed. The saved record is being reloaded; your draft is preserved. Review the changes before saving again." : error instanceof Error ? error.message : "Save failed. Retry the same change."
-    setWriteError(message)
-    if ([403, 404, 409, 410].includes(status ?? 0)) setRetry(value => value + 1)
-    toast.error(message)
-  }
 
   const recordedCameraIds = [...new Set([...(scan?.images ?? []).map(image => image.camera_id), ...scanDetections.map(detection => detection.camera_id)])]
   const cameraViews = recordedCameraIds.map(id => ({ id, label: scanDetections.find(detection => detection.camera_id === id)?.camera_label || id }))
@@ -169,32 +157,29 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   }, [scanDetections])
 
   const handleFlag = async () => {
-    if (!scan || writePending || detailLoading) return
+    if (!scan || flagPending) return
     const isNowFlagged = !scan.flagged
     setFlagPending(true)
     try {
-      acceptSaved(await flagScan(scan.id, isNowFlagged, scan.revision))
-      setWriteError(null)
+      await flagScan(scan.id, isNowFlagged)
+      setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, flagged: isNowFlagged } } : previous)
       toast.success(isNowFlagged ? "Scan flagged for review" : "Flag removed")
-    } catch (error) {
-      failedWrite(error)
+    } catch {
+      toast.error("Could not update the flag. Please try again.")
     } finally {
       setFlagPending(false)
     }
   }
 
   const handleAddNote = async () => {
-    if (!scan || !noteText.trim() || writePending || detailLoading) return
+    if (!scan || !noteText.trim() || notePending) return
     setNotePending(true)
     try {
-      const saved = await addScanNote(scan.id, noteText.trim(), scan.revision)
-      setDetail(previous => previous?.scan && previous.scan.revision <= saved.revision ? { ...previous, scan: { ...previous.scan, revision: saved.revision, notes: [...(previous.scan.notes ?? []).filter(note => note.id !== saved.note.id), saved.note] } } : previous)
-      setRetry(value => value + 1)
-      setWriteError(null)
+      await addScanNote(scan.id, noteText.trim())
       setNoteText("")
       toast.success("Note added successfully")
     } catch (error) {
-      failedWrite(error)
+      toast.error(error instanceof Error ? error.message : "Could not add the note. Please retry.")
     } finally {
       setNotePending(false)
     }
@@ -202,9 +187,6 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
 
   const startEdit = () => {
     if (!scan) return
-    editBaseline.current = scan
-    setReason("")
-    setWriteError(null)
     setEditData({
       cultivar: scan.cultivar === "Unknown" ? undefined : scan.cultivar,
       ripeness: scan.ripeness === "Unknown" ? undefined : scan.ripeness,
@@ -216,7 +198,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   }
 
   const handleSaveEdit = async () => {
-    if (scan && editData && reason.trim() && !writePending && !detailLoading) {
+    if (scan && editData && !editPending) {
       setEditPending(true)
       const saveData = {
         ...editData,
@@ -231,14 +213,12 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
         }
       } as Partial<ScanResult>
       try {
-        const changes = Object.fromEntries(Object.entries(saveData).filter(([key, value]) => ["cultivar", "ripeness", "fingerCount", "spoilageDays", "source"].includes(key) && value !== editBaseline.current?.[key as keyof ScanResult])) as Partial<ScanResult>
-        const saved = await updateScanData(scan.id, changes, reason, scan.revision)
-        acceptSaved(saved)
-        setWriteError(null)
+        const saved = await updateScanData(scan.id, saveData)
+        setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, ...saved, images: previous.scan.images, detections: previous.scan.detections, qrCode: previous.scan.qrCode } } : previous)
         setEditMode(false)
         toast.success("Scan data updated successfully")
-      } catch (error) {
-        failedWrite(error)
+      } catch {
+        toast.error("Failed to update scan data. Please check connection.")
       } finally {
         setEditPending(false)
       }
@@ -246,9 +226,8 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   }
 
   if (!scan) {
-    const loading = Boolean(scanId) && detailLoading && !currentDetail
+    const loading = Boolean(scanId) && !currentDetail
     const notFound = !scanId || currentDetail?.notFound
-    const unavailable = currentDetail?.status === 403 || currentDetail?.status === 410
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Empty>
@@ -256,12 +235,12 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
             <EmptyMedia variant="icon" className="size-12 rounded-full bg-primary/10 text-primary [&_svg]:size-6">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanLine className="w-4 h-4" />}
             </EmptyMedia>
-            <EmptyTitle className="text-base sm:text-lg font-semibold mt-1" role={loading ? "status" : "alert"}>{loading ? "Loading scan…" : currentDetail?.status === 403 ? "Access denied" : currentDetail?.status === 410 ? "Scan deleted" : notFound ? "Scan not found" : "Scan could not be loaded"}</EmptyTitle>
+            <EmptyTitle className="text-base sm:text-lg font-semibold mt-1" role={loading ? "status" : "alert"}>{loading ? "Loading scan…" : notFound ? "Scan not found" : "Scan could not be loaded"}</EmptyTitle>
             <EmptyDescription className="text-sm sm:text-base max-w-md mx-auto text-balance">
               {loading ? "Retrieving the stored scan and camera images." : notFound ? "The scan record you're looking for doesn't exist or has been deleted." : currentDetail?.error || "Check your connection and try again."}
             </EmptyDescription>
           </EmptyHeader>
-          {!loading && !notFound && !unavailable && <Button className="mt-4" onClick={() => { setDetail(null); setRetry(value => value + 1) }}>Retry</Button>}
+          {!loading && !notFound && <Button className="mt-4" onClick={() => setRetry(value => value + 1)}>Retry</Button>}
           <Button variant="outline" className="mt-4 gap-2" onClick={() => navigate(-1)}>
             <ArrowLeft className="w-4 h-4" /> Go Back
           </Button>
@@ -274,8 +253,6 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
 
   return (
     <div className="space-y-6">
-      {(writeError || detail?.error) && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">{writeError || detail?.error}</div>}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground" role="status"><span>{detailLoading ? "Refreshing scan…" : detail?.error ? "Stale data" : "Saved record"}</span><Button variant="ghost" size="sm" disabled={detailLoading || writePending} onClick={() => setRetry(value => value + 1)}>Refresh</Button></div>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <Button variant="ghost" size="icon" className="w-9 h-9 shrink-0" onClick={() => navigate(-1)}>
@@ -378,7 +355,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                   >
                     <AspectRatio ratio={1} className="bg-muted/50">
                       {thumbUrl ? (
-                        <ScanImage src={thumbUrl} alt={cam.label} className="w-full h-full object-cover" />
+                        <img src={thumbUrl} alt={cam.label} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <Banana className="w-5 h-5 text-muted-foreground/30" />
@@ -485,7 +462,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                   <Target className="w-4 h-4 text-primary" /> Classification
                 </CardTitle>
                 {isAdmin && !editMode && (
-                  <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8" onClick={startEdit} disabled={writePending || detailLoading}>
+                  <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8" onClick={startEdit}>
                     <Edit className="w-3.5 h-3.5" /> Edit
                   </Button>
                 )}
@@ -502,7 +479,6 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                           <SelectValue placeholder="Select a Source" />
                         </SelectTrigger>
                         <SelectContent>
-                          {editData.source && !suppliers.some(s => s.status === "Active" && s.name === editData.source) && <SelectItem value={editData.source}>{editData.source}</SelectItem>}
                           {suppliers.filter(s => s.status === "Active").map(s => s.name).sort().map((src) => (
                             <SelectItem key={src} value={src}>{src}</SelectItem>
                           ))}
@@ -573,12 +549,11 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                         className="mt-4"
                       />
                     )}
-                  <div className="space-y-1"><Label htmlFor="correction-reason">Reason for correction</Label><Textarea id="correction-reason" value={reason} onChange={event => setReason(event.target.value)} disabled={writePending} /></div>
                   <div className="flex justify-end gap-2 pt-2">
                     <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setEditMode(false)}>
                       <X className="w-3.5 h-3.5" /> Cancel
                     </Button>
-                    <Button size="sm" className="gap-1.5" onClick={handleSaveEdit} disabled={writePending || detailLoading || !reason.trim()}>
+                    <Button size="sm" className="gap-1.5" onClick={handleSaveEdit} disabled={editPending}>
                       <Save className="w-3.5 h-3.5" /> Save Changes
                     </Button>
                   </div>
@@ -716,7 +691,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     size="sm"
                     className={`gap-1.5 text-xs h-8 ${scan.flagged ? 'text-red-600 bg-red-50 hover:bg-red-100 border border-red-200' : ''}`}
                     onClick={handleFlag}
-                    disabled={writePending || detailLoading}
+                    disabled={flagPending}
                   >
                     <Flag className={`w-3.5 h-3.5 ${scan.flagged ? 'fill-current' : ''}`} />
                     {scan.flagged ? 'Remove Flag' : 'Flag for Review'}
@@ -746,7 +721,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                         <div className="min-w-0">
                           <p className="text-foreground">{note.note}</p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {note.author} • {new Date(note.timestamp).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}
+                            {note.author} • {new Date(note.timestamp).toLocaleString()}
                           </p>
                         </div>
                       </div>
@@ -764,7 +739,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                       className="rounded-xl resize-none"
                       rows={2}
                     />
-                    <Button onClick={handleAddNote} disabled={!noteText.trim() || writePending || detailLoading} className="self-end">
+                    <Button onClick={handleAddNote} disabled={!noteText.trim() || notePending} className="self-end">
                       Add
                     </Button>
                   </div>
@@ -772,19 +747,6 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
               </CardContent>
             </Card>
           )}
-
-          <Card className="rounded-2xl">
-            <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><Clock className="w-4 h-4 text-primary" /> Scan History</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              {!(scan.history?.length) && <p className="text-sm text-muted-foreground">No recorded history is available for this scan.</p>}
-              {scan.history?.map(event => <div key={event.id} className="rounded-lg bg-muted/50 p-3 text-sm space-y-1">
-                <div className="flex items-center justify-between gap-2"><span className="font-semibold capitalize">{event.kind}</span><span className="text-xs text-muted-foreground">{new Date(event.timestamp).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</span></div>
-                <p className="text-xs text-muted-foreground">{event.actor_name ?? "Actor not recorded"}{event.revision === null ? " · Historical record" : ` · Revision ${event.revision}`}</p>
-                {event.reason ? <p>{event.reason}</p> : <p className="text-xs text-muted-foreground">Reason not recorded</p>}
-                {Object.entries(event.new_values).map(([field, value]) => <p key={field} className="break-words"><span className="text-muted-foreground">{field.replaceAll("_", " ")}: </span>{event.previous_values && field in event.previous_values ? `${JSON.stringify(event.previous_values[field])} → ` : ""}{JSON.stringify(value)}</p>)}
-              </div>)}
-            </CardContent>
-          </Card>
 
           {/* Metadata Card */}
           <Card className="rounded-2xl">
@@ -814,7 +776,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     <Calendar className="w-3.5 h-3.5" /> Date
                   </div>
                   <p className="font-semibold">
-                    {dateObj.toLocaleDateString("en-US", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" })}
+                    {dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                   </p>
                 </div>
 
@@ -824,7 +786,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
                     <Clock className="w-3.5 h-3.5" /> Time
                   </div>
-                  <p className="font-semibold">{dateObj.toLocaleTimeString("en-PH", {timeZone: "Asia/Manila", hour: '2-digit', minute:'2-digit'})}</p>
+                  <p className="font-semibold">{dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                 </div>
 
               </div>

@@ -8,7 +8,6 @@
 
 import { useState, useRef, useCallback } from "react"
 import type { BoundingBox } from "@/types"
-import { Banana } from "lucide-react"
 
 // ── Class label color mapping ───────────────────────────────────────────────
 // Colors are chosen to be visually distinct and match the cultivar/ripeness
@@ -74,17 +73,14 @@ export default function BoundingBoxOverlay({
   showConfidence = true,
 }: BoundingBoxOverlayProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [imageState, setImageState] = useState<{ src: string; w: number; h: number } | null>(null)
-  const [failedSource, setFailedSource] = useState<string>()
-  const imgNaturalSize = imageState?.src === src ? imageState : null
-  const imgLoaded = Boolean(imgNaturalSize)
+  const [imgNaturalSize, setImgNaturalSize] = useState<{ w: number; h: number } | null>(null)
+  const [imgLoaded, setImgLoaded] = useState(false)
 
   const onImgLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget
-    setImageState({ src, w: img.naturalWidth, h: img.naturalHeight })
-  }, [src])
-
-  if (failedSource === src) return <div className={`flex flex-col items-center justify-center gap-3 text-muted-foreground ${className}`}><Banana className="w-16 h-16 opacity-30" /><span className="text-sm">No image available</span></div>
+    setImgNaturalSize({ w: img.naturalWidth, h: img.naturalHeight })
+    setImgLoaded(true)
+  }, [])
 
   return (
     <div
@@ -98,7 +94,6 @@ export default function BoundingBoxOverlay({
         alt={alt}
         className="w-full h-full object-cover"
         onLoad={onImgLoad}
-        onError={() => { setFailedSource(src); setImageState(null) }}
         draggable={false}
       />
 

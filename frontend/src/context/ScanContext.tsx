@@ -9,7 +9,6 @@ import { toast } from "sonner"
 import { useLocation } from "react-router-dom"
 import type { ScanResult, ScanNote, InventoryStatus } from "@/types"
 import { collectScanPages, mapApiScan, mapApiScanNote, type ApiScan } from "@/lib/scanData"
-import { errorStatus, requireScanRevision } from "@/lib/scanWrites"
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -25,11 +24,11 @@ interface ScanContextType {
   scans: ScanResult[]
   scanState: ScanState
   startScan: (source?: string, intakeId?: string) => void
-  flagScan: (id: string, flagged: boolean, revision?: number) => Promise<ScanResult>
-  addScanNote: (scanId: string, note: string, revision?: number) => Promise<{ note: ScanNote; revision: number }>
+  flagScan: (id: string, flagged: boolean) => Promise<void>
+  addScanNote: (scanId: string, note: string) => Promise<void>
   getScanNotes: (scanId: string) => ScanNote[]
   loadScanNotes: (scanId: string) => void
-  updateScanData: (id: string, data: Partial<ScanResult>, reason: string, revision?: number) => Promise<ScanResult>
+  updateScanData: (id: string, data: Partial<ScanResult>) => Promise<ScanResult>
   scansLoading: boolean
   scansError: string | null
   refreshScans: () => Promise<void>
@@ -68,19 +67,6 @@ function ScanStore({ children }: { children: React.ReactNode }) {
   const [scansError, setScansError] = useState<string | null>(null)
   const historyRequest = useRef<AbortController | null>(null)
   const mounted = useRef(true)
-  const scansRef = useRef(scans)
-  scansRef.current = scans
-  const notesGeneration = useRef(new Map<string, number>())
-
-  const acceptSaved = useCallback((saved: ScanResult) => {
-    if (!mounted.current) return
-    setScans(previous => previous.map(scan => scan.id === saved.id && scan.revision <= saved.revision ? saved : scan))
-    setScanState(previous => previous.lastResult?.id === saved.id && previous.lastResult.revision <= saved.revision ? { ...previous, lastResult: saved } : previous)
-    if (saved.notes) {
-      notesGeneration.current.set(saved.id, (notesGeneration.current.get(saved.id) ?? 0) + 1)
-      setScanNotes(previous => [...previous.filter(note => note.scanId !== saved.id), ...saved.notes!])
-    }
-  }, [])
 
   const refreshScans = useCallback(async () => {
     historyRequest.current?.abort()
@@ -92,10 +78,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
     try {
       const raw = await collectScanPages((page, page_size, signal) => api.scans.list({ page, page_size }, signal), controller.signal)
       const mapped = raw.map(record => mapApiScan(record, getImageUrl))
-      if (!controller.signal.aborted && mounted.current) setScans(previous => mapped.map(scan => {
-        const existing = previous.find(item => item.id === scan.id)
-        return existing && existing.revision > scan.revision ? existing : scan
-      }))
+      if (!controller.signal.aborted && mounted.current) setScans(mapped)
     } catch (error) {
       if (!controller.signal.aborted && mounted.current) {
         setScansError(error instanceof Error ? error.message : "Scan history could not be loaded. Please retry.")
@@ -198,38 +181,28 @@ function ScanStore({ children }: { children: React.ReactNode }) {
 
   // ── CRUD Operations ─────────────────────────────────────────────────────
 
-  const flagScan = useCallback(async (id: string, flagged: boolean, revision?: number) => {
-    try {
-      const saved = mapApiScan(await api.scans.flag(id, flagged, requireScanRevision(revision ?? scansRef.current.find(scan => scan.id === id)?.revision)), getImageUrl)
-      acceptSaved(saved)
-      return saved
-    } catch (error) { if (errorStatus(error) === 409) void refreshScans(); throw error }
-  }, [acceptSaved, refreshScans])
-
-  const addScanNote = useCallback(async (scanId: string, note: string, revision?: number) => {
-    try {
-      const response = await api.scans.notes.add(scanId, note, requireScanRevision(revision ?? scansRef.current.find(scan => scan.id === scanId)?.revision))
-      const saved = mapApiScanNote(response)
-      const savedRevision = requireScanRevision(response.revision)
-      if (mounted.current) {
-        notesGeneration.current.set(scanId, (notesGeneration.current.get(scanId) ?? 0) + 1)
-        setScanNotes(prev => [...prev.filter(existing => existing.id !== saved.id), saved])
-        setScans(prev => prev.map(scan => scan.id === scanId && scan.revision <= savedRevision ? { ...scan, hasNotes: true, revision: savedRevision } : scan))
-      }
-      return { note: saved, revision: savedRevision }
-    } catch (error) { if (errorStatus(error) === 409) void refreshScans(); throw error }
+  const flagScan = useCallback(async (id: string, flagged: boolean) => {
+    await api.scans.flag(id, flagged)
+    if (!mounted.current) return
+    setScans(prev => prev.map(scan => scan.id === id ? { ...scan, flagged } : scan))
+    setScanState(previous => previous.lastResult?.id === id ? { ...previous, lastResult: { ...previous.lastResult, flagged } } : previous)
+    void refreshScans()
   }, [refreshScans])
+
+  const addScanNote = useCallback(async (scanId: string, note: string) => {
+    const saved = mapApiScanNote(await api.scans.notes.add(scanId, note))
+    if (!mounted.current) return
+    setScanNotes(prev => [...prev.filter(existing => existing.id !== saved.id), saved])
+    setScans(prev => prev.map(scan => scan.id === scanId ? { ...scan, hasNotes: true } : scan))
+  }, [])
 
   const getScanNotes = useCallback((scanId: string) => {
     return scanNotes.filter((n) => n.scanId === scanId)
   }, [scanNotes])
 
   const loadScanNotes = useCallback((scanId: string) => {
-    const generation = (notesGeneration.current.get(scanId) ?? 0) + 1
-    notesGeneration.current.set(scanId, generation)
     api.scans.notes.list(scanId)
       .then((notes) => {
-        if (!mounted.current || notesGeneration.current.get(scanId) !== generation) return
         setScanNotes((prev) => {
           const others = prev.filter((n) => n.scanId !== scanId)
           return [
@@ -241,19 +214,20 @@ function ScanStore({ children }: { children: React.ReactNode }) {
       .catch(() => toast.error("Review notes could not be loaded. Please retry."))
   }, [])
 
-  const updateScanData = useCallback(async (id: string, data: Partial<ScanResult>, reason: string, revision?: number) => {
-    try {
+  const updateScanData = useCallback(async (id: string, data: Partial<ScanResult>) => {
     const saved = mapApiScan(await api.scans.override(id, {
       cultivar: data.cultivar,
       ripeness: data.ripeness,
       finger_count: data.fingerCount,
       spoilage_days: data.spoilageDays,
       source_text: data.source,
-    }, requireScanRevision(revision ?? scansRef.current.find(scan => scan.id === id)?.revision), reason), getImageUrl)
-    acceptSaved(saved)
+    }), getImageUrl)
+    if (mounted.current) {
+      setScans(prev => prev.map(scan => scan.id === id ? { ...scan, ...saved, images: scan.images, detections: scan.detections } : scan))
+      void refreshScans()
+    }
     return saved
-    } catch (error) { if (errorStatus(error) === 409) void refreshScans(); throw error }
-  }, [acceptSaved, refreshScans])
+  }, [refreshScans])
 
   // ── Cross-context helper for InventoryContext ───────────────────────────
 

@@ -3,9 +3,6 @@ import type { ScanResult, ScanNote } from "@/types"
 /** Stored records never receive a client-generated timestamp. */
 export interface ApiScan {
   id: string
-  revision: number
-  history?: ScanResult["history"]
-  notes?: ApiScanNote[]
   date_time?: string
   scanned_at?: string
   dateTime?: string
@@ -41,7 +38,6 @@ export interface ApiScanNote {
   text: string
   author_name: string
   timestamp: string
-  revision?: number
 }
 
 export function storedTimestamp(value: string | undefined | null): string {
@@ -52,9 +48,6 @@ export function storedTimestamp(value: string | undefined | null): string {
 export function mapApiScan(scan: ApiScan, imageUrl: (path: string) => string = path => path): ScanResult {
   return {
     id: scan.id,
-    revision: scan.revision,
-    history: scan.history,
-    notes: scan.notes?.map(mapApiScanNote),
     dateTime: storedTimestamp(scan.date_time ?? scan.scanned_at ?? scan.dateTime),
     cultivar: scan.cultivar ?? "Unknown",
     ripeness: scan.ripeness ?? "Unknown",

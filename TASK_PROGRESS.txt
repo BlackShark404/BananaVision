@@ -1,36 +1,3 @@
-CURRENT TASK: Scan Logs and Scan Detail (2026-10-07 Asia/Manila)
-BASELINE: 9f2dba2, branch codex/system-maintenance, clean at new task start.
-
-DONE
-- Read checkpoint and fresh Git history. Maintenance checkpoint below is obsolete; design was
-  approved 2026-10-06 with autonomous implementation authorized. User committed partial work9f2dba2.
-- Root and two independent read-only reviews verified server Logs/query/export and direct-ID Detail
-  already exist and must be preserved. Logs already uses proper /status endpoint.
-
-CONFIRMED GAPS / IN PROGRESS
-- Status lacks CAS revision/idempotency/actor/reason/previous state; detail/history/access need
-  ownership checks and persisted chronological events. Empty/source-only override sets is_overridden.
-- Notes load races with writes; one pendingScan ID permits duplicate row writes; stale refresh closure.
-- Broken image fallbacks absent, forbidden/deleted states ambiguous; historical actor snapshots absent.
-- Missing inherited migration0003_system_configuration blocks chain0004; repair only as prerequisite.
-
-NEXT
-1. Record focused plan; implement backend contracts/history/security then frontend integration.
-2. Extend server query/export regression tests. No new task test runs completed yet.
-3. Isolated PostgreSQL concurrency/migrations, backend/frontend tests, TS/lint/build, security/diff review.
-4. Update this checkpoint with exact RED/GREEN results. No live DB/settings/hardware/power operations.
-
-CARRY-FORWARD MAINTENANCE (not complete)
-- Approved spec/planned implementation in docs/superpowers. Partial work committed as9f2dba2 after
-  subagents hit usage limits. Last observed:6 root coordinator/auth tests passed, worker reported18
-  configuration tests passed. Full integration/build/security review never completed.
-- Unfinished: missing migration0003; startup/devices/coordination; safe retention; restore/power APIs;
-  full SystemConfig/calibration frontend. Preserve these changes; current task is Scan Logs/Detail.
-- PostgreSQL18 binaries available C:/Program Files/PostgreSQL/18 (not PATH).
-
-RESUME: Continue current Scan Logs/Detail verified gaps, not the older checkpoint below.
-
-ARCHIVED PRE-IMPLEMENTATION CHECKPOINT (superseded by current section above)
 TASK: System Configuration, Export, and Maintenance
 Updated: 2026-10-05 (Asia/Manila)
 Baseline: ac5c809, working tree initially clean (unreadable ignored backend/.pytest_cache warning).

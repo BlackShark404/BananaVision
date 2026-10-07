@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from app.core.time import now_manila
 
-from sqlalchemy import Enum as SAEnum, DECIMAL, ForeignKey, Integer, String
+from sqlalchemy import Enum as SAEnum, DECIMAL, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,12 +24,11 @@ class ScanOriginalAiResult(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     scan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("scan.id", ondelete="CASCADE"), unique=True, nullable=False
     )
-    cultivar: Mapped[CultivarEnum | None] = mapped_column(SAEnum(CultivarEnum), nullable=True
+    cultivar: Mapped[CultivarEnum] = mapped_column(SAEnum(CultivarEnum), nullable=False
     )
-    ripeness: Mapped[RipenessEnum | None] = mapped_column(SAEnum(RipenessEnum), nullable=True
+    ripeness: Mapped[RipenessEnum] = mapped_column(SAEnum(RipenessEnum), nullable=False
     )
-    confidence: Mapped[float | None] = mapped_column(DECIMAL(5,2), nullable=True)
-    spoilage_days: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    confidence: Mapped[float] = mapped_column(DECIMAL(5,2), nullable=False)
     finger_count: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(ManilaDateTime(), default=now_manila
     )
