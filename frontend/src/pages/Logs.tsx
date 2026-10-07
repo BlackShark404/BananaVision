@@ -265,7 +265,22 @@ const columns: ColumnDef<LogScan>[] = [
       header: "Est. Spoilage",
       sortable: true,
       sortKey: "spoilage_days",
-      cell: (scan) => <div className="text-sm"><span title="Estimate when scanned">{scan.spoilageDays} days</span>{scan.remainingDays !== null && <span className="block text-xs text-muted-foreground">{scan.remainingDays <= 0 ? "Estimated expiry reached" : `${scan.remainingDays.toFixed(1)} days left`}</span>}</div>,
+      cell: (scan) => (
+        <div className="text-sm">
+          {scan.remainingDays !== null ? (
+            <span title="Remaining time until estimated spoilage">
+              {scan.remainingDays <= 0 ? "Estimated expiry reached" : `${scan.remainingDays.toFixed(1)} days left`}
+            </span>
+          ) : (
+            <span title="Estimate when scanned">{scan.spoilageDays} days</span>
+          )}
+          {scan.remainingDays !== null && (
+            <span className="block text-xs text-muted-foreground" title="Original estimate when scanned">
+              Est. shelf life: {scan.spoilageDays} days
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       header: "Est. Fingers",
