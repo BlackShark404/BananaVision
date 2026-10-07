@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import csv
 import io
-from app.services.power_control import schedule_power_action
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -53,6 +52,7 @@ async def _update_config(body, db, admin, request):
     await db.commit()
     if 'camera_ids' in changes or 'camera_device_ids' in changes:
         await configuration.apply_camera_config(config)
+        await configuration.sync_devices(db)
     return configuration.config_response(config)
 
 
@@ -87,31 +87,3 @@ async def export_database(db: DbSession, admin: AdminUser):
     )
 
 
-@router.post("/shutdown")
-async def shutdown_system(db: DbSession, admin: AdminUser, request: Request):
-    """Shutdown the system using OS-level commands."""
-    await schedule_power_action("shutdown")
-    db.add(ActivityLog(
-        user_id=admin.id,
-        action="system_shutdown",
-        details="OS accepted scheduled system shutdown",
-        ip_address=request.client.host if request.client else None,
-    ))
-    await db.flush()
-
-    return {"message": "Operating system accepted the scheduled shutdown"}
-
-
-@router.post("/restart")
-async def restart_system(db: DbSession, admin: AdminUser, request: Request):
-    """Restart the system using OS-level commands."""
-    await schedule_power_action("restart")
-    db.add(ActivityLog(
-        user_id=admin.id,
-        action="system_restart",
-        details="OS accepted scheduled system restart",
-        ip_address=request.client.host if request.client else None,
-    ))
-    await db.flush()
-
-    return {"message": "Operating system accepted the scheduled restart"}

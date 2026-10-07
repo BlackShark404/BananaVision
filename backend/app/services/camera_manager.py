@@ -74,7 +74,7 @@ class CameraManager:
     def configure(self, ids: list[str], device_ids: list[int]) -> dict[int, bool]:
         if len(ids) != len(device_ids) or len(set(device_ids)) != len(device_ids):
             raise ValueError('Camera slots require distinct physical devices and matching names')
-        remap = self._device_ids != device_ids or not self._initialized
+        remap = self._device_ids != device_ids or not self._initialized or not all(self._health.get(i) for i in device_ids)
         self.set_logical_ids(ids)
         if remap:
             self.release_all()

@@ -29,7 +29,7 @@ def assert_upgraded(connection):
     assert {"dew_point", "vpd", "heat_index", "treatment"} <= {
         column["name"] for column in inspect(connection).get_columns("scan_classification")
     }
-    assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0002_feature_engineering"
+    assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0004_maintenance_state"
 
 
 def test_legacy_upgrade_preserves_data_and_is_repeatable(tmp_path):
@@ -56,7 +56,7 @@ def test_current_schema_adopts_revision_without_duplicate_columns():
             upgrade_connection(connection)
             for table, columns in before.items():
                 assert [column["name"] for column in inspect(connection).get_columns(table)] == columns
-            assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0002_feature_engineering"
+            assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0004_maintenance_state"
     finally:
         engine.dispose()
 
@@ -81,7 +81,7 @@ async def test_postgresql_schema_startup_upgrade(legacy):
             await asyncio.gather(initialize_schema(engine), initialize_schema(engine))
             await initialize_schema(engine)
             async with engine.begin() as connection:
-                assert (await connection.execute(text("SELECT version_num FROM alembic_version"))).scalar_one() == "0002_feature_engineering"
+                assert (await connection.execute(text("SELECT version_num FROM alembic_version"))).scalar_one() == "0004_maintenance_state"
         async with engine.begin() as connection:
             await connection.run_sync(upgrade_connection)
             if legacy:

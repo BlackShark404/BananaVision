@@ -41,3 +41,6 @@ v1_router.include_router(cameras_router)
 v1_router.include_router(system_router)
 v1_router.include_router(dashboard_router)
 v1_router.include_router(scan_logs_router)
+
+from app.api.v1.maintenance import router as maintenance_router
+v1_router.include_router(maintenance_router)

@@ -1,3 +1,16 @@
+CURRENT RESUME HERE (2026-10-07)
+TASK: Finish approved System Configuration, Export, and Maintenance implementation.
+Current baseline: bc3ed4c, explicit revert of scan-record task preserved; do not reapply it.
+The older checkpoint below is superseded. Design approved and stage gates waived by user.
+DONE: approved specification and implementation plan read. Partial implementation is committed
+in 9f2dba2: config/CAS/inference, camera health, coordinator, auth generation, archive primitives.
+IN PROGRESS: finish missing migration, startup/coordination, devices, retention, backup/restore/
+recovery/power APIs and frontend. Subagents unavailable (account usage limit); root implementing.
+NOT YET STARTED: full integration/security review/final verification. Prior baseline need not repeat.
+No live database, cleanup, hardware, restore, reboot or shutdown operations authorized for tests.
+Next: regression tests for remaining integration gaps; implement and verify in isolated fixtures.
+
+ARCHIVED CHECKPOINT (historical status only)
 TASK: System Configuration, Export, and Maintenance
 Updated: 2026-10-05 (Asia/Manila)
 Baseline: ac5c809, working tree initially clean (unreadable ignored backend/.pytest_cache warning).

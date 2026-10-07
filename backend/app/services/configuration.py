@@ -29,6 +29,11 @@ async def get_config(db) -> SystemConfig:
     """
     canonical = await db.scalar(select(SystemConfig).where(SystemConfig.canonical_key == 1))
     if canonical is not None:
+        try:
+            _validated_values(canonical.camera_ids, canonical.camera_device_ids,
+                              canonical.confidence_threshold, canonical.data_retention_enabled)
+        except (ValueError, ValidationError) as exc:
+            raise HTTPException(503, 'Saved configuration is invalid; administrator repair is required') from exc
         return canonical
     rows = (await db.execute(select(SystemConfig).order_by(
         SystemConfig.updated_at.desc(), SystemConfig.id.desc()))).scalars().all()
@@ -67,7 +72,7 @@ async def get_config(db) -> SystemConfig:
 def config_response(config) -> dict:
     applied_ids = list(camera_manager._logical_ids)
     physical_ids = list(camera_manager._device_ids) if camera_manager.is_initialized else []
-    matches = applied_ids == config.camera_ids.split(', ') and physical_ids == config.camera_device_ids
+    matches = applied_ids == [value.strip() for value in config.camera_ids.split(',')] and physical_ids == config.camera_device_ids
     online = set(camera_manager.online_cameras)
     all_online = matches and all(value in online for value in physical_ids)
     error = camera_manager.application_error
@@ -82,7 +87,7 @@ def config_response(config) -> dict:
         'applied_revision': config.revision if all_online else None,
         'application_status': status,
         'application_error': error or (None if all_online else 'Saved cameras have not all produced usable frames'),
-        'restart_required': not matches,
+        'restart_required': False,
         'retention_days': get_settings().max_captures_retention_days,
         'retention_policy': 'orphan_captures_only',
     }
@@ -129,6 +134,8 @@ async def update_config(db, changes, expected_revision, admin_id) -> SystemConfi
         for device in devices:
             if device.id not in kept:
                 await db.delete(device)
+    if 'camera_ids' in changes or 'camera_device_ids' in changes:
+        await db.execute(update(Device).values(status='Offline', resolution=None))
     await db.flush()
     return await db.scalar(select(SystemConfig).where(SystemConfig.canonical_key == 1)
         .execution_options(populate_existing=True))
@@ -139,3 +146,16 @@ async def apply_camera_config(config) -> None:
     from app.services.runtime_operations import run_blocking
     await run_blocking(camera_manager.configure, [part.strip() for part in config.camera_ids.split(',')],
         list(config.camera_device_ids))
+
+
+async def sync_devices(db):
+    """Publish only frame-verified current mappings after physical application."""
+    mapping = dict(zip(camera_manager._logical_ids, camera_manager._device_ids))
+    online = set(camera_manager.online_cameras)
+    for device in (await db.execute(select(Device))).scalars():
+        ok = mapping.get(device.camera_id) in online
+        device.status = 'Online' if ok else 'Offline'
+        device.resolution = f'{get_settings().camera_resolution_w}x{get_settings().camera_resolution_h}' if ok else None
+        if ok:
+            device.last_seen = now_manila()
+    await db.commit()

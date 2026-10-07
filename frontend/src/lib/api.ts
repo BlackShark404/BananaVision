@@ -28,6 +28,7 @@ async function request<T>(
     "Content-Type": "application/json",
   }
   if (body instanceof FormData) delete headers["Content-Type"]
+  if (body instanceof Blob) headers["Content-Type"] = "application/octet-stream"
   if (token) headers["Authorization"] = `Bearer ${token}`
 
   // Build query string
@@ -44,7 +45,7 @@ async function request<T>(
   const res = await fetch(url, {
     method,
     headers,
-    body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+    body: body instanceof FormData || body instanceof Blob ? body : body ? JSON.stringify(body) : undefined,
     signal: opts?.signal,
     cache: "no-store",
   })
@@ -285,12 +286,11 @@ export const api = {
       link.href = url; link.download = filename; link.click()
       setTimeout(() => URL.revokeObjectURL(url), 60000)
     },
-    validateRestore: (file: File) => {
-      const form = new FormData(); form.append("file", file)
-      return request<RestoreValidation>("POST", "/api/v1/config/restores/validate", form)
-    },
+    validateRestore: (file: File) => request<RestoreValidation>("POST", "/api/v1/config/restores/validate", file),
     restore: (body: { operation_id: string; validation_id: string; token: string; password: string; confirmation: "REPLACE" }) => post<MaintenanceOperation>("/api/v1/config/restores", body),
-    recoverPower: (body: { operation_id: string; password: string; confirmation: "RECOVER" }) => post<MaintenanceOperation>("/api/v1/config/power/recover", body),
+    recoverPower: (password: string) => post<MaintenanceOperation>("/api/v1/config/power/cancel", { password }),
+    recoverRestore: (password: string) => post<MaintenanceStatus>("/api/v1/config/maintenance/recover", { password }),
+    applyCameras: (operation_id: string) => post<ApiConfig>("/api/v1/config/maintenance/apply", { operation_id }),
     shutdown: (operation_id: string) => post<MaintenanceOperation>("/api/v1/config/shutdown", { operation_id }),
     restart: (operation_id: string) => post<MaintenanceOperation>("/api/v1/config/restart", { operation_id }),
   },

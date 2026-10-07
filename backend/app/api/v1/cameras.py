@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse
 import asyncio
 import cv2
 import logging
+import uuid
 from app.services.runtime_operations import station_lock, run_blocking, coordinator
 from pydantic import BaseModel, Field, StrictInt, field_validator
 
@@ -20,6 +21,7 @@ from sqlalchemy.future import select
 from app.services import configuration
 from app.models.admin_profile import AdminProfile
 from app.models.activity_log import ActivityLog
+from app.services.maintenance_state import operation_result, record_operation
 
 @router.get("")
 async def list_cameras(db: DbSession):
@@ -102,6 +104,7 @@ async def video_feed(camera_index: int, fps: int = 15):
 class CameraMappingUpdate(BaseModel):
     model_config = {'extra': 'forbid'}
     expected_revision: StrictInt = Field(ge=1)
+    operation_id: uuid.UUID
     device_ids: list[StrictInt] = Field(min_length=1, max_length=4)
 
     @field_validator("device_ids")
@@ -117,13 +120,21 @@ async def update_camera_mapping(mapping: CameraMappingUpdate, db: DbSession, adm
     if station_lock.locked():
         raise HTTPException(409, "Finish the active scan before remapping cameras")
     async with station_lock:
+        previous = await operation_result(db, str(mapping.operation_id))
+        if previous:
+            if previous.get('actor_id') != str(admin.id) or previous.get('device_ids') != mapping.device_ids or previous.get('kind') != 'calibration':
+                raise HTTPException(409, 'Operation ID already used')
+            return configuration.config_response(await configuration.get_config(db))
         admin_profile_id = await db.scalar(select(AdminProfile.id).where(AdminProfile.account_id == admin.id))
         config = await configuration.update_config(db, {'camera_device_ids': mapping.device_ids},
             mapping.expected_revision, admin_profile_id)
         db.add(ActivityLog(user_id=admin.id, action='config_changed',
             details=f'Camera mapping saved at revision {config.revision}: {mapping.device_ids}'))
+        await record_operation(db, str(mapping.operation_id), {'kind': 'calibration', 'actor_id': str(admin.id),
+            'device_ids': mapping.device_ids, 'status': 'saved'})
         await db.commit()
         await configuration.apply_camera_config(config)
+        await configuration.sync_devices(db)
         response = configuration.config_response(config)
         response['results'] = {device_id: device_id in camera_manager.online_cameras for device_id in mapping.device_ids}
         response['message'] = 'Camera mapping saved; see application status for hardware results'

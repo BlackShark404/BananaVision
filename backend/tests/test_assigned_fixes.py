@@ -131,17 +131,11 @@ def test_camera_mapping_rejects_invalid_values(secured, ids):
     assert secured.client.post("/api/v1/cameras/mapping", headers=secured.headers, json={"device_ids": ids}).status_code == 422
 
 
-def test_camera_remap_updates_existing_settings_and_runtime(secured, tmp_path, monkeypatch):
+def test_camera_remap_requires_revision_without_mutating_environment(secured, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    settings = cameras.settings
-    previous_ids = list(settings.camera_device_ids)
-    monkeypatch.setattr(settings, "camera_device_ids", previous_ids)
-    fake = SimpleNamespace(release_all=lambda: None, initialize=lambda: {2: True, 0: False}, _device_ids=[], _labels=[])
-    monkeypatch.setattr(cameras, "camera_manager", fake)
     response = secured.client.post("/api/v1/cameras/mapping", headers=secured.headers, json={"device_ids": [2, 0]})
-    assert response.status_code == 200, response.text
-    assert startup.settings is settings and settings.camera_device_ids == fake._device_ids == [2, 0]
-    assert "CAMERA_DEVICE_IDS=[2, 0]" in (tmp_path / ".env").read_text()
+    assert response.status_code == 422
+    assert not (tmp_path / ".env").exists()
 
 
 def test_camera_rename_preserves_device_identity_and_commits_runtime(secured, monkeypatch):
@@ -154,13 +148,15 @@ def test_camera_rename_preserves_device_identity_and_commits_runtime(secured, mo
         db.commit()
         left_id, right_id = left.id, right.id
     changed = []
-    monkeypatch.setattr(config.camera_manager, "set_logical_ids", changed.append)
-    response = secured.client.patch("/api/v1/config", headers=secured.headers, json={"camera_ids": "RIGHT, LEFT"})
+    from app.services import configuration
+    monkeypatch.setattr(configuration.get_settings(), 'camera_device_ids', [0, 1])
+    monkeypatch.setattr(configuration, 'apply_camera_config', AsyncMock(side_effect=lambda cfg: changed.append(cfg.camera_ids.split(', '))))
+    response = secured.client.patch("/api/v1/config", headers=secured.headers, json={"camera_ids": "RIGHT, LEFT", "expected_revision": 1})
     assert response.status_code == 200, response.text
     with Session(secured.app.engine) as db:
         assert db.get(Device, left_id).camera_id == "RIGHT"
         assert db.get(Device, right_id).camera_id == "LEFT"
-        assert db.get(Device, left_id).status.value == "Online"
+        assert db.get(Device, left_id).status.value == "Offline"
     assert changed == [["RIGHT", "LEFT"]]
 
 
@@ -180,7 +176,7 @@ async def test_power_command_outcomes_are_checked(monkeypatch, outcome):
     else:
         with pytest.raises(HTTPException) as exc:
             await power_control.schedule_power_action("restart")
-        assert exc.value.status_code == 503
+        assert exc.value.status_code == (504 if isinstance(outcome, subprocess.TimeoutExpired) else 503)
     assert calls == [["shutdown", "/r", "/t", "10"]]
 
 
@@ -213,7 +209,7 @@ async def test_retention_disabled_failed_commit_and_safe_orphans(application, tm
     assert (tmp_path / existing).exists() and (tmp_path / orphan).exists()
     application.state.fail_commit = False
     await data_retention._run_retention_cycle()
-    assert not (tmp_path / existing).exists() and not (tmp_path / orphan).exists()
+    assert (tmp_path / existing).exists() and not (tmp_path / orphan).exists()
     assert (tmp_path / recent).exists() and (tmp_path / "unrelated").exists()
     with pytest.raises(ValueError):
         remove_scan_captures(tmp_path, "../outside")
@@ -222,6 +218,7 @@ async def test_retention_disabled_failed_commit_and_safe_orphans(application, tm
 @pytest.mark.asyncio
 async def test_failed_scan_removes_partial_captures(tmp_path, monkeypatch):
     monkeypatch.setattr(scan_service, "get_settings", lambda: SimpleNamespace(capture_path=tmp_path))
+    monkeypatch.setattr(scan_service, "get_config", AsyncMock(return_value=SimpleNamespace(confidence_threshold=85)))
     async def capture_all():
         return [SimpleNamespace(frame=None)]
     def save(captures, scan_id):

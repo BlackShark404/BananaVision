@@ -172,7 +172,7 @@ def test_saved_mapping_reports_partial_hardware_failure_without_env_write(config
     configured.app.include_router(cameras.router, prefix='/api/v1')
     monkeypatch.chdir(tmp_path)
     revision = configured.client.get('/api/v1/config').json()['revision']
-    result = configured.client.post('/api/v1/cameras/mapping', json={'expected_revision': revision, 'device_ids': [2, 0]})
+    result = configured.client.post('/api/v1/cameras/mapping', json={'expected_revision': revision, 'device_ids': [2, 0], 'operation_id': str(__import__('uuid').uuid4())})
     assert result.status_code == 200, result.text
     value = result.json()
     assert value['camera_device_ids'] == [2, 0]

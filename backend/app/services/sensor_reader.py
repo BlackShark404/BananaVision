@@ -136,8 +136,9 @@ class SensorReader:
 
         while True:
             try:
-                loop = asyncio.get_event_loop()
-                data = await loop.run_in_executor(None, self.read_once)
+                from app.services.runtime_operations import coordinator, run_blocking
+                async with coordinator.operation():
+                    data = await run_blocking(self.read_once)
 
                 if data and on_reading:
                     await on_reading(data)

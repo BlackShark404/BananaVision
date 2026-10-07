@@ -111,7 +111,7 @@ def application(monkeypatch):
                                ripeness=RipenessEnum.RIPE, confidence=90, spoilage_days="3", finger_count=5),
             ScanStatusLog(scan_id=ids.scan, inventory_status=InventoryStatusEnum.IN_STOCK,
                           updated_at=historical),
-            SystemConfig(confidence_threshold=85, camera_ids="", data_retention_enabled=True),
+            SystemConfig(confidence_threshold=85, camera_ids="CAM-001, CAM-002, CAM-003, CAM-004", data_retention_enabled=True),
         ])
         db.commit()
 
@@ -250,7 +250,7 @@ def test_http_write_only_succeeds_after_commit_and_failure_rolls_back(applicatio
         "intake_status": (f"intakes/{ids.intake}/status", "patch", {"status": "Depleted"}),
         "inventory_status": (f"scans/{ids.scan}/status", "patch", {"inventory_status": "Sold"}),
         "bulk_inventory": (f"intakes/{ids.intake}/bulk-inventory", "patch", {"inventory_status": "Sold"}),
-        "settings": ("config", "patch", {"confidence_threshold": 95}),
+        "settings": ("config", "patch", {"confidence_threshold": 95, "expected_revision": 1}),
     }[operation]
     app.state.fail_commit = fail_commit
     response = getattr(app.client, method)(f"/api/v1/{endpoint}", json=body)
@@ -305,7 +305,7 @@ async def test_scan_pipeline_never_announces_completion_before_persistence(appli
     monkeypatch.setattr(scan_service, "banana_pre_detector", SimpleNamespace(
         detect=lambda _: SimpleNamespace(banana_detected=True),
     ))
-    monkeypatch.setattr(scan_service, "banana_classifier", SimpleNamespace(predict=lambda _: detection_result))
+    monkeypatch.setattr(scan_service, "banana_classifier", SimpleNamespace(predict=lambda _, **kwargs: detection_result))
     monkeypatch.setattr(scan_service, "fusion_engine", SimpleNamespace(fuse=lambda _: result))
     monkeypatch.setattr(scan_service, "spoilage_predictor", SimpleNamespace(predict=lambda **_: "1"))
     monkeypatch.setattr(scan_service, "sensor_reader", SimpleNamespace(latest=None))

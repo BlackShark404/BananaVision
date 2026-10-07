@@ -12,6 +12,22 @@ station_lock = asyncio.Lock()
 maintenance_context: ContextVar[bool] = ContextVar("maintenance_context", default=False)
 
 
+async def finish_on_disconnect(awaitable):
+    """Do not abandon file/DB promotion or power dispatch on HTTP disconnect."""
+    task = asyncio.create_task(awaitable)
+    cancelled = False
+    while not task.done():
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            cancelled = True
+    if cancelled:
+        if not task.cancelled():
+            task.exception()
+        raise asyncio.CancelledError
+    return task.result()
+
+
 async def run_blocking(function, *args, **kwargs):
     """A cancelled caller still owns its hardware until the worker has finished."""
     worker = asyncio.create_task(asyncio.to_thread(partial(function, *args, **kwargs)))

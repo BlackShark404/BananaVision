@@ -99,10 +99,9 @@ app.include_router(v1_router)
 app.add_api_websocket_route("/api/v1/ws", websocket_endpoint)
 
 # ── Static Files (captured images) ──────────────────────────────────────────
-settings.capture_path.mkdir(parents=True, exist_ok=True)
 app.mount(
     "/captures",
-    StaticFiles(directory=str(settings.capture_path)),
+    StaticFiles(directory=str(settings.capture_path), check_dir=False),
     name="captures",
 )
 
@@ -132,7 +131,7 @@ async def health_check():
         "status": status,
         "version": "0.1.0",
         "cameras_online": len(camera_manager.online_cameras),
-        "cameras_total": len(settings.camera_device_ids),
+        "cameras_total": len(camera_manager._device_ids),
         "banana_pre_detector_loaded": banana_pre_detector.is_loaded,
         "yolo_loaded": banana_classifier.is_loaded,
         "rfr_loaded": spoilage_predictor.is_loaded,

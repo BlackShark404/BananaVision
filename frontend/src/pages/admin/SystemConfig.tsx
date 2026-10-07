@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from "react"
 import { useAdmin } from "@/context/AdminContext"
+import { StationBackupControls } from "@/components/StationBackupControls"
+import { Input } from "@/components/ui/input"
+import type { MaintenanceStatus } from "@/types/api"
 import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -27,9 +30,30 @@ import {
 import { CameraCalibrationModal } from "@/components/CameraCalibrationModal"
 
 export default function SystemConfig() {
-  const { config, updateConfig } = useAdmin()
+  const { config, updateConfig, configReady, configError, configConflict, reloadConfig, acceptConfig } = useAdmin()
   const [localConfig, setLocalConfig] = useState(config)
   const previousConfig = useRef(config)
+  const [maintenance, setMaintenance] = useState<MaintenanceStatus | null>(null)
+  const [maintenanceError, setMaintenanceError] = useState<string | null>(null)
+  const [archiveBusy, setArchiveBusy] = useState(false)
+  const [powerPending, setPowerPending] = useState(false)
+  const [powerAccepted, setPowerAccepted] = useState(false)
+  const [powerMessage, setPowerMessage] = useState("")
+  const [recoveryPassword, setRecoveryPassword] = useState("")
+  const powerId = useRef<string | null>(null)
+  const powerFlight = useRef(false)
+  const configFlight = useRef(false)
+  const disabled = !configReady || configConflict || archiveBusy || powerPending || powerAccepted || Boolean(maintenance && maintenance.state !== "ready")
+  useEffect(() => {
+    let live = true
+    const refresh = async () => {
+      try { const result = await api.config.maintenance(); if (live) { setMaintenance(result); setMaintenanceError(null) } }
+      catch { if (live) setMaintenanceError("Maintenance status unavailable") }
+    }
+    void refresh()
+    const timer = setInterval(refresh, 5000)
+    return () => { live = false; clearInterval(timer) }
+  }, [])
   const [saving, setSaving] = useState(false)
   const [showShutdownDialog, setShowShutdownDialog] = useState(false)
   const [showRestartDialog, setShowRestartDialog] = useState(false)
@@ -40,17 +64,19 @@ export default function SystemConfig() {
     const previous = previousConfig.current
     previousConfig.current = config
     setLocalConfig(draft => ({
+      ...config,
       cameraIds: draft.cameraIds === previous.cameraIds ? config.cameraIds : draft.cameraIds,
       confidenceThreshold: draft.confidenceThreshold === previous.confidenceThreshold ? config.confidenceThreshold : draft.confidenceThreshold,
       dataRetentionEnabled: draft.dataRetentionEnabled === previous.dataRetentionEnabled ? config.dataRetentionEnabled : draft.dataRetentionEnabled,
     }))
   }, [config])
 
-  const hasChanges = JSON.stringify(localConfig) !== JSON.stringify(config)
+  const hasChanges = configReady && (localConfig.cameraIds !== config.cameraIds || localConfig.confidenceThreshold !== config.confidenceThreshold || localConfig.dataRetentionEnabled !== config.dataRetentionEnabled)
 
   const activeCameraIds = localConfig.cameraIds.split(",").map(s => s.trim()).filter(Boolean)
 
   const startEditingCameraId = (idToEdit: string) => {
+    if (disabled || saving) return
     setEditingCameraId(idToEdit)
     setEditCameraValue(idToEdit)
   }
@@ -59,7 +85,7 @@ export default function SystemConfig() {
     if (editingCameraId) {
       const trimmed = editCameraValue.trim()
       
-      if (!trimmed) {
+      if (!trimmed || trimmed.length > 50 || trimmed.includes(",")) {
         toast.error("Camera ID cannot be empty", { description: "Please provide a valid camera name." })
         setEditingCameraId(null)
         return
@@ -85,14 +111,17 @@ export default function SystemConfig() {
   }
 
   const handleSave = async () => {
-    if (saving) return
+    if (disabled || configFlight.current) return
+    configFlight.current = true
     setSaving(true)
     try {
-      setLocalConfig(await updateConfig(localConfig))
-      toast.success("Settings saved successfully")
+      const saved = await updateConfig(localConfig)
+      setLocalConfig(saved)
+      toast.success("Settings saved successfully", { description: saved.applicationError ?? "Applied to subsequent operations" })
     } catch (error) {
       toast.error("Settings could not be saved", { description: error instanceof Error ? error.message : "Please try again." })
     } finally {
+      configFlight.current = false
       setSaving(false)
     }
   }
@@ -103,21 +132,22 @@ export default function SystemConfig() {
   }
 
   const handleReset = () => {
-    setLocalConfig({ cameraIds: "CAM-001, CAM-002, CAM-003, CAM-004", confidenceThreshold: 85, dataRetentionEnabled: true })
+    setLocalConfig({ ...config, cameraIds: (config.cameraDeviceIds ?? [0, 1]).map((_, index) => `CAM-${String(index + 1).padStart(3, "0")}`).join(", "), confidenceThreshold: 85, dataRetentionEnabled: true })
     toast.info("Settings reset to defaults")
   }
 
   const handleExportData = async () => {
     try {
       await api.config.export()
-      toast.success("Scan summaries exported", { description: "bananavision_inventory_export.csv saved to downloads" })
+      toast.success("Scan summaries exported", { description: "CSV download started" })
     } catch {
       toast.error("Export Failed", { description: "Could not export scan summaries" })
     }
   }
 
   const toggleDataRetention = async () => {
-    if (saving) return
+    if (disabled || configFlight.current) return
+    configFlight.current = true
     const newState = !localConfig.dataRetentionEnabled
     const draft = localConfig
     setSaving(true)
@@ -127,35 +157,30 @@ export default function SystemConfig() {
       setLocalConfig({ ...draft, dataRetentionEnabled: saved.dataRetentionEnabled })
       toast.success(
         saved.dataRetentionEnabled ? "Data Retention Enabled" : "Data Retention Disabled",
-        { description: saved.dataRetentionEnabled ? "Logs older than 30 days will be deleted automatically" : "All logs will be kept indefinitely" }
+        { description: saved.dataRetentionEnabled ? `Unreferenced captures older than ${config.retentionDays} days will be cleaned; scan history is retained` : "Automatic orphan capture cleanup is disabled" }
       )
     } catch (error) {
       toast.error("Data retention could not be updated", { description: error instanceof Error ? error.message : "Please try again." })
     } finally {
+      configFlight.current = false
       setSaving(false)
     }
   }
 
-  const handleShutdown = async () => {
+  const handlePower = async (action: "restart" | "shutdown") => {
+    if (powerFlight.current || disabled) return
+    powerFlight.current = true; setPowerPending(true)
+    powerId.current ??= crypto.randomUUID()
     try {
-      await api.config.shutdown()
-      toast.success("Shutdown initiated", { description: "The operating system accepted the scheduled shutdown." })
-      setShowShutdownDialog(false)
-      
-
+      const result = await api.config[action](powerId.current)
+      setPowerMessage(result.message ?? `Power request ${result.status}`)
+      if (result.status === "accepted" || result.status === "unknown" || result.status === "dispatching") {
+        setPowerAccepted(true)
+        setShowRestartDialog(false); setShowShutdownDialog(false)
+      } else { toast.error(result.message ?? "Power request failed"); powerId.current = null }
     } catch (error) {
-      toast.error("Shutdown Failed", { description: error instanceof Error ? error.message : "Could not initiate shutdown" })
-    }
-  }
-
-  const handleRestart = async () => {
-    try {
-      await api.config.restart()
-      toast.success("Restart initiated", { description: "The operating system accepted the scheduled restart." })
-      setShowRestartDialog(false)
-    } catch (error) {
-      toast.error("Restart Failed", { description: error instanceof Error ? error.message : "Could not initiate restart" })
-    }
+      setPowerMessage(error instanceof Error ? error.message : "Power outcome unavailable. Check operation status before retrying.")
+    } finally { powerFlight.current = false; setPowerPending(false) }
   }
 
   return (
@@ -167,6 +192,18 @@ export default function SystemConfig() {
         <p className="text-muted-foreground text-xs sm:text-sm mt-1">Manage global BananaVision settings</p>
       </div>
 
+      {(!configReady || configError || configConflict) && <Alert>
+        <AlertTitle>{configConflict ? "Configuration changed elsewhere" : configError ?? "Loading configuration…"}</AlertTitle>
+        <AlertDescription>Your draft is preserved. Reload saved settings before making changes.</AlertDescription>
+        <Button variant="outline" disabled={saving} onClick={() => void reloadConfig()}>{configConflict ? "Reload saved settings" : "Retry configuration"}</Button>
+      </Alert>}
+      {configReady && <p className="text-xs text-muted-foreground">Saved revision {config.revision} · Cameras {config.applicationStatus}. {config.applicationError} Threshold applies to the next scan. Deployment model changes require a backend restart.</p>}
+      {configReady && config.applicationStatus !== "applied" && <Button variant="outline" disabled={disabled || saving} onClick={async () => {
+        setSaving(true)
+        try { acceptConfig(await api.config.applyCameras(crypto.randomUUID())) }
+        catch (error) { toast.error(error instanceof Error ? error.message : "Camera application failed") }
+        finally { setSaving(false) }
+      }}>Retry Applying Cameras</Button>}
       {hasChanges && (
         <div className="fixed bottom-4 sm:bottom-6 left-0 right-0 flex justify-center px-4 z-50 pointer-events-none">
           <Alert className="bg-amber-500/10 text-amber-600 border-amber-500/30 w-full max-w-xl animate-in slide-in-from-bottom-5 fade-in duration-300 py-3 sm:py-4 px-4 sm:px-5 shadow-xl shadow-amber-500/10 backdrop-blur-md pointer-events-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 !pr-4 sm:!pr-5">
@@ -180,10 +217,10 @@ export default function SystemConfig() {
               </div>
             </div>
             <div className="flex gap-2 items-center shrink-0 w-full sm:w-auto mt-1 sm:mt-0">
-              <Button size="sm" variant="outline" onClick={handleUndo} disabled={saving} className="flex-1 sm:flex-none h-8 px-4 text-xs font-semibold bg-background/50 border-amber-500/40 hover:bg-amber-500/20 hover:text-amber-700 text-amber-700">
+              <Button size="sm" variant="outline" onClick={handleUndo} disabled={saving || disabled} className="flex-1 sm:flex-none h-8 px-4 text-xs font-semibold bg-background/50 border-amber-500/40 hover:bg-amber-500/20 hover:text-amber-700 text-amber-700">
                 Discard
               </Button>
-              <Button size="sm" onClick={handleSave} disabled={saving} className="flex-1 sm:flex-none h-8 px-4 text-xs font-semibold shadow-sm text-amber-50 bg-amber-600 hover:bg-amber-700 border-none">
+              <Button size="sm" onClick={handleSave} disabled={saving || disabled} className="flex-1 sm:flex-none h-8 px-4 text-xs font-semibold shadow-sm text-amber-50 bg-amber-600 hover:bg-amber-700 border-none">
                 {saving ? "Saving..." : "Save Now"}
               </Button>
             </div>
@@ -260,21 +297,21 @@ export default function SystemConfig() {
                 </div>
                 <p className="text-xs text-muted-foreground">These cameras capture in parallel, with sequential fallback when needed.</p>
                 <div className="pt-2">
-                  <CameraCalibrationModal />
+                  <CameraCalibrationModal disabled={saving || disabled} />
                 </div>
               </div>
             </CardContent>
             <CardFooter className="bg-muted/30 border-t px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between gap-3 sm:gap-0 rounded-b-xl sm:rounded-b-2xl">
-              <Button variant="ghost" onClick={handleReset} className="w-full sm:w-auto">
+              <Button variant="ghost" disabled={saving || disabled} onClick={handleReset} className="w-full sm:w-auto">
                 <RefreshCw className="w-4 h-4 mr-2" /> Reset Defaults
               </Button>
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
                 {hasChanges && (
-                  <Button variant="outline" onClick={handleUndo} disabled={saving} className="w-full sm:w-auto text-muted-foreground hover:text-foreground">
+                  <Button variant="outline" onClick={handleUndo} disabled={saving || disabled} className="w-full sm:w-auto text-muted-foreground hover:text-foreground">
                     <Undo2 className="w-4 h-4 mr-2" /> Undo Changes
                   </Button>
                 )}
-                <Button onClick={handleSave} disabled={saving || !hasChanges} className="w-full sm:w-auto">
+                <Button onClick={handleSave} disabled={saving || disabled || !hasChanges} className="w-full sm:w-auto">
                   {saving ? "Saving..." : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
                 </Button>
               </div>
@@ -297,6 +334,8 @@ export default function SystemConfig() {
                 <Slider 
                   value={[localConfig.confidenceThreshold]} 
                   onValueChange={(v) => setLocalConfig({...localConfig, confidenceThreshold: v[0]})}
+                  min={1}
+                  disabled={saving || disabled}
                   max={100} 
                   step={1} 
                   className="w-full"
@@ -308,16 +347,16 @@ export default function SystemConfig() {
               </div>
             </CardContent>
             <CardFooter className="bg-muted/30 border-t px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between gap-3 sm:gap-0 rounded-b-xl sm:rounded-b-2xl">
-              <Button variant="ghost" onClick={handleReset} className="w-full sm:w-auto">
+              <Button variant="ghost" disabled={saving || disabled} onClick={handleReset} className="w-full sm:w-auto">
                 <RefreshCw className="w-4 h-4 mr-2" /> Reset Defaults
               </Button>
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
                 {hasChanges && (
-                  <Button variant="outline" onClick={handleUndo} disabled={saving} className="w-full sm:w-auto text-muted-foreground hover:text-foreground">
+                  <Button variant="outline" onClick={handleUndo} disabled={saving || disabled} className="w-full sm:w-auto text-muted-foreground hover:text-foreground">
                     <Undo2 className="w-4 h-4 mr-2" /> Undo Changes
                   </Button>
                 )}
-                <Button onClick={handleSave} disabled={saving || !hasChanges} className="w-full sm:w-auto">
+                <Button onClick={handleSave} disabled={saving || disabled || !hasChanges} className="w-full sm:w-auto">
                   {saving ? "Saving..." : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
                 </Button>
               </div>
@@ -329,18 +368,18 @@ export default function SystemConfig() {
           <Card className="rounded-xl sm:rounded-2xl">
             <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
               <CardTitle className="text-base sm:text-lg">Storage Management</CardTitle>
-              <CardDescription className="text-xs sm:text-sm">Manage how long scan logs and images are retained.</CardDescription>
+              <CardDescription className="text-xs sm:text-sm">Protect station history and manage unreferenced captures.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 px-4 sm:px-6 pb-4 sm:pb-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border">
                 <div>
                   <h4 className="font-medium text-sm sm:text-base">Data Retention</h4>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Delete logs older than 30 days automatically</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Clean unreferenced captures older than {config.retentionDays ?? "—"} days; retain scan records and referenced evidence</p>
                 </div>
                 <Button 
                   variant={localConfig.dataRetentionEnabled ? "default" : "outline"} 
                   onClick={toggleDataRetention} 
-                  disabled={saving}
+                  disabled={saving || disabled}
                   className="w-full sm:w-auto"
                 >
                   {localConfig.dataRetentionEnabled ? "Enabled" : "Disabled"}
@@ -355,6 +394,7 @@ export default function SystemConfig() {
                   <Download className="w-4 h-4 mr-2" /> Export CSV
                 </Button>
               </div>
+              <StationBackupControls disabled={disabled || saving} onBusy={setArchiveBusy} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -369,11 +409,11 @@ export default function SystemConfig() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border">
                 <div>
                   <h4 className="font-medium text-sm sm:text-base">System Status</h4>
-                  <p className="text-xs sm:text-sm text-muted-foreground">System is currently running</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">{powerMessage || maintenanceError || `Station ${maintenance?.state ?? "status loading"}`}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-sm font-medium text-emerald-600">Online</span>
+                  <span className="text-sm font-medium text-emerald-600">{maintenance?.state ?? "Loading"}</span>
                 </div>
               </div>
               
@@ -382,7 +422,7 @@ export default function SystemConfig() {
                   <h4 className="font-medium text-sm sm:text-base">Restart System</h4>
                   <p className="text-xs sm:text-sm text-muted-foreground">Reboot the mini PC. Services resume if host autostart is configured.</p>
                 </div>
-                <Button variant="outline" className="w-full sm:w-auto gap-2" onClick={() => setShowRestartDialog(true)}>
+                <Button variant="outline" className="w-full sm:w-auto gap-2" disabled={disabled || saving} onClick={() => { powerId.current = null; setShowRestartDialog(true) }}>
                   <RefreshCw className="w-4 h-4" />
                   Restart
                 </Button>
@@ -393,12 +433,32 @@ export default function SystemConfig() {
                   <h4 className="font-medium text-destructive text-sm sm:text-base">Shutdown System</h4>
                   <p className="text-xs sm:text-sm text-muted-foreground">Power off the mini PC</p>
                 </div>
-                <Button variant="destructive" onClick={() => setShowShutdownDialog(true)} className="w-full sm:w-auto gap-2">
+                <Button variant="destructive" disabled={disabled || saving} onClick={() => { powerId.current = null; setShowShutdownDialog(true) }} className="w-full sm:w-auto gap-2">
                   <Power className="w-4 h-4" />
                   Shutdown
                 </Button>
               </div>
 
+              {powerId.current && <Button variant="outline" onClick={async () => {
+                try { const result = await api.config.operation(powerId.current!); setPowerMessage(result.message ?? result.status); setPowerAccepted(["accepted", "unknown", "dispatching"].includes(result.status)) }
+                catch (error) { setPowerMessage(error instanceof Error ? error.message : "Status unavailable") }
+              }}>Check Power Status</Button>}
+              {(powerAccepted || maintenance?.state === "power-accepted" || maintenance?.state === "recovery-required") && <div className="space-y-3 p-4 rounded-xl border">
+                <Label htmlFor="power-password">Recovery administrator password</Label>
+                <Input id="power-password" type="password" value={recoveryPassword} onChange={e => setRecoveryPassword(e.target.value)} />
+                <Button variant="outline" disabled={!recoveryPassword || powerPending} onClick={async () => {
+                  setPowerPending(true)
+                  try { await api.config.recoverPower(recoveryPassword); setPowerAccepted(false); setMaintenance(await api.config.maintenance()); setRecoveryPassword("") }
+                  catch (error) { setPowerMessage(error instanceof Error ? error.message : "Cancellation unconfirmed; admission remains closed") }
+                  finally { setPowerPending(false) }
+                }}>Cancel Pending Power Command</Button>
+                <Button variant="outline" disabled={!recoveryPassword || powerPending} onClick={async () => {
+                  setPowerPending(true)
+                  try { setMaintenance(await api.config.recoverRestore(recoveryPassword)); setRecoveryPassword("") }
+                  catch (error) { setPowerMessage(error instanceof Error ? error.message : "Recovery failed") }
+                  finally { setPowerPending(false) }
+                }}>Retry Restore Recovery</Button>
+              </div>}
               <div className="mt-4 p-3 rounded-lg bg-muted/50 border">
                 <p className="text-xs text-muted-foreground">
                   <strong>Note:</strong> After shutdown, you will need physical access to the mini PC to power it back on. 
@@ -412,20 +472,20 @@ export default function SystemConfig() {
       </Tabs>
 
       {/* Shutdown Confirmation Dialog */}
-      <AlertDialog open={showShutdownDialog} onOpenChange={setShowShutdownDialog}>
+      <AlertDialog open={showShutdownDialog} onOpenChange={open => { if (!powerPending) setShowShutdownDialog(open) }}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Shutdown System?</AlertDialogTitle>
             <AlertDialogDescription>
               This will power off the mini PC. You will need physical access to restart the system. 
-              Make sure all scans are complete before proceeding.
+              New scans will be paused while active scans finish.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90" 
-              onClick={handleShutdown}
+              disabled={powerPending} onClick={event => { event.preventDefault(); void handlePower("shutdown") }}
             >
               <Power className="w-4 h-4 mr-2" />
               Shutdown Now
@@ -435,17 +495,17 @@ export default function SystemConfig() {
       </AlertDialog>
 
       {/* Restart Confirmation Dialog */}
-      <AlertDialog open={showRestartDialog} onOpenChange={setShowRestartDialog}>
+      <AlertDialog open={showRestartDialog} onOpenChange={open => { if (!powerPending) setShowRestartDialog(open) }}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Restart System?</AlertDialogTitle>
             <AlertDialogDescription>
-              This schedules a reboot of the mini PC. Services resume if host autostart is configured. Finish active scans first.
+              This schedules a reboot of the mini PC. Services resume if host autostart is configured. Active scans will finish before the request is sent.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRestart}>
+            <AlertDialogAction disabled={powerPending} onClick={event => { event.preventDefault(); void handlePower("restart") }}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Restart Now
             </AlertDialogAction>

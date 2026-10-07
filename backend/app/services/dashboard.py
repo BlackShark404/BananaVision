@@ -165,7 +165,9 @@ def _scan(row) -> DashboardScan:
 
 async def _threshold(db: AsyncSession) -> float:
     value = await db.scalar(
-        select(SystemConfig.confidence_threshold).order_by(SystemConfig.id).limit(1)
+        select(SystemConfig.confidence_threshold).order_by(
+            SystemConfig.canonical_key.desc().nulls_last(), SystemConfig.updated_at.desc(), SystemConfig.id.desc()
+        ).limit(1)
     )
     return DEFAULT_CONFIDENCE_THRESHOLD if value is None else float(value)
 

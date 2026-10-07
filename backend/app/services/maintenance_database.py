@@ -1,5 +1,6 @@
 """PostgreSQL station ownership and transaction-level maintenance coordination."""
 from contextlib import asynccontextmanager
+import asyncio
 
 from sqlalchemy import event, text
 from sqlalchemy.orm import Session
@@ -9,6 +10,7 @@ from app.services.runtime_operations import coordinator, maintenance_context
 STATION_OWNER_KEY = 786124904
 MAINTENANCE_KEY = 786124905
 _owner_connection = None
+_owner_mutex = asyncio.Lock()
 
 
 @event.listens_for(Session, "after_begin")
@@ -40,8 +42,9 @@ async def verify_station_owner():
     try:
         if _owner_connection.invalidated or _owner_connection.closed:
             raise RuntimeError("Station ownership connection was lost")
-        await _owner_connection.execute(text("SELECT 1"))
-        await _owner_connection.commit()
+        async with _owner_mutex:
+            await _owner_connection.execute(text("SELECT 1"))
+            await _owner_connection.commit()
     except Exception:
         coordinator.block("recovery-required")
         raise

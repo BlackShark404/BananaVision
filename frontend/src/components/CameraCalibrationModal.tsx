@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react"
-import { BASE_URL } from "@/lib/api"
+import { useState, useEffect, useRef } from "react"
+import { useAdmin } from "@/context/AdminContext"
+import type { ApiConfig } from "@/types/api"
+import { api, BASE_URL } from "@/lib/api"
 import { getToken } from "@/lib/auth"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -7,43 +9,48 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner"
 import { Camera, RefreshCw } from "lucide-react"
 
-export function CameraCalibrationModal() {
+interface CameraSlot { device_id: number; camera_id: string; label: string; online: boolean }
+
+export function CameraCalibrationModal({ disabled = false }: { disabled?: boolean }) {
+  const { acceptConfig } = useAdmin()
+  const [loadedConfig, setLoadedConfig] = useState<ApiConfig | null>(null)
+  const [error, setError] = useState("")
+  const pending = useRef(false)
+  const operationId = useRef<string | null>(null)
   const [open, setOpen] = useState(false)
-  const [cameras, setCameras] = useState<any[]>([])
+  const [cameras, setCameras] = useState<CameraSlot[]>([])
   const [labels, setLabels] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   // Mapping of label -> device_id
   const [mapping, setMapping] = useState<Record<string, number>>({})
 
-  const fetchCameras = async () => {
-    try {
-      const token = getToken()
-      const res = await fetch(`${BASE_URL}/api/v1/cameras`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      const data = await res.json()
-      setCameras(data)
-      
-      const dynamicLabels = data.map((cam: any) => cam.label)
-      setLabels(dynamicLabels)
-      
-      const newMapping: Record<string, number> = {}
-      data.forEach((cam: any) => {
-        if (cam.label) newMapping[cam.label] = cam.device_id
-      })
-      setMapping(newMapping)
-    } catch (e) {
-      toast.error("Failed to fetch cameras")
-    }
-  }
-
   useEffect(() => {
-    if (open) {
-      fetchCameras()
+    if (!open) return
+    const controller = new AbortController()
+    const load = async () => {
+      setLoadedConfig(null); setError(""); operationId.current = null
+      try {
+        const token = getToken()
+        const [res, saved] = await Promise.all([
+          fetch(`${BASE_URL}/api/v1/cameras`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, signal: controller.signal }),
+          api.config.get(controller.signal),
+        ])
+        if (!res.ok) throw new Error("Camera list could not be loaded")
+        const data: CameraSlot[] = await res.json()
+        if (controller.signal.aborted) return
+        setCameras(data); setLabels(data.map(cam => cam.camera_id))
+        setMapping(Object.fromEntries(data.map(cam => [cam.camera_id, cam.device_id])))
+        setLoadedConfig(saved)
+      } catch (error) {
+        if (!controller.signal.aborted) setError(error instanceof Error ? error.message : "Camera configuration unavailable")
+      }
     }
+    void load()
+    return () => controller.abort()
   }, [open])
 
   const handleSave = async () => {
+    if (!loadedConfig || pending.current) return
     // Reconstruct the array of device_ids in the exact order of labels
     const device_ids = labels.map(label => mapping[label])
     
@@ -59,6 +66,8 @@ export function CameraCalibrationModal() {
       return
     }
 
+    pending.current = true
+    operationId.current ??= crypto.randomUUID()
     setLoading(true)
     try {
       const token = getToken()
@@ -68,25 +77,29 @@ export function CameraCalibrationModal() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ device_ids })
+        body: JSON.stringify({ device_ids, expected_revision: loadedConfig.revision, operation_id: operationId.current })
       })
       if (!res.ok) {
         const error = await res.json().catch(() => null)
         throw new Error(typeof error?.detail === "string" ? error.detail : "Failed to update mapping")
       }
-      toast.success("Camera mapping saved and camera manager refreshed")
-      setOpen(false)
+      const saved: ApiConfig = await res.json()
+      acceptConfig(saved)
+      setLoadedConfig(saved)
+      if (saved.application_status === "applied") { toast.success("Camera mapping saved and applied"); setOpen(false) }
+      else { setError(saved.application_error ?? "Mapping saved; some cameras could not initialize"); toast.warning("Camera mapping saved; physical configuration is incomplete") }
     } catch (error) {
       toast.error("Failed to save camera mapping", { description: error instanceof Error ? error.message : "Please try again." })
     } finally {
+      pending.current = false
       setLoading(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={value => { if (!loading) setOpen(value) }}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full sm:w-auto gap-2">
+        <Button variant="outline" disabled={disabled} className="w-full sm:w-auto gap-2">
           <Camera className="w-4 h-4" />
           Calibrate Camera Positions
         </Button>
@@ -100,11 +113,12 @@ export function CameraCalibrationModal() {
           </DialogDescription>
         </DialogHeader>
 
-        {cameras.length === 0 ? (
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        {!loadedConfig && !error ? (
           <div className="py-8 flex justify-center"><RefreshCw className="animate-spin w-8 h-8 text-primary" /></div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {cameras.map((cam, index) => (
+            {cameras.map((cam) => (
               <div key={cam.device_id} className="border rounded-xl p-2 bg-muted/10 space-y-2">
                 <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
                   {cam.online ? (
@@ -151,7 +165,7 @@ export function CameraCalibrationModal() {
 
         <DialogFooter className="mt-4">
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={loading}>
+          <Button onClick={handleSave} disabled={loading || !loadedConfig}>
             {loading && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
             Save Mapping
           </Button>

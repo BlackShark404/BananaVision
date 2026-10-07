@@ -39,7 +39,10 @@ import uuid
 import random
 from datetime import timedelta
 from app.services.camera_manager import camera_manager
-from app.services.runtime_operations import station_lock
+from app.services.runtime_operations import station_lock, coordinator, run_blocking
+from app.services import configuration, maintenance_state, maintenance_database
+from app.services.backup_restore import get_service
+from app.services.power_control import reconcile_power
 from app.services.classification import banana_classifier
 from app.services.banana_detector import banana_pre_detector
 from app.services.spoilage import spoilage_predictor
@@ -67,21 +70,32 @@ async def run_startup():
     logger.info(f"  Debug: {settings.app_debug}")
     logger.info(f"  Cameras: {settings.camera_device_ids}")
 
-    # Ensure captures directory exists
-    settings.capture_path.mkdir(parents=True, exist_ok=True)
+    await maintenance_database.acquire_station_owner(engine)
+    coordinator.database_barrier = lambda: maintenance_database.database_barrier(engine)
 
     # ── Phase 2: Database ────────────────────────────────────────────────
     logger.info("[Phase 2] Connecting to database...")
     await initialize_schema(engine)
     logger.info("  Database tables initialized and versioned migrations applied")
 
-    # Seed default admin user if no users exist
+    service = get_service()
+    await run_blocking(service.prepare)
+    try:
+        await service.recover()
+    except Exception:
+        coordinator.block('recovery-required')
+        logger.exception('Recovery required; hardware and public data access remain blocked')
+        return
+    await reconcile_power()
+    if coordinator.state != 'ready':
+        return
+    settings.capture_path.mkdir(parents=True, exist_ok=True)
     async with async_session_factory() as db:
         await _seed_default_data(db)
-        config = await db.scalar(select(SystemConfig).limit(1))
-        camera_manager.set_logical_ids(
-            [value.strip() for value in config.camera_ids.split(",") if value.strip()] if config else []
-        )
+        config = await configuration.get_config(db)
+        state = await maintenance_state.get_state(db)
+        maintenance_state.publish_generation(state.auth_generation)
+        await db.commit()
 
     # ── Phase 3: ML Models ───────────────────────────────────────────────
     logger.info("[Phase 3] Loading ML models...")
@@ -97,14 +111,24 @@ async def run_startup():
 
     # ── Phase 4: Camera Initialization ───────────────────────────────────
     logger.info("[Phase 4] Initializing cameras...")
-    camera_results = camera_manager.initialize()
+    await configuration.apply_camera_config(config)
+    camera_results = dict(camera_manager._health)
 
     # Register camera status in DB
     async with async_session_factory() as db:
         await _register_cameras(db, camera_results)
 
+    async def refresh_hardware():
+        async with async_session_factory() as db:
+            restored = await configuration.get_config(db)
+            await db.commit()
+            await configuration.apply_camera_config(restored)
+            await _register_cameras(db, dict(camera_manager._health))
+            return configuration.config_response(restored)
+    service.hardware_refresh = refresh_hardware
+
     online = camera_manager.online_cameras
-    logger.info(f"  Cameras online: {len(online)}/{len(settings.camera_device_ids)}")
+    logger.info(f"  Cameras online: {len(online)}/{len(camera_manager._device_ids)}")
 
     # ── Phase 5: Sensor Initialization ───────────────────────────────────
     logger.info("[Phase 5] Initializing DHT22 sensor...")
@@ -126,13 +150,15 @@ async def run_shutdown():
     """
     logger.info("Shutting down BananaVision Backend...")
 
-    # Release cameras
-    camera_manager.release_all()
+    coordinator.block('draining')
+    await asyncio.wait_for(coordinator._empty.wait(), timeout=coordinator.drain_timeout)
+    await run_blocking(camera_manager.release_all)
 
     # Close sensor
     sensor_reader.disconnect()
 
     # Close DB connection pool
+    await maintenance_database.release_station_owner()
     await engine.dispose()
 
     logger.info("Shutdown complete.")
@@ -144,6 +170,8 @@ async def start_background_tasks():
     Returns list of tasks for cancellation on shutdown.
     """
     tasks: list[asyncio.Task] = []
+    if coordinator.state != "ready":
+        return tasks
 
     # Retention worker
     from app.services.data_retention import data_retention_worker
@@ -155,26 +183,27 @@ async def start_background_tasks():
         """Callback for each sensor reading — persist and broadcast."""
         from app.models.sensor_reading import SensorReading
 
-        # Persist to DB
-        async with async_session_factory() as db:
-            db.add(SensorReading(
-                temperature=data.temperature,
-                humidity=data.humidity,
-                recorded_at=data.recorded_at,
-            ))
-            await db.commit()
+        async with coordinator.operation():
+            # Persist to DB
+            async with async_session_factory() as db:
+                db.add(SensorReading(
+                    temperature=data.temperature,
+                    humidity=data.humidity,
+                    recorded_at=data.recorded_at,
+                ))
+                await db.commit()
 
-        # Broadcast via WebSocket
-        await ws_manager.send_to_room(events.ROOM_KIOSK, events.SENSOR_UPDATE, {
-            "temperature": data.temperature,
-            "humidity": data.humidity,
-            "recorded_at": data.recorded_at.isoformat(),
-        })
-        await ws_manager.send_to_room(events.ROOM_DASHBOARD, events.SENSOR_UPDATE, {
-            "temperature": data.temperature,
-            "humidity": data.humidity,
-            "recorded_at": data.recorded_at.isoformat(),
-        })
+            # Broadcast via WebSocket
+            await ws_manager.send_to_room(events.ROOM_KIOSK, events.SENSOR_UPDATE, {
+                "temperature": data.temperature,
+                "humidity": data.humidity,
+                "recorded_at": data.recorded_at.isoformat(),
+            })
+            await ws_manager.send_to_room(events.ROOM_DASHBOARD, events.SENSOR_UPDATE, {
+                "temperature": data.temperature,
+                "humidity": data.humidity,
+                "recorded_at": data.recorded_at.isoformat(),
+            })
 
     sensor_task = asyncio.create_task(sensor_reader.start_polling(on_sensor_reading))
     tasks.append(sensor_task)
@@ -186,7 +215,8 @@ async def start_background_tasks():
         loop = asyncio.get_event_loop()
 
         # Build the initial known state from camera_manager
-        initial_probe = await loop.run_in_executor(None, camera_manager.probe_all)
+        async with coordinator.operation():
+            initial_probe = await run_blocking(camera_manager.probe_all)
         last_known: dict[int, bool] = dict(initial_probe)
         last_mapping = tuple((dev_id, camera_manager._get_camera_id(dev_id)) for dev_id in initial_probe)
 
@@ -195,10 +225,10 @@ async def start_background_tasks():
             try:
                 if station_lock.locked():
                     continue
-                async with station_lock:
+                async with coordinator.operation(), station_lock:
                     # probe_all validates each camera's feed (reads frame + mean/stddev check)
                     # Run in executor to avoid blocking the event loop
-                    current_probe = await loop.run_in_executor(None, camera_manager.probe_all)
+                    current_probe = await run_blocking(camera_manager.probe_all)
                     mapping = tuple((dev_id, camera_manager._get_camera_id(dev_id)) for dev_id in current_probe)
                     if mapping != last_mapping:
                         last_known = {}
@@ -216,7 +246,7 @@ async def start_background_tasks():
                     # Apply DB updates and broadcast WS events
                     async with async_session_factory() as db:
                         for dev_id, is_online in changes:
-                            idx = settings.camera_device_ids.index(dev_id)
+                            idx = camera_manager._device_ids.index(dev_id)
                             camera_id = camera_manager._get_camera_id(dev_id)
                             label = (
                                 settings.camera_labels[idx]
