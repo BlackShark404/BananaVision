@@ -25,6 +25,7 @@ export function StationBackupControls({ disabled, onBusy }: { disabled: boolean;
     finally { pending.current = false; setBusy(false); onBusy(false) }
   }
   const create = () => run(async () => {
+    if (backup?.status === "completed" || backup?.status === "failed") backupId.current = null
     backupId.current ??= crypto.randomUUID()
     const result = await api.config.backup(backupId.current)
     setBackup(result)

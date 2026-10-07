@@ -237,3 +237,24 @@ def test_truncated_zip_is_a_validation_error(archive_module, tmp_path):
     path.write_bytes(b"PK\x03\x04broken")
     with pytest.raises(archive_module.ArchiveError):
         archive_module.validate_archive(path, tmp_path / "validation")
+
+
+def test_backup_records_model_identity_without_including_weights(station, archive_module, tmp_path, monkeypatch):
+    from app.config import get_settings
+    weights = tmp_path / 'classifier.pt'; weights.write_bytes(b'model identity')
+    monkeypatch.setattr(get_settings(), 'yolo_model_path', str(weights))
+    result = backup(archive_module, station, tmp_path)
+    with zipfile.ZipFile(result) as z:
+        manifest = json.loads(z.read('manifest.json'))
+        assert manifest['prerequisites']['models']['classifier']['sha256'] == hashlib.sha256(b'model identity').hexdigest()
+        assert not any(n.endswith('.pt') for n in z.namelist())
+
+
+@pytest.mark.parametrize('cost', ['00', '99'])
+def test_archive_rejects_unusable_administrator_bcrypt_cost(station, archive_module, tmp_path, cost):
+    result = backup(archive_module, station, tmp_path)
+    def invalid_hash(rows):
+        rows[0]['password_hash'] = '$2b$'+cost+'$'+rows[0]['password_hash'][7:]
+    rewrite(result, edit_row=('user_account', invalid_hash))
+    with pytest.raises(archive_module.ArchiveError, match='usable active administrator'):
+        archive_module.validate_archive(result, tmp_path / 'invalid-cost')

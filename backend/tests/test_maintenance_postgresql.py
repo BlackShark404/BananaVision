@@ -142,3 +142,47 @@ async def test_database_lock_blocks_external_writers_and_owner_is_unique(recover
                 await db.rollback()
     finally:
         await maintenance_database.release_station_owner()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure_point", ["copy", "flush"])
+async def test_restore_preparation_failure_is_terminal_and_preserves_station(recovery_station, monkeypatch, failure_point):
+    x = recovery_station
+    identifier = uuid4()
+    def full_disk(*args, **kwargs):
+        raise OSError('Injected disk full during evidence staging')
+    if failure_point == 'copy':
+        monkeypatch.setattr(restore.shutil, 'copytree', full_disk)
+    else:
+        monkeypatch.setattr(restore, 'sync_tree', full_disk, raising=False)
+    with pytest.raises(OSError):
+        await x.service.restore(identifier, x.validation['validation_id'], x.validation['token'], x.actor, 'session')
+    result = await x.service.saved_result(identifier, x.actor, 'restore')
+    assert result['status'] == 'failed'
+    assert not x.service.journal.exists()
+    async with x.sessions() as db:
+        assert await db.scalar(select(UserAccount.full_name)) == 'Current station name'
+    assert x.coordinator.state == 'ready'
+
+
+@pytest.mark.asyncio
+async def test_verified_restore_survives_crash_during_hardware_refresh(recovery_station):
+    x = recovery_station
+    identifier = uuid4()
+    class Crash(BaseException):
+        pass
+    async def refresh():
+        # A legitimate post-restore hardware/status write changes archive hashes.
+        async with x.sessions() as db:
+            await db.execute(update(UserAccount).values(full_name='After verified restore'))
+            await db.commit()
+        raise Crash()
+    x.service.hardware_refresh = refresh
+    with pytest.raises(Crash):
+        await x.service.restore(identifier, x.validation['validation_id'], x.validation['token'], x.actor, 'session')
+    x.service.hardware_refresh = None
+    await x.service.recover()
+    assert (await x.service.saved_result(identifier, x.actor, 'restore'))['status'] == 'completed'
+    async with x.sessions() as db:
+        assert await db.scalar(select(UserAccount.full_name)) == 'After verified restore'
+    assert x.coordinator.state == 'ready'

@@ -296,6 +296,16 @@ def _descriptor(size, digest, count=None):
     return result
 
 
+def model_prerequisites():
+    from app.config import get_settings
+    settings = get_settings()
+    result = {}
+    for name, configured in [('classifier', settings.yolo_model_path), ('spoilage', settings.rfr_model_path)]:
+        path = Path(configured)
+        result[name] = {'filename': path.name, 'sha256': _hash_file(path) if path.is_file() else None}
+    return result
+
+
 async def create_archive(db, capture_root: Path, destination: Path) -> dict:
     """Stream a drained, consistent database snapshot and all referenced evidence."""
     capture_root, destination = Path(capture_root).absolute(), Path(destination).absolute()
@@ -311,7 +321,7 @@ async def create_archive(db, capture_root: Path, destination: Path) -> dict:
                     "application_version": "0.1.0", "created_at": now_manila().isoformat(),
                     "schema": schema_description(), "tables": {}, "files": {},
                     "prerequisites": {"database": "PostgreSQL", "timezone": "Asia/Manila",
-                                      "models": "Compatible YOLO and spoilage RFR deployment required"}}
+                                      "models": model_prerequisites()}}
         references = {}
         total = 0
         total_rows = 0
@@ -468,9 +478,9 @@ def _check_constraints(validated):
                     raise ArchiveError("Broken foreign key")
         admins = connection.execute('''SELECT a.password_hash FROM user_account a
             JOIN user_role r ON a.role_id=r.id JOIN admin_profile p ON p.account_id=a.id
-            WHERE r.name=? AND a.status=?''', ('"Admin"', '"Active"'))
+            WHERE r.name=? AND a.status=? AND a.requires_password_change='false' ''', ('"Admin"', '"Active"'))
         # Accepted hash shape is bcrypt, the application's actual password verifier.
-        if not any(re.fullmatch(r"\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}", json.loads(row[0])) for row in admins):
+        if not any(re.fullmatch(r"\$2[aby]\$(?:0[4-9]|1[0-6])\$[./A-Za-z0-9]{53}", json.loads(row[0])) for row in admins):
             raise ArchiveError("Backup has no usable active administrator")
     except sqlite3.IntegrityError as exc:
         raise ArchiveError("Duplicate primary or unique key") from exc

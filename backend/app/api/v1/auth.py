@@ -83,18 +83,23 @@ async def login(body: LoginRequest, db: DbSession, request: Request):
             detail=f"Too many failed login attempts. Try again in {remaining} seconds.",
         )
 
-    status, user, reason = await authenticate_user(db, body.username, body.password)
+    from app.services.runtime_operations import coordinator
+    recovery_login = coordinator.state in {"power-accepted", "recovery-required"}
+    status, user, reason = await authenticate_user(db, body.username, body.password, readonly=recovery_login)
+    if recovery_login and user and (not user.role or user.role.name != 'Admin' or user.requires_password_change):
+        raise HTTPException(403, 'Recovery requires an active administrator with completed credential setup')
 
     if status == "failed":
         is_locked, info = login_limiter.record_failure(body.username)
-        # AUDIT-02: Record failed login attempt
-        db.add(ActivityLog(
-            user_id=None,
-            action="login_failed",
-            details=f"Failed login attempt for username '{body.username}'",
-            ip_address=request.client.host if request.client else None,
-        ))
-        await db.flush()
+        if not recovery_login:
+            # AUDIT-02: Record failed login attempt
+            db.add(ActivityLog(
+                user_id=None,
+                action="login_failed",
+                details=f"Failed login attempt for username '{body.username}'",
+                ip_address=request.client.host if request.client else None,
+            ))
+            await db.flush()
         if is_locked:
             raise HTTPException(
                 status_code=429,
@@ -112,15 +117,21 @@ async def login(body: LoginRequest, db: DbSession, request: Request):
 
     # Success — clear rate limit record
     login_limiter.record_success(body.username)
-    token = create_user_token(user)
+    if recovery_login:
+        from sqlalchemy import select
+        from app.models.maintenance_state import MaintenanceState
+        generation = await db.scalar(select(MaintenanceState.auth_generation).where(MaintenanceState.id == 1))
+        token = create_user_token(user, generation=generation or 'initial')
+    else:
+        token = create_user_token(user)
 
-    db.add(ActivityLog(
-        user_id=user.id,
-        action="login",
-        details=f"User {user.username} logged in",
-        ip_address=request.client.host if request.client else None,
-    ))
-    await db.flush()
+        db.add(ActivityLog(
+            user_id=user.id,
+            action="login",
+            details=f"User {user.username} logged in",
+            ip_address=request.client.host if request.client else None,
+        ))
+        await db.flush()
 
     return LoginResponse(
         status="success",

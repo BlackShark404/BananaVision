@@ -107,15 +107,30 @@ async def reconcile_power():
                 state.power = result
                 await record_operation(db, power['id'], result)
             else:
+                coordinator.kind = power['kind']
                 coordinator.block('power-accepted' if power['status'] == 'accepted' else 'recovery-required')
         await db.commit()
 
 
+_cancel_lock = asyncio.Lock()
+
+
 async def cancel_power():
+    async with _cancel_lock:
+        return await _cancel_power()
+
+
+async def _cancel_power():
     """Caller has reauthenticated; only OS-confirmed cancellation reopens admission."""
     async with async_session_factory() as db:
         state = await get_state(db)
         power = state.power
+        if power and coordinator.kind not in {None, power.get('kind')}:
+            raise HTTPException(409, 'Another maintenance operation owns station admission')
+        if power and power.get('status') == 'cancelled':
+            if coordinator.state != 'ready':
+                await coordinator.finish_recovery()
+            return power
         if not power or power.get('status') not in {'dispatching', 'accepted', 'unknown'}:
             raise HTTPException(409, 'There is no pending power operation')
         await _schedule_power_action('cancel')
@@ -123,5 +138,5 @@ async def cancel_power():
         state.power = result
         await record_operation(db, power['id'], result)
         await db.commit()
-    coordinator.resume()
+    await coordinator.finish_recovery()
     return result

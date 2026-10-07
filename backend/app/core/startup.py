@@ -53,6 +53,8 @@ from app.schemas.enums import RoleEnum, ActiveStatusEnum, DeviceStatusEnum, Pass
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+_runtime_ready = False
+_background_tasks: list[asyncio.Task] = []
 
 
 async def run_startup():
@@ -70,6 +72,9 @@ async def run_startup():
     logger.info(f"  Debug: {settings.app_debug}")
     logger.info(f"  Cameras: {settings.camera_device_ids}")
 
+    global _runtime_ready
+    _runtime_ready = False
+    coordinator.runtime_resume = None
     await maintenance_database.acquire_station_owner(engine)
     coordinator.database_barrier = lambda: maintenance_database.database_barrier(engine)
 
@@ -86,9 +91,25 @@ async def run_startup():
         coordinator.block('recovery-required')
         logger.exception('Recovery required; hardware and public data access remain blocked')
         return
+    finally:
+        coordinator.runtime_resume = resume_runtime
     await reconcile_power()
     if coordinator.state != 'ready':
         return
+    await _initialize_runtime()
+    _runtime_ready = True
+
+
+async def resume_runtime():
+    global _runtime_ready
+    if not _runtime_ready:
+        await _initialize_runtime()
+        await start_background_tasks(allow_blocked=True)
+        _runtime_ready = True
+
+
+async def _initialize_runtime():
+    service = get_service()
     settings.capture_path.mkdir(parents=True, exist_ok=True)
     async with async_session_factory() as db:
         await _seed_default_data(db)
@@ -161,16 +182,17 @@ async def run_shutdown():
     await maintenance_database.release_station_owner()
     await engine.dispose()
 
+    _background_tasks.clear()
     logger.info("Shutdown complete.")
 
 
-async def start_background_tasks():
+async def start_background_tasks(*, allow_blocked=False):
     """
     Start long-running background tasks (called after startup).
     Returns list of tasks for cancellation on shutdown.
     """
-    tasks: list[asyncio.Task] = []
-    if coordinator.state != "ready":
+    tasks = _background_tasks
+    if tasks or (coordinator.state != "ready" and not allow_blocked):
         return tasks
 
     # Retention worker

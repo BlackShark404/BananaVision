@@ -131,3 +131,18 @@ async def test_restore_generation_revokes_token_without_changing_account_version
 
 # Reuse the isolated real-route SQLite fixture; never the configured station database.
 from tests.test_time_and_writes import application  # noqa: E402,F401
+
+
+@pytest.mark.asyncio
+async def test_maintenance_and_recovery_fail_closed_after_ownership_loss():
+    coordinator = runtime.StationCoordinator()
+    async def lost_owner():
+        coordinator.block('recovery-required')
+        raise RuntimeError('Station ownership lost')
+    coordinator.owner_check = lost_owner
+    with pytest.raises(RuntimeError, match='ownership'):
+        async with coordinator.exclusive('backup'):
+            pytest.fail('maintenance cannot proceed without ownership')
+    with pytest.raises(RuntimeError, match='ownership'):
+        await coordinator.finish_recovery()
+    assert coordinator.state == 'recovery-required'

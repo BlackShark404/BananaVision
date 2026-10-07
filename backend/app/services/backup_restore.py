@@ -13,6 +13,7 @@ import os
 import secrets
 import shutil
 import subprocess
+import time
 import uuid
 from datetime import timedelta
 from pathlib import Path
@@ -35,6 +36,17 @@ def _sync_parent(path):
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
+
+
+def sync_tree(root: Path):
+    for path in root.rglob('*'):
+        archive._no_links(path)
+        if path.is_file():
+            with path.open('r+b') as output:
+                os.fsync(output.fileno())
+        elif path.is_dir():
+            _sync_parent(path)
+    _sync_parent(root)
 
 
 def atomic_json(path: Path, value):
@@ -111,6 +123,31 @@ class MaintenanceService:
                             f'{identity}:(OI)(CI)F', '*S-1-5-18:(OI)(CI)F'],
                            capture_output=True, timeout=10, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
 
+        self.cleanup_temporary()
+
+    def cleanup_temporary(self):
+        # Validation tokens last 15 minutes; leave a full day of grace for failures.
+        # Completed backups and every rollback/recovery directory are retained.
+        protected = set()
+        if self.journal.exists():
+            journal = json.loads(self.journal.read_text(encoding='utf-8'))
+            protected = {journal.get('id'), journal.get('validation_id')}
+        for directory in self.root.iterdir():
+            if directory.name in protected:
+                continue
+            try:
+                uuid.UUID(directory.name)
+            except ValueError:
+                continue
+            archive._no_links(directory)
+            if not directory.is_dir() or (directory / 'station.zip').exists() or (directory / 'rollback.zip').exists():
+                continue
+            paths = [directory, *directory.rglob('*')]
+            for path in paths:
+                archive._no_links(path)
+            if max(path.stat().st_mtime for path in paths) < time.time() - 86400:
+                shutil.rmtree(directory)
+
     def directory(self, identifier):
         identifier = str(uuid.UUID(str(identifier)))
         path = self.root / identifier
@@ -136,6 +173,7 @@ class MaintenanceService:
             if previous:
                 return previous
             async with coordinator.exclusive('backup'):
+                await run_blocking(self.cleanup_temporary)
                 directory = self.directory(identifier)
                 result = {'id': str(identifier), 'kind': 'backup', 'actor_id': str(actor_id), 'status': 'creating'}
                 await self.save_result(result)
@@ -263,15 +301,21 @@ class MaintenanceService:
                 directory = self.directory(identifier)
                 result = {'id': str(identifier), 'kind': 'restore', 'actor_id': str(actor_id), 'status': 'restoring'}
                 await self.save_result(result)
-                async with self.sessions() as db:
-                    await archive.create_archive(db, self.capture_root, directory / 'rollback.zip')
-                rollback = await run_blocking(archive.validate_archive, directory / 'rollback.zip', directory / 'rollback')
-                archive._space(self.root, sum(f['size'] for f in validated.manifest['files'].values()))
-                new, old = directory / 'new-evidence', directory / 'old-evidence'
-                await run_blocking(shutil.copytree, validated.evidence_root, new)
-                journal = {'id': str(identifier), 'validation_id': str(validation_id), 'phase': 'restore',
-                           'actor_id': str(actor_id), 'manifest': validated.manifest, 'rollback_manifest': rollback.manifest}
-                atomic_json(self.journal, journal)
+                try:
+                    async with self.sessions() as db:
+                        await archive.create_archive(db, self.capture_root, directory / 'rollback.zip')
+                    rollback = await run_blocking(archive.validate_archive, directory / 'rollback.zip', directory / 'rollback')
+                    archive._space(self.root, sum(f['size'] for f in validated.manifest['files'].values()))
+                    new, old = directory / 'new-evidence', directory / 'old-evidence'
+                    await run_blocking(shutil.copytree, validated.evidence_root, new)
+                    await run_blocking(sync_tree, new)
+                    journal = {'id': str(identifier), 'validation_id': str(validation_id), 'phase': 'restore',
+                               'actor_id': str(actor_id), 'manifest': validated.manifest, 'rollback_manifest': rollback.manifest}
+                    atomic_json(self.journal, journal)
+                except Exception:
+                    result.update(status='failed', message='Restore preparation failed; station data was not replaced')
+                    await self.save_result(result)
+                    raise
                 coordinator.block('recovery-required')
                 try:
                     self.capture_root.rename(old)
@@ -291,6 +335,10 @@ class MaintenanceService:
                 return await self.saved_result(identifier, actor_id, 'restore')
 
     async def _finish(self, journal, status, message):
+        # Hardware refresh may legitimately mutate device/config rows. Publish the verified
+        # data boundary first so a process crash cannot turn those writes into a rollback.
+        journal = {**journal, 'phase': 'data-verified', 'status': status, 'message': message}
+        atomic_json(self.journal, journal)
         async with self.sessions() as db:
             state = await state_store.get_state(db)
             state_store.publish_generation(state.auth_generation)
@@ -304,7 +352,7 @@ class MaintenanceService:
         await self.save_result(result)
         # Keep verified rollback archive/evidence; ordinary retention must never remove them.
         atomic_json(self.journal, {**journal, 'phase': 'finished'})
-        coordinator.resume()
+        await coordinator.finish_recovery()
         from app.ws.manager import ws_manager
         for socket in list(ws_manager._client_rooms):
             ws_manager.disconnect(socket)
@@ -314,12 +362,18 @@ class MaintenanceService:
                 pass
 
     async def recover(self):
+        if coordinator.owner_check:
+            await coordinator.owner_check()
         if not self.journal.exists():
             return
         journal = json.loads(self.journal.read_text(encoding='utf-8'))
         if journal['phase'] == 'finished':
             return
         coordinator.block('recovery-required')
+        coordinator.kind = 'restore'
+        if journal['phase'] == 'data-verified':
+            await self._finish(journal, journal['status'], journal['message'])
+            return
         directory = self.directory(journal['id'])
         old, new = directory / 'old-evidence', directory / 'new-evidence'
         marker = await self.marker()  # Failure leaves admission closed and every tree intact.

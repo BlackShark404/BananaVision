@@ -35,7 +35,7 @@ async function setup(t, options = {}) {
   const state = {
     scans: rows(options.count), requests: [], failPage: 0, failWrites: true, holdWrite: null, pageOverride: null,
     users: [{ id: "admin-1", username: "admin", full_name: "Test Admin", role: "Admin", status: "Active", last_active: storedDate(0) }],
-    config: { camera_ids: "CAM-001", confidence_threshold: 85, data_retention_enabled: true },
+    config: { camera_ids: "CAM-001", camera_device_ids: [0], confidence_threshold: 85, data_retention_enabled: true, revision: 1, application_status: "applied" },
     suppliers: [{ id: "supplier-1", name: "Original supplier", status: "Active", date_added: storedDate(0) }],
     intakes: [1, 2].map(id => ({ id: `intake-${id}`, supplier_id: "supplier-1", supplier_name: "Original supplier", batch_number: `batch-${id}`, intake_date: storedDate(id), status: "Active", scan_count: 1 })),
     ...options,

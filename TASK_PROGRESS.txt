@@ -1,14 +1,48 @@
-CURRENT RESUME HERE (2026-10-07)
+CURRENT RESUME HERE (2026-10-08)
 TASK: Finish approved System Configuration, Export, and Maintenance implementation.
-Current baseline: bc3ed4c, explicit revert of scan-record task preserved; do not reapply it.
-The older checkpoint below is superseded. Design approved and stage gates waived by user.
-DONE: approved specification and implementation plan read. Partial implementation is committed
-in 9f2dba2: config/CAS/inference, camera health, coordinator, auth generation, archive primitives.
-IN PROGRESS: finish missing migration, startup/coordination, devices, retention, backup/restore/
-recovery/power APIs and frontend. Subagents unavailable (account usage limit); root implementing.
-NOT YET STARTED: full integration/security review/final verification. Prior baseline need not repeat.
-No live database, cleanup, hardware, restore, reboot or shutdown operations authorized for tests.
-Next: regression tests for remaining integration gaps; implement and verify in isolated fixtures.
+Current baseline: 58d7337; user committed implementation in e4dc9cc after foundation 9f2dba2.
+Explicit Scan Logs/Detail reverts preserved. Approved design and plan are in docs/superpowers.
+This checkpoint supersedes all archived status below; stage approvals already waived.
+
+DONE
+- Configuration revision/CAS, saved/applied state, threshold snapshot, real camera mapping/health.
+- Migrations 0003/0004, station admission/draining and PostgreSQL coordination.
+- Safe orphan-only retention; versioned archives, validation, in-place restore/compensation.
+- Maintenance/power/recovery APIs and existing-style System Configuration frontend controls.
+- Isolated PostgreSQL round-trip, uncertain commits, compensation and lock regression coverage.
+
+IN PROGRESS
+- Added durable data-verified restore phase and terminal preparation failures (PG regressions green).
+- Added read-only administrator recovery login, idempotent power cancellation and deferred runtime resume.
+- Added conservative validation-file expiry, model hashes/prerequisites, usable bcrypt validation.
+- Fixed obsolete harness assertions; added new-backup-ID, owner-loss and camera-apply retry tests.
+- Finishing ownership/apply regression verification, then full suite and security review.
+
+FRESH TEST RESULTS (2026-10-08)
+- PostgreSQL restore suite: 9 passed in 17.74s, including new crash and preparation failures.
+- Maintenance integration + time/write suite: 42 passed in 5.87s.
+- Archive/recovery suite: 29 passed in 7.62s.
+- Browser: 6 passed, 1 new regression failed (Create Backup reused ID); implementation corrected,
+  rerun pending. Original 6 browser cases pass after correcting obsolete toast assertion.
+- New ownership-loss and repeated-apply tests RED: 2 failed as expected; implementation added,
+  rerun pending. Full frontend lint/build/security scan still pending.
+- Windows sandbox blocks temp folders and Chromium localhost; tests run elevated with isolated
+  generated data only, explicit new --basetemp and disposable PostgreSQL. No live operations.
+
+SAFETY / ENVIRONMENT
+- No live station DB, captures, cleanup, hardware, restore or power actions permitted for tests.
+- Disposable PostgreSQL18 cluster only: C:/Users/RORONO~1/AppData/Local/Temp/bv-maint-pg-4d1590a33ebb4493b23321cf50ab3087
+  URL postgresql+asyncpg://bvtest@127.0.0.1:56843/postgres. Verify its status before tests.
+  Binary C:/Program Files/PostgreSQL/18/bin. Stop this cluster after verification.
+  backend/tests/.maintenance-pg-path.txt is machine-specific test residue; remove it.
+- Run pytest from a new OS-temp cwd with backend on sys.path to avoid loading the live .env.
+- Real hardware, real OS power behavior remain unverified; destructive failure tests use mocks.
+
+NEXT / NOT YET STARTED
+1. Regression-driven recovery finalization/failure handling; admin recovery login/runtime resume.
+2. Idempotent recovery/apply operations and remaining storage lifecycle safeguards as needed.
+3. Fix known harness failures; full isolated backend/PostgreSQL and frontend checks.
+4. Security review, final scoped Git diff, final checkpoint/results; stop disposable DB.
 
 ARCHIVED CHECKPOINT (historical status only)
 TASK: System Configuration, Export, and Maintenance

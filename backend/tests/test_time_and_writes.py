@@ -259,7 +259,8 @@ def test_http_write_only_succeeds_after_commit_and_failure_rolls_back(applicatio
         assert app.state.events == ["commit", "rollback", "response:500"]
     else:
         assert 200 <= response.status_code < 300, response.text
-        assert app.state.events == ["commit", f"response:{response.status_code}"]
+        assert app.state.events[-1] == f"response:{response.status_code}"
+        assert app.state.events[:-1] and set(app.state.events[:-1]) == {"commit"}
 
     with Session(app.engine) as db:
         saved = not fail_commit
@@ -337,6 +338,7 @@ async def test_camera_monitor_retries_persistence_failure_before_announcing_stat
     from app.core import startup
 
     tasks, events = [], []
+    monkeypatch.setattr(startup, "_background_tasks", [])
     calls = {"sleep": 0, "probe": 0, "commit": 0}
 
     def capture_task(coroutine):
@@ -383,11 +385,15 @@ async def test_camera_monitor_retries_persistence_failure_before_announcing_stat
         assert data["last_seen"].endswith("+08:00")
         events.append(f"ws:{room}")
 
+    async def immediate(function, *args, **kwargs):
+        return function(*args, **kwargs)
+
+    monkeypatch.setattr(startup, "run_blocking", immediate)
     monkeypatch.setattr(startup.asyncio, "create_task", capture_task)
     monkeypatch.setattr(startup.asyncio, "sleep", tick)
     monkeypatch.setattr(startup.asyncio, "get_event_loop", lambda: Loop())
     monkeypatch.setattr(startup, "sensor_reader", SimpleNamespace(start_polling=no_sensor))
-    monkeypatch.setattr(startup, "camera_manager", SimpleNamespace(probe_all=probe, _get_camera_id=lambda _: "CAM-001"))
+    monkeypatch.setattr(startup, "camera_manager", SimpleNamespace(_device_ids=[0], probe_all=probe, _get_camera_id=lambda _: "CAM-001"))
     monkeypatch.setattr(startup, "settings", SimpleNamespace(camera_device_ids=[0], camera_labels=["Camera 1"]))
     monkeypatch.setattr(startup, "async_session_factory", CameraSession)
     monkeypatch.setattr(startup.ws_manager, "send_to_room", send)

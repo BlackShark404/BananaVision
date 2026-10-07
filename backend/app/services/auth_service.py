@@ -73,7 +73,7 @@ async def lock_current_account(db: AsyncSession, user: UserAccount) -> UserAccou
 
 
 async def authenticate_user(
-    db: AsyncSession, username: str, password: str
+    db: AsyncSession, username: str, password: str, *, readonly: bool = False
 ) -> tuple[str, UserAccount | None, str | None]:
     """
     Authenticate a user by username + password.
@@ -100,8 +100,9 @@ async def authenticate_user(
         reason = user.password_setup_reason or "password_change"
         return "requires_password_change", user, reason
 
-    # Update last_active
-    user.last_active = now_manila()
+    # Recovery login must not mutate data being verified against a restore archive.
+    if not readonly:
+        user.last_active = now_manila()
     return "success", user, None
 
 
@@ -244,7 +245,7 @@ async def setup_pin(
     return user
 
 
-def create_user_token(user: UserAccount) -> str:
+def create_user_token(user: UserAccount, *, generation: str | None = None) -> str:
     """Create a JWT access token for the given user."""
     # Check if role is populated, otherwise fallback dynamically
     role_name = getattr(user.role, "name", "Unknown") if hasattr(user, "role") and user.role else "Unknown"
@@ -255,5 +256,5 @@ def create_user_token(user: UserAccount) -> str:
             "username": user.username,
             "role": role_name,
             "tv": user.token_version,
-        }
+        }, generation=generation
     )

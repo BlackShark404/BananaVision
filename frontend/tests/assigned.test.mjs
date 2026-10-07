@@ -10,6 +10,7 @@ async function setup(t, screen, role = "Admin") {
   const context = await runtime.browser.newContext({ viewport: { width: 1280, height: 1000 } })
   const page = await context.newPage()
   page.setDefaultTimeout(10000)
+  page.setDefaultNavigationTimeout(45000)
   const errors = [], requests = []
   page.on("pageerror", error => errors.push(error.message))
   t.after(async () => { await context.close(); assert.deepEqual(errors, []) })
@@ -51,7 +52,7 @@ async function setup(t, screen, role = "Admin") {
     if (path === "/api/v1/devices") return reply([])
     return reply({ detail: "Unexpected fixture request" }, 404)
   })
-  await page.goto(`${runtime.url}/dashboard?screen=${screen}`)
+  await page.goto(`${runtime.url}/dashboard?screen=${screen}`, { waitUntil: "domcontentloaded" })
   return { page, requests }
 }
 

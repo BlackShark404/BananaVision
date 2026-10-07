@@ -60,6 +60,7 @@ class StationCoordinator:
         self._depth = ContextVar(f"station_depth_{id(self)}", default=0)
         self.database_barrier = None
         self.owner_check = None
+        self.runtime_resume = None
 
     def assert_ready(self):
         if self.state != "ready":
@@ -93,6 +94,8 @@ class StationCoordinator:
         self.state, self.kind = "draining", kind
         token = maintenance_context.set(True)
         try:
+            if self.owner_check:
+                await self.owner_check()
             try:
                 await asyncio.wait_for(self._empty.wait(), timeout=self.drain_timeout)
             except TimeoutError as exc:
@@ -110,6 +113,17 @@ class StationCoordinator:
 
     def block(self, state: str = "recovery-required"):
         self.state = state
+
+    async def finish_recovery(self):
+        if self.owner_check:
+            await self.owner_check()
+        if self.runtime_resume:
+            try:
+                await self.runtime_resume()
+            except Exception:
+                self.block('recovery-required')
+                raise
+        self.resume()
 
     def resume(self):
         if self.active:
@@ -130,7 +144,9 @@ class StationAdmissionMiddleware:
 
     async def __call__(self, scope, receive, send):
         path = scope.get("path", "")
-        control = (path == "/health" or path.startswith("/api/v1/config/maintenance")
+        recovery_login = (path == "/api/v1/auth/login" and
+                          coordinator.state in {"power-accepted", "recovery-required"})
+        control = (recovery_login or path == "/health" or path.startswith("/api/v1/config/maintenance")
                    or path.startswith("/api/v1/config/operations/")
                    or path.startswith("/api/v1/config/backups")
                    or path.startswith("/api/v1/config/restores")

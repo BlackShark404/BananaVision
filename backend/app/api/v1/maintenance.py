@@ -148,16 +148,43 @@ async def cancel_power(body: RecoveryRequest, db: DbSession, admin: AdminUser):
 @router.post('/maintenance/recover')
 async def recover(body: RecoveryRequest, db: DbSession, admin: AdminUser):
     await reauthenticate(db, admin, body.password)
-    await safe_operation(get_service().recover())
-    return coordinator.status()
+    service = get_service()
+    async def recover_station():
+        async with service._lock:
+            state = await maintenance_state.get_state(db)
+            if state.power and state.power.get('status') in {'dispatching', 'accepted', 'unknown'}:
+                raise HTTPException(409, 'Cancel the pending power operation first')
+            if coordinator.state != 'recovery-required':
+                raise HTTPException(409, 'Station does not require recovery')
+            await service.recover()
+            if coordinator.state != 'ready':
+                await coordinator.finish_recovery()
+        return coordinator.status()
+    return await safe_operation(recover_station())
 
 
 @router.post('/maintenance/apply')
 async def apply_cameras(body: OperationRequest, db: DbSession, admin: AdminUser):
-    async with coordinator.exclusive('camera-configuration'):
-        config = await configuration.get_config(db)
-        await db.commit()
-        async with station_lock:
-            await configuration.apply_camera_config(config)
-            await configuration.sync_devices(db)
-        return configuration.config_response(config)
+    async def apply():
+        async with get_service()._lock:
+            identifier = str(body.operation_id)
+            previous = await maintenance_state.operation_result(db, identifier)
+            if previous:
+                if previous.get('actor_id') != str(admin.id) or previous.get('kind') != 'camera-configuration':
+                    raise HTTPException(409, 'Operation ID already used')
+                if previous.get('status') == 'completed':
+                    return previous['configuration']
+                raise HTTPException(409, 'Previous camera application is incomplete; use a new operation ID to retry')
+            async with coordinator.exclusive('camera-configuration'):
+                config = await configuration.get_config(db)
+                result = {'id': identifier, 'kind': 'camera-configuration', 'actor_id': str(admin.id), 'status': 'applying'}
+                await maintenance_state.record_operation(db, identifier, result)
+                await db.commit()
+                async with station_lock:
+                    await configuration.apply_camera_config(config)
+                    await configuration.sync_devices(db)
+                response = configuration.config_response(config)
+                await maintenance_state.record_operation(db, identifier, {**result, 'status': 'completed', 'configuration': response})
+                await db.commit()
+                return response
+    return await safe_operation(apply())

@@ -48,11 +48,12 @@ def verify_pin(plain_pin: str, hashed_pin: str) -> bool:
 def create_access_token(
     data: dict,
     expires_delta: timedelta | None = None,
+    *, generation: str | None = None,
 ) -> str:
     """Create a signed JWT access token."""
     to_encode = data.copy()
     from app.services.maintenance_state import auth_generation
-    to_encode["sg"] = auth_generation
+    to_encode["sg"] = generation if generation is not None else auth_generation
     expire = now_manila() + (
         expires_delta
         or timedelta(minutes=settings.jwt_access_token_expire_minutes)
