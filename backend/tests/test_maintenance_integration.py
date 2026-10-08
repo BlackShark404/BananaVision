@@ -174,8 +174,13 @@ async def test_camera_apply_operation_replay_does_not_reinitialize(application, 
     body = maintenance.OperationRequest(operation_id=uuid4())
     admin = SimpleNamespace(id=application.ids.admin)
     from starlette.requests import Request
+
     from app.core.security import create_access_token
-    token = create_access_token({'sub':str(admin.id), 'tv':0}, generation='initial')
+    from app.models import UserAccount
+
+    with Session(application.engine) as session:
+        version = session.get(UserAccount, admin.id).token_version
+    token = create_access_token({'sub':str(admin.id), 'tv':version}, generation='initial')
     request = Request({'type':'http', 'headers':[(b'authorization', f'Bearer {token}'.encode())]})
     async with SessionAdapter(application.engine, application.state) as db:
         first = await maintenance.apply_cameras(body, db, admin, request)

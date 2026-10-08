@@ -1,0 +1,3 @@
+# Project defaults; explicit session overrides still take precedence.
+model = "gpt-6-astra"
+model_reasoning_effort = "medium"

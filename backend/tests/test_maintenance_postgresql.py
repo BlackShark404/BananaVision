@@ -186,3 +186,42 @@ async def test_verified_restore_survives_crash_during_hardware_refresh(recovery_
     async with x.sessions() as db:
         assert await db.scalar(select(UserAccount.full_name)) == 'After verified restore'
     assert x.coordinator.state == 'ready'
+
+@pytest.mark.asyncio
+async def test_production_http_backup_uses_exclusive_barrier(recovery_station, monkeypatch):
+    import httpx
+
+    from app.api.v1 import maintenance
+    from app.core import database
+    from app.core.security import create_access_token
+    from app.main import app
+    from app.services import runtime_operations
+
+    x = recovery_station
+    monkeypatch.setattr(database, 'async_session_factory', x.sessions)
+    monkeypatch.setattr(maintenance, 'get_service', lambda: x.service)
+    monkeypatch.setattr(maintenance, 'coordinator', x.coordinator)
+    monkeypatch.setattr(runtime_operations, 'coordinator', x.coordinator)
+    x.coordinator.database_barrier = lambda: maintenance_database.database_barrier(x.engine)
+    async with x.sessions() as db:
+        user = await db.get(UserAccount, x.actor)
+        token = create_access_token(
+            {'sub': str(user.id), 'tv': user.token_version}, generation='before',
+        )
+    context = maintenance_context.set(False)
+    try:
+        # Use the production ASGI stack without its hardware-owning lifespan.
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url='http://test',
+        ) as client:
+            response = await asyncio.wait_for(
+                client.post('/api/v1/config/backups',
+                    headers={'Authorization': f'Bearer {token}'},
+                    json={'operation_id': str(uuid4())}),
+                timeout=15,
+            )
+        assert response.status_code == 200, response.text
+        assert response.json()['status'] == 'completed'
+        assert x.coordinator.state == 'ready'
+    finally:
+        maintenance_context.reset(context)

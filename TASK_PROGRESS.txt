@@ -1,128 +1,49 @@
 CURRENT RESUME HERE (2026-10-08)
-TASK: Finish approved System Configuration, Export, and Maintenance implementation.
-Current HEAD: 931b54b; user committed prior recovery fixes. This continuation remains uncommitted.
-Explicit Scan Logs/Detail reverts preserved. Approved design and plan are in docs/superpowers.
-This checkpoint supersedes all archived status below; stage approvals already waived.
+TASK: Approved System Configuration, Export, Maintenance + Codex workflow optimization.
+HEAD: d99c772 (user commit). Final tests/docs/config changes are uncommitted.
+STATUS: Requested production fixes verified; workflow updates complete. No implementation
+items remain in scope. Full lint has existing debt; real hardware/OS behavior is unverified.
 
 DONE
-- Configuration revision/CAS, saved/applied state, threshold snapshot, real camera mapping/health.
-- Migrations 0003/0004, station admission/draining and PostgreSQL coordination.
-- Safe orphan-only retention; versioned archives, validation, in-place restore/compensation.
-- Maintenance/power/recovery APIs and existing-style System Configuration frontend controls.
-- Isolated PostgreSQL round-trip, uncertain commits, compensation and lock regression coverage.
+- Configuration CAS, saved/applied state, confidence snapshot, physical camera mapping/health.
+- Protected retention, versioned backups, validation, rollback/recovery and session invalidation.
+- Scan admission/drain, durable power operations, recovery login and deferred runtime resume.
+- Four final review fixes verified: production HTTP admission, power dispatch/cancel locking,
+  queued authorization rechecks, retrying startup camera monitor.
+- Independent final rereview: no residual Critical/Important issues in those four fixes.
+- Codex Security scan 7c3170e8-68cb-4b5c-acaa-5fa94ac258ec completed on earlier snapshot;
+  its medium authorization and low admission findings are fixed in d99c772 and verified.
+- Current AGENTS.md is concise; Superpowers retained with selective repository overrides.
+- Project .codex/config.toml defaults to Astra Medium; global config/plugins unchanged.
+- Historical checkpoints archived byte-for-byte under docs/history/.
+- Disposable PostgreSQL stopped; 20 task-generated temp directories and diagnostic files
+  removed. Machine-specific backend/tests/.maintenance-pg-path.txt removed.
 
-IN PROGRESS (latest continuation)
-- Independent final review found four blockers: missing production admission middleware,
-  power cancel/dispatch race, queued authorization surviving revocation, camera monitor initial
-  probe exiting on blocked admission. Regression-driven fixes implemented, rerun pending.
-- Original regression reruns now green. Dashboard tests updated to existing navigation/metrics;
-  no reverted Scan Logs/Detail production changes reapplied.
-- Codex Security scan 7c3170e8-68cb-4b5c-acaa-5fa94ac258ec in progress, immutable pre-fix snapshot.
+LATEST VERIFIED CHECKS
+- Full isolated backend + PostgreSQL: 186 passed, 54.57s.
+- Full frontend browser suite: 38 passed, 47.88s.
+- TypeScript and production tsc/Vite build: passed (Vite 12.47s).
+- Frontend full lint: 43 existing errors, 8 warnings; scoped lint: 0 errors, 1 warning.
+- Backend Ruff 0.16.10: 654 baseline diagnostics; final test edits add none versus d99c772.
+- Final TOML, local doc links and test syntax validated; git diff --check passed.
+- Detailed evidence/commands/limitations: docs/system-maintenance-verification-2026-10-08.md
+  and docs/development-workflow.md. Do not rerun completed suites without new evidence.
 
-FRESH TEST RESULTS (2026-10-08)
-- Before latest review fixes: complete isolated backend + disposable PostgreSQL: 177 passed, 63.87s.
-- Frontend analytics/assigned/maintenance/persistence: 27 passed, 28.97s.
-- Dashboard suite after obsolete expectation updates: 11 passed, 20.69s.
-- TypeScript noEmit and production tsc/vite build passed (12.79s).
-- Scoped frontend lint: 0 errors, 1 existing AdminContext hook warning.
-- Full frontend lint: 43 errors, 8 warnings in unrelated existing code; no broad cleanup applied.
-- Backend Ruff configured but not installed. Latest review tests reproduced 2 failures
-  (HTTP admission and power cancellation); blocked camera-monitor test reproduced 1 failure.
-- New queued authorization regression and complete final post-fix checks next.
+PENDING / LIMITATIONS
+- No remaining approved production implementation. No live hardware/OS acceptance performed.
+- Existing lint debt remains outside this scoped correction; do not bulk-refactor it.
+- New project model defaults apply when loaded by a trusted session; explicit session settings
+  take precedence. Current running chat model/effort was not changed.
+- No commit, push, merge, deployment or live destructive action performed by the agent.
+- Final Git status: codex/system-maintenance at d99c772; 4 modified tracked files,
+  1 deleted test helper, 5 new documentation/config files. No frontend/src diff.
+- Cleanup verified: zero disposable port 56843 listeners, zero bv-final-tests directories;
+  temporary PostgreSQL and Ruff directories absent.
 
-SAFETY / ENVIRONMENT
-- No live station DB, captures, cleanup, hardware, restore or power actions permitted for tests.
-- Disposable PostgreSQL18 cluster only: C:/Users/RORONO~1/AppData/Local/Temp/bv-maint-pg-4d1590a33ebb4493b23321cf50ab3087
-  URL postgresql+asyncpg://bvtest@127.0.0.1:56843/postgres. Verify its status before tests.
-  Binary C:/Program Files/PostgreSQL/18/bin. Stop this cluster after verification.
-  backend/tests/.maintenance-pg-path.txt is machine-specific test residue; remove it.
-- Run pytest from a new OS-temp cwd with backend on sys.path to avoid loading the live .env.
-- Real hardware, real OS power behavior remain unverified; destructive failure tests use mocks.
-
-NEXT / NOT YET STARTED
-1. Verify four review fixes, including queued controls and PostgreSQL HTTP admission.
-2. Complete Codex Security scan, independent final rereview, scoped Git diff review.
-3. Fresh complete backend/frontend/type/build checks; document legacy lint/tool limitations.
-4. Stop disposable PostgreSQL, remove machine-specific helper/test residue, final checkpoint.
-
-ARCHIVED CHECKPOINT (historical status only)
-TASK: System Configuration, Export, and Maintenance
-Updated: 2026-10-05 (Asia/Manila)
-Baseline: ac5c809, working tree initially clean (unreadable ignored backend/.pytest_cache warning).
-
-DONE
-- Read-only investigation of configuration, inference, camera identity/status, retention, exports.
-- Two independent Astra Medium investigations completed; no live hardware/DB/power actions.
-- Existing protections verified: physical camera IDs validated; UUIDs retained on logical renames;
-  writes commit before HTTP success; retention commits before capture removal; orphan path safety.
-
-CONFIRMED ISSUES / ROOT CAUSES
-- Async scan pipeline calls classifier directly; its running-loop branch uses env threshold,
-  bypassing saved confidence threshold. Fusion's separate hardcoded 50% is a distinct policy.
-- Devices API parses editable CAM-number names as physical positions, unlike actual capture mapping.
-- Opened handles can report Online without valid frames; mapping UI ignores partial init failures.
-- No config revision/CAS; concurrent initialization can create multiple config rows. GET/PATCH
-  camera defaults differ. Confidence slider/API/integer storage disagree; logical ID limits missing.
-- Config UI can save fallback values before load; edits during save/late reads can lose intent.
-- Retention runs at startup/every 6h and deletes all old scans plus audit records, without protecting
-  active inventory, notes, flags, overrides, intakes, or image evidence. UI hardcodes 30 days.
-- CSV is already accurately labeled non-restorable; no genuine backup/restore workflow exists.
-- Power scheduling currently refuses active scans, releases its lock after OS acceptance, and
-  allows new scans during scheduled shutdown. Audit persistence follows external power command.
-
-IN PROGRESS
-- Concrete design saved at docs/superpowers/specs/2026-10-05-system-maintenance-design.md;
-  independent review completed and all five material recommendations incorporated: import-time
-  capture-root recovery, atomic auth-generation invalidation, postcommit compensating restore,
-  transaction-safe sequences, persistent power state/host-boot reconciliation.
-  Root power/draining/transaction trace is complete.
-- User explicitly selected restoring into this station after validation/confirmation with rollback.
-- Superpowers brainstorming classifies this as architectural: written spec approval, then written
-  implementation plan/execution review required before product implementation. Not yet approved.
-
-FILES REVIEWED (root and delegated read-only)
-backend/app/api/v1/{config,cameras,devices}.py
-backend/app/{config,core/startup,core/database,api/deps}.py
-backend/app/services/{runtime_operations,power_control,scan_service,camera_manager,classification,
-  fusion_engine,data_retention,capture_cleanup}.py
-backend/app/{models/system_config,models/scan,schemas/common}.py
-frontend/src/{pages/admin/SystemConfig,contexts/AdminContext,components/CameraCalibrationModal}.tsx
-Relevant assigned-fixes/time-and-writes tests, model registry, schema migrations/deployment setup.
-
-FILES CHANGED THIS TASK
-- TASK_PROGRESS.txt
-- docs/superpowers/specs/2026-10-05-system-maintenance-design.md
-- No product code changes yet.
-
-TESTS / CHECKS
-- Fresh git status/history reviewed; git diff --check exits 0. Only the two new documentation files.
-- Isolated backend baseline: 70 passed, 5 deselected in 24.22 seconds, exit 0.
-  Exact PowerShell command (from delegated verification; no live station settings loaded):
-  & 'C:/Users/Roronoa Zoro/Documents/GitHub/BananaVision/backend/venv/Scripts/python.exe' -B -c "import os,sys,tempfile; backend=r'C:/Users/Roronoa Zoro/Documents/GitHub/BananaVision/backend'; os.chdir(tempfile.mkdtemp(prefix='bananavision-readonly-tests-')); sys.path.insert(0,backend); os.environ.pop('BANANAVISION_TEST_DATABASE_URL',None); import pytest; sys.exit(pytest.main(['-p','no:cacheprovider','-q','-c',backend+'/pyproject.toml',backend+'/tests/test_time_and_writes.py',backend+'/tests/test_assigned_fixes.py',backend+'/tests/test_security_followup.py','-k','not postgresql and not bootstrap']))"
-- Test mocks and disposable SQLite/temp directories inspected before execution. Real PostgreSQL
-  and bootstrap excluded; no product implementation to verify yet. Frontend checks/build not run.
-- No claim of fixes or completion. No live retention, restore, reboot, shutdown, or camera operations.
-
-NOT YET STARTED / REMAINING (priority order)
-1. Obtain required written-design review from user; do not treat restore-target selection as approval
-   of the newly written design or implementation plan. If user explicitly waives staged approvals,
-   follow that override and continue planning/implementation autonomously.
-2. Perform scoped Codex Security review when sensitive implementation/patch is available. Skill and
-   desktop/preflight references inspected; no durable security scan has been started yet.
-3. Implementation plan, then regression-driven implementation of confirmed issues.
-4. Isolated backup/restore round-trip and injected failure tests; retention protection tests;
-   camera/threshold/config concurrency tests; frontend failure states; typecheck/lint/build.
-5. Final scoped security/diff review and progress/result report with explicit remaining limitations.
-
-RISKS / OPEN DECISIONS
-- PostgreSQL production plus filesystem evidence cannot be replaced atomically without staging,
-  rollback material and recovery coordination. Archive validation must never execute uploaded SQL.
-- In-process station_lock assumes one camera-owning process; inspect deployment guarantees.
-- Proposed retention policy is orphan-only cleanup; persisted scan/audit evidence remains protected.
-- Native pg_dump/pg_restore/psql/docker were not found on PATH (no proof they are absent elsewhere).
-- All destructive execution remains test-only unless user separately approves a live operation.
-
-RESUME HERE
-Read this file and the proposed design, inspect fresh Git status, then resume at design review.
-Do not repeat completed investigations or baseline tests without new cause. No product implementation
-has started. User selected in-place restore; do not ask that product decision again.
+SAFETY / EXACT NEXT STEP
+No live DB/captures/retention/restore/camera/reboot/shutdown testing. Use disposable fixtures.
+Preserve the explicit Scan Logs/Scan Detail reverts and current UI. Approved design/plan
+remain in docs/superpowers; no repeated stage approvals are needed for authorized work.
+Next: review the final uncommitted test/document/config diff or follow the next user task.
+Do not restart completed maintenance implementation or replay archived checkpoints.
+Historical archive: docs/history/2026-10-08-system-maintenance-progress.txt

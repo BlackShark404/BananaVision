@@ -87,17 +87,19 @@ From `backend/`, run `python -m app.core.migrations` with the deployment environ
 
 - `0001_session_revocation` adds a non-null `user_account.token_version` with default `1` to older schemas, preserving account credentials and existing rows.
 - `0002_feature_engineering` adds missing batch lifecycle/treatment and engineered-feature columns from the earlier manual SQL migration. Already-present columns are retained. Historical engineered values remain unchanged; the schema upgrade does not recompute model features.
+- `0003_system_configuration` adds canonical configuration, revision checks, applied state, and stable physical camera mappings.
+- `0004_maintenance_state` adds durable non-restored maintenance/authentication-generation state.
 - `alembic_version` records successful upgrades. Fresh databases and databases already upgraded manually adopt the revision without duplicate columns. Automatic downgrade is intentionally blocked because removing session revocation or historical columns would discard safeguards/data.
 
-Before upgrading the station, take a PostgreSQL backup and rehearse against a disposable copy. Confirm `alembic_version.version_num` is `0002_feature_engineering`, `user_account.token_version` exists, existing accounts can sign in, and pre-reset tokens are rejected. The scan-summary CSV is insufficient for database recovery.
+Before upgrading the station, take a PostgreSQL backup and rehearse against a disposable copy. Confirm `alembic_version.version_num` is `0004_maintenance_state`, `user_account.token_version` exists, existing accounts can sign in, and pre-reset tokens are rejected. The scan-summary CSV is insufficient for database recovery.
 
 Regression tests use disposable databases. To include PostgreSQL cases, set `BANANAVISION_TEST_DATABASE_URL` to a test PostgreSQL URL; the tests create unique temporary schemas and remove only those schemas. On Windows, if the default pytest temporary directory is inaccessible, pass `--basetemp` pointing to a writable test directory whose parent exists.
 
 ## Power commands and data retention
 
-Power endpoints check the command exit code and report OS acceptance, not proof of completed reboot. They reject requests during an active scan or camera mapping. Windows schedules power actions after ten seconds; Linux/macOS use a one-minute delay and noninteractive `sudo -n`. Configure host permissions and service autostart using [the kiosk guide](../docs/kiosk-autostart-guide.md); verify these on the deployed station.
+Power endpoints check the command exit code and report OS acceptance, not proof of completed reboot. They close admission and drain active scans and admitted work before dispatch; a drain timeout rejects the operation. Windows schedules power actions after ten seconds; Linux/macOS use a one-minute delay and noninteractive `sudo -n`. Configure host permissions and service autostart using [the kiosk guide](../docs/kiosk-autostart-guide.md); verify these on the deployed station.
 
-The retention worker checks every six hours, respects the enable flag, and removes expired scan/audit rows before deleting UUID capture directories. Old capture directories without a persisted scan are retried as orphans. Failed scans remove their own captures immediately. Profile totals cover all retained rows, so enabled retention reduces historical totals. The scan-summary CSV excludes accounts, settings, audit logs and images and cannot restore the database.
+The retention worker checks every six hours and respects the enable flag. It removes only expired, unreferenced UUID capture directories. Persisted scans, active-stock evidence, notes, corrections, audit history, and referenced images are protected; enabling retention does not shorten recorded history. Failed scans clean up their own unpersisted captures. The scan-summary CSV is a report, not a restorable backup. System Configuration provides versioned station backups with application data and referenced evidence, archive validation, and confirmed in-place restore with rollback protection.
 
 ## WebSocket
 
