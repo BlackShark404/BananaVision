@@ -173,10 +173,14 @@ async def test_camera_apply_operation_replay_does_not_reinitialize(application, 
     monkeypatch.setattr(configuration, 'apply_camera_config', apply)
     body = maintenance.OperationRequest(operation_id=uuid4())
     admin = SimpleNamespace(id=application.ids.admin)
+    from starlette.requests import Request
+    from app.core.security import create_access_token
+    token = create_access_token({'sub':str(admin.id), 'tv':0}, generation='initial')
+    request = Request({'type':'http', 'headers':[(b'authorization', f'Bearer {token}'.encode())]})
     async with SessionAdapter(application.engine, application.state) as db:
-        first = await maintenance.apply_cameras(body, db, admin)
+        first = await maintenance.apply_cameras(body, db, admin, request)
     async with SessionAdapter(application.engine, application.state) as db:
-        second = await maintenance.apply_cameras(body, db, admin)
+        second = await maintenance.apply_cameras(body, db, admin, request)
     assert first == second
     assert apply.await_count == 1
 
@@ -196,3 +200,95 @@ async def test_old_power_cancel_retry_cannot_reopen_admission_during_restore(app
     with pytest.raises(HTTPException):
         await power_control.cancel_power()
     assert local.state == 'recovery-required'
+
+
+@pytest.mark.asyncio
+async def test_power_cancel_waits_until_initial_dispatch_is_settled(application, monkeypatch):
+    import asyncio
+    from uuid import uuid4
+    from app.services import power_control
+    from app.services.runtime_operations import StationCoordinator
+    local = StationCoordinator()
+    monkeypatch.setattr(power_control, 'coordinator', local)
+    monkeypatch.setattr(power_control, 'async_session_factory', lambda: SessionAdapter(application.engine, application.state))
+    monkeypatch.setattr(power_control, 'boot_identity', lambda: 'test-boot')
+    entered, release, cancelled = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    async def dispatch(action):
+        if action == 'restart':
+            entered.set(); await release.wait()
+        else:
+            cancelled.set()
+    monkeypatch.setattr(power_control, '_schedule_power_action', dispatch)
+    task = asyncio.create_task(power_control.request_power('restart', str(uuid4()), application.ids.admin))
+    await entered.wait()
+    cancel = asyncio.create_task(power_control.cancel_power())
+    try:
+        await asyncio.sleep(0)
+        assert not cancelled.is_set()
+        assert local.state != 'ready'
+    finally:
+        release.set()
+        await asyncio.gather(task, cancel)
+    assert cancelled.is_set() and local.state == 'ready'
+
+
+def test_production_application_blocks_ordinary_requests_during_recovery(application, monkeypatch):
+    from app.main import app
+    from app.services import runtime_operations
+    from fastapi.testclient import TestClient
+    local = runtime_operations.StationCoordinator(); local.block('recovery-required')
+    monkeypatch.setattr(runtime_operations, 'coordinator', local)
+    # No lifespan: all DB dependencies use the isolated application fixture.
+    client = TestClient(app, raise_server_exceptions=False)
+    try:
+        response = client.get('/api/v1/scans')
+        assert response.status_code == 503, response.text
+        assert 'recovery-required' in response.text
+        assert client.get('/captures/does-not-exist.jpg').status_code == 503
+    finally:
+        client.close()
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('revocation', ['generation', 'token_version', 'role'])
+async def test_queued_backup_rechecks_authorization(application, monkeypatch, tmp_path, revocation):
+    import asyncio
+    from uuid import uuid4
+    from starlette.requests import Request
+    from fastapi import HTTPException
+    from app.api.v1 import maintenance
+    from app.models import UserAccount, MaintenanceState
+    from app.core.security import create_access_token
+    from app.services.backup_restore import MaintenanceService
+    from app.services import backup_restore
+    from app.services.runtime_operations import StationCoordinator
+    local = StationCoordinator()
+    monkeypatch.setattr(backup_restore, 'coordinator', local)
+    sessions = lambda: SessionAdapter(application.engine, application.state)
+    service = MaintenanceService(application.engine, sessions, tmp_path / 'captures')
+    monkeypatch.setattr(maintenance, 'get_service', lambda: service)
+    with Session(application.engine) as db:
+        user = db.get(UserAccount, application.ids.admin)
+        token = create_access_token({'sub':str(user.id), 'tv':user.token_version}, generation='initial')
+    request = Request({'type':'http', 'headers':[(b'authorization', f'Bearer {token}'.encode())]})
+    async with sessions() as db:
+        # Model initial HTTP authentication, then queue behind another maintenance operation.
+        from app.api.deps import get_current_user
+        admin = await get_current_user(db, f'Bearer {token}')
+        await service._lock.acquire()
+        task = asyncio.create_task(maintenance.create_backup(maintenance.OperationRequest(operation_id=uuid4()), db, admin, request))
+        try:
+            await asyncio.sleep(0)
+            with Session(application.engine) as other:
+                if revocation == 'generation':
+                    other.add(MaintenanceState(id=1, auth_generation='restored', operations={}))
+                elif revocation == 'token_version':
+                    other.get(UserAccount, application.ids.admin).token_version += 1
+                else:
+                    other.get(UserAccount, application.ids.admin).role_id = 2
+                other.commit()
+        finally:
+            service._lock.release()
+        with pytest.raises(HTTPException) as rejected:
+            await task
+        assert rejected.value.status_code in (401, 403)
+    assert not service.root.exists(), 'No backup material may be created by the revoked request'

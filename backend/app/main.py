@@ -20,6 +20,7 @@ from app.config import get_settings
 from app.api.v1.router import v1_router
 from app.ws.handlers import websocket_endpoint
 from app.core.startup import run_startup, run_shutdown, start_background_tasks
+from app.services.runtime_operations import StationAdmissionMiddleware
 
 settings = get_settings()
 
@@ -84,6 +85,8 @@ app = FastAPI(
 )
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
+# Install admission inside CORS so blocked responses retain normal CORS headers.
+app.add_middleware(StationAdmissionMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.app_cors_origins,

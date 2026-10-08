@@ -9,7 +9,8 @@ from pydantic import BaseModel, Field, SecretStr
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import AdminUser, DbSession
+from app.api.deps import AdminUser, DbSession, get_current_user, require_admin
+from app.core import database
 from app.core.security import verify_password
 from app.models.user_account import UserAccount
 from app.schemas.enums import ActiveStatusEnum
@@ -50,6 +51,24 @@ def session_digest(request):
     return hashlib.sha256(request.headers.get('authorization', '').encode()).hexdigest()
 
 
+def fresh_authorization(request, actor_id, password=None):
+    """Recheck the original token in a fresh transaction after queueing/draining.
+
+    The dependency's ORM account may have been replaced or revoked while waiting.
+    Never authorize delayed maintenance using that cached object.
+    """
+    header = request.headers.get('authorization', '')
+
+    async def authorize():
+        async with database.async_session_factory() as session:
+            current = await get_current_user(session, header)
+            await require_admin(current)
+            if current.id != actor_id:
+                raise HTTPException(403, 'Operation belongs to another administrator')
+            await reauthenticate(session, current, password)
+    return authorize
+
+
 async def safe_operation(awaitable):
     try:
         return await finish_on_disconnect(awaitable)
@@ -76,9 +95,10 @@ async def operation_status(operation_id: uuid.UUID, db: DbSession, admin: AdminU
 
 
 @router.post('/backups')
-async def create_backup(body: OperationRequest, db: DbSession, admin: AdminUser):
+async def create_backup(body: OperationRequest, db: DbSession, admin: AdminUser, request: Request):
     await reauthenticate(db, admin)
-    return await safe_operation(get_service().backup(body.operation_id, admin.id))
+    return await safe_operation(get_service().backup(body.operation_id, admin.id,
+        authorize=fresh_authorization(request, admin.id)))
 
 
 @router.get('/backups/{operation_id}')
@@ -124,33 +144,37 @@ async def restore_backup(body: RestoreRequest, request: Request, db: DbSession, 
         raise HTTPException(422, 'Type REPLACE to confirm station replacement')
     await reauthenticate(db, admin, body.password)
     return await safe_operation(get_service().restore(body.operation_id, body.validation_id,
-        body.token, admin.id, session_digest(request)))
+        body.token, admin.id, session_digest(request), authorize=fresh_authorization(request, admin.id, body.password)))
 
 
 @router.post('/restart')
-async def restart(body: OperationRequest, db: DbSession, admin: AdminUser):
+async def restart(body: OperationRequest, db: DbSession, admin: AdminUser, request: Request):
     await reauthenticate(db, admin)
-    return await safe_operation(power_control.request_power('restart', str(body.operation_id), admin.id))
+    return await safe_operation(power_control.request_power('restart', str(body.operation_id), admin.id,
+        authorize=fresh_authorization(request, admin.id)))
 
 
 @router.post('/shutdown')
-async def shutdown(body: OperationRequest, db: DbSession, admin: AdminUser):
+async def shutdown(body: OperationRequest, db: DbSession, admin: AdminUser, request: Request):
     await reauthenticate(db, admin)
-    return await safe_operation(power_control.request_power('shutdown', str(body.operation_id), admin.id))
+    return await safe_operation(power_control.request_power('shutdown', str(body.operation_id), admin.id,
+        authorize=fresh_authorization(request, admin.id)))
 
 
 @router.post('/power/cancel')
-async def cancel_power(body: RecoveryRequest, db: DbSession, admin: AdminUser):
+async def cancel_power(body: RecoveryRequest, db: DbSession, admin: AdminUser, request: Request):
     await reauthenticate(db, admin, body.password)
-    return await safe_operation(power_control.cancel_power())
+    return await safe_operation(power_control.cancel_power(authorize=fresh_authorization(request, admin.id, body.password)))
 
 
 @router.post('/maintenance/recover')
-async def recover(body: RecoveryRequest, db: DbSession, admin: AdminUser):
+async def recover(body: RecoveryRequest, db: DbSession, admin: AdminUser, request: Request):
     await reauthenticate(db, admin, body.password)
     service = get_service()
+    authorize = fresh_authorization(request, admin.id, body.password)
     async def recover_station():
         async with service._lock:
+            await authorize()
             state = await maintenance_state.get_state(db)
             if state.power and state.power.get('status') in {'dispatching', 'accepted', 'unknown'}:
                 raise HTTPException(409, 'Cancel the pending power operation first')
@@ -164,20 +188,24 @@ async def recover(body: RecoveryRequest, db: DbSession, admin: AdminUser):
 
 
 @router.post('/maintenance/apply')
-async def apply_cameras(body: OperationRequest, db: DbSession, admin: AdminUser):
+async def apply_cameras(body: OperationRequest, db: DbSession, admin: AdminUser, request: Request):
+    actor_id = admin.id
+    authorize = fresh_authorization(request, actor_id)
     async def apply():
         async with get_service()._lock:
+            await authorize()
             identifier = str(body.operation_id)
             previous = await maintenance_state.operation_result(db, identifier)
             if previous:
-                if previous.get('actor_id') != str(admin.id) or previous.get('kind') != 'camera-configuration':
+                if previous.get('actor_id') != str(actor_id) or previous.get('kind') != 'camera-configuration':
                     raise HTTPException(409, 'Operation ID already used')
                 if previous.get('status') == 'completed':
                     return previous['configuration']
                 raise HTTPException(409, 'Previous camera application is incomplete; use a new operation ID to retry')
             async with coordinator.exclusive('camera-configuration'):
+                await authorize()
                 config = await configuration.get_config(db)
-                result = {'id': identifier, 'kind': 'camera-configuration', 'actor_id': str(admin.id), 'status': 'applying'}
+                result = {'id': identifier, 'kind': 'camera-configuration', 'actor_id': str(actor_id), 'status': 'applying'}
                 await maintenance_state.record_operation(db, identifier, result)
                 await db.commit()
                 async with station_lock:

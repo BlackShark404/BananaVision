@@ -111,7 +111,7 @@ test("same-name account and role changes discard an older in-flight response", a
   const alex = { id: "account-A", username: "alex-a", fullName: "Alex Santos", role: "Admin" }
   const { page, state } = await setup(t, { environment: { user: alex }, response: {
     hold: account => account === "account-A" ? pending : undefined,
-    byAccount: { "account-A": summary({ total_scans: 999 }), "account-B": summary({ total_scans: 7, avg_confidence: 0 }) },
+    byAccount: { "account-A": summary({ total_scans: 999 }), "account-B": summary({ total_scans: 7, success_rate: 0 }) },
   } })
   await until(() => requests(state).some(({ account }) => account === "account-A"), "old account starts request")
   await page.evaluate(() => window.dashboardTest.setUser({ id: "account-B", username: "alex-b", fullName: "Alex Santos", role: "Operator" }))
@@ -121,14 +121,22 @@ test("same-name account and role changes discard an older in-flight response", a
   await expectValue(card(page), "7")
   assert.equal(await page.getByText("999", { exact: true }).count(), 0)
   assert.equal(await card(page, /Active Operators/i).count(), 0)
-  assert.match(await value(card(page, /My Avg Confidence/i)).innerText(), /^0(?:\.0)?%$/)
+  assert.equal(await page.getByText("Scan Success Rate", { exact: true }).count(), 1)
+  assert.equal(await page.getByRole("heading", { name: "0.0%", exact: true }).count(), 1)
   assert.ok(requests(state).some(({ account }) => account === "account-B"), "new request uses account identity")
 })
 
-test("admin KPIs open matching drilldowns and System Health opens devices", async t => {
+test("admin scan KPIs redirect to filtered logs; group KPIs retain lists", async t => {
   const { page } = await setup(t)
-  await expectValue(card(page), "12")
-  for (const [label, view] of [[/Scans Today/i, "today"], [/Active Operators/i, "operators"], [/Active Sources/i, "sources"], [/Pending quality reviews/i, "review"], [/Expiring stock/i, "expiring"]]) {
+  for (const [label, query] of [[/Scans Today/i, { date: "2026-10-02" }], [/Pending quality reviews/i, { status: "Flagged" }], [/Expiring stock/i, { attention: "at-risk" }]]) {
+    await expectValue(card(page), "12")
+    await card(page, label).click()
+    await page.waitForURL("**/logs?**")
+    assert.deepEqual(Object.fromEntries(new URL(page.url()).searchParams), query)
+    assert.equal(await page.getByRole("dialog").count(), 0)
+    await page.goto(`${runtime.url}/dashboard`, { waitUntil: "domcontentloaded" })
+  }
+  for (const [label, view] of [[/Active Operators/i, "operators"], [/Active Sources/i, "sources"]]) {
     await card(page, label).click()
     await page.waitForURL(`**/dashboard?**view=${view}**`)
     await page.getByRole("dialog").waitFor()
@@ -139,16 +147,14 @@ test("admin KPIs open matching drilldowns and System Health opens devices", asyn
   await page.waitForURL("**/devices")
 })
 
-test("operator confidence and source KPIs open their matching drilldowns", async t => {
-  const { page } = await setup(t, { environment: { user: { id: "operator-account", username: "operator", fullName: "Alex Santos", role: "Operator" } } })
+test("operator source KPI opens its list and success rate uses the server metric", async t => {
+  const { page } = await setup(t, { environment: { user: { id: "operator-account", username: "operator", fullName: "Alex Santos", role: "Operator" } }, response: { summary: summary({ success_rate: 75 }) } })
   await expectValue(card(page), "12")
-  for (const [label, view] of [[/My Avg Confidence/i, "confidence"], [/My Sources Today/i, "sources"]]) {
-    await card(page, label).click()
-    await page.waitForURL(`**/dashboard?**view=${view}**`)
-    await page.getByRole("dialog").waitFor()
-    await page.keyboard.press("Escape")
-    await page.getByRole("dialog").waitFor({ state: "hidden" })
-  }
+  assert.equal(await page.getByText("Scan Success Rate", { exact: true }).count(), 1)
+  assert.equal(await page.getByRole("heading", { name: "75.0%", exact: true }).count(), 1)
+  await card(page, /My Sources/i).click()
+  await page.waitForURL("**/dashboard?**view=sources**")
+  await page.getByRole("dialog").waitFor()
 })
 
 test("Recent Scans and Today's Sources retain their logs destinations", async t => {

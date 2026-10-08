@@ -167,12 +167,16 @@ class MaintenanceService:
             await state_store.record_operation(db, result['id'], result)
             await db.commit()
 
-    async def backup(self, identifier, actor_id):
+    async def backup(self, identifier, actor_id, *, authorize=None):
         async with self._lock:
+            if authorize:
+                await authorize()
             previous = await self.saved_result(identifier, actor_id, 'backup')
             if previous:
                 return previous
             async with coordinator.exclusive('backup'):
+                if authorize:
+                    await authorize()
                 await run_blocking(self.cleanup_temporary)
                 directory = self.directory(identifier)
                 result = {'id': str(identifier), 'kind': 'backup', 'actor_id': str(actor_id), 'status': 'creating'}
@@ -273,8 +277,10 @@ class MaintenanceService:
                 raise archive.ArchiveError('Restored data/evidence verification failed')
         (directory / 'verify.zip').unlink()
 
-    async def restore(self, identifier, validation_id, token, actor_id, session_digest):
+    async def restore(self, identifier, validation_id, token, actor_id, session_digest, *, authorize=None):
         async with self._lock:
+            if authorize:
+                await authorize()
             previous = await self.saved_result(identifier, actor_id, 'restore')
             if previous:
                 return previous
@@ -296,6 +302,8 @@ class MaintenanceService:
                 raise HTTPException(422, 'Uploaded archive changed; validate again')
             await self.check_database(validated)
             async with coordinator.exclusive('restore'):
+                if authorize:
+                    await authorize()
                 descriptor['consumed'] = True
                 atomic_json(validation_dir / 'validation.json', descriptor)
                 directory = self.directory(identifier)

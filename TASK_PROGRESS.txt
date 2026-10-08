@@ -1,6 +1,6 @@
 CURRENT RESUME HERE (2026-10-08)
 TASK: Finish approved System Configuration, Export, and Maintenance implementation.
-Current baseline: 58d7337; user committed implementation in e4dc9cc after foundation 9f2dba2.
+Current HEAD: 931b54b; user committed prior recovery fixes. This continuation remains uncommitted.
 Explicit Scan Logs/Detail reverts preserved. Approved design and plan are in docs/superpowers.
 This checkpoint supersedes all archived status below; stage approvals already waived.
 
@@ -11,23 +11,24 @@ DONE
 - Maintenance/power/recovery APIs and existing-style System Configuration frontend controls.
 - Isolated PostgreSQL round-trip, uncertain commits, compensation and lock regression coverage.
 
-IN PROGRESS
-- Added durable data-verified restore phase and terminal preparation failures (PG regressions green).
-- Added read-only administrator recovery login, idempotent power cancellation and deferred runtime resume.
-- Added conservative validation-file expiry, model hashes/prerequisites, usable bcrypt validation.
-- Fixed obsolete harness assertions; added new-backup-ID, owner-loss and camera-apply retry tests.
-- Finishing ownership/apply regression verification, then full suite and security review.
+IN PROGRESS (latest continuation)
+- Independent final review found four blockers: missing production admission middleware,
+  power cancel/dispatch race, queued authorization surviving revocation, camera monitor initial
+  probe exiting on blocked admission. Regression-driven fixes implemented, rerun pending.
+- Original regression reruns now green. Dashboard tests updated to existing navigation/metrics;
+  no reverted Scan Logs/Detail production changes reapplied.
+- Codex Security scan 7c3170e8-68cb-4b5c-acaa-5fa94ac258ec in progress, immutable pre-fix snapshot.
 
 FRESH TEST RESULTS (2026-10-08)
-- PostgreSQL restore suite: 9 passed in 17.74s, including new crash and preparation failures.
-- Maintenance integration + time/write suite: 42 passed in 5.87s.
-- Archive/recovery suite: 29 passed in 7.62s.
-- Browser: 6 passed, 1 new regression failed (Create Backup reused ID); implementation corrected,
-  rerun pending. Original 6 browser cases pass after correcting obsolete toast assertion.
-- New ownership-loss and repeated-apply tests RED: 2 failed as expected; implementation added,
-  rerun pending. Full frontend lint/build/security scan still pending.
-- Windows sandbox blocks temp folders and Chromium localhost; tests run elevated with isolated
-  generated data only, explicit new --basetemp and disposable PostgreSQL. No live operations.
+- Before latest review fixes: complete isolated backend + disposable PostgreSQL: 177 passed, 63.87s.
+- Frontend analytics/assigned/maintenance/persistence: 27 passed, 28.97s.
+- Dashboard suite after obsolete expectation updates: 11 passed, 20.69s.
+- TypeScript noEmit and production tsc/vite build passed (12.79s).
+- Scoped frontend lint: 0 errors, 1 existing AdminContext hook warning.
+- Full frontend lint: 43 errors, 8 warnings in unrelated existing code; no broad cleanup applied.
+- Backend Ruff configured but not installed. Latest review tests reproduced 2 failures
+  (HTTP admission and power cancellation); blocked camera-monitor test reproduced 1 failure.
+- New queued authorization regression and complete final post-fix checks next.
 
 SAFETY / ENVIRONMENT
 - No live station DB, captures, cleanup, hardware, restore or power actions permitted for tests.
@@ -39,10 +40,10 @@ SAFETY / ENVIRONMENT
 - Real hardware, real OS power behavior remain unverified; destructive failure tests use mocks.
 
 NEXT / NOT YET STARTED
-1. Regression-driven recovery finalization/failure handling; admin recovery login/runtime resume.
-2. Idempotent recovery/apply operations and remaining storage lifecycle safeguards as needed.
-3. Fix known harness failures; full isolated backend/PostgreSQL and frontend checks.
-4. Security review, final scoped Git diff, final checkpoint/results; stop disposable DB.
+1. Verify four review fixes, including queued controls and PostgreSQL HTTP admission.
+2. Complete Codex Security scan, independent final rereview, scoped Git diff review.
+3. Fresh complete backend/frontend/type/build checks; document legacy lint/tool limitations.
+4. Stop disposable PostgreSQL, remove machine-specific helper/test residue, final checkpoint.
 
 ARCHIVED CHECKPOINT (historical status only)
 TASK: System Configuration, Export, and Maintenance

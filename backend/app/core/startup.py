@@ -234,13 +234,10 @@ async def start_background_tasks(*, allow_blocked=False):
     async def camera_health_monitor():
         """Periodically check which cameras are truly online (producing real
         images, not black/blank feeds) and sync changes to DB + WS."""
-        loop = asyncio.get_event_loop()
-
-        # Build the initial known state from camera_manager
-        async with coordinator.operation():
-            initial_probe = await run_blocking(camera_manager.probe_all)
-        last_known: dict[int, bool] = dict(initial_probe)
-        last_mapping = tuple((dev_id, camera_manager._get_camera_id(dev_id)) for dev_id in initial_probe)
+        # The first probe must use the same retry path as later probes: startup
+        # retention and deferred recovery may still own station admission.
+        last_known: dict[int, bool] = {}
+        last_mapping = None
 
         while True:
             await asyncio.sleep(10)

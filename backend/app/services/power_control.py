@@ -57,7 +57,17 @@ async def schedule_power_action(action):
         await _schedule_power_action(action)
 
 
-async def request_power(action, operation_id, actor_id):
+_power_lock = asyncio.Lock()
+
+
+async def request_power(action, operation_id, actor_id, *, authorize=None):
+    async with _power_lock:
+        if authorize:
+            await authorize()
+        return await _request_power(action, operation_id, actor_id, authorize=authorize)
+
+
+async def _request_power(action, operation_id, actor_id, *, authorize=None):
     async with async_session_factory() as db:
         previous = await operation_result(db, operation_id)
         if previous:
@@ -65,6 +75,8 @@ async def request_power(action, operation_id, actor_id):
                 raise HTTPException(409, 'Operation ID already used')
             return previous
     async with coordinator.exclusive(action):
+        if authorize:
+            await authorize()
         boot = await run_blocking(boot_identity)
         if not boot:
             raise HTTPException(503, 'Cannot establish host boot identity; no power command was sent')
@@ -112,11 +124,10 @@ async def reconcile_power():
         await db.commit()
 
 
-_cancel_lock = asyncio.Lock()
-
-
-async def cancel_power():
-    async with _cancel_lock:
+async def cancel_power(*, authorize=None):
+    async with _power_lock:
+        if authorize:
+            await authorize()
         return await _cancel_power()
 
 

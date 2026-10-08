@@ -334,8 +334,15 @@ async def test_scan_pipeline_never_announces_completion_before_persistence(appli
 
 
 @pytest.mark.asyncio
-async def test_camera_monitor_retries_persistence_failure_before_announcing_status(monkeypatch):
+@pytest.mark.parametrize('initially_blocked', [False, True])
+async def test_camera_monitor_retries_persistence_failure_before_announcing_status(monkeypatch, initially_blocked):
     from app.core import startup
+    from app.services.runtime_operations import StationCoordinator
+
+    local = StationCoordinator()
+    if initially_blocked:
+        local.block('recovery-required')
+    monkeypatch.setattr(startup, 'coordinator', local)
 
     tasks, events = [], []
     monkeypatch.setattr(startup, "_background_tasks", [])
@@ -350,6 +357,8 @@ async def test_camera_monitor_retries_persistence_failure_before_announcing_stat
 
     async def tick(_delay):
         calls["sleep"] += 1
+        if initially_blocked and calls['sleep'] == 1:
+            local.resume()
         if calls["sleep"] > 2:
             raise asyncio.CancelledError
 
@@ -397,7 +406,7 @@ async def test_camera_monitor_retries_persistence_failure_before_announcing_stat
     monkeypatch.setattr(startup, "settings", SimpleNamespace(camera_device_ids=[0], camera_labels=["Camera 1"]))
     monkeypatch.setattr(startup, "async_session_factory", CameraSession)
     monkeypatch.setattr(startup.ws_manager, "send_to_room", send)
-    await startup.start_background_tasks()
+    await startup.start_background_tasks(allow_blocked=True)
     for task in tasks[:-1]:
         task.close()
     with pytest.raises(asyncio.CancelledError):
