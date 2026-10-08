@@ -225,3 +225,88 @@ async def test_production_http_backup_uses_exclusive_barrier(recovery_station, m
         assert x.coordinator.state == 'ready'
     finally:
         maintenance_context.reset(context)
+
+
+@pytest.mark.asyncio
+async def test_http_backup_restore_rehearsal_preserves_evidence_and_revokes_session(
+    recovery_station, monkeypatch,
+):
+    import httpx
+
+    from app.api.v1 import maintenance
+    from app.core import database
+    from app.core.security import create_access_token
+    from app.main import app
+    from app.services import runtime_operations
+
+    x = recovery_station
+    monkeypatch.setattr(database, 'async_session_factory', x.sessions)
+    monkeypatch.setattr(maintenance, 'get_service', lambda: x.service)
+    monkeypatch.setattr(maintenance, 'coordinator', x.coordinator)
+    monkeypatch.setattr(runtime_operations, 'coordinator', x.coordinator)
+    x.coordinator.database_barrier = lambda: maintenance_database.database_barrier(x.engine)
+    async with x.sessions() as db:
+        user = await db.get(UserAccount, x.actor)
+        token = create_access_token(
+            {'sub': str(user.id), 'tv': user.token_version}, generation='before',
+        )
+    headers = {'Authorization': f'Bearer {token}'}
+    context = maintenance_context.set(False)
+    try:
+        # Production routes and DB locks, but no lifespan/camera/power initialization.
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url='http://test',
+        ) as client:
+            async def request(method, path, **kwargs):
+                return await asyncio.wait_for(
+                    client.request(method, path, headers=headers, **kwargs), timeout=20,
+                )
+
+            backup_id = str(uuid4())
+            created = await request('POST', '/api/v1/config/backups',
+                                    json={'operation_id': backup_id})
+            assert created.status_code == 200, created.text
+            assert created.json()['status'] == 'completed'
+            downloaded = await request('GET', f'/api/v1/config/backups/{backup_id}')
+            assert downloaded.status_code == 200
+            assert downloaded.headers['cache-control'] == 'no-store'
+            assert downloaded.content.startswith(b'PK')
+
+            # Changes occur only in this test's private schema/evidence tree.
+            async with x.sessions() as db:
+                await db.execute(update(UserAccount).values(full_name='After backup'))
+                await db.commit()
+            evidence = next(x.root.glob('*/camera.jpg'))
+            evidence.write_bytes(b'changed after backup')
+
+            checked = await request('POST', '/api/v1/config/restores/validate',
+                                    content=downloaded.content)
+            assert checked.status_code == 200, checked.text
+            preview = checked.json()
+            restore_id = str(uuid4())
+            body = {
+                'operation_id': restore_id, 'validation_id': preview['validation_id'],
+                'token': preview['token'], 'password': 'password', 'confirmation': '',
+            }
+            unconfirmed = await request('POST', '/api/v1/config/restores', json=body)
+            assert unconfirmed.status_code == 422
+            body['confirmation'] = 'REPLACE'
+            restored = await request('POST', '/api/v1/config/restores', json=body)
+            assert restored.status_code == 200, restored.text
+            assert restored.json()['status'] == 'completed'
+            assert x.coordinator.state == 'ready'
+            assert evidence.read_bytes() == b'captured frame'
+            async with x.sessions() as db:
+                assert await db.scalar(select(UserAccount.full_name)) == 'Current station name'
+                assert await db.scalar(select(MaintenanceState.restore_marker)) == restore_id
+
+            expired = await request('GET', '/api/v1/config/maintenance')
+            assert expired.status_code == 401
+            login = await client.post('/api/v1/auth/login',
+                                      json={'username': 'admin', 'password': 'password'})
+            assert login.status_code == 200, login.text
+            headers['Authorization'] = f"Bearer {login.json()['token']['access_token']}"
+            status = await request('GET', '/api/v1/config/maintenance')
+            assert status.status_code == 200 and status.json()['state'] == 'ready'
+    finally:
+        maintenance_context.reset(context)

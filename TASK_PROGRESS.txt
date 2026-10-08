@@ -1,8 +1,9 @@
 CURRENT RESUME HERE (2026-10-08)
-TASK: Approved System Configuration, Export, Maintenance + Codex workflow optimization.
-HEAD: d99c772 (user commit). Final tests/docs/config changes are uncommitted.
-STATUS: Requested production fixes verified; workflow updates complete. No implementation
-items remain in scope. Full lint has existing debt; real hardware/OS behavior is unverified.
+TASK: Post-implementation isolated acceptance rehearsal and authorized local commit.
+HEAD: 7e83cf7 (user already committed final verification/workflow). New rehearsal test in progress.
+STATUS: Prior implementation/verification complete; now rehearsing full production HTTP
+backup/download/validate/restore/session invalidation against a fresh disposable PostgreSQL.
+No live camera, station database, restore or power operations authorized/performed.
 
 DONE
 - Configuration CAS, saved/applied state, confidence snapshot, physical camera mapping/health.
@@ -44,6 +45,8 @@ SAFETY / EXACT NEXT STEP
 No live DB/captures/retention/restore/camera/reboot/shutdown testing. Use disposable fixtures.
 Preserve the explicit Scan Logs/Scan Detail reverts and current UI. Approved design/plan
 remain in docs/superpowers; no repeated stage approvals are needed for authorized work.
-Next: review the final uncommitted test/document/config diff or follow the next user task.
+DONE: new HTTP round-trip test (test_maintenance_postgresql.py) passed (12/12).
+Disposable cluster successfully stopped and removed.
+NEXT: Final review and authorized commit.
 Do not restart completed maintenance implementation or replay archived checkpoints.
 Historical archive: docs/history/2026-10-08-system-maintenance-progress.txt
