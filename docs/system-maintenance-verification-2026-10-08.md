@@ -75,3 +75,29 @@ Real physical-camera initialization, real host shutdown/reboot privileges, deplo
 storage permissions and interruption by actual power loss remain unverified here.
 These require a separately authorized deployment acceptance check. Automated tests
 cover mocked camera/power failures and isolated storage/database recovery boundaries.
+
+## Acceptance follow-up and repository audit — 2026-10-09
+
+The full HTTP acceptance test was committed in `b6d69e7`, after the final verification
+commit `7e83cf7`. Its isolated PostgreSQL run finished with **12 passed in 27.78 s**.
+This supplements the earlier 186-test full-suite run; it is not a new combined count.
+The production ASGI routes (without the hardware-owning lifespan) exercised backup
+creation, download, archive validation, rejection of an unconfirmed restore, confirmed
+restore, restored database/evidence contents, rejection of the pre-restore session,
+and successful login with the restored credentials. The existing separate integration
+test covers administrator-only, read-only login during recovery mode.
+
+On 2026-10-09 the repository was clean at `1f0eded`. That commit changed the archived
+checkpoint only. The current checkpoint's pending-commit message was stale: the
+acceptance implementation was already committed. No maintenance production code has
+changed since `d99c772`; the later changes are tests, documentation and workflow files.
+No new full-suite execution was warranted for this documentation audit.
+
+Cleanup was checked again: the disposable PostgreSQL cluster directories for ports
+56843 and 56844, the acceptance Ruff directory and the machine-specific test helper are
+absent; no matching acceptance/final-test temporary directories remain. `netstat`
+reported no listeners on either disposable port (the sandbox denied the CIM-based
+network query). Current acceptance-test AST parsing and `git diff --check` passed.
+The user explicitly chose to keep live tests deferred. Existing lint debt and the
+physical-camera/OS/deployment limitations above remain; no production operations were
+performed. The approved implementation and isolated acceptance work are finalized.

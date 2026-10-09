@@ -1,0 +1,52 @@
+CURRENT RESUME HERE (2026-10-08)
+TASK: Post-implementation isolated acceptance rehearsal and authorized local commit.
+HEAD: 7e83cf7 (user already committed final verification/workflow). New rehearsal test in progress.
+STATUS: Prior implementation/verification complete; now rehearsing full production HTTP
+backup/download/validate/restore/session invalidation against a fresh disposable PostgreSQL.
+No live camera, station database, restore or power operations authorized/performed.
+
+DONE
+- Configuration CAS, saved/applied state, confidence snapshot, physical camera mapping/health.
+- Protected retention, versioned backups, validation, rollback/recovery and session invalidation.
+- Scan admission/drain, durable power operations, recovery login and deferred runtime resume.
+- Four final review fixes verified: production HTTP admission, power dispatch/cancel locking,
+  queued authorization rechecks, retrying startup camera monitor.
+- Independent final rereview: no residual Critical/Important issues in those four fixes.
+- Codex Security scan 7c3170e8-68cb-4b5c-acaa-5fa94ac258ec completed on earlier snapshot;
+  its medium authorization and low admission findings are fixed in d99c772 and verified.
+- Current AGENTS.md is concise; Superpowers retained with selective repository overrides.
+- Project .codex/config.toml defaults to Astra Medium; global config/plugins unchanged.
+- Historical checkpoints archived byte-for-byte under docs/history/.
+- Disposable PostgreSQL stopped; 20 task-generated temp directories and diagnostic files
+  removed. Machine-specific backend/tests/.maintenance-pg-path.txt removed.
+
+LATEST VERIFIED CHECKS
+- Full isolated backend + PostgreSQL: 186 passed, 54.57s.
+- Full frontend browser suite: 38 passed, 47.88s.
+- TypeScript and production tsc/Vite build: passed (Vite 12.47s).
+- Frontend full lint: 43 existing errors, 8 warnings; scoped lint: 0 errors, 1 warning.
+- Backend Ruff 0.16.10: 654 baseline diagnostics; final test edits add none versus d99c772.
+- Final TOML, local doc links and test syntax validated; git diff --check passed.
+- Detailed evidence/commands/limitations: docs/system-maintenance-verification-2026-10-08.md
+  and docs/development-workflow.md. Do not rerun completed suites without new evidence.
+
+PENDING / LIMITATIONS
+- No remaining approved production implementation. No live hardware/OS acceptance performed.
+- Existing lint debt remains outside this scoped correction; do not bulk-refactor it.
+- New project model defaults apply when loaded by a trusted session; explicit session settings
+  take precedence. Current running chat model/effort was not changed.
+- No commit, push, merge, deployment or live destructive action performed by the agent.
+- Final Git status: codex/system-maintenance at d99c772; 4 modified tracked files,
+  1 deleted test helper, 5 new documentation/config files. No frontend/src diff.
+- Cleanup verified: zero disposable port 56843 listeners, zero bv-final-tests directories;
+  temporary PostgreSQL and Ruff directories absent.
+
+SAFETY / EXACT NEXT STEP
+No live DB/captures/retention/restore/camera/reboot/shutdown testing. Use disposable fixtures.
+Preserve the explicit Scan Logs/Scan Detail reverts and current UI. Approved design/plan
+remain in docs/superpowers; no repeated stage approvals are needed for authorized work.
+DONE: new HTTP round-trip test (test_maintenance_postgresql.py) passed (12/12).
+Disposable cluster successfully stopped and removed.
+NEXT: Final review and authorized commit.
+Do not restart completed maintenance implementation or replay archived checkpoints.
+Historical archive: docs/history/2026-10-08-system-maintenance-progress.txt
