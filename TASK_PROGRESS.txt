@@ -37,6 +37,12 @@ bv-scan-bulk-o413p6er, bv-scan-bulk-t9087v1q
 bv-scan-evidence-nmhi9_yu, bv-scan-evidence-ptvmrqbh, bv-scan-targeted-xe2sjpn2
 Baseline lint debt: frontend 43 errors/8 warnings; backend 654 diagnostics; no unrelated cleanup.
 
+RESOLVED BUG (2026-10-09)
+- Investigated and fixed the infinite loading/redirect loop on logout.
+- Root cause: `AdminProvider` was executing an unauthenticated `GET /api/v1/config` request unconditionally on mount, which triggered `api.ts` to redirect back to `/login` infinitely.
+- Fix: Guarded `reloadConfig` in `AdminContext.tsx` with `if (!user) return` and added `user` to the dependency array. 
+- Passed TS check, Linting (maintained baseline), and Build validation. 
+
 LATEST MILESTONE
 - Browser historical detail/error/image: 4 passed 4.06s. Conflict draft test RED then GREEN 1 passed 3.81s.
 - Retry unit tests 3 passed 137ms, including revision advancement after lost acknowledgement.

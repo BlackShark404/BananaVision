@@ -117,6 +117,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     setConfigError(null)
   }, [setConfig, setConfigReady, setConfigError])
   const reloadConfig = useCallback(async () => {
+    if (!user) return
     const generation = ++configRequests.current
     try {
       const saved = await api.config.get()
@@ -126,7 +127,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       if (generation === configRequests.current) setConfigError(error instanceof Error ? error.message : "Configuration unavailable")
     }
-  }, [acceptConfig, setConfigConflict, setConfigError])
+  }, [acceptConfig, setConfigConflict, setConfigError, user])
   useEffect(() => { void reloadConfig(); return () => { configRequests.current++ } }, [reloadConfig])
 
   useEffect(() => {
