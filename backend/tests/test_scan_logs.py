@@ -282,6 +282,10 @@ async def test_csv_round_trip_special_characters_and_formula_prefixes(logs_db):
     ids = [scan(logs_db, own, source=value) for value in values]
     rows = {row['Scan ID']: row for row in await csv_rows(logs_db, own, ScanLogQuery())}
     for identifier, value in zip(ids, values):
-        expected = "'" + value if value.lstrip().startswith(('=', '+', '-', '@')) else value
+        # Source labels have always been trimmed by the shared SQL projection.
+        normalized = value.strip()
+        expected = "'" + normalized if normalized.startswith(('=', '+', '-', '@')) else normalized
         assert rows[str(identifier)]['Source'] == expected
+        if value.lstrip().startswith(('=', '+', '-', '@')):
+            assert scan_logs._safe_cell(value) == "'" + value
     assert scan_logs._safe_cell(-1.5) == -1.5

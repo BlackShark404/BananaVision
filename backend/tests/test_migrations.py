@@ -89,6 +89,9 @@ async def test_postgresql_schema_startup_upgrade(legacy):
         if legacy:
             async with engine.begin() as connection:
                 await connection.run_sync(legacy_schema)
+                # PostgreSQL enforces the new history FK; the old fixture omitted
+                # this base table even though every real station already has it.
+                await connection.execute(text('CREATE TABLE scan (id UUID PRIMARY KEY)'))
                 await connection.run_sync(upgrade_connection)
                 await connection.run_sync(assert_upgraded)
         else:

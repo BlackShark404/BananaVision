@@ -1,6 +1,6 @@
 CURRENT RESUME HERE (2026-10-09)
 TASK: Scan Logs/Detail hardening — INCOMPLETE, implementation and verification ongoing.
-BRANCH codex/scan-record-hardening; HEAD 9500b3d; base e3e1c07. No old commits replayed.
+BRANCH codex/scan-record-hardening; HEAD 1a13e0b; base e3e1c07. No old commits replayed.
 PLAN: docs/superpowers/plans/2026-10-09-scan-records-follow-up.md (user approved).
 DONE
 - 69e89a2 ownership/privacy; user committed revision/history/CAS/idempotency, migration0005,
@@ -22,8 +22,7 @@ NOT YET STARTED / NEXT
 3. CSV/pagination edges, security scan + independent review; full backend/frontend/TS/lint/build.
 4. Scoped diff, safe temporary-resource cleanup, accurate checkpoint, verified local commit only.
 EXACT RESUME: frontend/tests/scanrecords.test.mjs GREEN rerun, then inspect remaining callers.
-Current uncommitted files: ScanImage, BoundingBoxOverlay, Logs, ScanDetail, QualityControl,
-scanrecords browser fixture/tests, backend test_scan_records/test_time_and_writes, this file.
+User committed continuation a7376bb and logout guard 1a13e0b. Working tree clean at resume. Preserve both.
 TEST SAFETY: Python -B from fresh tempfile cwd, insert resolved backend on sys.path; pytest
 -p no:cacheprovider -q --basetemp <temp>/fixtures -c <backend>/pyproject.toml. Never read live .env.
 Disposable PG18 RUNNING: bv-scan-pg-79340e152cc64c9b8948b973c9a91049 under OS temp; localhost56845 userbvtest databasepostgres. Root recorded backend/tests/.scan-pg-path.txt. STOP ONLY THIS CLUSTER then remove helper after tests. Never live DB/captures/cameras/hardware/power.
@@ -55,3 +54,14 @@ LATEST MILESTONE
 - TS duplicate Intake imports found and removed; rerun pending.
 NEXT: isolated PostgreSQL concurrency/compatibility tests, caller browser coverage, security/final suite.
 Extra temp dirs: bv-scan-null-d4bm1c0_, bv-scan-contract-5y4y4zy4.
+
+LATEST VERIFIED (current resume supersedes earlier pending descriptions)
+- PostgreSQL scan concurrency suite: 5 passed 3.35s (bv-scan-pgtests-k6n01ljk).
+- Combined browser persistence/detail/retry: 18 passed 18.19s (latest).
+- PG backup/migration/CSV: 34 passed, 2 failed 36.09s (bv-scan-compat-pn01ytow).
+  Failures: synthetic legacy migration fixture lacks scan parent; CSV expected whitespace is
+  normalized by existing SQL source-name trim. Root-cause review in progress.
+- Codex Security active scan c49fcb93-82d3-4452-8183-9be1cf9571e9, range e3e1c07..1a13e0b.
+  Preflight delegated; scan not completed. Initial short-SHA start failed and created no scan.
+- PG test cluster confirmed running elevated PID50664 localhost56845; sandbox status was false-negative.
+- Last approval-review usage failure is resolved; pending test command ran on resume.
