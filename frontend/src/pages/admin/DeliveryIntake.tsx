@@ -1,3 +1,4 @@
+import { isScanConflict } from "@/lib/scanWrites"
 import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { useScans } from "@/context/ScanContext"
@@ -146,7 +147,7 @@ export default function DeliveryIntake() {
     try {
       const snapshot = await api.intakes.scanRevisions(intake.id)
       setReason("")
-      setConfirmAction({ intakeId: intake.id, status, scanCount: intake.scanCount, revisions: snapshot.revisions })
+      setConfirmAction({ intakeId: intake.id, status, scanCount: Object.keys(snapshot.revisions).length, revisions: snapshot.revisions })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to load intake revisions")
     } finally { setSaving(false) }
@@ -160,7 +161,15 @@ export default function DeliveryIntake() {
       toast.success(`Intake and scans marked as ${confirmAction.status}`)
       setConfirmAction(null)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update intake")
+      toast.error(error instanceof Error ? error.message : "Failed to update intake", {
+        action: isScanConflict(error) ? { label: "Reload latest", onClick: () => {
+          void api.intakes.scanRevisions(confirmAction.intakeId).then(snapshot => {
+            setConfirmAction(current => current?.intakeId === confirmAction.intakeId ? { ...current,
+              revisions: snapshot.revisions, scanCount: Object.keys(snapshot.revisions).length } : current)
+            toast.info("Intake refreshed. Review the scan count before confirming again.")
+          }).catch(error => toast.error(error.message))
+        } } : undefined,
+      })
     } finally {
       setSaving(false)
     }
@@ -320,6 +329,9 @@ export default function DeliveryIntake() {
               This will mark all <strong>{confirmAction?.scanCount}</strong> scans in this intake as <strong>{confirmAction?.status}</strong>. {TERMINAL_STATUSES.includes(confirmAction?.status as InventoryStatus) ? "This is a terminal status and cannot be easily undone." : "This change will be recorded in the scan history."}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2"><Label htmlFor="intake-status-reason">Reason for change</Label>
+            <Textarea id="intake-status-reason" value={reason} onChange={event => setReason(event.target.value)} disabled={saving} />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
             <AlertDialogAction

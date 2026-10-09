@@ -1,3 +1,6 @@
+import { api } from "@/lib/api"
+import { isScanConflict } from "@/lib/scanWrites"
+import { ScanImage } from "@/components/ScanImage"
 import { useState, useMemo } from "react"
 import { useScans } from "@/context/ScanContext"
 import { useAdmin } from "@/context/AdminContext"
@@ -36,10 +39,11 @@ const PAGE_SIZE = 15
 
 import { useEffect } from "react"
 export default function QualityControl() {
-  const { scans, scansLoading, scansError, refreshScans, flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData } = useScans()
+  const { scans, scansLoading, scansError, refreshScans, flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData, acceptScan } = useScans()
   const { config } = useAdmin()
   const [selectedScan, setSelectedScan] = useState<ScanResult | null>(null)
   const [noteText, setNoteText] = useState("")
+  const [editBaseline, setEditBaseline] = useState<ScanResult | null>(null)
   const [editReason, setEditReason] = useState("")
   const [editMode, setEditMode] = useState(false)
   const [editData, setEditData] = useState<Partial<Omit<ScanResult, 'fingerCount' | 'spoilageDays'> & { fingerCount: number | string; spoilageDays: string }>>({})
@@ -80,6 +84,17 @@ export default function QualityControl() {
     return [...filtered].sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
   }, [scans, filterView, sourceFilter, searchQuery, config.confidenceThreshold])
 
+  const reportWriteError = (error: unknown, scanId?: string) => {
+    toast.error(error instanceof Error ? error.message : "Could not save changes. Please retry.", {
+      action: isScanConflict(error) && scanId ? { label: "Reload latest", onClick: () => {
+        void api.scans.detail(scanId).then(raw => {
+          const saved = acceptScan(raw)
+          setSelectedScan(previous => previous?.id === scanId ? saved : previous)
+        }).catch(error => toast.error(error.message))
+      } } : undefined,
+    })
+  }
+
   const handleFlag = async (scan: ScanResult) => {
     if (pendingWrite) return
     const isNowFlagged = !scan.flagged
@@ -89,7 +104,7 @@ export default function QualityControl() {
       setSelectedScan(prev => prev?.id === scan.id ? saved : prev)
       toast.success(isNowFlagged ? "Scan flagged for review" : "Flag removed")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not update the flag. Please retry.")
+      reportWriteError(error, scan.id)
     } finally { setPendingWrite(false) }
   }
 
@@ -102,7 +117,7 @@ export default function QualityControl() {
       setNoteText("")
       toast.success("Note added successfully")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not add the note. Please retry.")
+      reportWriteError(error, selectedScan.id)
     } finally { setPendingWrite(false) }
   }
 
@@ -115,19 +130,20 @@ export default function QualityControl() {
         spoilageDays: editData.spoilageDays,
       } as Partial<ScanResult>
       try {
-        await updateScanData(selectedScan.id, saveData, editReason.trim(), selectedScan)
+        await updateScanData(selectedScan.id, saveData, editReason.trim(), { ...(editBaseline ?? selectedScan), revision: selectedScan.revision })
         setEditMode(false)
         setSelectedScan(null)
         setEditData({})
         toast.success("Scan data updated successfully")
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Could not save changes. Please retry.")
+        reportWriteError(error, selectedScan.id)
       } finally { setPendingWrite(false) }
     }
   }
 
   const openScanDetails = (scan: ScanResult) => {
     setSelectedScan(scan)
+    setEditBaseline(scan)
     setEditMode(false)
     setEditReason("")
     setEditData({
@@ -199,7 +215,7 @@ export default function QualityControl() {
         <div className="w-14">
           <AspectRatio ratio={1} className="rounded-lg overflow-hidden bg-muted/50 border">
             {scan.thumbnailUrl ? (
-              <img src={scan.thumbnailUrl} alt={scan.cultivar} className="w-full h-full object-cover" />
+              <ScanImage src={scan.thumbnailUrl} alt={scan.cultivar} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <Banana className="w-6 h-6 text-muted-foreground/40" />
@@ -526,7 +542,7 @@ export default function QualityControl() {
                       <AspectRatio ratio={4/3} className="rounded-lg overflow-hidden bg-muted/50 border-2 relative group">
                         {selectedScan.thumbnailUrl ? (
                           <>
-                            <img src={selectedScan.thumbnailUrl} alt={`${camId} view`} className="w-full h-full object-cover" />
+                            <ScanImage src={selectedScan.thumbnailUrl} alt={`${camId} view`} className="w-full h-full object-cover" />
                             {/* Bounding Box Overlay - simulated detection boxes */}
                             <div className="absolute inset-0 pointer-events-none">
                               {/* Main detection box */}
@@ -771,13 +787,13 @@ export default function QualityControl() {
             </div>
           )}
 
+          {editMode && <div className="px-6 pb-4"><div className="space-y-2"><Label htmlFor="qc-edit-reason">Reason for change</Label><Textarea id="qc-edit-reason" value={editReason} onChange={event => setEditReason(event.target.value)} disabled={pendingWrite} /></div></div>}
           <DialogFooter className="px-6 pb-6 pt-4 border-t flex-col sm:flex-row gap-2">
             {editMode ? (
               <>
                 <Button variant="outline" onClick={() => setEditMode(false)}>
                   Cancel
                 </Button>
-                <div className="space-y-2"><Label htmlFor="qc-edit-reason">Reason for change</Label><Textarea id="qc-edit-reason" value={editReason} onChange={event => setEditReason(event.target.value)} disabled={pendingWrite} /></div>
                 <Button onClick={handleSaveEdit} disabled={pendingWrite || !editReason.trim()}>
                   Save Changes
                 </Button>

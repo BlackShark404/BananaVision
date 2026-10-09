@@ -30,6 +30,12 @@ def upgrade():
             for name in ("cultivar", "ripeness", "confidence"):
                 if not columns[name]["nullable"]:
                     batch.alter_column(name, existing_type=columns[name]["type"], nullable=True)
+    if "scan_classification" in tables:
+        columns = {c["name"]: c for c in sa.inspect(bind).get_columns("scan_classification")}
+        with op.batch_alter_table("scan_classification") as batch:
+            for name in ("cultivar", "ripeness", "confidence", "spoilage_days"):
+                if name in columns and not columns[name]["nullable"]:
+                    batch.alter_column(name, existing_type=columns[name]["type"], nullable=True)
     for model in (ScanEvent, ScanMutation, ScanTombstone):
         model.__table__.create(bind, checkfirst=True)
 

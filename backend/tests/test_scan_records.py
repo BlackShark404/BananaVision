@@ -33,8 +33,8 @@ def test_scan_ownership_applies_to_list_detail_and_writes(application):
     assert listing["total"] == 0 and listing["items"] == []
     for response in (
         app.client.get(url),
-        app.client.patch(url + "/flag", json={"flagged": True}),
-        app.client.patch(url + "/status", json={"inventory_status": "Sold"}),
+        app.client.patch(url + "/flag", json=mutation(flagged=True)),
+        app.client.patch(url + "/status", json=mutation(inventory_status="Sold", reason="Dispatched")),
     ):
         assert response.status_code == 403, response.text
     with Session(app.engine) as db:
@@ -45,7 +45,7 @@ def test_scan_ownership_applies_to_list_detail_and_writes(application):
 def test_owner_detail_and_list_do_not_expose_admin_notes(application):
     app = application
     url = f"/api/v1/scans/{app.ids.scan}"
-    assert app.client.post(url + "/notes", json={"note": "Private review"}).status_code == 200
+    assert app.client.post(url + "/notes", json=mutation(note="Private review")).status_code == 200
     assert app.client.get(url).json()["notes"][0]["text"] == "Private review"
     operator_session(app, app.ids.operator)
     detail = app.client.get(url)
@@ -53,10 +53,10 @@ def test_owner_detail_and_list_do_not_expose_admin_notes(application):
     assert detail.json()["notes"] == [] and detail.json()["has_notes"] is False
     assert app.client.get("/api/v1/scans").json()["items"][0]["has_notes"] is False
     assert app.client.get(url + "/notes").status_code == 403
-    assert app.client.post(url + "/notes", json={"note": "Not allowed"}).status_code == 403
-    assert app.client.patch(url, json={"cultivar": "Cardaba"}).status_code == 403
-    assert app.client.patch(url + "/flag", json={"flagged": True}).status_code == 200
-    assert app.client.patch(url + "/status", json={"inventory_status": "Sold"}).status_code == 200
+    assert app.client.post(url + "/notes", json=mutation(2, note="Not allowed")).status_code == 403
+    assert app.client.patch(url, json=mutation(2, cultivar="Cardaba", reason="Correction")).status_code == 403
+    assert app.client.patch(url + "/flag", json=mutation(2, flagged=True)).status_code == 200
+    assert app.client.patch(url + "/status", json=mutation(3, inventory_status="Sold", reason="Dispatched")).status_code == 200
 
 
 @pytest.mark.parametrize("role", [None, "Observer"])
@@ -213,3 +213,20 @@ def test_bulk_membership_conflict_and_retry_are_atomic(application):
     detail = app.client.get(f'/api/v1/scans/{app.ids.scan}').json()
     assert detail['revision'] == 2 and detail['inventory_status'] == 'Sold'
     assert detail['history'][-1]['reason'] == body['reason']
+
+def test_incomplete_classification_keeps_original_unknowns_and_rejects_null_count(application):
+    app = application
+    with Session(app.engine) as db:
+        record = db.get(Scan, app.ids.scan)
+        record.classification.cultivar = None
+        record.classification.ripeness = None
+        record.classification.confidence = None
+        db.commit()
+    url = f'/api/v1/scans/{app.ids.scan}'
+    invalid = app.client.patch(url, json=mutation(reason='Count correction', finger_count=None))
+    assert invalid.status_code == 422, invalid.text
+    saved = app.client.patch(url, json=mutation(reason='Verified cultivar', cultivar='Cardaba'))
+    assert saved.status_code == 200, saved.text
+    assert saved.json()['original_ai_result']['cultivar'] is None
+    assert saved.json()['original_ai_result']['confidence'] is None
+    assert saved.json()['is_overridden']

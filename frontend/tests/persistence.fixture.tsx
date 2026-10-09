@@ -17,7 +17,7 @@ function Probe() {
   const operations: Record<string, () => Promise<unknown>> = {
     flag: () => scans.flagScan("scan-0", true),
     note: () => scans.addScanNote("scan-0", "Review note"),
-    override: () => scans.updateScanData("scan-0", { cultivar: "Cardaba" }),
+    override: () => scans.updateScanData("scan-0", { cultivar: "Cardaba" }, "Verified cultivar"),
     supplierAdd: () => inventory.addSupplier({ name: "New supplier", status: "Active" }),
     supplierUpdate: () => inventory.updateSupplier("supplier-1", { name: "Edited supplier" }),
     supplierStatus: () => inventory.updateSupplierStatus("supplier-1", "Inactive"),
@@ -27,7 +27,7 @@ function Probe() {
     pin: () => admin.resetPin("admin-1"),
     config: () => admin.updateConfig({ confidenceThreshold: 70 }),
     intake: () => inventory.startIntake("supplier-1", "new-batch"),
-    bulk: () => inventory.bulkUpdateIntakeInventory("intake-1", "Sold"),
+    bulk: () => inventory.bulkUpdateIntakeInventory("intake-1", "Sold", "Dispatched", Object.fromEntries(scans.scans.filter(scan => scan.intakeId === "intake-1").map(scan => [scan.id, scan.revision!]))),
     refresh: () => scans.refreshScans(),
   }
   useEffect(() => {

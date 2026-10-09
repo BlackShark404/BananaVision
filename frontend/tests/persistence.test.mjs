@@ -9,7 +9,7 @@ after(async () => { await runtime?.close() })
 
 const storedDate = index => new Date(Date.parse("2024-05-05T08:10:00Z") - index * 86_400_000).toISOString().replace("Z", "+08:00")
 const rows = (count = 205) => Array.from({ length: count }, (_, index) => ({
-  id: `scan-${index}`, date_time: storedDate(index), cultivar: "Lakatan", ripeness: "Ripe", confidence: 92,
+  id: `scan-${index}`, revision: 1, date_time: storedDate(index), cultivar: "Lakatan", ripeness: "Ripe", confidence: 92,
   spoilage_days: "2", finger_count: 7, operator_name: "Test Admin", source_text: index === count - 1 ? "Oldest source" : "Recent source",
   inventory_status: "In Stock", intake_id: index === count - 1 ? "intake-2" : "intake-1", flagged: false, has_notes: false,
 }))
@@ -56,8 +56,8 @@ async function setup(t, options = {}) {
         state.suppliers[0] = { ...state.suppliers[0], ...body, name: "Canonical supplier" }
         return reply(state.suppliers[0])
       }
-      if (url.pathname === "/api/v1/scans/scan-0/notes") return reply({ id: "note-1", scan_id: "scan-0", text: body.note, author_name: "Test Admin", timestamp: storedDate(0) })
-      if (url.pathname === "/api/v1/scans/scan-0/flag") { state.scans[0].flagged = body.flagged; return reply({ message: "Flag updated" }) }
+      if (url.pathname === "/api/v1/scans/scan-0/notes") return reply({ id: "note-1", scan_id: "scan-0", text: body.note, author_name: "Test Admin", timestamp: storedDate(0), revision: ++state.scans[0].revision })
+      if (url.pathname === "/api/v1/scans/scan-0/flag") { state.scans[0].flagged = body.flagged; state.scans[0].revision++; return reply(state.scans[0]) }
       if (url.pathname === "/api/v1/intakes/intake-1/bulk-inventory") {
         state.scans[0].inventory_status = body.inventory_status
         return reply({ updated_scan_ids: ["scan-0"], updated_count: 1, status_updated_at: storedDate(0), intake_status: "Depleted" })
@@ -82,6 +82,7 @@ async function setup(t, options = {}) {
     if (url.pathname === "/api/v1/devices") return reply([])
     if (url.pathname === "/api/v1/suppliers") return reply(state.suppliers)
     if (url.pathname === "/api/v1/intakes") return reply(state.intakes)
+    if (url.pathname === "/api/v1/scans/scan-0") return reply({ ...state.scans[0], notes: [] })
     if (url.pathname.endsWith("/notes")) return reply([])
     return reply({ detail: `Unexpected test read: ${url.pathname}` }, 404)
   })

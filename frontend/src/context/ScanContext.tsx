@@ -99,6 +99,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
     setScansError(null)
     try {
       const raw = await collectScanPages((page, page_size, signal) => api.scans.list({ page, page_size }, signal), controller.signal)
+      if (controller.signal.aborted || !mounted.current) return
       const mapped = raw.map(record => acceptScan(record))
       if (!controller.signal.aborted && mounted.current) setScans(mapped)
     } catch (error) {

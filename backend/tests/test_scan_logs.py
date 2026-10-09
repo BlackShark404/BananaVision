@@ -254,3 +254,34 @@ def test_api_query_validation_authentication_export_and_page_independent_metrics
             {"direction": "bad"}, {"flagged_only": "bad"},
         ):
             assert client.get("/api/v1/scan-logs", params=params).status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('sort', ['date_time', 'cultivar', 'confidence', 'spoilage_days', 'finger_count'])
+@pytest.mark.parametrize('direction', ['asc', 'desc'])
+async def test_equal_key_pages_are_deterministic_and_account_scoped(logs_db, sort, direction):
+    own, other = account(logs_db), account(logs_db)
+    expected = {scan(logs_db, own, confidence=75, prediction='4') for _ in range(7)}
+    expected.add(scan(logs_db, own, confidence=None))
+    scan(logs_db, other, confidence=75, prediction='4')
+    query = ScanLogQuery(sort=sort, direction=direction, page_size=3)
+    pages = [await scan_logs.list_scan_logs(logs_db, own, query.model_copy(update={'page': page})) for page in (1, 2, 3)]
+    identifiers = [row.id for page in pages for row in page.items]
+    assert len(identifiers) == len(set(identifiers)) == 8
+    assert set(identifiers) == expected
+    again = await scan_logs.list_scan_logs(logs_db, own, query)
+    assert [row.id for row in again.items] == identifiers[:3]
+    assert [row['Scan ID'] for row in await csv_rows(logs_db, own, query)] == [str(i) for i in identifiers]
+
+
+@pytest.mark.asyncio
+async def test_csv_round_trip_special_characters_and_formula_prefixes(logs_db):
+    own = account(logs_db)
+    values = ['Mangga, saging "hinog" — 日本語', 'line\rreturn', 'line\nfeed', 'line\r\npair',
+              '=1+1', '+SUM(1,2)', '-cmd', '@formula', '  =1', '\t+1', '\r-1', '\n@1']
+    ids = [scan(logs_db, own, source=value) for value in values]
+    rows = {row['Scan ID']: row for row in await csv_rows(logs_db, own, ScanLogQuery())}
+    for identifier, value in zip(ids, values):
+        expected = "'" + value if value.lstrip().startswith(('=', '+', '-', '@')) else value
+        assert rows[str(identifier)]['Source'] == expected
+    assert scan_logs._safe_cell(-1.5) == -1.5

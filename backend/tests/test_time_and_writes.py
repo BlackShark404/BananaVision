@@ -255,6 +255,14 @@ def test_http_write_only_succeeds_after_commit_and_failure_rolls_back(applicatio
         "bulk_inventory": (f"intakes/{ids.intake}/bulk-inventory", "patch", {"inventory_status": "Sold"}),
         "settings": ("config", "patch", {"confidence_threshold": 95, "expected_revision": 1}),
     }[operation]
+    if operation in {"flag", "note", "inventory_status", "bulk_inventory"}:
+        body["request_id"] = str(uuid4())
+        if operation == "bulk_inventory":
+            body["expected_revisions"] = {str(ids.scan): 1}
+        else:
+            body["expected_revision"] = 1
+        if operation in {"inventory_status", "bulk_inventory"}:
+            body["reason"] = "Dispatched"
     app.state.fail_commit = fail_commit
     response = getattr(app.client, method)(f"/api/v1/{endpoint}", json=body)
     if fail_commit:
@@ -327,6 +335,12 @@ async def test_scan_pipeline_never_announces_completion_before_persistence(appli
             created = await scan_service.execute_scan_pipeline(db, app.ids.profile, app.ids.operator, "Operator")
             assert app.state.events.index("commit") < app.state.events.index(events.SCAN_COMPLETED)
             completed = next(data for _, event, data in messages if event == events.SCAN_COMPLETED)
+            assert completed["revision"] == created.revision == 1
+            assert created.operator_name_snapshot == "Operator"
+            from app.models import ScanEvent
+            event = await db.scalar(select(ScanEvent).where(ScanEvent.scan_id == created.id))
+            assert event.actor_id == app.ids.operator and event.actor_name == "Operator"
+            assert event.evidence_id == f"status:{created.status_logs[0].id}"
             assert completed["date_time"] == created.date_time.isoformat()
             assert completed["date_time"].endswith("+08:00")
             assert completed["status_updated_at"].endswith("+08:00")

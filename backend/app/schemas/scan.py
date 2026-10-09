@@ -8,7 +8,7 @@ import uuid
 from typing import Annotated
 from app.schemas.timestamps import Timestamp
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from .enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
 
@@ -38,8 +38,16 @@ class ScanOverrideRequest(ScanMutationRequest):
     cultivar: CultivarEnum | None = None
     ripeness: RipenessEnum | None = None
     finger_count: int | None = Field(default=None, ge=0)
-    spoilage_days: str | None = Field(default=None, max_length=50)
+    spoilage_days: str | None = Field(default=None, max_length=20)
     source_text: str | None = Field(default=None, max_length=100)
+
+
+    @field_validator("finger_count")
+    @classmethod
+    def count_cannot_be_null(cls, value):
+        if value is None:
+            raise ValueError("Finger count must be a non-negative integer")
+        return value
 
 
 class ScanNoteCreate(ScanMutationRequest):

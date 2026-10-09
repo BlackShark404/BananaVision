@@ -55,6 +55,11 @@ const mapApiIntake = (i: any): DailyIntake => ({
 
 export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
+  return <InventoryStore key={`${user?.id}:${user?.role}`}>{children}</InventoryStore>
+}
+
+function InventoryStore({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
   const { updateScansForIntake } = useScans()
   const { pathname } = useLocation()
 
@@ -67,6 +72,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) return
 
+    let cancelled = false
     const loadData = async () => {
       try {
         const [suppliersRes, intakesRes] = await Promise.allSettled([
@@ -74,6 +80,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
           api.intakes.list(),
         ])
 
+        if (cancelled) return
         if (suppliersRes.status === "fulfilled") {
           setSuppliers((suppliersRes.value as any[]).map(mapApiSupplier))
         } else {
@@ -90,7 +97,8 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    loadData()
+    void loadData()
+    return () => { cancelled = true }
   }, [user, pathname])
 
   // ── Reset on logout ─────────────────────────────────────────────────────

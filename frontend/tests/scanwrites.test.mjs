@@ -40,3 +40,14 @@ test('concurrent identical clicks coalesce; definitive conflict and auth cleanup
   clearScanWrites()
   assert.equal(await scanWrite('user:scan', { changed: true }, async () => 'new session'), 'new session')
 })
+
+test('retry after a background refresh keeps the original expected revision', async () => {
+  const { scanWrite } = await moduleUnderTest()
+  let original
+  await assert.rejects(scanWrite('user:scan:flag', { expected_revision: 1, flagged: true }, async body => {
+    original = body; throw new Error('Lost response')
+  }))
+  await scanWrite('user:scan:flag', { expected_revision: 2, flagged: true }, async body => {
+    assert.deepEqual(body, original)
+  })
+})

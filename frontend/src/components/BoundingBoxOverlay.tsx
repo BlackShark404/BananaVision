@@ -7,6 +7,7 @@
  */
 
 import { useState, useRef, useCallback } from "react"
+import { ScanImage } from "@/components/ScanImage"
 import type { BoundingBox } from "@/types"
 
 // ── Class label color mapping ───────────────────────────────────────────────
@@ -64,7 +65,11 @@ interface BoundingBoxOverlayProps {
   aspectRatio?: number
 }
 
-export default function BoundingBoxOverlay({
+export default function BoundingBoxOverlay(props: BoundingBoxOverlayProps) {
+  return <BoundingBoxImage key={props.src} {...props} />
+}
+
+function BoundingBoxImage({
   src,
   alt = "Detection result",
   boxes,
@@ -82,6 +87,8 @@ export default function BoundingBoxOverlay({
     setImgLoaded(true)
   }, [])
 
+  const onImageUnavailable = useCallback(() => { setImgLoaded(false); setImgNaturalSize(null) }, [])
+
   return (
     <div
       ref={containerRef}
@@ -89,11 +96,12 @@ export default function BoundingBoxOverlay({
       style={{ position: "relative" }}
     >
       {/* Base image */}
-      <img
+      <ScanImage
         src={src}
         alt={alt}
         className="w-full h-full object-cover"
         onLoad={onImgLoad}
+        onUnavailable={onImageUnavailable}
         draggable={false}
       />
 

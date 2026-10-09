@@ -1,3 +1,4 @@
+import { ScanImage } from "@/components/ScanImage"
 import { useState, useCallback, useRef, useEffect } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
@@ -24,7 +25,7 @@ import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft,
 import { toast } from "sonner"
 import { getImageUrl } from "@/lib/utils"
 import { api } from "@/lib/api"
-import { scanWrite, scanRevision } from "@/lib/scanWrites"
+import { scanWrite, scanRevision, isScanConflict } from "@/lib/scanWrites"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -144,7 +145,17 @@ function LogsContent() {
       toast.success(`Scan marked as ${status}`)
       setStatusAction(null)
       await latestRefresh.current()
-    } catch (error) { toast.error(error instanceof Error ? error.message : "Status update failed") }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Status update failed", {
+        action: isScanConflict(error) ? { label: "Reload latest", onClick: () => {
+          void api.scans.detail(scan.id).then(saved => {
+            setStatusAction(current => current?.scan.id === scan.id ? { ...current, scan: { ...current.scan,
+              revision: saved.revision, inventoryStatus: saved.inventory_status } } : current)
+            void latestRefresh.current()
+          }).catch(error => toast.error(error.message))
+        } } : undefined,
+      })
+    }
     finally { inFlight.current.delete(scan.id); setPendingScans(new Set(inFlight.current)) }
   }
 
@@ -178,7 +189,7 @@ const columns: ColumnDef<LogScan>[] = [
         <div className="w-14">
           <AspectRatio ratio={1} className="rounded-lg overflow-hidden bg-muted/50 border">
             {scan.thumbnailUrl ? (
-              <img src={scan.thumbnailUrl} alt={scan.cultivar} className="w-full h-full object-cover" />
+              <ScanImage src={scan.thumbnailUrl} alt={scan.cultivar} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <Banana className="w-6 h-6 text-muted-foreground/40" />

@@ -9,7 +9,7 @@ export async function scanWrite<T, P extends object>(
 ): Promise<T> {
   // Round-trip removes undefined fields and snapshots the user's exact intent.
   const value = JSON.parse(JSON.stringify(payload)) as Record<string, unknown>
-  const signature = JSON.stringify(Object.keys(value).sort().map(key => [key, value[key]]))
+  const signature = JSON.stringify(Object.keys(value).filter(key => key !== 'expected_revision').sort().map(key => [key, value[key]]))
   let entry = pending.get(scope)
   if (entry && entry.signature !== signature) throw new Error("Retry the previous change before submitting a different edit; its result is still uncertain.")
   if (!entry) {
@@ -34,4 +34,8 @@ export async function scanWrite<T, P extends object>(
 export function scanRevision(revision: number | undefined): number {
   if (!Number.isInteger(revision) || !revision || revision < 1) throw new Error('Reload this scan before saving changes.')
   return revision
+}
+
+export function isScanConflict(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'status' in error && error.status === 409
 }

@@ -4,6 +4,8 @@ Scan pipeline orchestrator — coordinates the full capture → detect → fuse 
 
 from __future__ import annotations
 
+from app.services.scan_evidence import evidence_url
+
 import logging
 import uuid
 import asyncio
@@ -108,7 +110,7 @@ async def _execute_scan_pipeline(
                 "scan_id": scan_id_str,
                 "camera_id": cap.camera_id,
                 "camera_label": cap.camera_label,
-                "image_url": cap.file_path,
+                "image_url": evidence_url(cap.file_path),
                 "index": i + 1,
                 "total": len(captures),
             })
@@ -360,7 +362,7 @@ async def _execute_scan_pipeline(
             "intake_id": str(scan.intake_id) if scan.intake_id else None,
             "inventory_status": status_log.inventory_status.value,
             "status_updated_at": status_log.updated_at.isoformat(),
-            "thumbnail_url": classification.thumbnail_url,
+            "thumbnail_url": evidence_url(classification.thumbnail_url),
             "is_overridden": scan.is_overridden,
             "updated_at": scan.updated_at.isoformat(),
             "flagged": fused.auto_flagged,
@@ -368,7 +370,7 @@ async def _execute_scan_pipeline(
             "camera_count": fused.camera_count,
             "scanned_at": scan.date_time.isoformat(),
             "date_time": scan.date_time.isoformat(),
-            "images": [{"camera_id": img.camera_id, "file_path": img.file_path} for img in db_images],
+            "images": [{"camera_id": img.camera_id, "file_path": evidence_url(img.file_path) or ""} for img in db_images],
             "detections": [
                 {
                     "camera_id": det.camera_id,
