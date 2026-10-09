@@ -3,6 +3,7 @@ import type { ScanResult, ScanNote } from "@/types"
 /** Stored records never receive a client-generated timestamp. */
 export interface ApiScan {
   id: string
+  revision: number
   date_time?: string
   scanned_at?: string
   dateTime?: string
@@ -26,10 +27,12 @@ export interface ApiScan {
   status_updated_at?: string | null
   flagged?: boolean
   is_overridden?: boolean
-  original_ai_result?: { cultivar: ScanResult["cultivar"]; ripeness: ScanResult["ripeness"]; confidence: number; finger_count: number; spoilage_days?: string } | null
+  original_ai_result?: { cultivar: ScanResult["cultivar"] | null; ripeness: ScanResult["ripeness"] | null; confidence: number | null; finger_count: number; spoilage_days?: string | null } | null
   has_notes?: boolean
   images?: { camera_id: string; file_path: string }[]
   detections?: ScanResult["detections"]
+  notes?: ApiScanNote[]
+  history?: ScanResult["history"]
 }
 
 export interface ApiScanNote {
@@ -48,6 +51,7 @@ export function storedTimestamp(value: string | undefined | null): string {
 export function mapApiScan(scan: ApiScan, imageUrl: (path: string) => string = path => path): ScanResult {
   return {
     id: scan.id,
+    revision: scan.revision,
     dateTime: storedTimestamp(scan.date_time ?? scan.scanned_at ?? scan.dateTime),
     cultivar: scan.cultivar ?? "Unknown",
     ripeness: scan.ripeness ?? "Unknown",
@@ -67,15 +71,17 @@ export function mapApiScan(scan: ApiScan, imageUrl: (path: string) => string = p
     flagged: scan.flagged,
     isOverridden: scan.is_overridden,
     originalAiResult: scan.original_ai_result ? {
-      cultivar: scan.original_ai_result.cultivar,
-      ripeness: scan.original_ai_result.ripeness,
+      cultivar: scan.original_ai_result.cultivar ?? "Unknown",
+      ripeness: scan.original_ai_result.ripeness ?? "Unknown",
       confidence: scan.original_ai_result.confidence,
       fingerCount: scan.original_ai_result.finger_count,
-      spoilageDays: scan.original_ai_result.spoilage_days,
+      spoilageDays: scan.original_ai_result.spoilage_days ?? undefined,
     } : undefined,
     hasNotes: scan.has_notes ?? false,
     images: (scan.images ?? []).map(image => ({ ...image, file_path: imageUrl(image.file_path) })),
     detections: scan.detections ?? [],
+    notes: scan.notes?.map(mapApiScanNote),
+    history: scan.history,
   }
 }
 

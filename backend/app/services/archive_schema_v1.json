@@ -1,0 +1,1034 @@
+{
+  "activity_log": {
+    "action": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 50,
+      "nullable": false,
+      "primary_key": false
+    },
+    "details": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": null,
+      "nullable": true,
+      "primary_key": false
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": true
+    },
+    "ip_address": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 45,
+      "nullable": true,
+      "primary_key": false
+    },
+    "timestamp": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    },
+    "user_id": {
+      "foreign_keys": [
+        "user_account.id"
+      ],
+      "kind": "uuid",
+      "nullable": true,
+      "primary_key": false
+    }
+  },
+  "admin_profile": {
+    "account_id": {
+      "foreign_keys": [
+        "user_account.id"
+      ],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": false
+    },
+    "created_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": true
+    },
+    "updated_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    }
+  },
+  "app_notification": {
+    "href": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 200,
+      "nullable": true,
+      "primary_key": false
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": true
+    },
+    "is_read": {
+      "foreign_keys": [],
+      "kind": "boolean",
+      "nullable": false,
+      "primary_key": false
+    },
+    "message": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": null,
+      "nullable": false,
+      "primary_key": false
+    },
+    "timestamp": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    },
+    "title": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 200,
+      "nullable": false,
+      "primary_key": false
+    },
+    "type": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 30,
+      "nullable": false,
+      "primary_key": false
+    },
+    "user_id": {
+      "foreign_keys": [
+        "user_account.id"
+      ],
+      "kind": "uuid",
+      "nullable": true,
+      "primary_key": false
+    }
+  },
+  "delivery_intake": {
+    "batch_number": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 50,
+      "nullable": true,
+      "primary_key": false
+    },
+    "created_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    },
+    "harvested_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": true,
+      "primary_key": false
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": true
+    },
+    "intake_date": {
+      "foreign_keys": [],
+      "kind": "date",
+      "nullable": false,
+      "primary_key": false
+    },
+    "qr_code": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": null,
+      "nullable": true,
+      "primary_key": false
+    },
+    "source": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 100,
+      "nullable": false,
+      "primary_key": false
+    },
+    "spoiled_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": true,
+      "primary_key": false
+    },
+    "status": {
+      "foreign_keys": [],
+      "kind": "enum",
+      "nullable": false,
+      "primary_key": false,
+      "values": [
+        "Active",
+        "Depleted"
+      ]
+    },
+    "supplier_id": {
+      "foreign_keys": [
+        "supplier.id"
+      ],
+      "kind": "uuid",
+      "nullable": true,
+      "primary_key": false
+    },
+    "treated_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": true,
+      "primary_key": false
+    },
+    "treatment": {
+      "foreign_keys": [],
+      "kind": "enum",
+      "nullable": true,
+      "primary_key": false,
+      "values": [
+        "Natural",
+        "Ethephon"
+      ]
+    },
+    "updated_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    }
+  },
+  "device": {
+    "camera_id": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 50,
+      "nullable": false,
+      "primary_key": false
+    },
+    "created_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": true
+    },
+    "label": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 100,
+      "nullable": false,
+      "primary_key": false
+    },
+    "last_seen": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": true,
+      "primary_key": false
+    },
+    "resolution": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 20,
+      "nullable": true,
+      "primary_key": false
+    },
+    "status": {
+      "foreign_keys": [],
+      "kind": "enum",
+      "nullable": false,
+      "primary_key": false,
+      "values": [
+        "Online",
+        "Offline"
+      ]
+    },
+    "updated_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    }
+  },
+  "operator_profile": {
+    "account_id": {
+      "foreign_keys": [
+        "user_account.id"
+      ],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": false
+    },
+    "created_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    },
+    "flagged_scans": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": false,
+      "primary_key": false
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": true
+    },
+    "pin_hash": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 255,
+      "nullable": true,
+      "primary_key": false
+    },
+    "pin_setup_reason": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 50,
+      "nullable": true,
+      "primary_key": false
+    },
+    "requires_pin_change": {
+      "foreign_keys": [],
+      "kind": "boolean",
+      "nullable": false,
+      "primary_key": false
+    },
+    "total_scans": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": false,
+      "primary_key": false
+    },
+    "updated_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    }
+  },
+  "scan": {
+    "date_time": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    },
+    "flagged": {
+      "foreign_keys": [],
+      "kind": "boolean",
+      "nullable": false,
+      "primary_key": false
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": true
+    },
+    "intake_id": {
+      "foreign_keys": [
+        "delivery_intake.id"
+      ],
+      "kind": "uuid",
+      "nullable": true,
+      "primary_key": false
+    },
+    "is_overridden": {
+      "foreign_keys": [],
+      "kind": "boolean",
+      "nullable": false,
+      "primary_key": false
+    },
+    "operator_id": {
+      "foreign_keys": [
+        "operator_profile.id"
+      ],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": false
+    },
+    "source_text": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 100,
+      "nullable": true,
+      "primary_key": false
+    },
+    "updated_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    }
+  },
+  "scan_classification": {
+    "confidence": {
+      "foreign_keys": [],
+      "kind": "decimal",
+      "nullable": false,
+      "precision": 5,
+      "primary_key": false,
+      "scale": 2
+    },
+    "cultivar": {
+      "foreign_keys": [],
+      "kind": "enum",
+      "nullable": false,
+      "primary_key": false,
+      "values": [
+        "Lakatan",
+        "Latundan",
+        "Cardaba"
+      ]
+    },
+    "dew_point": {
+      "foreign_keys": [],
+      "kind": "decimal",
+      "nullable": true,
+      "precision": 6,
+      "primary_key": false,
+      "scale": 3
+    },
+    "finger_count": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": false,
+      "primary_key": false
+    },
+    "heat_index": {
+      "foreign_keys": [],
+      "kind": "decimal",
+      "nullable": true,
+      "precision": 5,
+      "primary_key": false,
+      "scale": 2
+    },
+    "humidity": {
+      "foreign_keys": [],
+      "kind": "decimal",
+      "nullable": true,
+      "precision": 5,
+      "primary_key": false,
+      "scale": 2
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": false,
+      "primary_key": true
+    },
+    "ripeness": {
+      "foreign_keys": [],
+      "kind": "enum",
+      "nullable": false,
+      "primary_key": false,
+      "values": [
+        "Unripe",
+        "Semi Ripe",
+        "Ripe",
+        "Overripe"
+      ]
+    },
+    "scan_id": {
+      "foreign_keys": [
+        "scan.id"
+      ],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": false
+    },
+    "spoilage_days": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 20,
+      "nullable": false,
+      "primary_key": false
+    },
+    "temperature": {
+      "foreign_keys": [],
+      "kind": "decimal",
+      "nullable": true,
+      "precision": 5,
+      "primary_key": false,
+      "scale": 2
+    },
+    "thumbnail_url": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 500,
+      "nullable": true,
+      "primary_key": false
+    },
+    "treatment": {
+      "foreign_keys": [],
+      "kind": "enum",
+      "nullable": true,
+      "primary_key": false,
+      "values": [
+        "Natural",
+        "Ethephon"
+      ]
+    },
+    "vpd": {
+      "foreign_keys": [],
+      "kind": "decimal",
+      "nullable": true,
+      "precision": 6,
+      "primary_key": false,
+      "scale": 3
+    }
+  },
+  "scan_detection": {
+    "bounding_boxes": {
+      "foreign_keys": [],
+      "kind": "json",
+      "nullable": true,
+      "primary_key": false
+    },
+    "camera_id": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 20,
+      "nullable": false,
+      "primary_key": false
+    },
+    "camera_label": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 30,
+      "nullable": false,
+      "primary_key": false
+    },
+    "captured_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    },
+    "confidence": {
+      "foreign_keys": [],
+      "kind": "decimal",
+      "nullable": true,
+      "precision": 5,
+      "primary_key": false,
+      "scale": 2
+    },
+    "detected_cultivar": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 20,
+      "nullable": true,
+      "primary_key": false
+    },
+    "detected_ripeness": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 20,
+      "nullable": true,
+      "primary_key": false
+    },
+    "finger_count": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": false,
+      "primary_key": false
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": true
+    },
+    "inference_time_ms": {
+      "foreign_keys": [],
+      "kind": "decimal",
+      "nullable": true,
+      "precision": 8,
+      "primary_key": false,
+      "scale": 2
+    },
+    "scan_id": {
+      "foreign_keys": [
+        "scan.id"
+      ],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": false
+    }
+  },
+  "scan_image": {
+    "camera_id": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 20,
+      "nullable": false,
+      "primary_key": false
+    },
+    "captured_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    },
+    "file_path": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 500,
+      "nullable": false,
+      "primary_key": false
+    },
+    "file_size_bytes": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": true,
+      "primary_key": false
+    },
+    "height": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": true,
+      "primary_key": false
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": true
+    },
+    "scan_id": {
+      "foreign_keys": [
+        "scan.id"
+      ],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": false
+    },
+    "width": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": true,
+      "primary_key": false
+    }
+  },
+  "scan_note": {
+    "author_name": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 100,
+      "nullable": false,
+      "primary_key": false
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": true
+    },
+    "scan_id": {
+      "foreign_keys": [
+        "scan.id"
+      ],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": false
+    },
+    "text": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": null,
+      "nullable": false,
+      "primary_key": false
+    },
+    "timestamp": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    }
+  },
+  "scan_original_ai_result": {
+    "confidence": {
+      "foreign_keys": [],
+      "kind": "decimal",
+      "nullable": false,
+      "precision": 5,
+      "primary_key": false,
+      "scale": 2
+    },
+    "created_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    },
+    "cultivar": {
+      "foreign_keys": [],
+      "kind": "enum",
+      "nullable": false,
+      "primary_key": false,
+      "values": [
+        "Lakatan",
+        "Latundan",
+        "Cardaba"
+      ]
+    },
+    "finger_count": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": false,
+      "primary_key": false
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": false,
+      "primary_key": true
+    },
+    "ripeness": {
+      "foreign_keys": [],
+      "kind": "enum",
+      "nullable": false,
+      "primary_key": false,
+      "values": [
+        "Unripe",
+        "Semi Ripe",
+        "Ripe",
+        "Overripe"
+      ]
+    },
+    "scan_id": {
+      "foreign_keys": [
+        "scan.id"
+      ],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": false
+    }
+  },
+  "scan_status_log": {
+    "id": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": false,
+      "primary_key": true
+    },
+    "inventory_status": {
+      "foreign_keys": [],
+      "kind": "enum",
+      "nullable": false,
+      "primary_key": false,
+      "values": [
+        "In Stock",
+        "Sold",
+        "For Processing",
+        "Spoiled"
+      ]
+    },
+    "scan_id": {
+      "foreign_keys": [
+        "scan.id"
+      ],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": false
+    },
+    "updated_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    }
+  },
+  "sensor_reading": {
+    "humidity": {
+      "foreign_keys": [],
+      "kind": "float",
+      "nullable": false,
+      "primary_key": false
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": true
+    },
+    "recorded_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    },
+    "source": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 50,
+      "nullable": false,
+      "primary_key": false
+    },
+    "temperature": {
+      "foreign_keys": [],
+      "kind": "float",
+      "nullable": false,
+      "primary_key": false
+    }
+  },
+  "supplier": {
+    "contact_person": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 100,
+      "nullable": true,
+      "primary_key": false
+    },
+    "contact_phone": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 20,
+      "nullable": true,
+      "primary_key": false
+    },
+    "date_added": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": true
+    },
+    "name": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 100,
+      "nullable": false,
+      "primary_key": false
+    },
+    "status": {
+      "foreign_keys": [],
+      "kind": "enum",
+      "nullable": false,
+      "primary_key": false,
+      "values": [
+        "Active",
+        "Inactive"
+      ]
+    },
+    "updated_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    }
+  },
+  "system_config": {
+    "camera_device_ids": {
+      "foreign_keys": [],
+      "kind": "json",
+      "nullable": true,
+      "primary_key": false
+    },
+    "camera_ids": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": null,
+      "nullable": false,
+      "primary_key": false
+    },
+    "canonical_key": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": true,
+      "primary_key": false
+    },
+    "confidence_threshold": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": false,
+      "primary_key": false
+    },
+    "data_retention_enabled": {
+      "foreign_keys": [],
+      "kind": "boolean",
+      "nullable": false,
+      "primary_key": false
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": false,
+      "primary_key": true
+    },
+    "legacy_conflict": {
+      "foreign_keys": [],
+      "kind": "boolean",
+      "nullable": false,
+      "primary_key": false
+    },
+    "revision": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": false,
+      "primary_key": false
+    },
+    "updated_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    },
+    "updated_by_admin": {
+      "foreign_keys": [
+        "admin_profile.id"
+      ],
+      "kind": "uuid",
+      "nullable": true,
+      "primary_key": false
+    }
+  },
+  "user_account": {
+    "avatar_url": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": null,
+      "nullable": true,
+      "primary_key": false
+    },
+    "created_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    },
+    "full_name": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 100,
+      "nullable": false,
+      "primary_key": false
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "uuid",
+      "nullable": false,
+      "primary_key": true
+    },
+    "last_active": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": true,
+      "primary_key": false
+    },
+    "password_hash": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 255,
+      "nullable": false,
+      "primary_key": false
+    },
+    "password_setup_reason": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 50,
+      "nullable": true,
+      "primary_key": false
+    },
+    "requires_password_change": {
+      "foreign_keys": [],
+      "kind": "boolean",
+      "nullable": false,
+      "primary_key": false
+    },
+    "role_id": {
+      "foreign_keys": [
+        "user_role.id"
+      ],
+      "kind": "integer",
+      "nullable": false,
+      "primary_key": false
+    },
+    "status": {
+      "foreign_keys": [],
+      "kind": "enum",
+      "nullable": false,
+      "primary_key": false,
+      "values": [
+        "Active",
+        "Inactive"
+      ]
+    },
+    "token_version": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": false,
+      "primary_key": false
+    },
+    "updated_at": {
+      "foreign_keys": [],
+      "kind": "timestamp",
+      "nullable": false,
+      "primary_key": false
+    },
+    "username": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 50,
+      "nullable": false,
+      "primary_key": false
+    }
+  },
+  "user_role": {
+    "description": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 255,
+      "nullable": true,
+      "primary_key": false
+    },
+    "id": {
+      "foreign_keys": [],
+      "kind": "integer",
+      "nullable": false,
+      "primary_key": true
+    },
+    "name": {
+      "foreign_keys": [],
+      "kind": "string",
+      "length": 30,
+      "nullable": false,
+      "primary_key": false
+    }
+  }
+}

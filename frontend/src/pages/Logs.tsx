@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import { Card } from "@/components/ui/card"
@@ -24,6 +24,10 @@ import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft,
 import { toast } from "sonner"
 import { getImageUrl } from "@/lib/utils"
 import { api } from "@/lib/api"
+import { scanWrite, scanRevision } from "@/lib/scanWrites"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import { scanLogParams } from "@/lib/scanLogFilters"
 import { useDashboardResource } from "@/hooks/useDashboardResource"
 import type { ScanLogRow, ScanLogParams } from "@/types/scanLogs"
@@ -44,7 +48,7 @@ type LogScan = Omit<ScanResult, "cultivar" | "ripeness" | "confidence"> & {
 
 async function mapScan(row: ScanLogRow): Promise<LogScan> {
   const scan: LogScan = {
-    id: row.id, dateTime: row.date_time, cultivar: row.cultivar ?? "Unknown", ripeness: row.ripeness ?? "Unknown",
+    id: row.id, revision: row.revision, dateTime: row.date_time, cultivar: row.cultivar ?? "Unknown", ripeness: row.ripeness ?? "Unknown",
     confidence: row.confidence, temperature: row.temperature ?? undefined, humidity: row.humidity ?? undefined,
     spoilageDays: row.spoilage_days ?? "Unknown", fingerCount: row.finger_count, operator: row.operator_name,
     source: row.source_name, intakeId: row.intake_id ?? undefined, inventoryStatus: row.inventory_status as InventoryStatus,
@@ -78,7 +82,10 @@ function LogsContent() {
   const cardFilter = requestParams.attention === "all" ? null : requestParams.attention
   const [qrModalScan, setQrModalScan] = useState<LogScan | null>(null)
   const [exporting, setExporting] = useState(false)
-  const [pendingScan, setPendingScan] = useState<string | null>(null)
+  const [pendingScans, setPendingScans] = useState<Set<string>>(new Set())
+  const inFlight = useRef(new Set<string>())
+  const [statusAction, setStatusAction] = useState<{ scan: LogScan; status: InventoryStatus } | null>(null)
+  const [statusReason, setStatusReason] = useState("")
 
   const load = useCallback(async (signal: AbortSignal) => {
     const result = await api.scanLogs.list(scanLogParams(new URLSearchParams(queryKey)), signal)
@@ -86,6 +93,8 @@ function LogsContent() {
     return { result, rows }
   }, [queryKey])
   const resource = useDashboardResource(load)
+  const latestRefresh = useRef(resource.refresh)
+  useEffect(() => { latestRefresh.current = resource.refresh }, [resource.refresh])
   const response = resource.data?.result
   const filtered = resource.data?.rows ?? []
   const stats = { avgConfidence: response?.avg_confidence, spoilingSoon: response?.at_risk_count, reviewCount: response?.review_count ?? 0 }
@@ -123,14 +132,20 @@ function LogsContent() {
     }
   }, [response, setSearchParams])
 
-  const handleStatusUpdate = async (scanId: string, status: InventoryStatus) => {
-    setPendingScan(scanId)
+  const handleStatusUpdate = async () => {
+    if (!statusAction || !statusReason.trim() || inFlight.current.has(statusAction.scan.id)) return
+    const { scan, status } = statusAction
+    inFlight.current.add(scan.id)
+    setPendingScans(new Set(inFlight.current))
     try {
-      await api.scans.updateStatus(scanId, status)
+      await scanWrite(`${user?.id}:${scan.id}:status`, {
+        expected_revision: scanRevision(scan.revision), inventory_status: status, reason: statusReason.trim(),
+      }, body => api.scans.updateStatus(scan.id, body))
       toast.success(`Scan marked as ${status}`)
-      await resource.refresh()
+      setStatusAction(null)
+      await latestRefresh.current()
     } catch (error) { toast.error(error instanceof Error ? error.message : "Status update failed") }
-    finally { setPendingScan(null) }
+    finally { inFlight.current.delete(scan.id); setPendingScans(new Set(inFlight.current)) }
   }
 
   const getStatus = (scan: LogScan) => {
@@ -311,11 +326,11 @@ const columns: ColumnDef<LogScan>[] = [
               { actionStatus: "Sold" as InventoryStatus, icon: DollarSign, color: "text-emerald-500" },
               { actionStatus: "Spoiled" as InventoryStatus, icon: AlertTriangle, color: "text-red-500" },
             ] as const).map(({ actionStatus, icon: ItemIcon, color }) => {
-              const isDisabled = scan.inventoryStatus === actionStatus || pendingScan === scan.id
+              const isDisabled = scan.inventoryStatus === actionStatus || pendingScans.has(scan.id)
               return (
                 <DropdownMenuItem
                   key={actionStatus}
-                  onClick={() => !isDisabled && handleStatusUpdate(scan.id, actionStatus)}
+                  onClick={() => { if (!isDisabled) { setStatusAction({ scan, status: actionStatus }); setStatusReason("") } }}
                   disabled={isDisabled}
                   className={isDisabled ? "opacity-40 cursor-not-allowed" : ""}
                 >
@@ -333,6 +348,14 @@ const columns: ColumnDef<LogScan>[] = [
   return (
     <>
     <div className="space-y-6">
+      <Dialog open={!!statusAction} onOpenChange={open => { if (!open && !pendingScans.size) setStatusAction(null) }}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader><DialogTitle>Mark scan as {statusAction?.status}?</DialogTitle><DialogDescription>This change will be recorded in the scan history.</DialogDescription></DialogHeader>
+          <Label htmlFor="status-reason">Reason for change</Label>
+          <Textarea id="status-reason" value={statusReason} onChange={event => setStatusReason(event.target.value)} disabled={!!pendingScans.size} />
+          <DialogFooter><Button variant="outline" disabled={!!pendingScans.size} onClick={() => setStatusAction(null)}>Cancel</Button><Button disabled={!statusReason.trim() || !!pendingScans.size} onClick={() => void handleStatusUpdate()}>Save Changes</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
       <AppPageHeader
         title={intakeFilter !== "all" ? `Logs for Intake ${intakeFilter.substring(0, 8)}` : "Scan Logs"}
         description={intakeFilter !== "all" ? "Viewing scans grouped under this delivery" : "View all banana scan results"}

@@ -29,7 +29,7 @@ def assert_upgraded(connection):
     assert {"dew_point", "vpd", "heat_index", "treatment"} <= {
         column["name"] for column in inspect(connection).get_columns("scan_classification")
     }
-    assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0004_maintenance_state"
+    assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0005_scan_record_history"
 
 
 def test_legacy_upgrade_preserves_data_and_is_repeatable(tmp_path):
@@ -56,9 +56,23 @@ def test_current_schema_adopts_revision_without_duplicate_columns():
             upgrade_connection(connection)
             for table, columns in before.items():
                 assert [column["name"] for column in inspect(connection).get_columns(table)] == columns
-            assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0004_maintenance_state"
+            assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0005_scan_record_history"
     finally:
         engine.dispose()
+
+
+def test_scan_history_upgrade_preserves_old_rows():
+    engine = create_engine("sqlite://")
+    with engine.begin() as connection:
+        legacy_schema(connection)
+        connection.execute(text("CREATE TABLE scan (id CHAR(32) PRIMARY KEY, date_time DATETIME, source_text VARCHAR(100))"))
+        connection.execute(text("INSERT INTO scan VALUES ('abc', '2025-01-02 00:30:00', 'Original source')"))
+        upgrade_connection(connection)
+        row = connection.execute(text("SELECT revision, operator_name_snapshot, source_name_snapshot, date_time, source_text FROM scan")).one()
+        assert tuple(row) == (1, None, None, '2025-01-02 00:30:00', 'Original source')
+        assert {'scan_event', 'scan_mutation', 'scan_tombstone'} <= set(inspect(connection).get_table_names())
+        assert connection.execute(text('SELECT COUNT(*) FROM scan_event')).scalar_one() == 0
+    engine.dispose()
 
 
 @pytest.mark.asyncio
@@ -81,7 +95,7 @@ async def test_postgresql_schema_startup_upgrade(legacy):
             await asyncio.gather(initialize_schema(engine), initialize_schema(engine))
             await initialize_schema(engine)
             async with engine.begin() as connection:
-                assert (await connection.execute(text("SELECT version_num FROM alembic_version"))).scalar_one() == "0004_maintenance_state"
+                assert (await connection.execute(text("SELECT version_num FROM alembic_version"))).scalar_one() == "0005_scan_record_history"
         async with engine.begin() as connection:
             await connection.run_sync(upgrade_connection)
             if legacy:

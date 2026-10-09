@@ -17,7 +17,9 @@ from sqlalchemy import select, func, desc
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import DbSession, CurrentUser, AdminUser
-from app.core.exceptions import NotFoundException
+from app.core.exceptions import NotFoundException, ConflictException, ForbiddenException
+from app.services.auth_service import lock_current_account
+from app.services.scan_records import (lock_mutation, mutation_fingerprint, mutation_replay, save_receipt, apply_scan_change, is_admin)
 from app.models.supplier import Supplier
 from app.models.intake import Intake
 from app.models.scan import Scan
@@ -162,45 +164,48 @@ async def update_intake_status(
     return {"message": "Intake status updated"}
 
 
+@router.get("/{intake_id}/scan-revisions")
+async def intake_scan_revisions(intake_id: uuid.UUID, db: DbSession, admin: AdminUser):
+    if not await db.scalar(select(Intake.id).where(Intake.id == intake_id)):
+        raise NotFoundException("Intake")
+    rows = (await db.execute(select(Scan.id, Scan.revision).where(Scan.intake_id == intake_id))).all()
+    return {"revisions": {str(row.id): row.revision for row in rows}}
+
+
 @router.patch("/{intake_id}/bulk-inventory")
 async def bulk_update_intake_inventory(
     intake_id: uuid.UUID, body: IntakeBulkInventoryUpdate, db: DbSession, admin: AdminUser, request: Request
 ):
-    """Bulk update inventory status for all scans in an intake."""
-    result = await db.execute(select(Intake).where(Intake.id == intake_id))
-    intake = result.scalar_one_or_none()
+    await lock_mutation(db, body.request_id)
+    admin = await lock_current_account(db, admin)
+    if not is_admin(admin):
+        raise ForbiddenException("Admin access required")
+    intake = (await db.execute(select(Intake).where(Intake.id == intake_id).with_for_update()
+                               .execution_options(populate_existing=True))).scalar_one_or_none()
     if not intake:
         raise NotFoundException("Intake")
-
-    # Update all scans in this intake
-    scans_result = await db.execute(
-        select(Scan)
-        .where(Scan.intake_id == intake_id)
-        .options(selectinload(Scan.status_logs))
-    )
-    scans = scans_result.scalars().all()
-
-    now = now_manila()
+    fingerprint = mutation_fingerprint(admin, intake_id, "bulk-inventory", body)
+    replay = await mutation_replay(db, admin, body, fingerprint)
+    if replay is not None:
+        return replay
+    scans = (await db.execute(select(Scan).where(Scan.intake_id == intake_id).order_by(Scan.id)
+                              .with_for_update().execution_options(populate_existing=True))).scalars().all()
+    if body.expected_revisions != {scan.id: scan.revision for scan in scans}:
+        raise ConflictException("Intake scans changed. Reload the intake before applying this action.")
     updated_ids = []
     for scan in scans:
-        current_status = scan.status_logs[-1].inventory_status if scan.status_logs else InventoryStatusEnum.IN_STOCK
-        if current_status not in (InventoryStatusEnum.SOLD, InventoryStatusEnum.SPOILED):
-            db.add(ScanStatusLog(scan_id=scan.id, inventory_status=body.inventory_status, updated_at=now))
-            scan.updated_at = now
+        current = scan.status_logs[-1].inventory_status if scan.status_logs else InventoryStatusEnum.IN_STOCK
+        if current not in (InventoryStatusEnum.SOLD, InventoryStatusEnum.SPOILED) and current != body.inventory_status:
+            await apply_scan_change(db, scan, admin, "status", {"inventory_status": body.inventory_status}, body.reason)
             updated_ids.append(str(scan.id))
-
-    # Update intake status based on inventory
     intake.status = IntakeStatusEnum.ACTIVE if body.inventory_status == InventoryStatusEnum.IN_STOCK else IntakeStatusEnum.DEPLETED
-
-    db.add(ActivityLog(
-        user_id=admin.id,
-        action="intake_status_changed",
-        details=f"Bulk updated {len(updated_ids)} scans in intake {intake_id} → {body.inventory_status}",
-        ip_address=request.client.host if request.client else None,
-    ))
-
-    return {
+    db.add(ActivityLog(user_id=admin.id, action="intake_status_changed",
+                       details=f"Bulk updated {len(updated_ids)} scans in intake {intake_id}: {body.reason}",
+                       ip_address=request.client.host if request.client else None))
+    response = {
         "message": f"Updated {len(updated_ids)} scans", "updated_count": len(updated_ids),
-        "updated_scan_ids": updated_ids, "status_updated_at": now,
-        "intake_status": intake.status,
+        "updated_scan_ids": updated_ids, "status_updated_at": now_manila().isoformat(),
+        "intake_status": intake.status, "revisions": {str(scan.id): scan.revision for scan in scans},
     }
+    save_receipt(db, admin, body, fingerprint, response)
+    return response

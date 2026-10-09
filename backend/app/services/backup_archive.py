@@ -37,7 +37,9 @@ TABLE_NAMES = frozenset({
     "delivery_intake", "scan", "scan_classification", "scan_status_log",
     "scan_original_ai_result", "scan_detection", "scan_image", "scan_note", "device",
     "activity_log", "system_config", "app_notification", "sensor_reading",
+    "scan_event", "scan_mutation", "scan_tombstone",
 })
+LEGACY_SCHEMA = json.loads(Path(__file__).with_name("archive_schema_v1.json").read_text(encoding="utf-8"))
 MAX_ARCHIVE_BYTES = 4 * 1024**3
 MAX_EXPANDED_BYTES = 8 * 1024**3
 MAX_FILE_BYTES = 256 * 1024**2
@@ -317,7 +319,7 @@ async def create_archive(db, capture_root: Path, destination: Path) -> dict:
     partial = owned / "archive.zip"
     try:
         _space(owned, RESERVE_BYTES)
-        manifest = {"format": "bananavision-station", "version": 1,
+        manifest = {"format": "bananavision-station", "version": 2,
                     "application_version": "0.1.0", "created_at": now_manila().isoformat(),
                     "schema": schema_description(), "tables": {}, "files": {},
                     "prerequisites": {"database": "PostgreSQL", "timezone": "Asia/Manila",
@@ -489,6 +491,53 @@ def _check_constraints(validated):
         (validated.staging_root / "constraints.sqlite").unlink(missing_ok=True)
 
 
+def _upgrade_v1_staging(manifest, root):
+    """Adapt strictly validated v1 rows; keep the source version for the preview.
+
+    The original archive hash remains authoritative. Only private staged rows and
+    their descriptors change, so restore/compensation verify exactly what is inserted.
+    No actors, old classifications or events can be inferred from present-day data.
+    """
+    defaults = {"scan": {"revision": 1, "operator_name_snapshot": None, "source_name_snapshot": None},
+                "scan_original_ai_result": {"spoilage_days": None}}
+    for table in application_tables():
+        path = root / "tables" / f"{table.name}.jsonl"
+        if table.name not in LEGACY_SCHEMA:
+            path.write_bytes(b"")
+            manifest["tables"][table.name] = _descriptor(0, hashlib.sha256(b"").hexdigest(), 0)
+            continue
+        replacement = path.with_suffix(".upgraded")
+        count, size, digest = 0, 0, hashlib.sha256()
+        spec = LEGACY_SCHEMA[table.name]
+        with path.open("rb") as source, replacement.open("xb") as target:
+            while line := source.readline(MAX_ROW_BYTES + 1):
+                if len(line) > MAX_ROW_BYTES or not line.endswith(b"\n"):
+                    raise ArchiveError("Row size/framing limit exceeded")
+                row = _load(line)
+                if not isinstance(row, dict) or set(row) != set(spec):
+                    raise ArchiveError("Unexpected legacy table columns")
+                for name, column in spec.items():
+                    if row[name] is None and not column["nullable"]:
+                        raise ArchiveError("Null in required legacy column")
+                    if row[name] is not None:
+                        _typed(row[name], table.c[name].type)
+                row.update(defaults.get(table.name, {}))
+                _row(table, row)
+                encoded = _dump(row) + b"\n"
+                if len(encoded) > MAX_ROW_BYTES:
+                    raise ArchiveError("Upgraded row size limit exceeded")
+                target.write(encoded)
+                digest.update(encoded)
+                count += 1
+                size += len(encoded)
+            target.flush()
+            os.fsync(target.fileno())
+        if count != manifest["tables"][table.name]["count"]:
+            raise ArchiveError("Table count mismatch")
+        os.replace(replacement, path)
+        manifest["tables"][table.name] = _descriptor(size, digest.hexdigest(), count)
+
+
 def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
     """Validate every byte and typed row into a new private staging directory."""
     archive, staging_root = Path(archive).absolute(), Path(staging_root).absolute()
@@ -522,12 +571,13 @@ def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
             expected = {"format", "version", "application_version", "created_at", "schema", "tables", "files", "prerequisites"}
             if not isinstance(manifest, dict) or set(manifest) != expected:
                 raise ArchiveError("Unexpected manifest fields")
-            if manifest["format"] != "bananavision-station" or type(manifest["version"]) is not int or manifest["version"] != 1:
+            if manifest["format"] != "bananavision-station" or type(manifest["version"]) is not int or manifest["version"] not in (1, 2):
                 raise ArchiveError("Unsupported archive version")
-            if manifest["application_version"] != "0.1.0" or manifest["schema"] != schema_description():
+            expected_schema = LEGACY_SCHEMA if manifest["version"] == 1 else schema_description()
+            if manifest["application_version"] != "0.1.0" or manifest["schema"] != expected_schema:
                 raise ArchiveError("Incompatible archive schema")
             _typed(manifest["created_at"], ManilaDateTime())
-            if not isinstance(manifest["tables"], dict) or set(manifest["tables"]) != TABLE_NAMES:
+            if not isinstance(manifest["tables"], dict) or set(manifest["tables"]) != set(expected_schema):
                 raise ArchiveError("Unexpected application tables")
             if not isinstance(manifest["files"], dict):
                 raise ArchiveError("Invalid evidence manifest")
@@ -560,6 +610,8 @@ def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
                 path = evidence_root.joinpath(*name.split("/"))
                 _copy_member(source, f"evidence/{name}", path, descriptor)
                 evidence[name] = path
+        if manifest["version"] == 1:
+            _upgrade_v1_staging(manifest, owned)
         validated = ValidatedBackup(manifest, owned, evidence_root, evidence, _hash_file(archive))
         _check_constraints(validated)
         return validated

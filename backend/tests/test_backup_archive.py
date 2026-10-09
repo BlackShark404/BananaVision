@@ -75,6 +75,11 @@ def station(tmp_path):
         db.add(m.Scan(id=scan_id, operator_id=operator.id, intake_id=intake.id, date_time=instant))
         db.flush()
         db.add_all([
+            m.ScanEvent(scan_id=scan_id, revision=1, kind="created", actor_id=user.id,
+                        actor_name="Historical Admin", new_values={"inventory_status": "In Stock"}),
+            m.ScanMutation(request_id=uuid4(), actor_id=user.id, fingerprint="a" * 64,
+                           response={"revision": 1}),
+            m.ScanTombstone(scan_id=uuid4(), owner_account_id=user.id),
             m.ScanClassification(scan_id=scan_id, cultivar=CultivarEnum.LAKATAN,
                 ripeness=RipenessEnum.RIPE, confidence=Decimal("91.25"), finger_count=5,
                 spoilage_days="3", thumbnail_url=f"/captures/{scan_id}/thumbnail.jpg"),
@@ -131,7 +136,8 @@ def rewrite(path, *, edit_manifest=None, edit_row=None, extra=None, omit=None):
 def test_complete_all_table_roundtrip_preserves_values_and_instants(archive_module, station, tmp_path):
     path = backup(archive_module, station, tmp_path)
     validated = archive_module.validate_archive(path, tmp_path / "staging")
-    assert len(validated.manifest["tables"]) == 18
+    assert validated.manifest["version"] == 2
+    assert len(validated.manifest["tables"]) == 21
     assert all(t["count"] == 1 for t in validated.manifest["tables"].values())
     assert "maintenance_state" not in validated.manifest["tables"]
     assert set(validated.evidence) == {f"{station[2]}/camera.jpg", f"{station[2]}/thumbnail.jpg"}
@@ -153,6 +159,57 @@ def test_complete_all_table_roundtrip_preserves_values_and_instants(archive_modu
             if table.name != "maintenance_state":
                 assert len(restored.execute(select(table)).all()) == 1
     engine.dispose()
+
+
+def legacy_backup(archive_module, station, tmp_path, *, bad_null=False):
+    path = backup(archive_module, station, tmp_path)
+    with zipfile.ZipFile(path) as source:
+        members = {name: source.read(name) for name in source.namelist()}
+    manifest = json.loads(members['manifest.json'])
+    legacy = json.loads(Path(archive_module.__file__).with_name('archive_schema_v1.json').read_text())
+    manifest.update(version=1, schema=legacy)
+    for table in list(manifest['tables']):
+        name = f'tables/{table}.jsonl'
+        if table not in legacy:
+            del manifest['tables'][table]
+            del members[name]
+            continue
+        rows = [{key: value for key, value in json.loads(line).items() if key in legacy[table]}
+                for line in members[name].splitlines()]
+        if bad_null and table == 'scan_original_ai_result':
+            rows[0]['confidence'] = None
+        members[name] = b''.join(json.dumps(row).encode() + b'\n' for row in rows)
+        manifest['tables'][table] = dict(count=len(rows), size=len(members[name]),
+                                         sha256=hashlib.sha256(members[name]).hexdigest())
+    members['manifest.json'] = json.dumps(manifest).encode()
+    with zipfile.ZipFile(path, 'w') as target:
+        for name, data in members.items():
+            target.writestr(name, data)
+    return path
+
+
+def test_v1_backup_upgrades_without_inventing_history(archive_module, station, tmp_path):
+    path = legacy_backup(archive_module, station, tmp_path)
+    validated = archive_module.validate_archive(path, tmp_path / 'legacy-staging')
+    engine = create_engine('sqlite://')
+    Base.metadata.create_all(engine)
+    with Session(engine) as restored:
+        asyncio.run(archive_module.restore_rows(AsyncDB(restored), validated))
+        restored.commit()
+        scan = restored.scalar(select(m.Scan))
+        assert scan.revision == 1 and scan.date_time == station[3]
+        assert scan.operator_name_snapshot is scan.source_name_snapshot is None
+        assert restored.scalar(select(m.ScanOriginalAiResult)).spoilage_days is None
+        assert not restored.scalars(select(m.ScanEvent)).all()
+        assert not restored.scalars(select(m.ScanMutation)).all()
+        assert not restored.scalars(select(m.ScanTombstone)).all()
+    engine.dispose()
+
+
+def test_v1_backup_still_enforces_legacy_required_values(archive_module, station, tmp_path):
+    path = legacy_backup(archive_module, station, tmp_path, bad_null=True)
+    with pytest.raises(archive_module.ArchiveError, match='Null'):
+        archive_module.validate_archive(path, tmp_path / 'bad-legacy')
 
 
 @pytest.mark.parametrize("mutation", ["version", "schema", "count", "hash", "unknown", "missing", "traversal", "duplicate", "symlink", "case_collision", "bad_type", "bad_enum", "bad_fk", "bad_unique", "no_admin", "naive_time"])

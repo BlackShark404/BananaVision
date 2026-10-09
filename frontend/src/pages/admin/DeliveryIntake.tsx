@@ -43,6 +43,9 @@ import {
   Cog
 } from "lucide-react"
 import { toast } from "sonner"
+import { api } from "@/lib/api"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 
 // Valid transitions: key = current status, value = allowed target statuses
 const VALID_TRANSITIONS: Record<string, InventoryStatus[]> = {
@@ -63,9 +66,10 @@ export default function DeliveryIntake() {
   const { intakes, bulkUpdateIntakeInventory } = useInventory()
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("Active")
-  const [confirmAction, setConfirmAction] = useState<{ intakeId: string; status: InventoryStatus; scanCount: number } | null>(null)
+  const [confirmAction, setConfirmAction] = useState<{ intakeId: string; status: InventoryStatus; scanCount: number; revisions: Record<string, number> } | null>(null)
   const [sourceFilter, setSourceFilter] = useState<string>("all")
   const [saving, setSaving] = useState(false)
+  const [reason, setReason] = useState("")
 
   const activeSources = useMemo(() => Array.from(new Set(intakes.map(i => i.source).filter(Boolean))).sort(), [intakes])
 
@@ -138,26 +142,21 @@ export default function DeliveryIntake() {
 
   const handleBulkUpdate = async (intake: { id: string; inventoryStatus: InventoryStatus; scanCount: number }, status: InventoryStatus) => {
     if (saving || scansLoading || scansError) return
-    if (TERMINAL_STATUSES.includes(status)) {
-      setConfirmAction({ intakeId: intake.id, status, scanCount: intake.scanCount })
-      return
-    }
     setSaving(true)
     try {
-      await bulkUpdateIntakeInventory(intake.id, status)
-      toast.success(`Intake and scans marked as ${status}`)
+      const snapshot = await api.intakes.scanRevisions(intake.id)
+      setReason("")
+      setConfirmAction({ intakeId: intake.id, status, scanCount: intake.scanCount, revisions: snapshot.revisions })
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update intake")
-    } finally {
-      setSaving(false)
-    }
+      toast.error(error instanceof Error ? error.message : "Unable to load intake revisions")
+    } finally { setSaving(false) }
   }
 
   const confirmBulkUpdate = async () => {
-    if (!confirmAction || saving || scansLoading || scansError) return
+    if (!confirmAction || !reason.trim() || saving || scansLoading || scansError) return
     setSaving(true)
     try {
-      await bulkUpdateIntakeInventory(confirmAction.intakeId, confirmAction.status)
+      await bulkUpdateIntakeInventory(confirmAction.intakeId, confirmAction.status, reason.trim(), confirmAction.revisions)
       toast.success(`Intake and scans marked as ${confirmAction.status}`)
       setConfirmAction(null)
     } catch (error) {
@@ -318,13 +317,13 @@ export default function DeliveryIntake() {
               Mark all as {confirmAction?.status}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will mark all <strong>{confirmAction?.scanCount}</strong> scans in this intake as <strong>{confirmAction?.status}</strong>. This is a terminal status and cannot be easily undone.
+              This will mark all <strong>{confirmAction?.scanCount}</strong> scans in this intake as <strong>{confirmAction?.status}</strong>. {TERMINAL_STATUSES.includes(confirmAction?.status as InventoryStatus) ? "This is a terminal status and cannot be easily undone." : "This change will be recorded in the scan history."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              disabled={saving || scansLoading || !!scansError}
+              disabled={saving || !reason.trim() || scansLoading || !!scansError}
               onClick={(event) => { event.preventDefault(); void confirmBulkUpdate() }}
               className={confirmAction?.status === "Spoiled" ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}
             >

@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from app.core.time import now_manila
 
-from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -30,6 +30,9 @@ class Scan(Base):
     intake_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("delivery_intake.id", ondelete="SET NULL"), nullable=True, index=True
     )
     source_text: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    operator_name_snapshot: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    source_name_snapshot: Mapped[str | None] = mapped_column(String(100), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(ManilaDateTime(),
         default=now_manila,
         onupdate=now_manila,

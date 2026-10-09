@@ -50,6 +50,9 @@ class SessionAdapter:
     async def __aexit__(self, *_args):
         self.session.close()
 
+    def get_bind(self):
+        return self.session.get_bind()
+
     def add(self, value):
         self.session.add(value)
 
@@ -120,7 +123,7 @@ def application(monkeypatch):
                    config.router, activity.router, quality.router):
         app.include_router(router, prefix="/api/v1")
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
-        id=ids.admin, full_name="Admin User", role=SimpleNamespace(name="Admin"),
+        id=ids.admin, token_version=1, full_name="Admin User", role=SimpleNamespace(name="Admin"),
     )
 
     class ResponseObserver:

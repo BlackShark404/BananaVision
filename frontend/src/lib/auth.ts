@@ -2,6 +2,8 @@
  * Auth token management — localStorage wrappers.
  */
 
+import { clearScanWrites } from "@/lib/scanWrites"
+
 const TOKEN_KEY = "bananavision_token"
 const USER_KEY = "bananavision_user"
 
@@ -20,10 +22,12 @@ export function getToken(): string | null {
 }
 
 export function setToken(token: string): void {
+  clearScanWrites()
   localStorage.setItem(TOKEN_KEY, token)
 }
 
 export function clearToken(): void {
+  clearScanWrites()
   localStorage.removeItem(TOKEN_KEY)
 }
 

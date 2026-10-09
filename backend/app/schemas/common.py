@@ -5,6 +5,7 @@ Pydantic schemas for devices, sensors, suppliers, intakes, analytics, activity, 
 from __future__ import annotations
 
 import uuid
+from typing import Annotated
 from datetime import date
 from app.schemas.timestamps import InputTimestamp, Timestamp
 
@@ -102,6 +103,10 @@ class IntakeStatusUpdate(BaseModel):
 
 class IntakeBulkInventoryUpdate(BaseModel):
     inventory_status: InventoryStatusEnum
+    request_id: uuid.UUID
+    expected_revisions: dict[uuid.UUID, Annotated[int, Field(ge=1, strict=True)]]
+    reason: str = Field(min_length=1, max_length=2000)
+    model_config = {"extra": "forbid", "str_strip_whitespace": True}
 
 
 # ── Analytics ────────────────────────────────────────────────────────────────

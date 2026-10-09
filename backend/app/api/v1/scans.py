@@ -32,9 +32,9 @@ from app.schemas.scan import (
     ScanImageResponse,
     ScanImageRef,
     ScanNoteResponse,
-    ScanStatusUpdate,
+    ScanStatusUpdate, ScanNoteWriteResponse, ScanHistoryResponse,
 )
-from app.services.scan_records import authorize_scan, is_admin, load_authorized_scan, scan_scope
+from app.services.scan_records import authorize_scan, is_admin, load_authorized_scan, scan_scope, serialize_scan, serialize_detail, mutate_scan, scan_history
 from app.services.scan_service import execute_scan_pipeline
 from app.schemas.enums import InventoryStatusEnum
 
@@ -59,31 +59,7 @@ async def trigger_scan(body: ScanTriggerRequest, db: DbSession, user: CurrentUse
     except ModelInferenceError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
-    return ScanResponse(
-        id=scan.id,
-        date_time=scan.date_time,
-        cultivar=scan.classification.cultivar,
-        ripeness=scan.classification.ripeness,
-        confidence=scan.classification.confidence,
-        temperature=scan.classification.temperature,
-        humidity=scan.classification.humidity,
-        vpd=float(scan.classification.vpd) if scan.classification.vpd is not None else None,
-        treatment=scan.classification.treatment.value if scan.classification.treatment else None,
-        spoilage_days=scan.classification.spoilage_days,
-        finger_count=scan.classification.finger_count,
-        operator_name=user.full_name,
-        source_text=scan.source_text,
-        intake_id=scan.intake_id,
-        inventory_status=scan.status_logs[-1].inventory_status if scan.status_logs else InventoryStatusEnum.IN_STOCK,
-        status_updated_at=scan.status_logs[-1].updated_at if scan.status_logs else None,
-        flagged=scan.flagged,
-        is_overridden=scan.is_overridden,
-        original_ai_result=None,
-        thumbnail_url=scan.classification.thumbnail_url,
-        has_notes=False,
-        images=[ScanImageRef(camera_id=img.camera_id, file_path=img.file_path) for img in (scan.images or [])],
-        updated_at=scan.updated_at,
-    )
+    return serialize_scan(scan, user)
 
 
 @router.get("", response_model=ScanListResponse)
@@ -123,39 +99,7 @@ async def list_scans(
     scans = result.scalars().all()
 
     return ScanListResponse(
-        items=[
-            ScanResponse(
-                id=s.id,
-                date_time=s.date_time,
-                cultivar=s.classification.cultivar if s.classification else None,
-                ripeness=s.classification.ripeness if s.classification else None,
-                confidence=float(s.classification.confidence) if s.classification else None,
-                temperature=float(s.classification.temperature) if s.classification and s.classification.temperature is not None else None,
-                humidity=float(s.classification.humidity) if s.classification and s.classification.humidity is not None else None,
-                vpd=float(s.classification.vpd) if s.classification and s.classification.vpd is not None else None,
-                treatment=s.classification.treatment.value if s.classification and s.classification.treatment else None,
-                spoilage_days=s.classification.spoilage_days if s.classification else None,
-                finger_count=s.classification.finger_count if s.classification else 0,
-                operator_name=s.operator.account.full_name if s.operator and s.operator.account else "Unknown",
-                source_text=s.source_text,
-                intake_id=s.intake_id,
-                inventory_status=s.status_logs[-1].inventory_status if s.status_logs else InventoryStatusEnum.IN_STOCK,
-                status_updated_at=s.status_logs[-1].updated_at if s.status_logs else None,
-                flagged=s.flagged,
-                is_overridden=s.is_overridden,
-                original_ai_result={
-                    "cultivar": s.original_ai_result.cultivar,
-                    "ripeness": s.original_ai_result.ripeness,
-                    "confidence": float(s.original_ai_result.confidence),
-                    "finger_count": s.original_ai_result.finger_count,
-                } if s.original_ai_result else None,
-                thumbnail_url=s.classification.thumbnail_url if s.classification else None,
-                has_notes=is_admin(user) and bool(s.notes),
-                images=[ScanImageRef(camera_id=img.camera_id, file_path=img.file_path) for img in (s.images or [])],
-                updated_at=s.updated_at,
-            )
-            for s in scans
-        ],
+        items=[serialize_scan(s, user) for s in scans],
         total=total,
         page=page,
         page_size=page_size,
@@ -165,210 +109,34 @@ async def list_scans(
 @router.get("/{scan_id}", response_model=ScanDetailResponse)
 async def get_scan(scan_id: uuid.UUID, db: DbSession, user: CurrentUser):
     """Get a single scan with detections, images, and notes."""
-    result = await db.execute(
-        select(Scan)
-        .where(Scan.id == scan_id)
-        .options(
-            selectinload(Scan.classification),
-            selectinload(Scan.status_logs),
-            selectinload(Scan.original_ai_result),
-            selectinload(Scan.detections),
-            selectinload(Scan.images),
-            selectinload(Scan.notes),
-            selectinload(Scan.operator).selectinload(OperatorProfile.account),
-        )
-    )
-    scan = result.scalar_one_or_none()
-    await authorize_scan(db, scan, user)
-
-    return ScanDetailResponse(
-        id=scan.id,
-        date_time=scan.date_time,
-        cultivar=scan.classification.cultivar if scan.classification else None,
-        ripeness=scan.classification.ripeness if scan.classification else None,
-        confidence=float(scan.classification.confidence) if scan.classification else None,
-        temperature=float(scan.classification.temperature) if scan.classification and scan.classification.temperature is not None else None,
-        humidity=float(scan.classification.humidity) if scan.classification and scan.classification.humidity is not None else None,
-        vpd=float(scan.classification.vpd) if scan.classification and scan.classification.vpd is not None else None,
-        treatment=scan.classification.treatment.value if scan.classification and scan.classification.treatment else None,
-        spoilage_days=scan.classification.spoilage_days if scan.classification else None,
-        finger_count=scan.classification.finger_count if scan.classification else 0,
-        operator_name=scan.operator.account.full_name if scan.operator and scan.operator.account else "Unknown",
-        source_text=scan.source_text,
-        intake_id=scan.intake_id,
-        inventory_status=scan.status_logs[-1].inventory_status if scan.status_logs else InventoryStatusEnum.IN_STOCK,
-        status_updated_at=scan.status_logs[-1].updated_at if scan.status_logs else None,
-        flagged=scan.flagged,
-        is_overridden=scan.is_overridden,
-        original_ai_result={
-            "cultivar": scan.original_ai_result.cultivar,
-            "ripeness": scan.original_ai_result.ripeness,
-            "confidence": float(scan.original_ai_result.confidence),
-            "finger_count": scan.original_ai_result.finger_count,
-        } if scan.original_ai_result else None,
-        thumbnail_url=scan.classification.thumbnail_url if scan.classification else None,
-        has_notes=is_admin(user) and bool(scan.notes),
-        updated_at=scan.updated_at,
-        detections=[
-            ScanDetectionResponse.model_validate(d) for d in scan.detections
-        ],
-        images=[
-            ScanImageResponse.model_validate(i) for i in scan.images
-        ],
-        notes=[
-            ScanNoteResponse(
-                id=n.id,
-                scan_id=n.scan_id,
-                text=n.text,
-                author_name=n.author_name,
-                timestamp=n.timestamp,
-            )
-            for n in scan.notes if is_admin(user)
-        ],
-    )
+    scan = await load_authorized_scan(db, scan_id, user)
+    return await serialize_detail(db, scan, user)
 
 
-@router.patch("/{scan_id}/flag")
-async def flag_scan(scan_id: uuid.UUID, body: ScanFlagRequest, db: DbSession, user: CurrentUser, request: Request):
-    """Flag or unflag a scan for review."""
-    result = await db.execute(select(Scan).where(Scan.id == scan_id))
-    scan = result.scalar_one_or_none()
-    await authorize_scan(db, scan, user)
-
-    scan.flagged = body.flagged
-    db.add(ActivityLog(
-        user_id=user.id,
-        action="scan_flagged",
-        details=f"{'Flagged' if body.flagged else 'Unflagged'} scan {scan_id}",
-        ip_address=request.client.host if request.client else None,
-    ))
-    return {"message": f"Scan {'flagged' if body.flagged else 'unflagged'}"}
+@router.patch("/{scan_id}/flag", response_model=ScanDetailResponse)
+async def flag_scan(scan_id: uuid.UUID, body: ScanFlagRequest, db: DbSession, user: CurrentUser):
+    return await mutate_scan(db, scan_id, user, "flag", body)
 
 
-@router.patch("/{scan_id}", response_model=ScanResponse)
-async def override_scan(
-    scan_id: uuid.UUID, body: ScanOverrideRequest, db: DbSession, admin: AdminUser, request: Request
-):
-    """Admin override of scan classification."""
-    result = await db.execute(
-        select(Scan)
-        .where(Scan.id == scan_id)
-        .options(
-            selectinload(Scan.classification),
-            selectinload(Scan.status_logs),
-            selectinload(Scan.original_ai_result),
-            selectinload(Scan.notes),
-            selectinload(Scan.operator).selectinload(OperatorProfile.account),
-        )
-    )
-    scan = result.scalar_one_or_none()
-    await authorize_scan(db, scan, admin)
-
-    # Store original AI result before override
-    if not scan.is_overridden and scan.classification:
-        if not scan.original_ai_result:
-            scan.original_ai_result = ScanOriginalAiResult(
-                scan_id=scan.id,
-                cultivar=scan.classification.cultivar,
-                ripeness=scan.classification.ripeness,
-                confidence=scan.classification.confidence,
-                finger_count=scan.classification.finger_count,
-            )
-            db.add(scan.original_ai_result)
-
-    if scan.classification:
-        if body.cultivar:
-            scan.classification.cultivar = body.cultivar
-        if body.ripeness:
-            scan.classification.ripeness = body.ripeness
-        if body.finger_count is not None:
-            scan.classification.finger_count = body.finger_count
-        if body.spoilage_days is not None:
-            scan.classification.spoilage_days = body.spoilage_days
-
-    if body.source_text is not None:
-        scan.source_text = body.source_text
-
-    scan.is_overridden = True
-
-    db.add(ActivityLog(
-        user_id=admin.id,
-        action="scan_edited",
-        details=f"Override scan {scan_id}: {body.model_dump(exclude_none=True)}",
-        ip_address=request.client.host if request.client else None,
-    ))
-
-    await db.flush()
-
-    return ScanResponse(
-        id=scan.id,
-        date_time=scan.date_time,
-        cultivar=scan.classification.cultivar if scan.classification else None,
-        ripeness=scan.classification.ripeness if scan.classification else None,
-        confidence=float(scan.classification.confidence) if scan.classification else None,
-        temperature=float(scan.classification.temperature) if scan.classification and scan.classification.temperature is not None else None,
-        humidity=float(scan.classification.humidity) if scan.classification and scan.classification.humidity is not None else None,
-        spoilage_days=scan.classification.spoilage_days if scan.classification else None,
-        finger_count=scan.classification.finger_count if scan.classification else 0,
-        operator_name=scan.operator.account.full_name if scan.operator and scan.operator.account else "Unknown",
-        source_text=scan.source_text,
-        intake_id=scan.intake_id,
-        inventory_status=scan.status_logs[-1].inventory_status if scan.status_logs else InventoryStatusEnum.IN_STOCK,
-        status_updated_at=scan.status_logs[-1].updated_at if scan.status_logs else None,
-        flagged=scan.flagged,
-        is_overridden=scan.is_overridden,
-        original_ai_result={
-            "cultivar": scan.original_ai_result.cultivar,
-            "ripeness": scan.original_ai_result.ripeness,
-            "confidence": float(scan.original_ai_result.confidence),
-            "finger_count": scan.original_ai_result.finger_count,
-        } if scan.original_ai_result else None,
-        thumbnail_url=scan.classification.thumbnail_url if scan.classification else None,
-        has_notes=len(scan.notes) > 0 if hasattr(scan, 'notes') and scan.notes else False,
-        updated_at=scan.updated_at,
-    )
+@router.patch("/{scan_id}", response_model=ScanDetailResponse)
+async def override_scan(scan_id: uuid.UUID, body: ScanOverrideRequest, db: DbSession, admin: AdminUser):
+    return await mutate_scan(db, scan_id, admin, "correction", body)
 
 
-@router.patch("/{scan_id}/status")
-async def update_scan_status(
-    scan_id: uuid.UUID, body: ScanStatusUpdate, db: DbSession, user: CurrentUser
-):
-    """Update scan inventory status."""
-    result = await db.execute(select(Scan).where(Scan.id == scan_id))
-    scan = result.scalar_one_or_none()
-    await authorize_scan(db, scan, user)
-
-    now = now_manila()
-    new_log = ScanStatusLog(
-        scan_id=scan.id,
-        inventory_status=body.inventory_status,
-        updated_at=now,
-    )
-    db.add(new_log)
-    scan.updated_at = now
-    return {"message": "Status updated", "inventory_status": body.inventory_status, "status_updated_at": now}
+@router.patch("/{scan_id}/status", response_model=ScanDetailResponse)
+async def update_scan_status(scan_id: uuid.UUID, body: ScanStatusUpdate, db: DbSession, user: CurrentUser):
+    return await mutate_scan(db, scan_id, user, "status", body)
 
 
-@router.post("/{scan_id}/notes", response_model=ScanNoteResponse)
-async def add_note(
-    scan_id: uuid.UUID, body: ScanNoteCreate, db: DbSession, user: AdminUser
-):
-    """Add a note to a scan."""
-    result = await db.execute(select(Scan).where(Scan.id == scan_id))
-    if not result.scalar_one_or_none():
-        raise NotFoundException("Scan")
+@router.post("/{scan_id}/notes", response_model=ScanNoteWriteResponse)
+async def add_note(scan_id: uuid.UUID, body: ScanNoteCreate, db: DbSession, user: AdminUser):
+    return await mutate_scan(db, scan_id, user, "note", body)
 
-    note = ScanNote(scan_id=scan_id, author_name=user.full_name, text=body.note)
-    db.add(note)
-    await db.flush()
 
-    return ScanNoteResponse(
-        id=note.id,
-        scan_id=note.scan_id,
-        text=note.text,
-        author_name=note.author_name,
-        timestamp=note.timestamp,
-    )
+@router.get("/{scan_id}/history", response_model=list[ScanHistoryResponse])
+async def get_history(scan_id: uuid.UUID, db: DbSession, user: CurrentUser):
+    scan = await load_authorized_scan(db, scan_id, user)
+    return await scan_history(db, scan, user)
 
 
 @router.get("/{scan_id}/notes", response_model=list[ScanNoteResponse])
@@ -378,7 +146,7 @@ async def get_notes(scan_id: uuid.UUID, db: DbSession, user: AdminUser):
     result = await db.execute(
         select(ScanNote)
         .where(ScanNote.scan_id == scan_id)
-        .order_by(ScanNote.timestamp)
+        .order_by(ScanNote.timestamp, ScanNote.id)
     )
     notes = result.scalars().all()
     return [

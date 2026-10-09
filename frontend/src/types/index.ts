@@ -85,8 +85,24 @@ export interface ScanDetection {
   inference_time_ms: number | null
 }
 
+export interface ScanHistory {
+  id: string
+  kind: string
+  timestamp: string
+  actor_id: string | null
+  actor_name: string | null
+  reason: string | null
+  previous_values: Record<string, unknown> | null
+  new_values: Record<string, unknown>
+  revision: number | null
+  legacy: boolean
+}
+
 export interface ScanResult {
   id: string
+  revision?: number
+  notes?: ScanNote[]
+  history?: ScanHistory[]
   dateTime: string
   cultivar: Cultivar | "Unknown"
   ripeness: Ripeness | "Unknown"

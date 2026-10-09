@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.scan import Scan
+from app.models.scan_history import ScanEvent
 from app.models.scan_classification import ScanClassification
 from app.models.scan_status_log import ScanStatusLog
 from app.models.scan_original_ai_result import ScanOriginalAiResult
@@ -217,9 +218,10 @@ async def _execute_scan_pipeline(
 
         # Get treatment from linked intake
         intake_treatment = None
+        intake_obj = None
         if intake_id:
             intake_result = await db.execute(
-                select(Intake).where(Intake.id == intake_id)
+                select(Intake).where(Intake.id == intake_id).with_for_update().execution_options(populate_existing=True)
             )
             intake_obj = intake_result.scalar_one_or_none()
             if intake_obj and intake_obj.treatment:
@@ -242,6 +244,8 @@ async def _execute_scan_pipeline(
             date_time=now_manila(),
             flagged=fused.auto_flagged,
             source_text=supplier_name,
+            operator_name_snapshot=operator_name,
+            source_name_snapshot=supplier_name or (intake_obj.source if intake_obj else None),
         )
 
         classification = ScanClassification(
@@ -273,6 +277,7 @@ async def _execute_scan_pipeline(
             finger_count=fused.finger_count,
         )
 
+        original_ai.spoilage_days = spoilage_days
         scan.classification = classification
         scan.status_logs = [status_log]
         scan.original_ai_result = original_ai
@@ -326,6 +331,10 @@ async def _execute_scan_pipeline(
 
         await db.flush()
 
+        db.add(ScanEvent(scan_id=scan.id, revision=scan.revision, kind="created",
+                         actor_id=account_id, actor_name=operator_name, timestamp=scan.date_time,
+                         new_values={"inventory_status": "In Stock", "operator": operator_name,
+                                     "source": scan.source_name_snapshot}, evidence_id=f"status:{status_log.id}"))
         # Completion events must never advertise an uncommitted scan.
         await db.commit()
         committed = True
@@ -333,6 +342,7 @@ async def _execute_scan_pipeline(
         # ── Step 8: Broadcast completed ──────────────────────────────────
         scan_result = {
             "id": scan_id_str,
+            "revision": scan.revision,
             "scan_id": scan_id_str,
             "cultivar": fused.cultivar,
             "ripeness": fused.ripeness,

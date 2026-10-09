@@ -1,6 +1,7 @@
 import type { DashboardScan } from "@/types/dashboard"
 
 export interface ScanLogRow extends DashboardScan {
+  revision: number
   temperature: number | null
   humidity: number | null
   finger_count: number

@@ -12,6 +12,8 @@ import type { InventoryStatus, IntakeStatus } from "@/types"
 import type { AnalyticsRange, AnalyticsSummary, AnalyticsOperator } from "@/types/analytics"
 import type { ApiConfigUpdate, MaintenanceOperation, MaintenanceStatus, RestoreValidation, ApiActivity, ApiConfig, ApiDevice, ApiIntake, ApiMessage, ApiNotification, ApiSensor, ApiSupplier, ApiSupplierWrite, ApiUser, ApiUserCreate, ApiUserCreated, ApiUserUpdate } from "@/types/api"
 
+export interface ScanMutationEnvelope { request_id: string; expected_revision: number }
+
 const host = window.location.hostname
 export const BASE_URL = import.meta.env.VITE_API_URL || `http://${host}:8000`
 
@@ -156,18 +158,18 @@ export const api = {
 
     detail: (id: string, signal?: AbortSignal) => get<ApiScan>(`/api/v1/scans/${id}`, undefined, signal),
 
-    flag: (id: string, flagged: boolean) =>
-      patch<ApiMessage>(`/api/v1/scans/${id}/flag`, { flagged }),
+    flag: (id: string, data: ScanMutationEnvelope & { flagged: boolean }) =>
+      patch<ApiScan>(`/api/v1/scans/${id}/flag`, data),
 
-    override: (id: string, data: { cultivar?: string; ripeness?: string; finger_count?: number; spoilage_days?: string; source_text?: string }) =>
+    override: (id: string, data: ScanMutationEnvelope & { reason: string; cultivar?: string; ripeness?: string; finger_count?: number; spoilage_days?: string; source_text?: string }) =>
       patch<ApiScan>(`/api/v1/scans/${id}`, data),
 
-    updateStatus: (id: string, status: string) =>
-      patch<ApiMessage>(`/api/v1/scans/${id}/status`, { inventory_status: status }),
+    updateStatus: (id: string, data: ScanMutationEnvelope & { inventory_status: InventoryStatus; reason: string }) =>
+      patch<ApiScan>(`/api/v1/scans/${id}/status`, data),
 
     notes: {
       list: (scanId: string) => get<ApiScanNote[]>(`/api/v1/scans/${scanId}/notes`),
-      add: (scanId: string, note: string) => post<ApiScanNote>(`/api/v1/scans/${scanId}/notes`, { note }),
+      add: (scanId: string, data: ScanMutationEnvelope & { note: string }) => post<ApiScanNote & { revision: number }>(`/api/v1/scans/${scanId}/notes`, data),
     },
   },
 
@@ -212,8 +214,9 @@ export const api = {
     list: () => get<ApiIntake[]>("/api/v1/intakes"),
     create: (data: { supplier_id: string; batch_number: string; source?: string; treatment?: string }) => post<ApiIntake>("/api/v1/intakes", data),
     update: (id: string, data: { status: IntakeStatus }) => patch<{ message: string }>(`/api/v1/intakes/${id}/status`, data),
-    bulkInventory: (id: string, data: { inventory_status: InventoryStatus }) =>
-      patch<{ updated_count: number; updated_scan_ids: string[]; status_updated_at: string; intake_status: IntakeStatus }>(`/api/v1/intakes/${id}/bulk-inventory`, data),
+    scanRevisions: (id: string) => get<{ revisions: Record<string, number> }>(`/api/v1/intakes/${id}/scan-revisions`),
+    bulkInventory: (id: string, data: { inventory_status: InventoryStatus; request_id: string; expected_revisions: Record<string, number>; reason: string }) =>
+      patch<{ revisions: Record<string, number>; updated_count: number; updated_scan_ids: string[]; status_updated_at: string; intake_status: IntakeStatus }>(`/api/v1/intakes/${id}/bulk-inventory`, data),
   },
 
   // Dashboard metrics and their record views share server-enforced user scope.

@@ -14,7 +14,7 @@ from logging.handlers import RotatingFileHandler
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from app.api.v1.scan_evidence import router as scan_evidence_router
 
 from app.config import get_settings
 from app.api.v1.router import v1_router
@@ -101,12 +101,8 @@ app.include_router(v1_router)
 # ── WebSocket ────────────────────────────────────────────────────────────────
 app.add_api_websocket_route("/api/v1/ws", websocket_endpoint)
 
-# ── Static Files (captured images) ──────────────────────────────────────────
-app.mount(
-    "/captures",
-    StaticFiles(directory=str(settings.capture_path), check_dir=False),
-    name="captures",
-)
+# Stored evidence shares scan ownership authorization.
+app.include_router(scan_evidence_router)
 
 
 # ── Health Check ─────────────────────────────────────────────────────────────

@@ -50,7 +50,6 @@ import { AppChangePreview } from "@/components/AppChangePreview"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import BoundingBoxOverlay from "@/components/BoundingBoxOverlay"
 import { api } from "@/lib/api"
-import { mapApiScan } from "@/lib/scanData"
 
 const EMPTY_DETECTIONS: ScanDetection[] = []
 
@@ -63,10 +62,11 @@ export default function ScanDetail() {
 function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData } = useScans()
+  const { flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData, acceptScan } = useScans()
   const { suppliers } = useInventory()
   const { config } = useAdmin()
   const [noteText, setNoteText] = useState("")
+  const [editReason, setEditReason] = useState("")
   const [editMode, setEditMode] = useState(false)
   const [editData, setEditData] = useState<Partial<{ cultivar: Cultivar; ripeness: Ripeness; spoilageDays: string; fingerCount: number | string; source: string }>>({})
   const [activeCamera, setActiveCamera] = useState(0)
@@ -103,7 +103,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
     api.scans.detail(scanId, controller.signal)
       .then(data => {
         if (cancelled || timedOut) return
-        const record = mapApiScan(data, getImageUrl)
+        const record = acceptScan(data)
         setDetail({ retry, scan: record, error: null, notFound: false })
         generateQRCodeDataUrl(record).then(qrCode => {
           if (!cancelled) setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, qrCode } } : previous)
@@ -116,7 +116,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
       })
       .finally(() => window.clearTimeout(timeout))
     return () => { cancelled = true; window.clearTimeout(timeout); controller.abort() }
-  }, [scanId, retry])
+  }, [scanId, retry, acceptScan])
 
   const recordedCameraIds = [...new Set([...(scan?.images ?? []).map(image => image.camera_id), ...scanDetections.map(detection => detection.camera_id)])]
   const cameraViews = recordedCameraIds.map(id => ({ id, label: scanDetections.find(detection => detection.camera_id === id)?.camera_label || id }))
@@ -161,11 +161,11 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
     const isNowFlagged = !scan.flagged
     setFlagPending(true)
     try {
-      await flagScan(scan.id, isNowFlagged)
-      setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, flagged: isNowFlagged } } : previous)
+      const saved = await flagScan(scan.id, isNowFlagged, scan.revision)
+      setDetail(previous => previous?.scan ? { ...previous, scan: { ...saved, qrCode: previous.scan.qrCode } } : previous)
       toast.success(isNowFlagged ? "Scan flagged for review" : "Flag removed")
-    } catch {
-      toast.error("Could not update the flag. Please try again.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update the flag. Please try again.")
     } finally {
       setFlagPending(false)
     }
@@ -175,7 +175,12 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
     if (!scan || !noteText.trim() || notePending) return
     setNotePending(true)
     try {
-      await addScanNote(scan.id, noteText.trim())
+      const saved = await addScanNote(scan.id, noteText.trim(), scan.revision)
+      setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, revision: saved.revision, hasNotes: true } } : previous)
+      void api.scans.detail(scan.id).then(raw => {
+        const updated = acceptScan(raw)
+        setDetail(previous => previous?.scan && (previous.scan.revision ?? 0) <= (updated.revision ?? 0) ? { ...previous, scan: updated } : previous)
+      }).catch(() => {})
       setNoteText("")
       toast.success("Note added successfully")
     } catch (error) {
@@ -194,26 +199,20 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
       fingerCount: scan.fingerCount,
       source: scan.source,
     })
+    setEditReason("")
     setEditMode(true)
   }
 
   const handleSaveEdit = async () => {
-    if (scan && editData && !editPending) {
+    if (scan && editData && editReason.trim() && !editPending) {
       setEditPending(true)
       const saveData = {
         ...editData,
         fingerCount: typeof editData.fingerCount === 'string' ? (parseInt(editData.fingerCount) || 0) : editData.fingerCount,
         spoilageDays: editData.spoilageDays,
-        isOverridden: true,
-        originalAiResult: scan.originalAiResult || {
-          cultivar: scan.cultivar,
-          ripeness: scan.ripeness,
-          fingerCount: scan.fingerCount,
-          spoilageDays: scan.spoilageDays,
-        }
       } as Partial<ScanResult>
       try {
-        const saved = await updateScanData(scan.id, saveData)
+        const saved = await updateScanData(scan.id, saveData, editReason.trim(), scan)
         setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, ...saved, images: previous.scan.images, detections: previous.scan.detections, qrCode: previous.scan.qrCode } } : previous)
         setEditMode(false)
         toast.success("Scan data updated successfully")
@@ -237,7 +236,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
             </EmptyMedia>
             <EmptyTitle className="text-base sm:text-lg font-semibold mt-1" role={loading ? "status" : "alert"}>{loading ? "Loading scan…" : notFound ? "Scan not found" : "Scan could not be loaded"}</EmptyTitle>
             <EmptyDescription className="text-sm sm:text-base max-w-md mx-auto text-balance">
-              {loading ? "Retrieving the stored scan and camera images." : notFound ? "The scan record you're looking for doesn't exist or has been deleted." : currentDetail?.error || "Check your connection and try again."}
+              {loading ? "Retrieving the stored scan and camera images." : notFound ? "No scan record was found for this ID." : currentDetail?.error || "Check your connection and try again."}
             </EmptyDescription>
           </EmptyHeader>
           {!loading && !notFound && <Button className="mt-4" onClick={() => setRetry(value => value + 1)}>Retry</Button>}
@@ -553,7 +552,8 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setEditMode(false)}>
                       <X className="w-3.5 h-3.5" /> Cancel
                     </Button>
-                    <Button size="sm" className="gap-1.5" onClick={handleSaveEdit} disabled={editPending}>
+                    <div className="space-y-2"><Label htmlFor="edit-reason">Reason for change</Label><Textarea id="edit-reason" value={editReason} onChange={event => setEditReason(event.target.value)} disabled={editPending} /></div>
+                    <Button size="sm" className="gap-1.5" onClick={handleSaveEdit} disabled={editPending || !editReason.trim()}>
                       <Save className="w-3.5 h-3.5" /> Save Changes
                     </Button>
                   </div>

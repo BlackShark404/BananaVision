@@ -40,6 +40,7 @@ export default function QualityControl() {
   const { config } = useAdmin()
   const [selectedScan, setSelectedScan] = useState<ScanResult | null>(null)
   const [noteText, setNoteText] = useState("")
+  const [editReason, setEditReason] = useState("")
   const [editMode, setEditMode] = useState(false)
   const [editData, setEditData] = useState<Partial<Omit<ScanResult, 'fingerCount' | 'spoilageDays'> & { fingerCount: number | string; spoilageDays: string }>>({})
   const [filterView, setFilterView] = useState<"all" | "flagged" | "low-confidence" | "overridden">("all")
@@ -84,8 +85,8 @@ export default function QualityControl() {
     const isNowFlagged = !scan.flagged
     setPendingWrite(true)
     try {
-      await flagScan(scan.id, isNowFlagged)
-      setSelectedScan(prev => prev?.id === scan.id ? { ...prev, flagged: isNowFlagged } : prev)
+      const saved = await flagScan(scan.id, isNowFlagged, scan.revision)
+      setSelectedScan(prev => prev?.id === scan.id ? saved : prev)
       toast.success(isNowFlagged ? "Scan flagged for review" : "Flag removed")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update the flag. Please retry.")
@@ -96,7 +97,8 @@ export default function QualityControl() {
     if (!selectedScan || !noteText.trim() || pendingWrite) return
     setPendingWrite(true)
     try {
-      await addScanNote(selectedScan.id, noteText.trim())
+      const saved = await addScanNote(selectedScan.id, noteText.trim(), selectedScan.revision)
+      setSelectedScan(previous => previous?.id === selectedScan.id ? { ...previous, revision: saved.revision, hasNotes: true } : previous)
       setNoteText("")
       toast.success("Note added successfully")
     } catch (error) {
@@ -105,22 +107,15 @@ export default function QualityControl() {
   }
 
   const handleSaveEdit = async () => {
-    if (selectedScan && editData && !pendingWrite) {
+    if (selectedScan && editData && editReason.trim() && !pendingWrite) {
       setPendingWrite(true)
       const saveData = {
         ...editData,
         fingerCount: typeof editData.fingerCount === 'string' ? (parseInt(editData.fingerCount) || 0) : editData.fingerCount,
         spoilageDays: editData.spoilageDays,
-        isOverridden: true,
-        originalAiResult: selectedScan.originalAiResult || {
-          cultivar: selectedScan.cultivar,
-          ripeness: selectedScan.ripeness,
-          fingerCount: selectedScan.fingerCount,
-          spoilageDays: selectedScan.spoilageDays,
-        }
       } as Partial<ScanResult>
       try {
-        await updateScanData(selectedScan.id, saveData)
+        await updateScanData(selectedScan.id, saveData, editReason.trim(), selectedScan)
         setEditMode(false)
         setSelectedScan(null)
         setEditData({})
@@ -134,6 +129,7 @@ export default function QualityControl() {
   const openScanDetails = (scan: ScanResult) => {
     setSelectedScan(scan)
     setEditMode(false)
+    setEditReason("")
     setEditData({
       cultivar: scan.cultivar,
       ripeness: scan.ripeness,
@@ -781,7 +777,8 @@ export default function QualityControl() {
                 <Button variant="outline" onClick={() => setEditMode(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSaveEdit} disabled={pendingWrite}>
+                <div className="space-y-2"><Label htmlFor="qc-edit-reason">Reason for change</Label><Textarea id="qc-edit-reason" value={editReason} onChange={event => setEditReason(event.target.value)} disabled={pendingWrite} /></div>
+                <Button onClick={handleSaveEdit} disabled={pendingWrite || !editReason.trim()}>
                   Save Changes
                 </Button>
               </>

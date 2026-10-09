@@ -30,6 +30,7 @@ class ScanLogQuery(BaseModel):
 
 
 class ScanLogRow(DashboardScan):
+    revision: int
     temperature: float | None
     humidity: float | None
     finger_count: int

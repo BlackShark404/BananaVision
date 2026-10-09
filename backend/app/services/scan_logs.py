@@ -19,6 +19,7 @@ from app.schemas.scan_logs import (
     SourceOption,
 )
 from app.services import dashboard
+from app.services.scan_evidence import evidence_url
 
 
 def _conditions(scans, query: ScanLogQuery, threshold: float):
@@ -80,10 +81,11 @@ def _ordering(scans, query: ScanLogQuery):
 def _row(row) -> ScanLogRow:
     return ScanLogRow(
         **dashboard._scan(row).model_dump(),
+        revision=row.revision,
         temperature=None if row.temperature is None else float(row.temperature),
         humidity=None if row.humidity is None else float(row.humidity),
         finger_count=row.finger_count if row.finger_count is not None else 0,
-        thumbnail_url=row.thumbnail_url,
+        thumbnail_url=evidence_url(row.thumbnail_url),
         intake_id=row.intake_id,
         is_overridden=bool(row.is_overridden),
         status_updated_at=(

@@ -1,47 +1,38 @@
 CURRENT RESUME HERE (2026-10-09)
-TASK: Maintenance finalization and Scan Logs/Detail review/plan — completed.
-BRANCH: codex/system-maintenance. Audit started clean at 1f0eded.
-MAINTENANCE: Production fixes d99c772; verification/workflow 7e83cf7;
-HTTP acceptance b6d69e7; corrected finalization documentation committed as 8676ad7.
-This checkpoint and the Scan Logs/Detail review/plan are documentation-only follow-up.
-
+TASK: Approved Scan Logs/Detail hardening — INCOMPLETE, active implementation.
+BRANCH codex/scan-record-hardening; HEAD 69e89a2; base e3e1c07. No old commits replayed.
 DONE
-- Confirmed approved maintenance production implementation and isolated acceptance are
-  committed. The old acceptance-commit-pending checkpoint was stale, not missing code.
-- Confirmed prior PostgreSQL clusters, acceptance Ruff and test directories/helper absent;
-  no 56843/56844 listeners. No live operations performed. User defers live acceptance.
-- Reviewed both exact revert pairs: 7528544 -> bc3ed4c; ed80acb -> 58d7337.
-  Neither commit message documents the reason. No revert/cherry-pick/reapplication done.
-- Verified current server Logs/search/filter/sort/page/export, historical timestamp mapping,
-  direct-ID Detail, stored camera mapping and proper /status operation are already present.
-- Confirmed remaining scan authorization/privacy, no-op/source-only override, revision/
-  retry, structured history, note-race and missing-image gaps. No scan fixes applied.
-- Documented old partial integration risks (unwired mutation service, missing migration,
-  incompatible callers) and required integration with today's versioned archive system.
-- Prepared docs/scan-logs-detail-review-2026-10-09.md and focused proposed implementation
-  plan docs/superpowers/plans/2026-10-09-scan-records-follow-up.md.
-
-VERIFIED RESULTS
-- Prior full isolated backend/PostgreSQL: 186 passed, 54.57s; frontend: 38 passed, 47.88s.
-- Prior TypeScript/build passed (Vite 12.47s). Latest maintenance PostgreSQL acceptance:
-  12 passed, 27.78s, including production HTTP backup/download/validate/confirmed restore,
-  evidence/database recovery, old-session rejection and post-restore login.
-- Those prior runs remain the maintenance evidence; not rerun for documentation changes.
-- Current scan review: 12 passed, 12.17s = 7 existing scan-logs + 1 historical timestamp/
-  pagination test + 4 temporary characterization probes. Probe success reproduces known
-  gaps; it does NOT mean those behaviors are corrected or security-safe.
-- Current test AST, document links and diff whitespace checks passed.
-- Both task-generated scan-review temp directories removed after testing. No PG started.
-- Full lint has existing debt: frontend 43 errors/8 warnings (scoped 0 errors/1 warning);
-  backend 654 baseline diagnostics in the prior full run. No unrelated cleanup performed.
-
-LIMITATIONS / EXACT NEXT STEP
-- Current review request is finished. No authorized maintenance implementation remains.
-- Live camera/hardware/power/deployment acceptance remains deferred by user decision.
-- Proposed scan fixes have NOT been authorized for implementation in this review turn.
-  If requested, read the review and execute Task 1 (ownership/note privacy) first, then
-  the synchronized revision/history/API/UI/archive work. Never restore old commits whole.
-- No production/backend/frontend source or tests changed in this review; docs only.
-- No push, merge, deployment or live database/capture/retention/restore/camera/power actions.
-- Maintenance details: docs/system-maintenance-verification-2026-10-08.md.
-- Historical checkpoints are in docs/history/; do not treat them as pending work.
+- Shared ownership/note privacy committed 69e89a2; new 5 tests RED then 46 tests GREEN.
+- Real credentials/revocation regression GREEN: 6 passed 2.17s.
+- Uncommitted revision/history/tombstone models + migration0005 + shared serializers.
+  New tests RED3 then scan/migration/logs/time suites GREEN52 passed,2PG deselected6.56s.
+- Archive v2 + strict frozen v1 adapter; archive/recovery/migrations GREEN34passed,
+  2PGdeselected16.93s. Legacy values preserved; no invented events/snapshots.
+- Mandatory mutation envelopes/CAS/replay/actor snapshots; source-only/noop correction fix.
+  New write/bulk regressions RED then GREEN4passed1.76s (SQLite only).
+IN PROGRESS
+- Frontend integration NOT done; new API requirements currently break old callers/tests.
+- Bulk parent lock/membership snapshot implemented. Pipeline initial history/snapshot/parent
+  locking added but NOT yet tested. Review actor locking and incomplete classifications.
+- Root implementing: Astra subagents hit usage limit; no frontend/compat work pending there.
+NEXT IN PRIORITY ORDER
+1. Integrate revision/retry/reason contracts for ScanContext, Logs, Detail, QualityControl,
+   Kiosk and Intake bulk; notes/stale reads; update browser fixtures and tests.
+2. Authenticated evidence route + shared image loader; image fallback; 403/404/410/history UI.
+3. Update old write tests to mandatory envelopes; real isolated PG race/archive tests.
+4. CSV/pagination edge regressions, security scan/independent review, full tests/TS/lint/build.
+5. Final diff, cleanup task-generated temp dirs, checkpoint and local commit (no push).
+EXACT RESUME: Frontend tests/scanWrites utility first; backend models/archive/mutations
+already edited. Do not reapply. Follow approved plan docs/superpowers/plans/
+2026-10-09-scan-records-follow-up.md. Inspect current diff before resuming.
+TEST EXECUTION: Python -B from fresh tempfile cwd; sys.path insert resolved backend;
+pytest -p no:cacheprovider -q --basetemp <temp>/fixtures -c <backend>/pyproject.toml.
+Temp directories under OS temp (cleanup pending):
+bv-scan-auth-50kjlv5x,ug9m94jz,t04gptvp (each with bv-scan-auth- prefix)
+bv-scan-schema-z9uik9kd,0xzg385i; bv-scan-archive-kbx5v7uh,0hvk7jnl;
+bv-scan-writes-14s5z2cb,84rfi0s1; bv-scan-bulk-o413p6er,t9087v1q.
+No disposable PG started this task. No full-suite/security/build claim yet.
+SAFETY: Never live DB/captures/cameras/hardware/retention/restore/power. Isolated mocks,
+fixtures and recorded disposable DB only. Preserve completed maintenance and exact UI.
+Prior maintenance acceptance remains verified/documented; no new maintenance changes
+beyond required archive schema integration. Do not read live .env or emit secrets.

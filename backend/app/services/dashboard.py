@@ -99,6 +99,7 @@ def _scoped_projection(user: UserAccount, now: datetime):
     query = (
         select(
             Scan.id,
+            Scan.revision,
             Scan.date_time,
             Scan.flagged,
             Scan.is_overridden,

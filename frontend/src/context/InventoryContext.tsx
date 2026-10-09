@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react"
 import { api } from "@/lib/api"
+import { scanWrite } from "@/lib/scanWrites"
 import { useAuth } from "@/context/AuthContext"
 import { useScans } from "@/context/ScanContext"
 import type { DailyIntake, Supplier, InventoryStatus } from "@/types"
@@ -12,7 +13,7 @@ interface InventoryContextType {
   activeIntake: DailyIntake | null
   setActiveIntake: (intake: DailyIntake | null) => void
   startIntake: (supplierId: string, batchNumber: string, treatment?: string) => Promise<DailyIntake>
-  bulkUpdateIntakeInventory: (intakeId: string, status: InventoryStatus) => Promise<void>
+  bulkUpdateIntakeInventory: (intakeId: string, status: InventoryStatus, reason: string, revisions: Record<string, number>) => Promise<void>
   suppliers: Supplier[]
   addSupplier: (supplierData: Omit<Supplier, "id" | "dateAdded">) => Promise<void>
   updateSupplier: (id: string, data: Partial<Omit<Supplier, "id" | "dateAdded">>) => Promise<void>
@@ -112,13 +113,13 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     return newIntake
   }, [])
 
-  const bulkUpdateIntakeInventory = useCallback(async (intakeId: string, status: InventoryStatus) => {
-    const result = await api.intakes.bulkInventory(intakeId, { inventory_status: status })
+  const bulkUpdateIntakeInventory = useCallback(async (intakeId: string, status: InventoryStatus, reason: string, revisions: Record<string, number>) => {
+    const result = await scanWrite(`${user?.id}:${intakeId}:bulk`, { inventory_status: status, reason, expected_revisions: revisions }, body => api.intakes.bulkInventory(intakeId, body))
     setIntakes((prev) => prev.map((i) => (i.id === intakeId ? { ...i, status: result.intake_status } : i)))
     setActiveIntake((current) => current?.id === intakeId ? { ...current, status: result.intake_status } : current)
     // Only change records and timestamps confirmed by the persisted response.
     updateScansForIntake(result.updated_scan_ids, status, result.status_updated_at)
-  }, [updateScansForIntake])
+  }, [updateScansForIntake, user?.id])
 
   // ── Supplier Operations ─────────────────────────────────────────────────
 

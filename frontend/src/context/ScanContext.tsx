@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react"
 import { getBananaImageUrl, getImageUrl } from "@/lib/utils"
 import { api } from "@/lib/api"
+import { scanWrite, scanRevision } from "@/lib/scanWrites"
 import { useAuth } from "@/context/AuthContext"
 import { useAdmin } from "@/context/AdminContext"
 import { useWebSocket } from "@/hooks/useWebSocket"
@@ -24,11 +25,12 @@ interface ScanContextType {
   scans: ScanResult[]
   scanState: ScanState
   startScan: (source?: string, intakeId?: string) => void
-  flagScan: (id: string, flagged: boolean) => Promise<void>
-  addScanNote: (scanId: string, note: string) => Promise<void>
+  flagScan: (id: string, flagged: boolean, revision?: number) => Promise<ScanResult>
+  addScanNote: (scanId: string, note: string, revision?: number) => Promise<{ note: ScanNote; revision: number }>
   getScanNotes: (scanId: string) => ScanNote[]
   loadScanNotes: (scanId: string) => void
-  updateScanData: (id: string, data: Partial<ScanResult>) => Promise<ScanResult>
+  updateScanData: (id: string, data: Partial<ScanResult>, reason: string, baseline?: ScanResult) => Promise<ScanResult>
+  acceptScan: (data: ApiScan) => ScanResult
   scansLoading: boolean
   scansError: string | null
   refreshScans: () => Promise<void>
@@ -67,6 +69,26 @@ function ScanStore({ children }: { children: React.ReactNode }) {
   const [scansError, setScansError] = useState<string | null>(null)
   const historyRequest = useRef<AbortController | null>(null)
   const mounted = useRef(true)
+  const knownScans = useRef(new Map<string, ScanResult>())
+  const noteRequests = useRef(new Map<string, number>())
+
+  const acceptScan = useCallback((raw: ApiScan) => {
+    const incoming = mapApiScan(raw, getImageUrl)
+    const known = knownScans.current.get(incoming.id)
+    if ((known?.revision ?? 0) > (incoming.revision ?? 0)) return known!
+    const saved = { ...known, ...incoming,
+      images: raw.images === undefined ? known?.images : incoming.images,
+      detections: raw.detections === undefined ? known?.detections : incoming.detections,
+      notes: raw.notes === undefined ? known?.notes : incoming.notes,
+      history: raw.history === undefined ? known?.history : incoming.history,
+    }
+    if (!mounted.current) return saved
+    knownScans.current.set(saved.id, saved)
+    setScans(previous => previous.map(scan => scan.id === saved.id ? saved : scan))
+    setScanState(previous => previous.lastResult?.id === saved.id ? { ...previous, lastResult: saved } : previous)
+    if (saved.notes) setScanNotes(previous => [...previous.filter(note => note.scanId !== saved.id), ...saved.notes!])
+    return saved
+  }, [])
 
   const refreshScans = useCallback(async () => {
     historyRequest.current?.abort()
@@ -77,7 +99,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
     setScansError(null)
     try {
       const raw = await collectScanPages((page, page_size, signal) => api.scans.list({ page, page_size }, signal), controller.signal)
-      const mapped = raw.map(record => mapApiScan(record, getImageUrl))
+      const mapped = raw.map(record => acceptScan(record))
       if (!controller.signal.aborted && mounted.current) setScans(mapped)
     } catch (error) {
       if (!controller.signal.aborted && mounted.current) {
@@ -86,7 +108,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
     } finally {
       if (!controller.signal.aborted && mounted.current) setScansLoading(false)
     }
-  }, [user])
+  }, [user, acceptScan])
 
   useEffect(() => {
     mounted.current = true
@@ -95,14 +117,14 @@ function ScanStore({ children }: { children: React.ReactNode }) {
   }, [refreshScans, pathname])
 
   const acceptCompletedScan = useCallback(async (result: ApiScan) => {
-    const scanResult = mapApiScan(result, getImageUrl)
+    const scanResult = acceptScan(result)
     if (!scanResult.thumbnailUrl) scanResult.thumbnailUrl = getBananaImageUrl(scanResult.cultivar, scanResult.ripeness)
     try { scanResult.qrCode = await generateQRCodeDataUrl(scanResult) } catch { /* The persisted result is still usable without a QR preview. */ }
     if (!mounted.current) return
     setScans(prev => [scanResult, ...prev.filter(scan => scan.id !== scanResult.id)])
     setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: scanResult })
     void refreshScans()
-  }, [refreshScans])
+  }, [refreshScans, acceptScan])
 
   // ── WebSocket — real-time updates ───────────────────────────────────────
 
@@ -181,53 +203,56 @@ function ScanStore({ children }: { children: React.ReactNode }) {
 
   // ── CRUD Operations ─────────────────────────────────────────────────────
 
-  const flagScan = useCallback(async (id: string, flagged: boolean) => {
-    await api.scans.flag(id, flagged)
-    if (!mounted.current) return
-    setScans(prev => prev.map(scan => scan.id === id ? { ...scan, flagged } : scan))
-    setScanState(previous => previous.lastResult?.id === id ? { ...previous, lastResult: { ...previous.lastResult, flagged } } : previous)
-    void refreshScans()
-  }, [refreshScans])
+  const flagScan = useCallback(async (id: string, flagged: boolean, revision?: number) => {
+    const body = { flagged, expected_revision: scanRevision(revision ?? knownScans.current.get(id)?.revision) }
+    const raw = await scanWrite(`${user?.id}:${id}:flag`, body, payload => api.scans.flag(id, payload))
+    return acceptScan(raw)
+  }, [user?.id, acceptScan])
 
-  const addScanNote = useCallback(async (scanId: string, note: string) => {
-    const saved = mapApiScanNote(await api.scans.notes.add(scanId, note))
-    if (!mounted.current) return
-    setScanNotes(prev => [...prev.filter(existing => existing.id !== saved.id), saved])
-    setScans(prev => prev.map(scan => scan.id === scanId ? { ...scan, hasNotes: true } : scan))
-  }, [])
+  const addScanNote = useCallback(async (scanId: string, note: string, revision?: number) => {
+    const raw = await scanWrite(`${user?.id}:${scanId}:note`, {
+      note, expected_revision: scanRevision(revision ?? knownScans.current.get(scanId)?.revision),
+    }, payload => api.scans.notes.add(scanId, payload))
+    const saved = mapApiScanNote(raw)
+    if (mounted.current) {
+      noteRequests.current.set(scanId, (noteRequests.current.get(scanId) ?? 0) + 1)
+      const known = knownScans.current.get(scanId)
+      if (known && (known.revision ?? 0) <= raw.revision) {
+        const updated = { ...known, revision: raw.revision, hasNotes: true,
+          notes: [...(known.notes ?? []).filter(item => item.id !== saved.id), saved] }
+        knownScans.current.set(scanId, updated)
+        setScans(previous => previous.map(scan => scan.id === scanId ? updated : scan))
+      }
+      setScanNotes(previous => [...previous.filter(item => item.id !== saved.id), saved])
+    }
+    return { note: saved, revision: raw.revision }
+  }, [user?.id])
 
-  const getScanNotes = useCallback((scanId: string) => {
-    return scanNotes.filter((n) => n.scanId === scanId)
-  }, [scanNotes])
+  const getScanNotes = useCallback((scanId: string) => scanNotes.filter(note => note.scanId === scanId), [scanNotes])
 
   const loadScanNotes = useCallback((scanId: string) => {
-    api.scans.notes.list(scanId)
-      .then((notes) => {
-        setScanNotes((prev) => {
-          const others = prev.filter((n) => n.scanId !== scanId)
-          return [
-            ...others,
-            ...notes.map(mapApiScanNote)
-          ]
-        })
-      })
-      .catch(() => toast.error("Review notes could not be loaded. Please retry."))
-  }, [])
+    const sequence = (noteRequests.current.get(scanId) ?? 0) + 1
+    noteRequests.current.set(scanId, sequence)
+    api.scans.detail(scanId).then(raw => {
+      if (mounted.current && noteRequests.current.get(scanId) === sequence) acceptScan(raw)
+    }).catch(() => {
+      if (mounted.current && noteRequests.current.get(scanId) === sequence) toast.error("Review notes could not be loaded. Please retry.")
+    })
+  }, [acceptScan])
 
-  const updateScanData = useCallback(async (id: string, data: Partial<ScanResult>) => {
-    const saved = mapApiScan(await api.scans.override(id, {
-      cultivar: data.cultivar,
-      ripeness: data.ripeness,
-      finger_count: data.fingerCount,
-      spoilage_days: data.spoilageDays,
-      source_text: data.source,
-    }), getImageUrl)
-    if (mounted.current) {
-      setScans(prev => prev.map(scan => scan.id === id ? { ...scan, ...saved, images: scan.images, detections: scan.detections } : scan))
-      void refreshScans()
-    }
-    return saved
-  }, [refreshScans])
+  const updateScanData = useCallback(async (id: string, data: Partial<ScanResult>, reason: string, baseline?: ScanResult) => {
+    const before = baseline ?? knownScans.current.get(id)
+    const changes: { cultivar?: string; ripeness?: string; finger_count?: number; spoilage_days?: string; source_text?: string } = {}
+    if (data.cultivar !== undefined && data.cultivar !== before?.cultivar) changes.cultivar = data.cultivar
+    if (data.ripeness !== undefined && data.ripeness !== before?.ripeness) changes.ripeness = data.ripeness
+    if (data.fingerCount !== undefined && data.fingerCount !== before?.fingerCount) changes.finger_count = data.fingerCount
+    if (data.spoilageDays !== undefined && data.spoilageDays !== before?.spoilageDays) changes.spoilage_days = data.spoilageDays
+    if (data.source !== undefined && data.source !== before?.source) changes.source_text = data.source
+    const raw = await scanWrite(`${user?.id}:${id}:correction`, {
+      ...changes, reason, expected_revision: scanRevision(before?.revision),
+    }, payload => api.scans.override(id, payload))
+    return acceptScan(raw)
+  }, [user?.id, acceptScan])
 
   // ── Cross-context helper for InventoryContext ───────────────────────────
 
@@ -250,6 +275,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
       getScanNotes,
       loadScanNotes,
       updateScanData,
+      acceptScan,
       updateScansForIntake,
     }}>
       {children}
