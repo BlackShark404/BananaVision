@@ -34,6 +34,7 @@ from app.schemas.scan import (
     ScanNoteResponse,
     ScanStatusUpdate,
 )
+from app.services.scan_records import authorize_scan, is_admin, load_authorized_scan, scan_scope
 from app.services.scan_service import execute_scan_pipeline
 from app.schemas.enums import InventoryStatusEnum
 
@@ -96,7 +97,7 @@ async def list_scans(
     flagged: bool | None = None,
 ):
     """List scans with pagination and filtering."""
-    query = select(Scan).outerjoin(Scan.classification).options(
+    query = select(Scan).where(scan_scope(user)).outerjoin(Scan.classification).options(
         selectinload(Scan.classification),
         selectinload(Scan.status_logs),
         selectinload(Scan.original_ai_result),
@@ -149,7 +150,7 @@ async def list_scans(
                     "finger_count": s.original_ai_result.finger_count,
                 } if s.original_ai_result else None,
                 thumbnail_url=s.classification.thumbnail_url if s.classification else None,
-                has_notes=len(s.notes) > 0 if hasattr(s, 'notes') and s.notes else False,
+                has_notes=is_admin(user) and bool(s.notes),
                 images=[ScanImageRef(camera_id=img.camera_id, file_path=img.file_path) for img in (s.images or [])],
                 updated_at=s.updated_at,
             )
@@ -178,8 +179,7 @@ async def get_scan(scan_id: uuid.UUID, db: DbSession, user: CurrentUser):
         )
     )
     scan = result.scalar_one_or_none()
-    if not scan:
-        raise NotFoundException("Scan")
+    await authorize_scan(db, scan, user)
 
     return ScanDetailResponse(
         id=scan.id,
@@ -207,7 +207,7 @@ async def get_scan(scan_id: uuid.UUID, db: DbSession, user: CurrentUser):
             "finger_count": scan.original_ai_result.finger_count,
         } if scan.original_ai_result else None,
         thumbnail_url=scan.classification.thumbnail_url if scan.classification else None,
-        has_notes=len(scan.notes) > 0 if scan.notes else False,
+        has_notes=is_admin(user) and bool(scan.notes),
         updated_at=scan.updated_at,
         detections=[
             ScanDetectionResponse.model_validate(d) for d in scan.detections
@@ -223,7 +223,7 @@ async def get_scan(scan_id: uuid.UUID, db: DbSession, user: CurrentUser):
                 author_name=n.author_name,
                 timestamp=n.timestamp,
             )
-            for n in scan.notes
+            for n in scan.notes if is_admin(user)
         ],
     )
 
@@ -233,8 +233,7 @@ async def flag_scan(scan_id: uuid.UUID, body: ScanFlagRequest, db: DbSession, us
     """Flag or unflag a scan for review."""
     result = await db.execute(select(Scan).where(Scan.id == scan_id))
     scan = result.scalar_one_or_none()
-    if not scan:
-        raise NotFoundException("Scan")
+    await authorize_scan(db, scan, user)
 
     scan.flagged = body.flagged
     db.add(ActivityLog(
@@ -263,8 +262,7 @@ async def override_scan(
         )
     )
     scan = result.scalar_one_or_none()
-    if not scan:
-        raise NotFoundException("Scan")
+    await authorize_scan(db, scan, admin)
 
     # Store original AI result before override
     if not scan.is_overridden and scan.classification:
@@ -338,8 +336,7 @@ async def update_scan_status(
     """Update scan inventory status."""
     result = await db.execute(select(Scan).where(Scan.id == scan_id))
     scan = result.scalar_one_or_none()
-    if not scan:
-        raise NotFoundException("Scan")
+    await authorize_scan(db, scan, user)
 
     now = now_manila()
     new_log = ScanStatusLog(
@@ -377,6 +374,7 @@ async def add_note(
 @router.get("/{scan_id}/notes", response_model=list[ScanNoteResponse])
 async def get_notes(scan_id: uuid.UUID, db: DbSession, user: AdminUser):
     """Get all notes for a scan."""
+    await load_authorized_scan(db, scan_id, user)
     result = await db.execute(
         select(ScanNote)
         .where(ScanNote.scan_id == scan_id)
