@@ -1,46 +1,44 @@
-CURRENT RESUME HERE (2026-10-10)
-TASK: Scan Logs/Detail hardening — INCOMPLETE; final review corrections/verification.
-BRANCH codex/scan-record-hardening; HEAD 71d6e73; base e3e1c07. No commits replayed.
-PLAN docs/superpowers/plans/2026-10-09-scan-records-follow-up.md (approved).
+CURRENT RESUME HERE (2026-10-10, Asia/Manila)
+TASK: Scan Logs/Detail hardening — COMPLETE for approved implementation and isolated verification.
+BRANCH: codex/scan-record-hardening. Implementation HEAD: 4094852; task base: e3e1c07.
+Finalization: documentation/cleanup commit containing this checkpoint; use git log -1 for its ID.
+PLAN: docs/superpowers/plans/2026-10-09-scan-records-follow-up.md (completed).
+REPORT: docs/scan-records-verification-2026-10-10.md (commands, coverage, review and limits).
+
 DONE
-- Committed ownership/note privacy; revision/CAS/idempotent mutations and immutable history;
-  schema0005 + archive v2/strict v1 adapter; authenticated evidence, current UI integration.
-- Preserved all maintenance and user's logout guard 1a13e0b; fixtures committed 71d6e73.
-- PostgreSQL concurrency 5 passed 3.35s; combined browser persistence/detail/retry 18 passed 18.19s.
-- PG compatibility/migration/CSV 34 passed, 2 fixture failures; corrected synthetic parent table
-  and expected source trimming. Targeted rerun 3 passed, 20 deselected, 1.94s.
-- Expanded browser initially 6 passed/2 failed: incorrect test note.text vs note.note and
-  'Mark as Sold' vs actual 'Mark Sold'. Corrected harness. Latest 9 passed 10.29s.
-- Independent review identified retry dead-end, stale bulk cache, fabricated 0d original
-  spoilage, note revision regression, inherited WS cross-operator data exposure.
-IN PROGRESS (current uncommitted changes)
-- Added explicit Retry previous action using retained exact request, cache acceptance inside
-  replay closure, revision-aware bulk cache, monotonic note revision, truthful spoilage labels.
-- Scoped all scan kiosk events to initiating account/current Admin with live session checks.
-- Retry unit regression RED then 4 passed 185ms. WebSocket RED then isolated security/time
-  suite 56 passed, 4 PG deselected, 8.44s (bv-scan-review-3oq753mz).
-- TS found parameter-property syntax incompatible with erasableSyntaxOnly; corrected, rerun pending.
-- New full browser retry/navigation regression added; rerun next. Independent follow-up reviewing diff.
-REMAINING / EXACT RESUME
-1. Run frontend scanrecords + scanwrites and TypeScript; fix actual failures.
-2. Finish active security scan c49fcb93-82d3-4452-8183-9be1cf9571e9 on immutable e3..1a13
-   (discovery phase). Record validation/coverage and finalize. Follow-up review current fixes too.
-3. Full isolated backend + recorded PG tests, frontend tests, TS/lint/build; final scoped diff.
-4. Stop only recorded PG, remove exact task temp resources/helper, verification doc/checkpoint,
-   local commit only after successful verification. No push/merge/deploy.
-SAFETY / TEST COMMANDS
-- Never live .env/DB/captures/cameras/hardware/retention/restore/power. Only isolated fixtures.
-- Python -X utf8 -B with resolved backend on sys.path AFTER os.chdir(fresh tempfile).
-  pytest -p no:cacheprovider -q --basetemp <temp>/fixtures -c <backend>/pyproject.toml.
-- PostgreSQL env BANANAVISION_TEST_DATABASE_URL=postgresql+asyncpg://bvtest@127.0.0.1:56845/postgres.
-- PG18 root C:/Users/Roronoa Zoro/AppData/Local/Temp/bv-scan-pg-79340e152cc64c9b8948b973c9a91049
-  PID50664 last confirmed, port56845. backend/tests/.scan-pg-path.txt helper. Verify before stopping.
-- Browser PLAYWRIGHT_MODULE=C:/Users/Roronoa Zoro/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright/index.mjs
-  node --test frontend/tests/*.test.mjs. Mock APIs, localhost only; elevated for sandbox restrictions.
-- Baseline lint debt frontend43errors8warnings; backend654diagnostics. No unrelated cleanup.
-TEMP CLEANUP PENDING
-- Exact prior names archived docs/history/2026-10-10-scan-hardening-checkpoint.txt.
-- Additional OS-temp: bv-scan-pgtests-k6n01ljk, bv-scan-compat-pn01ytow,
-  bv-scan-compat-fix-fyiys7bp, bv-scan-ws-tsk5tqm0, bv-scan-review-3oq753mz.
-- Sandbox-only empty bv-scan-ws-dab46inl under sandbox AC/Temp (chdir permission failed).
-- User's committed scratch/logout files are unrelated; preserve.
+- Ownership/private notes/authenticated evidence; revisions/CAS/idempotent writes/history.
+- Migration0005 and strict archive v1/v2 compatibility, including maintenance recovery tests.
+- All affected callers, reason/conflict/draft handling, direct historical detail, missing images.
+- Retained-request retries across navigation; revision-aware bulk cache; monotonic notes;
+  truthful original spoilage; kiosk events isolated to owner/current Admin with session checks.
+- Preserved existing UI, SQL browsing/complete CSV export, Manila times, maintenance, logout
+  fix 1a13e0b and fixture fixes 71d6e73. No reverted commits replayed or unrelated refactors.
+- Independent review findings corrected and regression-tested. Optional last follow-up hit
+  account usage limit; root reviewed its final two corrections directly. No open material finding.
+- Codex Security c49fcb93-82d3-4452-8183-9be1cf9571e9 completed: 38 files, zero new reportable
+  findings in immutable e3e1c07..1a13e0b; subsequent fixes separately reviewed/tested.
+
+LATEST VERIFIED
+- Full isolated backend INCLUDING PostgreSQL: 222 passed, 71.19s, exit 0 (no skips).
+  Python -X utf8 -B; fresh temporary cwd before imports; pytest -p no:cacheprovider -q
+  --basetemp <temp>/fixtures -c <backend>/pyproject.toml <backend>/tests --tb=short.
+- node --test --test-concurrency=1 frontend/tests/*.test.mjs: 54 passed, 0 failed/skipped,
+  60.2775s, exit 0. Bundled Playwright, mocked APIs and localhost fixtures only.
+- frontend npx tsc --noEmit -p tsconfig.app.json exit 0; npm run build exit 0 (Vite 9.44s).
+- Configured ESLint: 43 errors/8 warnings, all baseline; zero introduced diagnostics.
+- Ruff 0.16.10 app/tests: 620 diagnostics vs 660 at e3e1c07; zero introduced. Legacy lint remains.
+- Source/test scoped diff whitespace check passed. Existing scratch/archive whitespace retained.
+
+CLEANUP / LIMITS
+- Exact disposable PG root bv-scan-pg-79340e152cc64c9b8948b973c9a91049 (PID50664, port56845)
+  verified then stopped; PID file absent, no listener. All 26 recorded task temp dirs removed.
+- Six Vite fixture caches and backend/tests/.scan-pg-path.txt removed; sandbox temp already absent.
+- Preserved unrelated user scratch files, build output and durable security artifacts.
+- No live .env/DB/captures/cameras/hardware/retention/restore/power touched. Live acceptance deferred.
+- No push, merge or deployment. Full lint is not clean due to documented pre-existing debt.
+
+IN PROGRESS / NOT YET STARTED: None within the approved code/test scope.
+EXACT RESUME: Verify git status/log for the finalization commit if execution stopped during commit.
+Do not rerun implementation or old investigations. Branch remains for the user's integration decision.
+Any future tests must create/verify a new disposable DB; the recorded test cluster no longer exists.
+Superseded status: docs/history/2026-10-10-before-scan-final-verification.txt (historical only).
