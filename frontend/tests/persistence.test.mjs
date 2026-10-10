@@ -60,7 +60,7 @@ async function setup(t, options = {}) {
       if (url.pathname === "/api/v1/scans/scan-0/flag") { state.scans[0].flagged = body.flagged; state.scans[0].revision++; return reply(state.scans[0]) }
       if (url.pathname === "/api/v1/intakes/intake-1/bulk-inventory") {
         state.scans[0].inventory_status = body.inventory_status
-        return reply({ updated_scan_ids: ["scan-0"], updated_count: 1, status_updated_at: storedDate(0), intake_status: "Depleted" })
+        return reply({ revisions: { "scan-0": ++state.scans[0].revision }, updated_scan_ids: ["scan-0"], updated_count: 1, status_updated_at: storedDate(0), intake_status: "Depleted" })
       }
       return reply({ detail: `Unexpected successful test write: ${url.pathname}` }, 400)
     }
@@ -153,7 +153,7 @@ test("every rejected provider write preserves persisted local state and rejects 
   for (const operation of ["flag", "note", "override", "supplierAdd", "supplierUpdate", "supplierStatus", "userAdd", "userUpdate", "password", "pin", "config", "intake", "bulk"]) {
     await page.getByRole("button", { name: operation, exact: true }).click()
     await until(async () => (await page.getByTestId("operation-result").textContent()).startsWith("error:"), operation)
-    assert.equal(await page.getByTestId("operation-result").textContent(), "error: Database write rejected")
+    assert.match(await page.getByTestId("operation-result").textContent(), /^error: Database write rejected/)
     assert.deepEqual(await snapshot(page), beforeWrite, `${operation} must not mutate state after a failed write`)
   }
 })

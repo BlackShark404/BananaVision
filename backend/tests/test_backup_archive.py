@@ -166,7 +166,9 @@ def legacy_backup(archive_module, station, tmp_path, *, bad_null=False):
     with zipfile.ZipFile(path) as source:
         members = {name: source.read(name) for name in source.namelist()}
     manifest = json.loads(members['manifest.json'])
-    legacy = json.loads(Path(archive_module.__file__).with_name('archive_schema_v1.json').read_text())
+    legacy = json.loads(
+        Path(archive_module.__file__).with_name("archive_schema_v1.json").read_text()
+    )
     manifest.update(version=1, schema=legacy)
     for table in list(manifest['tables']):
         name = f'tables/{table}.jsonl'

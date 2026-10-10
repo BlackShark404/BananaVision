@@ -2,22 +2,36 @@
 
 import hashlib
 import json
-from sqlalchemy import select, true, text, update
-from fastapi import HTTPException
 
-from app.core.exceptions import ForbiddenException, NotFoundException, ConflictException
+from fastapi import HTTPException
+from sqlalchemy import select, text, true, update
+
+from app.core.exceptions import ConflictException, ForbiddenException, NotFoundException
 from app.core.time import now_manila
+from app.models import (
+    ActivityLog,
+    Intake,
+    ScanClassification,
+    ScanNote,
+    ScanOriginalAiResult,
+    ScanStatusLog,
+)
 from app.models.operator_profile import OperatorProfile
 from app.models.scan import Scan
-from app.models.scan_history import ScanEvent, ScanTombstone, ScanMutation
-from app.models import ScanClassification, ScanOriginalAiResult, ScanStatusLog, ScanNote, Intake, ActivityLog
-from app.services.auth_service import lock_current_account
-from app.services.scan_evidence import evidence_url
+from app.models.scan_history import ScanEvent, ScanMutation, ScanTombstone
 from app.schemas.enums import InventoryStatusEnum
 from app.schemas.scan import (
-    OriginalAiResult, ScanResponse, ScanDetailResponse, ScanDetectionResponse,
-    ScanImageRef, ScanImageResponse, ScanNoteResponse, ScanHistoryResponse,
+    OriginalAiResult,
+    ScanDetailResponse,
+    ScanDetectionResponse,
+    ScanHistoryResponse,
+    ScanImageRef,
+    ScanImageResponse,
+    ScanNoteResponse,
+    ScanResponse,
 )
+from app.services.auth_service import lock_current_account
+from app.services.scan_evidence import evidence_url
 
 
 def is_admin(user) -> bool:
@@ -52,7 +66,9 @@ async def load_authorized_scan(db, scan_id, user):
     scan_scope(user)
     scan = (await db.execute(select(Scan).where(Scan.id == scan_id))).scalar_one_or_none()
     if scan is None:
-        deleted = (await db.execute(select(ScanTombstone).where(ScanTombstone.scan_id == scan_id))).scalar_one_or_none()
+        deleted = (
+            await db.execute(select(ScanTombstone).where(ScanTombstone.scan_id == scan_id))
+        ).scalar_one_or_none()
         if deleted:
             if not is_admin(user) and deleted.owner_account_id != user.id:
                 raise ForbiddenException("You do not have access to this scan")
@@ -64,7 +80,9 @@ def serialize_scan(scan, user):
     classification = scan.classification
     latest = scan.status_logs[-1] if scan.status_logs else None
     return ScanResponse(
-        id=scan.id, revision=scan.revision, date_time=scan.date_time,
+        id=scan.id,
+        revision=scan.revision,
+        date_time=scan.date_time,
         cultivar=classification.cultivar if classification else None,
         ripeness=classification.ripeness if classification else None,
         confidence=classification.confidence if classification else None,
@@ -74,22 +92,35 @@ def serialize_scan(scan, user):
         treatment=classification.treatment if classification else None,
         spoilage_days=classification.spoilage_days if classification else None,
         finger_count=classification.finger_count if classification else 0,
-        operator_name=scan.operator_name_snapshot or (
-            scan.operator.account.full_name if scan.operator and scan.operator.account else "Unknown"),
-        source_text=scan.source_text, intake_id=scan.intake_id,
+        operator_name=scan.operator_name_snapshot
+        or (
+            scan.operator.account.full_name
+            if scan.operator and scan.operator.account
+            else "Unknown"
+        ),
+        source_text=scan.source_text,
+        intake_id=scan.intake_id,
         inventory_status=latest.inventory_status if latest else InventoryStatusEnum.IN_STOCK,
         status_updated_at=latest.updated_at if latest else None,
-        flagged=scan.flagged, is_overridden=scan.is_overridden,
-        original_ai_result=OriginalAiResult.model_validate(scan.original_ai_result) if scan.original_ai_result else None,
+        flagged=scan.flagged,
+        is_overridden=scan.is_overridden,
+        original_ai_result=OriginalAiResult.model_validate(scan.original_ai_result)
+        if scan.original_ai_result
+        else None,
         thumbnail_url=evidence_url(classification.thumbnail_url) if classification else None,
         has_notes=is_admin(user) and bool(scan.notes),
-        images=[ScanImageRef(camera_id=i.camera_id, file_path=evidence_url(i.file_path) or "") for i in scan.images],
+        images=[
+            ScanImageRef(camera_id=i.camera_id, file_path=evidence_url(i.file_path) or "")
+            for i in scan.images
+        ],
         updated_at=scan.updated_at,
     )
 
 
 async def scan_history(db, scan, user):
-    events = (await db.execute(select(ScanEvent).where(ScanEvent.scan_id == scan.id))).scalars().all()
+    events = (
+        (await db.execute(select(ScanEvent).where(ScanEvent.scan_id == scan.id))).scalars().all()
+    )
     represented = {e.evidence_id for e in events if e.evidence_id}
     history = [ScanHistoryResponse(
         id=str(e.id), kind=e.kind, timestamp=e.timestamp, actor_id=e.actor_id,
@@ -111,7 +142,12 @@ async def scan_history(db, scan, user):
 async def serialize_detail(db, scan, user):
     return ScanDetailResponse(
         **serialize_scan(scan, user).model_dump(exclude={"images"}),
-        images=[ScanImageResponse.model_validate(i).model_copy(update={"file_path": evidence_url(i.file_path) or ""}) for i in scan.images],
+        images=[
+            ScanImageResponse.model_validate(i).model_copy(
+                update={"file_path": evidence_url(i.file_path) or ""}
+            )
+            for i in scan.images
+        ],
         detections=[ScanDetectionResponse.model_validate(d) for d in scan.detections],
         notes=[ScanNoteResponse.model_validate(n) for n in scan.notes] if is_admin(user) else [],
         history=await scan_history(db, scan, user),
@@ -133,7 +169,9 @@ def mutation_fingerprint(user, target, kind, body):
 
 
 async def mutation_replay(db, user, body, fingerprint):
-    receipt = (await db.execute(select(ScanMutation).where(ScanMutation.request_id == body.request_id))).scalar_one_or_none()
+    receipt = (
+        await db.execute(select(ScanMutation).where(ScanMutation.request_id == body.request_id))
+    ).scalar_one_or_none()
     if receipt:
         if receipt.actor_id != user.id or receipt.fingerprint != fingerprint:
             raise ConflictException("This request ID was already used for a different change")
@@ -142,7 +180,11 @@ async def mutation_replay(db, user, body, fingerprint):
 
 
 def save_receipt(db, user, body, fingerprint, response):
-    db.add(ScanMutation(request_id=body.request_id, actor_id=user.id, fingerprint=fingerprint, response=response))
+    db.add(
+        ScanMutation(
+            request_id=body.request_id, actor_id=user.id, fingerprint=fingerprint, response=response
+        )
+    )
 
 
 async def apply_scan_change(db, scan, user, kind, changes, reason=None):
@@ -151,9 +193,17 @@ async def apply_scan_change(db, scan, user, kind, changes, reason=None):
     classification_fields = {"cultivar", "ripeness", "finger_count", "spoilage_days"}
     for key, value in changes.items():
         if key == "inventory_status":
-            old = scan.status_logs[-1].inventory_status if scan.status_logs else InventoryStatusEnum.IN_STOCK
+            old = (
+                scan.status_logs[-1].inventory_status
+                if scan.status_logs
+                else InventoryStatusEnum.IN_STOCK
+            )
         elif key in classification_fields:
-            old = getattr(scan.classification, key) if scan.classification else (0 if key == "finger_count" else None)
+            old = (
+                getattr(scan.classification, key)
+                if scan.classification
+                else (0 if key == "finger_count" else None)
+            )
         elif key == "text":
             old = None
         else:
@@ -205,7 +255,13 @@ async def apply_scan_change(db, scan, user, kind, changes, reason=None):
     db.add(ScanEvent(scan_id=scan.id, revision=scan.revision, kind=kind, timestamp=now,
                      actor_id=user.id, actor_name=user.full_name, reason=reason,
                      previous_values=previous, new_values=new, evidence_id=evidence_id))
-    db.add(ActivityLog(user_id=user.id, action=f"scan_{kind}", details=f"Scan {scan.id}, revision {scan.revision}"))
+    db.add(
+        ActivityLog(
+            user_id=user.id,
+            action=f"scan_{kind}",
+            details=f"Scan {scan.id}, revision {scan.revision}",
+        )
+    )
     await db.flush()
     return note
 
@@ -229,12 +285,17 @@ async def mutate_scan(db, scan_id, user, kind, body):
         return replay
     if body.expected_revision != scan.revision:
         raise ConflictException("This scan changed. Reload it before saving your changes.")
-    changes = body.model_dump(exclude={"request_id", "expected_revision", "reason"}, exclude_unset=True)
+    changes = body.model_dump(
+        exclude={"request_id", "expected_revision", "reason"}, exclude_unset=True
+    )
     if kind == "note":
         changes = {"text": body.note}
     note = await apply_scan_change(db, scan, user, kind, changes, getattr(body, "reason", None))
     if note:
-        response = {**ScanNoteResponse.model_validate(note).model_dump(mode="json"), "revision": scan.revision}
+        response = {
+            **ScanNoteResponse.model_validate(note).model_dump(mode="json"),
+            "revision": scan.revision,
+        }
     else:
         response = (await serialize_detail(db, scan, user)).model_dump(mode="json")
     save_receipt(db, user, body, fingerprint, response)

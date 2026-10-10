@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select, func, desc
 from sqlalchemy.orm import selectinload
 
@@ -14,12 +14,8 @@ from app.api.deps import DbSession, CurrentUser, AdminUser
 from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
 from app.models.operator_profile import OperatorProfile
-from app.models.scan_status_log import ScanStatusLog
-from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.models.scan_note import ScanNote
-from app.models.activity_log import ActivityLog
 from app.core.exceptions import NotFoundException, ModelInferenceError
-from app.core.time import now_manila
 from app.schemas.scan import (
     ScanTriggerRequest,
     ScanFlagRequest,
@@ -28,15 +24,18 @@ from app.schemas.scan import (
     ScanResponse,
     ScanDetailResponse,
     ScanListResponse,
-    ScanDetectionResponse,
-    ScanImageResponse,
-    ScanImageRef,
     ScanNoteResponse,
     ScanStatusUpdate, ScanNoteWriteResponse, ScanHistoryResponse,
 )
-from app.services.scan_records import authorize_scan, is_admin, load_authorized_scan, scan_scope, serialize_scan, serialize_detail, mutate_scan, scan_history
+from app.services.scan_records import (
+    load_authorized_scan,
+    scan_scope,
+    serialize_scan,
+    serialize_detail,
+    mutate_scan,
+    scan_history,
+)
 from app.services.scan_service import execute_scan_pipeline
-from app.schemas.enums import InventoryStatusEnum
 
 router = APIRouter(prefix="/scans", tags=["Scans"])
 
@@ -119,12 +118,16 @@ async def flag_scan(scan_id: uuid.UUID, body: ScanFlagRequest, db: DbSession, us
 
 
 @router.patch("/{scan_id}", response_model=ScanDetailResponse)
-async def override_scan(scan_id: uuid.UUID, body: ScanOverrideRequest, db: DbSession, admin: AdminUser):
+async def override_scan(
+    scan_id: uuid.UUID, body: ScanOverrideRequest, db: DbSession, admin: AdminUser
+):
     return await mutate_scan(db, scan_id, admin, "correction", body)
 
 
 @router.patch("/{scan_id}/status", response_model=ScanDetailResponse)
-async def update_scan_status(scan_id: uuid.UUID, body: ScanStatusUpdate, db: DbSession, user: CurrentUser):
+async def update_scan_status(
+    scan_id: uuid.UUID, body: ScanStatusUpdate, db: DbSession, user: CurrentUser
+):
     return await mutate_scan(db, scan_id, user, "status", body)
 
 

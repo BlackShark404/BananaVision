@@ -35,7 +35,7 @@ interface ScanContextType {
   scansError: string | null
   refreshScans: () => Promise<void>
   /** Update inventory status on scans belonging to an intake. Used by InventoryContext. */
-  updateScansForIntake: (scanIds: string[], status: InventoryStatus, statusUpdatedAt: string) => void
+  updateScansForIntake: (scanIds: string[], status: InventoryStatus, statusUpdatedAt: string, revisions: Record<string, number>) => void
 }
 
 // ── Context ─────────────────────────────────────────────────────────────────
@@ -206,27 +206,28 @@ function ScanStore({ children }: { children: React.ReactNode }) {
 
   const flagScan = useCallback(async (id: string, flagged: boolean, revision?: number) => {
     const body = { flagged, expected_revision: scanRevision(revision ?? knownScans.current.get(id)?.revision) }
-    const raw = await scanWrite(`${user?.id}:${id}:flag`, body, payload => api.scans.flag(id, payload))
-    return acceptScan(raw)
+    return scanWrite(`${user?.id}:${id}:flag`, body, async payload => acceptScan(await api.scans.flag(id, payload)))
   }, [user?.id, acceptScan])
 
   const addScanNote = useCallback(async (scanId: string, note: string, revision?: number) => {
-    const raw = await scanWrite(`${user?.id}:${scanId}:note`, {
+    return scanWrite(`${user?.id}:${scanId}:note`, {
       note, expected_revision: scanRevision(revision ?? knownScans.current.get(scanId)?.revision),
-    }, payload => api.scans.notes.add(scanId, payload))
-    const saved = mapApiScanNote(raw)
-    if (mounted.current) {
-      noteRequests.current.set(scanId, (noteRequests.current.get(scanId) ?? 0) + 1)
-      const known = knownScans.current.get(scanId)
-      if (known && (known.revision ?? 0) <= raw.revision) {
-        const updated = { ...known, revision: raw.revision, hasNotes: true,
-          notes: [...(known.notes ?? []).filter(item => item.id !== saved.id), saved] }
-        knownScans.current.set(scanId, updated)
-        setScans(previous => previous.map(scan => scan.id === scanId ? updated : scan))
+    }, async payload => {
+      const raw = await api.scans.notes.add(scanId, payload)
+      const saved = mapApiScanNote(raw)
+      if (mounted.current) {
+        noteRequests.current.set(scanId, (noteRequests.current.get(scanId) ?? 0) + 1)
+        const known = knownScans.current.get(scanId)
+        if (known && (known.revision ?? 0) <= raw.revision) {
+          const updated = { ...known, revision: raw.revision, hasNotes: true,
+            notes: [...(known.notes ?? []).filter(item => item.id !== saved.id), saved] }
+          knownScans.current.set(scanId, updated)
+          setScans(previous => previous.map(scan => scan.id === scanId ? updated : scan))
+        }
+        setScanNotes(previous => [...previous.filter(item => item.id !== saved.id), saved])
       }
-      setScanNotes(previous => [...previous.filter(item => item.id !== saved.id), saved])
-    }
-    return { note: saved, revision: raw.revision }
+      return { note: saved, revision: raw.revision }
+    })
   }, [user?.id])
 
   const getScanNotes = useCallback((scanId: string) => scanNotes.filter(note => note.scanId === scanId), [scanNotes])
@@ -249,17 +250,24 @@ function ScanStore({ children }: { children: React.ReactNode }) {
     if (data.fingerCount !== undefined && data.fingerCount !== before?.fingerCount) changes.finger_count = data.fingerCount
     if (data.spoilageDays !== undefined && data.spoilageDays !== before?.spoilageDays) changes.spoilage_days = data.spoilageDays
     if (data.source !== undefined && data.source !== before?.source) changes.source_text = data.source
-    const raw = await scanWrite(`${user?.id}:${id}:correction`, {
+    return scanWrite(`${user?.id}:${id}:correction`, {
       ...changes, reason, expected_revision: scanRevision(before?.revision),
-    }, payload => api.scans.override(id, payload))
-    return acceptScan(raw)
+    }, async payload => acceptScan(await api.scans.override(id, payload)))
   }, [user?.id, acceptScan])
 
   // ── Cross-context helper for InventoryContext ───────────────────────────
 
-  const updateScansForIntake = useCallback((scanIds: string[], status: InventoryStatus, statusUpdatedAt: string) => {
-    const ids = new Set(scanIds)
-    setScans(prev => prev.map(scan => ids.has(scan.id) ? { ...scan, inventoryStatus: status, statusUpdatedAt } : scan))
+  const updateScansForIntake = useCallback((scanIds: string[], status: InventoryStatus, statusUpdatedAt: string, revisions: Record<string, number>) => {
+    if (!mounted.current) return
+    for (const id of scanIds) {
+      const known = knownScans.current.get(id)
+      const revision = revisions[id]
+      if (known && Number.isInteger(revision) && revision > (known.revision ?? 0)) {
+        knownScans.current.set(id, { ...known, revision, inventoryStatus: status, statusUpdatedAt })
+      }
+    }
+    setScans(previous => previous.map(scan => knownScans.current.get(scan.id) ?? scan))
+    setScanState(previous => previous.lastResult ? { ...previous, lastResult: knownScans.current.get(previous.lastResult.id) ?? previous.lastResult } : previous)
     void refreshScans()
   }, [refreshScans])
 

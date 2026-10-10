@@ -22,10 +22,10 @@ export function AppChangePreview({ originalData, editData, className = "", badge
   if (!originalData || !editData) return null
 
   const safeOriginalFingers = originalData.fingerCount === '' || originalData.fingerCount === undefined ? 0 : Math.max(0, Number(originalData.fingerCount) || 0)
-  const safeOriginalSpoilage = originalData.spoilageDays === '' || originalData.spoilageDays === undefined ? 0 : Math.max(0, Number(originalData.spoilageDays) || 0)
+  const safeOriginalSpoilage = originalData.spoilageDays == null || originalData.spoilageDays === '' || originalData.spoilageDays === 'Unknown' ? null : String(originalData.spoilageDays)
   
   const safeEditFingers = editData.fingerCount === '' || editData.fingerCount === undefined ? 0 : Math.max(0, Number(editData.fingerCount) || 0)
-  const safeEditSpoilage = editData.spoilageDays === '' || editData.spoilageDays === undefined ? 0 : Math.max(0, Number(editData.spoilageDays) || 0)
+  const safeEditSpoilage = editData.spoilageDays == null || editData.spoilageDays === '' || editData.spoilageDays === 'Unknown' ? null : String(editData.spoilageDays)
 
   const hasCultivarChange = !!editData.cultivar && !!originalData.cultivar && editData.cultivar !== originalData.cultivar
   const hasRipenessChange = !!editData.ripeness && !!originalData.ripeness && editData.ripeness !== originalData.ripeness
@@ -50,7 +50,7 @@ export function AppChangePreview({ originalData, editData, className = "", badge
         )}
         {hasSpoilageChange && (
           <Badge variant="outline" className={badgeClassName}>
-            Spoilage: {safeOriginalSpoilage}d → {safeEditSpoilage}d
+            Spoilage: {safeOriginalSpoilage === null ? "Not recorded" : `${safeOriginalSpoilage}d`} → {safeEditSpoilage === null ? "Not recorded" : `${safeEditSpoilage}d`}
           </Badge>
         )}
         {hasFingerChange && (

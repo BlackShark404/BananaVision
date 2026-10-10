@@ -27,7 +27,7 @@ from app.ws import handlers
 from app.ws.authorization import current_socket_role
 from app.ws.manager import ConnectionManager
 from tests.test_assigned_fixes import secured  # noqa: F401
-from tests.test_time_and_writes import application, SessionAdapter  # noqa: F401
+from tests.test_time_and_writes import application as application, SessionAdapter  # noqa: F401
 
 
 def token_for(account_id, **claims):
@@ -278,3 +278,41 @@ async def test_postgresql_last_admin_guard(mutation, self_change):
         async with control.begin() as connection:
             await connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
         await control.dispose()
+
+
+@pytest.mark.asyncio
+async def test_scan_events_reach_only_the_owning_account_and_current_admin(application):
+    manager = ConnectionManager()
+    admin, owner, other = Socket(), Socket(), Socket()
+    with Session(application.engine) as db:
+        other_id = uuid4()
+        db.add(
+            UserAccount(
+                id=other_id,
+                role_id=2,
+                username="other-socket",
+                full_name="Other",
+                password_hash="unused",
+            )
+        )
+        db.commit()
+    for socket, account in [
+        (admin, application.ids.admin),
+        (owner, application.ids.operator),
+        (other, other_id),
+    ]:
+        await manager.connect(socket, ["kiosk"], token=token_for(account))
+    await manager.send_to_room(
+        "kiosk", "scan:completed", {"private_result": True}, account_id=application.ids.operator
+    )
+    assert len(admin.messages) == len(owner.messages) == 1
+    assert other.messages == [] and other.close_code is None
+    with Session(application.engine) as db:
+        db.execute(
+            update(UserAccount).where(UserAccount.id == application.ids.admin).values(role_id=2)
+        )
+        db.commit()
+    await manager.send_to_room(
+        "kiosk", "scan:captured", {"private_image": True}, account_id=application.ids.operator
+    )
+    assert len(admin.messages) == 1 and len(owner.messages) == 2 and other.messages == []

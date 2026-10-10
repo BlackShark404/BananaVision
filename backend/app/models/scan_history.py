@@ -2,22 +2,24 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Integer, JSON, String, Text, UniqueConstraint, event, select
+from sqlalchemy import JSON, ForeignKey, Integer, String, Text, UniqueConstraint, event, select
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
 from app.core.db_types import ManilaDateTime
 from app.core.time import now_manila
-from app.models.scan import Scan
 from app.models.operator_profile import OperatorProfile
+from app.models.scan import Scan
 
 
 class ScanEvent(Base):
     __tablename__ = "scan_event"
     __table_args__ = (UniqueConstraint("scan_id", "revision"),)
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    scan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("scan.id", ondelete="CASCADE"), index=True)
+    scan_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("scan.id", ondelete="CASCADE"), index=True
+    )
     revision: Mapped[int] = mapped_column(Integer)
     kind: Mapped[str] = mapped_column(String(30))
     timestamp: Mapped[datetime] = mapped_column(ManilaDateTime(), default=now_manila)
@@ -49,7 +51,9 @@ class ScanTombstone(Base):
 @event.listens_for(Scan, "before_delete")
 def remember_scan_deletion(mapper, connection, scan):
     """Only actual ORM deletions; archive Core replacement does not trigger this."""
-    owner = connection.scalar(select(OperatorProfile.account_id).where(OperatorProfile.id == scan.operator_id))
+    owner = connection.scalar(
+        select(OperatorProfile.account_id).where(OperatorProfile.id == scan.operator_id)
+    )
     # An actual deletion supersedes a tombstone restored from an older snapshot.
     connection.execute(ScanTombstone.__table__.delete().where(ScanTombstone.scan_id == scan.id))
     connection.execute(ScanTombstone.__table__.insert().values(

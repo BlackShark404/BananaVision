@@ -20,6 +20,7 @@ async function setup(t, status = 200, options = {}) {
   const context = await runtime.browser.newContext({ timezoneId: 'America/Los_Angeles' })
   const page = await context.newPage()
   page.setDefaultTimeout(10000)
+  page.setDefaultNavigationTimeout(30000)
   const errors = []
   page.on('pageerror', e => errors.push(e.message))
   t.after(async () => { await context.close(); assert.deepEqual(errors, []) })
@@ -56,7 +57,11 @@ async function setup(t, status = 200, options = {}) {
     if (url.pathname === '/api/v1/users') return reply({ items: [], total: 0 })
     if (method === 'GET') return reply([])
     state.writes.push({ ...request.postDataJSON(), path: url.pathname })
-    if (state.onWrite) return reply(await state.onWrite(request.postDataJSON(), url.pathname))
+    if (state.onWrite) {
+      const result = await state.onWrite(request.postDataJSON(), url.pathname)
+      if (state.loseResponseOnce) { state.loseResponseOnce = false; return route.abort('failed') }
+      return reply(result)
+    }
     return reply({ detail: 'This scan changed. Reload it before saving your changes.' }, 409)
   })
   await page.goto(`${runtime.url}${options.screen === 'logs' ? '/logs' : options.screen === 'intakes' ? '/scans/intakes' : `/scans/${id}`}`)
@@ -123,7 +128,7 @@ test('late notes response cannot erase a successful new note', async t => {
   release()
   await page.clock.runFor(200)
   const notes = JSON.parse(await page.getByTestId('notes-state').textContent())
-  assert(notes.some(note => note.text === 'Persisted new note'))
+  assert(notes.some(note => note.note === 'Persisted new note'))
 })
 
 test('Logs latest search wins; status writes use dedicated operation with reason and revision', async t => {
@@ -139,7 +144,7 @@ test('Logs latest search wins; status writes use dedicated operation with reason
   release(); await page.clock.runFor(100)
   assert.equal(await page.locator('tbody').getByText('Slow', { exact: true }).count(), 0)
   await page.getByRole('button', { name: 'Open menu' }).first().click()
-  await page.getByRole('menuitem', { name: /Mark as Sold/i }).click()
+  await page.getByRole('menuitem', { name: /Mark Sold/i }).click()
   await page.getByLabel('Reason for change').fill('Dispatched')
   state.onWrite = async body => ({ ...state.record, revision: 2, inventory_status: body.inventory_status })
   await page.getByRole('button', { name: 'Save Changes' }).click()
@@ -164,4 +169,74 @@ test('intake confirmation collects reason and complete membership snapshot', asy
   assert.deepEqual(state.writes[0].expected_revisions, { [id]: 1 })
   assert.equal(state.writes[0].reason, 'All dispatched')
   assert.equal(state.writes[0].inventory_status, 'Sold')
+})
+
+
+test('older bulk receipt cannot replace a newer accepted scan; unknown/range evidence is preserved', async t => {
+  const { page } = await setup(t, 200, { screen: 'intakes' })
+  await until(async () => JSON.parse(await page.getByTestId('scans-state').textContent()).length === 1)
+  await page.getByRole('button', { name: 'Test newer scan' }).click()
+  await page.getByRole('button', { name: 'Test older bulk' }).click()
+  await page.clock.runFor(100)
+  const record = JSON.parse(await page.getByTestId('scans-state').textContent())[0]
+  assert.equal(record.revision, 3); assert.equal(record.inventoryStatus, 'Spoiled')
+  assert.match(await page.getByTestId('unknown-preview').textContent(), /Not recorded.*3d/)
+  assert.match(await page.getByTestId('range-preview').textContent(), /4-6d.*3d/)
+})
+
+
+test('lost flag acknowledgement is reachable through Retry previous after reopening a refreshed detail', async t => {
+  const { page, state } = await setup(t)
+  state.onWrite = async body => {
+    state.record = { ...state.record, revision: 2, flagged: body.flagged }
+    return state.record
+  }
+  state.loseResponseOnce = true
+  await page.getByRole('button', { name: 'Flag for Review', exact: true }).click()
+  await until(() => state.writes.length === 1)
+  await page.clock.runFor(200)
+  await page.getByRole('link', { name: 'Test logs link' }).click()
+  await page.getByRole('link', { name: 'Test detail link' }).click()
+  await page.getByRole('button', { name: 'Remove Flag', exact: true }).click()
+  await page.clock.runFor(200)
+  await page.locator('[data-sonner-toast][data-front="true"] button[data-action]').click()
+  await until(() => state.writes.length === 2)
+  assert.deepEqual(state.writes[0], state.writes[1])
+  await page.getByRole('button', { name: 'Remove Flag', exact: true }).waitFor()
+  assert.equal(state.record.flagged, true)
+})
+
+
+test('confirmed note replay clears only its submitted draft', async t => {
+  const { page, state } = await setup(t)
+  const note = { id: 'retried-note', scan_id: id, text: 'Once only', author_name: 'Admin', timestamp: state.record.date_time }
+  state.onWrite = async () => { state.record = { ...state.record, revision: 2, notes: [...scan().notes, note] }; return { ...note, revision: 2 } }
+  state.loseResponseOnce = true
+  await page.getByPlaceholder('Add a review note...').fill('Once only')
+  await page.getByRole('button', { name: 'Add', exact: true }).click()
+  await until(() => state.writes.length === 1)
+  await page.clock.runFor(200)
+  await page.getByRole('button', { name: 'Retry previous', exact: true }).click()
+  await until(() => state.writes.length === 2)
+  await until(async () => await page.getByPlaceholder('Add a review note...').inputValue() === '')
+  assert.deepEqual(state.writes[0], state.writes[1])
+  assert.equal(state.record.notes.filter(n => n.id === 'retried-note').length, 1)
+})
+
+
+test('definitively rejected explicit retry preserves the note draft and shows no success action', async t => {
+  const { page, state } = await setup(t)
+  state.onWrite = async () => ({})
+  state.loseResponseOnce = true
+  await page.getByPlaceholder('Add a review note...').fill('Keep this draft')
+  await page.getByRole('button', { name: 'Add', exact: true }).click()
+  await until(() => state.writes.length === 1)
+  await page.clock.runFor(200)
+  state.onWrite = null // fixture now rejects with 409
+  const response = page.waitForResponse(r => r.status() === 409)
+  await page.getByRole('button', { name: 'Retry previous', exact: true }).click()
+  await response; await page.clock.runFor(200)
+  assert.equal(await page.getByPlaceholder('Add a review note...').inputValue(), 'Keep this draft')
+  assert.equal(await page.getByText(/Previous change confirmed/).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Reload latest', exact: true }).count(), 0)
 })

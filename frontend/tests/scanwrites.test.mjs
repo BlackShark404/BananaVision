@@ -51,3 +51,27 @@ test('retry after a background refresh keeps the original expected revision', as
     assert.deepEqual(body, original)
   })
 })
+
+
+test('changed flag or reopened bulk can explicitly replay the original uncertain operation', async () => {
+  for (const [original, changed] of [
+    [{ expected_revision: 1, flagged: true }, { expected_revision: 2, flagged: false }],
+    [{ expected_revisions: { a: 1 }, reason: 'Sold', inventory_status: 'Sold' }, { expected_revisions: { a: 2 }, reason: 'Sold', inventory_status: 'Sold' }],
+  ]) {
+    const { scanWrite, clearScanWrites } = await moduleUnderTest()
+    const sent = []
+    const send = async body => { sent.push(body); if (sent.length === 1) throw new TypeError('Lost response'); return { revision: 2 } }
+    await assert.rejects(scanWrite('scope', original, send))
+    let uncertain
+    try { await scanWrite('scope', changed, send) } catch (e) { uncertain = e }
+    assert.equal(typeof uncertain.retry, 'function')
+    assert.deepEqual(await uncertain.retry(), { revision: 2 })
+    assert.deepEqual(sent[0], sent[1])
+    await assert.rejects(uncertain.retry(), /no longer pending/)
+    await assert.rejects(scanWrite('other', original, async () => { throw new TypeError('offline') })).catch(() => {})
+    let expired
+    try { await scanWrite('other', changed, send) } catch (e) { expired = e }
+    clearScanWrites()
+    await assert.rejects(expired.retry(), /no longer pending/)
+  }
+})

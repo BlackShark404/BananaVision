@@ -297,7 +297,9 @@ async def test_scan_pipeline_never_announces_completion_before_persistence(appli
     app = application
     messages = []
 
-    async def send(room, event, data):
+    async def send(room, event, data, **kwargs):
+        if room == events.ROOM_KIOSK:
+            assert kwargs.get("account_id") == app.ids.operator
         app.state.events.append(event)
         messages.append((room, event, data))
 

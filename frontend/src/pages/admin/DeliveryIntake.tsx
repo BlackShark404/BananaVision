@@ -1,3 +1,4 @@
+import { scanRetryAction } from "@/lib/scanWriteFeedback"
 import { isScanConflict } from "@/lib/scanWrites"
 import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
@@ -162,13 +163,13 @@ export default function DeliveryIntake() {
       setConfirmAction(null)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update intake", {
-        action: isScanConflict(error) ? { label: "Reload latest", onClick: () => {
+        action: scanRetryAction(error, () => setConfirmAction(null)) ?? (isScanConflict(error) ? { label: "Reload latest", onClick: () => {
           void api.intakes.scanRevisions(confirmAction.intakeId).then(snapshot => {
             setConfirmAction(current => current?.intakeId === confirmAction.intakeId ? { ...current,
               revisions: snapshot.revisions, scanCount: Object.keys(snapshot.revisions).length } : current)
             toast.info("Intake refreshed. Review the scan count before confirming again.")
           }).catch(error => toast.error(error.message))
-        } } : undefined,
+        } } : undefined),
       })
     } finally {
       setSaving(false)

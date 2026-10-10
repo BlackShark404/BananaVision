@@ -1,0 +1,67 @@
+CURRENT RESUME HERE (2026-10-09)
+TASK: Scan Logs/Detail hardening — INCOMPLETE, implementation and verification ongoing.
+BRANCH codex/scan-record-hardening; HEAD 1a13e0b; base e3e1c07. No old commits replayed.
+PLAN: docs/superpowers/plans/2026-10-09-scan-records-follow-up.md (user approved).
+DONE
+- 69e89a2 ownership/privacy; user committed revision/history/CAS/idempotency, migration0005,
+  archive v2/strict v1 adapter, evidence endpoint and initial frontend contracts in 9500b3d.
+- Current continuation adds authenticated shared ScanImage, missing-image fallback,
+  chronological detail history, 403/404/410 UI and updates old backend mutation tests.
+- Targeted backend records/evidence/time-writes/logs: 54 passed in 6.70s.
+- Evidence endpoint: 1 passed in 3.00s. scanWrites unit tests: 2 passed in 182ms.
+- Earlier archive/recovery/migration: 34 passed, 2 PG deselected in 16.93s.
+- TypeScript passed before latest image/history edits; rerun pending.
+IN PROGRESS
+- New browser direct-link/history/error regression: RED 1 passed, 3 failed as expected;
+  UI implementation added; GREEN rerun next. Frontend caller fixtures still need updates.
+- Need explicit conflict/reload, stale note/account responses and uncertain retry verification.
+- Bulk parent/membership locking and pipeline initial history implemented; PostgreSQL proof pending.
+NOT YET STARTED / NEXT
+1. Run new browser tests + TypeScript; finish conflict/retry/race handling and caller tests.
+2. PostgreSQL concurrency/actor/membership tests, v1/v2 restore and migration verification.
+3. CSV/pagination edges, security scan + independent review; full backend/frontend/TS/lint/build.
+4. Scoped diff, safe temporary-resource cleanup, accurate checkpoint, verified local commit only.
+EXACT RESUME: frontend/tests/scanrecords.test.mjs GREEN rerun, then inspect remaining callers.
+User committed continuation a7376bb and logout guard 1a13e0b. Working tree clean at resume. Preserve both.
+TEST SAFETY: Python -B from fresh tempfile cwd, insert resolved backend on sys.path; pytest
+-p no:cacheprovider -q --basetemp <temp>/fixtures -c <backend>/pyproject.toml. Never read live .env.
+Disposable PG18 RUNNING: bv-scan-pg-79340e152cc64c9b8948b973c9a91049 under OS temp; localhost56845 userbvtest databasepostgres. Root recorded backend/tests/.scan-pg-path.txt. STOP ONLY THIS CLUSTER then remove helper after tests. Never live DB/captures/cameras/hardware/power.
+Preserve completed maintenance and UI. No push/merge/deploy. Live acceptance remains deferred.
+TEMP CLEANUP PENDING (OS temp; exact generated directories only)
+bv-scan-auth-50kjlv5x, bv-scan-auth-ug9m94jz, bv-scan-auth-t04gptvp
+bv-scan-schema-z9uik9kd, bv-scan-schema-0xzg385i
+bv-scan-archive-kbx5v7uh, bv-scan-archive-0hvk7jnl
+bv-scan-writes-14s5z2cb, bv-scan-writes-84rfi0s1
+bv-scan-bulk-o413p6er, bv-scan-bulk-t9087v1q
+bv-scan-evidence-nmhi9_yu, bv-scan-evidence-ptvmrqbh, bv-scan-targeted-xe2sjpn2
+Baseline lint debt: frontend 43 errors/8 warnings; backend 654 diagnostics; no unrelated cleanup.
+
+RESOLVED BUG (2026-10-09)
+- Investigated and fixed the infinite loading/redirect loop on logout.
+- Root cause: `AdminProvider` was executing an unauthenticated `GET /api/v1/config` request unconditionally on mount, which triggered `api.ts` to redirect back to `/login` infinitely.
+- Fix: Guarded `reloadConfig` in `AdminContext.tsx` with `if (!user) return` and added `user` to the dependency array. 
+- Passed TS check, Linting (maintained baseline), and Build validation. 
+
+LATEST MILESTONE
+- Browser historical detail/error/image: 4 passed 4.06s. Conflict draft test RED then GREEN 1 passed 3.81s.
+- Retry unit tests 3 passed 137ms, including revision advancement after lost acknowledgement.
+- Contract/archive/migration/records tests: 85 passed, 2 PG deselected 15.03s.
+- Fixed missing Intake reason input, conflict reloads, stale list guards, kept edit baselines.
+- Confirmed classification API/DB nullable mismatch; widened nullable fields in model/migration0005,
+  rejected explicit null finger count and bounded spoilage text to DB length. Original nulls preserved.
+- Browser persistence+detail combined: 14 passed/1 conflict test failed due frozen toast clock;
+  focused conflict rerun passed after clock harness fix. Full rerun pending.
+- TS duplicate Intake imports found and removed; rerun pending.
+NEXT: isolated PostgreSQL concurrency/compatibility tests, caller browser coverage, security/final suite.
+Extra temp dirs: bv-scan-null-d4bm1c0_, bv-scan-contract-5y4y4zy4.
+
+LATEST VERIFIED (current resume supersedes earlier pending descriptions)
+- PostgreSQL scan concurrency suite: 5 passed 3.35s (bv-scan-pgtests-k6n01ljk).
+- Combined browser persistence/detail/retry: 18 passed 18.19s (latest).
+- PG backup/migration/CSV: 34 passed, 2 failed 36.09s (bv-scan-compat-pn01ytow).
+  Failures: synthetic legacy migration fixture lacks scan parent; CSV expected whitespace is
+  normalized by existing SQL source-name trim. Root-cause review in progress.
+- Codex Security active scan c49fcb93-82d3-4452-8183-9be1cf9571e9, range e3e1c07..1a13e0b.
+  Preflight delegated; scan not completed. Initial short-SHA start failed and created no scan.
+- PG test cluster confirmed running elevated PID50664 localhost56845; sandbox status was false-negative.
+- Last approval-review usage failure is resolved; pending test command ran on resume.

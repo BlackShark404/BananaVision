@@ -14,7 +14,7 @@ from app.core.database import Base
 from app.models import UserAccount, MaintenanceState, ScanStatusLog, Scan
 from app.services import backup_archive as archive, backup_restore as restore, maintenance_database
 from app.services.runtime_operations import StationCoordinator, maintenance_context
-from tests.test_backup_archive import station, archive_module, AsyncDB  # noqa: F401
+from tests.test_backup_archive import station as station, archive_module as archive_module, AsyncDB  # noqa: F401
 
 
 @pytest.fixture
@@ -77,7 +77,9 @@ async def test_replacement_transaction_and_sequences(recovery_station):
 
 
 @pytest.mark.asyncio
-async def test_v1_restore_preserves_scan_without_fabricated_history(recovery_station, legacy_scan_archive, tmp_path):
+async def test_v1_restore_preserves_scan_without_fabricated_history(
+    recovery_station, legacy_scan_archive, tmp_path
+):
     from app.models import ScanEvent, ScanMutation
     from sqlalchemy import func
     x = recovery_station

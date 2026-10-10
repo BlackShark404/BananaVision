@@ -9,21 +9,25 @@ import qrcode
 import io
 import base64
 import json
-from datetime import datetime
 from app.core.time import now_manila
 
 from fastapi import APIRouter, Request
 from sqlalchemy import select, func, desc
-from sqlalchemy.orm import selectinload
 
 from app.api.deps import DbSession, CurrentUser, AdminUser
 from app.core.exceptions import NotFoundException, ConflictException, ForbiddenException
 from app.services.auth_service import lock_current_account
-from app.services.scan_records import (lock_mutation, mutation_fingerprint, mutation_replay, save_receipt, apply_scan_change, is_admin)
+from app.services.scan_records import (
+    lock_mutation,
+    mutation_fingerprint,
+    mutation_replay,
+    save_receipt,
+    apply_scan_change,
+    is_admin,
+)
 from app.models.supplier import Supplier
 from app.models.intake import Intake
 from app.models.scan import Scan
-from app.models.scan_status_log import ScanStatusLog
 from app.models.activity_log import ActivityLog
 from app.schemas.common import (
     IntakeCreate,
@@ -168,7 +172,9 @@ async def update_intake_status(
 async def intake_scan_revisions(intake_id: uuid.UUID, db: DbSession, admin: AdminUser):
     if not await db.scalar(select(Intake.id).where(Intake.id == intake_id)):
         raise NotFoundException("Intake")
-    rows = (await db.execute(select(Scan.id, Scan.revision).where(Scan.intake_id == intake_id))).all()
+    rows = (
+        await db.execute(select(Scan.id, Scan.revision).where(Scan.intake_id == intake_id))
+    ).all()
     return {"revisions": {str(row.id): row.revision for row in rows}}
 
 
@@ -191,21 +197,40 @@ async def bulk_update_intake_inventory(
     scans = (await db.execute(select(Scan).where(Scan.intake_id == intake_id).order_by(Scan.id)
                               .with_for_update().execution_options(populate_existing=True))).scalars().all()
     if body.expected_revisions != {scan.id: scan.revision for scan in scans}:
-        raise ConflictException("Intake scans changed. Reload the intake before applying this action.")
+        raise ConflictException(
+            "Intake scans changed. Reload the intake before applying this action."
+        )
     updated_ids = []
     for scan in scans:
-        current = scan.status_logs[-1].inventory_status if scan.status_logs else InventoryStatusEnum.IN_STOCK
-        if current not in (InventoryStatusEnum.SOLD, InventoryStatusEnum.SPOILED) and current != body.inventory_status:
-            await apply_scan_change(db, scan, admin, "status", {"inventory_status": body.inventory_status}, body.reason)
+        current = (
+            scan.status_logs[-1].inventory_status
+            if scan.status_logs
+            else InventoryStatusEnum.IN_STOCK
+        )
+        if (
+            current not in (InventoryStatusEnum.SOLD, InventoryStatusEnum.SPOILED)
+            and current != body.inventory_status
+        ):
+            await apply_scan_change(
+                db, scan, admin, "status", {"inventory_status": body.inventory_status}, body.reason
+            )
             updated_ids.append(str(scan.id))
     intake.status = IntakeStatusEnum.ACTIVE if body.inventory_status == InventoryStatusEnum.IN_STOCK else IntakeStatusEnum.DEPLETED
-    db.add(ActivityLog(user_id=admin.id, action="intake_status_changed",
-                       details=f"Bulk updated {len(updated_ids)} scans in intake {intake_id}: {body.reason}",
-                       ip_address=request.client.host if request.client else None))
+    db.add(
+        ActivityLog(
+            user_id=admin.id,
+            action="intake_status_changed",
+            details=f"Bulk updated {len(updated_ids)} scans in intake {intake_id}: {body.reason}",
+            ip_address=request.client.host if request.client else None,
+        )
+    )
     response = {
-        "message": f"Updated {len(updated_ids)} scans", "updated_count": len(updated_ids),
-        "updated_scan_ids": updated_ids, "status_updated_at": now_manila().isoformat(),
-        "intake_status": intake.status, "revisions": {str(scan.id): scan.revision for scan in scans},
+        "message": f"Updated {len(updated_ids)} scans",
+        "updated_count": len(updated_ids),
+        "updated_scan_ids": updated_ids,
+        "status_updated_at": now_manila().isoformat(),
+        "intake_status": intake.status,
+        "revisions": {str(scan.id): scan.revision for scan in scans},
     }
     save_receipt(db, admin, body, fingerprint, response)
     return response

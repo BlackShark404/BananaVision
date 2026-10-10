@@ -1,3 +1,4 @@
+import { scanRetryAction } from "@/lib/scanWriteFeedback"
 import { useState, useEffect, useCallback } from "react"
 import KioskOperatorSwap from "@/components/KioskOperatorSwap"
 import { useAuth } from "@/context/AuthContext"
@@ -748,7 +749,7 @@ export default function Kiosk() {
                           setScanAction({ id: lastResult.id, action: 'flagged' })
                           toast.success("Flagged for review", { description: "Item routed to quality control dashboard." })
                         } catch (error) {
-                          toast.error(error instanceof Error ? error.message : "Failed to flag scan")
+                          toast.error(error instanceof Error ? error.message : "Failed to flag scan", { action: scanRetryAction(error, () => setScanAction({ id: lastResult.id, action: "flagged" })) })
                         } finally {
                           setFlaggingScan(false)
                         }

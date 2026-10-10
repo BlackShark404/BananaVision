@@ -35,10 +35,15 @@ async def get_evidence(scan_id: UUID, filename: str, db: DbSession, user: Curren
         _no_links(path)
         if not path.resolve().is_relative_to(root.resolve()) or not path.is_file():
             raise HTTPException(404, "Image evidence is unavailable")
-        mime = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}.get(Path(filename).suffix.lower())
+        mime = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}.get(
+            Path(filename).suffix.lower()
+        )
         if mime is None:
             raise HTTPException(404, "Image evidence is unavailable")
     except (ArchiveError, ValueError, OSError):
-        raise HTTPException(404, "Image evidence is unavailable")
-    return FileResponse(path, media_type=mime,
-                        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+        raise HTTPException(404, "Image evidence is unavailable") from None
+    return FileResponse(
+        path,
+        media_type=mime,
+        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+    )

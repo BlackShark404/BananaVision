@@ -6,6 +6,7 @@ import logging
 
 from fastapi import WebSocket
 
+from app.core.security import decode_access_token
 from app.core.time import now_manila
 from app.ws.authorization import ROLE_ROOMS, current_socket_role
 
@@ -44,13 +45,19 @@ class ConnectionManager:
         self._remove_rooms(websocket)
         self._tokens.pop(websocket, None)
 
-    async def validate(self, websocket: WebSocket, room: str | None = None) -> bool:
+    async def validate(
+        self, websocket: WebSocket, room: str | None = None, *, account_id=None
+    ) -> bool:
         try:
             token = self._tokens.get(websocket)
             role = await current_socket_role(token) if token else None
             allowed = ROLE_ROOMS.get(role, set())
             subscribed = self._client_rooms.get(websocket, set())
             if role and subscribed <= allowed and (room is None or room in subscribed):
+                if account_id is not None and role != "Admin":
+                    payload = decode_access_token(token)
+                    if not payload or payload.get("sub") != str(account_id):
+                        return False
                 return True
         except Exception:
             logger.exception("WebSocket authorization failed")
@@ -65,18 +72,20 @@ class ConnectionManager:
     def _message(event: str, data: dict) -> str:
         return json.dumps({"event": event, "data": data, "timestamp": now_manila().isoformat()})
 
-    async def _send(self, websocket: WebSocket, message: str, room: str | None = None):
-        if not await self.validate(websocket, room):
+    async def _send(
+        self, websocket: WebSocket, message: str, room: str | None = None, *, account_id=None
+    ):
+        if not await self.validate(websocket, room, account_id=account_id):
             return
         try:
             await websocket.send_text(message)
         except Exception:
             self.disconnect(websocket)
 
-    async def send_to_room(self, room: str, event: str, data: dict):
+    async def send_to_room(self, room: str, event: str, data: dict, *, account_id=None):
         message = self._message(event, data)
         for websocket in list(self._connections.get(room, [])):
-            await self._send(websocket, message, room)
+            await self._send(websocket, message, room, account_id=account_id)
 
     async def broadcast(self, event: str, data: dict):
         message = self._message(event, data)

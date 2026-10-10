@@ -1,3 +1,4 @@
+import { scanRetryAction } from "@/lib/scanWriteFeedback"
 import { api } from "@/lib/api"
 import { isScanConflict } from "@/lib/scanWrites"
 import { ScanImage } from "@/components/ScanImage"
@@ -84,14 +85,14 @@ export default function QualityControl() {
     return [...filtered].sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
   }, [scans, filterView, sourceFilter, searchQuery, config.confidenceThreshold])
 
-  const reportWriteError = (error: unknown, scanId?: string) => {
+  const reportWriteError = (error: unknown, scanId?: string, confirmed?: (request: Readonly<Record<string, unknown>>) => void) => {
     toast.error(error instanceof Error ? error.message : "Could not save changes. Please retry.", {
-      action: isScanConflict(error) && scanId ? { label: "Reload latest", onClick: () => {
+      action: scanRetryAction(error, request => { confirmed?.(request); if (scanId) void api.scans.detail(scanId).then(raw => { const saved = acceptScan(raw); setSelectedScan(previous => previous?.id === scanId ? saved : previous) }).catch(error => toast.error(error.message)) }) ?? (isScanConflict(error) && scanId ? { label: "Reload latest", onClick: () => {
         void api.scans.detail(scanId).then(raw => {
           const saved = acceptScan(raw)
           setSelectedScan(previous => previous?.id === scanId ? saved : previous)
         }).catch(error => toast.error(error.message))
-      } } : undefined,
+      } } : undefined),
     })
   }
 
@@ -113,11 +114,11 @@ export default function QualityControl() {
     setPendingWrite(true)
     try {
       const saved = await addScanNote(selectedScan.id, noteText.trim(), selectedScan.revision)
-      setSelectedScan(previous => previous?.id === selectedScan.id ? { ...previous, revision: saved.revision, hasNotes: true } : previous)
-      setNoteText("")
+      setSelectedScan(previous => previous?.id === selectedScan.id ? { ...previous, revision: Math.max(previous.revision ?? 0, saved.revision), hasNotes: true } : previous)
+      setNoteText(current => current.trim() === saved.note.note ? "" : current)
       toast.success("Note added successfully")
     } catch (error) {
-      reportWriteError(error, selectedScan.id)
+      reportWriteError(error, selectedScan.id, request => setNoteText(current => current.trim() === request.note ? "" : current))
     } finally { setPendingWrite(false) }
   }
 

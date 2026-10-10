@@ -2,11 +2,11 @@
 from types import SimpleNamespace
 from uuid import uuid4
 
+from app.models import ScanImage
 from sqlalchemy.orm import Session
 
-from app.models import ScanImage
-from tests.test_time_and_writes import application  # noqa: F401
 from tests.test_scan_records import operator_session
+from tests.test_time_and_writes import application as application
 
 
 def test_evidence_auth_missing_file_and_unregistered_paths(application, tmp_path, monkeypatch):

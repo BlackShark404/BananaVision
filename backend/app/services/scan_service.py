@@ -83,8 +83,12 @@ async def _execute_scan_pipeline(
     scan_id_str = str(scan_id)
     committed = False
 
+    async def send_scan_event(event: str, data: dict):
+        # Scan progress and results share the same account boundary as HTTP detail.
+        await ws_manager.send_to_room(events.ROOM_KIOSK, event, data, account_id=account_id)
+
     # ── Step 1: Broadcast scan started ───────────────────────────────────
-    await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_STARTED, {
+    await send_scan_event(events.SCAN_STARTED, {
         "scan_id": scan_id_str,
         "operator": operator_name,
         "supplier": supplier_name,
@@ -93,7 +97,7 @@ async def _execute_scan_pipeline(
     try:
         confidence_threshold = (await get_config(db)).confidence_threshold / 100.0
         # ── Step 2: Capture from all cameras ─────────────────────────────
-        await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_CAPTURING, {
+        await send_scan_event(events.SCAN_CAPTURING, {
             "scan_id": scan_id_str,
             "camera_id": "all",
             "camera_label": "All Cameras",
@@ -106,7 +110,7 @@ async def _execute_scan_pipeline(
 
         # Broadcast individual captures
         for i, cap in enumerate(captures):
-            await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_CAPTURED, {
+            await send_scan_event(events.SCAN_CAPTURED, {
                 "scan_id": scan_id_str,
                 "camera_id": cap.camera_id,
                 "camera_label": cap.camera_label,
@@ -118,7 +122,7 @@ async def _execute_scan_pipeline(
         # ── Step 3: Banana pre-detection gate ────────────────────────────
         # Run base COCO YOLO on each frame to verify a banana is present
         # before running the custom cultivar/ripeness model.
-        await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_DETECTING, {
+        await send_scan_event(events.SCAN_DETECTING, {
             "scan_id": scan_id_str,
             "progress_pct": 30,
         })
@@ -137,7 +141,7 @@ async def _execute_scan_pipeline(
             )
 
         # ── Step 4: YOLO cultivar/ripeness inference on each image ────
-        await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_DETECTING, {
+        await send_scan_event(events.SCAN_DETECTING, {
             "scan_id": scan_id_str,
             "progress_pct": 50,
         })
@@ -181,7 +185,7 @@ async def _execute_scan_pipeline(
                 ))
 
             # Broadcast per-camera detection
-            await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_DETECTED, {
+            await send_scan_event(events.SCAN_DETECTED, {
                 "scan_id": scan_id_str,
                 "camera_id": cap.camera_id,
                 "cultivar": result.cultivar,
@@ -192,7 +196,7 @@ async def _execute_scan_pipeline(
             })
 
         # ── Step 5: Fuse multi-camera results ────────────────────────────
-        await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_ANALYZING, {
+        await send_scan_event(events.SCAN_ANALYZING, {
             "scan_id": scan_id_str,
             "progress_pct": 80,
         })
@@ -223,7 +227,10 @@ async def _execute_scan_pipeline(
         intake_obj = None
         if intake_id:
             intake_result = await db.execute(
-                select(Intake).where(Intake.id == intake_id).with_for_update().execution_options(populate_existing=True)
+                select(Intake)
+                .where(Intake.id == intake_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
             )
             intake_obj = intake_result.scalar_one_or_none()
             if intake_obj and intake_obj.treatment:
@@ -333,10 +340,22 @@ async def _execute_scan_pipeline(
 
         await db.flush()
 
-        db.add(ScanEvent(scan_id=scan.id, revision=scan.revision, kind="created",
-                         actor_id=account_id, actor_name=operator_name, timestamp=scan.date_time,
-                         new_values={"inventory_status": "In Stock", "operator": operator_name,
-                                     "source": scan.source_name_snapshot}, evidence_id=f"status:{status_log.id}"))
+        db.add(
+            ScanEvent(
+                scan_id=scan.id,
+                revision=scan.revision,
+                kind="created",
+                actor_id=account_id,
+                actor_name=operator_name,
+                timestamp=scan.date_time,
+                new_values={
+                    "inventory_status": "In Stock",
+                    "operator": operator_name,
+                    "source": scan.source_name_snapshot,
+                },
+                evidence_id=f"status:{status_log.id}",
+            )
+        )
         # Completion events must never advertise an uncommitted scan.
         await db.commit()
         committed = True
@@ -370,7 +389,10 @@ async def _execute_scan_pipeline(
             "camera_count": fused.camera_count,
             "scanned_at": scan.date_time.isoformat(),
             "date_time": scan.date_time.isoformat(),
-            "images": [{"camera_id": img.camera_id, "file_path": evidence_url(img.file_path) or ""} for img in db_images],
+            "images": [
+                {"camera_id": img.camera_id, "file_path": evidence_url(img.file_path) or ""}
+                for img in db_images
+            ],
             "detections": [
                 {
                     "camera_id": det.camera_id,
@@ -380,13 +402,15 @@ async def _execute_scan_pipeline(
                     "confidence": float(det.confidence) if det.confidence is not None else None,
                     "finger_count": det.finger_count,
                     "bounding_boxes": det.bounding_boxes or [],
-                    "inference_time_ms": float(det.inference_time_ms) if det.inference_time_ms is not None else None,
+                    "inference_time_ms": float(det.inference_time_ms)
+                    if det.inference_time_ms is not None
+                    else None,
                 }
                 for det in db_detections
             ],
         }
 
-        await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_COMPLETED, scan_result)
+        await send_scan_event(events.SCAN_COMPLETED, scan_result)
         await ws_manager.send_to_room(events.ROOM_DASHBOARD, events.SCAN_COMPLETED, scan_result)
 
         # Broadcast notification if flagged
@@ -420,7 +444,7 @@ async def _execute_scan_pipeline(
         else:
             user_error = "Something went wrong during the scan. Please try again."
 
-        await ws_manager.send_to_room(events.ROOM_KIOSK, events.SCAN_FAILED, {
+        await send_scan_event(events.SCAN_FAILED, {
             "scan_id": scan_id_str,
             "error": user_error,
             "stage": "pipeline",

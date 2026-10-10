@@ -257,7 +257,9 @@ def test_api_query_validation_authentication_export_and_page_independent_metrics
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('sort', ['date_time', 'cultivar', 'confidence', 'spoilage_days', 'finger_count'])
+@pytest.mark.parametrize(
+    "sort", ["date_time", "cultivar", "confidence", "spoilage_days", "finger_count"]
+)
 @pytest.mark.parametrize('direction', ['asc', 'desc'])
 async def test_equal_key_pages_are_deterministic_and_account_scoped(logs_db, sort, direction):
     own, other = account(logs_db), account(logs_db)
@@ -265,13 +267,18 @@ async def test_equal_key_pages_are_deterministic_and_account_scoped(logs_db, sor
     expected.add(scan(logs_db, own, confidence=None))
     scan(logs_db, other, confidence=75, prediction='4')
     query = ScanLogQuery(sort=sort, direction=direction, page_size=3)
-    pages = [await scan_logs.list_scan_logs(logs_db, own, query.model_copy(update={'page': page})) for page in (1, 2, 3)]
+    pages = [
+        await scan_logs.list_scan_logs(logs_db, own, query.model_copy(update={"page": page}))
+        for page in (1, 2, 3)
+    ]
     identifiers = [row.id for page in pages for row in page.items]
     assert len(identifiers) == len(set(identifiers)) == 8
     assert set(identifiers) == expected
     again = await scan_logs.list_scan_logs(logs_db, own, query)
     assert [row.id for row in again.items] == identifiers[:3]
-    assert [row['Scan ID'] for row in await csv_rows(logs_db, own, query)] == [str(i) for i in identifiers]
+    assert [row["Scan ID"] for row in await csv_rows(logs_db, own, query)] == [
+        str(i) for i in identifiers
+    ]
 
 
 @pytest.mark.asyncio
@@ -281,7 +288,7 @@ async def test_csv_round_trip_special_characters_and_formula_prefixes(logs_db):
               '=1+1', '+SUM(1,2)', '-cmd', '@formula', '  =1', '\t+1', '\r-1', '\n@1']
     ids = [scan(logs_db, own, source=value) for value in values]
     rows = {row['Scan ID']: row for row in await csv_rows(logs_db, own, ScanLogQuery())}
-    for identifier, value in zip(ids, values):
+    for identifier, value in zip(ids, values, strict=True):
         # Source labels have always been trimmed by the shared SQL projection.
         normalized = value.strip()
         expected = "'" + normalized if normalized.startswith(('=', '+', '-', '@')) else normalized

@@ -4,17 +4,20 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from app.api.deps import get_current_user
+from app.models import OperatorProfile, Scan, ScanNote, ScanStatusLog, UserAccount
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
-from app.models import OperatorProfile, Scan, ScanNote, ScanStatusLog, UserAccount
-from tests.test_time_and_writes import application  # noqa: F401
+from tests.test_time_and_writes import application as application
 
 
 def operator_session(app, account_id):
     app.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
-        id=account_id, token_version=1, full_name="Original Name", role=SimpleNamespace(name="Operator"),
+        id=account_id,
+        token_version=1,
+        full_name="Original Name",
+        role=SimpleNamespace(name="Operator"),
     )
 
 
@@ -34,7 +37,9 @@ def test_scan_ownership_applies_to_list_detail_and_writes(application):
     for response in (
         app.client.get(url),
         app.client.patch(url + "/flag", json=mutation(flagged=True)),
-        app.client.patch(url + "/status", json=mutation(inventory_status="Sold", reason="Dispatched")),
+        app.client.patch(
+            url + "/status", json=mutation(inventory_status="Sold", reason="Dispatched")
+        ),
     ):
         assert response.status_code == 403, response.text
     with Session(app.engine) as db:
@@ -54,9 +59,17 @@ def test_owner_detail_and_list_do_not_expose_admin_notes(application):
     assert app.client.get("/api/v1/scans").json()["items"][0]["has_notes"] is False
     assert app.client.get(url + "/notes").status_code == 403
     assert app.client.post(url + "/notes", json=mutation(2, note="Not allowed")).status_code == 403
-    assert app.client.patch(url, json=mutation(2, cultivar="Cardaba", reason="Correction")).status_code == 403
+    assert (
+        app.client.patch(url, json=mutation(2, cultivar="Cardaba", reason="Correction")).status_code
+        == 403
+    )
     assert app.client.patch(url + "/flag", json=mutation(2, flagged=True)).status_code == 200
-    assert app.client.patch(url + "/status", json=mutation(3, inventory_status="Sold", reason="Dispatched")).status_code == 200
+    assert (
+        app.client.patch(
+            url + "/status", json=mutation(3, inventory_status="Sold", reason="Dispatched")
+        ).status_code
+        == 200
+    )
 
 
 @pytest.mark.parametrize("role", [None, "Observer"])
@@ -115,7 +128,9 @@ def test_revision_and_legacy_history_preserve_recorded_evidence(application):
     note = next(e for e in detail["history"] if e["kind"] == "note")
     assert note["actor_name"] == "Former administrator" and note["legacy"]
     operator_session(app, app.ids.operator)
-    assert [e["kind"] for e in app.client.get(f"/api/v1/scans/{app.ids.scan}").json()["history"]] == ["status"]
+    assert [
+        e["kind"] for e in app.client.get(f"/api/v1/scans/{app.ids.scan}").json()["history"]
+    ] == ["status"]
 
 
 def test_known_deletion_uses_recorded_owner_without_creating_a_delete_api(application):
@@ -152,7 +167,10 @@ def test_status_cas_retry_history_and_actor_snapshot(application):
     assert not event['legacy']
     assert len(saved['history']) == 2  # New status has one linked event, no duplicate legacy row.
     assert app.client.patch(url + '/status', json=body).json() == saved
-    assert app.client.patch(url + '/status', json={**body, 'inventory_status': 'Spoiled'}).status_code == 409
+    assert (
+        app.client.patch(url + "/status", json={**body, "inventory_status": "Spoiled"}).status_code
+        == 409
+    )
     assert app.client.patch(url + '/flag', json=mutation(flagged=True)).status_code == 409
     with Session(app.engine) as db:
         db.get(UserAccount, app.ids.admin).full_name = 'Renamed Admin'
@@ -163,13 +181,17 @@ def test_status_cas_retry_history_and_actor_snapshot(application):
 def test_source_only_and_noop_do_not_override_classification(application):
     app = application
     url = f"/api/v1/scans/{app.ids.scan}"
-    response = app.client.patch(url, json=mutation(source_text='Corrected source', reason='Source typo'))
+    response = app.client.patch(
+        url, json=mutation(source_text="Corrected source", reason="Source typo")
+    )
     assert response.status_code == 200, response.text
     assert response.json()['is_overridden'] is False
     assert response.json()['original_ai_result'] is None
     no_op = app.client.patch(url, json=mutation(2, cultivar='Lakatan', reason='Checked'))
     assert no_op.status_code == 200 and no_op.json()['revision'] == 2
-    changed = app.client.patch(url, json=mutation(2, cultivar='Cardaba', reason='Verified cultivar'))
+    changed = app.client.patch(
+        url, json=mutation(2, cultivar="Cardaba", reason="Verified cultivar")
+    )
     assert changed.status_code == 200, changed.text
     assert changed.json()['revision'] == 3 and changed.json()['is_overridden']
     assert changed.json()['original_ai_result']['cultivar'] == 'Lakatan'
@@ -181,8 +203,18 @@ def test_mutation_validation_and_failed_commit_are_atomic(application):
     app = application
     url = f"/api/v1/scans/{app.ids.scan}"
     assert app.client.patch(url + '/flag', json={'flagged': True}).status_code == 422
-    assert app.client.patch(url + '/status', json=mutation(inventory_status='Sold', reason='   ')).status_code == 422
-    assert app.client.patch(url, json=mutation(reason='Correction', inventory_status='Sold')).status_code == 422
+    assert (
+        app.client.patch(
+            url + "/status", json=mutation(inventory_status="Sold", reason="   ")
+        ).status_code
+        == 422
+    )
+    assert (
+        app.client.patch(
+            url, json=mutation(reason="Correction", inventory_status="Sold")
+        ).status_code
+        == 422
+    )
     body = mutation(flagged=True)
     app.state.fail_commit = True
     assert app.client.patch(url + '/flag', json=body).status_code == 500

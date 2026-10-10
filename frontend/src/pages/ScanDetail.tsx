@@ -1,3 +1,4 @@
+import { scanRetryAction } from "@/lib/scanWriteFeedback"
 import { ScanImage } from "@/components/ScanImage"
 import { useState, useEffect, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom"
@@ -44,7 +45,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { toast } from "sonner"
-import { getImageUrl, getSpoilageDays } from "@/lib/utils"
+import { getSpoilageDays } from "@/lib/utils"
 import { generateQRCodeDataUrl, printQRTag } from "@/lib/qrcode"
 import { CULTIVARS, RIPENESS_LEVELS, type Cultivar, type Ripeness, type ScanResult, type ScanDetection, type BoundingBox } from "@/types"
 import { AppChangePreview } from "@/components/AppChangePreview"
@@ -154,9 +155,9 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
     }))
   }, [scanDetections])
 
-  const reportWriteError = (error: unknown) => {
+  const reportWriteError = (error: unknown, confirmed?: (request: Readonly<Record<string, unknown>>) => void) => {
     toast.error(error instanceof Error ? error.message : "Could not save changes. Please retry.", {
-      action: isScanConflict(error) ? { label: "Reload latest", onClick: () => setRetry(value => value + 1) } : undefined,
+      action: scanRetryAction(error, request => { confirmed?.(request); setRetry(value => value + 1) }) ?? (isScanConflict(error) ? { label: "Reload latest", onClick: () => setRetry(value => value + 1) } : undefined),
     })
   }
 
@@ -180,15 +181,15 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
     setNotePending(true)
     try {
       const saved = await addScanNote(scan.id, noteText.trim(), scan.revision)
-      setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, revision: saved.revision, hasNotes: true } } : previous)
+      setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, revision: Math.max(previous.scan.revision ?? 0, saved.revision), hasNotes: true } } : previous)
       void api.scans.detail(scan.id).then(raw => {
         const updated = acceptScan(raw)
         setDetail(previous => previous?.scan && (previous.scan.revision ?? 0) <= (updated.revision ?? 0) ? { ...previous, scan: updated } : previous)
       }).catch(() => {})
-      setNoteText("")
+      setNoteText(current => current.trim() === saved.note.note ? "" : current)
       toast.success("Note added successfully")
     } catch (error) {
-      reportWriteError(error)
+      reportWriteError(error, request => setNoteText(current => current.trim() === request.note ? "" : current))
     } finally {
       setNotePending(false)
     }

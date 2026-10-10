@@ -122,11 +122,14 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
   }, [])
 
   const bulkUpdateIntakeInventory = useCallback(async (intakeId: string, status: InventoryStatus, reason: string, revisions: Record<string, number>) => {
-    const result = await scanWrite(`${user?.id}:${intakeId}:bulk`, { inventory_status: status, reason, expected_revisions: revisions }, body => api.intakes.bulkInventory(intakeId, body))
-    setIntakes((prev) => prev.map((i) => (i.id === intakeId ? { ...i, status: result.intake_status } : i)))
-    setActiveIntake((current) => current?.id === intakeId ? { ...current, status: result.intake_status } : current)
-    // Only change records and timestamps confirmed by the persisted response.
-    updateScansForIntake(result.updated_scan_ids, status, result.status_updated_at)
+    await scanWrite(`${user?.id}:${intakeId}:bulk`, { inventory_status: status, reason, expected_revisions: revisions }, async body => {
+      const result = await api.intakes.bulkInventory(intakeId, body)
+      setIntakes((prev) => prev.map((i) => (i.id === intakeId ? { ...i, status: result.intake_status } : i)))
+      setActiveIntake((current) => current?.id === intakeId ? { ...current, status: result.intake_status } : current)
+      // Only change records and timestamps confirmed by the persisted response.
+      updateScansForIntake(result.updated_scan_ids, status, result.status_updated_at, result.revisions)
+      return result
+    })
   }, [updateScansForIntake, user?.id])
 
   // ── Supplier Operations ─────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+import { scanRetryAction } from "@/lib/scanWriteFeedback"
 import { ScanImage } from "@/components/ScanImage"
 import { useState, useCallback, useRef, useEffect } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
@@ -147,13 +148,13 @@ function LogsContent() {
       await latestRefresh.current()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Status update failed", {
-        action: isScanConflict(error) ? { label: "Reload latest", onClick: () => {
+        action: scanRetryAction(error, () => { setStatusAction(null); void latestRefresh.current() }) ?? (isScanConflict(error) ? { label: "Reload latest", onClick: () => {
           void api.scans.detail(scan.id).then(saved => {
             setStatusAction(current => current?.scan.id === scan.id ? { ...current, scan: { ...current.scan,
               revision: saved.revision, inventoryStatus: saved.inventory_status } } : current)
             void latestRefresh.current()
           }).catch(error => toast.error(error.message))
-        } } : undefined,
+        } } : undefined),
       })
     }
     finally { inFlight.current.delete(scan.id); setPendingScans(new Set(inFlight.current)) }
