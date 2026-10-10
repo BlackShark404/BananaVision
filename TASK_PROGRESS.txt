@@ -1,6 +1,6 @@
-CURRENT RESUME HERE (2026-10-10, Asia/Manila)
+CURRENT RESUME HERE (2026-10-11, Asia/Manila)
 TASK: Comprehensive system audit — report delivered; additional runtime verification INCOMPLETE.
-BRANCH: main. HEAD: 0a4c87e. Main only; no branch/worktree created or switched.
+BRANCH: main. HEAD: 26577da (user committed prior audit). Main only; no branch/worktree.
 SCOPE: AUDIT ONLY. No production fixes, commits, push, merge, deployment or live operations.
 REPORT: docs/system-audit-2026-10-10.md (authoritative findings, source/tests and fix plan).
 
@@ -28,6 +28,22 @@ FINDINGS / PROPOSED FIXES (NOT IMPLEMENTED; separate authorization required)
   deletion-history limits, shared registry/count policy and environment verification gaps.
 
 ACTUAL VERIFICATION
+- New PG metric/cross-view probes: 4 passed in 2.91s, exit 0. Actual PostgreSQL SQL
+  confirms F01/F03, Manila boundary/original confidence/source scope, offset-page repeat.
+- New browser probes: 3 passed, 0 failed/skipped, 28.7514411s, exit 0. F07 initial/stale
+  intake failure and G03 out-of-order maintenance status reproduced in actual components.
+  Browser harness explicitly envFile:false (frontend environment files exist; not read).
+- Stream snapshot/cursor-failure probes added; two-test targeted run currently pending.
+- Additional temp cleanup: bv-audit-metrics-5rsedin0; browser caches bv-audit-browser-
+  V9v2AE, QbTHjT, K7o7Um (each full basename includes bv-audit-browser-).
+- 2026-10-11: normal approval succeeded for the previously blocked isolated command:
+  targeted seven backend files: 84 passed in 14.43s, exit 0. No live environment loaded.
+  New temp CWD: C:/Users/RORONO~1/AppData/Local/Temp/bv-audit-final-yd0_aetp (cleanup pending).
+- IN PROGRESS: creating a new disposable PG cluster for metric execution and adding
+  browser characterization for intake failures/maintenance poll ordering. No production edits.
+- Disposable PG NOW RUNNING: C:/Users/Roronoa Zoro/AppData/Local/Temp/
+  bv-audit-pg-8227c7618dff479eb059aab1d0424c38/data, PID 41200, port 56846,
+  user bv_audit, database postgres. Verify directory/PID/port before stopping ONLY this cluster.
 - NEW: node --test docs/audits/system-audit-probes-2026-10-10.mjs
   3 passed, 0 failed/skipped, 100.1355ms, exit 0. Characterizes defects, not fixes.
 - NEW: node --check probe exit 0; report link/matrix validator exit 0:
