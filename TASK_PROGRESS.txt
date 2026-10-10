@@ -1,28 +1,61 @@
 CURRENT RESUME HERE (2026-10-10, Asia/Manila)
-TASK: Comprehensive system audit — IN PROGRESS; audit only, no production changes authorized.
-BRANCH codex/scan-record-hardening; HEAD fa63f5d. Initial working tree clean.
-REQUEST: C:/Users/Roronoa Zoro/.codex/attachments/884fd436-17f9-4461-91b2-79c2f74e8ed2/Pasted text.txt
+TASK: Comprehensive system audit — report delivered; additional runtime verification INCOMPLETE.
+BRANCH: main. HEAD: 0a4c87e. Main only; no branch/worktree created or switched.
+SCOPE: AUDIT ONLY. No production fixes, commits, push, merge, deployment or live operations.
+REPORT: docs/system-audit-2026-10-10.md (authoritative findings, source/tests and fix plan).
 
 DONE
-- Read request, AGENTS.md, current Git/history and completed scan/maintenance reports.
-- Previous implementation remains complete at 4094852, finalized fa63f5d. Reuse recorded
-  222 backend/PG + 54 frontend passes, TS/build passes; existing lint debt unchanged.
-- Prior live acceptance remains deferred; all old disposable resources were cleaned up.
+- Inspected current Git, AGENTS, original/main-only requests, approved completed plans.
+- All 82 requirement rows classified: 63 VERIFIED, 10 PARTIAL, 4 DEFECTIVE,
+  1 MISSING, 4 NOT VERIFIED. Overlapping rows are not independent bug counts.
+- Current application/test source matches fa63f5d final verification. Intervening
+  backend/.env.example, setup.bat and roadmap/docs changes preserved; setup not executed.
+- Source audit covered Dashboard, Analytics, Logs/Detail, config, archive/restore,
+  retention, power/admission and cross-view inventory/authorization/time behavior.
+- Three dependency-free source-function probes confirm F01/F02/F04 behavior.
+- Prior completed scan/maintenance protections and UI untouched. No old commits replayed.
 
-IN PROGRESS
-- Root: Scan Logs/Detail, maintenance/configuration/export and cross-system audit.
-- Independent agent system_audit_dashboard_analytics: read-only Dashboard/Analytics inspection.
-- Tracing requirement coverage and current defects; no application edits or new tests yet.
+FINDINGS / PROPOSED FIXES (NOT IMPLEMENTED; separate authorization required)
+- Medium F01: Dashboard review link uses Flagged, omitting unflagged low-confidence scans.
+- Medium F02: Inventory risk ignores age; unknown/reversed estimates become urgent alerts.
+- Medium F03: Dashboard/Logs include depleted intake stock; Analytics excludes it;
+  Inventory also excludes unlinked stock. Agree authoritative policy before changing it.
+- Medium F04: daily source/operator group rows open all-time Logs without a scope label.
+- Medium F07: failed intake fetch can silently produce empty/stale Inventory totals.
+- Low F05/F06/F08: missing Operator success drilldown, Analytics cultivar/status filters,
+  and outdated README migration target 0004 instead of 0005.
+- Report G01-G06: changing-page snapshots, metric labels, maintenance poll ordering,
+  deletion-history limits, shared registry/count policy and environment verification gaps.
+
+ACTUAL VERIFICATION
+- NEW: node --test docs/audits/system-audit-probes-2026-10-10.mjs
+  3 passed, 0 failed/skipped, 100.1355ms, exit 0. Characterizes defects, not fixes.
+- NEW: node --check probe exit 0; report link/matrix validator exit 0:
+  50 local links, 0 missing, 82 unique requirement IDs.
+- NEW: git diff --check exit 0; all three audit files checked for whitespace/conflict
+  markers (0 failures). Final scoped diff confirms no production/application changes.
+- REUSED after Git comparison: 222 backend/PG passed 71.19s; 54 frontend passed
+  60.2775s; TypeScript/build exit 0. Exact commands in scan-records verification report.
+- REUSED lint: ESLint 43 errors/8 warnings; Ruff 620 vs 660 baseline; zero introduced.
+  Full lint is not green. No unrelated cleanup or repeated full suites.
+- BLOCKED: targeted isolated backend audit pytest command DID NOT EXECUTE because
+  automatic approval review hit account usage limit (not unsafe-action finding).
+  No bypass/repeated attempt. Command recipe recorded in report; no new backend result.
 
 REMAINING / EXACT RESUME
-1. Complete source/coverage matrix, independently verify any suspected defect.
-2. Run focused isolated checks, add characterization probes only where necessary.
-3. Write requirement-by-requirement report with status, evidence, priorities and minimal fixes.
-4. Refresh frontend/type/lint/build verification where useful; reuse unchanged PostgreSQL proof.
-5. Clean only audit-generated temp resources, final Git diff and compact checkpoint.
+1. Read report; do not repeat source audit or completed hardening/maintenance work.
+2. When approval infrastructure is available, execute the recorded isolated targeted
+   backend command. Add focused cross-view parity fixtures and actual PostgreSQL metric
+   query execution if completing G06; use a newly verified disposable instance only.
+3. Reproduce Inventory intake failure and delayed maintenance polls with mocked browsers;
+   changing-dataset/export checks remain unverified beyond existing batch/page tests.
+4. Obtain separate authorization for recommended production fixes and resolve F03 policy.
+   Do not implement fixes merely because they are listed here.
 
-SAFETY
-- No live .env/database/captures/cameras/hardware/retention/restore/power operations.
-- No production source changes without separate approval. No push/merge/deploy.
-- Never restore old commits or repeat completed implementation.
-- Completed checkpoint archived docs/history/2026-10-10-completed-scan-hardening.txt.
+GIT / CLEANUP / SAFETY
+- Intentional uncommitted files: TASK_PROGRESS.txt; docs/system-audit-2026-10-10.md;
+  docs/audits/system-audit-probes-2026-10-10.mjs. Application source unchanged.
+- No audit DB/server/OS-temp resources created. Prior disposal documented in completed
+  scan/maintenance reports; never stop an arbitrary process on their historical ports.
+- Never read live .env or operate live DB/captures/cameras/hardware/retention/restore/power.
+- Live acceptance stays deferred. Historical checkpoints remain docs/history/.
