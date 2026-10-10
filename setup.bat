@@ -104,6 +104,11 @@ if /i "%seed_db%"=="y" (
     pushd "%BACKEND_DIR%"
     call venv\Scripts\activate.bat
     python seed.py
+    if errorlevel 1 (
+        popd
+        echo [ERROR] Database seeding failed. Check backend\.env and the error above.
+        exit /b 1
+    )
     popd
     echo [OK] Database seeded.
 ) else (
