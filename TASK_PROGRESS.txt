@@ -1,70 +1,33 @@
 CURRENT RESUME HERE (2026-10-11, Asia/Manila)
-TASK: Comprehensive system audit COMPLETE within documented verification limits.
-BRANCH: main. HEAD: 5483861 (audit probes committed by user). Main only; no branch/worktree.
-SCOPE: AUDIT ONLY. No production fixes, assistant commits, push, merge, deployment or live operations.
-REPORT: docs/system-audit-2026-10-10.md (82-row matrix, findings, commands, acceptance plan).
-HISTORY: docs/history/2026-10-11-audit-runtime-checkpoint.txt is superseded, not pending work.
+TASK: Implementing authorized audit findings F01-F09, G01-G06 from system audit.
+BRANCH: main. HEAD: ef62c41. Main only; no branch/worktree.
+SCOPE: Fix confirmed defects, complete missing features, preserve UI/UX.
+REPORT: docs/system-audit-2026-10-10.md (reference only — audit is complete).
+F03 POLICY: Approved by user — deleted-intake excluded, unlinked valid included,
+  sold/depleted/removed excluded. Centralize server-side eligibility.
+
+IN PROGRESS
+- Starting with Priority 1: F01, F04, F07, F09 (functional defects).
+- Then F03 (approved eligibility policy), F02 (spoilage), F05-F08, G01-G06.
 
 DONE
-- Final matrix: 64 VERIFIED, 11 PARTIAL, 4 DEFECTIVE, 1 MISSING, 2 NOT VERIFIED (82 total).
-- All approved source/runtime characterization completed or explicitly bounded in report.
-- Actual PG review population mismatch and differing stock eligibility confirmed.
-  Manila boundaries, original confidence and stable supplier/operator scope verified.
-- Filtered exports ignore page limits; 205-row cursor retains snapshot during concurrent
-  insertion/source changes. Injected failure propagates and closes the cursor.
-  Separate offset pages can repeat a row after insertion; snapshot policy still undecided.
-- Actual browser fixtures reproduce initial/stale intake failures (F07) and old ready
-  maintenance response replacing recovery-required (F09). These are findings, not fixes.
-- Preserved completed maintenance/scan features, exact UI and all unrelated user changes.
+- Read and analyzed audit report, TASK_PROGRESS, codebase structure.
+- Identified root causes and fix locations for all findings.
 
-ACTUAL VERIFICATION (do not rerun without changes/new evidence)
-- Seven targeted backend files: 84 passed in 14.43s, exit 0; fresh temp CWD before imports.
-  Command: venv Python -X utf8 -B, pytest -p no:cacheprovider -q --basetemp <temp>/fixtures
-  -c <backend>/pyproject.toml; files dashboard, analytics, scan_logs, scan_records,
-  scan_evidence, configuration, maintenance_integration. Exact script in report.
-- docs/audits/test_system_audit_metrics.py on new verified PG18: 4 passed in 2.91s.
-  After adding export probes, same command -k 'streamed_export or midstream':
-  2 passed, 4 deselected in 2.00s. Exit 0 both; all six covered, no skipped PG cases.
-- node --test --test-concurrency=1 docs/audits/system-audit-browser-2026-10-11.mjs:
-  3 passed, 0 failed/skipped, 28.7514411s, exit 0. Mock API/WebSocket, envFile:false.
-- Prior audit pure-source probes: 3 passed, 100.1355ms (reused, not repeated).
-- Reused unchanged-source full verification: 222 backend/PG, 54 frontend; TS/build exit 0.
-  Exact commands: docs/scan-records-verification-2026-10-10.md. No app changes warrant rerun.
-- Reused lint debt: ESLint 43 errors/8 warnings; Ruff 620 vs 660 baseline. Not lint-clean.
-- New final checks: node --check both audit JS files; Python stdlib ast.parse; 52 local
-  report links/0 missing; 82 unique IDs and correct counts; whitespace/conflict-marker
-  checks and git diff --check passed. Scoped diff reviewed; no application edits.
-- Historical approval/usage block resolved via normal approval: targeted command ran.
-  No blocked test remains pending and no denied restriction was bypassed.
+REMAINING
+- F01: Dashboard review shortcut — use attention=review instead of status=Flagged.
+- F04: DashboardRecords passes empty business_date; fix to preserve selectedDate.
+- F07: InventoryContext silently swallows intake load errors; expose loading/error.
+- F09: SystemConfig maintenance polling has no sequence guard.
+- F03: Centralize stock eligibility across Dashboard/Analytics/Inventory.
+- F02: Fix Inventory spoilage risk to use server-side remaining shelf life.
+- F05: Add Operator Success drilldown onClick.
+- F06: Add Analytics cultivar/status filters.
+- F08: Update backend README migration target.
+- G01-G06: Various partial/gap fixes.
 
-CLEANUP VERIFIED
-- Verified new PG18 data directory, PID 41200, executable and localhost:56846 owner;
-  pg_ctl -D <exact audit data> -w -t 30 stop exited 0; PID/listener absent afterward.
-- Seven exact OS-temp roots checked for containment/reparse points, removed and absent:
-  bv-audit-pg-8227c7618dff479eb059aab1d0424c38; bv-audit-final-yd0_aetp;
-  bv-audit-metrics-5rsedin0; bv-audit-stream-xs354sca; bv-audit-browser-V9v2AE;
-  bv-audit-browser-QbTHjT; bv-audit-browser-K7o7Um. Browser/server teardown completed.
-  Do not stop a process later reusing those historical ports/PIDs. No unrelated cleanup.
+GIT STATE
+- main, HEAD ef62c41, working tree clean.
 
-REMAINING LIMITATIONS / NEXT ACTION (separate authorization required)
-- No audit implementation work in progress. Recommended production fixes NOT implemented.
-- Prioritize F01 review shortcut, F04 daily scope, F07 intake error/stale states;
-  fix F02 risk age/unknown handling after F03 depleted/unlinked stock policy is agreed.
-  F09 poll ordering and F08 migration docs are small independent corrections.
-- F05 success drilldown and F06 Analytics cultivar/status filters remain absent/partial.
-- Policy: F03 eligible stock, G05 shared intake metadata/counts, G01 cross-page snapshots;
-  G04 universal post-delete history and G02 confidence labels remain explicit gaps.
-- NOT VERIFIED: M21 production-scale config CSV resource limits; M22 live hardware,
-  OS power, deployed storage/abrupt-power-loss behavior. S23 remains PARTIAL for scale
-  and end-to-end HTTP interrupted downloads. No deployment acceptance claimed.
-- Exact next action: review report recommendations and authorize a scoped correction
-  task with required policy answers. Do not rerun completed audit or implement fixes now.
-
-FINAL GIT / SAFETY
-- HEAD 5483861 on main. Intentional uncommitted documentation only: TASK_PROGRESS.txt,
-  docs/system-audit-2026-10-10.md, docs/history/2026-10-11-audit-runtime-checkpoint.txt.
-- Committed audit evidence is in 26577da/5483861. No assistant commit requested/performed.
-- git diff fa63f5d..HEAD -- backend frontend: only pre-existing backend/.env.example;
-  audit-base 0a4c87e..HEAD and current changes are audit docs/probes only.
-- Never read live .env or operate live DB/captures/cameras/hardware/retention/restore/power.
-  No production/UI/schema/business-rule changes; no push/merge/deploy/history rewrite.
+EXACT RESUME
+- Begin implementing F01: change Dashboard review links to use attention=review.

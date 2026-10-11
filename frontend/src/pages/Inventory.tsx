@@ -14,7 +14,7 @@ import { IntakeStatusEnum, InventoryStatusEnum, RipenessEnum, CultivarEnum } fro
 
 export default function Inventory() {
   const { scans, scansLoading, scansError, refreshScans } = useScans()
-  const { intakes } = useInventory()
+  const { intakes, intakesLoading, intakesError, intakesStale, refreshIntakes } = useInventory()
   const [sourceFilter, setSourceFilter] = useState<string>("all")
 
   const inventory = useMemo(() => {
@@ -136,21 +136,25 @@ export default function Inventory() {
     }
   }, [scans, intakes, sourceFilter])
 
-  if (scansLoading || scansError) {
+  const isLoading = scansLoading || intakesLoading
+  const loadError = scansError || (!intakesLoading && intakesError && intakes.length === 0 ? intakesError : null)
+
+  if (isLoading || loadError) {
     return (
       <div className="space-y-4 sm:space-y-6">
         <AppPageHeader title="Inventory" description="Track stock levels and manage banana inventory" icon={Package} />
         <Card className="rounded-xl sm:rounded-2xl">
-          <CardContent className="p-4 sm:p-6" role={scansError ? "alert" : "status"}>
+          <CardContent className="p-4 sm:p-6" role={loadError ? "alert" : "status"}>
             <p className="text-sm text-muted-foreground">
-              {scansError ? "Complete scan history is unavailable. Refresh to view stock and FIFO recommendations." : "Loading complete scan history…"}
+              {loadError ? `${scansError ? "Complete scan history is unavailable." : "Intake data is unavailable."} Refresh to view stock and FIFO recommendations.` : intakesLoading ? "Loading intake data…" : "Loading complete scan history…"}
             </p>
-            {scansError && <Button variant="outline" className="mt-3" onClick={() => { void refreshScans() }}>Retry</Button>}
+            {loadError && <Button variant="outline" className="mt-3" onClick={() => { if (scansError) { void refreshScans() } else { refreshIntakes() } }}>Retry</Button>}
           </CardContent>
         </Card>
       </div>
     )
   }
+
 
   return (
     <div className="space-y-4 sm:space-y-6">

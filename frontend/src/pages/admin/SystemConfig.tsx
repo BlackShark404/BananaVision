@@ -46,13 +46,19 @@ export default function SystemConfig() {
   const disabled = !configReady || configConflict || archiveBusy || powerPending || powerAccepted || Boolean(maintenance && maintenance.state !== "ready")
   useEffect(() => {
     let live = true
+    let seq = 0
     const refresh = async () => {
-      try { const result = await api.config.maintenance(); if (live) { setMaintenance(result); setMaintenanceError(null) } }
-      catch { if (live) setMaintenanceError("Maintenance status unavailable") }
+      const mySeq = ++seq
+      try {
+        const result = await api.config.maintenance()
+        if (live && mySeq === seq) { setMaintenance(result); setMaintenanceError(null) }
+      } catch {
+        if (live && mySeq === seq) setMaintenanceError("Maintenance status unavailable")
+      }
+      if (live) setTimeout(refresh, 5000)
     }
     void refresh()
-    const timer = setInterval(refresh, 5000)
-    return () => { live = false; clearInterval(timer) }
+    return () => { live = false }
   }, [])
   const [saving, setSaving] = useState(false)
   const [showShutdownDialog, setShowShutdownDialog] = useState(false)

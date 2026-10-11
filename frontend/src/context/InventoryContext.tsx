@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react"
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react"
 import { api } from "@/lib/api"
 import { scanWrite } from "@/lib/scanWrites"
 import { useAuth } from "@/context/AuthContext"
@@ -10,6 +10,10 @@ import { useLocation } from "react-router-dom"
 
 interface InventoryContextType {
   intakes: DailyIntake[]
+  intakesLoading: boolean
+  intakesError: string | null
+  intakesStale: boolean
+  refreshIntakes: () => void
   activeIntake: DailyIntake | null
   setActiveIntake: (intake: DailyIntake | null) => void
   startIntake: (supplierId: string, batchNumber: string, treatment?: string) => Promise<DailyIntake>
@@ -64,48 +68,71 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation()
 
   const [intakes, setIntakes] = useState<DailyIntake[]>([])
+  const [intakesLoading, setIntakesLoading] = useState(true)
+  const [intakesError, setIntakesError] = useState<string | null>(null)
+  const [intakesStale, setIntakesStale] = useState(false)
   const [activeIntake, setActiveIntake] = useState<DailyIntake | null>(null)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const loadSeq = useRef(0)
 
   // ── Load data on mount / navigation ─────────────────────────────────────
 
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (!user) return
+    const mySeq = ++loadSeq.current
+    setIntakesLoading(true)
+    try {
+      const [suppliersRes, intakesRes] = await Promise.allSettled([
+        api.suppliers.list(),
+        api.intakes.list(),
+      ])
 
-    let cancelled = false
-    const loadData = async () => {
-      try {
-        const [suppliersRes, intakesRes] = await Promise.allSettled([
-          api.suppliers.list(),
-          api.intakes.list(),
-        ])
-
-        if (cancelled) return
-        if (suppliersRes.status === "fulfilled") {
-          setSuppliers((suppliersRes.value as any[]).map(mapApiSupplier))
-        } else {
-          console.warn("[InventoryContext] Suppliers API unavailable")
-        }
-
-        if (intakesRes.status === "fulfilled") {
-          setIntakes((intakesRes.value as any[]).map(mapApiIntake))
-        } else {
-          console.warn("[InventoryContext] Intakes API unavailable")
-        }
-      } catch (err) {
-        console.warn("[InventoryContext] Backend unreachable", err)
+      if (mySeq !== loadSeq.current) return
+      if (suppliersRes.status === "fulfilled") {
+        setSuppliers((suppliersRes.value as any[]).map(mapApiSupplier))
+      } else {
+        console.warn("[InventoryContext] Suppliers API unavailable")
       }
-    }
 
+      if (intakesRes.status === "fulfilled") {
+        setIntakes((intakesRes.value as any[]).map(mapApiIntake))
+        setIntakesError(null)
+        setIntakesStale(false)
+      } else {
+        // Preserve old intakes but mark as stale if we had data before
+        if (intakes.length > 0) {
+          setIntakesStale(true)
+        }
+        setIntakesError("Intake data unavailable. Stock totals may be inaccurate.")
+        console.warn("[InventoryContext] Intakes API unavailable")
+      }
+    } catch (err) {
+      if (mySeq !== loadSeq.current) return
+      if (intakes.length > 0) {
+        setIntakesStale(true)
+      }
+      setIntakesError("Backend unreachable. Stock totals may be inaccurate.")
+      console.warn("[InventoryContext] Backend unreachable", err)
+    } finally {
+      if (mySeq === loadSeq.current) setIntakesLoading(false)
+    }
+  }, [user, intakes.length])
+
+  useEffect(() => {
     void loadData()
-    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, pathname])
+
+  const refreshIntakes = useCallback(() => { void loadData() }, [loadData])
 
   // ── Reset on logout ─────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!user) {
       setIntakes([])
+      setIntakesLoading(false)
+      setIntakesError(null)
+      setIntakesStale(false)
       setActiveIntake(null)
       setSuppliers([])
     }
@@ -164,6 +191,10 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
   return (
     <InventoryContext value={{
       intakes,
+      intakesLoading,
+      intakesError,
+      intakesStale,
+      refreshIntakes,
       activeIntake,
       setActiveIntake,
       startIntake,
