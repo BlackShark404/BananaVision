@@ -70,6 +70,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const { suppliers } = useInventory()
   const { config } = useAdmin()
   const [noteText, setNoteText] = useState("")
+  const [provenanceReason, setProvenanceReason] = useState("")
   const [editBaseline, setEditBaseline] = useState<ScanResult | null>(null)
   const [editReason, setEditReason] = useState("")
   const [editMode, setEditMode] = useState(false)
@@ -298,7 +299,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
         </div>
       </div>
 
-      <InventoryProvenanceReview scan={scan} onSaved={saved => setDetail(previous => previous ? { ...previous, scan: saved } : previous)} onConflict={() => setRetry(value => value + 1)} />
+      <InventoryProvenanceReview scan={scan} reason={provenanceReason} setReason={setProvenanceReason} onSaved={saved => setDetail(previous => previous ? { ...previous, scan: saved } : previous)} onConflict={() => setRetry(value => value + 1)} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* Left Column — Camera Views */}
         <Card className="rounded-2xl lg:col-span-1 lg:sticky lg:top-20">

@@ -42,11 +42,14 @@ async function setup(t, status = 200, options = {}) {
       if (hold) await hold()
       return reply(status === 200 ? snapshot : { detail: 'Unavailable' }, status)
     }
+    if (url.pathname === '/api/v1/scan-logs/export') return route.fulfill({ status: 200, body: 'id,name\n1,Frozen\n', headers: { ...headers, 'content-type': 'text/csv' } })
     if (url.pathname === '/api/v1/scan-logs') {
+      if (state.logStatus) return reply({ detail: 'Too many records for a browse snapshot. Narrow filters or export.' }, state.logStatus)
+      if (state.expire && url.searchParams.get('snapshot_id')) return reply({ detail: 'Browse snapshot expired. Refresh.' }, 410)
       const search = url.searchParams.get('search') || 'Initial'
       if (search === 'Slow' && state.holdSearch) await state.holdSearch()
       return reply({ items: [{ ...state.record, source_name: search, remaining_days: 1, temperature: null, humidity: null }], total: 201,
-        page: 1, page_size: 10, avg_confidence: 92, at_risk_count: 1, review_count: 0,
+        snapshot_id: state.snapshotToken ?? 'snapshot-one', page: Number(url.searchParams.get('page') || 1), page_size: 10, avg_confidence: 92, at_risk_count: 1, review_count: 0,
         options: { sources: [], operators: [] }, generated_at: state.record.date_time })
     }
     if (url.pathname === '/api/v1/intakes/intake-1/scan-revisions') return reply({ revisions: { [id]: state.record.revision } })
@@ -239,4 +242,52 @@ test('definitively rejected explicit retry preserves the note draft and shows no
   assert.equal(await page.getByPlaceholder('Add a review note...').inputValue(), 'Keep this draft')
   assert.equal(await page.getByText(/Previous change confirmed/).count(), 0)
   assert.equal(await page.getByRole('button', { name: 'Reload latest', exact: true }).count(), 0)
+})
+
+
+test('provenance conflict preserves review evidence and retries with the refreshed revision', async t => {
+  const { page, state } = await setup(t, 200, { record: { ...scan(), intake_provenance: 'unverified' } })
+  await page.getByLabel('Evidence and reason for provenance review').fill('Verified against original register')
+  state.record.revision = 2
+  const rejected = page.waitForResponse(r => r.status() === 409)
+  await page.getByRole('button', { name: 'Verify genuinely unlinked' }).click()
+  await rejected
+  await page.getByLabel('Evidence and reason for provenance review').waitFor()
+  await until(() => state.requests.filter(r => r.path === `/api/v1/scans/${id}` && r.method === 'GET').length >= 2)
+  assert.equal(await page.getByLabel('Evidence and reason for provenance review').inputValue(), 'Verified against original register')
+  state.onWrite = async body => ({ ...state.record, revision: 3, intake_provenance: body.intake_provenance, inventory_eligible: true })
+  await page.getByRole('button', { name: 'Verify genuinely unlinked' }).click()
+  await until(() => state.writes.length === 2)
+  assert.equal(state.writes[1].expected_revision, 2)
+  assert.equal(state.writes[1].reason, 'Verified against original register')
+})
+
+test('Logs retains a snapshot across pages and export, resets on filters and retries expiry', async t => {
+  const { page, state } = await setup(t, 200, { screen: 'logs' })
+  await page.locator('tbody tr').first().waitFor()
+  await page.getByLabel('Go to next page').click()
+  await until(() => state.requests.some(r => r.query.page === '2' && r.query.snapshot_id === 'snapshot-one'))
+  await page.getByRole('button', { name: 'Export CSV' }).click()
+  await until(() => state.requests.some(r => r.path.endsWith('/export')))
+  assert.equal(state.requests.find(r => r.path.endsWith('/export')).query.snapshot_id, 'snapshot-one')
+  state.snapshotToken = 'snapshot-two'
+  await page.getByPlaceholder(/search by cultivar/i).fill('New cohort')
+  await page.locator('tbody').getByText('New cohort', { exact: true }).waitFor()
+  assert.equal(state.requests.find(r => r.query.search === 'New cohort').query.snapshot_id, undefined)
+  state.expire = true
+  await page.getByLabel('Go to next page').click()
+  await page.getByRole('alert').filter({ hasText: 'Browse snapshot expired. Refresh.' }).waitFor()
+  state.expire = false; state.snapshotToken = 'snapshot-three'
+  await page.getByRole('button', { name: 'Retry', exact: true }).click()
+  await page.locator('tbody').getByText('New cohort', { exact: true }).waitFor()
+  assert.equal(state.requests.filter(r => r.path === '/api/v1/scan-logs').at(-1).query.snapshot_id, undefined)
+})
+
+test('an oversized snapshot still permits a complete filtered CSV export', async t => {
+  const { page, state } = await setup(t, 200, { screen: 'logs', logStatus: 413 })
+  await page.getByRole('alert').filter({ hasText: 'Too many records for a browse snapshot.' }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Export CSV' }).isEnabled(), true)
+  await page.getByRole('button', { name: 'Export CSV' }).click()
+  await until(() => state.requests.some(r => r.path.endsWith('/export')))
+  assert.equal(state.requests.find(r => r.path.endsWith('/export')).query.snapshot_id, undefined)
 })

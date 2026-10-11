@@ -257,7 +257,7 @@ function DashboardContent() {
                   <TableHead className="font-semibold w-[140px]">Date/Time</TableHead>
                   <TableHead className="font-semibold">Cultivar</TableHead>
                   <TableHead className="font-semibold">Ripeness</TableHead>
-                  <TableHead className="font-semibold">Confidence</TableHead>
+                  <TableHead className="font-semibold">Current Confidence</TableHead>
                   <TableHead className="font-semibold">Source</TableHead>
                   {user?.role !== "Operator" && <TableHead className="font-semibold text-right">Operator</TableHead>}
                 </TableRow>

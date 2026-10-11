@@ -5,6 +5,7 @@ from sqlalchemy import and_, or_
 
 from app.core.time import as_manila
 
+WHITESPACE = " \t\r\n\v\f\u00a0"
 NUMBER = r"([0-9]+([.][0-9]+)?|[.][0-9]+)"
 PREDICTION_PATTERN = rf"^{NUMBER}([ \t\r\n]*-[ \t\r\n]*{NUMBER})?$"
 
@@ -32,8 +33,8 @@ def inventory_facts(scan, status, now):
     )
     raw = scan.classification.spoilage_days if scan.classification else None
     remaining = None
-    if raw is not None and re.fullmatch(PREDICTION_PATTERN, raw.strip()):
-        values = [float(value.strip()) for value in raw.strip().split("-")]
+    if raw is not None and re.fullmatch(PREDICTION_PATTERN, raw.strip(WHITESPACE)):
+        values = [float(value.strip(WHITESPACE)) for value in raw.strip(WHITESPACE).split("-")]
         if len(values) == 1 or values[1] >= values[0]:
             remaining = sum(values) / len(values) - (as_manila(now) - as_manila(scan.date_time)).total_seconds() / 86400
     return {"inventory_eligible": bool(eligible), "remaining_days": remaining, "risk_as_of": now}

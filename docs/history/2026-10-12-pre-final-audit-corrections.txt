@@ -1,0 +1,90 @@
+CURRENT RESUME HERE (2026-10-11)
+TASK: Authorized audit corrections INCOMPLETE. F03/F02/F06 implemented; verification and G01 next.
+BRANCH: main; HEAD 8b0f605. User committed fixes in 65b9de0; preserve unrelated printer
+tracking commits c4d44c0/8b0f605. Working tree was clean on this continuation.
+PLAN: docs/superpowers/plans/2026-10-11-audit-corrections.md. Audit report is historical baseline.
+
+DONE / VERIFIED THIS CONTINUATION
+- F01/F04 current and legacy review links and daily source/operator scope verified.
+- F07: initial error/retry already worked; added visible stale intake warning/retry,
+  snapshot identity, stable callback and request invalidation on navigation/unmount.
+- F09: fixed remaining scheduled request after unmount and old poll replacing newer
+  recovery response. Poll generation shared with explicit recovery results; timer cancelled.
+- F05: added attention=success through backend query, SQL, URL types/parser and Operator
+  KPI click; Logs uses existing badge/clear-filter pattern. Same SQL predicate as KPI,
+  null confidence excluded. Complete export and account scoping regression covered.
+- G05 user-approved shared registry retained; intake scan counts now use scan_scope(user).
+  Admin sees all, Operators only own counts; regression preserves registry membership.
+- F08 README now references current 0005 head and v1/v2 archive/history rehearsal.
+- Browser harness envFile:false and explicit local test API; no live .env read.
+
+ACTUAL TEST RESULTS / COMMANDS
+- Focused browser RED: 7 tests, 4 passed/3 failed, 49.526s. Failures were stale intake
+  notice, post-unmount maintenance request, and late poll overriding recovery.
+- node --test --test-concurrency=1 frontend/tests/dashboard.test.mjs
+  frontend/tests/persistence.test.mjs frontend/tests/maintenance.test.mjs:
+  GREEN 34 passed, 0 failed/skipped, 31.3553315s.
+- After lint-safe cleanup adjustment, --test-name-pattern='intake failure|intake refresh|maintenance poll'
+  persistence+maintenance: 4 passed, 0 failed/skipped, 6.2465582s.
+- F05/G05 backend RED: 2 failed as expected, 31 deselected, 3.44s.
+- F05 browser RED: no clickable Operator success KPI; 1 failed, 2.199s.
+- Backend dashboard/logs/records/time-and-writes GREEN: 76 passed, 10.54s, exit 0.
+  Python venv -X utf8 -B from fresh OS-temp cwd before app imports; backend on sys.path;
+  pytest -p no:cacheprovider -q --basetemp <temp>/fixtures -c <backend>/pyproject.toml.
+  No PG env configured for this run; these four files used generated SQLite fixtures.
+- Dashboard --test-name-pattern='operator success KPI|admin scan KPIs|daily group|legacy review':
+  4 passed, 0 failed/skipped, 7.6488019s.
+- npm run typecheck passed twice, latest after F05/G05.
+- Production tsc -b + programmatic vite build({envFile:false}) passed (Vite14.07s)
+  BEFORE F05/G05; final build still required after all changes. Never plain build loading .env.
+- Configured npm run lint initially 42 errors/10 warnings; two new ref-cleanup warnings
+  corrected. ESLint lintText comparison against HEAD across every changed TS/TSX:
+  zero introduced diagnostics; Inventory unused stale flag error removed. Full lint remains debt.
+- Latest verification precedes F03/F02/F06/snapshot work; do not claim task complete.
+
+POLICY DECISIONS (DO NOT ASK AGAIN)
+- F03: exclude deleted-intake and sold/depleted/removed stock; include valid active unlinked.
+- G05: shared intake registry, scan counts scoped to current Operator (Admin global).
+- G01: implement snapshot-stable pagination now. G04: keep no-delete workflow, document limits.
+- F03 Option 2 explicitly approved: exclude ambiguous legacy NULL-linked stock until
+  reviewed. Preserve records/status/history, add durable provenance for new records,
+  safe audited reconciliation; no invented prior intake relationships.
+
+IN PROGRESS / EXACT NEXT STEP
+1. F03 implemented (uncommitted, PG verification pending): current Scan.intake_id FK SET NULL loses provenance; no delete API exists.
+   Added durable intake_origin_id + linked/unlinked/unverified/excluded provenance, migration0006,
+   archive-version adapter compatibility and shared SQL predicate before F02 UI use.
+   Existing ScanEvent created payload has no intake ID. Do not infer legacy provenance.
+   Relevant: backend models/scan.py, services/dashboard.py/_scoped_projection/_expiring,
+   analytics.py/_current_stock, scan_records.py/serialize_scan, scan_service.py created event,
+   backup_archive.py (current v2 + strict v1 adapter), migrations/versions/0005.
+2. F02 implemented: server eligibility/remaining-life, unknown/overdue handling and unlinked FIFO.
+   Reconciliation API uses Admin lock/CAS/idempotency/reason/history; detail controls added (browser test pending).
+3. F06 implemented/verified; G02 partial labels/time metadata. NEXT: G01 stable snapshot
+   pages with authorization/filter binding, bounded expiry, complete export semantics.
+4. Final isolated backend/PG + frontend regression, TS/lint/build/security review/scoped diff;
+   update follow-up evidence, cleanup task temps, local commit on main after verification.
+
+RESOURCES / GIT / SAFETY
+- No PG started in correction task. Prior audit PG/resources all cleaned (ef62c41 report).
+- Cleanup pending ONLY two new OS-temp roots: bv-audit-fixes-88weejuq (RED),
+  bv-audit-fixes-green-0hpijsyn (GREEN). Browser servers closed; usual ignored Vite caches.
+- Uncommitted: checkpoint, new plan/archive; backend intakes API, scan_logs schema,
+  dashboard/scan_logs services, scan_logs/scan_records tests, README; frontend InventoryContext,
+  Inventory/SystemConfig/Dashboard/Logs, scanLogFilters/types; dashboard/persistence/maintenance
+  browser tests, fixtures and shared harness. Confirm git status on resume.
+- Main only; no live .env/DB/captures/cameras/hardware/retention/restore/power.
+  Preserve completed maintenance/scan/logout work and UI. No push/merge/deploy/history rewrite.
+
+LATEST VERIFIED (supersedes earlier pending statements)
+- User approved F03 Option2; new legacy NULL stock excluded until explicit review; no history invented.
+- Frozen archive v2 descriptor before schema edit; new archive v3, strict v1/v2 conversion, legacy NULL=>unverified.
+- Backend policy RED3 failed3.92s; first contract run65passed3failed2PGskipped13.93s (2 new test accessor typos + old depleted-stock expectation). Fixed.
+- Backend policy/archive/migrations/dashboard/analytics/records:68passed2PGskipped13.80s.
+- Independent focused review of 65b9de0 found two F07 races; new RED2failed20.571s. Fixed invalidation after local writes and empty-snapshot stale UI.
+- Full persistence browser suite:15passed0failed10.477558s (includes authoritative risk and both review regressions).
+- Analytics combined filter RED1failed9deselected0.97s. GREEN whole backend analytics10passed1.88s; browser5passed22.7006404s.
+- npm run typecheck passed after F03/F02 controls, before F06 latest changes. Final type/lint/build/PG/security pending.
+- New temporary roots pending cleanup: bv-policy-red-goovgb5s, bv-policy-green-fy2j8dx4, bv-policy-contract-t5bp5n6o, bv-analytics-red-6zbtim9z, bv-analytics-green-xmji6q75.
+- Sandbox failed temp chdir (tests not executed): bv-freeze-v2-a1mfunne (sandbox d7207d60), bv-policy-red-8bnvg08s (sandbox f05f69ef). Empty dirs need identity-checked cleanup.
+- Main HEAD8b0f605; no new assistant commits. Current diff adds provenance model/migration/archive v3, policy service/API/UI, Analytics filters, tests. Preserve printer commits.

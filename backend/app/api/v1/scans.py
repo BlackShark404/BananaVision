@@ -101,7 +101,9 @@ async def list_scans(
     if stable:
         # Hold scan read locks while select-in relationships are hydrated. All
         # supported scan writers lock this parent before changing its children.
-        scans = (await db.execute(query.limit(MAX_ROWS + 1).with_for_update(read=True, of=Scan))).scalars().all()
+        scans = (await db.execute(query.execution_options(populate_existing=True).order_by(None).order_by(Scan.id).limit(MAX_ROWS + 1).with_for_update(read=True, of=Scan))).scalars().all()
+        # Use the same lock order as bulk intake writes; sort only after locks.
+        scans.sort(key=lambda scan: (scan.date_time, scan.id), reverse=True)
         saved = await save_snapshot(db, user, key, {
             "items": [serialize_scan(scan, user).model_dump(mode="json") for scan in scans],
         })

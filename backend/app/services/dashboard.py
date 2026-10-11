@@ -33,10 +33,9 @@ from app.schemas.dashboard import (
     DashboardView,
 )
 from app.schemas.enums import InventoryStatusEnum, RoleEnum
-from app.services.inventory_policy import PREDICTION_PATTERN, eligible_stock
+from app.services.inventory_policy import PREDICTION_PATTERN, WHITESPACE, eligible_stock
 
 DEFAULT_CONFIDENCE_THRESHOLD = 85.0
-WHITESPACE = " \t\r\n\v\f\u00a0"
 
 
 def _mean(value) -> float | None:

@@ -86,7 +86,7 @@ function GroupRecords({ summary, view, onClose, onSelectView, businessDate, revi
                 <li key={operator.operator_id}>
                   <button type="button" onClick={() => onSelectView("all", { operator_id: operator.operator_id, business_date: selectedDate })} className="flex w-full items-center gap-3 p-4 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2">
                     <span className="min-w-0 flex-1"><span className="block break-words font-medium">{operator.name}</span><span className="block text-xs text-muted-foreground">@{operator.username}</span></span>
-                    <span className="shrink-0 text-right text-sm text-muted-foreground"><span className="block">{operator.scan_count} {operator.scan_count === 1 ? "scan" : "scans"}</span><span className="block text-xs">{operator.avg_confidence == null ? "Confidence unavailable" : `${operator.avg_confidence.toFixed(1)}% average confidence`}</span></span>
+                    <span className="shrink-0 text-right text-sm text-muted-foreground"><span className="block">{operator.scan_count} {operator.scan_count === 1 ? "scan" : "scans"}</span><span className="block text-xs">{operator.avg_confidence == null ? "Current confidence unavailable" : `${operator.avg_confidence.toFixed(1)}% average current confidence`}</span></span>
                     <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
                   </button>
                 </li>

@@ -67,3 +67,18 @@ def test_logs_snapshot_exports_original_filtered_population(application):
     assert app.client.get('/api/v1/scan-logs', params=params).json() == first
     exported = app.client.get('/api/v1/scan-logs/export', params=params)
     assert exported.status_code == 200 and 'Lakatan' in exported.text and 'Cardaba' not in exported.text
+
+
+def test_snapshot_limits_eviction_and_invalid_tokens(application, monkeypatch):
+    from app.services import scan_snapshots as service
+    app = application
+    params = {'stable': True}
+    tokens = [app.client.get('/api/v1/scans', params=params).json()['snapshot_id'] for _ in range(service.PER_ACCOUNT + 1)]
+    assert app.client.get('/api/v1/scans', params={'snapshot_id': tokens[0]}).status_code == 410
+    assert app.client.get('/api/v1/scans', params={'snapshot_id': tokens[-1]}).status_code == 200
+    assert app.client.get('/api/v1/scans', params={'snapshot_id': 'invalid'}).status_code == 422
+    monkeypatch.setattr(service, 'MAX_ROWS', 0)
+    assert app.client.get('/api/v1/scans', params=params).status_code == 413
+    monkeypatch.setattr(service, 'MAX_ROWS', 50_000)
+    monkeypatch.setattr(service, 'MAX_BYTES', 1)
+    assert app.client.get('/api/v1/scans', params=params).status_code == 413

@@ -1,90 +1,71 @@
-CURRENT RESUME HERE (2026-10-11)
-TASK: Authorized audit corrections INCOMPLETE. F03/F02/F06 implemented; verification and G01 next.
-BRANCH: main; HEAD 8b0f605. User committed fixes in 65b9de0; preserve unrelated printer
-tracking commits c4d44c0/8b0f605. Working tree was clean on this continuation.
-PLAN: docs/superpowers/plans/2026-10-11-audit-corrections.md. Audit report is historical baseline.
+CURRENT RESUME HERE (2026-10-12)
+TASK: Authorized audit corrections INCOMPLETE; final integration/verification ongoing.
+GIT: main HEAD 893cae8 (user committed provenance/policy/snapshots). Clean at resume.
+Preserve printer tracking c4d44c0/8b0f605, 65b9de0 and prior maintenance/scan/logout fixes.
+PLAN: docs/superpowers/plans/2026-10-11-audit-corrections.md.
 
-DONE / VERIFIED THIS CONTINUATION
-- F01/F04 current and legacy review links and daily source/operator scope verified.
-- F07: initial error/retry already worked; added visible stale intake warning/retry,
-  snapshot identity, stable callback and request invalidation on navigation/unmount.
-- F09: fixed remaining scheduled request after unmount and old poll replacing newer
-  recovery response. Poll generation shared with explicit recovery results; timer cancelled.
-- F05: added attention=success through backend query, SQL, URL types/parser and Operator
-  KPI click; Logs uses existing badge/clear-filter pattern. Same SQL predicate as KPI,
-  null confidence excluded. Complete export and account scoping regression covered.
-- G05 user-approved shared registry retained; intake scan counts now use scan_scope(user).
-  Admin sees all, Operators only own counts; regression preserves registry membership.
-- F08 README now references current 0005 head and v1/v2 archive/history rehearsal.
-- Browser harness envFile:false and explicit local test API; no live .env read.
+DONE
+- F01/F04/F05/F07/F09/G05 implemented and verified in 65b9de0; historical results archived.
+- F03 durable provenance, migration0006, shared SQL/Python eligibility, audited Admin
+  reconciliation; archive v3 with strict frozen v1/v2 adapters implemented in893cae8.
+- F02 authoritative remaining-life aging, unknown/overdue handling, valid unlinked FIFO.
+- F06 combined Analytics cultivar/status filters; G02 labels/time metadata partially done.
+- G01 account/session/filter/generation-bound snapshots, 10min expiry, 50k/20MiB cap,
+  four per account, stable history/Logs pages and same-snapshot CSV implemented.
 
-ACTUAL TEST RESULTS / COMMANDS
-- Focused browser RED: 7 tests, 4 passed/3 failed, 49.526s. Failures were stale intake
-  notice, post-unmount maintenance request, and late poll overriding recovery.
-- node --test --test-concurrency=1 frontend/tests/dashboard.test.mjs
-  frontend/tests/persistence.test.mjs frontend/tests/maintenance.test.mjs:
-  GREEN 34 passed, 0 failed/skipped, 31.3553315s.
-- After lint-safe cleanup adjustment, --test-name-pattern='intake failure|intake refresh|maintenance poll'
-  persistence+maintenance: 4 passed, 0 failed/skipped, 6.2465582s.
-- F05/G05 backend RED: 2 failed as expected, 31 deselected, 3.44s.
-- F05 browser RED: no clickable Operator success KPI; 1 failed, 2.199s.
-- Backend dashboard/logs/records/time-and-writes GREEN: 76 passed, 10.54s, exit 0.
-  Python venv -X utf8 -B from fresh OS-temp cwd before app imports; backend on sys.path;
-  pytest -p no:cacheprovider -q --basetemp <temp>/fixtures -c <backend>/pyproject.toml.
-  No PG env configured for this run; these four files used generated SQLite fixtures.
-- Dashboard --test-name-pattern='operator success KPI|admin scan KPIs|daily group|legacy review':
-  4 passed, 0 failed/skipped, 7.6488019s.
-- npm run typecheck passed twice, latest after F05/G05.
-- Production tsc -b + programmatic vite build({envFile:false}) passed (Vite14.07s)
-  BEFORE F05/G05; final build still required after all changes. Never plain build loading .env.
-- Configured npm run lint initially 42 errors/10 warnings; two new ref-cleanup warnings
-  corrected. ESLint lintText comparison against HEAD across every changed TS/TSX:
-  zero introduced diagnostics; Inventory unused stale flag error removed. Full lint remains debt.
-- Latest verification precedes F03/F02/F06/snapshot work; do not claim task complete.
-
-POLICY DECISIONS (DO NOT ASK AGAIN)
-- F03: exclude deleted-intake and sold/depleted/removed stock; include valid active unlinked.
-- G05: shared intake registry, scan counts scoped to current Operator (Admin global).
-- G01: implement snapshot-stable pagination now. G04: keep no-delete workflow, document limits.
-- F03 Option 2 explicitly approved: exclude ambiguous legacy NULL-linked stock until
-  reviewed. Preserve records/status/history, add durable provenance for new records,
-  safe audited reconciliation; no invented prior intake relationships.
+LATEST ACTUAL VERIFICATION (before current continuation)
+- Backend policy/archive/migrations/dashboard/analytics/records:68 passed,2 PG skipped,13.80s.
+- Frontend persistence:15 passed,10.478s (includes F02 and confirmed-write/empty-stale races).
+- Analytics backend10 passed1.88s; browser5 passed22.701s.
+- New snapshot backend3 passed1.45s after RED3 failed; TypeScript passed after G01 integration.
+- Earlier full affected browser34 passed31.355s; backend dashboard/logs/records/time76 passed10.54s.
+- These precede final full verification. No PG started yet. Latest build predates new work.
+- Existing frontend lint debt (42 errors/8 warnings expected); final comparison pending.
+Commands: Python -X utf8 -B from fresh tempfile cwd BEFORE app imports, backend on sys.path;
+pytest -p no:cacheprovider -q --basetemp <temp>/fixtures -c <backend>/pyproject.toml.
+Browser node --test --test-concurrency=1 <files>, PLAYWRIGHT_MODULE set to installed runtime;
+mock API/local Vite envFile:false. npm run typecheck. Never load station .env.
 
 IN PROGRESS / EXACT NEXT STEP
-1. F03 implemented (uncommitted, PG verification pending): current Scan.intake_id FK SET NULL loses provenance; no delete API exists.
-   Added durable intake_origin_id + linked/unlinked/unverified/excluded provenance, migration0006,
-   archive-version adapter compatibility and shared SQL predicate before F02 UI use.
-   Existing ScanEvent created payload has no intake ID. Do not infer legacy provenance.
-   Relevant: backend models/scan.py, services/dashboard.py/_scoped_projection/_expiring,
-   analytics.py/_current_stock, scan_records.py/serialize_scan, scan_service.py created event,
-   backup_archive.py (current v2 + strict v1 adapter), migrations/versions/0005.
-2. F02 implemented: server eligibility/remaining-life, unknown/overdue handling and unlinked FIFO.
-   Reconciliation API uses Admin lock/CAS/idempotency/reason/history; detail controls added (browser test pending).
-3. F06 implemented/verified; G02 partial labels/time metadata. NEXT: G01 stable snapshot
-   pages with authorization/filter binding, bounded expiry, complete export semantics.
-4. Final isolated backend/PG + frontend regression, TS/lint/build/security review/scoped diff;
-   update follow-up evidence, cleanup task temps, local commit on main after verification.
+1. Focused browser tests: provenance review conflict draft/retry, snapshot paging/export/
+   filter reset/expiry. Check snapshot cap still permits complete full CSV exports.
+2. New disposable PostgreSQL: migration0006, deleted-parent provenance, eligibility parity,
+   snapshot concurrency, archive v1/v2/v3; then full backend/frontend regression.
+3. Final TS/configured lint (baseline comparison)/envFile:false production build; focused
+   independent security/diff review; README0006/v3 and G02 remaining confidence labels.
+4. Update audit follow-up evidence, clean exact resources, final checkpoint/local commit.
+Independent read-only reviewer correction_final_review is reviewing new security boundaries.
 
-RESOURCES / GIT / SAFETY
-- No PG started in correction task. Prior audit PG/resources all cleaned (ef62c41 report).
-- Cleanup pending ONLY two new OS-temp roots: bv-audit-fixes-88weejuq (RED),
-  bv-audit-fixes-green-0hpijsyn (GREEN). Browser servers closed; usual ignored Vite caches.
-- Uncommitted: checkpoint, new plan/archive; backend intakes API, scan_logs schema,
-  dashboard/scan_logs services, scan_logs/scan_records tests, README; frontend InventoryContext,
-  Inventory/SystemConfig/Dashboard/Logs, scanLogFilters/types; dashboard/persistence/maintenance
-  browser tests, fixtures and shared harness. Confirm git status on resume.
-- Main only; no live .env/DB/captures/cameras/hardware/retention/restore/power.
-  Preserve completed maintenance/scan/logout work and UI. No push/merge/deploy/history rewrite.
+POLICY (APPROVED)
+- F03 Option2: exclude deleted-intake/sold/depleted/removed/ambiguous legacy; include valid
+  active genuinely unlinked. Preserve records/status/history; never invent original links.
+- G05 shared registry, Operator own scan counts/Admin global. G01 stable snapshots now.
+- G04 no-delete retained; historical hard-delete limits documented. No new policy needed.
 
-LATEST VERIFIED (supersedes earlier pending statements)
-- User approved F03 Option2; new legacy NULL stock excluded until explicit review; no history invented.
-- Frozen archive v2 descriptor before schema edit; new archive v3, strict v1/v2 conversion, legacy NULL=>unverified.
-- Backend policy RED3 failed3.92s; first contract run65passed3failed2PGskipped13.93s (2 new test accessor typos + old depleted-stock expectation). Fixed.
-- Backend policy/archive/migrations/dashboard/analytics/records:68passed2PGskipped13.80s.
-- Independent focused review of 65b9de0 found two F07 races; new RED2failed20.571s. Fixed invalidation after local writes and empty-snapshot stale UI.
-- Full persistence browser suite:15passed0failed10.477558s (includes authoritative risk and both review regressions).
-- Analytics combined filter RED1failed9deselected0.97s. GREEN whole backend analytics10passed1.88s; browser5passed22.7006404s.
-- npm run typecheck passed after F03/F02 controls, before F06 latest changes. Final type/lint/build/PG/security pending.
-- New temporary roots pending cleanup: bv-policy-red-goovgb5s, bv-policy-green-fy2j8dx4, bv-policy-contract-t5bp5n6o, bv-analytics-red-6zbtim9z, bv-analytics-green-xmji6q75.
-- Sandbox failed temp chdir (tests not executed): bv-freeze-v2-a1mfunne (sandbox d7207d60), bv-policy-red-8bnvg08s (sandbox f05f69ef). Empty dirs need identity-checked cleanup.
-- Main HEAD8b0f605; no new assistant commits. Current diff adds provenance model/migration/archive v3, policy service/API/UI, Analytics filters, tests. Preserve printer commits.
+RESOURCES / SAFETY
+No correction-task PG started. Pending OS-temp roots only:
+bv-audit-fixes-88weejuq, bv-audit-fixes-green-0hpijsyn, bv-policy-red-goovgb5s,
+bv-policy-green-fy2j8dx4, bv-policy-contract-t5bp5n6o, bv-analytics-red-6zbtim9z,
+bv-analytics-green-xmji6q75, bv-snapshot-red-uc7la7rx, bv-snapshot-green-iopskzjp.
+Failed sandbox chdir empty dirs: bv-freeze-v2-a1mfunne (sandbox d7207d60),
+bv-policy-red-8bnvg08s (sandbox f05f69ef). Verify identity before deletion.
+Main only. Never live .env/DB/captures/cameras/hardware/retention/restore/power.
+No push/merge/deploy/history rewrite. Exact existing UI preserved. Local commit after verification.
+Previous detailed checkpoint: docs/history/2026-10-12-pre-final-audit-corrections.txt.
+
+NEW DISPOSABLE PG: C:\Users\Roronoa Zoro\AppData\Local\Temp\bv-corrections-pg-d46f40e364a94c14817f6ef58b1f20f5 ; port 49828 ; user bvtest; database postgres. Identity recorded before startup.
+
+LATEST 2026-10-12 MILESTONE
+- Browser focused 3 GREEN4.585s: provenance conflict draft retained; snapshot paging/export/filter/expiry;
+  oversize browse retains full CSV. RED observed lost reason and disabled export (plus selector fixes).
+- New PG migration/deleted-parent test passed. Lock-order test RED (LockNotAvailable).
+  Changed history to Scan.id ascending locks then display-sort; next run exposed stale ORM relations
+  after waiting. Added populate_existing; focused rerun NEXT.
+- PG integration run:23 passed2 failed1 error in3389.60s (host timing interruption).
+  Failures: stale snapshot status above; v2 test incorrectly expected zero history (v2 has history), corrected.
+  Error: existing whoami 5s subprocess timeout in generated restore fixture; retry necessary, not product change.
+- New temps: bv-correction-pg-red-xaapnakx; bv-correction-pg-green-qhpj24jh.
+- Current PG verified PID43032, root bv-corrections-pg-d46f40e364a94c14817f6ef58b1f20f5/data,
+  localhost49828, bvtest/postgres. Stop only this recorded cluster after tests.
+
+RUFF TOOL TEMP: C:\Users\Roronoa Zoro\AppData\Local\Temp\bv-corrections-ruff-64d3469b4030420a9de1b5327958d087 (task-only installation, cleanup pending)

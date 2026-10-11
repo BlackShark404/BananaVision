@@ -1,36 +1,35 @@
-import { useState } from "react"
+import { useState, type Dispatch, type SetStateAction } from "react"
 import { toast } from "sonner"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
-import { scanWrite } from "@/lib/scanWrites"
+import { scanWrite, scanRevision } from "@/lib/scanWrites"
 import { scanRetryAction } from "@/lib/scanWriteFeedback"
 import { useScans } from "@/context/ScanContext"
 import { useAuth } from "@/context/AuthContext"
 import type { ScanResult } from "@/types"
 
-export function InventoryProvenanceReview({ scan, onSaved, onConflict }: {
-  scan: ScanResult; onSaved: (scan: ScanResult) => void; onConflict: () => void
+export function InventoryProvenanceReview({ scan, reason, setReason, onSaved, onConflict }: {
+  scan: ScanResult; reason: string; setReason: Dispatch<SetStateAction<string>>; onSaved: (scan: ScanResult) => void; onConflict: () => void
 }) {
   const { user } = useAuth()
   const { acceptScan } = useScans()
-  const [reason, setReason] = useState("")
   const [pending, setPending] = useState(false)
   if (!["unverified", "excluded"].includes(scan.intakeProvenance ?? "")) return null
   const save = async (provenance: "unlinked" | "excluded") => {
     setPending(true)
     try {
       const result = await scanWrite(`${user?.id}:${scan.id}:provenance`, {
-        expected_revision: scan.revision, intake_provenance: provenance, reason: reason.trim(),
+        expected_revision: scanRevision(scan.revision), intake_provenance: provenance, reason: reason.trim(),
       }, async body => acceptScan(await api.scans.reviewProvenance(scan.id, body)))
       onSaved(result)
       setReason("")
       toast.success("Inventory provenance review saved")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Review could not be saved", {
-        action: scanRetryAction(error, () => { onConflict() }),
+        action: scanRetryAction(error, request => { setReason(current => current.trim() === request.reason ? "" : current); onConflict() }),
       })
       if (typeof error === "object" && error !== null && "status" in error && error.status === 409) onConflict()
     } finally { setPending(false) }

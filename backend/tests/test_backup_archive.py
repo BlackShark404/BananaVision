@@ -328,3 +328,17 @@ def test_archive_rejects_unusable_administrator_bcrypt_cost(station, archive_mod
     rewrite(result, edit_row=('user_account', invalid_hash))
     with pytest.raises(archive_module.ArchiveError, match='usable active administrator'):
         archive_module.validate_archive(result, tmp_path / 'invalid-cost')
+
+
+@pytest.mark.parametrize('values', [
+    {'intake_provenance': 'invented'},
+    {'intake_provenance': 'linked', 'intake_origin_id': None},
+    {'intake_provenance': 'unlinked'},
+    {'intake_provenance': 'unverified', 'intake_origin_id': None},
+    {'intake_provenance': 'linked', 'intake_origin_id': str(uuid4())},
+])
+def test_v3_archive_rejects_inconsistent_provenance(archive_module, station, tmp_path, values):
+    path = backup(archive_module, station, tmp_path)
+    rewrite(path, edit_row=('scan', lambda rows: rows[0].update(values)))
+    with pytest.raises(archive_module.ArchiveError):
+        archive_module.validate_archive(path, tmp_path / 'invalid-provenance')

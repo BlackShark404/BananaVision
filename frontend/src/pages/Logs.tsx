@@ -390,7 +390,7 @@ const columns: ColumnDef<LogScan>[] = [
                 Clear Intake Filter
               </Button>
             )}
-            <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={exportToCSV} disabled={exporting || !response}>
+            <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={exportToCSV} disabled={exporting || resource.loading}>
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">{exporting ? "Exporting…" : "Export CSV"}</span>
             </Button>

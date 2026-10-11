@@ -17,10 +17,10 @@ from app.services.runtime_operations import StationCoordinator, maintenance_cont
 from tests.test_backup_archive import station as station, archive_module as archive_module, AsyncDB  # noqa: F401
 
 
-@pytest.fixture
-def legacy_scan_archive(archive_module, station, tmp_path):
+@pytest.fixture(params=[1, 2])
+def legacy_scan_archive(archive_module, station, tmp_path, request):
     from tests.test_backup_archive import legacy_backup
-    return legacy_backup(archive_module, station, tmp_path)
+    return legacy_backup(archive_module, station, tmp_path, version=request.param), request.param
 
 pytestmark = pytest.mark.skipif(not os.environ.get('BANANAVISION_TEST_DATABASE_URL'), reason='Isolated PostgreSQL URL required')
 
@@ -77,21 +77,22 @@ async def test_replacement_transaction_and_sequences(recovery_station):
 
 
 @pytest.mark.asyncio
-async def test_v1_restore_preserves_scan_without_fabricated_history(
+async def test_legacy_restore_preserves_scan_and_available_history(
     recovery_station, legacy_scan_archive, tmp_path
 ):
     from app.models import ScanEvent, ScanMutation
     from sqlalchemy import func
     x = recovery_station
-    validated = archive.validate_archive(legacy_scan_archive, tmp_path / 'v1-staged')
+    path, version = legacy_scan_archive
+    validated = archive.validate_archive(path, tmp_path / 'legacy-staged')
     await x.service._replace(validated, str(uuid4()))
     async with x.sessions() as db:
         scan = await db.scalar(select(Scan))
         assert scan.revision == 1 and scan.operator_name_snapshot is None
         assert scan.classification.cultivar.value == 'Lakatan'
         assert scan.original_ai_result.spoilage_days is None
-        assert await db.scalar(select(func.count()).select_from(ScanEvent)) == 0
-        assert await db.scalar(select(func.count()).select_from(ScanMutation)) == 0
+        assert await db.scalar(select(func.count()).select_from(ScanEvent)) == (0 if version == 1 else 1)
+        assert await db.scalar(select(func.count()).select_from(ScanMutation)) == (0 if version == 1 else 1)
 
 
 @pytest.mark.asyncio

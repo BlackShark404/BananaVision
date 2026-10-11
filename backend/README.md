@@ -89,10 +89,11 @@ From `backend/`, run `python -m app.core.migrations` with the deployment environ
 - `0002_feature_engineering` adds missing batch lifecycle/treatment and engineered-feature columns from the earlier manual SQL migration. Already-present columns are retained. Historical engineered values remain unchanged; the schema upgrade does not recompute model features.
 - `0003_system_configuration` adds canonical configuration, revision checks, applied state, and stable physical camera mappings.
 - `0004_maintenance_state` adds durable non-restored maintenance/authentication-generation state.
-- `0005_scan_record_history` adds scan revisions, immutable history, mutation receipts and deletion tombstones. Station archives use schema v2; the strict v1 adapter preserves legacy values without inventing history.
+- `0005_scan_record_history` adds scan revisions, immutable history, mutation receipts and deletion tombstones. The historical v1 adapter preserves legacy values without inventing history.
+- `0006_inventory_provenance` preserves known intake origins, marks ambiguous legacy NULL links as unverified, and adds expiring browse snapshots. New archives use v3; strict v1/v2 adapters retain available evidence and quarantine unknown provenance. Administrator provenance review requires evidence/reason and uses revision/idempotency/history controls; it never invents an old intake link.
 - `alembic_version` records successful upgrades. Fresh databases and databases already upgraded manually adopt the revision without duplicate columns. Automatic downgrade is intentionally blocked because removing session revocation or historical columns would discard safeguards/data.
 
-Before upgrading the station, take a PostgreSQL backup and rehearse against a disposable copy. Confirm `alembic_version.version_num` matches the current migration head (`0005_scan_record_history`), `user_account.token_version` exists, existing accounts can sign in, and pre-reset tokens are rejected. Include revision/history writes and v1/v2 archive restoration in the disposable rehearsal. The scan-summary CSV is insufficient for database recovery.
+Before upgrading the station, take a PostgreSQL backup and rehearse against a disposable copy. Confirm `alembic_version.version_num` matches the current migration head (`0006_inventory_provenance`), `user_account.token_version` exists, existing accounts can sign in, and pre-reset tokens are rejected. Include revision/history writes and v1/v2/v3 archive restoration and deleted-intake/legacy-stock exclusion in the disposable rehearsal. The scan-summary CSV is insufficient for database recovery.
 
 Regression tests use disposable databases. To include PostgreSQL cases, set `BANANAVISION_TEST_DATABASE_URL` to a test PostgreSQL URL; the tests create unique temporary schemas and remove only those schemas. On Windows, if the default pytest temporary directory is inaccessible, pass `--basetemp` pointing to a writable test directory whose parent exists.
 
@@ -111,3 +112,16 @@ ws://localhost:8000/api/v1/ws?token=JWT&rooms=kiosk,dashboard
 Events: `scan:started`, `scan:capturing`, `scan:captured`, `scan:detecting`, `scan:detected`, `scan:analyzing`, `scan:completed`, `scan:failed`, `sensor:update`, `device:status`, `notification`
 
 Every connection, incoming message and outgoing delivery checks JWT expiry and the account's current role, status and session version. Idle connections recheck every 15 seconds. Invalid sessions close with code `4001`; the frontend clears the matching session and returns to login. A socket from before credential rotation cannot clear the newer token. Operators may subscribe only to `kiosk`; administrators may also subscribe to `dashboard`, `devices` and `admin`.
+
+
+## Stable browse snapshots
+
+Scan Logs and shared scan-history loading request account/session/filter-bound snapshots.
+Pages and a snapshot CSV use the same captured rows/values; Refresh starts a new capture.
+Snapshots expire after ten minutes and are invalidated by role/session/station-generation
+changes. At most four captures per account are retained; expired entries are removed on
+new capture. They are excluded from station backups. A capture is capped at 50,000 rows
+and 20 MiB serialized data and rejects overflow without publishing a partial result.
+Narrow the filters for browsing; complete filtered streaming CSV remains available without
+a snapshot token for larger populations. That CSV reflects the export query time rather
+than a previous browse capture. Production-volume tuning still requires deployment testing.
