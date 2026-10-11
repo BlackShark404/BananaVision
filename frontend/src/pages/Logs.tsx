@@ -88,15 +88,26 @@ function LogsContent() {
   const inFlight = useRef(new Set<string>())
   const [statusAction, setStatusAction] = useState<{ scan: LogScan; status: InventoryStatus } | null>(null)
   const [statusReason, setStatusReason] = useState("")
+  const snapshot = useRef<{ key: string; id: string } | null>(null)
 
   const load = useCallback(async (signal: AbortSignal) => {
-    const result = await api.scanLogs.list(scanLogParams(new URLSearchParams(queryKey)), signal)
+    const params = scanLogParams(new URLSearchParams(queryKey))
+    const key = JSON.stringify({ ...params, page: undefined })
+    let result
+    try {
+      result = await api.scanLogs.list({ ...params, stable: true, snapshot_id: snapshot.current?.key === key ? snapshot.current.id : undefined }, signal)
+    } catch (error) {
+      if (!signal.aborted && typeof error === "object" && error !== null && "status" in error && [409, 410].includes(Number(error.status))) snapshot.current = null
+      throw error
+    }
+    if (!signal.aborted && result.snapshot_id) snapshot.current = { key, id: result.snapshot_id }
     const rows = await Promise.all(result.items.map(mapScan))
     return { result, rows }
   }, [queryKey])
   const resource = useDashboardResource(load)
-  const latestRefresh = useRef(resource.refresh)
-  useEffect(() => { latestRefresh.current = resource.refresh }, [resource.refresh])
+  const refreshSnapshot = useCallback(() => { snapshot.current = null; return resource.refresh() }, [resource.refresh])
+  const latestRefresh = useRef(refreshSnapshot)
+  useEffect(() => { latestRefresh.current = refreshSnapshot }, [refreshSnapshot])
   const response = resource.data?.result
   const filtered = resource.data?.rows ?? []
   const stats = { avgConfidence: response?.avg_confidence, spoilingSoon: response?.at_risk_count, reviewCount: response?.review_count ?? 0 }
@@ -176,7 +187,7 @@ function LogsContent() {
   const exportToCSV = async () => {
     setExporting(true)
     try {
-      await api.scanLogs.export(requestParams, AbortSignal.timeout(60_000))
+      await api.scanLogs.export({ ...requestParams, snapshot_id: response?.snapshot_id }, AbortSignal.timeout(60_000))
       toast.success("Exported all matching scan records")
     } catch (error) { toast.error(error instanceof Error ? error.message : "Export failed") }
     finally { setExporting(false) }
@@ -389,12 +400,12 @@ const columns: ColumnDef<LogScan>[] = [
 
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" role="status" aria-live="polite">
         <span>{resource.error ? response ? "Stale Data" : "Unavailable" : resource.loading ? "Loading…" : "Updated"}</span>
-        {response && <span>Last refreshed {new Date(response.generated_at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila" })}</span>}
-        <Button variant="ghost" size="sm" onClick={() => void resource.refresh()} disabled={resource.loading}><RefreshCw className="size-3.5" /> Refresh</Button>
+        {response && <span>Snapshot {new Date(response.generated_at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila" })} · Asia/Manila</span>}
+        <Button variant="ghost" size="sm" onClick={() => void refreshSnapshot()} disabled={resource.loading}><RefreshCw className="size-3.5" /> Refresh</Button>
       </div>
       {resource.error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
         <strong>{response ? "Scan Logs refresh failed. Showing the last successful results." : "Scan Logs unavailable."}</strong> {resource.error}
-        <Button variant="link" size="sm" onClick={() => void resource.refresh()}>Retry</Button>
+        <Button variant="link" size="sm" onClick={() => void refreshSnapshot()}>Retry</Button>
       </div>}
 
       {/* Stats Cards */}
@@ -414,7 +425,7 @@ const columns: ColumnDef<LogScan>[] = [
           iconColor="text-emerald-600"
           iconBgColor="bg-emerald-500/10"
           delay={100}
-          description="Model confidence"
+          description="Current classification confidence"
         />
         <AppStatsCard
           title="At-Risk Scans"

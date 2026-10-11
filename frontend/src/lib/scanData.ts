@@ -23,6 +23,11 @@ export interface ApiScan {
   source?: string | null
   thumbnail_url?: string | null
   intake_id?: string | null
+  intake_origin_id?: string | null
+  intake_provenance?: string
+  inventory_eligible?: boolean
+  remaining_days?: number | null
+  risk_as_of?: string | null
   inventory_status?: ScanResult["inventoryStatus"]
   status_updated_at?: string | null
   flagged?: boolean
@@ -66,6 +71,11 @@ export function mapApiScan(scan: ApiScan, imageUrl: (path: string) => string = p
     source: scan.source_text ?? scan.supplier_name ?? scan.source ?? undefined,
     thumbnailUrl: scan.thumbnail_url ? imageUrl(scan.thumbnail_url) : undefined,
     intakeId: scan.intake_id ?? undefined,
+    intakeOriginId: scan.intake_origin_id ?? undefined,
+    intakeProvenance: scan.intake_provenance ?? "unverified",
+    inventoryEligible: scan.inventory_eligible === true,
+    remainingDays: scan.remaining_days ?? null,
+    riskAsOf: scan.risk_as_of ?? undefined,
     inventoryStatus: scan.inventory_status,
     statusUpdatedAt: scan.status_updated_at ? storedTimestamp(scan.status_updated_at) : undefined,
     flagged: scan.flagged,
@@ -89,19 +99,22 @@ export function mapApiScanNote(note: ApiScanNote): ScanNote {
   return { id: note.id, scanId: note.scan_id, note: note.text, author: note.author_name, timestamp: storedTimestamp(note.timestamp) }
 }
 
-export interface RecordPage<T> { items: T[]; total: number; page: number; page_size: number }
+export interface RecordPage<T> { items: T[]; total: number; page: number; page_size: number; snapshot_id?: string }
 
 /** Publish a complete history only after every page succeeds. */
 export async function collectScanPages<T extends { id: string }>(
-  fetchPage: (page: number, pageSize: number, signal?: AbortSignal) => Promise<RecordPage<T>>,
+  fetchPage: (page: number, pageSize: number, signal?: AbortSignal, snapshotId?: string) => Promise<RecordPage<T>>,
   signal?: AbortSignal,
 ): Promise<T[]> {
   const records = new Map<string, T>()
   const pageSize = 100
+  let snapshotId: string | undefined
   for (let page = 1; ; page++) {
     signal?.throwIfAborted()
-    const response = await fetchPage(page, pageSize, signal)
+    const response = await fetchPage(page, pageSize, signal, snapshotId)
     signal?.throwIfAborted()
+    if (snapshotId && response.snapshot_id !== snapshotId) throw new Error("Scan snapshot changed. Please retry.")
+    snapshotId = response.snapshot_id
     if (!Array.isArray(response.items) || response.page !== page || !Number.isInteger(response.page_size) || response.page_size < 1 || response.items.length > response.page_size || !Number.isInteger(response.total) || response.total < 0) {
       throw new Error("The server returned an invalid scan history page.")
     }

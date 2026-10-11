@@ -1,6 +1,7 @@
 CURRENT RESUME HERE (2026-10-11)
-TASK: Authorized audit corrections INCOMPLETE. Initial fixes verified; F03/F02 next.
-BRANCH: main; HEAD d1e0220. Preserve committed F01/F04/F07/F09 work. No assistant commit yet.
+TASK: Authorized audit corrections INCOMPLETE. F03/F02/F06 implemented; verification and G01 next.
+BRANCH: main; HEAD 8b0f605. User committed fixes in 65b9de0; preserve unrelated printer
+tracking commits c4d44c0/8b0f605. Working tree was clean on this continuation.
 PLAN: docs/superpowers/plans/2026-10-11-audit-corrections.md. Audit report is historical baseline.
 
 DONE / VERIFIED THIS CONTINUATION
@@ -45,21 +46,21 @@ POLICY DECISIONS (DO NOT ASK AGAIN)
 - F03: exclude deleted-intake and sold/depleted/removed stock; include valid active unlinked.
 - G05: shared intake registry, scan counts scoped to current Operator (Admin global).
 - G01: implement snapshot-stable pagination now. G04: keep no-delete workflow, document limits.
-- New pending question: old deleted intake uses ON DELETE SET NULL, indistinguishable
-  from always-unlinked history. Asked whether grandfather active legacy NULL stock or
-  exclude ambiguous old records; answer required before choosing legacy migration policy.
+- F03 Option 2 explicitly approved: exclude ambiguous legacy NULL-linked stock until
+  reviewed. Preserve records/status/history, add durable provenance for new records,
+  safe audited reconciliation; no invented prior intake relationships.
 
 IN PROGRESS / EXACT NEXT STEP
-1. F03 design: current Scan.intake_id FK SET NULL loses provenance; no delete API exists.
-   Need durable original intake identity for future deletion exclusion, migration backfill,
+1. F03 implemented (uncommitted, PG verification pending): current Scan.intake_id FK SET NULL loses provenance; no delete API exists.
+   Added durable intake_origin_id + linked/unlinked/unverified/excluded provenance, migration0006,
    archive-version adapter compatibility and shared SQL predicate before F02 UI use.
    Existing ScanEvent created payload has no intake ID. Do not infer legacy provenance.
    Relevant: backend models/scan.py, services/dashboard.py/_scoped_projection/_expiring,
    analytics.py/_current_stock, scan_records.py/serialize_scan, scan_service.py created event,
    backup_archive.py (current v2 + strict v1 adapter), migrations/versions/0005.
-2. F02: consume server-authoritative eligibility/remaining-life; Inventory currently parses
-   original estimate and requires Active intake, omitting unlinked. Preserve exact cards/layout.
-3. F06 Analytics cultivar/status filters; G02 labels/time metadata; G01 stable snapshot
+2. F02 implemented: server eligibility/remaining-life, unknown/overdue handling and unlinked FIFO.
+   Reconciliation API uses Admin lock/CAS/idempotency/reason/history; detail controls added (browser test pending).
+3. F06 implemented/verified; G02 partial labels/time metadata. NEXT: G01 stable snapshot
    pages with authorization/filter binding, bounded expiry, complete export semantics.
 4. Final isolated backend/PG + frontend regression, TS/lint/build/security review/scoped diff;
    update follow-up evidence, cleanup task temps, local commit on main after verification.
@@ -74,3 +75,16 @@ RESOURCES / GIT / SAFETY
   browser tests, fixtures and shared harness. Confirm git status on resume.
 - Main only; no live .env/DB/captures/cameras/hardware/retention/restore/power.
   Preserve completed maintenance/scan/logout work and UI. No push/merge/deploy/history rewrite.
+
+LATEST VERIFIED (supersedes earlier pending statements)
+- User approved F03 Option2; new legacy NULL stock excluded until explicit review; no history invented.
+- Frozen archive v2 descriptor before schema edit; new archive v3, strict v1/v2 conversion, legacy NULL=>unverified.
+- Backend policy RED3 failed3.92s; first contract run65passed3failed2PGskipped13.93s (2 new test accessor typos + old depleted-stock expectation). Fixed.
+- Backend policy/archive/migrations/dashboard/analytics/records:68passed2PGskipped13.80s.
+- Independent focused review of 65b9de0 found two F07 races; new RED2failed20.571s. Fixed invalidation after local writes and empty-snapshot stale UI.
+- Full persistence browser suite:15passed0failed10.477558s (includes authoritative risk and both review regressions).
+- Analytics combined filter RED1failed9deselected0.97s. GREEN whole backend analytics10passed1.88s; browser5passed22.7006404s.
+- npm run typecheck passed after F03/F02 controls, before F06 latest changes. Final type/lint/build/PG/security pending.
+- New temporary roots pending cleanup: bv-policy-red-goovgb5s, bv-policy-green-fy2j8dx4, bv-policy-contract-t5bp5n6o, bv-analytics-red-6zbtim9z, bv-analytics-green-xmji6q75.
+- Sandbox failed temp chdir (tests not executed): bv-freeze-v2-a1mfunne (sandbox d7207d60), bv-policy-red-8bnvg08s (sandbox f05f69ef). Empty dirs need identity-checked cleanup.
+- Main HEAD8b0f605; no new assistant commits. Current diff adds provenance model/migration/archive v3, policy service/API/UI, Analytics filters, tests. Preserve printer commits.

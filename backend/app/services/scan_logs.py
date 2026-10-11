@@ -20,6 +20,8 @@ from app.schemas.scan_logs import (
 )
 from app.services import dashboard
 from app.services.scan_evidence import evidence_url
+from app.services.inventory_policy import eligible_stock
+from app.services.scan_snapshots import MAX_ROWS, binding, load_snapshot, save_snapshot, slice_snapshot
 
 
 def _conditions(scans, query: ScanLogQuery, threshold: float):
@@ -116,10 +118,35 @@ async def _options(db: AsyncSession, scans) -> ScanLogOptions:
 async def list_scan_logs(
     db: AsyncSession, user: UserAccount, query: ScanLogQuery,
 ) -> ScanLogList:
+    key = binding("logs", query.model_dump(mode="json", exclude={"page", "snapshot_id", "stable"}))
+    if query.snapshot_id:
+        saved = await load_snapshot(db, user, query.snapshot_id, key)
+        return ScanLogList(**slice_snapshot(saved, query.page, query.page_size))
+    if query.stable:
+        from app.services.auth_service import lock_current_account
+        user = await lock_current_account(db, user)
     now = dashboard.now_manila()
     scans = dashboard._scoped_projection(user, now)
     threshold = await dashboard._threshold(db)
     conditions = _conditions(scans, query, threshold)
+    if query.stable:
+        raw = (await db.execute(select(scans, eligible_stock(scans).label("stock_eligible")).where(*conditions).order_by(*_ordering(scans, query))
+                                .limit(MAX_ROWS + 1))).all()
+        rows = [_row(row) for row in raw]
+        scores = [row.confidence for row in rows if row.confidence is not None]
+        # The SQL projection supplies the same stock predicate used by metrics.
+        # Evaluate it in the capture query, not in a later count/row transaction.
+        # No history/notes or credentials are included in browse payloads.
+        saved = await save_snapshot(db, user, key, {
+            "items": [{**row.model_dump(mode="json"), "username": source.username} for row, source in zip(rows, raw)],
+            "meta": {"generated_at": now.isoformat(), "confidence_threshold": threshold,
+                     "avg_confidence": dashboard._mean(sum(scores) / len(scores)) if scores else None,
+                     "at_risk_count": sum(bool(r.stock_eligible) and r.remaining_days is not None and r.remaining_days <= 2 for r in raw),
+                     "review_count": sum(row.flagged or (row.confidence is not None and row.confidence < threshold) for row in rows),
+                     "flagged_count": sum(row.flagged for row in rows),
+                     "options": (await _options(db, scans)).model_dump(mode="json")},
+        })
+        return ScanLogList(**slice_snapshot(saved, query.page, query.page_size))
     metrics = (await db.execute(
         select(
             func.count().label("total"),
@@ -161,7 +188,21 @@ async def export_scan_logs(db: AsyncSession, user: UserAccount, query: ScanLogQu
         .order_by(*_ordering(scans, query)).execution_options(yield_per=200)
     )
     # Start the query before HTTP headers are sent, so initial DB failures propagate.
-    result = await db.stream(statement)
+    if query.snapshot_id:
+        key = binding("logs", query.model_dump(mode="json", exclude={"page", "snapshot_id", "stable"}))
+        saved = await load_snapshot(db, user, query.snapshot_id, key)
+
+        class SnapshotRows:
+            async def partitions(self, size):
+                for start in range(0, len(saved.payload["items"]), size):
+                    yield saved.payload["items"][start:start + size]
+
+            async def close(self):
+                pass
+
+        result = SnapshotRows()
+    else:
+        result = await db.stream(statement)
 
     async def contents():
         output = io.StringIO(newline="")
@@ -178,9 +219,10 @@ async def export_scan_logs(db: AsyncSession, user: UserAccount, query: ScanLogQu
                 output.seek(0)
                 output.truncate(0)
                 for raw in batch:
-                    row = _row(raw)
+                    row = ScanLogRow.model_validate(raw) if query.snapshot_id else _row(raw)
+                    username = raw["username"] if query.snapshot_id else raw.username
                     writer.writerow([_safe_cell(cell) for cell in [
-                        str(row.id), row.date_time.isoformat(), row.operator_name, raw.username,
+                        str(row.id), row.date_time.isoformat(), row.operator_name, username,
                         row.source_name, row.cultivar, row.ripeness, row.confidence,
                         row.inventory_status, row.flagged, row.spoilage_days, row.remaining_days,
                         row.finger_count, row.temperature, row.humidity,

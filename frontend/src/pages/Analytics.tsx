@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppDataTable } from "@/components/AppDataTable"
 import { AppPageHeader } from "@/components/AppPageHeader"
-import { CultivarEnum, RipenessEnum } from "@/types"
+import { CultivarEnum, InventoryStatusEnum, RipenessEnum } from "@/types"
 import {
   ChartContainer,
   ChartTooltip,
@@ -91,12 +91,16 @@ export default function Analytics() {
 function AnalyticsContent() {
   const [dateRange, setDateRange] = useState<DateRange>("week")
   const [sourceFilter, setSourceFilter] = useState("all")
+  const [cultivarFilter, setCultivarFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
   const [availableSources, setAvailableSources] = useState<AnalyticsSummary["source_options"]>([])
   const fetchAnalytics = useCallback(async (signal: AbortSignal) => {
-    const response = await api.analytics.summary({ range: dateRange, source_key: sourceFilter === "all" ? undefined : sourceFilter }, signal)
+    const response = await api.analytics.summary({ range: dateRange, source_key: sourceFilter === "all" ? undefined : sourceFilter,
+      cultivar: cultivarFilter === "all" ? undefined : cultivarFilter,
+      inventory_status: statusFilter === "all" ? undefined : statusFilter }, signal)
     if (!signal.aborted) setAvailableSources(response.source_options)
     return response
-  }, [dateRange, sourceFilter])
+  }, [dateRange, sourceFilter, cultivarFilter, statusFilter])
   const resource = useDashboardResource(fetchAnalytics)
   // A failed request is never presented as a successful empty dataset or old filter result.
   const summary = resource.error ? null : resource.data
@@ -141,7 +145,7 @@ function AnalyticsContent() {
         description="Insights from your banana classification data"
         icon={BarChart3}
         action={
-          <div className="flex gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             <Select value={sourceFilter} onValueChange={setSourceFilter}>
               <SelectTrigger className="w-[160px] h-10" aria-label="Analytics source">
                 <Package className="w-4 h-4 mr-2" />
@@ -154,6 +158,20 @@ function AnalyticsContent() {
                     {src.name}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select value={cultivarFilter} onValueChange={setCultivarFilter}>
+              <SelectTrigger className="w-[140px] h-10" aria-label="Analytics cultivar"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Cultivars</SelectItem>
+                {Object.values(CultivarEnum).map(value => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px] h-10" aria-label="Analytics stock status"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                {Object.values(InventoryStatusEnum).map(value => <SelectItem key={value} value={value}>{value}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
@@ -194,7 +212,7 @@ function AnalyticsContent() {
           iconColor="text-emerald-600"
           iconBgColor="bg-emerald-500/10"
           delay={100}
-          description={`Model confidence · ${summary.confidence_sample_count} valid results`}
+          description={`Original AI confidence · ${summary.confidence_sample_count} valid results`}
           helpText={summary.metric_definitions.model_confidence}
         />
         <AppStatsCard
@@ -219,10 +237,11 @@ function AnalyticsContent() {
         />
       </div>
 
-      {summary.total_scans === 0 && <p className="text-sm text-muted-foreground" role="status">No scans match this source and date range. The trend below shows its separate 14-day period.</p>}
+      {summary.total_scans === 0 && <p className="text-sm text-muted-foreground" role="status">No scans match this source and date range with the selected cultivar/status. The trend below uses the same filters for its separate 14-day period.</p>}
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer">Metric definitions</summary>
         <div className="space-y-2 mt-2">
+          <p>Business timezone: {summary.timezone}. Refreshed: {summary.generated_at}. Date window: {summary.range_start ?? "All history"} through {summary.range_end}.</p>
           {Object.entries(summary.metric_definitions).map(([key, definition]) => <p key={key}>{definition}</p>)}
           <p>{summary.incomplete_count} scans have incomplete classifications. {summary.risk_unknown_count} current-stock scans have no usable spoilage estimate.</p>
           <p>Human-verified model accuracy: unavailable. No recorded ground-truth verification is available to calculate accuracy.</p>

@@ -12,6 +12,7 @@ const rows = (count = 205) => Array.from({ length: count }, (_, index) => ({
   id: `scan-${index}`, revision: 1, date_time: storedDate(index), cultivar: "Lakatan", ripeness: "Ripe", confidence: 92,
   spoilage_days: "2", finger_count: 7, operator_name: "Test Admin", source_text: index === count - 1 ? "Oldest source" : "Recent source",
   inventory_status: "In Stock", intake_id: index === count - 1 ? "intake-2" : "intake-1", flagged: false, has_notes: false,
+  inventory_eligible: true, intake_provenance: "linked", remaining_days: 2, risk_as_of: "2026-10-02T12:00:00+08:00",
 }))
 const snapshot = page => page.getByTestId("state").textContent().then(JSON.parse)
 async function until(predicate, message = "Condition was not met") {
@@ -81,7 +82,11 @@ async function setup(t, options = {}) {
     if (url.pathname === "/api/v1/config") return reply(state.config)
     if (url.pathname === "/api/v1/devices") return reply([])
     if (url.pathname === "/api/v1/suppliers") return reply(state.suppliers)
-    if (url.pathname === "/api/v1/intakes") return state.failIntakes ? reply({ detail: "Intakes unavailable" }, 503) : reply(state.intakes)
+    if (url.pathname === "/api/v1/intakes") {
+      const payload = structuredClone(state.intakes)
+      if (state.holdIntakes) await state.holdIntakes()
+      return state.failIntakes ? reply({ detail: "Intakes unavailable" }, 503) : reply(payload)
+    }
     if (url.pathname === "/api/v1/scans/scan-0") return reply({ ...state.scans[0], notes: [] })
     if (url.pathname.endsWith("/notes")) return reply([])
     return reply({ detail: `Unexpected test read: ${url.pathname}` }, 404)
@@ -90,7 +95,7 @@ async function setup(t, options = {}) {
   await until(async () => {
     if (!await page.getByTestId("state").count()) return false
     const current = await snapshot(page)
-    return !current.loading && !current.activityLoading && !current.intakesLoading && current.users.length > 0 && current.suppliers.length > 0 && (current.activeIntake || state.failIntakes)
+    return !current.loading && !current.activityLoading && !current.intakesLoading && current.users.length > 0 && current.suppliers.length > 0 && (current.activeIntake || state.failIntakes || state.intakes.length === 0)
   }, "Providers did not finish initial loading")
   return { page, state }
 }
@@ -141,6 +146,46 @@ test("a failed later history page never publishes a partial successful history",
   const current = await snapshot(page)
   assert.deepEqual(current.scans, [])
   assert.match(current.error, /unavailable/i)
+})
+
+test("empty intake snapshot remains visible and labelled stale on refresh failure", async t => {
+  const { page, state } = await setup(t, { screen: "inventory", count: 0, intakes: [] })
+  state.failIntakes = true
+  await page.evaluate(() => { history.pushState({}, '', '/logs?screen=inventory'); window.dispatchEvent(new PopStateEvent('popstate')) })
+  await until(async () => Boolean((await snapshot(page)).intakesError))
+  await page.getByRole("alert").filter({ hasText: /stale/i }).waitFor()
+  assert.equal(await page.getByText("Total Hands", { exact: true }).count(), 1)
+})
+
+test("inventory uses authoritative eligibility and aged remaining life including unlinked stock", async t => {
+  const records = rows(5).map((row, index) => ({ ...row, intake_id: null,
+    intake_provenance: index === 4 ? "unverified" : "unlinked", inventory_eligible: index !== 4,
+    remaining_days: [1.25, -2, null, null, 1][index], spoilage_days: ["8-10", "5", "Unknown", "bad", "1"][index],
+    source_text: ["Aged standalone", "Expired standalone", "Unknown standalone", "Invalid standalone", "Ambiguous legacy"][index],
+    risk_as_of: new Date().toISOString(),
+  }))
+  const { page } = await setup(t, { screen: "inventory", scans: records })
+  await page.getByText("Aged standalone — Lakatan", { exact: true }).waitFor()
+  await page.getByText("Expired standalone — Lakatan", { exact: true }).waitFor()
+  assert.equal(await page.getByText("Ambiguous legacy — Lakatan", { exact: true }).count(), 0)
+  await page.getByText(/2 hands have unknown remaining shelf life/).waitFor()
+  assert.equal(await page.getByText("All stock is fresh", { exact: true }).count(), 0)
+  await page.getByText("Overdue", { exact: true }).first().waitFor()
+})
+
+test("late intake read cannot undo a confirmed bulk update", async t => {
+  const { page, state } = await setup(t, { count: 2, failWrites: false })
+  let release
+  state.holdIntakes = () => new Promise(resolve => { release = resolve })
+  await page.evaluate(() => { history.pushState({}, '', '/logs'); window.dispatchEvent(new PopStateEvent('popstate')) })
+  await until(() => Boolean(release))
+  await page.getByRole("button", { name: "bulk", exact: true }).click()
+  await until(async () => (await snapshot(page)).activeIntake.status === "Depleted")
+  state.holdIntakes = null
+  release()
+  await page.waitForTimeout(150)
+  assert.equal((await snapshot(page)).intakes.find(i => i.id === "intake-1").status, "Depleted")
+  assert.equal((await snapshot(page)).intakesLoading, false)
 })
 
 test("failed refresh retains the previous complete snapshot with an error", async t => {

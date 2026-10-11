@@ -32,6 +32,7 @@ from app.schemas.scan import (
 )
 from app.services.auth_service import lock_current_account
 from app.services.scan_evidence import evidence_url
+from app.services.inventory_policy import inventory_facts
 
 
 def is_admin(user) -> bool:
@@ -100,6 +101,9 @@ def serialize_scan(scan, user):
         ),
         source_text=scan.source_text,
         intake_id=scan.intake_id,
+        intake_origin_id=scan.intake_origin_id,
+        intake_provenance=scan.intake_provenance,
+        **inventory_facts(scan, latest.inventory_status if latest else InventoryStatusEnum.IN_STOCK, now_manila()),
         inventory_status=latest.inventory_status if latest else InventoryStatusEnum.IN_STOCK,
         status_updated_at=latest.updated_at if latest else None,
         flagged=scan.flagged,
@@ -270,7 +274,7 @@ async def mutate_scan(db, scan_id, user, kind, body):
     await lock_mutation(db, body.request_id)
     # Re-read role and session version under lock, including after a queued retry.
     user = await lock_current_account(db, user)
-    if kind in ("correction", "note") and not is_admin(user):
+    if kind in ("correction", "note", "provenance") and not is_admin(user):
         raise ForbiddenException("Admin access required")
     scan = await load_authorized_scan(db, scan_id, user)
     # Bulk inventory and scan attachment share this parent-first lock order.
@@ -285,6 +289,11 @@ async def mutate_scan(db, scan_id, user, kind, body):
         return replay
     if body.expected_revision != scan.revision:
         raise ConflictException("This scan changed. Reload it before saving your changes.")
+    if kind == "provenance" and (
+        scan.intake_id is not None or scan.intake_origin_id is not None
+        or scan.intake_provenance not in ("unverified", "excluded")
+    ):
+        raise ConflictException("Only ambiguous legacy stock can be reconciled. Known intake evidence is retained.")
     changes = body.model_dump(
         exclude={"request_id", "expected_revision", "reason"}, exclude_unset=True
     )

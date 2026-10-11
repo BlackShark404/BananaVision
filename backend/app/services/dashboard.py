@@ -33,6 +33,7 @@ from app.schemas.dashboard import (
     DashboardView,
 )
 from app.schemas.enums import InventoryStatusEnum, RoleEnum
+from app.services.inventory_policy import PREDICTION_PATTERN, eligible_stock
 
 DEFAULT_CONFIDENCE_THRESHOLD = 85.0
 WHITESPACE = " \t\r\n\v\f\u00a0"
@@ -49,8 +50,7 @@ def _prediction_days():
     reversed and nonfinite predictions become null instead of expiring stock.
     """
     raw = func.btrim(ScanClassification.spoilage_days, WHITESPACE)
-    number = r"([0-9]+([.][0-9]+)?|[.][0-9]+)"
-    valid = raw.regexp_match(rf"^{number}([ \t\r\n]*-[ \t\r\n]*{number})?$")
+    valid = raw.regexp_match(PREDICTION_PATTERN)
     lower = case((valid, cast(func.split_part(raw, "-", 1), Float)), else_=None)
     upper_text = func.nullif(func.btrim(func.split_part(raw, "-", 2), WHITESPACE), "")
     upper = case((valid, cast(upper_text, Float)), else_=None)
@@ -104,6 +104,9 @@ def _scoped_projection(user: UserAccount, now: datetime):
             Scan.flagged,
             Scan.is_overridden,
             Scan.intake_id,
+            Scan.intake_origin_id,
+            Scan.intake_provenance,
+            Intake.status.label("intake_status"),
             Scan.source_text.label("original_source_text"),
             Intake.source.label("legacy_intake_source"),
             Scan.operator_id,
@@ -184,7 +187,7 @@ def _successful(scans, threshold: float):
 
 def _expiring(scans):
     return and_(
-        scans.c.inventory_status == InventoryStatusEnum.IN_STOCK,
+        eligible_stock(scans),
         scans.c.remaining_days <= 2,
     )
 

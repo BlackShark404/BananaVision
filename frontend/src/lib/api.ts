@@ -153,7 +153,7 @@ export const api = {
     trigger: (data: { source?: string; intake_id?: string }) =>
       post<ApiScan>("/api/v1/scans/trigger", { source_text: data.source, intake_id: data.intake_id }),
 
-    list: (params?: { page?: number; page_size?: number; cultivar?: string; ripeness?: string; flagged?: boolean }, signal?: AbortSignal) =>
+    list: (params?: { page?: number; page_size?: number; cultivar?: string; ripeness?: string; flagged?: boolean; stable?: boolean; snapshot_id?: string }, signal?: AbortSignal) =>
       get<RecordPage<ApiScan>>("/api/v1/scans", params, signal),
 
     detail: (id: string, signal?: AbortSignal) => get<ApiScan>(`/api/v1/scans/${id}`, undefined, signal),
@@ -166,6 +166,9 @@ export const api = {
 
     updateStatus: (id: string, data: ScanMutationEnvelope & { inventory_status: InventoryStatus; reason: string }) =>
       patch<ApiScan>(`/api/v1/scans/${id}/status`, data),
+
+    reviewProvenance: (id: string, data: ScanMutationEnvelope & { intake_provenance: "unlinked" | "excluded"; reason: string }) =>
+      patch<ApiScan>(`/api/v1/scans/${id}/provenance`, data),
 
     notes: {
       list: (scanId: string) => get<ApiScanNote[]>(`/api/v1/scans/${scanId}/notes`),
@@ -247,9 +250,9 @@ export const api = {
 
   // ── Analytics ────────────────────────────────────────────────────────────
   analytics: {
-    summary: (params?: { range?: AnalyticsRange; source?: string; source_key?: string; confidence_threshold?: number }, signal?: AbortSignal) =>
+    summary: (params?: { range?: AnalyticsRange; source?: string; source_key?: string; confidence_threshold?: number; cultivar?: string; inventory_status?: string }, signal?: AbortSignal) =>
       get<AnalyticsSummary>("/api/v1/analytics/summary", params, signal),
-    operatorPerformance: (params?: { range?: AnalyticsRange; source?: string; source_key?: string }, signal?: AbortSignal) =>
+    operatorPerformance: (params?: { range?: AnalyticsRange; source?: string; source_key?: string; cultivar?: string; inventory_status?: string }, signal?: AbortSignal) =>
       get<{ items: AnalyticsOperator[]; total_operators: number }>("/api/v1/analytics/operator-performance", params, signal),
   },
 

@@ -29,6 +29,16 @@ class Scan(Base):
     )
     intake_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("delivery_intake.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # No FK: this evidence must survive a parent's deletion. Unknown legacy
+    # provenance stays excluded until an administrator records a review.
+    intake_origin_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True,
+        default=lambda context: context.get_current_parameters().get("intake_id"),
+    )
+    intake_provenance: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="unverified",
+        default=lambda context: "linked" if context.get_current_parameters().get("intake_id") else "unlinked",
+    )
     source_text: Mapped[str | None] = mapped_column(String(100), nullable=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     operator_name_snapshot: Mapped[str | None] = mapped_column(String(100), nullable=True)

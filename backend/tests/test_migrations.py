@@ -31,7 +31,7 @@ def assert_upgraded(connection):
     }
     assert (
         connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        == "0005_scan_record_history"
+        == "0006_inventory_provenance"
     )
 
 
@@ -61,7 +61,7 @@ def test_current_schema_adopts_revision_without_duplicate_columns():
                 assert [column["name"] for column in inspect(connection).get_columns(table)] == columns
             assert (
                 connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                == "0005_scan_record_history"
+                == "0006_inventory_provenance"
             )
     finally:
         engine.dispose()
@@ -95,6 +95,22 @@ def test_scan_history_upgrade_preserves_old_rows():
     engine.dispose()
 
 
+def test_provenance_migration_quarantines_legacy_null_without_changing_stock():
+    engine = create_engine("sqlite://")
+    with engine.begin() as connection:
+        legacy_schema(connection)
+        connection.execute(text("CREATE TABLE scan (id CHAR(32) PRIMARY KEY, intake_id CHAR(32))"))
+        connection.execute(text("INSERT INTO scan VALUES ('linked', 'known-intake'), ('ambiguous', NULL)"))
+        upgrade_connection(connection)
+        assert connection.execute(text("SELECT id, intake_origin_id, intake_provenance FROM scan ORDER BY id")).all() == [
+            ('ambiguous', None, 'unverified'), ('linked', 'known-intake', 'linked')]
+        connection.execute(text("UPDATE scan SET intake_provenance='unlinked' WHERE id='ambiguous'"))
+        upgrade_connection(connection)
+        assert connection.execute(text("SELECT intake_provenance FROM scan WHERE id='ambiguous'")).scalar_one() == 'unlinked'
+        assert connection.execute(text('SELECT COUNT(*) FROM scan_event')).scalar_one() == 0
+    engine.dispose()
+
+
 @pytest.mark.asyncio
 @pytest.mark.skipif(not os.environ.get("BANANAVISION_TEST_DATABASE_URL"), reason="Optional isolated PostgreSQL instance")
 @pytest.mark.parametrize("legacy", [False, True])
@@ -120,7 +136,7 @@ async def test_postgresql_schema_startup_upgrade(legacy):
             async with engine.begin() as connection:
                 assert (
                     await connection.execute(text("SELECT version_num FROM alembic_version"))
-                ).scalar_one() == "0005_scan_record_history"
+                ).scalar_one() == "0006_inventory_provenance"
         async with engine.begin() as connection:
             await connection.run_sync(upgrade_connection)
             if legacy:

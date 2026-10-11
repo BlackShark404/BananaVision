@@ -65,6 +65,31 @@ async def test_empty_dataset_has_no_fabricated_confidence_or_accuracy(analytics_
 
 
 @pytest.mark.asyncio
+async def test_combined_cultivar_status_filters_scope_every_chart_and_fixed_trend(analytics_db):
+    db = analytics_db
+    owner, other = account(db), account(db)
+    for who, source, cultivar, status in [
+        (owner, "Farm A", "Cardaba", InventoryStatusEnum.SOLD),
+        (owner, "Farm A", "Lakatan", InventoryStatusEnum.SOLD),
+        (owner, "Farm A", "Cardaba", InventoryStatusEnum.IN_STOCK),
+        (owner, "Farm B", "Cardaba", InventoryStatusEnum.SOLD),
+        (other, "Farm A", "Cardaba", InventoryStatusEnum.SOLD),
+    ]:
+        scan_id = scan(db, who, source=source, statuses=[(NOW, status)])
+        db.session.execute(update(ScanClassification).where(ScanClassification.scan_id == scan_id).values(cultivar=cultivar))
+    result = await analytics.get_summary(db, owner, date_range="today", source_key="text:Farm A",
+        cultivar=CultivarEnum.CARDABA, inventory_status=InventoryStatusEnum.SOLD)
+    assert result.total_scans == result.classification_count == result.confidence_sample_count == 1
+    assert sum(item.count for item in result.scan_trend) == 1
+    assert sum(item.count for item in result.hourly_distribution) == 1
+    assert result.current_stock_count == 0
+    assert {option.name for option in result.source_options} == {"Farm A", "Farm B"}
+    operators = await analytics.get_operator_performance(db, owner, date_range="today",
+        source_key="text:Farm A", cultivar=CultivarEnum.CARDABA, inventory_status=InventoryStatusEnum.SOLD)
+    assert operators.items[0].total_scans == 1
+
+
+@pytest.mark.asyncio
 async def test_manila_today_midnight_and_hourly_grouping(analytics_db):
     db = analytics_db
     user = account(db)

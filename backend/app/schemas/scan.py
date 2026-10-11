@@ -5,7 +5,7 @@ Pydantic schemas for scan-related requests/responses.
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 from app.schemas.timestamps import Timestamp
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
@@ -57,6 +57,11 @@ class ScanNoteCreate(ScanMutationRequest):
 class ScanStatusUpdate(ScanMutationRequest):
     reason: Reason
     inventory_status: InventoryStatusEnum
+
+
+class ScanProvenanceReview(ScanMutationRequest):
+    reason: Reason
+    intake_provenance: Literal["unlinked", "excluded"]
 
 
 # ── Responses ────────────────────────────────────────────────────────────────
@@ -142,6 +147,11 @@ class ScanResponse(BaseModel):
     source_text: str | None = None
     intake_id: uuid.UUID | None = None
     inventory_status: InventoryStatusEnum
+    intake_origin_id: uuid.UUID | None = None
+    intake_provenance: str = "unverified"
+    inventory_eligible: bool = False
+    remaining_days: float | None = None
+    risk_as_of: Timestamp | None = None
     status_updated_at: Timestamp | None = None
     flagged: bool = False
     is_overridden: bool = False
@@ -175,6 +185,8 @@ class ScanDetailResponse(ScanResponse):
 
 
 class ScanListResponse(BaseModel):
+    snapshot_id: uuid.UUID | None = None
+    snapshot_expires_at: Timestamp | None = None
     items: list[ScanResponse]
     total: int
     page: int

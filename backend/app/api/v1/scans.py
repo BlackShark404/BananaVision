@@ -25,7 +25,7 @@ from app.schemas.scan import (
     ScanDetailResponse,
     ScanListResponse,
     ScanNoteResponse,
-    ScanStatusUpdate, ScanNoteWriteResponse, ScanHistoryResponse,
+    ScanStatusUpdate, ScanNoteWriteResponse, ScanHistoryResponse, ScanProvenanceReview,
 )
 from app.services.scan_records import (
     load_authorized_scan,
@@ -70,8 +70,18 @@ async def list_scans(
     cultivar: str | None = None,
     ripeness: str | None = None,
     flagged: bool | None = None,
+    stable: bool = False,
+    snapshot_id: uuid.UUID | None = None,
 ):
     """List scans with pagination and filtering."""
+    from app.services.scan_snapshots import MAX_ROWS, binding, load_snapshot, save_snapshot, slice_snapshot
+    key = binding("history", dict(page_size=page_size, cultivar=cultivar, ripeness=ripeness, flagged=flagged))
+    if snapshot_id:
+        saved = await load_snapshot(db, user, snapshot_id, key)
+        return ScanListResponse(**slice_snapshot(saved, page, page_size))
+    if stable:
+        from app.services.auth_service import lock_current_account
+        user = await lock_current_account(db, user)
     query = select(Scan).where(scan_scope(user)).outerjoin(Scan.classification).options(
         selectinload(Scan.classification),
         selectinload(Scan.status_logs),
@@ -87,6 +97,15 @@ async def list_scans(
         query = query.where(ScanClassification.ripeness == ripeness)
     if flagged is not None:
         query = query.where(Scan.flagged == flagged)
+
+    if stable:
+        # Hold scan read locks while select-in relationships are hydrated. All
+        # supported scan writers lock this parent before changing its children.
+        scans = (await db.execute(query.limit(MAX_ROWS + 1).with_for_update(read=True, of=Scan))).scalars().all()
+        saved = await save_snapshot(db, user, key, {
+            "items": [serialize_scan(scan, user).model_dump(mode="json") for scan in scans],
+        })
+        return ScanListResponse(**slice_snapshot(saved, page, page_size))
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
@@ -134,6 +153,13 @@ async def update_scan_status(
 @router.post("/{scan_id}/notes", response_model=ScanNoteWriteResponse)
 async def add_note(scan_id: uuid.UUID, body: ScanNoteCreate, db: DbSession, user: AdminUser):
     return await mutate_scan(db, scan_id, user, "note", body)
+
+
+@router.patch("/{scan_id}/provenance", response_model=ScanDetailResponse)
+async def review_provenance(
+    scan_id: uuid.UUID, body: ScanProvenanceReview, db: DbSession, user: AdminUser
+):
+    return await mutate_scan(db, scan_id, user, "provenance", body)
 
 
 @router.get("/{scan_id}/history", response_model=list[ScanHistoryResponse])

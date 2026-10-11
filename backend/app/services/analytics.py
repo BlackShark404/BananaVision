@@ -16,7 +16,6 @@ from sqlalchemy import and_, case, extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import TIMEZONE_NAME, as_manila, business_day_bounds, now_manila
-from app.models.intake import Intake
 from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.models.user_account import UserAccount
 from app.schemas.analytics import (
@@ -24,24 +23,25 @@ from app.schemas.analytics import (
     OperatorPerformance, OperatorPerformanceList, RipenessConfidence,
     RipenessDistribution, ScanTrend, SourceCount, SourceOption,
 )
-from app.schemas.enums import CultivarEnum, IntakeStatusEnum, InventoryStatusEnum, RipenessEnum
+from app.schemas.enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
 from app.services.dashboard import (
     _expiring, _mean, _scoped_projection, _source, _source_filter, _threshold,
 )
+from app.services.inventory_policy import eligible_stock
 
 DateRange = Literal["today", "week", "month", "all"]
 
 METRIC_DEFINITIONS = {
-    "throughput": "Every scan in the selected source and calendar-day range, including incomplete classifications. Today, Last 7 Days and Last 30 Days include the current business day through the refresh time; future-dated records are excluded.",
+    "throughput": "Every scan in the selected source, current cultivar, inventory status and calendar-day range, including incomplete classifications. Today, Last 7 Days and Last 30 Days include the current business day through the refresh time; future-dated records are excluded.",
     "classifications": "Current classifications with both a recognized cultivar and ripeness. Missing or unknown labels are excluded from every classification chart and its percentage denominator, but remain in total scans.",
     "model_confidence": "Mean model confidence from complete, recognized AI classifications with a finite score from 0 to 100. Uses the saved original AI result when available; excludes human-overridden results without an original prediction. This is not measured accuracy.",
     "low_confidence": "Model-confidence samples strictly below the configured threshold, divided by all valid model-confidence samples. Missing, incomplete and invalid predictions are excluded from both numerator and denominator.",
-    "inventory_risk": "Scans in the selected source and date range whose latest inventory status is In Stock and whose intake is Active or absent. Sold, Spoiled, For Processing and depleted intakes are excluded. Remaining days equals the original estimate (range midpoint) minus elapsed time since scanning; two days or less includes overdue stock. Invalid estimates are reported as unknown risk.",
+    "inventory_risk": "Scans in the selected source/cultivar/status and date range whose latest inventory status is In Stock and whose known intake is Active or whose unlinked provenance is verified. Deleted-intake and ambiguous legacy stock are excluded. Sold, Spoiled, For Processing and depleted intakes are excluded. Remaining days equals the original estimate (range midpoint) minus elapsed time since scanning; two days or less includes overdue stock. Invalid estimates are reported as unknown risk.",
     "confidence_by_ripeness": "Valid model-confidence samples grouped by the AI prediction's ripeness, using the original prediction when saved. Each count is the denominator of its mean; it may differ from current classification counts after corrections.",
-    "trend": "All scans from the selected source during the last 14 business calendar days, including today through the refresh time. This fixed window is independent of the selected date range.",
+    "trend": "All scans from the selected source/cultivar/status during the last 14 business calendar days, including today through the refresh time. This fixed window is independent of the selected date range.",
     "sources": "Scan counts grouped by stable supplier identity when linked; otherwise by recorded source text. Filter choices include all sources with accessible scan history and do not shrink when filters change.",
-    "operators": "All scans in the selected source and date range, grouped by stable operator ID. Mean confidence uses the same valid model-confidence population as the confidence KPI. Flag rate divides flagged scans by all scans for that operator; overrides are not verified accuracy.",
-    "hourly": "Every scan in the selected source and date range, grouped by business-local hour.",
+    "operators": "All scans in the selected source/cultivar/status and date range, grouped by stable operator ID. Mean confidence uses the same valid model-confidence population as the confidence KPI. Flag rate divides flagged scans by all scans for that operator; overrides are not verified accuracy.",
+    "hourly": "Every scan in the selected source/cultivar/status and date range, grouped by business-local hour.",
     "human_verified_accuracy": "Unavailable: the system has no independently verified ground-truth labels or review-completion record. Flags and manual overrides alone cannot establish model accuracy.",
 }
 
@@ -69,24 +69,32 @@ def _projection(user: UserAccount, now: datetime):
     return (
         select(
             scans,
-            Intake.status.label("intake_status"),
             model_value(original.cultivar, scans.c.cultivar).label("model_cultivar"),
             model_value(original.ripeness, scans.c.ripeness).label("model_ripeness"),
             model_value(original.confidence, scans.c.confidence).label("model_confidence"),
         )
         .select_from(scans)
         .outerjoin(original, original.scan_id == scans.c.id)
-        .outerjoin(Intake, Intake.id == scans.c.intake_id)
         .subquery("analytics_scans")
     )
 
 
-def _conditions(scans, range_key: DateRange, now: datetime, source_key, source):
+def _conditions(scans, range_key: DateRange, now: datetime, source_key, source, cultivar=None, inventory_status=None):
     conditions = [scans.c.date_time <= now]
     start = _range_start(range_key, now)
     if start is not None:
         conditions.append(scans.c.date_time >= start)
     conditions.extend(_source_conditions(scans, source_key, source))
+    conditions.extend(_classification_conditions(scans, cultivar, inventory_status))
+    return conditions
+
+
+def _classification_conditions(scans, cultivar, inventory_status):
+    conditions = []
+    if cultivar is not None:
+        conditions.append(scans.c.cultivar == cultivar)
+    if inventory_status is not None:
+        conditions.append(scans.c.inventory_status == inventory_status)
     return conditions
 
 
@@ -115,10 +123,7 @@ def _confidence(scans):
 
 
 def _current_stock(scans):
-    return and_(
-        scans.c.inventory_status == InventoryStatusEnum.IN_STOCK,
-        or_(scans.c.intake_id.is_(None), scans.c.intake_status == IntakeStatusEnum.ACTIVE),
-    )
+    return eligible_stock(scans)
 
 
 def _label(value):
@@ -152,11 +157,12 @@ async def get_summary(
     db: AsyncSession, user: UserAccount, *, date_range: DateRange = "week",
     source_key: str | None = None, source: str | None = None,
     confidence_threshold: float | None = None,
+    cultivar: CultivarEnum | None = None, inventory_status: InventoryStatusEnum | None = None,
 ) -> AnalyticsSummary:
     now = as_manila(now_manila())
     today = now.date()
     scans = _projection(user, now)
-    conditions = _conditions(scans, date_range, now, source_key, source)
+    conditions = _conditions(scans, date_range, now, source_key, source, cultivar, inventory_status)
     threshold = await _threshold(db) if confidence_threshold is None else confidence_threshold
     complete = _complete(scans.c.cultivar, scans.c.ripeness)
     valid_confidence = _confidence(scans)
@@ -221,6 +227,7 @@ async def get_summary(
             scans.c.date_time >= business_day_bounds(trend_start)[0],
             scans.c.date_time <= now,
             *_source_conditions(scans, source_key, source),
+            *_classification_conditions(scans, cultivar, inventory_status),
         )
         .group_by(local_day)
     )).all()
@@ -269,8 +276,9 @@ async def get_summary(
 async def get_operator_performance(
     db: AsyncSession, user: UserAccount, *, date_range: DateRange = "week",
     source_key: str | None = None, source: str | None = None,
+    cultivar: CultivarEnum | None = None, inventory_status: InventoryStatusEnum | None = None,
 ) -> OperatorPerformanceList:
     now = as_manila(now_manila())
     scans = _projection(user, now)
-    items = await _operators(db, scans, _conditions(scans, date_range, now, source_key, source))
+    items = await _operators(db, scans, _conditions(scans, date_range, now, source_key, source, cultivar, inventory_status))
     return OperatorPerformanceList(items=items, total_operators=len(items))

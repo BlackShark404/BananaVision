@@ -42,6 +42,9 @@ TABLE_NAMES = frozenset({
 LEGACY_SCHEMA = json.loads(
     Path(__file__).with_name("archive_schema_v1.json").read_text(encoding="utf-8")
 )
+V2_SCHEMA = json.loads(
+    Path(__file__).with_name("archive_schema_v2.json").read_text(encoding="utf-8")
+)
 MAX_ARCHIVE_BYTES = 4 * 1024**3
 MAX_EXPANDED_BYTES = 8 * 1024**3
 MAX_FILE_BYTES = 256 * 1024**2
@@ -203,6 +206,15 @@ def _row(table, value):
             result[column.name] = None
         else:
             result[column.name] = _typed(item, column.type)
+    if table.name == "scan":
+        provenance, origin, intake = result["intake_provenance"], result["intake_origin_id"], result["intake_id"]
+        if provenance not in ("linked", "unlinked", "unverified", "excluded"):
+            raise ArchiveError("Invalid intake provenance")
+        if provenance == "linked":
+            if origin is None or (intake is not None and intake != origin):
+                raise ArchiveError("Inconsistent linked intake provenance")
+        elif origin is not None or intake is not None:
+            raise ArchiveError("Inconsistent unlinked intake provenance")
     return result
 
 
@@ -321,7 +333,7 @@ async def create_archive(db, capture_root: Path, destination: Path) -> dict:
     partial = owned / "archive.zip"
     try:
         _space(owned, RESERVE_BYTES)
-        manifest = {"format": "bananavision-station", "version": 2,
+        manifest = {"format": "bananavision-station", "version": 3,
                     "application_version": "0.1.0", "created_at": now_manila().isoformat(),
                     "schema": schema_description(), "tables": {}, "files": {},
                     "prerequisites": {"database": "PostgreSQL", "timezone": "Asia/Manila",
@@ -493,8 +505,8 @@ def _check_constraints(validated):
         (validated.staging_root / "constraints.sqlite").unlink(missing_ok=True)
 
 
-def _upgrade_v1_staging(manifest, root):
-    """Adapt strictly validated v1 rows; keep the source version for the preview.
+def _upgrade_legacy_staging(manifest, root):
+    """Adapt strictly validated v1/v2 rows; keep source version for the preview.
 
     The original archive hash remains authoritative. Only private staged rows and
     their descriptors change, so restore/compensation verify exactly what is inserted.
@@ -503,16 +515,17 @@ def _upgrade_v1_staging(manifest, root):
     defaults = {
         "scan": {"revision": 1, "operator_name_snapshot": None, "source_name_snapshot": None},
         "scan_original_ai_result": {"spoilage_days": None},
-    }
+    } if manifest["version"] == 1 else {}
+    legacy_schema = LEGACY_SCHEMA if manifest["version"] == 1 else V2_SCHEMA
     for table in application_tables():
         path = root / "tables" / f"{table.name}.jsonl"
-        if table.name not in LEGACY_SCHEMA:
+        if table.name not in legacy_schema:
             path.write_bytes(b"")
             manifest["tables"][table.name] = _descriptor(0, hashlib.sha256(b"").hexdigest(), 0)
             continue
         replacement = path.with_suffix(".upgraded")
         count, size, digest = 0, 0, hashlib.sha256()
-        spec = LEGACY_SCHEMA[table.name]
+        spec = legacy_schema[table.name]
         with path.open("rb") as source, replacement.open("xb") as target:
             while line := source.readline(MAX_ROW_BYTES + 1):
                 if len(line) > MAX_ROW_BYTES or not line.endswith(b"\n"):
@@ -526,6 +539,9 @@ def _upgrade_v1_staging(manifest, root):
                     if row[name] is not None:
                         _typed(row[name], table.c[name].type)
                 row.update(defaults.get(table.name, {}))
+                if table.name == "scan":
+                    row.update(intake_origin_id=row["intake_id"],
+                               intake_provenance="linked" if row["intake_id"] else "unverified")
                 _row(table, row)
                 encoded = _dump(row) + b"\n"
                 if len(encoded) > MAX_ROW_BYTES:
@@ -578,10 +594,10 @@ def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
             if (
                 manifest["format"] != "bananavision-station"
                 or type(manifest["version"]) is not int
-                or manifest["version"] not in (1, 2)
+                or manifest["version"] not in (1, 2, 3)
             ):
                 raise ArchiveError("Unsupported archive version")
-            expected_schema = LEGACY_SCHEMA if manifest["version"] == 1 else schema_description()
+            expected_schema = {1: LEGACY_SCHEMA, 2: V2_SCHEMA}.get(manifest["version"], schema_description())
             if manifest["application_version"] != "0.1.0" or manifest["schema"] != expected_schema:
                 raise ArchiveError("Incompatible archive schema")
             _typed(manifest["created_at"], ManilaDateTime())
@@ -620,8 +636,8 @@ def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
                 path = evidence_root.joinpath(*name.split("/"))
                 _copy_member(source, f"evidence/{name}", path, descriptor)
                 evidence[name] = path
-        if manifest["version"] == 1:
-            _upgrade_v1_staging(manifest, owned)
+        if manifest["version"] in (1, 2):
+            _upgrade_legacy_staging(manifest, owned)
         validated = ValidatedBackup(manifest, owned, evidence_root, evidence, _hash_file(archive))
         _check_constraints(validated)
         return validated

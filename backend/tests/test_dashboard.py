@@ -244,7 +244,7 @@ async def test_expiry_ages_ranges_and_uses_latest_status_with_id_tiebreak(db):
 
 
 @pytest.mark.asyncio
-async def test_supplier_identity_precedes_text_and_depleted_intake_keeps_stock(db):
+async def test_supplier_identity_precedes_text_and_depleted_intake_excludes_stock(db):
     operator = account(db)
     supplier_id, intake_id = uuid4(), uuid4()
     db.add(Supplier, id=supplier_id, name="Supplier Name")
@@ -266,7 +266,7 @@ async def test_supplier_identity_precedes_text_and_depleted_intake_keeps_stock(d
     for key, expected in filters:
         result = await dashboard.list_scans(db, operator, source_key=key)
         assert result.total == 1 and result.items[0].id == expected
-    assert summary.expiring_stock_count == 1
+    assert summary.expiring_stock_count == 0
     db.session.execute(
         update(Supplier).where(Supplier.id == supplier_id).values(name="Renamed Supplier")
     )

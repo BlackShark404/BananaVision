@@ -76,6 +76,10 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
   const loadSeq = useRef(0)
   const hasIntakeSnapshot = useRef(false)
   const cancelLoad = useCallback(() => { ++loadSeq.current }, [])
+  const acceptWrite = useCallback(() => {
+    ++loadSeq.current
+    setIntakesLoading(false)
+  }, [])
 
   // ── Load data on mount / navigation ─────────────────────────────────────
 
@@ -141,21 +145,23 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
   const startIntake = useCallback(async (supplierId: string, batchNumber: string, treatment?: string) => {
     const resp = await api.intakes.create({ supplier_id: supplierId, batch_number: batchNumber, source: "Kiosk", treatment: treatment || "Natural" })
     const newIntake = mapApiIntake(resp)
+    acceptWrite()
     setIntakes((prev) => [newIntake, ...prev])
     setActiveIntake(newIntake)
     return newIntake
-  }, [])
+  }, [acceptWrite])
 
   const bulkUpdateIntakeInventory = useCallback(async (intakeId: string, status: InventoryStatus, reason: string, revisions: Record<string, number>) => {
     await scanWrite(`${user?.id}:${intakeId}:bulk`, { inventory_status: status, reason, expected_revisions: revisions }, async body => {
       const result = await api.intakes.bulkInventory(intakeId, body)
+      acceptWrite()
       setIntakes((prev) => prev.map((i) => (i.id === intakeId ? { ...i, status: result.intake_status } : i)))
       setActiveIntake((current) => current?.id === intakeId ? { ...current, status: result.intake_status } : current)
       // Only change records and timestamps confirmed by the persisted response.
       updateScansForIntake(result.updated_scan_ids, status, result.status_updated_at, result.revisions)
       return result
     })
-  }, [updateScansForIntake, user?.id])
+  }, [updateScansForIntake, user?.id, acceptWrite])
 
   // ── Supplier Operations ─────────────────────────────────────────────────
 

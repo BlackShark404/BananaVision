@@ -114,3 +114,18 @@ test("failed Analytics refresh shows an error with retry instead of stale values
   await page.getByRole("button", { name: "Retry" }).click()
   await expectCount(page, 19)
 })
+
+test("cultivar and status selections combine with source and date filters", async t => {
+  const { page, state } = await setup(t)
+  await expectCount(page, 12)
+  for (const [label, option] of [["Analytics source", "Renamed Supplier"], ["Analytics date range", "Today"], ["Analytics cultivar", "Cardaba"], ["Analytics stock status", "Sold"]]) {
+    await page.getByRole("combobox", { name: label }).click()
+    await page.getByRole("option", { name: option, exact: true }).click()
+  }
+  await expectCount(page, 12)
+  const query = state.requests.at(-1)
+  assert.equal(query.get("source_key"), "supplier:source-a")
+  assert.equal(query.get("range"), "today")
+  assert.equal(query.get("cultivar"), "Cardaba")
+  assert.equal(query.get("inventory_status"), "Sold")
+})

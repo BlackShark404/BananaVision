@@ -122,6 +122,11 @@ export interface ScanResult {
   isOverridden?: boolean
   originalAiResult?: Partial<ScanResult>
   intakeId?: string
+  intakeOriginId?: string
+  intakeProvenance?: string
+  inventoryEligible?: boolean
+  remainingDays?: number | null
+  riskAsOf?: string
   qrCode?: string
   hasNotes?: boolean
   images?: { camera_id: string; file_path: string }[]

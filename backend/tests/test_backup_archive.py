@@ -136,7 +136,7 @@ def rewrite(path, *, edit_manifest=None, edit_row=None, extra=None, omit=None):
 def test_complete_all_table_roundtrip_preserves_values_and_instants(archive_module, station, tmp_path):
     path = backup(archive_module, station, tmp_path)
     validated = archive_module.validate_archive(path, tmp_path / "staging")
-    assert validated.manifest["version"] == 2
+    assert validated.manifest["version"] == 3
     assert len(validated.manifest["tables"]) == 21
     assert all(t["count"] == 1 for t in validated.manifest["tables"].values())
     assert "maintenance_state" not in validated.manifest["tables"]
@@ -156,20 +156,20 @@ def test_complete_all_table_roundtrip_preserves_values_and_instants(archive_modu
         assert restored.scalar(select(m.OperatorProfile)).pin_hash == "original-pin-hash"
         assert restored.scalar(select(m.UserAccount)).password_hash == station[0].scalar(select(m.UserAccount)).password_hash
         for table in Base.metadata.sorted_tables:
-            if table.name != "maintenance_state":
+            if table.name not in ("maintenance_state", "scan_browse_snapshot"):
                 assert len(restored.execute(select(table)).all()) == 1
     engine.dispose()
 
 
-def legacy_backup(archive_module, station, tmp_path, *, bad_null=False):
+def legacy_backup(archive_module, station, tmp_path, *, bad_null=False, version=1):
     path = backup(archive_module, station, tmp_path)
     with zipfile.ZipFile(path) as source:
         members = {name: source.read(name) for name in source.namelist()}
     manifest = json.loads(members['manifest.json'])
     legacy = json.loads(
-        Path(archive_module.__file__).with_name("archive_schema_v1.json").read_text()
+        Path(archive_module.__file__).with_name(f"archive_schema_v{version}.json").read_text()
     )
-    manifest.update(version=1, schema=legacy)
+    manifest.update(version=version, schema=legacy)
     for table in list(manifest['tables']):
         name = f'tables/{table}.jsonl'
         if table not in legacy:
@@ -212,6 +212,17 @@ def test_v1_backup_still_enforces_legacy_required_values(archive_module, station
     path = legacy_backup(archive_module, station, tmp_path, bad_null=True)
     with pytest.raises(archive_module.ArchiveError, match='Null'):
         archive_module.validate_archive(path, tmp_path / 'bad-legacy')
+
+
+@pytest.mark.parametrize("version", [1, 2])
+def test_legacy_archive_quarantines_unknown_provenance(archive_module, station, tmp_path, version):
+    station[0].execute(m.Scan.__table__.update().values(intake_id=None))
+    station[0].commit()
+    path = legacy_backup(archive_module, station, tmp_path, version=version)
+    validated = archive_module.validate_archive(path, tmp_path / 'legacy-provenance')
+    rows = list(validated.iter_rows("scan"))
+    assert rows[0]['intake_provenance'] == 'unverified'
+    assert rows[0]['intake_origin_id'] is None
 
 
 @pytest.mark.parametrize("mutation", ["version", "schema", "count", "hash", "unknown", "missing", "traversal", "duplicate", "symlink", "case_collision", "bad_type", "bad_enum", "bad_fk", "bad_unique", "no_admin", "naive_time"])

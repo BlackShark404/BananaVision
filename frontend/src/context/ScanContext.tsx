@@ -98,7 +98,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
     setScansLoading(true)
     setScansError(null)
     try {
-      const raw = await collectScanPages((page, page_size, signal) => api.scans.list({ page, page_size }, signal), controller.signal)
+      const raw = await collectScanPages((page, page_size, signal, snapshot_id) => api.scans.list({ page, page_size, stable: true, snapshot_id }, signal), controller.signal)
       if (controller.signal.aborted || !mounted.current) return
       const mapped = raw.map(record => acceptScan(record))
       if (!controller.signal.aborted && mounted.current) setScans(mapped)
@@ -263,7 +263,8 @@ function ScanStore({ children }: { children: React.ReactNode }) {
       const known = knownScans.current.get(id)
       const revision = revisions[id]
       if (known && Number.isInteger(revision) && revision > (known.revision ?? 0)) {
-        knownScans.current.set(id, { ...known, revision, inventoryStatus: status, statusUpdatedAt })
+        knownScans.current.set(id, { ...known, revision, inventoryStatus: status, statusUpdatedAt,
+          inventoryEligible: status === "In Stock" ? known.inventoryEligible : false })
       }
     }
     setScans(previous => previous.map(scan => knownScans.current.get(scan.id) ?? scan))

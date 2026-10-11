@@ -12,6 +12,8 @@ export interface ScanLogRow extends DashboardScan {
 }
 
 export interface ScanLogParams {
+  stable?: boolean
+  snapshot_id?: string
   business_date?: string
   source_key?: string
   source?: string
@@ -30,6 +32,8 @@ export interface ScanLogParams {
 }
 
 export interface ScanLogPage {
+  snapshot_id?: string
+  snapshot_expires_at?: string
   items: ScanLogRow[]
   total: number
   page: number

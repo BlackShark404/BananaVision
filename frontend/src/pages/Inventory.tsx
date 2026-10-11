@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useScans } from "@/context/ScanContext"
 import { useInventory } from "@/context/InventoryContext"
-import { parseSpoilageAvg } from "@/lib/utils"
+import { remainingStockDays, shelfLifeLabel } from "@/lib/inventoryRisk"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
@@ -10,22 +10,27 @@ import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { Progress } from "@/components/ui/progress"
 import { Package, AlertTriangle, TrendingDown, CheckCircle, Clock, Banana } from "lucide-react"
-import { IntakeStatusEnum, InventoryStatusEnum, RipenessEnum, CultivarEnum } from "@/types"
+import { InventoryStatusEnum, RipenessEnum, CultivarEnum } from "@/types"
 
 export default function Inventory() {
   const { scans, scansLoading, scansError, refreshScans } = useScans()
-  const { intakes, intakesLoading, intakesError, intakesStale, refreshIntakes } = useInventory()
+  const { intakesLoading, intakesError, intakesStale, refreshIntakes } = useInventory()
   const [sourceFilter, setSourceFilter] = useState<string>("all")
+  const [asOf, setAsOf] = useState(Date.now)
+  useEffect(() => {
+    const timer = window.setInterval(() => setAsOf(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const inventory = useMemo(() => {
-    const activeIntakeIds = new Set(intakes.filter(i => i.status === IntakeStatusEnum.ACTIVE).map(i => i.id))
-    let activeScans = scans.filter(s => s.intakeId && activeIntakeIds.has(s.intakeId))
+    let activeScans = scans
 
     if (sourceFilter !== "all") {
       activeScans = activeScans.filter(s => s.source === sourceFilter)
     }
 
-    const inStock = activeScans.filter(s => s.inventoryStatus === InventoryStatusEnum.IN_STOCK)
+    const inStock = activeScans.filter(s => s.inventoryEligible === true && s.inventoryStatus === InventoryStatusEnum.IN_STOCK)
+    const unknownRisk = inStock.filter(s => remainingStockDays(s, asOf) === null).length
 
     // Group by ripeness
     const unripe = inStock.filter(s => s.ripeness === RipenessEnum.UNRIPE)
@@ -41,10 +46,10 @@ export default function Inventory() {
     const spoilageAlertsMap = new Map<string, { id: string; intakeId: string; source: string; cultivar: string; ripeness: string; spoilageDays: string; daysNum: number; count: number; fingers: number; oldestScanDate: Date }>()
 
     inStock.forEach(s => {
-      const daysNum = parseSpoilageAvg(s.spoilageDays)
-      if (daysNum > 2) return // only keep soon-to-spoil
+      const daysNum = remainingStockDays(s, asOf)
+      if (daysNum === null || daysNum > 2) return
 
-      const key = `${s.intakeId}-${s.cultivar}-${s.ripeness}`
+      const key = `${s.intakeId ?? s.source ?? s.id}-${s.cultivar}-${s.ripeness}`
       const existing = spoilageAlertsMap.get(key)
       if (existing) {
         existing.count += 1
@@ -53,7 +58,7 @@ export default function Inventory() {
         if (scanDate < existing.oldestScanDate) existing.oldestScanDate = scanDate
         if (daysNum < existing.daysNum) {
           existing.daysNum = daysNum
-          existing.spoilageDays = s.spoilageDays
+          existing.spoilageDays = shelfLifeLabel(daysNum)
         }
       } else {
         spoilageAlertsMap.set(key, {
@@ -62,7 +67,7 @@ export default function Inventory() {
           source: s.source || "Unknown Supplier",
           cultivar: s.cultivar,
           ripeness: s.ripeness,
-          spoilageDays: s.spoilageDays,
+          spoilageDays: shelfLifeLabel(daysNum),
           daysNum,
           count: 1,
           fingers: s.fingerCount,
@@ -84,11 +89,10 @@ export default function Inventory() {
     const intakeGroups = new Map<string, { intakeId: string, source: string, date: Date, hands: number, fingers: number, earliestSpoilage: number, spoilageDays: string }>()
 
     inStock.forEach(s => {
-      if (!s.intakeId) return
-
-      const existing = intakeGroups.get(s.intakeId)
+      const groupId = s.intakeId ?? `unlinked:${s.id}`
+      const existing = intakeGroups.get(groupId)
       const scanDate = new Date(s.dateTime)
-      const spoilageNum = parseSpoilageAvg(s.spoilageDays)
+      const spoilageNum = remainingStockDays(s, asOf) ?? Number.POSITIVE_INFINITY
 
       if (existing) {
         existing.hands += 1
@@ -96,17 +100,17 @@ export default function Inventory() {
         if (scanDate < existing.date) existing.date = scanDate
         if (spoilageNum < existing.earliestSpoilage) {
           existing.earliestSpoilage = spoilageNum
-          existing.spoilageDays = s.spoilageDays
+          existing.spoilageDays = shelfLifeLabel(spoilageNum)
         }
       } else {
-        intakeGroups.set(s.intakeId, {
-          intakeId: s.intakeId,
+        intakeGroups.set(groupId, {
+          intakeId: groupId,
           source: s.source || "Unknown Supplier",
           date: scanDate,
           hands: 1,
           fingers: s.fingerCount,
           earliestSpoilage: spoilageNum,
-          spoilageDays: s.spoilageDays
+          spoilageDays: shelfLifeLabel(Number.isFinite(spoilageNum) ? spoilageNum : null)
         })
       }
     })
@@ -133,11 +137,12 @@ export default function Inventory() {
       sold,
       forProcessing,
       spoiled,
+      unknownRisk,
     }
-  }, [scans, intakes, sourceFilter])
+  }, [scans, sourceFilter, asOf])
 
   const isLoading = scansLoading || intakesLoading
-  const loadError = scansError || (!intakesLoading && intakesError && intakes.length === 0 ? intakesError : null)
+  const loadError = scansError || (!intakesLoading && intakesError && !intakesStale ? intakesError : null)
 
   if (isLoading || loadError) {
     return (
@@ -170,7 +175,7 @@ export default function Inventory() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Sources</SelectItem>
-              {Array.from(new Set(intakes.filter(i => i.status === IntakeStatusEnum.ACTIVE).map(i => i.source).filter(Boolean))).sort().map((src) => (
+              {Array.from(new Set(scans.map(s => s.source).filter(Boolean))).sort().map((src) => (
                 <SelectItem key={src} value={src as string}>{src}</SelectItem>
               ))}
             </SelectContent>
@@ -180,7 +185,7 @@ export default function Inventory() {
 
       {intakesStale && <Card className="rounded-xl sm:rounded-2xl">
         <CardContent className="p-4 sm:p-6" role="alert">
-          <p className="text-sm text-muted-foreground">Intake data is stale. Stock totals use the last successful intake snapshot.</p>
+          <p className="text-sm text-muted-foreground">Intake data is stale. The last successful intake snapshot is retained.</p>
           <Button variant="outline" className="mt-3" onClick={refreshIntakes}>Retry intake data</Button>
         </CardContent>
       </Card>}
@@ -213,7 +218,7 @@ export default function Inventory() {
           description="≤2 days left"
         />
         <AppStatsCard
-          title="Sold Today"
+          title="Sold"
           value={inventory.sold}
           icon={CheckCircle}
           iconColor="text-emerald-600"
@@ -322,7 +327,7 @@ export default function Inventory() {
               </div>
               <div className="flex-1">
                 <h3 className="text-base font-semibold">Spoilage Alerts</h3>
-                <p className="text-xs text-muted-foreground">Items expiring soon</p>
+                <p className="text-xs text-muted-foreground">{inventory.unknownRisk ? `${inventory.unknownRisk} hands have unknown remaining shelf life` : "Items expiring soon"}</p>
               </div>
               {inventory.spoilingSoon.length > 0 && (
                 <Badge variant="destructive" className="ml-auto">
@@ -334,7 +339,7 @@ export default function Inventory() {
               <div className="text-center py-8">
                 <CheckCircle className="w-12 h-12 text-emerald-600 mx-auto mb-2" />
                 <p className="text-sm font-medium text-emerald-900">No immediate spoilage concerns</p>
-                <p className="text-xs text-muted-foreground mt-1">All stock is fresh</p>
+                <p className="text-xs text-muted-foreground mt-1">{inventory.unknownRisk ? "Unknown estimates need review" : "No known estimates within two days"}</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -357,7 +362,7 @@ export default function Inventory() {
                           {group.count} hands ({group.fingers} fingers)
                         </p>
                         <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                          Delivered: {group.oldestScanDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          Scanned: {group.oldestScanDate.toLocaleDateString("en-US", { timeZone: "Asia/Manila", month: "short", day: "numeric" })}
                         </p>
                       </div>
                       <Badge
@@ -371,7 +376,7 @@ export default function Inventory() {
                       >
                         <div className="flex items-center justify-center mb-0.5">
                           <Clock className="w-3 h-3 mr-1" />
-                          {group.daysNum <= 0 ? "Today!" : `${group.spoilageDays}d left`}
+                          {group.spoilageDays}
                         </div>
                       </Badge>
                     </div>
@@ -403,7 +408,7 @@ export default function Inventory() {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm">{intake.source}</p>
                   <p className="text-xs text-muted-foreground">
-                    Arrived: {intake.date.toLocaleDateString()} • {intake.hands} hands ({intake.fingers} fingers)
+                    Scanned: {intake.date.toLocaleDateString("en-US", { timeZone: "Asia/Manila" })} • {intake.hands} hands ({intake.fingers} fingers)
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
@@ -411,10 +416,10 @@ export default function Inventory() {
                       intake.earliestSpoilage <= 4 ? "bg-yellow-50 text-yellow-700 border-yellow-200" :
                         "bg-emerald-50 text-emerald-700 border-emerald-200"
                     }`}>
-                    {intake.earliestSpoilage <= 2 ? "Sell immediately" : "Stock is stable"}
+                    {!Number.isFinite(intake.earliestSpoilage) ? "Risk unknown" : intake.earliestSpoilage <= 2 ? "Sell immediately" : "Stock is stable"}
                   </Badge>
                   <span className="text-[9px] sm:text-[10px] text-muted-foreground font-mono mt-1">
-                    Earliest spoilage: <span className="font-bold text-rose-600">{intake.spoilageDays} days</span>
+                    Earliest spoilage: <span className="font-bold text-rose-600">{intake.spoilageDays}</span>
                   </span>
                 </div>
               </div>

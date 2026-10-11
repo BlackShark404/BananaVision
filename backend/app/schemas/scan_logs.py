@@ -12,6 +12,8 @@ from app.schemas.enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
 
 
 class ScanLogQuery(BaseModel):
+    stable: bool = False
+    snapshot_id: UUID | None = None
     business_date: date | None = None
     source_key: str | None = None
     source: str | None = None
@@ -57,6 +59,8 @@ class ScanLogOptions(BaseModel):
 
 
 class ScanLogList(BaseModel):
+    snapshot_id: UUID | None = None
+    snapshot_expires_at: Timestamp | None = None
     items: list[ScanLogRow]
     total: int
     page: int
