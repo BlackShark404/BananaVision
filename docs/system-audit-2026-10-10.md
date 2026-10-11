@@ -1,22 +1,25 @@
 # BananaVision comprehensive system audit — 2026-10-10
 
-Audit target: **`main` at `0a4c87e`**. This is an audit and proposed correction plan,
+Audit finalized **2026-10-11** on **`main` at `5483861`** (initial source target
+`0a4c87e`; subsequent commits contain audit evidence only). This is an audit and
+proposed correction plan,
 not authorization to implement changes or a deployment acceptance certificate.
 Application source, schemas, migrations, UI and working behavior were not changed.
-No branches/worktrees were created or switched, and no commit, push, merge or deployment
-was performed in this audit continuation.
+No branches/worktrees were created or switched, and the assistant performed no commit,
+push, merge or deployment in this audit continuation.
 
-The 82 requirement rows below are classified as **63 VERIFIED, 10 PARTIAL,
-4 DEFECTIVE, 1 MISSING and 4 NOT VERIFIED**. Related rows can describe the same
-root cause; these counts are not counts of independent bugs. Eight actionable findings
-and six policy/verification gaps are detailed after the matrix.
+The 82 requirement rows below are classified as **64 VERIFIED, 11 PARTIAL,
+4 DEFECTIVE, 1 MISSING and 2 NOT VERIFIED**. Related rows can describe the same
+root cause; these counts are not counts of independent bugs. Nine actionable findings
+(including a policy-dependent inconsistency) and six gap categories are detailed below.
 
 The completed Scan Logs/Detail and maintenance implementations remain present. The
 broader cross-view requirements are **not all satisfied**: review navigation and
 Inventory risk have confirmed defects, inventory eligibility differs by view, and
-several requested interactions are absent. New backend runtime characterization was
-blocked; this report distinguishes that limitation from the substantial existing
-isolated verification. Recommended fixes below require separate authorization.
+several requested interactions are absent. The earlier approval-infrastructure block
+was resolved through normal approval: targeted backend, actual PostgreSQL and mocked
+browser characterization now passed. The audit is complete with explicit volume,
+deployment and live-acceptance limitations. Recommended fixes require separate authorization.
 
 ## Scope, method and evidence
 
@@ -39,6 +42,10 @@ Evidence labels used throughout:
   after a fresh Git comparison. These are previous executed results, not newly run tests.
 - **P:** new dependency-free source-function characterization probes, executed during
   this audit. They confirm observed defects and do **not** certify corrected behavior.
+- **T:** new executed runtime characterization in the [PostgreSQL probes](audits/test_system_audit_metrics.py)
+  and [browser probes](audits/system-audit-browser-2026-10-11.mjs), plus the targeted
+  backend run listed below. Passing characterization can confirm a defect; it does
+  not mean the observed behavior was fixed. Browser HTTP/WebSocket traffic is mocked.
 - **G:** a specific verification or policy gap; no passing result is claimed.
 
 `git diff --name-status fa63f5d..HEAD -- backend frontend` reports only
@@ -75,7 +82,7 @@ Primary paths: [Dashboard.tsx](../frontend/src/pages/Dashboard.tsx),
 | D01 | Every KPI opens its underlying authorized records | PARTIAL | S/R: Scans Today, source/operator groups and System Health navigate. Operator Scan Success Rate has `onClick=undefined` (Dashboard:204); F05. Group rows also drop their displayed day; F04. |
 | D02 | Loading, unavailable, error, stale and genuine zero states differ | VERIFIED | S/R: resource holds a successful snapshot on failure; Dashboard labels stale/unavailable and offers retry. Browser tests `loading and unavailable are not zero` and `failed refresh preserves last snapshot`. |
 | D03 | Meaningful successful refresh timestamp | VERIFIED | S/R: `generated_at` rendered in explicit Asia/Manila formatting; no-success label before a successful response; age/error/day rollover mark stale. Timestamp is server snapshot time, not completion of a live hardware operation. |
-| D04 | Pending quality review shortcut matches KPI population | DEFECTIVE | S/P/R: service `_review` is flagged OR confidence below configured threshold; current/legacy UI links use `status=Flagged`. F01; the existing browser test asserts the narrower URL. |
+| D04 | Pending quality review shortcut matches KPI population | DEFECTIVE | S/P/R/T: service `_review` is flagged OR confidence below configured threshold; current/legacy UI links use `status=Flagged`. Actual PostgreSQL: KPI and attention=review count 2, Flagged shortcut count 1; other-user scan excluded. F01. |
 | D05 | Expiring stock shortcut matches Dashboard stock risk | VERIFIED | S/R: shortcut sends `attention=at-risk`; Logs reuses `dashboard._expiring`. Cross-view intake-policy disagreement remains F03. |
 | D06 | Disconnected/delayed live updates are visible and recover | VERIFIED | S/R: connection label, delayed-update message, 30-second polling, reconnect/focus refresh and 90-second stale indication. Browser disconnect/reconnect and completion/polling tests. |
 | D07 | My Sources is the authenticated operator's activity | VERIFIED | S/R: `_scoped_projection` constrains persisted `OperatorProfile.account_id` before aggregates. UI uses server sources; account/role key discards another user's snapshot. |
@@ -108,8 +115,8 @@ Tests: [logs](../backend/tests/test_scan_logs.py),
 | --- | --- | --- | --- |
 | S01 | Complete-dataset search, intersecting filters, sorting and pagination | VERIFIED | S/R: SQL `_conditions` and `_ordering`; authorization before counts/rows; server-provided totals/options. Literal search escapes wildcard input. Combined-filter, scope and API validation tests. |
 | S02 | Deterministic ordering on equal/null/numeric sort keys | VERIFIED | S/R: requested key NULLS LAST, timestamp DESC, UUID DESC. `test_equal_key_pages_are_deterministic_and_account_scoped`; numeric spoilage/finger-count tests. |
-| S03 | Stable page membership while the dataset changes | PARTIAL | S/G: offset pages have deterministic order but no cross-request snapshot/cursor. An insertion ahead of page 2 can repeat a row; deletion can skip one. Counts and rows also use separate statements. No load/concurrent-pagination execution in this audit. |
-| S04 | CSV covers all matching rows independent of loaded/current page | VERIFIED | S/R: same scoped SQL filters, no offset/limit, streamed batches of 200. `test_export_crosses_stream_batches_without_pagination_truncation`. This verifies batch crossing, not unlimited-volume performance. |
+| S03 | Stable page membership while the dataset changes | PARTIAL | S/T/G: deterministic offset order does not pin membership across requests. PostgreSQL probe inserts ahead of page 2 and observes a repeated row (totals 5 then 6). Counts/rows also use separate statements; count-row interleavings and deletion skips were not separately injected. Snapshot semantics require a product decision. |
+| S04 | CSV covers all matching rows independent of loaded/current page | VERIFIED | S/R/T: same scoped SQL filters, no offset/limit, streamed batches of 200. Actual PostgreSQL filtered exports ignore page limits; a 205-row cursor retains its query snapshot across a concurrent insert/source change. This verifies batch crossing, not unlimited-volume performance. |
 | S05 | CSV commas, quotes, Unicode, CR/LF/CRLF and formula injection | VERIFIED | S/R: `csv.writer`, UTF-8 BOM, `_safe_cell` prefixes dangerous text including leading whitespace followed by = + - @; numeric values retain numeric types. Round-trip special-character tests. Spreadsheet products are not exhaustively tested. |
 | S06 | Chronological inventory/status/correction/override history | VERIFIED | S/R: persisted `ScanEvent` with revision, timestamp, actor snapshot, reason, previous/new values; deterministic legacy-status/note merge. Actual classification changes are separate from source/status edits. |
 | S07 | Historical actor/source/camera metadata is preserved | PARTIAL | S/R: new events and new scans persist snapshots; image/detection camera labels are stored. Unknown legacy actor/reason data is not invented. Legacy detail may fall back to the current account name; ordinary Logs/source options intentionally use current directory labels. Original legacy names cannot always be recovered. |
@@ -128,7 +135,7 @@ Tests: [logs](../backend/tests/test_scan_logs.py),
 | S20 | Stale reads and asynchronous notes do not overwrite newer state | VERIFIED | S/R: sequence/abort/account keys plus monotonic revisions; draft-preserving conflict reload and latest-note guards. Browser race/retry/navigation tests. |
 | S21 | Edits and migrations preserve history | VERIFIED | S/R: immutable application events, legacy evidence merge; migration 0005 preserves rows/nulls. Strict v1 adapter does not fabricate historical events; v2 archives include history/receipts/tombstones. PostgreSQL restore/compatibility tests. |
 | S22 | Full historical event retention after hard deletion | PARTIAL | S: `ScanEvent.scan_id` has ON DELETE CASCADE; ORM deletion retains only owner/id/time tombstone. No scan-delete API exists and retention does not delete records. Universal post-delete audit retention is not provided; see G04 before adding any destructive workflow. |
-| S23 | Large/changing datasets and mid-stream export failures | NOT VERIFIED | R proves multiple pages/batches. There is no production-scale load proof or new concurrent export/failure injection in this audit. A stream can fail after HTTP headers; do not infer atomic whole-file delivery from a 200 alone. Client download must complete before success. |
+| S23 | Large/changing datasets and mid-stream export failures | PARTIAL | R/T: 205-row PostgreSQL stream retains its query snapshot across concurrent changes; a fresh export reflects the changes. Injected failure after 200 rows propagates and closes the cursor. Production-scale load/memory and end-to-end HTTP disconnect/download-failure behavior remain unmeasured; a 200 header alone does not prove complete delivery. |
 | S24 | Preserve UI layout/navigation and completed functionality | VERIFIED | S/R: prior scoped diff and browser suites cover existing styles/components and required functional additions. Current audit changes no UI/application files; no new visual redesign. |
 
 ### Analytics
@@ -155,7 +162,7 @@ Primary paths: [Analytics UI](../frontend/src/pages/Analytics.tsx),
 | A11 | Rapid filter changes cannot publish obsolete results | VERIFIED | S/R: resource load identity/sequence/abort; source-option setter checks abort; browser deliberately delays the old response. |
 | A12 | Combined date/source/cultivar/status filters | MISSING | S: UI and API offer date/source; no cultivar/status filter contract or controls. F06. Classification breakdown charts are not those filters. |
 | A13 | Operator scope/renames and aggregation identity | VERIFIED | S/R: reuses account-scoped projection; UUID grouping and role guards; namesake/rename tests. |
-| A14 | PostgreSQL execution of Dashboard/Analytics metric SQL | NOT VERIFIED | R: metric fixtures execute SQLite adapters and compile PostgreSQL SQL. Actual PostgreSQL write/restore tests do not prove execution of these particular aggregate queries. Focused additional execution was blocked. |
+| A14 | PostgreSQL execution of Dashboard/Analytics metric SQL | VERIFIED | T: actual PostgreSQL 18 queries executed for review/risk populations, exact Manila lower-day boundary, incomplete classifications, original confidence (0/75/60 => 45 mean, 66.7% low), namesake operator exclusion, supplier rename and filtered-empty source options. No compiler-only inference. |
 
 Independent arithmetic checked against existing fixture assertions (not a new database
 execution): `test_confidence_excludes_missing_invalid_and_unrecoverable_overrides`
@@ -165,6 +172,12 @@ strictly below 75 count 2, rate `round(2/3*100,1) = 66.7`. A manual 100 without 
 original, -1, 101, missing and unknown-class scores are not model samples. The range
 fixture expects Today/7-day/30-day/all totals **1/2/4/5**, while all selections share
 the independently defined 14-day trend total **3**.
+
+The new PostgreSQL probe separately executes a smaller midnight/original-confidence
+fixture: four own scans today (three classified, one incomplete), three valid original
+scores 0/75/60, mean 45 and low-confidence rate 66.7%. The scan one microsecond before
+Manila midnight and the other operator's scan are excluded. This supplements the
+broader earlier fixture; it does not reclassify its eight-scan assertions as a new run.
 
 ### System Configuration, Export and Maintenance
 
@@ -204,7 +217,7 @@ Primary paths: [config API](../backend/app/api/v1/config.py),
 | M17 | Queued operations recheck current authorization | VERIFIED | S/R: `fresh_authorization` evaluates original token/current role/version/generation/password after locks/drain. Queued role, token and generation revocation cases. |
 | M18 | Concurrent processes/controls cannot bypass maintenance state | VERIFIED | S/R: single station-owner advisory lock, transaction shared/exclusive barriers, middleware, durable states. Owner-loss fail-closed and PostgreSQL HTTP admission tests. Production must retain the single camera-owner deployment model. |
 | M19 | Startup monitoring and idempotent recovery/apply | VERIFIED | S/R: retry-loop initial probe, publish device status only after persistence, deferred runtime starts once; apply operation IDs and recovery markers avoid repeated initialization. Historical four maintenance blockers are resolved. |
-| M20 | Latest maintenance status wins under overlapping polls | PARTIAL | S/G: SystemConfig:46-55 polls every five seconds with only an unmount guard; no request sequence/single-flight guard. Older successful status could replace a newer state. Backend admission remains authoritative. Not exercised with delayed polling in existing evidence; G03. |
+| M20 | Latest maintenance status wins under overlapping polls | DEFECTIVE | S/T: actual SystemConfig mocked browser holds an old ready response, delivers recovery-required, then releases old ready. Reset Defaults becomes enabled again with exactly two requests. Missing sequence/single-flight guard; backend admission still authoritative. F09/G03. |
 | M21 | Very large config CSV export and streaming resource limits | NOT VERIFIED | S/G: Logs CSV uses bounded batches; config summary export materializes its limited columns for all records. No volume/peak-memory acceptance proof. Its fields are ID/enum/date/numeric rather than arbitrary user text. |
 | M22 | Real physical cameras, host power, storage and abrupt power loss | NOT VERIFIED | Explicitly deferred by user; no live operations. Isolated/mocked verification is not proof of deployed device drivers, filesystem permissions, OS privileges or actual power-loss durability. |
 
@@ -215,10 +228,10 @@ Primary paths: [config API](../backend/app/api/v1/config.py),
 | X01 | Consistent stable identifiers and authorization | PARTIAL | S/R: scan/metrics/history/evidence share account/profile UUID scope; kiosk events owner/current Admin only. Inventory source UI still filters strings; supplier/intake registry APIs are shared and their intake `scan_count` is global. Clarify shared-registry metadata policy before treating this as private scan access or changing it (G05). |
 | X02 | Consistent business timezone and elapsed age | DEFECTIVE | S/P/R: server and historical timestamp handling use shared Manila helpers; Inventory risk uses original estimate without age, not a timezone conversion (F02). Keep existing timezone helpers; fix risk logic rather than shift timestamps. |
 | X03 | Consistent classification/confidence terminology | PARTIAL | S/R: no measured-accuracy claim. Analytics uses original AI confidence; Dashboard group/Logs averages use current classification confidence. These are different populations after overrides, with insufficient cross-view labeling to treat the same numeric label as the same metric. |
-| X04 | Stock status and eligibility give consistent information | DEFECTIVE | S/R: latest per-scan status is shared, but depleted intake and unlinked eligibility differ (F03); Inventory's risk algorithm also differs (F02). Expected differences from explicit selected scan-date cohorts are not defects. |
+| X04 | Stock status and eligibility give consistent information | PARTIAL | S/R/T: latest status is shared, but depleted/unlinked eligibility differs (F03), confirmed in PostgreSQL. The authoritative population requires a business decision, so no one predicate is declared defective. Inventory's distinct age bug remains X02/F02. Selected date-cohort differences are legitimate. |
 | X05 | Mutation propagation and refresh consistency | VERIFIED | S/R: commit-before-success, revision-aware caches, bulk revision map, scan completion events and polling/focus refresh. Metrics are eventually refreshed, not an atomic multi-page snapshot immediately after every write. |
 | X06 | Historical evidence after edits/deletion/migration | PARTIAL | S/R: edits/migrations preserve recorded history; null legacy values stay unknown. Hard-delete cascades are not full audit retention (S22/G04). Archive restoration intentionally replaces station history with the validated backup snapshot. |
-| X07 | Stale data and partial API failures handled across views | PARTIAL | S/R: Dashboard/Analytics/Logs/Detail guards are verified. Inventory only exposes scan-load failure, while failed intake loading can look like empty inventory (F07); maintenance polling ordering is G03. |
+| X07 | Stale data and partial API failures handled across views | PARTIAL | S/R/T: Dashboard/Analytics/Logs/Detail guards are verified. Mocked actual Inventory reproduces successful-zero and silently stale eligibility after intake failure (F07); delayed maintenance ready replaces recovery-required (F09). |
 | X08 | No current audit regression to existing UI/maintenance/hardening | VERIFIED | S/R: runtime/test files unchanged versus final verified source; current diff contains audit documents/probes/checkpoint only. No old commit restoration. Installer/example changes pre-exist this audit and are not covered by this statement. |
 
 ## Confirmed findings and proposed corrections
@@ -240,6 +253,9 @@ are not relabeled as outstanding defects here.
   predicate; no new query engine or schema is necessary.
 - **Evidence:** P review-URL probe; R backend threshold/review test; current browser
   test explicitly expects `{status:"Flagged"}` and therefore misses semantic parity.
+  T actual PostgreSQL at threshold 75: low 60 + flagged 95 => review count 2,
+  Flagged count 1; equal 75 and other-operator records excluded from review. Filtered
+  CSV returns both review IDs even with page=4/page_size=1.
 - **Minimal fix:** use `attention=review` in both Dashboard link paths; preserve
   ordinary explicit Flagged filtering. Correct the browser expectation and connect
   actual review fixtures to the click result.
@@ -259,6 +275,8 @@ are not relabeled as outstanding defects here.
   is 2. `Unknown`, `NaN` and empty strings become 0; reversed `3-1` becomes 2 and
   also alerts. The Inventory “oldest scan” grouping does not correct this calculation.
 - **Evidence:** P actual parser/predicate probe; R server aged/invalid prediction tests.
+  T actual PostgreSQL returns remaining_days=2 for the four-day-old 5-7 scan;
+  Analytics and Logs correctly classify its aged risk. No timezone adjustment is needed.
 - **Minimal fix:** consume server-produced remaining/unknown-risk data for Inventory
   (preferred), or a single explicitly aligned client contract if necessary. Do not
   change timezone conversions, retrospectively rewrite predictions or globally alter
@@ -283,9 +301,15 @@ At the same instant, source and all-time scope:
   explicitly asserts Dashboard inclusion; `test_risk_ages_estimates_and_excludes_removed_stock_and_depleted_intakes`
   explicitly asserts Analytics exclusion. Intake status PATCH can change the parent
   independently, so these states are representable without inventing corrupt fixtures.
+  T PostgreSQL fixture confirms Dashboard/Logs risk=3 (aged Active, Depleted, unlinked)
+  while Analytics risk=2 and unknown=1. Inventory's membership restriction is also
+  traced in source; browser F07 confirms that its eligibility depends on the intake list.
 - **Decision:** is latest per-scan stock status authoritative despite depleted intake,
   and should unlinked scans count as inventory? Current service documentation supports
   conflicting answers. Do not silently pick one or rewrite operational records.
+  This is a confirmed inconsistency with **policy-dependent correctness**, not proof
+  that Dashboard or Analytics alone is wrong. Choose whether Depleted parents override
+  child In Stock state and whether unlinked scans are real stock or awaiting intake.
 - **Minimal fix after decision:** centralize the agreed eligibility predicate, retain
   each view's explicit date cohort and actor scope, update metric definitions and
   parity fixtures. Reconcile legacy contradictory state only through a separately
@@ -335,7 +359,10 @@ Use existing controls/design; do not rewrite working aggregation.
 - **Counterexample:** fresh account/store, scans load successfully, `/intakes` fails;
   intake IDs stay empty and stock totals become zero. After a previous load, a failure
   can instead silently reuse old intake eligibility.
-- **Evidence level:** confirmed source-flow defect, **not newly browser-reproduced**.
+- **Evidence:** T actual Inventory/InventoryContext in a mocked browser: one loaded
+  scan plus failed initial `/intakes` shows Total Hands=0 with no alert. A subsequent
+  failed refresh preserves the earlier Active intake and Total Hands=1 even though
+  the mocked server's latest intake is Depleted; there is no stale indication.
 - **Minimal fix:** expose intake load/error/snapshot status and use the existing
   loading/error/retry pattern for inventory calculations; preserve last snapshot only
   with an explicit stale indication. No supplier/scan behavior rewrite.
@@ -351,24 +378,41 @@ rollout instructions to the current head and mention revision/history/archive-v2
 compatibility. Acceptance: documented head matches the migration registry on a
 disposable upgrade/restore rehearsal. Do not run migration against the live station.
 
+### F09 — Low: delayed maintenance polling overwrites newer recovery status
+
+- **Source/root cause:** `SystemConfig.tsx:46-55` starts overlapping five-second polls
+  with only an unmount guard; response completion order becomes state order.
+- **Evidence:** T actual SystemConfig browser fixture holds the first `ready` response,
+  returns `recovery-required` from the second, and observes Reset Defaults disabled.
+  Releasing the first response enables that button again; exactly two requests occurred.
+- **Impact:** misleading availability and avoidable rejected actions. This does not
+  demonstrate a maintenance bypass: backend admission remains authoritative and no
+  real maintenance/hardware operation was performed.
+- **Minimal fix:** a request sequence/identity or single-flight poll guard that also
+  invalidates in-flight reads after local operation state updates and unmount/account
+  changes. Preserve existing controls and backend power/restore coordination.
+- **Acceptance:** old ready cannot replace newer recovery-required or an operation's
+  newer status; failed polls do not fabricate ready; retry and unmount remain correct.
+
 ## Partial implementations, policy and verification gaps
 
 - **G01 — changing dataset semantics:** deterministic offset sorting is implemented;
   a cross-page snapshot is not. `collectScanPages` detects some incomplete/duplicate
   traversals and throws instead of publishing partial history, but equal-count changes
   cannot universally be detected. Agree whether cursor/snapshot semantics are required
-  before increasing complexity. Add concurrent insert/delete and count/row-consistency
-  tests if required. Large-volume exports and mid-stream failure need separate probes.
+  before increasing complexity. T reproduces an insertion-driven repeated page row,
+  while complete filtered export remains unique. The single export cursor preserves
+  its 205-row query snapshot during concurrent changes and closes on injected failure.
+  Cross-request paging snapshots, count/row interleavings, production-scale resource
+  limits and end-to-end interrupted-download acceptance remain separate requirements.
 - **G02 — metadata and terminology:** Analytics returns timezone/range/refresh metadata
   but doesn't render all of it; Dashboard group/Logs averages are current confidence,
   Analytics is original AI confidence. Label populations rather than silently changing
   valid historical values. Human-verified accuracy remains unmeasurable without a
   separate ground-truth workflow; this audit does not authorize one.
-- **G03 — maintenance polling:** delayed `ready` poll may resolve after newer recovery
-  status because SystemConfig has no latest-response guard. This is a source-visible
-  race opportunity, not a reproduced unsafe operation: backend admission still denies
-  prohibited requests. Add a delayed-response mock test, then a sequence or single-flight
-  guard if confirmed. Preserve working power/restore coordination.
+- **G03 — maintenance polling:** now reproduced in an actual-component browser test
+  and promoted to F09/M20 DEFECTIVE. Backend admission still denies prohibited requests;
+  the UI race does not establish an unsafe operation or invalidate prior backend tests.
 - **G04 — deletion scope:** tombstones distinguish known ORM deletions; historical raw
   SQL deletions have no guaranteed ledger and old deletions without evidence are 404.
   Hard deletion cascades events/status/notes rather than retaining a complete audit.
@@ -379,9 +423,10 @@ disposable upgrade/restore rehearsal. Do not run migration against the live stat
   Operators. Inventory source filtering uses labels rather than stable supplier keys.
   Clarify whether shared registry/count visibility is intended. No claim that private
   note/evidence contents are exposed, and no new permission expansion is proposed.
-- **G06 — runtime/environment:** actual PostgreSQL execution of metric SQL, new cross-view
-  backend fixtures, F07 browser failure and G03 poll races were not newly executed.
-  Physical cameras, real OS power, deployed storage permissions and abrupt power loss
+- **G06 — runtime/environment:** PostgreSQL metric SQL, cross-view fixtures, F07 browser
+  failures, F09 poll race and streamed-export failure characterization are now executed.
+  Remaining limits: production-scale volume/memory, actual HTTP mid-download failure,
+  physical cameras, real OS power, deployed storage permissions and abrupt power loss
   remain expressly deferred. Installation changes in the merge need separate safe
   setup validation before deployment; do not run the setup script on the live station.
 
@@ -389,33 +434,70 @@ disposable upgrade/restore rehearsal. Do not run migration against the live stat
 
 | Check | Actual outcome and scope |
 | --- | --- |
-| Current Git branch/status/history | `main`, HEAD `0a4c87e`, initially clean; no branch/worktree operations. |
+| Current Git branch/status/history | `main`, initial HEAD `0a4c87e`; user committed audit evidence in `26577da` and `5483861`. No assistant commit/branch/worktree operations. Final report/checkpoint changes listed in checkpoint. |
 | `git diff --name-status fa63f5d..HEAD -- backend frontend` | Only `backend/.env.example`; current runtime/test source unchanged. Full diff also includes installer and docs, preserved. |
 | `node --test docs/audits/system-audit-probes-2026-10-10.mjs` | **3 passed, 0 failed/skipped, 100.1355 ms, exit 0**. Pure source-function characterization of F01/F02/F04, no app/server/DB imports or writes. Passing means defects were observed. |
-| Attempted targeted backend audit run | **Not executed**: automatic approval review could not complete because of the account usage limit. No test failure/pass count, no temp resources created. Not retried or bypassed. |
+| Targeted backend audit run, 2026-10-11 (T) | **84 passed, 14.43 s, exit 0**, seven backend files below. Earlier usage/approval block resolved through normal approval; the historical blocked attempt itself produced no result. |
+| PostgreSQL metric/cross-view probes (T) | **4 passed, 2.91 s, exit 0**. Actual PostgreSQL 18 service queries, frozen time, isolated generated schema. Review mismatch, eligibility policy, Manila midnight, original confidence, source scope and changing offset pages. |
+| PostgreSQL streamed export/failure probes (T) | **2 passed, 4 deselected, 2.00 s, exit 0** with `-k 'streamed_export or midstream'`. Added after the first four passed; all six new tests covered without repeating them. Real 205-row result plus injected cursor failure. |
+| Actual-component mocked browser probes (T) | **3 passed, 0 failed/skipped, 28.7514411 s, exit 0**. F07 initial/refresh intake failures and F09 delayed maintenance response. Vite explicitly `configFile:false, envFile:false`; all API/WebSocket traffic mocked. No frontend environment contents read. |
 | Reused final backend/PostgreSQL run (R) | **222 passed, 71.19 s, exit 0**, no skipped PostgreSQL cases. Includes current scan, security, migration, archive and maintenance HTTP acceptance tests. |
 | Reused frontend run (R) | **54 passed, 0 failed/skipped, 60.2775 s, exit 0**. Includes Dashboard, Analytics, maintenance, persistence, scan browser and retry tests. |
 | Reused TypeScript / production build (R) | Application type check exit 0; `npm run build` exit 0, Vite 9.44 s. No app changes warrant another build for audit documents. |
 | Reused lint comparison (R) | ESLint 43 errors/8 warnings; Ruff 620 diagnostics vs 660 same-tool baseline. Zero introduced diagnostics in the completed task. Full lint is **not clean**; no unrelated autofixes. |
-| New audit syntax/link/matrix checks | `node --check` on the probe: exit 0. Read-only local Markdown link/matrix validator: 50 links, zero missing, 82 unique requirement IDs, exit 0. Scoped whitespace results are recorded in the final checkpoint. |
+| Audit syntax/link/matrix/diff checks | Both JavaScript files pass `node --check`; Python probe passes stdlib AST parse without application imports. Updated report: 52 local links, 0 missing; 82 unique IDs with counts 64/11/4/1/2. Whitespace/conflict-marker and `git diff --check` pass. No production paths changed. |
 
-The blocked focused backend command used the documented isolation recipe: resolve
-backend path, create fresh OS-temp CWD with prefix `bv-system-audit-`, clear the optional
-test database URL, change directory **before application imports**, prepend backend to
-`sys.path`, then invoke pytest from `backend/venv/Scripts/python.exe -X utf8 -B -`:
+Executed targeted backend command (repository-root PowerShell):
 
-```text
-pytest.main(['-p', 'no:cacheprovider', '-q', '--basetemp', '<fresh-temp>/fixtures',
-  '-c', '<backend>/pyproject.toml',
-  '<backend>/tests/test_dashboard.py', '<backend>/tests/test_analytics.py',
-  '<backend>/tests/test_scan_logs.py', '<backend>/tests/test_scan_records.py',
-  '<backend>/tests/test_scan_evidence.py', '<backend>/tests/test_configuration.py',
-  '<backend>/tests/test_maintenance_integration.py', '--tb=short'])
+```powershell
+@'
+import os,sys,tempfile
+from pathlib import Path
+b=Path('backend').resolve()
+w=Path(tempfile.mkdtemp(prefix='bv-audit-final-'))
+print('AUDIT_TEMP='+str(w), flush=True)
+os.environ.pop('BANANAVISION_TEST_DATABASE_URL',None)
+os.chdir(w);sys.path.insert(0,str(b))
+import pytest
+files=['test_dashboard.py','test_analytics.py','test_scan_logs.py','test_scan_records.py','test_scan_evidence.py','test_configuration.py','test_maintenance_integration.py']
+raise SystemExit(pytest.main(['-p','no:cacheprovider','-q','--basetemp',str(w/'fixtures'),'-c',str(b/'pyproject.toml'),*[str(b/'tests'/f) for f in files],'--tb=short']))
+'@ | & './backend/venv/Scripts/python.exe' -X utf8 -B -
 ```
 
-This command was rejected before execution by approval infrastructure, **not** found
-unsafe. Do not confuse the safe, dependency-free Node alternative with execution of
-these backend tests. The [verification report](scan-records-verification-2026-10-10.md)
+Executed PostgreSQL probe command while the newly created and verified audit cluster
+was running (these identifiers are historical evidence, not permission to connect to
+whatever later occupies the port). Fixture verifies both URL and `SHOW data_directory`
+before creating a random schema, and drops only that schema in `finally`:
+
+```powershell
+@'
+import os,sys,tempfile
+from pathlib import Path
+b=Path('backend').resolve();test=Path('docs/audits/test_system_audit_metrics.py').resolve()
+w=Path(tempfile.mkdtemp(prefix='bv-audit-metrics-'));print('AUDIT_TEMP='+str(w),flush=True)
+os.environ['BV_AUDIT_DATABASE_URL']='postgresql+asyncpg://bv_audit@127.0.0.1:56846/postgres'
+os.environ['BV_AUDIT_PG_DATA']='C:/Users/Roronoa Zoro/AppData/Local/Temp/bv-audit-pg-8227c7618dff479eb059aab1d0424c38/data'
+os.chdir(w);sys.path.insert(0,str(b));import pytest
+raise SystemExit(pytest.main(['-p','no:cacheprovider','-q','--basetemp',str(w/'fixtures'),'-c',str(b/'pyproject.toml'),str(test),'--tb=short']))
+'@ | & './backend/venv/Scripts/python.exe' -X utf8 -B -
+```
+
+The first invocation contained four tests. After adding the two export tests, the
+second invocation used exactly the same script with prefix `bv-audit-stream-` and
+pytest arguments `'-k','streamed_export or midstream'` appended. The first four were
+deselected, not skipped or rerun. Aggregate new backend coverage is 84 + 4 + 2 passing
+tests across three runs, not a single 90-test full-suite run.
+
+Executed browser command (installed local Playwright runtime):
+
+```powershell
+$env:PLAYWRIGHT_MODULE='C:/Users/Roronoa Zoro/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright/index.mjs'
+node --test --test-concurrency=1 docs/audits/system-audit-browser-2026-10-11.mjs
+```
+
+No denied command was bypassed. The initial blocked attempt remains historical only;
+no outstanding approval/usage blocker remains for this audit. The
+[verification report](scan-records-verification-2026-10-10.md)
 contains exact previously executed full-suite/type/build/lint commands and cleanup
 evidence. No historical test result is relabeled as a new audit run.
 
@@ -439,9 +521,27 @@ not a proof of production filesystem ACLs or operational key/backup management.
 Prior cleanup is documented: the task PostgreSQL cluster on 56845/PID 50664 was stopped
 and its exact directory removed, with all 26 recorded task-temp directories and the
 machine-specific helper. Maintenance disposable instances were previously removed too.
-This audit started no database/server, created no OS-temp directory and has no running
-test resource to stop. Do not stop an arbitrary process now using a historical port.
-The committed audit probe/report are intentional durable evidence, not cleanup residue.
+This continuation created and subsequently stopped a **different** PostgreSQL 18
+instance: `bv-audit-pg-8227c7618dff479eb059aab1d0424c38/data`, PID 41200,
+localhost port 56846. Cleanup verified its exact data directory, `postmaster.pid`,
+PostgreSQL executable and listener ownership before `pg_ctl -D <exact-data> -w -t 30 stop`.
+Stop exited 0; the recorded process and listener were absent afterward. Vite/Chrome
+were closed by browser-test teardown.
+
+All seven exact generated OS-temp roots were then checked for containment and reparse
+points, removed with PowerShell `Remove-Item -LiteralPath`, and verified absent:
+
+- `bv-audit-pg-8227c7618dff479eb059aab1d0424c38`
+- `bv-audit-final-yd0_aetp`
+- `bv-audit-metrics-5rsedin0`
+- `bv-audit-stream-xs354sca`
+- `bv-audit-browser-V9v2AE`
+- `bv-audit-browser-QbTHjT`
+- `bv-audit-browser-K7o7Um`
+
+No unrelated process/directory was targeted. Do not stop arbitrary processes now using
+these historical ports. The committed audit probes/report and archived checkpoint
+are intentional durable evidence, not cleanup residue.
 
 ## Prioritized implementation and verification plan (not executed)
 
@@ -449,24 +549,29 @@ The committed audit probe/report are intentional durable evidence, not cleanup r
    versus explicitly labeled all-history drilldown; G05 shared registry/count visibility.
    Keep per-user scan authorization and Manila cohort definitions unchanged.
 2. **Small independent corrections:** F01 review navigation, F04 chosen date behavior,
-   F07 intake error/loading states, F08 deployment documentation. Write behavior-level
-   regressions before application edits; no schema redesign required.
+   F07 intake error/loading states, F09 maintenance poll ordering, F08 deployment
+   documentation. Write behavior-level regressions before application edits;
+   no schema redesign required.
 3. **Risk consistency:** implement F02 using the chosen F03 predicate and authoritative
    elapsed/unknown estimate data. Freeze time and compare IDs/counts in all views,
    including source rename, sold/processing, incomplete estimates and midnight.
 4. **Requested additions:** F05 exact success-population drilldown, F06 optional Analytics
    cultivar/status filters, G02 concise definition/time labels. Keep current components
    and styling; align contracts and source-option behavior.
-5. **Close explicit verification gaps:** reproduce F07/G03 in mocked browser fixtures;
-   test changing page/export datasets for agreed semantics; execute metric SQL against
-   a newly identified disposable PostgreSQL schema after approval infrastructure is
-   available. Do not reuse a historical port without establishing resource identity.
+5. **Close remaining acceptance gaps only where required:** agree dataset-size and
+   latency/memory budgets for config/Logs exports, then measure them in a disposable
+   environment; inject HTTP disconnects at the client/server boundary. Choose whether
+   stable cross-request page snapshots are required before changing pagination.
+   PostgreSQL metrics and F07/F09 reproduction are complete and need no repeat until
+   a fix changes behavior. Live acceptance remains a separately authorized operation.
 6. **Final authorized implementation checks:** targeted tests first, then applicable
    full backend/PG and frontend tests, type/build, baseline-aware lint and scoped security/
    diff review. Keep maintenance acceptance and scan hardening suites intact. No live
    acceptance, production migration, push or deployment without explicit authorization.
 
-The audit's source inspection and requirement report are delivered. Additional runtime
-characterization remains **NOT VERIFIED**, and recommended corrections are **not
-implemented** by design. The current [checkpoint](../TASK_PROGRESS.txt) states the exact
-next action; this report must not be interpreted as “all requirements passed.”
+The audit's approved source inspection, targeted runtime characterization, evidence
+review and cleanup are complete. Remaining unverified scenarios and policy choices
+are explicitly bounded above; recommended corrections are **not implemented** by
+design. The current [checkpoint](../TASK_PROGRESS.txt) records final Git/check results
+and the next authorization-dependent actions. Audit completion does not mean that
+all 82 implementation requirements passed or that deployment/live acceptance occurred.

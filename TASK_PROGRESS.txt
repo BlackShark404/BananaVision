@@ -1,77 +1,70 @@
 CURRENT RESUME HERE (2026-10-11, Asia/Manila)
-TASK: Comprehensive system audit — report delivered; additional runtime verification INCOMPLETE.
-BRANCH: main. HEAD: 26577da (user committed prior audit). Main only; no branch/worktree.
-SCOPE: AUDIT ONLY. No production fixes, commits, push, merge, deployment or live operations.
-REPORT: docs/system-audit-2026-10-10.md (authoritative findings, source/tests and fix plan).
+TASK: Comprehensive system audit COMPLETE within documented verification limits.
+BRANCH: main. HEAD: 5483861 (audit probes committed by user). Main only; no branch/worktree.
+SCOPE: AUDIT ONLY. No production fixes, assistant commits, push, merge, deployment or live operations.
+REPORT: docs/system-audit-2026-10-10.md (82-row matrix, findings, commands, acceptance plan).
+HISTORY: docs/history/2026-10-11-audit-runtime-checkpoint.txt is superseded, not pending work.
 
 DONE
-- Inspected current Git, AGENTS, original/main-only requests, approved completed plans.
-- All 82 requirement rows classified: 63 VERIFIED, 10 PARTIAL, 4 DEFECTIVE,
-  1 MISSING, 4 NOT VERIFIED. Overlapping rows are not independent bug counts.
-- Current application/test source matches fa63f5d final verification. Intervening
-  backend/.env.example, setup.bat and roadmap/docs changes preserved; setup not executed.
-- Source audit covered Dashboard, Analytics, Logs/Detail, config, archive/restore,
-  retention, power/admission and cross-view inventory/authorization/time behavior.
-- Three dependency-free source-function probes confirm F01/F02/F04 behavior.
-- Prior completed scan/maintenance protections and UI untouched. No old commits replayed.
+- Final matrix: 64 VERIFIED, 11 PARTIAL, 4 DEFECTIVE, 1 MISSING, 2 NOT VERIFIED (82 total).
+- All approved source/runtime characterization completed or explicitly bounded in report.
+- Actual PG review population mismatch and differing stock eligibility confirmed.
+  Manila boundaries, original confidence and stable supplier/operator scope verified.
+- Filtered exports ignore page limits; 205-row cursor retains snapshot during concurrent
+  insertion/source changes. Injected failure propagates and closes the cursor.
+  Separate offset pages can repeat a row after insertion; snapshot policy still undecided.
+- Actual browser fixtures reproduce initial/stale intake failures (F07) and old ready
+  maintenance response replacing recovery-required (F09). These are findings, not fixes.
+- Preserved completed maintenance/scan features, exact UI and all unrelated user changes.
 
-FINDINGS / PROPOSED FIXES (NOT IMPLEMENTED; separate authorization required)
-- Medium F01: Dashboard review link uses Flagged, omitting unflagged low-confidence scans.
-- Medium F02: Inventory risk ignores age; unknown/reversed estimates become urgent alerts.
-- Medium F03: Dashboard/Logs include depleted intake stock; Analytics excludes it;
-  Inventory also excludes unlinked stock. Agree authoritative policy before changing it.
-- Medium F04: daily source/operator group rows open all-time Logs without a scope label.
-- Medium F07: failed intake fetch can silently produce empty/stale Inventory totals.
-- Low F05/F06/F08: missing Operator success drilldown, Analytics cultivar/status filters,
-  and outdated README migration target 0004 instead of 0005.
-- Report G01-G06: changing-page snapshots, metric labels, maintenance poll ordering,
-  deletion-history limits, shared registry/count policy and environment verification gaps.
+ACTUAL VERIFICATION (do not rerun without changes/new evidence)
+- Seven targeted backend files: 84 passed in 14.43s, exit 0; fresh temp CWD before imports.
+  Command: venv Python -X utf8 -B, pytest -p no:cacheprovider -q --basetemp <temp>/fixtures
+  -c <backend>/pyproject.toml; files dashboard, analytics, scan_logs, scan_records,
+  scan_evidence, configuration, maintenance_integration. Exact script in report.
+- docs/audits/test_system_audit_metrics.py on new verified PG18: 4 passed in 2.91s.
+  After adding export probes, same command -k 'streamed_export or midstream':
+  2 passed, 4 deselected in 2.00s. Exit 0 both; all six covered, no skipped PG cases.
+- node --test --test-concurrency=1 docs/audits/system-audit-browser-2026-10-11.mjs:
+  3 passed, 0 failed/skipped, 28.7514411s, exit 0. Mock API/WebSocket, envFile:false.
+- Prior audit pure-source probes: 3 passed, 100.1355ms (reused, not repeated).
+- Reused unchanged-source full verification: 222 backend/PG, 54 frontend; TS/build exit 0.
+  Exact commands: docs/scan-records-verification-2026-10-10.md. No app changes warrant rerun.
+- Reused lint debt: ESLint 43 errors/8 warnings; Ruff 620 vs 660 baseline. Not lint-clean.
+- New final checks: node --check both audit JS files; Python stdlib ast.parse; 52 local
+  report links/0 missing; 82 unique IDs and correct counts; whitespace/conflict-marker
+  checks and git diff --check passed. Scoped diff reviewed; no application edits.
+- Historical approval/usage block resolved via normal approval: targeted command ran.
+  No blocked test remains pending and no denied restriction was bypassed.
 
-ACTUAL VERIFICATION
-- New PG metric/cross-view probes: 4 passed in 2.91s, exit 0. Actual PostgreSQL SQL
-  confirms F01/F03, Manila boundary/original confidence/source scope, offset-page repeat.
-- New browser probes: 3 passed, 0 failed/skipped, 28.7514411s, exit 0. F07 initial/stale
-  intake failure and G03 out-of-order maintenance status reproduced in actual components.
-  Browser harness explicitly envFile:false (frontend environment files exist; not read).
-- Stream snapshot/cursor-failure probes added; two-test targeted run currently pending.
-- Additional temp cleanup: bv-audit-metrics-5rsedin0; browser caches bv-audit-browser-
-  V9v2AE, QbTHjT, K7o7Um (each full basename includes bv-audit-browser-).
-- 2026-10-11: normal approval succeeded for the previously blocked isolated command:
-  targeted seven backend files: 84 passed in 14.43s, exit 0. No live environment loaded.
-  New temp CWD: C:/Users/RORONO~1/AppData/Local/Temp/bv-audit-final-yd0_aetp (cleanup pending).
-- IN PROGRESS: creating a new disposable PG cluster for metric execution and adding
-  browser characterization for intake failures/maintenance poll ordering. No production edits.
-- Disposable PG NOW RUNNING: C:/Users/Roronoa Zoro/AppData/Local/Temp/
-  bv-audit-pg-8227c7618dff479eb059aab1d0424c38/data, PID 41200, port 56846,
-  user bv_audit, database postgres. Verify directory/PID/port before stopping ONLY this cluster.
-- NEW: node --test docs/audits/system-audit-probes-2026-10-10.mjs
-  3 passed, 0 failed/skipped, 100.1355ms, exit 0. Characterizes defects, not fixes.
-- NEW: node --check probe exit 0; report link/matrix validator exit 0:
-  50 local links, 0 missing, 82 unique requirement IDs.
-- NEW: git diff --check exit 0; all three audit files checked for whitespace/conflict
-  markers (0 failures). Final scoped diff confirms no production/application changes.
-- REUSED after Git comparison: 222 backend/PG passed 71.19s; 54 frontend passed
-  60.2775s; TypeScript/build exit 0. Exact commands in scan-records verification report.
-- REUSED lint: ESLint 43 errors/8 warnings; Ruff 620 vs 660 baseline; zero introduced.
-  Full lint is not green. No unrelated cleanup or repeated full suites.
-- BLOCKED: targeted isolated backend audit pytest command DID NOT EXECUTE because
-  automatic approval review hit account usage limit (not unsafe-action finding).
-  No bypass/repeated attempt. Command recipe recorded in report; no new backend result.
+CLEANUP VERIFIED
+- Verified new PG18 data directory, PID 41200, executable and localhost:56846 owner;
+  pg_ctl -D <exact audit data> -w -t 30 stop exited 0; PID/listener absent afterward.
+- Seven exact OS-temp roots checked for containment/reparse points, removed and absent:
+  bv-audit-pg-8227c7618dff479eb059aab1d0424c38; bv-audit-final-yd0_aetp;
+  bv-audit-metrics-5rsedin0; bv-audit-stream-xs354sca; bv-audit-browser-V9v2AE;
+  bv-audit-browser-QbTHjT; bv-audit-browser-K7o7Um. Browser/server teardown completed.
+  Do not stop a process later reusing those historical ports/PIDs. No unrelated cleanup.
 
-REMAINING / EXACT RESUME
-1. Read report; do not repeat source audit or completed hardening/maintenance work.
-2. When approval infrastructure is available, execute the recorded isolated targeted
-   backend command. Add focused cross-view parity fixtures and actual PostgreSQL metric
-   query execution if completing G06; use a newly verified disposable instance only.
-3. Reproduce Inventory intake failure and delayed maintenance polls with mocked browsers;
-   changing-dataset/export checks remain unverified beyond existing batch/page tests.
-4. Obtain separate authorization for recommended production fixes and resolve F03 policy.
-   Do not implement fixes merely because they are listed here.
+REMAINING LIMITATIONS / NEXT ACTION (separate authorization required)
+- No audit implementation work in progress. Recommended production fixes NOT implemented.
+- Prioritize F01 review shortcut, F04 daily scope, F07 intake error/stale states;
+  fix F02 risk age/unknown handling after F03 depleted/unlinked stock policy is agreed.
+  F09 poll ordering and F08 migration docs are small independent corrections.
+- F05 success drilldown and F06 Analytics cultivar/status filters remain absent/partial.
+- Policy: F03 eligible stock, G05 shared intake metadata/counts, G01 cross-page snapshots;
+  G04 universal post-delete history and G02 confidence labels remain explicit gaps.
+- NOT VERIFIED: M21 production-scale config CSV resource limits; M22 live hardware,
+  OS power, deployed storage/abrupt-power-loss behavior. S23 remains PARTIAL for scale
+  and end-to-end HTTP interrupted downloads. No deployment acceptance claimed.
+- Exact next action: review report recommendations and authorize a scoped correction
+  task with required policy answers. Do not rerun completed audit or implement fixes now.
 
-GIT / CLEANUP / SAFETY
-- Intentional uncommitted files: TASK_PROGRESS.txt; docs/system-audit-2026-10-10.md;
-  docs/audits/system-audit-probes-2026-10-10.mjs. Application source unchanged.
-- No audit DB/server/OS-temp resources created. Prior disposal documented in completed
-  scan/maintenance reports; never stop an arbitrary process on their historical ports.
+FINAL GIT / SAFETY
+- HEAD 5483861 on main. Intentional uncommitted documentation only: TASK_PROGRESS.txt,
+  docs/system-audit-2026-10-10.md, docs/history/2026-10-11-audit-runtime-checkpoint.txt.
+- Committed audit evidence is in 26577da/5483861. No assistant commit requested/performed.
+- git diff fa63f5d..HEAD -- backend frontend: only pre-existing backend/.env.example;
+  audit-base 0a4c87e..HEAD and current changes are audit docs/probes only.
 - Never read live .env or operate live DB/captures/cameras/hardware/retention/restore/power.
-- Live acceptance stays deferred. Historical checkpoints remain docs/history/.
+  No production/UI/schema/business-rule changes; no push/merge/deploy/history rewrite.
