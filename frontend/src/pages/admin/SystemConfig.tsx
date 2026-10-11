@@ -43,22 +43,29 @@ export default function SystemConfig() {
   const powerId = useRef<string | null>(null)
   const powerFlight = useRef(false)
   const configFlight = useRef(false)
+  const maintenanceSequence = useRef(0)
+  const acceptMaintenance = (result: MaintenanceStatus) => {
+    ++maintenanceSequence.current
+    setMaintenance(result)
+    setMaintenanceError(null)
+  }
   const disabled = !configReady || configConflict || archiveBusy || powerPending || powerAccepted || Boolean(maintenance && maintenance.state !== "ready")
   useEffect(() => {
     let live = true
-    let seq = 0
+    let timer: ReturnType<typeof setTimeout> | undefined
     const refresh = async () => {
-      const mySeq = ++seq
+      if (!live) return
+      const mySeq = ++maintenanceSequence.current
       try {
         const result = await api.config.maintenance()
-        if (live && mySeq === seq) { setMaintenance(result); setMaintenanceError(null) }
+        if (live && mySeq === maintenanceSequence.current) { setMaintenance(result); setMaintenanceError(null) }
       } catch {
-        if (live && mySeq === seq) setMaintenanceError("Maintenance status unavailable")
+        if (live && mySeq === maintenanceSequence.current) setMaintenanceError("Maintenance status unavailable")
       }
-      if (live) setTimeout(refresh, 5000)
+      if (live) timer = setTimeout(refresh, 5000)
     }
     void refresh()
-    return () => { live = false }
+    return () => { live = false; clearTimeout(timer) }
   }, [])
   const [saving, setSaving] = useState(false)
   const [showShutdownDialog, setShowShutdownDialog] = useState(false)
@@ -454,13 +461,13 @@ export default function SystemConfig() {
                 <Input id="power-password" type="password" value={recoveryPassword} onChange={e => setRecoveryPassword(e.target.value)} />
                 <Button variant="outline" disabled={!recoveryPassword || powerPending} onClick={async () => {
                   setPowerPending(true)
-                  try { await api.config.recoverPower(recoveryPassword); setPowerAccepted(false); setMaintenance(await api.config.maintenance()); setRecoveryPassword("") }
+                  try { await api.config.recoverPower(recoveryPassword); setPowerAccepted(false); acceptMaintenance(await api.config.maintenance()); setRecoveryPassword("") }
                   catch (error) { setPowerMessage(error instanceof Error ? error.message : "Cancellation unconfirmed; admission remains closed") }
                   finally { setPowerPending(false) }
                 }}>Cancel Pending Power Command</Button>
                 <Button variant="outline" disabled={!recoveryPassword || powerPending} onClick={async () => {
                   setPowerPending(true)
-                  try { setMaintenance(await api.config.recoverRestore(recoveryPassword)); setRecoveryPassword("") }
+                  try { acceptMaintenance(await api.config.recoverRestore(recoveryPassword)); setRecoveryPassword("") }
                   catch (error) { setPowerMessage(error instanceof Error ? error.message : "Recovery failed") }
                   finally { setPowerPending(false) }
                 }}>Retry Restore Recovery</Button>

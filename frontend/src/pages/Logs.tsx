@@ -513,6 +513,12 @@ const columns: ColumnDef<LogScan>[] = [
         <Button variant="ghost" size="sm" onClick={() => setCardFilter(null)}>Clear risk filter</Button>
       </div>}
 
+      {cardFilter === "success" && <div className="flex flex-wrap items-center gap-2 text-sm">
+        <Badge variant="secondary">Auto-approved scans</Badge>
+        <span className="text-xs text-muted-foreground">Unflagged scans meeting the configured confidence threshold. This is not measured accuracy.</span>
+        <Button variant="ghost" size="sm" onClick={() => setCardFilter(null)}>Clear success filter</Button>
+      </div>}
+
       {/* Table */}
       {!response ? <Card className="p-10 text-center text-muted-foreground" role="status">{resource.loading ? <span className="inline-flex items-center gap-2"><Loader2 className="size-4 animate-spin" /> Loading scan records…</span> : "Records could not be loaded. Retry above."}</Card> : (
       <AppDataTable

@@ -296,3 +296,18 @@ async def test_csv_round_trip_special_characters_and_formula_prefixes(logs_db):
         if value.lstrip().startswith(('=', '+', '-', '@')):
             assert scan_logs._safe_cell(value) == "'" + value
     assert scan_logs._safe_cell(-1.5) == -1.5
+
+@pytest.mark.asyncio
+async def test_success_drilldown_matches_dashboard_numerator_and_full_export(logs_db):
+    db = logs_db
+    own, other = account(db), account(db)
+    expected = {scan(db, own, confidence=85), scan(db, own, confidence=90)}
+    scan(db, own, confidence=60)
+    scan(db, own, confidence=95, flagged=True)
+    scan(db, own, confidence=None)
+    scan(db, other, confidence=99)
+    summary = await dashboard.get_summary(db, own)
+    result = await scan_logs.list_scan_logs(db, own, ScanLogQuery(attention='success'))
+    assert summary.success_rate == 40
+    assert result.total == 2 and {row.id for row in result.items} == expected
+    assert {row['Scan ID'] for row in await csv_rows(db, own, ScanLogQuery(attention='success', page=7, page_size=1))} == {str(sid) for sid in expected}

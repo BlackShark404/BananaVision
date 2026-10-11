@@ -46,6 +46,8 @@ def _conditions(scans, query: ScanLogQuery, threshold: float):
         conditions.append(dashboard._expiring(scans))
     elif query.attention == "review":
         conditions.append(dashboard._review(scans, threshold))
+    elif query.attention == "success":
+        conditions.append(dashboard._successful(scans, threshold))
     if query.search and query.search.strip():
         text = query.search.strip().lower()
         fields = [

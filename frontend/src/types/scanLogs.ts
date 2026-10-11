@@ -21,7 +21,7 @@ export interface ScanLogParams {
   ripeness?: string
   inventory_status?: string
   flagged_only?: boolean
-  attention?: "all" | "at-risk" | "review"
+  attention?: "all" | "at-risk" | "review" | "success"
   search?: string
   page: number
   page_size: number

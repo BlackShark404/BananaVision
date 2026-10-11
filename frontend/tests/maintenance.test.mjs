@@ -13,7 +13,8 @@ async function setup(t, options={}) {
  const body=req.headers()['content-type']?.includes('application/json')?req.postDataJSON():null;state.requests.push({path,method,body})
  if(path==='/api/v1/config'&&method==='GET'){const saved={...state.config};if(state.holdRead)await state.holdRead();return state.failLoad?reply({detail:'Offline'},503):reply(saved)}
  if(path==='/api/v1/config'&&method==='PATCH'){if(state.conflict)return reply({detail:'Configuration changed; reload to review'},409);state.config={...state.config,...body,revision:state.config.revision+1};return reply(state.config)}
- if(path==='/api/v1/config/maintenance')return reply({state:'ready',active_operations:0})
+ if(path==='/api/v1/config/maintenance')return state.maintenance ? state.maintenance(reply) : reply({state:'ready',active_operations:0})
+ if(path==='/api/v1/config/maintenance/recover')return reply({state:'ready',active_operations:0})
  if(path==='/api/v1/cameras')return reply([{device_id:0,camera_id:'CAM-001',label:'CAM-001',online:false}])
  if(path==='/api/v1/cameras/mapping')return reply({...state.config,revision:2,application_status:'partial',application_error:'Camera 0 failed',results:{'0':false}})
  if(path==='/api/v1/config/backups')return reply({id:body.operation_id,status:'completed',filename:'station.zip',manifest:{tables:18}})
@@ -34,3 +35,35 @@ test('power submission is single-flight and reports acceptance rather than compl
 
 
 test('new backup after completion gets a new operation ID',async t=>{const {page,state}=await setup(t);await page.getByRole('tab',{name:'Data Storage'}).click();await page.getByRole('button',{name:'Create Backup',exact:true}).click();await page.getByRole('button',{name:'Download Backup'}).waitFor();await page.getByRole('button',{name:'Create Backup',exact:true}).click();await until(()=>state.requests.filter(r=>r.path.endsWith('/backups')).length===2);const requests=state.requests.filter(r=>r.path.endsWith('/backups'));assert.notEqual(requests[0].body.operation_id,requests[1].body.operation_id)})
+
+test('maintenance polling does not issue a scheduled request after unmount', async t => {
+ const {page,state}=await setup(t)
+ const polls=()=>state.requests.filter(r=>r.path==='/api/v1/config/maintenance').length
+ await until(()=>polls()===1)
+ await page.getByRole('button',{name:'Fixture close'}).click()
+ const before=polls()
+ await page.clock.runFor(6000)
+ await new Promise(r=>setTimeout(r,100))
+ assert.equal(polls(),before)
+})
+
+test('old maintenance poll cannot overwrite a newer recovery result', async t => {
+ let calls=0,release,replied=false
+ const {page}=await setup(t,{maintenance:async reply=>{
+  calls++
+  if(calls===2) {await new Promise(r=>release=r);await reply({state:'recovery-required',active_operations:0});replied=true;return}
+  return reply({state:'recovery-required',active_operations:0})
+ }})
+ await page.getByRole('tab',{name:'System Power'}).click()
+ await page.getByLabel('Recovery administrator password').waitFor()
+ await page.clock.runFor(5100)
+ await until(()=>Boolean(release))
+ await page.getByLabel('Recovery administrator password').fill('mock-only')
+ await page.getByRole('button',{name:'Retry Restore Recovery'}).click()
+ await until(()=>page.getByLabel('Recovery administrator password').count().then(n=>n===0))
+ release()
+ await until(()=>replied)
+ await page.clock.runFor(100)
+ await new Promise(r=>setTimeout(r,100))
+ assert.equal(await page.getByLabel('Recovery administrator password').count(),0)
+})

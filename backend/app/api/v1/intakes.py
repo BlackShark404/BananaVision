@@ -24,6 +24,7 @@ from app.services.scan_records import (
     save_receipt,
     apply_scan_change,
     is_admin,
+    scan_scope,
 )
 from app.models.supplier import Supplier
 from app.models.intake import Intake
@@ -115,7 +116,8 @@ async def create_intake(body: IntakeCreate, db: DbSession, user: CurrentUser, re
 
 @router.get("", response_model=list[IntakeResponse])
 async def list_intakes(db: DbSession, user: CurrentUser):
-    """List all intakes with scan counts."""
+    """Shared registry; counts include only the caller's authorized scans."""
+    scope = scan_scope(user)
     result = await db.execute(
         select(Intake).order_by(desc(Intake.intake_date))
     )
@@ -124,7 +126,7 @@ async def list_intakes(db: DbSession, user: CurrentUser):
     responses = []
     for intake in intakes:
         scan_count_result = await db.execute(
-            select(func.count()).where(Scan.intake_id == intake.id)
+            select(func.count()).where(Scan.intake_id == intake.id, scope)
         )
         scan_count = scan_count_result.scalar() or 0
 

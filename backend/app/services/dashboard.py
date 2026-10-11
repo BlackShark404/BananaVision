@@ -177,6 +177,11 @@ def _review(scans, threshold: float):
     return or_(scans.c.flagged.is_(True), scans.c.confidence < threshold)
 
 
+def _successful(scans, threshold: float):
+    # SQL NULL confidence stays unknown rather than becoming auto-approved.
+    return not_(_review(scans, threshold))
+
+
 def _expiring(scans):
     return and_(
         scans.c.inventory_status == InventoryStatusEnum.IN_STOCK,
@@ -243,7 +248,7 @@ async def get_summary(
             func.count().label("total"),
             func.count().filter(_review(scans, threshold)).label("review"),
             func.count().filter(_expiring(scans)).label("expiring"),
-            func.count().filter(not_(_review(scans, threshold))).label("success_count"),
+            func.count().filter(_successful(scans, threshold)).label("success_count"),
         ).select_from(scans)
     )).one()
     success_rate = (alerts.success_count / alerts.total * 100.0) if alerts.total > 0 else None

@@ -89,9 +89,10 @@ From `backend/`, run `python -m app.core.migrations` with the deployment environ
 - `0002_feature_engineering` adds missing batch lifecycle/treatment and engineered-feature columns from the earlier manual SQL migration. Already-present columns are retained. Historical engineered values remain unchanged; the schema upgrade does not recompute model features.
 - `0003_system_configuration` adds canonical configuration, revision checks, applied state, and stable physical camera mappings.
 - `0004_maintenance_state` adds durable non-restored maintenance/authentication-generation state.
+- `0005_scan_record_history` adds scan revisions, immutable history, mutation receipts and deletion tombstones. Station archives use schema v2; the strict v1 adapter preserves legacy values without inventing history.
 - `alembic_version` records successful upgrades. Fresh databases and databases already upgraded manually adopt the revision without duplicate columns. Automatic downgrade is intentionally blocked because removing session revocation or historical columns would discard safeguards/data.
 
-Before upgrading the station, take a PostgreSQL backup and rehearse against a disposable copy. Confirm `alembic_version.version_num` is `0004_maintenance_state`, `user_account.token_version` exists, existing accounts can sign in, and pre-reset tokens are rejected. The scan-summary CSV is insufficient for database recovery.
+Before upgrading the station, take a PostgreSQL backup and rehearse against a disposable copy. Confirm `alembic_version.version_num` matches the current migration head (`0005_scan_record_history`), `user_account.token_version` exists, existing accounts can sign in, and pre-reset tokens are rejected. Include revision/history writes and v1/v2 archive restoration in the disposable rehearsal. The scan-summary CSV is insufficient for database recovery.
 
 Regression tests use disposable databases. To include PostgreSQL cases, set `BANANAVISION_TEST_DATABASE_URL` to a test PostgreSQL URL; the tests create unique temporary schemas and remove only those schemas. On Windows, if the default pytest temporary directory is inaccessible, pass `--basetemp` pointing to a writable test directory whose parent exists.
 

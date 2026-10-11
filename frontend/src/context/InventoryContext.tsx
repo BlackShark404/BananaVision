@@ -74,6 +74,8 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
   const [activeIntake, setActiveIntake] = useState<DailyIntake | null>(null)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const loadSeq = useRef(0)
+  const hasIntakeSnapshot = useRef(false)
+  const cancelLoad = useCallback(() => { ++loadSeq.current }, [])
 
   // ── Load data on mount / navigation ─────────────────────────────────────
 
@@ -96,32 +98,28 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
 
       if (intakesRes.status === "fulfilled") {
         setIntakes((intakesRes.value as any[]).map(mapApiIntake))
+        hasIntakeSnapshot.current = true
         setIntakesError(null)
         setIntakesStale(false)
       } else {
-        // Preserve old intakes but mark as stale if we had data before
-        if (intakes.length > 0) {
-          setIntakesStale(true)
-        }
+        setIntakesStale(hasIntakeSnapshot.current)
         setIntakesError("Intake data unavailable. Stock totals may be inaccurate.")
         console.warn("[InventoryContext] Intakes API unavailable")
       }
     } catch (err) {
       if (mySeq !== loadSeq.current) return
-      if (intakes.length > 0) {
-        setIntakesStale(true)
-      }
+      setIntakesStale(hasIntakeSnapshot.current)
       setIntakesError("Backend unreachable. Stock totals may be inaccurate.")
       console.warn("[InventoryContext] Backend unreachable", err)
     } finally {
       if (mySeq === loadSeq.current) setIntakesLoading(false)
     }
-  }, [user, intakes.length])
+  }, [user])
 
   useEffect(() => {
     void loadData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, pathname])
+    return cancelLoad
+  }, [loadData, cancelLoad, pathname])
 
   const refreshIntakes = useCallback(() => { void loadData() }, [loadData])
 

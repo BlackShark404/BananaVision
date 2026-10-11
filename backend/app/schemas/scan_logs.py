@@ -21,7 +21,7 @@ class ScanLogQuery(BaseModel):
     ripeness: RipenessEnum | None = None
     inventory_status: InventoryStatusEnum | None = None
     flagged_only: bool = False
-    attention: Literal["all", "at-risk", "review"] = "all"
+    attention: Literal["all", "at-risk", "review", "success"] = "all"
     search: str | None = Field(None, max_length=200)
     page: int = Field(1, ge=1)
     page_size: int = Field(10, ge=1, le=100)

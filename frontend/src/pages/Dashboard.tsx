@@ -137,10 +137,10 @@ function DashboardContent() {
       return
     }
     navigate(buildScanLogsUrl({
-      date: view === "review" || view === "expiring" ? undefined : date,
+      date: view === "review" || view === "expiring" || view === "success" ? undefined : date,
       source_key: filters?.source_key,
       operator_id: filters?.operator_id,
-      attention: view === "expiring" ? "at-risk" : view === "review" ? "review" : undefined,
+      attention: view === "expiring" ? "at-risk" : view === "review" ? "review" : view === "success" ? "success" : undefined,
       sort: view === "confidence" ? "confidence" : undefined,
       direction: view === "confidence" ? "asc" : undefined,
     }))
@@ -199,7 +199,7 @@ function DashboardContent() {
           iconBgColor="bg-emerald-500/10"
           delay={100}
           description={metricDescription(operatorMetric.desc)}
-          onClick={user?.role === "Operator" ? undefined : () => openRecords("operators")}
+          onClick={() => openRecords(user?.role === "Operator" ? "success" : "operators")}
           disabled={!summary}
         />
         <AppStatsCard

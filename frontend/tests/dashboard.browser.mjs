@@ -14,7 +14,8 @@ export async function startBrowser({ fixture = "dashboard.fixture.tsx", auth = "
   }
   const root = fileURLToPath(new URL("../", import.meta.url))
   const server = await createServer({
-    root, configFile: false, logLevel: "error",
+    root, configFile: false, envFile: false, logLevel: "error",
+    define: { "import.meta.env.VITE_API_URL": JSON.stringify("http://127.0.0.1:8000") },
     cacheDir: path.join(root, "node_modules", `.vite-tests-${fixture.replace(/\W/g, "-")}`),
     plugins: [react(), tailwindcss(), {
       name: "isolated-dashboard-fixture",

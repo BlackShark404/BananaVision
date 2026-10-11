@@ -4,7 +4,7 @@ export interface ScanLogNavigation {
   date?: string
   operator_id?: string
   source_key?: string
-  attention?: "at-risk" | "review"
+  attention?: "at-risk" | "review" | "success"
   status?: string
   sort?: ScanLogParams["sort"]
   direction?: ScanLogParams["direction"]
@@ -31,7 +31,7 @@ export function scanLogParams(params: URLSearchParams): ScanLogParams {
     ripeness: params.get("ripeness") || undefined,
     inventory_status: status && status !== "Flagged" ? status : undefined,
     flagged_only: status === "Flagged",
-    attention: attention === "at-risk" || attention === "review" ? attention : "all",
+    attention: attention === "at-risk" || attention === "review" || attention === "success" ? attention : "all",
     search: params.get("search") || undefined,
     page: Number.isSafeInteger(page) && page > 0 ? page : 1,
     page_size: 10,

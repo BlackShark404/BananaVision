@@ -128,7 +128,7 @@ test("same-name account and role changes discard an older in-flight response", a
 
 test("admin scan KPIs redirect to filtered logs; group KPIs retain lists", async t => {
   const { page } = await setup(t)
-  for (const [label, query] of [[/Scans Today/i, { date: "2026-10-02" }], [/Pending quality reviews/i, { status: "Flagged" }], [/Expiring stock/i, { attention: "at-risk" }]]) {
+  for (const [label, query] of [[/Scans Today/i, { date: "2026-10-02" }], [/Pending quality reviews/i, { attention: "review" }], [/Expiring stock/i, { attention: "at-risk" }]]) {
     await expectValue(card(page), "12")
     await card(page, label).click()
     await page.waitForURL("**/logs?**")
@@ -155,6 +155,25 @@ test("operator source KPI opens its list and success rate uses the server metric
   await card(page, /My Sources/i).click()
   await page.waitForURL("**/dashboard?**view=sources**")
   await page.getByRole("dialog").waitFor()
+})
+
+test("daily group rows retain the selected date and stable identity", async t => {
+  const { page } = await setup(t)
+  for (const [label, row, filter] of [[/Active Sources/i, /Fixture Supplier/, { source_key: "supplier:source-1" }], [/Active Operators/i, /Alex Santos/, { operator_id: "operator-1" }]]) {
+    await expectValue(card(page), "12")
+    await card(page, label).click()
+    await page.getByRole("dialog").getByRole("button", { name: row }).click()
+    await page.waitForURL("**/logs?**")
+    assert.deepEqual(Object.fromEntries(new URL(page.url()).searchParams), { date: "2026-10-02", ...filter })
+    await page.goto(`${runtime.url}/dashboard`)
+  }
+})
+
+test("legacy review links use the complete review predicate", async t => {
+  const { page } = await setup(t)
+  await page.goto(`${runtime.url}/dashboard?view=review`)
+  await page.waitForURL("**/logs?**")
+  assert.deepEqual(Object.fromEntries(new URL(page.url()).searchParams), { attention: "review" })
 })
 
 test("Recent Scans and Today's Sources retain their logs destinations", async t => {
@@ -196,4 +215,14 @@ test("camera outage leaves metrics usable, with no mobile page overflow", async 
     await page.setViewportSize({ width: 1365, height: 1000 })
     await page.screenshot({ path: path.join(process.env.DASHBOARD_SCREENSHOT_DIR, "dashboard-desktop.png"), fullPage: true })
   }
+})
+
+test('operator success KPI opens exactly the all-time successful scan population', async t => {
+  const { page } = await setup(t, { environment: { user: { id: 'operator-account', username: 'operator', fullName: 'Alex Santos', role: 'Operator' } }, response: { summary: summary({ success_rate: 75 }) } })
+  await expectValue(card(page), '12')
+  const success = page.getByRole('button', { name: /^Scan Success Rate/ })
+  assert.equal(await success.count(), 1)
+  await success.click()
+  await page.waitForURL('**/logs?**')
+  assert.deepEqual(Object.fromEntries(new URL(page.url()).searchParams), { attention: 'success' })
 })

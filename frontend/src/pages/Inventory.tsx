@@ -178,6 +178,13 @@ export default function Inventory() {
         }
       />
 
+      {intakesStale && <Card className="rounded-xl sm:rounded-2xl">
+        <CardContent className="p-4 sm:p-6" role="alert">
+          <p className="text-sm text-muted-foreground">Intake data is stale. Stock totals use the last successful intake snapshot.</p>
+          <Button variant="outline" className="mt-3" onClick={refreshIntakes}>Retry intake data</Button>
+        </CardContent>
+      </Card>}
+
       {/* Overview Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <AppStatsCard

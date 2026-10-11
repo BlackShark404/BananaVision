@@ -81,7 +81,7 @@ async function setup(t, options = {}) {
     if (url.pathname === "/api/v1/config") return reply(state.config)
     if (url.pathname === "/api/v1/devices") return reply([])
     if (url.pathname === "/api/v1/suppliers") return reply(state.suppliers)
-    if (url.pathname === "/api/v1/intakes") return reply(state.intakes)
+    if (url.pathname === "/api/v1/intakes") return state.failIntakes ? reply({ detail: "Intakes unavailable" }, 503) : reply(state.intakes)
     if (url.pathname === "/api/v1/scans/scan-0") return reply({ ...state.scans[0], notes: [] })
     if (url.pathname.endsWith("/notes")) return reply([])
     return reply({ detail: `Unexpected test read: ${url.pathname}` }, 404)
@@ -90,7 +90,7 @@ async function setup(t, options = {}) {
   await until(async () => {
     if (!await page.getByTestId("state").count()) return false
     const current = await snapshot(page)
-    return !current.loading && !current.activityLoading && current.users.length > 0 && current.suppliers.length > 0 && current.activeIntake
+    return !current.loading && !current.activityLoading && !current.intakesLoading && current.users.length > 0 && current.suppliers.length > 0 && (current.activeIntake || state.failIntakes)
   }, "Providers did not finish initial loading")
   return { page, state }
 }
@@ -110,6 +110,30 @@ test("shared scan and activity lists retrieve every page and preserve backend hi
     assert.deepEqual(requests.map(request => request.params.page), ["1", "2", "3"])
     assert(requests.every(request => request.params.page_size === "100" && !("per_page" in request.params)))
   }
+})
+
+test("initial intake failure is unavailable and retry recovers instead of reporting zero", async t => {
+  const { page, state } = await setup(t, { screen: "inventory", count: 1, failIntakes: true })
+  await page.getByRole("alert").filter({ hasText: "Intake data is unavailable" }).waitFor()
+  assert.equal(await page.getByText("Total Hands", { exact: true }).count(), 0)
+  state.failIntakes = false
+  await page.getByRole("button", { name: "Retry", exact: true }).click()
+  await page.getByText("Total Hands", { exact: true }).waitFor()
+  assert.equal((await snapshot(page)).intakesError, null)
+})
+
+test("failed intake refresh explicitly labels the retained stock snapshot stale", async t => {
+  const { page, state } = await setup(t, { screen: "inventory", count: 1 })
+  state.failIntakes = true
+  await page.evaluate(() => { history.pushState({}, '', '/logs?screen=inventory'); window.dispatchEvent(new PopStateEvent('popstate')) })
+  await until(async () => Boolean((await snapshot(page)).intakesError))
+  await page.getByRole("alert").filter({ hasText: /stale/i }).waitFor()
+  assert.equal((await snapshot(page)).intakesStale, true)
+  assert.equal(await page.getByText("Total Hands", { exact: true }).count(), 1)
+  state.failIntakes = false
+  await page.getByRole("button", { name: /Retry intake/i }).click()
+  await until(async () => !(await snapshot(page)).intakesStale)
+  assert.equal(await page.getByRole("alert").count(), 0)
 })
 
 test("a failed later history page never publishes a partial successful history", async t => {

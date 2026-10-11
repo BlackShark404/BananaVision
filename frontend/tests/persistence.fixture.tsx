@@ -45,6 +45,7 @@ function Probe() {
       notes: scans.getScanNotes("scan-0"), users: admin.users, config: admin.config,
       activity: admin.activityLogs, activityLoading: admin.activityLoading, activityError: admin.activityError,
       suppliers: inventory.suppliers, intakes: inventory.intakes, activeIntake: inventory.activeIntake,
+      intakesLoading: inventory.intakesLoading, intakesError: inventory.intakesError, intakesStale: inventory.intakesStale,
     })}</output>
     {screen ? <main className="p-6">{screen === "quality" ? <QualityControl /> : <Inventory />}</main> : <>
       <output data-testid="operation-result">{result}</output>

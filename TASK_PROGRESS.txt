@@ -1,33 +1,76 @@
-CURRENT RESUME HERE (2026-10-11, Asia/Manila)
-TASK: Implementing authorized audit findings F01-F09, G01-G06 from system audit.
-BRANCH: main. HEAD: ef62c41. Main only; no branch/worktree.
-SCOPE: Fix confirmed defects, complete missing features, preserve UI/UX.
-REPORT: docs/system-audit-2026-10-10.md (reference only — audit is complete).
-F03 POLICY: Approved by user — deleted-intake excluded, unlinked valid included,
-  sold/depleted/removed excluded. Centralize server-side eligibility.
+CURRENT RESUME HERE (2026-10-11)
+TASK: Authorized audit corrections INCOMPLETE. Initial fixes verified; F03/F02 next.
+BRANCH: main; HEAD d1e0220. Preserve committed F01/F04/F07/F09 work. No assistant commit yet.
+PLAN: docs/superpowers/plans/2026-10-11-audit-corrections.md. Audit report is historical baseline.
 
-IN PROGRESS
-- Starting with Priority 1: F01, F04, F07, F09 (functional defects).
-- Then F03 (approved eligibility policy), F02 (spoilage), F05-F08, G01-G06.
+DONE / VERIFIED THIS CONTINUATION
+- F01/F04 current and legacy review links and daily source/operator scope verified.
+- F07: initial error/retry already worked; added visible stale intake warning/retry,
+  snapshot identity, stable callback and request invalidation on navigation/unmount.
+- F09: fixed remaining scheduled request after unmount and old poll replacing newer
+  recovery response. Poll generation shared with explicit recovery results; timer cancelled.
+- F05: added attention=success through backend query, SQL, URL types/parser and Operator
+  KPI click; Logs uses existing badge/clear-filter pattern. Same SQL predicate as KPI,
+  null confidence excluded. Complete export and account scoping regression covered.
+- G05 user-approved shared registry retained; intake scan counts now use scan_scope(user).
+  Admin sees all, Operators only own counts; regression preserves registry membership.
+- F08 README now references current 0005 head and v1/v2 archive/history rehearsal.
+- Browser harness envFile:false and explicit local test API; no live .env read.
 
-DONE
-- Read and analyzed audit report, TASK_PROGRESS, codebase structure.
-- Identified root causes and fix locations for all findings.
+ACTUAL TEST RESULTS / COMMANDS
+- Focused browser RED: 7 tests, 4 passed/3 failed, 49.526s. Failures were stale intake
+  notice, post-unmount maintenance request, and late poll overriding recovery.
+- node --test --test-concurrency=1 frontend/tests/dashboard.test.mjs
+  frontend/tests/persistence.test.mjs frontend/tests/maintenance.test.mjs:
+  GREEN 34 passed, 0 failed/skipped, 31.3553315s.
+- After lint-safe cleanup adjustment, --test-name-pattern='intake failure|intake refresh|maintenance poll'
+  persistence+maintenance: 4 passed, 0 failed/skipped, 6.2465582s.
+- F05/G05 backend RED: 2 failed as expected, 31 deselected, 3.44s.
+- F05 browser RED: no clickable Operator success KPI; 1 failed, 2.199s.
+- Backend dashboard/logs/records/time-and-writes GREEN: 76 passed, 10.54s, exit 0.
+  Python venv -X utf8 -B from fresh OS-temp cwd before app imports; backend on sys.path;
+  pytest -p no:cacheprovider -q --basetemp <temp>/fixtures -c <backend>/pyproject.toml.
+  No PG env configured for this run; these four files used generated SQLite fixtures.
+- Dashboard --test-name-pattern='operator success KPI|admin scan KPIs|daily group|legacy review':
+  4 passed, 0 failed/skipped, 7.6488019s.
+- npm run typecheck passed twice, latest after F05/G05.
+- Production tsc -b + programmatic vite build({envFile:false}) passed (Vite14.07s)
+  BEFORE F05/G05; final build still required after all changes. Never plain build loading .env.
+- Configured npm run lint initially 42 errors/10 warnings; two new ref-cleanup warnings
+  corrected. ESLint lintText comparison against HEAD across every changed TS/TSX:
+  zero introduced diagnostics; Inventory unused stale flag error removed. Full lint remains debt.
+- Latest verification precedes F03/F02/F06/snapshot work; do not claim task complete.
 
-REMAINING
-- F01: Dashboard review shortcut — use attention=review instead of status=Flagged.
-- F04: DashboardRecords passes empty business_date; fix to preserve selectedDate.
-- F07: InventoryContext silently swallows intake load errors; expose loading/error.
-- F09: SystemConfig maintenance polling has no sequence guard.
-- F03: Centralize stock eligibility across Dashboard/Analytics/Inventory.
-- F02: Fix Inventory spoilage risk to use server-side remaining shelf life.
-- F05: Add Operator Success drilldown onClick.
-- F06: Add Analytics cultivar/status filters.
-- F08: Update backend README migration target.
-- G01-G06: Various partial/gap fixes.
+POLICY DECISIONS (DO NOT ASK AGAIN)
+- F03: exclude deleted-intake and sold/depleted/removed stock; include valid active unlinked.
+- G05: shared intake registry, scan counts scoped to current Operator (Admin global).
+- G01: implement snapshot-stable pagination now. G04: keep no-delete workflow, document limits.
+- New pending question: old deleted intake uses ON DELETE SET NULL, indistinguishable
+  from always-unlinked history. Asked whether grandfather active legacy NULL stock or
+  exclude ambiguous old records; answer required before choosing legacy migration policy.
 
-GIT STATE
-- main, HEAD ef62c41, working tree clean.
+IN PROGRESS / EXACT NEXT STEP
+1. F03 design: current Scan.intake_id FK SET NULL loses provenance; no delete API exists.
+   Need durable original intake identity for future deletion exclusion, migration backfill,
+   archive-version adapter compatibility and shared SQL predicate before F02 UI use.
+   Existing ScanEvent created payload has no intake ID. Do not infer legacy provenance.
+   Relevant: backend models/scan.py, services/dashboard.py/_scoped_projection/_expiring,
+   analytics.py/_current_stock, scan_records.py/serialize_scan, scan_service.py created event,
+   backup_archive.py (current v2 + strict v1 adapter), migrations/versions/0005.
+2. F02: consume server-authoritative eligibility/remaining-life; Inventory currently parses
+   original estimate and requires Active intake, omitting unlinked. Preserve exact cards/layout.
+3. F06 Analytics cultivar/status filters; G02 labels/time metadata; G01 stable snapshot
+   pages with authorization/filter binding, bounded expiry, complete export semantics.
+4. Final isolated backend/PG + frontend regression, TS/lint/build/security review/scoped diff;
+   update follow-up evidence, cleanup task temps, local commit on main after verification.
 
-EXACT RESUME
-- Begin implementing F01: change Dashboard review links to use attention=review.
+RESOURCES / GIT / SAFETY
+- No PG started in correction task. Prior audit PG/resources all cleaned (ef62c41 report).
+- Cleanup pending ONLY two new OS-temp roots: bv-audit-fixes-88weejuq (RED),
+  bv-audit-fixes-green-0hpijsyn (GREEN). Browser servers closed; usual ignored Vite caches.
+- Uncommitted: checkpoint, new plan/archive; backend intakes API, scan_logs schema,
+  dashboard/scan_logs services, scan_logs/scan_records tests, README; frontend InventoryContext,
+  Inventory/SystemConfig/Dashboard/Logs, scanLogFilters/types; dashboard/persistence/maintenance
+  browser tests, fixtures and shared harness. Confirm git status on resume.
+- Main only; no live .env/DB/captures/cameras/hardware/retention/restore/power.
+  Preserve completed maintenance/scan/logout work and UI. No push/merge/deploy/history rewrite.

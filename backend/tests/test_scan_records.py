@@ -262,3 +262,24 @@ def test_incomplete_classification_keeps_original_unknowns_and_rejects_null_coun
     assert saved.json()['original_ai_result']['cultivar'] is None
     assert saved.json()['original_ai_result']['confidence'] is None
     assert saved.json()['is_overridden']
+
+
+def test_shared_intake_registry_counts_only_accessible_operator_scans(application):
+    app = application
+    admin = app.client.get('/api/v1/intakes')
+    assert admin.status_code == 200
+    assert next(i for i in admin.json() if i['id'] == str(app.ids.intake))['scan_count'] == 1
+    other_id = uuid4()
+    with Session(app.engine) as db:
+        db.add(UserAccount(id=other_id, role_id=2, username='registry-other', full_name='Other', password_hash='unused'))
+        db.flush()
+        db.add(OperatorProfile(account_id=other_id))
+        db.commit()
+    operator_session(app, other_id)
+    other = app.client.get('/api/v1/intakes')
+    assert other.status_code == 200
+    assert {i['id'] for i in other.json()} == {i['id'] for i in admin.json()}
+    assert all(i['scan_count'] == 0 for i in other.json())
+    operator_session(app, app.ids.operator)
+    own = app.client.get('/api/v1/intakes')
+    assert next(i for i in own.json() if i['id'] == str(app.ids.intake))['scan_count'] == 1
