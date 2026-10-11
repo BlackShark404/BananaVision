@@ -1,6 +1,6 @@
 CURRENT RESUME HERE (2026-10-11, Asia/Manila)
 TASK: BANANAVISION QR Code Printing & OFFICOM PT-210 Thermal Printer Progress Checkpoint
-BRANCH: main; HEAD d1e0220. Dedicated printer tracker; no source edits made.
+BRANCH: main; HEAD c4d44c0. Dedicated printer tracker; no source edits made.
 REFERENCE: Main project tracker remains TASK_PROGRESS.txt (F01-F09 audit fixes).
 
 ================================================================================
