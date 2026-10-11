@@ -1,0 +1,228 @@
+CURRENT RESUME HERE (2026-10-11, Asia/Manila)
+TASK: BANANAVISION QR Code Printing & OFFICOM PT-210 Thermal Printer Progress Checkpoint
+BRANCH: main; HEAD d1e0220. Dedicated printer tracker; no source edits made.
+REFERENCE: Main project tracker remains TASK_PROGRESS.txt (F01-F09 audit fixes).
+
+================================================================================
+STATUS CLASSIFICATION BREAKDOWN
+================================================================================
+[VERIFIED]
+- Frontend QR code generation via qrcode (v1.5.4) producing valid base64 PNG data URLs.
+- Backend intake QR code generation via Python qrcode (v8.2) storing base64 PNG in DB.
+- Programmatic QR decoding with OpenCV QRCodeDetector: 100% data fidelity achieved.
+- printQRTag() browser printing architecture in ScanDetail.tsx and Logs.tsx.
+- OFFICOM PT-210 hardware identification: MPT-II / POS-5802 / GOOJPRT OEM family.
+- Printing protocol: ESC/POS hardware, driven via Windows Spooler rasterization.
+- Physical width feasibility: 40mm .tag CSS width fits within PT-210 48mm printable head.
+
+[COMPLETED]
+- Complete architectural trace of QR generation, storage, display, and printing.
+- End-to-end automated decode verification test in scratch/test_qr_decode.py.
+- Driver specification, connection requirements, and download sources identified.
+- Step-by-step Windows USB and Bluetooth configuration guides authored.
+- Root cause analysis of localhost URL origin and route authentication blockers.
+
+[IN PROGRESS]
+- Dedicated printer progress tracking file established (PRINTER_TASK_PROGRESS.txt).
+
+[PENDING - CODE IMPLEMENTATION REQUIRED]
+- Task P01: Implement "Print Tag" action and auto-print trigger in Kiosk.tsx.
+- Task P02: Expose unauthenticated public tracking route (/track/:scanId or public /scans/:scanId).
+- Task P03: Make QR code base URL configurable via environment/config rather than window.location.origin.
+- Task P04: Fix DeliveryIntake.tsx batch label CSS (remove print button, scale from 300px to 40mm).
+- Task P05: Add automated unit/integration tests for qrcode.ts and print markup.
+
+[BLOCKED]
+- Automated headless browser printing to physical spooler (requires virtual POS-58 loopback).
+
+[NOT YET TESTED - PHYSICAL HARDWARE TESTING REQUIRED]
+- Physical thermal print density and contrast on 58mm thermal receipt paper.
+- Physical smartphone camera scan acquisition speed on curved banana hand surfaces.
+- Bluetooth SPP wireless latency and reconnect reliability in edge kiosk environment.
+- Continuous receipt paper tearing ergonomics vs. linerless adhesive label rolls.
+
+================================================================================
+1. EXISTING IMPLEMENTATION & ARCHITECTURE TRACE
+================================================================================
+A. FRONTEND IMPLEMENTATION:
+- frontend/src/lib/qrcode.ts:
+  * generateQRCodeDataUrl(scanData): Encodes `${window.location.origin}/scans/${scanData.id}`
+    using QRCode.toDataURL(url, { width: 256, margin: 2, errorCorrectionLevel: 'M' }).
+  * printQRTag(scan): Opens window.open("", "_blank", "width=300,height=400"),
+    writes HTML with 40mm tag (.tag { width: 40mm; border: 0.5mm solid #000; padding: 2mm }),
+    qr-img { width: 30mm; height: 30mm }, brand, ID, cultivar, ripeness, date.
+    Triggers printWindow.print() after 300ms onload.
+- frontend/src/context/ScanContext.tsx (Line 123):
+  * Generates scanResult.qrCode on scan completion via acceptCompletedScan().
+- frontend/src/pages/Kiosk.tsx (Lines 708-721):
+  * Renders QR preview thumbnail (w-14 h-14 lg:w-16 lg:h-16).
+  * DEFECT: NO print button and NO call to printQRTag(). Kiosk cannot print tags.
+- frontend/src/pages/ScanDetail.tsx (Lines 410-456):
+  * Renders QR tracking card with "Save" (PNG download) and "Print Tag" (calls printQRTag).
+- frontend/src/pages/Logs.tsx (Lines 61, 207-217, 562-583):
+  * Generates QR data URL during mapScan(); table displays thumbnail; clicking opens
+    modal with large QR preview and "Print Tag" button (calls printQRTag).
+- frontend/src/pages/admin/DeliveryIntake.tsx (Lines 260-285):
+  * Actions dropdown has "Print Batch QR Label".
+  * DEFECT: Opens unstyled window with <img width="300" height="300" /> (overflows 58mm)
+    and <button onclick="window.print()">Print Label</button> which prints onto receipt.
+- frontend/src/App.tsx (Lines 68, 74):
+  * /scans/:scanId is inside <ProtectedRoute><AppLayout /></ProtectedRoute>.
+  * DEFECT: External phone scanning redirects unauthenticated users to / (Landing page).
+
+B. BACKEND IMPLEMENTATION:
+- backend/app/api/v1/intakes.py (Lines 73-85):
+  * Generates intake QR code encoding JSON: { intake_id, supplier_id, batch_number, date }.
+  * Saves base64 PNG string to new_intake.qr_code.
+- backend/seed.py (Lines 152-165):
+  * Generates seed intake QR codes in identical JSON format.
+- backend/app/models/intake.py (Line 30):
+  * qr_code: Mapped[str | None] mapped to Text column.
+- backend/app/schemas/common.py (Line 89):
+  * qr_code: str | None = None in DeliveryIntake schemas.
+
+================================================================================
+2. OFFICOM PT-210 HARDWARE & COMPATIBILITY PROFILE
+================================================================================
+- Product Name: OFFICOM PT-210 Portable Wireless Bluetooth Thermal Receipt Printer (58mm)
+- Hardware Family: OEM MPT-II / POS-5802 / GOOJPRT PT-210 series.
+- Printing Method: Direct Thermal line printing (requires heat-sensitive paper; no ink/ribbon).
+- Paper Specifications:
+  * Paper Width: 57.5 ± 0.5 mm (standard 58mm thermal roll).
+  * Max Roll Outer Diameter: ≤ 40 mm.
+  * Paper Type: Continuous thermal receipt paper (non-adhesive out-of-box).
+- Print Head Dimensions:
+  * Effective Print Width: 48 mm (384 dots per line).
+  * Resolution: 203 DPI (8 dots/mm).
+  * Printing Speed: 50–80 mm/s.
+- Interface & Connectivity:
+  * USB: Micro-USB or Type-C (detected as USB Printing Support or USB-Serial).
+  * Bluetooth: Dual mode (Bluetooth 3.0 SPP + BLE 4.0; device name "MPT-II" or "PT-210", PIN 0000 or 1234).
+- Power: 7.4V / 1500mAh rechargeable lithium-ion battery.
+- Printing Protocol:
+  * Hardware supports ESC/POS command set.
+  * Native 2D ESC/POS QR command is GS ( k, but budget clones frequently have firmware flaws.
+  * BANANAVISION DOES NOT USE ESC/POS DIRECTLY. BANANAVISION uses browser printing (window.print()).
+  * Browser -> Windows Print Spooler -> POS-58 Driver -> Raster Graphics stream.
+  * The Windows driver renders the QR image into raster bit images (GS v 0) automatically.
+
+================================================================================
+3. REQUIRED PRINTER DRIVERS & SOURCES
+================================================================================
+- Windows In-Box Driver: NONE. (Windows shows "Driver is unavailable" upon pairing).
+- Required Driver Package: POS-58 Printer Driver (also labeled "58mm Series Thermal Printer Driver").
+- Setup Executable: POS Printer Driver Setup 58mm.exe (or POS58_Driver_Setup.exe).
+- OS Support: Windows 11, Windows 10, Windows 8.1, Windows 7 (32-bit and 64-bit).
+- Official & Verified Sources:
+  1. HPRT / Asia-Printer MPT-II Support: https://www.asia-printer.com
+  2. Kunshan TES Electronic / GOOJPRT Portal: http://www.posthermalprinter.com
+  3. Mini-CD included with the retail OFFICOM PT-210 package.
+  4. Vendor support link provided on Shopee Philippines listing.
+
+================================================================================
+4. VERIFICATION EVIDENCE & AUTOMATED TEST RESULTS
+================================================================================
+- Automated Decode Test (Executed 2026-10-11 via scratch/test_qr_decode.py):
+  * Test 1 (Frontend qrcode npm module):
+    Input: "http://192.168.1.50:5173/scans/SCAN-20261011-0001", width 256, margin 2, level 'M'.
+    Decoded via OpenCV QRCodeDetector: "http://192.168.1.50:5173/scans/SCAN-20261011-0001".
+    Result: PASS (Exact character match).
+  * Test 2 (Backend qrcode python module):
+    Input JSON: {"intake_id": "...", "supplier_id": "...", "batch_number": "BATCH-2026-001", "date": "..."}.
+    Decoded via OpenCV QRCodeDetector: Valid JSON string; batch_number confirmed.
+    Result: PASS (Exact JSON structure recovered).
+- Code Inspection Verification:
+  * frontend/src/lib/qrcode.ts: Verified 40mm width container fits 48mm printhead width.
+  * frontend/src/pages/Kiosk.tsx: Verified complete absence of print triggers.
+  * frontend/src/App.tsx: Verified /scans/:scanId is guarded by ProtectedRoute.
+
+================================================================================
+5. ZERO-CODE CONFIGURATION GUIDE (SCAN DETAIL & LOGS)
+================================================================================
+The OFFICOM PT-210 can print individual QR tags from ScanDetail.tsx and Logs.tsx
+WITHOUT modifying any BANANAVISION code, following these exact setup steps:
+
+A. HARDWARE CONNECTION:
+1. Remove protective plastic tape from the battery terminals.
+2. Insert 57mm thermal paper roll (smooth/shiny thermal side facing print head).
+3. Connect printer to Windows PC via USB cable (recommended for station reliability)
+   OR pair via Bluetooth (Settings > Bluetooth > Add device > MPT-II, PIN: 0000).
+
+B. DRIVER INSTALLATION:
+1. Run "POS Printer Driver Setup 58mm.exe" as Administrator.
+2. Select Windows 10/11, printer model "POS-58".
+3. If USB: Select port "USB001".
+4. If Bluetooth: Check Windows Bluetooth Settings > More Bluetooth Settings > COM Ports.
+   Note the OUTGOING COM port (e.g. COM3 or COM4). In driver setup or Printer Properties,
+   assign port to that COM port (Baud: 9600 or 115200, 8-N-1, Flow Control: None).
+5. Print Windows Test Page from Printer Properties to verify communication.
+
+C. BROWSER PRINT SETTINGS (CRITICAL):
+When clicking "Print Tag" in BANANAVISION:
+1. Destination: Select "POS-58".
+2. Paper Size: Select "58 x 297 mm" or "58(48) x Continuous".
+3. Margins: Set to "NONE" (Default margins will clip the 40mm tag).
+4. Options: UNCHECK "Headers and footers" (prevents wasting receipt paper on URL/date).
+5. Scale: Set to "Fit to printable area" or custom "90% - 95%".
+
+================================================================================
+6. IDENTIFIED ISSUES & TECHNICAL DEBT
+================================================================================
+Issue 1: KIOSK PRINT ACTION MISSING
+- Severity: HIGH (Workflow blocker for edge operators).
+- Description: Kiosk workflow documentation claims tickets print automatically. Code has zero print logic.
+- Target File: frontend/src/pages/Kiosk.tsx.
+- Fix: Add a "Print Tag" button on scan accept and optional auto-print trigger calling printQRTag().
+
+Issue 2: PROTECTED ROUTE BLOCKS PHONE SCANS
+- Severity: HIGH (Traceability blocker).
+- Description: Scanning the banana QR code navigates to /scans/:scanId which requires login.
+- Target File: frontend/src/App.tsx.
+- Fix: Create a public unauthenticated tracking route (e.g. /track/:scanId or public /scans/:scanId)
+  displaying read-only cultivar, ripeness, harvest date, and quality badge.
+
+Issue 3: LOCALHOST ORIGIN ENCODING
+- Severity: MEDIUM (Deployment blocker).
+- Description: generateQRCodeDataUrl uses window.location.origin. In local station dev/kiosk mode,
+  this produces http://localhost:5173/scans/..., which external phones cannot reach.
+- Target File: frontend/src/lib/qrcode.ts.
+- Fix: Allow an environment override (e.g. VITE_PUBLIC_TRACKING_BASE_URL) falling back to window.location.origin.
+
+Issue 4: DELIVERY INTAKE BATCH LABEL OVERFLOW
+- Severity: MEDIUM (Formatting defect).
+- Description: DeliveryIntake.tsx opens popup with 300px image (overflows 48mm printable width) and
+  shows a <button> that prints onto the thermal receipt roll.
+- Target File: frontend/src/pages/admin/DeliveryIntake.tsx.
+- Fix: Apply @media print { button { display: none; } } and constrain image to width: 40mm.
+
+Issue 5: RECEIPT PAPER VS ADHESIVE LABELS
+- Severity: OPERATIONAL / HARDWARE.
+- Description: PT-210 is a receipt printer with a tear bar, not a die-cut label sticker printer.
+- Fix: Station operators must load 57mm linerless/continuous thermal adhesive rolls or staple/tape receipts.
+
+================================================================================
+7. PENDING IMPLEMENTATION TASKS & ACCEPTANCE CRITERIA
+================================================================================
+[ ] Task P01: Kiosk QR Tag Printing Integration
+    - Acceptance Criteria: Operator completing a scan in Kiosk.tsx can click "Print Tag"
+      (or enable auto-print in kiosk settings) which invokes printQRTag(lastResult).
+[ ] Task P02: Public Banana Quality Tracking Route
+    - Acceptance Criteria: Scanning a printed QR tag with any unauthenticated mobile phone
+      opens a lightweight, mobile-responsive quality summary without redirection to Login.
+[ ] Task P03: Public Host URL Configuration
+    - Acceptance Criteria: Generated QR codes encode configured public FQDN/LAN IP instead of localhost.
+[ ] Task P04: Delivery Intake Batch Label CSS Fix
+    - Acceptance Criteria: Batch label prints within 48mm width without printing the HTML button.
+[ ] Task P05: Automated Frontend Unit Tests
+    - Acceptance Criteria: Node.js test suite covers generateQRCodeDataUrl and print markup structure.
+[ ] Task P06: Physical Hardware Rehearsal (When physical PT-210 is present)
+    - Acceptance Criteria: Print 10 consecutive tags on PT-210 via USB and Bluetooth; verify 100% phone scan success.
+
+================================================================================
+8. EXACT NEXT STEPS FOR PRINTER WORK
+================================================================================
+1. Await user authorization for Phase 2 implementation fixes (Tasks P01-P04).
+2. When authorized, implement Task P01 (Kiosk.tsx print button) and Task P04 (DeliveryIntake CSS fix).
+3. Implement Task P02 (public tracking route in App.tsx) to make phone scanning functional.
+4. Prepare physical station setup using the Zero-Code Configuration Guide once printer arrives.
+5. Perform physical scan-and-print validation tests with real thermal rolls and mobile devices.
