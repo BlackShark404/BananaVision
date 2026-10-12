@@ -198,7 +198,7 @@ def save_receipt(db, user, body, fingerprint, response):
     )
 
 
-async def apply_scan_change(db, scan, user, kind, changes, reason=None):
+async def apply_scan_change(db, scan, user, kind, changes, reason=None, client_ip=None):
     """Caller owns locks/CAS. Only changed values create a revision and audit event."""
     previous, new, evidence_id = {}, {}, None
     classification_fields = {"cultivar", "ripeness", "finger_count", "spoilage_days"}
@@ -271,13 +271,14 @@ async def apply_scan_change(db, scan, user, kind, changes, reason=None):
             user_id=user.id,
             action=f"scan_{kind}",
             details=f"Scan {scan.id}, revision {scan.revision}",
+            ip_address=client_ip,
         )
     )
     await db.flush()
     return note
 
 
-async def mutate_scan(db, scan_id, user, kind, body):
+async def mutate_scan(db, scan_id, user, kind, body, client_ip=None):
     await lock_mutation(db, body.request_id)
     # Re-read role and session version under lock, including after a queued retry.
     user = await lock_current_account(db, user)
@@ -312,7 +313,9 @@ async def mutate_scan(db, scan_id, user, kind, body):
     )
     if kind == "note":
         changes = {"text": body.note}
-    note = await apply_scan_change(db, scan, user, kind, changes, getattr(body, "reason", None))
+    note = await apply_scan_change(
+        db, scan, user, kind, changes, getattr(body, "reason", None), client_ip=client_ip
+    )
     if note:
         response = {
             **ScanNoteResponse.model_validate(note).model_dump(mode="json"),

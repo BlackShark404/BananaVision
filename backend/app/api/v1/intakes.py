@@ -26,6 +26,7 @@ from app.services.scan_records import (
     is_admin,
     scan_scope,
 )
+from app.core.http import get_client_ip
 from app.models.supplier import Supplier
 from app.models.intake import Intake
 from app.models.scan import Scan
@@ -93,7 +94,7 @@ async def create_intake(body: IntakeCreate, db: DbSession, user: CurrentUser, re
         user_id=user.id,
         action="intake_created",
         details=f"Created intake {new_intake.id}",
-        ip_address=request.client.host if request.client else None,
+        ip_address=get_client_ip(request),
     ))
 
     return IntakeResponse(
@@ -165,7 +166,7 @@ async def update_intake_status(
         user_id=admin.id,
         action="intake_status_changed",
         details=f"Intake {intake_id} status → {body.status}",
-        ip_address=request.client.host if request.client else None,
+        ip_address=get_client_ip(request),
     ))
     return {"message": "Intake status updated"}
 
@@ -214,7 +215,8 @@ async def bulk_update_intake_inventory(
             and current != body.inventory_status
         ):
             await apply_scan_change(
-                db, scan, admin, "status", {"inventory_status": body.inventory_status}, body.reason
+                db, scan, admin, "status", {"inventory_status": body.inventory_status}, body.reason,
+                client_ip=get_client_ip(request),
             )
             updated_ids.append(str(scan.id))
     intake.status = IntakeStatusEnum.ACTIVE if body.inventory_status == InventoryStatusEnum.IN_STOCK else IntakeStatusEnum.DEPLETED
@@ -223,7 +225,7 @@ async def bulk_update_intake_inventory(
             user_id=admin.id,
             action="intake_status_changed",
             details=f"Bulk updated {len(updated_ids)} scans in intake {intake_id}: {body.reason}",
-            ip_address=request.client.host if request.client else None,
+            ip_address=get_client_ip(request),
         )
     )
     response = {

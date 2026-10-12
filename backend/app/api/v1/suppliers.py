@@ -13,6 +13,7 @@ from app.api.deps import DbSession, CurrentUser, AdminUser
 from app.core.exceptions import NotFoundException
 from app.models.supplier import Supplier
 from app.models.activity_log import ActivityLog
+from app.core.http import get_client_ip
 from app.schemas.common import SupplierCreate, SupplierUpdate, SupplierResponse
 
 
@@ -35,7 +36,7 @@ async def create_supplier(body: SupplierCreate, db: DbSession, admin: AdminUser,
         user_id=admin.id,
         action="supplier_created",
         details=f"Added supplier '{body.name}'",
-        ip_address=request.client.host if request.client else None,
+        ip_address=get_client_ip(request),
     ))
     await db.flush()
     return SupplierResponse.model_validate(supplier)
@@ -58,7 +59,7 @@ async def update_supplier(
         user_id=admin.id,
         action="supplier_updated",
         details=f"Updated supplier '{supplier.name}'",
-        ip_address=request.client.host if request.client else None,
+        ip_address=get_client_ip(request),
     ))
 
     await db.flush()

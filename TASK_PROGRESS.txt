@@ -1,44 +1,66 @@
-CURRENT RESUME HERE (2026-10-12) — PENDING QUALITY REVIEWS STATUS FILTER SYNCHRONIZATION VERIFIED
+CURRENT RESUME HERE (2026-10-12) — ACTIVITY LOG CLIENT IP CAPTURE & AUDIT HARDENING VERIFIED
 BRANCH main; HEAD 500ea4c; changes ready for commit.
 Prior audit archived at docs/history/2026-10-12-completed-audit-before-connectivity.txt.
 
 DONE / EVIDENCE
-- Fixed Pending Quality Reviews status dropdown synchronization:
-  * In frontend/src/pages/Dashboard.tsx (legacyScanLogsUrl and openRecords):
-    passed status: "Flagged" when view === "review", ensuring navigation to Scan Logs
-    opens /logs?attention=review&status=Flagged with "Flagged" visibly selected in the dropdown.
-  * In frontend/src/lib/scanLogFilters.ts (scanLogParams):
-    set flagged_only: status === "Flagged" && attention !== "review", preserving low-confidence
-    scans requiring review while maintaining flagged_only filtering for manual status selection.
-  * In backend/app/services/scan_logs.py (_conditions):
-    guarded flagged_only filter with query.attention != "review", ensuring at the database query
-    level that pending review drilldowns retain all review-eligible scans (flagged scans AND
-    low-confidence scans below the threshold), matching the Dashboard pending_review_count KPI.
-  * In frontend/src/pages/Logs.tsx:
-    - Updated setCardFilter to clear status when clearing the review filter (restoring dropdown to "All Statuses").
-    - Added one-time mount synchronization for direct navigation to /logs?attention=review without status,
-      updating the URL and selecting "Flagged" without overriding subsequent manual status selections.
-    - Preserved manual status dropdown selections (e.g. "All Statuses", "In Stock", "Sold") without stale
-      URL parameters or filter conflicts.
-    - Clicking "Reset" or "Total Scans" clears all filters and restores dropdown to "All Statuses".
+- Fixed missing IP addresses in Admin -> Activity Log across BananaVision:
+  * Identified Root Cause:
+    - Scan mutations (backend/app/services/scan_records.py), scan trigger/pipeline (backend/app/services/scan_service.py),
+      power intents (backend/app/services/power_control.py), and camera mappings (backend/app/api/v1/cameras.py)
+      instantiated ActivityLog records without passing ip_address.
+    - Endpoints across auth, users, suppliers, intakes, and config used ad-hoc request.client.host without reverse
+      proxy validation or IP format checking.
+  * Centralized Client IP Extraction & Security Hardening:
+    - Implemented get_client_ip(request: Request | None) -> str | None and _parse_ip(candidate: str | None)
+      in backend/app/core/http.py.
+    - Added trusted_proxies: list[str] configuration to backend/app/config.py (configurable via TRUSTED_PROXIES env var
+      with comma-separated IPv4/IPv6 addresses or CIDR network notations).
+    - Strict Spoofing Protection: Forwarding headers (X-Forwarded-For, X-Real-IP) are strictly ignored unless the
+      direct socket peer (request.client.host) matches an explicit IP or CIDR network in trusted_proxies.
+    - Validation: Every candidate IP is validated via Python's standard ipaddress.ip_address(), rejecting malformed,
+      injected, or non-IP strings.
+    - No Fabrication: Returns None when IP cannot be determined; never invents fake or default IPs.
+  * Unified Service & API Persistence:
+    - backend/app/services/scan_records.py: Added client_ip to apply_scan_change and mutate_scan, passing
+      ip_address=client_ip to ActivityLog for scan_flag, scan_note, scan_correction, scan_status, and scan_provenance.
+    - backend/app/services/scan_service.py: Added client_ip to execute_scan_pipeline, passing ip_address=client_ip
+      to ActivityLog for scan_created.
+    - backend/app/services/power_control.py: Added client_ip to request_power, passing ip_address=client_ip
+      to ActivityLog for power intent persistence.
+    - backend/app/api/v1/scans.py: Passed client_ip=get_client_ip(request) in trigger_scan, flag_scan, override_scan,
+      update_scan_status, add_note, and review_provenance.
+    - backend/app/api/v1/cameras.py: Passed ip_address=get_client_ip(request) in update_camera_mapping.
+    - backend/app/api/v1/maintenance.py: Passed client_ip=get_client_ip(request) in restart and shutdown.
+    - backend/app/api/v1/auth.py, users.py, suppliers.py, intakes.py, config.py: Standardized all ActivityLog instantiations
+      to use get_client_ip(request).
+  * Historical Data & UI Preservation:
+    - Historical records with null ip_address remain unchanged in the database and continue to render "—" in
+      the frontend (ActivityLog.tsx: cell: (log) => log.ipAddress || "—") without fabrication.
+    - Exact Activity Log UI layout, typography, and styling strictly preserved.
 - Regressions added:
-  * backend/tests/test_scan_logs.py: test_review_drilldown_preserves_low_confidence_scans_with_flagged_status
-    verifies that attention="review" with flagged_only=True includes both flagged scans and low-confidence
-    scans, matching Dashboard KPI count, and that flagged_only=True without review attention returns only flagged scans.
-  * frontend/tests/scanlogfilters.test.mjs: 5 unit regression tests verifying buildScanLogsUrl parameter
-    inclusion, review filter status synchronization, and scanLogParams contract parsing.
+  * backend/tests/test_activity_ip.py (9 tests):
+    - test_parse_ip_validation: validates IPv4, IPv6, whitespace trimming, and rejection of invalid/injected strings.
+    - test_get_client_ip_direct_and_missing: verifies direct peer IP extraction and None handling for missing clients.
+    - test_get_client_ip_untrusted_proxy_ignores_forwarding_headers: proves spoofed X-Forwarded-For/X-Real-IP headers
+      are ignored when peer is untrusted.
+    - test_get_client_ip_trusted_proxy_resolves_forwarding: verifies trusted proxy parsing (exact IP, CIDR subnet,
+      leftmost client extraction, malformed fallback).
+    - test_scan_flag_and_note_record_client_ip: verifies end-to-end API and DB persistence of client IP (127.0.0.1)
+      for Scan Flag, Scan Note, Scan Override, and Scan Status.
+    - test_activity_list_api_returns_ip_address_and_preserves_historical_null: verifies GET /api/v1/activity returns
+      persisted IP for new actions while preserving null for historical logs.
+    - test_untrusted_proxy_header_not_spoofed_in_api: verifies API rejects spoofed header and records peer IP.
+    - test_trusted_proxy_header_honored_in_api: verifies API honors forwarded IP when proxy is trusted.
+    - test_config_update_records_client_ip: verifies system config change records client IP.
 
 VERIFIED RESULTS
 - Backend full test suite (fresh temp cwd, pyproject.toml, pytest):
-  228 passed, 28 skipped in 55.48s.
-- Focused backend scan logs tests:
-  20 passed in 2.71s.
-- Frontend unit tests (node --test scanlogfilters, scanpages, scanwrites):
-  13 passed in 146ms.
+  237 passed, 28 skipped in 55.33s.
+- Focused backend activity IP tests:
+  9 passed in 1.84s.
 - Frontend typecheck (tsc --noEmit): exit 0 clean.
-- Frontend production build (tsc -b && vite build): exit 0 clean (built in 8.96s).
-- Frontend lint (eslint .): 42 baseline debt errors / 8 warnings in untouched files;
-  zero new diagnostics in modified files.
+- Frontend production build (tsc -b && vite build): exit 0 clean (built in 8.39s).
+- Frontend lint (eslint .): 0 new diagnostics; only 50 existing baseline debt items in untouched files.
 - git diff --check: exit 0 clean.
 
 SAFETY & CONSTRAINTS

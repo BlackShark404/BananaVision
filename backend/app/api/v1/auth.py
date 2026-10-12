@@ -33,6 +33,7 @@ from app.services.auth_service import (
 )
 from app.models.activity_log import ActivityLog
 from app.core.rate_limiter import login_limiter, pin_limiter
+from app.core.http import get_client_ip
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -97,7 +98,7 @@ async def login(body: LoginRequest, db: DbSession, request: Request):
                 user_id=None,
                 action="login_failed",
                 details=f"Failed login attempt for username '{body.username}'",
-                ip_address=request.client.host if request.client else None,
+                ip_address=get_client_ip(request),
             ))
             await db.flush()
         if is_locked:
@@ -129,7 +130,7 @@ async def login(body: LoginRequest, db: DbSession, request: Request):
             user_id=user.id,
             action="login",
             details=f"User {user.username} logged in",
-            ip_address=request.client.host if request.client else None,
+            ip_address=get_client_ip(request),
         ))
         await db.flush()
 
@@ -166,7 +167,7 @@ async def swap(body: PinSwapRequest, db: DbSession, request: Request):
             user_id=None,
             action="pin_failed",
             details=f"Failed PIN swap attempt for username '{body.username}'",
-            ip_address=request.client.host if request.client else None,
+            ip_address=get_client_ip(request),
         ))
         await db.flush()
         if is_locked:
@@ -192,7 +193,7 @@ async def swap(body: PinSwapRequest, db: DbSession, request: Request):
         user_id=user.id,
         action="login",
         details=f"Operator {user.username} swapped in session",
-        ip_address=request.client.host if request.client else None,
+        ip_address=get_client_ip(request),
     ))
     await db.flush()
 
@@ -224,7 +225,7 @@ async def change_password_route(
         user_id=user.id,
         action="user_updated",
         details=f"User {user.username} changed password",
-        ip_address=request.client.host if request.client else None,
+        ip_address=get_client_ip(request),
     ))
     await db.flush()
 
@@ -255,7 +256,7 @@ async def setup_password_route(body: SetupPasswordRequest, db: DbSession, reques
         user_id=user.id,
         action="user_updated",
         details=f"User {user.username} completed password setup",
-        ip_address=request.client.host if request.client else None,
+        ip_address=get_client_ip(request),
     ))
     await db.flush()
 
@@ -287,7 +288,7 @@ async def change_pin_route(
         user_id=user.id,
         action="user_updated",
         details=f"User {user.username} changed PIN",
-        ip_address=request.client.host if request.client else None,
+        ip_address=get_client_ip(request),
     ))
     await db.flush()
 
@@ -318,7 +319,7 @@ async def setup_pin_route(body: SetupPinRequest, db: DbSession, request: Request
         user_id=user.id,
         action="user_updated",
         details=f"User {user.username} completed PIN setup",
-        ip_address=request.client.host if request.client else None,
+        ip_address=get_client_ip(request),
     ))
     await db.flush()
 
@@ -346,7 +347,7 @@ async def logout(user: CurrentUser, db: DbSession, request: Request):
         user_id=user.id,
         action="logout",
         details=f"User {user.username} logged out",
-        ip_address=request.client.host if request.client else None,
+        ip_address=get_client_ip(request),
     ))
     await db.flush()
     return {"message": "Logged out successfully"}

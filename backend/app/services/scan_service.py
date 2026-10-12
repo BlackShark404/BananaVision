@@ -51,18 +51,20 @@ async def execute_scan_pipeline(
     operator_name: str,
     intake_id: uuid.UUID | None = None,
     supplier_name: str | None = None,
+    client_ip: str | None = None,
 ) -> Scan:
     async with coordinator.operation():
         async with station_lock:
             coordinator.assert_ready()
             return await _execute_scan_pipeline(
-                db, operator_id, account_id, operator_name, intake_id, supplier_name,
+                db, operator_id, account_id, operator_name, intake_id, supplier_name, client_ip=client_ip,
             )
 
 
 async def _execute_scan_pipeline(
     db: AsyncSession, operator_id: uuid.UUID, account_id: uuid.UUID, operator_name: str,
     intake_id: uuid.UUID | None = None, supplier_name: str | None = None,
+    client_ip: str | None = None,
 ) -> Scan:
     """
     Execute the full scan pipeline:
@@ -312,6 +314,7 @@ async def _execute_scan_pipeline(
                 f"Scanned {fused.cultivar} ({fused.ripeness}) — "
                 f"{fused.confidence}% confidence, {fused.finger_count} fingers"
             ),
+            ip_address=client_ip,
         ))
 
         # Auto-create notifications

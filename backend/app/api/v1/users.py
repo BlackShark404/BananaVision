@@ -28,6 +28,7 @@ from app.models.activity_log import ActivityLog
 from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
 from app.core.time import now_manila
+from app.core.http import get_client_ip
 from app.schemas.user import (
     UserCreate,
     UserCreatedResponse,
@@ -99,7 +100,7 @@ async def create_user(body: UserCreate, db: DbSession, admin: AdminUser, request
         user_id=admin.id,
         action="user_created",
         details=f"Created user '{body.username}' with role {body.role}",
-        ip_address=request.client.host if request.client else None,
+        ip_address=get_client_ip(request),
     ))
 
     await db.flush()
@@ -280,7 +281,7 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin
         user_id=admin.id,
         action="user_updated",
         details=f"Updated user '{user.username}': {detail_parts}",
-        ip_address=request.client.host if request.client else None,
+        ip_address=get_client_ip(request),
     ))
 
     await db.flush()
@@ -310,7 +311,7 @@ async def reset_user_password(
         user_id=admin.id,
         action="user_updated",
         details=f"Admin reset password for user '{user.username}'",
-        ip_address=request.client.host if request.client else None,
+        ip_address=get_client_ip(request),
     ))
     await db.flush()
 
@@ -346,7 +347,7 @@ async def reset_user_pin(
         user_id=admin.id,
         action="user_updated",
         details=f"Admin reset PIN for user '{user.username}'",
-        ip_address=request.client.host if request.client else None,
+        ip_address=get_client_ip(request),
     ))
     await db.flush()
 

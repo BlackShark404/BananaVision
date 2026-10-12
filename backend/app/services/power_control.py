@@ -60,14 +60,14 @@ async def schedule_power_action(action):
 _power_lock = asyncio.Lock()
 
 
-async def request_power(action, operation_id, actor_id, *, authorize=None):
+async def request_power(action, operation_id, actor_id, *, authorize=None, client_ip=None):
     async with _power_lock:
         if authorize:
             await authorize()
-        return await _request_power(action, operation_id, actor_id, authorize=authorize)
+        return await _request_power(action, operation_id, actor_id, authorize=authorize, client_ip=client_ip)
 
 
-async def _request_power(action, operation_id, actor_id, *, authorize=None):
+async def _request_power(action, operation_id, actor_id, *, authorize=None, client_ip=None):
     async with async_session_factory() as db:
         previous = await operation_result(db, operation_id)
         if previous:
@@ -86,7 +86,7 @@ async def _request_power(action, operation_id, actor_id, *, authorize=None):
             state = await get_state(db, lock=True)
             state.power = result
             await record_operation(db, operation_id, result)
-            db.add(ActivityLog(user_id=actor_id, action=f'system_{action}', details=f'Power intent {operation_id} persisted before dispatch'))
+            db.add(ActivityLog(user_id=actor_id, action=f'system_{action}', details=f'Power intent {operation_id} persisted before dispatch', ip_address=client_ip))
             await db.commit()
         # A crash after intent persistence is ambiguous, including before dispatch itself.
         coordinator.block('recovery-required')

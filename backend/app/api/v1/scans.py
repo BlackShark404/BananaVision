@@ -6,8 +6,9 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import desc, func, select
+from app.core.http import get_client_ip
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import AdminUser, CurrentUser, DbSession
@@ -44,7 +45,7 @@ router = APIRouter(prefix="/scans", tags=["Scans"])
 
 
 @router.post("/trigger", response_model=ScanResponse)
-async def trigger_scan(body: ScanTriggerRequest, db: DbSession, user: CurrentUser):
+async def trigger_scan(body: ScanTriggerRequest, db: DbSession, user: CurrentUser, request: Request):
     """Trigger a full scan pipeline (capture → detect → fuse → predict)."""
     if not user.operator_profile:
         raise NotFoundException("OperatorProfile")
@@ -57,6 +58,7 @@ async def trigger_scan(body: ScanTriggerRequest, db: DbSession, user: CurrentUse
             operator_name=user.full_name,
             intake_id=body.intake_id,
             supplier_name=body.source_text,  # Use source_text from request
+            client_ip=get_client_ip(request),
         )
     except ModelInferenceError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
@@ -158,34 +160,34 @@ async def get_scan(scan_id: uuid.UUID, db: DbSession, user: CurrentUser):
 
 
 @router.patch("/{scan_id}/flag", response_model=ScanDetailResponse)
-async def flag_scan(scan_id: uuid.UUID, body: ScanFlagRequest, db: DbSession, user: CurrentUser):
-    return await mutate_scan(db, scan_id, user, "flag", body)
+async def flag_scan(scan_id: uuid.UUID, body: ScanFlagRequest, db: DbSession, user: CurrentUser, request: Request):
+    return await mutate_scan(db, scan_id, user, "flag", body, client_ip=get_client_ip(request))
 
 
 @router.patch("/{scan_id}", response_model=ScanDetailResponse)
 async def override_scan(
-    scan_id: uuid.UUID, body: ScanOverrideRequest, db: DbSession, admin: AdminUser
+    scan_id: uuid.UUID, body: ScanOverrideRequest, db: DbSession, admin: AdminUser, request: Request
 ):
-    return await mutate_scan(db, scan_id, admin, "correction", body)
+    return await mutate_scan(db, scan_id, admin, "correction", body, client_ip=get_client_ip(request))
 
 
 @router.patch("/{scan_id}/status", response_model=ScanDetailResponse)
 async def update_scan_status(
-    scan_id: uuid.UUID, body: ScanStatusUpdate, db: DbSession, user: CurrentUser
+    scan_id: uuid.UUID, body: ScanStatusUpdate, db: DbSession, user: CurrentUser, request: Request
 ):
-    return await mutate_scan(db, scan_id, user, "status", body)
+    return await mutate_scan(db, scan_id, user, "status", body, client_ip=get_client_ip(request))
 
 
 @router.post("/{scan_id}/notes", response_model=ScanNoteWriteResponse)
-async def add_note(scan_id: uuid.UUID, body: ScanNoteCreate, db: DbSession, user: AdminUser):
-    return await mutate_scan(db, scan_id, user, "note", body)
+async def add_note(scan_id: uuid.UUID, body: ScanNoteCreate, db: DbSession, user: AdminUser, request: Request):
+    return await mutate_scan(db, scan_id, user, "note", body, client_ip=get_client_ip(request))
 
 
 @router.patch("/{scan_id}/provenance", response_model=ScanDetailResponse)
 async def review_provenance(
-    scan_id: uuid.UUID, body: ScanProvenanceReview, db: DbSession, user: AdminUser
+    scan_id: uuid.UUID, body: ScanProvenanceReview, db: DbSession, user: AdminUser, request: Request
 ):
-    return await mutate_scan(db, scan_id, user, "provenance", body)
+    return await mutate_scan(db, scan_id, user, "provenance", body, client_ip=get_client_ip(request))
 
 
 @router.get("/{scan_id}/history", response_model=list[ScanHistoryResponse])

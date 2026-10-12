@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from app.core.http import get_client_ip
 import asyncio
 import cv2
 import logging
@@ -115,7 +116,7 @@ class CameraMappingUpdate(BaseModel):
         return ids
 
 @router.post("/mapping")
-async def update_camera_mapping(mapping: CameraMappingUpdate, db: DbSession, admin: AdminUser):
+async def update_camera_mapping(mapping: CameraMappingUpdate, db: DbSession, admin: AdminUser, request: Request):
     """Persist physical slots atomically, then apply and report actual hardware results."""
     if station_lock.locked():
         raise HTTPException(409, "Finish the active scan before remapping cameras")
@@ -129,7 +130,8 @@ async def update_camera_mapping(mapping: CameraMappingUpdate, db: DbSession, adm
         config = await configuration.update_config(db, {'camera_device_ids': mapping.device_ids},
             mapping.expected_revision, admin_profile_id)
         db.add(ActivityLog(user_id=admin.id, action='config_changed',
-            details=f'Camera mapping saved at revision {config.revision}: {mapping.device_ids}'))
+            details=f'Camera mapping saved at revision {config.revision}: {mapping.device_ids}',
+            ip_address=get_client_ip(request)))
         await record_operation(db, str(mapping.operation_id), {'kind': 'calibration', 'actor_id': str(admin.id),
             'device_ids': mapping.device_ids, 'status': 'saved'})
         await db.commit()

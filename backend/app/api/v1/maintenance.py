@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import AdminUser, DbSession, get_current_user, require_admin
 from app.core import database
+from app.core.http import get_client_ip
 from app.core.security import verify_password
 from app.models.user_account import UserAccount
 from app.schemas.enums import ActiveStatusEnum
@@ -151,14 +152,14 @@ async def restore_backup(body: RestoreRequest, request: Request, db: DbSession, 
 async def restart(body: OperationRequest, db: DbSession, admin: AdminUser, request: Request):
     await reauthenticate(db, admin)
     return await safe_operation(power_control.request_power('restart', str(body.operation_id), admin.id,
-        authorize=fresh_authorization(request, admin.id)))
+        authorize=fresh_authorization(request, admin.id), client_ip=get_client_ip(request)))
 
 
 @router.post('/shutdown')
 async def shutdown(body: OperationRequest, db: DbSession, admin: AdminUser, request: Request):
     await reauthenticate(db, admin)
     return await safe_operation(power_control.request_power('shutdown', str(body.operation_id), admin.id,
-        authorize=fresh_authorization(request, admin.id)))
+        authorize=fresh_authorization(request, admin.id), client_ip=get_client_ip(request)))
 
 
 @router.post('/power/cancel')

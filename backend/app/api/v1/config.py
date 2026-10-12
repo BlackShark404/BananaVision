@@ -18,6 +18,7 @@ from app.models.scan import Scan
 from app.models.admin_profile import AdminProfile
 from app.models.activity_log import ActivityLog
 from app.models.system_config import SystemConfig
+from app.core.http import get_client_ip
 from app.services.camera_manager import camera_manager
 from app.services import configuration
 from app.services.runtime_operations import station_lock
@@ -48,7 +49,7 @@ async def _update_config(body, db, admin, request):
     config = await configuration.update_config(db, changes, body.expected_revision, admin_profile_id)
     db.add(ActivityLog(user_id=admin.id, action="config_changed",
         details=f"Updated config revision {config.revision}: {changes}",
-        ip_address=request.client.host if request.client else None))
+        ip_address=get_client_ip(request)))
     await db.commit()
     if 'camera_ids' in changes or 'camera_device_ids' in changes:
         await configuration.apply_camera_config(config)

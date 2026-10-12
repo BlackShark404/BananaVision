@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     app_debug: bool = True
     app_secret_key: str = "change-me"
     app_cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    trusted_proxies: list[str] = []
 
     # ── Database ─────────────────────────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://bv_user:bv_pass@localhost:5432/bananavision"
@@ -67,11 +68,20 @@ class Settings(BaseSettings):
     max_captures_retention_days: int = Field(30, ge=1)
 
     # ── Validators ───────────────────────────────────────────────────────────
-    @field_validator("app_cors_origins", mode="before")
+    @field_validator("app_cors_origins", "trusted_proxies", mode="before")
     @classmethod
     def parse_cors_origins(cls, v: str | list[str]) -> list[str]:
         if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
+            v = v.strip()
+            if not v:
+                return []
+            if v.startswith("[") and v.endswith("]"):
+                import json
+                try:
+                    return [str(x).strip() for x in json.loads(v) if str(x).strip()]
+                except Exception:
+                    pass
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
 
     @field_validator("camera_device_ids", mode="before")
