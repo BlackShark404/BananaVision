@@ -30,7 +30,7 @@ export function scanLogParams(params: URLSearchParams): ScanLogParams {
     cultivar: params.get("cultivar") || undefined,
     ripeness: params.get("ripeness") || undefined,
     inventory_status: status && status !== "Flagged" ? status : undefined,
-    flagged_only: status === "Flagged",
+    flagged_only: status === "Flagged" && attention !== "review",
     attention: attention === "at-risk" || attention === "review" || attention === "success" ? attention : "all",
     search: params.get("search") || undefined,
     page: Number.isSafeInteger(page) && page > 0 ? page : 1,

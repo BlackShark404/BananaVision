@@ -1,42 +1,44 @@
-CURRENT RESUME HERE (2026-10-12) — FLAG FOR REVIEW & QUALITY REVIEWS VERIFIED
-BRANCH main; HEAD 1d8fb6d; changes staged/ready for commit.
+CURRENT RESUME HERE (2026-10-12) — PENDING QUALITY REVIEWS STATUS FILTER SYNCHRONIZATION VERIFIED
+BRANCH main; HEAD 500ea4c; changes ready for commit.
 Prior audit archived at docs/history/2026-10-12-completed-audit-before-connectivity.txt.
 
 DONE / EVIDENCE
-- Diagnosed root cause for "Flag for Review" HTTP 500:
-  * In backend/app/services/scan_records.py mutate_scan(), the row-lock query
-    select(Scan).where(Scan.id == scan_id).with_for_update().execution_options(populate_existing=True)
-    did not eager-load operator.account.
-  * When flagging, note is None, so serialize_detail() -> serialize_scan() accesses
-    scan.operator.account.full_name, which triggered an async lazy load outside a greenlet
-    raising MissingGreenlet (HTTP 500) and rolling back the mutation.
-  * In backend/app/models/operator_profile.py, account lacked lazy="selectin".
-  * In backend/app/schemas/scan.py, ScanFlagRequest lacked optional reason support.
-- Fixed backend scan mutation & quality review paths:
-  * Added lazy="selectin" to OperatorProfile.account relationship.
-  * Eager-loaded operator.account in mutate_scan() locked scan query and quality.py flagged scans query.
-  * Added optional reason field to ScanFlagRequest.
-  * Prioritized operator_name_snapshot in dashboard projection.
-- Fixed Logs & Review Filtering:
-  * Added review filter banner in Logs.tsx when cardFilter === "review" (matching at-risk/success banners)
-    allowing users to see active "Pending Quality Reviews" filter and clear it.
-  * Verified that Dashboard KPI pending_review_count and Scan Logs attention="review" use the identical
-    filter predicate (or_(scans.c.flagged.is_(True), scans.c.confidence < threshold)).
-  * Verified that flagging or unflagging a scan updates pending review count and filtered results.
-  * Verified that review notes and scan flags work completely independently.
+- Fixed Pending Quality Reviews status dropdown synchronization:
+  * In frontend/src/pages/Dashboard.tsx (legacyScanLogsUrl and openRecords):
+    passed status: "Flagged" when view === "review", ensuring navigation to Scan Logs
+    opens /logs?attention=review&status=Flagged with "Flagged" visibly selected in the dropdown.
+  * In frontend/src/lib/scanLogFilters.ts (scanLogParams):
+    set flagged_only: status === "Flagged" && attention !== "review", preserving low-confidence
+    scans requiring review while maintaining flagged_only filtering for manual status selection.
+  * In backend/app/services/scan_logs.py (_conditions):
+    guarded flagged_only filter with query.attention != "review", ensuring at the database query
+    level that pending review drilldowns retain all review-eligible scans (flagged scans AND
+    low-confidence scans below the threshold), matching the Dashboard pending_review_count KPI.
+  * In frontend/src/pages/Logs.tsx:
+    - Updated setCardFilter to clear status when clearing the review filter (restoring dropdown to "All Statuses").
+    - Added one-time mount synchronization for direct navigation to /logs?attention=review without status,
+      updating the URL and selecting "Flagged" without overriding subsequent manual status selections.
+    - Preserved manual status dropdown selections (e.g. "All Statuses", "In Stock", "Sold") without stale
+      URL parameters or filter conflicts.
+    - Clicking "Reset" or "Total Scans" clears all filters and restores dropdown to "All Statuses".
 - Regressions added:
-  * test_flag_mutation_loads_operator_account_before_serialization in test_connectivity.py.
-  * test_flag_and_unflag_independence_with_notes_and_dashboard in test_scan_records.py.
+  * backend/tests/test_scan_logs.py: test_review_drilldown_preserves_low_confidence_scans_with_flagged_status
+    verifies that attention="review" with flagged_only=True includes both flagged scans and low-confidence
+    scans, matching Dashboard KPI count, and that flagged_only=True without review attention returns only flagged scans.
+  * frontend/tests/scanlogfilters.test.mjs: 5 unit regression tests verifying buildScanLogsUrl parameter
+    inclusion, review filter status synchronization, and scanLogParams contract parsing.
 
 VERIFIED RESULTS
 - Backend full test suite (fresh temp cwd, pyproject.toml, pytest):
-  227 passed, 28 skipped in 55.37s.
-- Focused backend connectivity & scan records tests:
-  24 passed in 3.56s.
+  228 passed, 28 skipped in 55.48s.
+- Focused backend scan logs tests:
+  20 passed in 2.71s.
+- Frontend unit tests (node --test scanlogfilters, scanpages, scanwrites):
+  13 passed in 146ms.
 - Frontend typecheck (tsc --noEmit): exit 0 clean.
-- Frontend production build (tsc -b && vite build): exit 0 clean (built in 8.84s).
+- Frontend production build (tsc -b && vite build): exit 0 clean (built in 8.96s).
 - Frontend lint (eslint .): 42 baseline debt errors / 8 warnings in untouched files;
-  zero new diagnostics in modified files (Logs.tsx).
+  zero new diagnostics in modified files.
 - git diff --check: exit 0 clean.
 
 SAFETY & CONSTRAINTS

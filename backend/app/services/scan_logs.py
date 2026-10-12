@@ -48,7 +48,7 @@ def _conditions(scans, query: ScanLogQuery, threshold: float):
         value = getattr(query, name)
         if value is not None:
             conditions.append(getattr(scans.c, name) == value)
-    if query.flagged_only:
+    if query.flagged_only and query.attention != "review":
         conditions.append(scans.c.flagged.is_(True))
     if query.attention == "at-risk":
         conditions.append(dashboard._expiring(scans))

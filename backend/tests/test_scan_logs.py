@@ -314,3 +314,28 @@ async def test_success_drilldown_matches_dashboard_numerator_and_full_export(log
         row["Scan ID"]
         for row in await csv_rows(db, own, ScanLogQuery(attention="success", page=7, page_size=1))
     } == {str(sid) for sid in expected}
+
+
+@pytest.mark.asyncio
+async def test_review_drilldown_preserves_low_confidence_scans_with_flagged_status(logs_db):
+    db = logs_db
+    own, other = account(db), account(db)
+    flagged_high_conf = scan(db, own, confidence=95, flagged=True)
+    unflagged_low_conf = scan(db, own, confidence=70, flagged=False)
+    scan(db, own, confidence=95, flagged=False)
+    scan(db, other, confidence=60, flagged=True)
+
+    summary = await dashboard.get_summary(db, own)
+    assert summary.pending_review_count == 2
+
+    result = await scan_logs.list_scan_logs(
+        db, own, ScanLogQuery(attention="review", flagged_only=True)
+    )
+    assert result.total == 2
+    assert {row.id for row in result.items} == {flagged_high_conf, unflagged_low_conf}
+
+    flagged_only_result = await scan_logs.list_scan_logs(
+        db, own, ScanLogQuery(flagged_only=True)
+    )
+    assert flagged_only_result.total == 1
+    assert flagged_only_result.items[0].id == flagged_high_conf

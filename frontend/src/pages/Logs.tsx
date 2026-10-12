@@ -133,7 +133,26 @@ function LogsContent() {
   const setSourceFilter = (value: string) => updateFilters({ source_key: value, source: undefined })
   const setOperatorFilter = (value: string) => updateFilters({ operator_id: value })
   const setStatusFilter = (value: string) => updateFilters({ status: value })
-  const setCardFilter = (value: string | null) => updateFilters({ attention: value ?? undefined })
+  const setCardFilter = (value: string | null) => updateFilters({
+    attention: value ?? undefined,
+    ...(value === null && (cardFilter === "review" || statusFilter === "Flagged") ? { status: undefined } : {}),
+  })
+
+  const syncedReviewStatus = useRef(false)
+  useEffect(() => {
+    if (!syncedReviewStatus.current) {
+      syncedReviewStatus.current = true
+      if (searchParams.get("attention") === "review" && !searchParams.has("status")) {
+        setSearchParams(previous => {
+          const next = new URLSearchParams(previous)
+          if (next.get("attention") === "review" && !next.has("status")) {
+            next.set("status", "Flagged")
+          }
+          return next
+        }, { replace: true })
+      }
+    }
+  }, [searchParams, setSearchParams])
 
   // A deletion/status change can shrink the final page while this view is open.
   useEffect(() => {
