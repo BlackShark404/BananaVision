@@ -1,66 +1,43 @@
-CURRENT RESUME HERE (2026-10-12) — ACTIVITY LOG CLIENT IP CAPTURE & AUDIT HARDENING VERIFIED
-BRANCH main; HEAD 500ea4c; changes ready for commit.
-Prior audit archived at docs/history/2026-10-12-completed-audit-before-connectivity.txt.
+CURRENT RESUME HERE (2026-10-12) — SCAN LOGS RED FLAG INDICATOR CONSISTENCY VERIFIED
+BRANCH main; HEAD 800a6eb; ready for commit.
+Prior audit archived at docs/history/2026-10-12-activity-log-client-ip-audit.txt.
 
 DONE / EVIDENCE
-- Fixed missing IP addresses in Admin -> Activity Log across BananaVision:
+- Fixed inconsistent red vertical line indicator on flagged scan rows in Admin -> Scan Logs:
   * Identified Root Cause:
-    - Scan mutations (backend/app/services/scan_records.py), scan trigger/pipeline (backend/app/services/scan_service.py),
-      power intents (backend/app/services/power_control.py), and camera mappings (backend/app/api/v1/cameras.py)
-      instantiated ActivityLog records without passing ip_address.
-    - Endpoints across auth, users, suppliers, intakes, and config used ad-hoc request.client.host without reverse
-      proxy validation or IP format checking.
-  * Centralized Client IP Extraction & Security Hardening:
-    - Implemented get_client_ip(request: Request | None) -> str | None and _parse_ip(candidate: str | None)
-      in backend/app/core/http.py.
-    - Added trusted_proxies: list[str] configuration to backend/app/config.py (configurable via TRUSTED_PROXIES env var
-      with comma-separated IPv4/IPv6 addresses or CIDR network notations).
-    - Strict Spoofing Protection: Forwarding headers (X-Forwarded-For, X-Real-IP) are strictly ignored unless the
-      direct socket peer (request.client.host) matches an explicit IP or CIDR network in trusted_proxies.
-    - Validation: Every candidate IP is validated via Python's standard ipaddress.ip_address(), rejecting malformed,
-      injected, or non-IP strings.
-    - No Fabrication: Returns None when IP cannot be determined; never invents fake or default IPs.
-  * Unified Service & API Persistence:
-    - backend/app/services/scan_records.py: Added client_ip to apply_scan_change and mutate_scan, passing
-      ip_address=client_ip to ActivityLog for scan_flag, scan_note, scan_correction, scan_status, and scan_provenance.
-    - backend/app/services/scan_service.py: Added client_ip to execute_scan_pipeline, passing ip_address=client_ip
-      to ActivityLog for scan_created.
-    - backend/app/services/power_control.py: Added client_ip to request_power, passing ip_address=client_ip
-      to ActivityLog for power intent persistence.
-    - backend/app/api/v1/scans.py: Passed client_ip=get_client_ip(request) in trigger_scan, flag_scan, override_scan,
-      update_scan_status, add_note, and review_provenance.
-    - backend/app/api/v1/cameras.py: Passed ip_address=get_client_ip(request) in update_camera_mapping.
-    - backend/app/api/v1/maintenance.py: Passed client_ip=get_client_ip(request) in restart and shutdown.
-    - backend/app/api/v1/auth.py, users.py, suppliers.py, intakes.py, config.py: Standardized all ActivityLog instantiations
-      to use get_client_ip(request).
-  * Historical Data & UI Preservation:
-    - Historical records with null ip_address remain unchanged in the database and continue to render "—" in
-      the frontend (ActivityLog.tsx: cell: (log) => log.ipAddress || "—") without fabrication.
-    - Exact Activity Log UI layout, typography, and styling strictly preserved.
+    - In frontend/src/pages/Logs.tsx (line 571), rowClassName applies the red indicator class when scan.flagged is true:
+        rowClassName={(scan) => scan.flagged ? 'border-l-3 border-l-red-500 bg-red-500/[0.03]' : ''}
+    - In frontend/src/components/ui/table.tsx (line 34), TableBody previously had:
+        className={cn("[&_tr:last-child]:border-0", className)}
+    - In CSS, border-0 sets all border widths to 0px (border-top, border-right, border-bottom, border-left).
+    - Because the selector tbody tr:last-child has higher specificity than the utility class .border-l-3,
+      it unconditionally erased the left border on the last row of the table.
+    - In the user's view (/logs?attention=review&status=Flagged), exactly 2 scans were listed. The second scan was
+      tr:last-child in tbody, causing its red left-side indicator to be wiped out despite having scan.flagged = true
+      and displaying the red flag icon.
+    - TableRow only has border-b (border-bottom), and TableFooter in table.tsx already correctly used [&>tr]:last:border-b-0.
+  * Applied Minimal & Targeted Fix:
+    - In frontend/src/components/ui/table.tsx: updated TableBody className from [&_tr:last-child]:border-0 to [&_tr:last-child]:border-b-0.
+    - This removes only the bottom border from the last row (preventing double border with table bottom edge) while preserving
+      row-level left indicator borders (.border-l-3 border-l-red-500) on all rows, including the last child.
+  * Preserved Logic and Design:
+    - Maintained exact review vs flagged distinction: scans with low confidence that are not explicitly flagged retain flagged = false
+      and do not display the red indicator. Only explicitly flagged scans (flagged = true) display the red indicator.
+    - Inventory statuses (In Stock, Sold, Spoiled, For Processing) do not interfere with the indicator.
+    - Dashboard Pending Quality Reviews KPI, Scan Logs filters (attention=review and status=Flagged), and Scan Detail actions remain synchronized.
+    - Preserved existing UI layout, typography, components, and spacing strictly.
 - Regressions added:
-  * backend/tests/test_activity_ip.py (9 tests):
-    - test_parse_ip_validation: validates IPv4, IPv6, whitespace trimming, and rejection of invalid/injected strings.
-    - test_get_client_ip_direct_and_missing: verifies direct peer IP extraction and None handling for missing clients.
-    - test_get_client_ip_untrusted_proxy_ignores_forwarding_headers: proves spoofed X-Forwarded-For/X-Real-IP headers
-      are ignored when peer is untrusted.
-    - test_get_client_ip_trusted_proxy_resolves_forwarding: verifies trusted proxy parsing (exact IP, CIDR subnet,
-      leftmost client extraction, malformed fallback).
-    - test_scan_flag_and_note_record_client_ip: verifies end-to-end API and DB persistence of client IP (127.0.0.1)
-      for Scan Flag, Scan Note, Scan Override, and Scan Status.
-    - test_activity_list_api_returns_ip_address_and_preserves_historical_null: verifies GET /api/v1/activity returns
-      persisted IP for new actions while preserving null for historical logs.
-    - test_untrusted_proxy_header_not_spoofed_in_api: verifies API rejects spoofed header and records peer IP.
-    - test_trusted_proxy_header_honored_in_api: verifies API honors forwarded IP when proxy is trusted.
-    - test_config_update_records_client_ip: verifies system config change records client IP.
+  * frontend/tests/scanflagindicator.test.mjs (2 tests):
+    - TableBody in table.tsx uses border-b-0 on last-child to preserve row border-left (proves border-0 is replaced).
+    - Logs.tsx rowClassName consistently assigns red indicator to all flagged scans across inventory statuses while omitting it for unflagged scans.
 
 VERIFIED RESULTS
-- Backend full test suite (fresh temp cwd, pyproject.toml, pytest):
-  237 passed, 28 skipped in 55.33s.
-- Focused backend activity IP tests:
-  9 passed in 1.84s.
+- Frontend unit regression suite (node --test):
+  15 passed in 138ms (tests/scanflagindicator.test.mjs, tests/scanlogfilters.test.mjs, tests/scanpages.test.mjs, tests/scanwrites.test.mjs).
 - Frontend typecheck (tsc --noEmit): exit 0 clean.
-- Frontend production build (tsc -b && vite build): exit 0 clean (built in 8.39s).
-- Frontend lint (eslint .): 0 new diagnostics; only 50 existing baseline debt items in untouched files.
+- Frontend production build (tsc -b && vite build): exit 0 clean (built in 6.65s).
+- Frontend lint (eslint .): 0 new diagnostics; baseline debt of 50 untouched problems preserved; src/components/ui/table.tsx 0 diagnostics.
+- Backend test suite (isolated cwd temp, pyproject.toml, pytest): 237 passed, 28 skipped in 58.08s.
 - git diff --check: exit 0 clean.
 
 SAFETY & CONSTRAINTS
