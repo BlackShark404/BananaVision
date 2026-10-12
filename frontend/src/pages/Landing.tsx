@@ -139,7 +139,7 @@ export default function Landing() {
         <section id="home" className="relative pt-24 pb-24 lg:pt-32 lg:pb-32 overflow-hidden px-4 flex flex-col items-center justify-center min-h-[85vh]">
           {/* Enhanced Background Blurs */}
           <div className="absolute top-[-5%] left-1/2 -translate-x-1/2 w-full max-w-250 h-125 bg-primary/20 rounded-full blur-[120px] -z-10" />
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgMGg0MHY0MEgweiIgZmlsbD0ibm9uZSIvPPHBhdGggZD0iTTAgMGgxdjQwSDB6TTM5IDBoMXY0MEgzOXoiIGZpbGw9InJnYmEoMCwgMCwgMCwgMC4wMikiLz48cGF0aCBkPSJNMCAwaDQwdjFIMHpNMCAzOWg0MHYxSDB6IiBmaWxsPSJyZ2JhKDAsIDAsIDAsIDAuMDIpIi8+PC9zdmc+')] opacity-60 -z-10 mix-blend-overlay" />
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgMGg0MHY0MEgweiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik0wIDBoMXY0MEgwek0zOSAwaDF2NDBIMzl6IiBmaWxsPSJyZ2JhKDAsIDAsIDAsIDAuMDIpIi8+PHBhdGggZD0iTTAgMGg0MHYxSDB6TTAgMzloNDB2MUgweiIgZmlsbD0icmdiYSgwLCAwLCAwLCAwLjAyKSIvPjwvc3ZnPg==')] opacity-60 -z-10 mix-blend-overlay" />
           
           <div className="container mx-auto text-center max-w-4xl animate-fade-in relative z-10 w-full">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/60 dark:bg-card/60 text-primary mb-6 text-sm font-bold border border-primary/20 shadow-[0_4px_20px_rgba(234,179,8,0.15)] backdrop-blur-xl">

@@ -17,7 +17,7 @@ function Fixture() {
     <button onClick={() => setMounted(false)}>Unmount</button>
     <button onClick={() => setToken('replacement-fixture-token')}>Swap</button>
     <button onClick={clearAuth}>Logout</button>
-    <button onClick={() => api.scans.get('fixture').catch(e => setMessage(e.message))}>Request</button>
+    <button onClick={() => api.scans.detail('fixture').catch(e => setMessage(e.message))}>Request</button>
     <p>{message}</p>
     {mounted && <><Subscriber rooms={['dashboard']} /><Subscriber rooms={['dashboard', 'devices']} /></>}
     <ScanImage src="/captures/fixture/image.jpg" alt="Evidence" />

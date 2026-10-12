@@ -44,13 +44,20 @@ async function request<T>(
     if (str) url += `?${str}`
   }
 
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: body instanceof FormData || body instanceof Blob ? body : body ? JSON.stringify(body) : undefined,
-    signal: opts?.signal,
-    cache: "no-store",
-  })
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method,
+      headers,
+      body: body instanceof FormData || body instanceof Blob ? body : body ? JSON.stringify(body) : undefined,
+      signal: opts?.signal,
+      cache: "no-store",
+    })
+  } catch (e) {
+    // Network error (connection refused, DNS failure, etc.) — don't clear auth
+    if (e instanceof DOMException && e.name === "AbortError") throw e
+    throw Object.assign(new Error("Backend unavailable — please check the server and retry"), { status: 0 })
+  }
 
   // Handle 401 — token expired / invalid
   if (res.status === 401) {
