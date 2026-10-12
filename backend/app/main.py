@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from app.core.http import CorsFastAPI
 from app.api.v1.scan_evidence import router as scan_evidence_router
 
 from app.config import get_settings
@@ -72,7 +72,7 @@ async def lifespan(app: FastAPI):
 
 # ── App Factory ──────────────────────────────────────────────────────────────
 
-app = FastAPI(
+app = CorsFastAPI(
     title="BananaVision API",
     description=(
         "Banana Classification & Spoilage Prediction System — "
@@ -85,15 +85,8 @@ app = FastAPI(
 )
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
-# Install admission inside CORS so blocked responses retain normal CORS headers.
+# CorsFastAPI wraps both admission and the server error handler.
 app.add_middleware(StationAdmissionMiddleware)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.app_cors_origins,
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 app.include_router(v1_router)

@@ -5,6 +5,7 @@ import json
 
 from fastapi import HTTPException
 from sqlalchemy import select, text, true, update
+from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import ConflictException, ForbiddenException, NotFoundException
 from app.core.time import now_manila
@@ -65,7 +66,11 @@ async def authorize_scan(db, scan, user):
 
 async def load_authorized_scan(db, scan_id, user):
     scan_scope(user)
-    scan = (await db.execute(select(Scan).where(Scan.id == scan_id))).scalar_one_or_none()
+    scan = (await db.execute(
+        select(Scan).where(Scan.id == scan_id).options(
+            selectinload(Scan.operator).selectinload(OperatorProfile.account)
+        )
+    )).scalar_one_or_none()
     if scan is None:
         deleted = (
             await db.execute(select(ScanTombstone).where(ScanTombstone.scan_id == scan_id))
