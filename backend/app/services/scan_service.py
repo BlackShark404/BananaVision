@@ -351,7 +351,9 @@ async def _execute_scan_pipeline(
                 new_values={
                     "inventory_status": "In Stock",
                     "intake_provenance": scan.intake_provenance,
-                    "intake_origin_id": str(scan.intake_origin_id) if scan.intake_origin_id else None,
+                    "intake_origin_id": str(scan.intake_origin_id)
+                    if scan.intake_origin_id
+                    else None,
                     "operator": operator_name,
                     "source": scan.source_name_snapshot,
                 },

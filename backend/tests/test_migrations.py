@@ -100,13 +100,23 @@ def test_provenance_migration_quarantines_legacy_null_without_changing_stock():
     with engine.begin() as connection:
         legacy_schema(connection)
         connection.execute(text("CREATE TABLE scan (id CHAR(32) PRIMARY KEY, intake_id CHAR(32))"))
-        connection.execute(text("INSERT INTO scan VALUES ('linked', 'known-intake'), ('ambiguous', NULL)"))
+        connection.execute(
+            text("INSERT INTO scan VALUES ('linked', 'known-intake'), ('ambiguous', NULL)")
+        )
         upgrade_connection(connection)
-        assert connection.execute(text("SELECT id, intake_origin_id, intake_provenance FROM scan ORDER BY id")).all() == [
-            ('ambiguous', None, 'unverified'), ('linked', 'known-intake', 'linked')]
-        connection.execute(text("UPDATE scan SET intake_provenance='unlinked' WHERE id='ambiguous'"))
+        assert connection.execute(
+            text("SELECT id, intake_origin_id, intake_provenance FROM scan ORDER BY id")
+        ).all() == [("ambiguous", None, "unverified"), ("linked", "known-intake", "linked")]
+        connection.execute(
+            text("UPDATE scan SET intake_provenance='unlinked' WHERE id='ambiguous'")
+        )
         upgrade_connection(connection)
-        assert connection.execute(text("SELECT intake_provenance FROM scan WHERE id='ambiguous'")).scalar_one() == 'unlinked'
+        assert (
+            connection.execute(
+                text("SELECT intake_provenance FROM scan WHERE id='ambiguous'")
+            ).scalar_one()
+            == "unlinked"
+        )
         assert connection.execute(text('SELECT COUNT(*) FROM scan_event')).scalar_one() == 0
     engine.dispose()
 

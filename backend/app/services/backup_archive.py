@@ -207,7 +207,11 @@ def _row(table, value):
         else:
             result[column.name] = _typed(item, column.type)
     if table.name == "scan":
-        provenance, origin, intake = result["intake_provenance"], result["intake_origin_id"], result["intake_id"]
+        provenance, origin, intake = (
+            result["intake_provenance"],
+            result["intake_origin_id"],
+            result["intake_id"],
+        )
         if provenance not in ("linked", "unlinked", "unverified", "excluded"):
             raise ArchiveError("Invalid intake provenance")
         if provenance == "linked":
@@ -597,7 +601,9 @@ def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
                 or manifest["version"] not in (1, 2, 3)
             ):
                 raise ArchiveError("Unsupported archive version")
-            expected_schema = {1: LEGACY_SCHEMA, 2: V2_SCHEMA}.get(manifest["version"], schema_description())
+            expected_schema = {1: LEGACY_SCHEMA, 2: V2_SCHEMA}.get(
+                manifest["version"], schema_description()
+            )
             if manifest["application_version"] != "0.1.0" or manifest["schema"] != expected_schema:
                 raise ArchiveError("Incompatible archive schema")
             _typed(manifest["created_at"], ManilaDateTime())

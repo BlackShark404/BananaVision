@@ -76,7 +76,11 @@ async def test_combined_cultivar_status_filters_scope_every_chart_and_fixed_tren
         (other, "Farm A", "Cardaba", InventoryStatusEnum.SOLD),
     ]:
         scan_id = scan(db, who, source=source, statuses=[(NOW, status)])
-        db.session.execute(update(ScanClassification).where(ScanClassification.scan_id == scan_id).values(cultivar=cultivar))
+        db.session.execute(
+            update(ScanClassification)
+            .where(ScanClassification.scan_id == scan_id)
+            .values(cultivar=cultivar)
+        )
     result = await analytics.get_summary(db, owner, date_range="today", source_key="text:Farm A",
         cultivar=CultivarEnum.CARDABA, inventory_status=InventoryStatusEnum.SOLD)
     assert result.total_scans == result.classification_count == result.confidence_sample_count == 1
@@ -84,8 +88,14 @@ async def test_combined_cultivar_status_filters_scope_every_chart_and_fixed_tren
     assert sum(item.count for item in result.hourly_distribution) == 1
     assert result.current_stock_count == 0
     assert {option.name for option in result.source_options} == {"Farm A", "Farm B"}
-    operators = await analytics.get_operator_performance(db, owner, date_range="today",
-        source_key="text:Farm A", cultivar=CultivarEnum.CARDABA, inventory_status=InventoryStatusEnum.SOLD)
+    operators = await analytics.get_operator_performance(
+        db,
+        owner,
+        date_range="today",
+        source_key="text:Farm A",
+        cultivar=CultivarEnum.CARDABA,
+        inventory_status=InventoryStatusEnum.SOLD,
+    )
     assert operators.items[0].total_scans == 1
 
 
@@ -241,7 +251,7 @@ async def test_operator_namesakes_renames_and_role_scope(analytics_db):
 
 
 def test_api_contract_validates_filters_and_serializes_manila_offsets(analytics_db):
-    db = analytics_db
+    db = analytics_db  # noqa: F811 - pytest fixture injection
     app = FastAPI()
     app.include_router(router, prefix="/api/v1")
 

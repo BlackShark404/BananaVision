@@ -271,7 +271,15 @@ def test_shared_intake_registry_counts_only_accessible_operator_scans(applicatio
     assert next(i for i in admin.json() if i['id'] == str(app.ids.intake))['scan_count'] == 1
     other_id = uuid4()
     with Session(app.engine) as db:
-        db.add(UserAccount(id=other_id, role_id=2, username='registry-other', full_name='Other', password_hash='unused'))
+        db.add(
+            UserAccount(
+                id=other_id,
+                role_id=2,
+                username="registry-other",
+                full_name="Other",
+                password_hash="unused",
+            )
+        )
         db.flush()
         db.add(OperatorProfile(account_id=other_id))
         db.commit()

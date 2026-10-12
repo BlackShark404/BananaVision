@@ -1,6 +1,8 @@
 """Preserve known intake provenance; quarantine ambiguous legacy unlinked stock."""
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
+
 from app.models.scan_snapshot import ScanSnapshot
 
 revision = "0006_inventory_provenance"
@@ -18,11 +20,19 @@ def upgrade():
     if "intake_origin_id" not in columns:
         op.add_column("scan", sa.Column("intake_origin_id", sa.Uuid(), nullable=True))
     if "intake_provenance" not in columns:
-        op.add_column("scan", sa.Column("intake_provenance", sa.String(20),
-                                        nullable=False, server_default="unverified"))
+        op.add_column(
+            "scan",
+            sa.Column(
+                "intake_provenance", sa.String(20), nullable=False, server_default="unverified"
+            ),
+        )
         if "intake_id" in columns:
-            bind.execute(sa.text("UPDATE scan SET intake_origin_id = intake_id, "
-                                 "intake_provenance = 'linked' WHERE intake_id IS NOT NULL"))
+            bind.execute(
+                sa.text(
+                    "UPDATE scan SET intake_origin_id = intake_id, "
+                    "intake_provenance = 'linked' WHERE intake_id IS NOT NULL"
+                )
+            )
     # Adoption of a schema already created from current models must not relabel
     # new unlinked records or erase recorded reconciliation decisions.
 

@@ -91,8 +91,12 @@ async def test_legacy_restore_preserves_scan_and_available_history(
         assert scan.revision == 1 and scan.operator_name_snapshot is None
         assert scan.classification.cultivar.value == 'Lakatan'
         assert scan.original_ai_result.spoilage_days is None
-        assert await db.scalar(select(func.count()).select_from(ScanEvent)) == (0 if version == 1 else 1)
-        assert await db.scalar(select(func.count()).select_from(ScanMutation)) == (0 if version == 1 else 1)
+        assert await db.scalar(select(func.count()).select_from(ScanEvent)) == (
+            0 if version == 1 else 1
+        )
+        assert await db.scalar(select(func.count()).select_from(ScanMutation)) == (
+            0 if version == 1 else 1
+        )
 
 
 @pytest.mark.asyncio

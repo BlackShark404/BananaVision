@@ -1,5 +1,11 @@
 # BananaVision comprehensive system audit — 2026-10-10
 
+> **Historical audit baseline.** The user subsequently authorized corrections. See
+> [2026-10-12 correction verification](audit-corrections-verification-2026-10-12.md)
+> for current finding dispositions, approved stock policies, actual regression results
+> and remaining deployment limitations. The matrix and characterization below retain
+> the original audit evidence; do not repeat those old defect probes as fix acceptance.
+
 Audit finalized **2026-10-11** on **`main` at `5483861`** (initial source target
 `0a4c87e`; subsequent commits contain audit evidence only). This is an audit and
 proposed correction plan,

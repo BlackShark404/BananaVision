@@ -19,9 +19,15 @@ from app.schemas.scan_logs import (
     SourceOption,
 )
 from app.services import dashboard
-from app.services.scan_evidence import evidence_url
 from app.services.inventory_policy import eligible_stock
-from app.services.scan_snapshots import MAX_ROWS, binding, load_snapshot, save_snapshot, slice_snapshot
+from app.services.scan_evidence import evidence_url
+from app.services.scan_snapshots import (
+    MAX_ROWS,
+    binding,
+    load_snapshot,
+    save_snapshot,
+    slice_snapshot,
+)
 
 
 def _conditions(scans, query: ScanLogQuery, threshold: float):
@@ -130,22 +136,49 @@ async def list_scan_logs(
     threshold = await dashboard._threshold(db)
     conditions = _conditions(scans, query, threshold)
     if query.stable:
-        raw = (await db.execute(select(scans, eligible_stock(scans).label("stock_eligible")).where(*conditions).order_by(*_ordering(scans, query))
-                                .limit(MAX_ROWS + 1))).all()
+        raw = (
+            await db.execute(
+                select(scans, eligible_stock(scans).label("stock_eligible"))
+                .where(*conditions)
+                .order_by(*_ordering(scans, query))
+                .limit(MAX_ROWS + 1)
+            )
+        ).all()
         rows = [_row(row) for row in raw]
         scores = [row.confidence for row in rows if row.confidence is not None]
         # The SQL projection supplies the same stock predicate used by metrics.
         # Evaluate it in the capture query, not in a later count/row transaction.
         # No history/notes or credentials are included in browse payloads.
-        saved = await save_snapshot(db, user, key, {
-            "items": [{**row.model_dump(mode="json"), "username": source.username} for row, source in zip(rows, raw)],
-            "meta": {"generated_at": now.isoformat(), "confidence_threshold": threshold,
-                     "avg_confidence": dashboard._mean(sum(scores) / len(scores)) if scores else None,
-                     "at_risk_count": sum(bool(r.stock_eligible) and r.remaining_days is not None and r.remaining_days <= 2 for r in raw),
-                     "review_count": sum(row.flagged or (row.confidence is not None and row.confidence < threshold) for row in rows),
-                     "flagged_count": sum(row.flagged for row in rows),
-                     "options": (await _options(db, scans)).model_dump(mode="json")},
-        })
+        saved = await save_snapshot(
+            db,
+            user,
+            key,
+            {
+                "items": [
+                    {**row.model_dump(mode="json"), "username": source.username}
+                    for row, source in zip(rows, raw, strict=True)
+                ],
+                "meta": {
+                    "generated_at": now.isoformat(),
+                    "confidence_threshold": threshold,
+                    "avg_confidence": dashboard._mean(sum(scores) / len(scores))
+                    if scores
+                    else None,
+                    "at_risk_count": sum(
+                        bool(r.stock_eligible)
+                        and r.remaining_days is not None
+                        and r.remaining_days <= 2
+                        for r in raw
+                    ),
+                    "review_count": sum(
+                        row.flagged or (row.confidence is not None and row.confidence < threshold)
+                        for row in rows
+                    ),
+                    "flagged_count": sum(row.flagged for row in rows),
+                    "options": (await _options(db, scans)).model_dump(mode="json"),
+                },
+            },
+        )
         return ScanLogList(**slice_snapshot(saved, query.page, query.page_size))
     metrics = (await db.execute(
         select(
@@ -189,7 +222,9 @@ async def export_scan_logs(db: AsyncSession, user: UserAccount, query: ScanLogQu
     )
     # Start the query before HTTP headers are sent, so initial DB failures propagate.
     if query.snapshot_id:
-        key = binding("logs", query.model_dump(mode="json", exclude={"page", "snapshot_id", "stable"}))
+        key = binding(
+            "logs", query.model_dump(mode="json", exclude={"page", "snapshot_id", "stable"})
+        )
         saved = await load_snapshot(db, user, query.snapshot_id, key)
 
         class SnapshotRows:

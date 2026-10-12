@@ -32,16 +32,41 @@ from app.services.inventory_policy import eligible_stock
 DateRange = Literal["today", "week", "month", "all"]
 
 METRIC_DEFINITIONS = {
-    "throughput": "Every scan in the selected source, current cultivar, inventory status and calendar-day range, including incomplete classifications. Today, Last 7 Days and Last 30 Days include the current business day through the refresh time; future-dated records are excluded.",
+    "throughput": (
+        "Every scan in the selected source, current cultivar, inventory status and "
+        "calendar-day range, including incomplete classifications. Today, Last 7 "
+        "Days and Last 30 Days include the current business day through the refresh "
+        "time; future-dated records are excluded."
+    ),
     "classifications": "Current classifications with both a recognized cultivar and ripeness. Missing or unknown labels are excluded from every classification chart and its percentage denominator, but remain in total scans.",
     "model_confidence": "Mean model confidence from complete, recognized AI classifications with a finite score from 0 to 100. Uses the saved original AI result when available; excludes human-overridden results without an original prediction. This is not measured accuracy.",
     "low_confidence": "Model-confidence samples strictly below the configured threshold, divided by all valid model-confidence samples. Missing, incomplete and invalid predictions are excluded from both numerator and denominator.",
-    "inventory_risk": "Scans in the selected source/cultivar/status and date range whose latest inventory status is In Stock and whose known intake is Active or whose unlinked provenance is verified. Deleted-intake and ambiguous legacy stock are excluded. Sold, Spoiled, For Processing and depleted intakes are excluded. Remaining days equals the original estimate (range midpoint) minus elapsed time since scanning; two days or less includes overdue stock. Invalid estimates are reported as unknown risk.",
+    "inventory_risk": (
+        "Scans in the selected source/cultivar/status and date range whose latest "
+        "inventory status is In Stock and whose known intake is Active or whose "
+        "unlinked provenance is verified. Deleted-intake and ambiguous legacy stock "
+        "are excluded. Sold, Spoiled, For Processing and depleted intakes are "
+        "excluded. Remaining days equals the original estimate (range midpoint) "
+        "minus elapsed time since scanning; two days or less includes overdue stock. "
+        "Invalid estimates are reported as unknown risk."
+    ),
     "confidence_by_ripeness": "Valid model-confidence samples grouped by the AI prediction's ripeness, using the original prediction when saved. Each count is the denominator of its mean; it may differ from current classification counts after corrections.",
-    "trend": "All scans from the selected source/cultivar/status during the last 14 business calendar days, including today through the refresh time. This fixed window is independent of the selected date range.",
+    "trend": (
+        "All scans from the selected source/cultivar/status during the last 14 "
+        "business calendar days, including today through the refresh time. This "
+        "fixed window is independent of the selected date range."
+    ),
     "sources": "Scan counts grouped by stable supplier identity when linked; otherwise by recorded source text. Filter choices include all sources with accessible scan history and do not shrink when filters change.",
-    "operators": "All scans in the selected source/cultivar/status and date range, grouped by stable operator ID. Mean confidence uses the same valid model-confidence population as the confidence KPI. Flag rate divides flagged scans by all scans for that operator; overrides are not verified accuracy.",
-    "hourly": "Every scan in the selected source/cultivar/status and date range, grouped by business-local hour.",
+    "operators": (
+        "All scans in the selected source/cultivar/status and date range, grouped by "
+        "stable operator ID. Mean confidence uses the same valid model-confidence "
+        "population as the confidence KPI. Flag rate divides flagged scans by all "
+        "scans for that operator; overrides are not verified accuracy."
+    ),
+    "hourly": (
+        "Every scan in the selected source/cultivar/status and date range, grouped "
+        "by business-local hour."
+    ),
     "human_verified_accuracy": "Unavailable: the system has no independently verified ground-truth labels or review-completion record. Flags and manual overrides alone cannot establish model accuracy.",
 }
 
@@ -79,7 +104,15 @@ def _projection(user: UserAccount, now: datetime):
     )
 
 
-def _conditions(scans, range_key: DateRange, now: datetime, source_key, source, cultivar=None, inventory_status=None):
+def _conditions(
+    scans,
+    range_key: DateRange,
+    now: datetime,
+    source_key,
+    source,
+    cultivar=None,
+    inventory_status=None,
+):
     conditions = [scans.c.date_time <= now]
     start = _range_start(range_key, now)
     if start is not None:
@@ -280,5 +313,9 @@ async def get_operator_performance(
 ) -> OperatorPerformanceList:
     now = as_manila(now_manila())
     scans = _projection(user, now)
-    items = await _operators(db, scans, _conditions(scans, date_range, now, source_key, source, cultivar, inventory_status))
+    items = await _operators(
+        db,
+        scans,
+        _conditions(scans, date_range, now, source_key, source, cultivar, inventory_status),
+    )
     return OperatorPerformanceList(items=items, total_operators=len(items))

@@ -105,7 +105,8 @@ function LogsContent() {
     return { result, rows }
   }, [queryKey])
   const resource = useDashboardResource(load)
-  const refreshSnapshot = useCallback(() => { snapshot.current = null; return resource.refresh() }, [resource.refresh])
+  const refreshResource = resource.refresh
+  const refreshSnapshot = useCallback(() => { snapshot.current = null; return refreshResource() }, [refreshResource])
   const latestRefresh = useRef(refreshSnapshot)
   useEffect(() => { latestRefresh.current = refreshSnapshot }, [refreshSnapshot])
   const response = resource.data?.result

@@ -36,8 +36,12 @@ class Scan(Base):
         default=lambda context: context.get_current_parameters().get("intake_id"),
     )
     intake_provenance: Mapped[str] = mapped_column(
-        String(20), nullable=False, server_default="unverified",
-        default=lambda context: "linked" if context.get_current_parameters().get("intake_id") else "unlinked",
+        String(20),
+        nullable=False,
+        server_default="unverified",
+        default=lambda context: (
+            "linked" if context.get_current_parameters().get("intake_id") else "unlinked"
+        ),
     )
     source_text: Mapped[str | None] = mapped_column(String(100), nullable=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")

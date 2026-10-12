@@ -7,33 +7,36 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, HTTPException, Query
-from sqlalchemy import select, func, desc
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import DbSession, CurrentUser, AdminUser
+from app.api.deps import AdminUser, CurrentUser, DbSession
+from app.core.exceptions import ModelInferenceError, NotFoundException
+from app.models.operator_profile import OperatorProfile
 from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
-from app.models.operator_profile import OperatorProfile
 from app.models.scan_note import ScanNote
-from app.core.exceptions import NotFoundException, ModelInferenceError
 from app.schemas.scan import (
-    ScanTriggerRequest,
-    ScanFlagRequest,
-    ScanNoteCreate,
-    ScanOverrideRequest,
-    ScanResponse,
     ScanDetailResponse,
+    ScanFlagRequest,
+    ScanHistoryResponse,
     ScanListResponse,
+    ScanNoteCreate,
     ScanNoteResponse,
-    ScanStatusUpdate, ScanNoteWriteResponse, ScanHistoryResponse, ScanProvenanceReview,
+    ScanNoteWriteResponse,
+    ScanOverrideRequest,
+    ScanProvenanceReview,
+    ScanResponse,
+    ScanStatusUpdate,
+    ScanTriggerRequest,
 )
 from app.services.scan_records import (
     load_authorized_scan,
-    scan_scope,
-    serialize_scan,
-    serialize_detail,
     mutate_scan,
     scan_history,
+    scan_scope,
+    serialize_detail,
+    serialize_scan,
 )
 from app.services.scan_service import execute_scan_pipeline
 
@@ -74,8 +77,17 @@ async def list_scans(
     snapshot_id: uuid.UUID | None = None,
 ):
     """List scans with pagination and filtering."""
-    from app.services.scan_snapshots import MAX_ROWS, binding, load_snapshot, save_snapshot, slice_snapshot
-    key = binding("history", dict(page_size=page_size, cultivar=cultivar, ripeness=ripeness, flagged=flagged))
+    from app.services.scan_snapshots import (
+        MAX_ROWS,
+        binding,
+        load_snapshot,
+        save_snapshot,
+        slice_snapshot,
+    )
+
+    key = binding(
+        "history", dict(page_size=page_size, cultivar=cultivar, ripeness=ripeness, flagged=flagged)
+    )
     if snapshot_id:
         saved = await load_snapshot(db, user, snapshot_id, key)
         return ScanListResponse(**slice_snapshot(saved, page, page_size))
@@ -101,7 +113,19 @@ async def list_scans(
     if stable:
         # Hold scan read locks while select-in relationships are hydrated. All
         # supported scan writers lock this parent before changing its children.
-        scans = (await db.execute(query.execution_options(populate_existing=True).order_by(None).order_by(Scan.id).limit(MAX_ROWS + 1).with_for_update(read=True, of=Scan))).scalars().all()
+        scans = (
+            (
+                await db.execute(
+                    query.execution_options(populate_existing=True)
+                    .order_by(None)
+                    .order_by(Scan.id)
+                    .limit(MAX_ROWS + 1)
+                    .with_for_update(read=True, of=Scan)
+                )
+            )
+            .scalars()
+            .all()
+        )
         # Use the same lock order as bulk intake writes; sort only after locks.
         scans.sort(key=lambda scan: (scan.date_time, scan.id), reverse=True)
         saved = await save_snapshot(db, user, key, {

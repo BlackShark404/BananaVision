@@ -19,11 +19,16 @@ PER_ACCOUNT = 4
 
 
 def binding(kind, filters):
-    return hashlib.sha256(json.dumps([kind, filters], sort_keys=True, default=str).encode()).hexdigest()
+    return hashlib.sha256(
+        json.dumps([kind, filters], sort_keys=True, default=str).encode()
+    ).hexdigest()
 
 
 async def generation(db):
-    return await db.scalar(select(MaintenanceState.auth_generation).where(MaintenanceState.id == 1)) or "initial"
+    return (
+        await db.scalar(select(MaintenanceState.auth_generation).where(MaintenanceState.id == 1))
+        or "initial"
+    )
 
 
 async def load_snapshot(db, user, token, key):
@@ -48,7 +53,10 @@ async def save_snapshot(db, user, key, payload):
     user = await lock_current_account(db, user)
     scan_scope(user)
     if len(payload["items"]) > MAX_ROWS or len(json.dumps(payload).encode()) > MAX_BYTES:
-        raise HTTPException(413, "Too many records for a browse snapshot. Narrow the filters or use a full CSV export.")
+        raise HTTPException(
+            413,
+            "Too many records for a browse snapshot. Narrow the filters or use a full CSV export.",
+        )
     now = now_manila()
     await db.execute(delete(ScanSnapshot).where(ScanSnapshot.expires_at <= now))
     old = (await db.execute(select(ScanSnapshot.id).where(ScanSnapshot.owner_id == user.id)
@@ -65,6 +73,12 @@ async def save_snapshot(db, user, key, payload):
 
 def slice_snapshot(snapshot, page, page_size):
     start = (page - 1) * page_size
-    return {**snapshot.payload.get("meta", {}), "items": snapshot.payload["items"][start:start + page_size],
-            "page": page, "page_size": page_size, "total": len(snapshot.payload["items"]),
-            "snapshot_id": snapshot.id, "snapshot_expires_at": snapshot.expires_at}
+    return {
+        **snapshot.payload.get("meta", {}),
+        "items": snapshot.payload["items"][start : start + page_size],
+        "page": page,
+        "page_size": page_size,
+        "total": len(snapshot.payload["items"]),
+        "snapshot_id": snapshot.id,
+        "snapshot_expires_at": snapshot.expires_at,
+    }
