@@ -23,6 +23,23 @@ def test_legacy_detail_loads_operator_account_before_serialization(application):
     asyncio.run(check())
 
 
+def test_flag_mutation_loads_operator_account_before_serialization(application):
+    from app.services.scan_records import mutate_scan
+    from app.schemas.scan import ScanFlagRequest
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    async def check():
+        actor = SimpleNamespace(id=application.ids.admin, role=SimpleNamespace(name="Admin"), token_version=1)
+        async with SessionAdapter(application.engine, application.state) as db:
+            body = ScanFlagRequest(request_id=uuid4(), expected_revision=1, flagged=True, reason="Need expert check")
+            result = await mutate_scan(db, application.ids.scan, actor, "flag", body)
+            assert result["flagged"] is True
+            assert result["operator_name"] == "Original Name"
+            assert result["revision"] == 2
+    asyncio.run(check())
+
+
 @pytest.mark.parametrize("status", [401, 403, 404, 410, 503, 500])
 def test_production_cors_covers_errors_without_allowing_other_origins(monkeypatch, status):
     import logging

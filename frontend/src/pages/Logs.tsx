@@ -525,6 +525,12 @@ const columns: ColumnDef<LogScan>[] = [
         <Button variant="ghost" size="sm" onClick={() => setCardFilter(null)}>Clear risk filter</Button>
       </div>}
 
+      {cardFilter === "review" && <div className="flex flex-wrap items-center gap-2 text-sm">
+        <Badge variant="secondary">Pending Quality Reviews</Badge>
+        <span className="text-xs text-muted-foreground">Scans flagged for review or below the confidence threshold.</span>
+        <Button variant="ghost" size="sm" onClick={() => setCardFilter(null)}>Clear review filter</Button>
+      </div>}
+
       {cardFilter === "success" && <div className="flex flex-wrap items-center gap-2 text-sm">
         <Badge variant="secondary">Auto-approved scans</Badge>
         <span className="text-xs text-muted-foreground">Unflagged scans meeting the configured confidence threshold. This is not measured accuracy.</span>

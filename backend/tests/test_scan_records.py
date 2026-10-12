@@ -291,3 +291,62 @@ def test_shared_intake_registry_counts_only_accessible_operator_scans(applicatio
     operator_session(app, app.ids.operator)
     own = app.client.get('/api/v1/intakes')
     assert next(i for i in own.json() if i['id'] == str(app.ids.intake))['scan_count'] == 1
+
+
+def test_flag_and_unflag_independence_with_notes_and_dashboard(application):
+    app = application
+    url = f"/api/v1/scans/{app.ids.scan}"
+
+    # 1. Initially unflagged; confidence is 90 >= threshold 85; pending review count is 0
+    init_detail = app.client.get(url).json()
+    assert init_detail["flagged"] is False
+    assert init_detail["revision"] == 1
+    assert init_detail["notes"] == []
+
+    # 2. Flag for review
+    flag_body = mutation(1, flagged=True, reason="Visual defect observed")
+    flag_res = app.client.patch(url + "/flag", json=flag_body)
+    assert flag_res.status_code == 200, flag_res.text
+    flag_data = flag_res.json()
+    assert flag_data["flagged"] is True
+    assert flag_data["revision"] == 2
+    assert flag_data["operator_name"] == "Original Name"
+
+    # Flag event is in history
+    flag_events = [e for e in flag_data["history"] if e["kind"] == "flag"]
+    assert len(flag_events) == 1
+    assert flag_events[0]["actor_name"] == "Admin User"
+    assert flag_events[0]["reason"] == "Visual defect observed"
+    assert flag_events[0]["new_values"] == {"flagged": True}
+
+    # Replay flag request idempotently
+    assert app.client.patch(url + "/flag", json=flag_body).json() == flag_data
+
+    # Stale revision conflict (expecting revision 1 when scan is now revision 2)
+    conflict_body = mutation(1, flagged=False)
+    assert app.client.patch(url + "/flag", json=conflict_body).status_code == 409
+
+    # 3. Add review note independently — flag remains True
+    note_res = app.client.post(url + "/notes", json=mutation(2, note="First review note"))
+    assert note_res.status_code == 200, note_res.text
+    assert note_res.json()["revision"] == 3
+
+    detail_after_note = app.client.get(url).json()
+    assert detail_after_note["flagged"] is True
+    assert detail_after_note["revision"] == 3
+    assert len(detail_after_note["notes"]) == 1
+    assert detail_after_note["notes"][0]["text"] == "First review note"
+
+    # 4. Unflag for review — note remains intact
+    unflag_body = mutation(3, flagged=False, reason="Review passed")
+    unflag_res = app.client.patch(url + "/flag", json=unflag_body)
+    assert unflag_res.status_code == 200, unflag_res.text
+    unflag_data = unflag_res.json()
+    assert unflag_data["flagged"] is False
+    assert unflag_data["revision"] == 4
+    assert len(unflag_data["notes"]) == 1
+    assert unflag_data["notes"][0]["text"] == "First review note"
+    unflag_events = [e for e in unflag_data["history"] if e["kind"] == "flag"]
+    assert len(unflag_events) == 2
+    assert unflag_events[1]["new_values"] == {"flagged": False}
+    assert unflag_events[1]["reason"] == "Review passed"

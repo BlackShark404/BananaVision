@@ -31,6 +31,7 @@ Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, m
 
 class ScanFlagRequest(ScanMutationRequest):
     flagged: bool
+    reason: Reason | None = None
 
 
 class ScanOverrideRequest(ScanMutationRequest):

@@ -1,35 +1,49 @@
-CURRENT RESUME HERE (2026-10-12) — CONNECTIVITY FIXES VERIFIED / COMPLETE
-BRANCH main; HEAD 1d8fb6d; tree clean. Prior audit archived at
- docs/history/2026-10-12-completed-audit-before-connectivity.txt.
+CURRENT RESUME HERE (2026-10-12) — FLAG FOR REVIEW & QUALITY REVIEWS VERIFIED
+BRANCH main; HEAD 1d8fb6d; changes staged/ready for commit.
+Prior audit archived at docs/history/2026-10-12-completed-audit-before-connectivity.txt.
+
 DONE / EVIDENCE
-- Diagnosed root causes from browser screenshots:
-  1. Scan detail CORS / ERR_FAILED: unhandled async lazy-load of operator account raised 500
-     bypassing Starlette CORS headers. Fixed by eager-loading operator.account in
-     load_authorized_scan and wrapping FastAPI stack in CorsFastAPI to ensure error responses
-     preserve CORS headers. Verified by backend/tests/test_connectivity.py (8/8 passed).
-  2. ERR_CONNECTION_REFUSED & WebSocket reconnection: transient backend outage. Frontend
-     API fetch now intercepts network failures and emits structured status 0 'Backend unavailable'
-     error without clearing auth token or triggering spurious logout.
-  3. Malformed Landing SVG: repaired invalid base64 encoding in Landing.tsx.
-  4. Test fixture alignment: updated connectivity.fixture.tsx to call api.scans.detail.
-- Commits:
-  * 31d9667: Harden connectivity paths and add regressions
-  * 1d8fb6d: Handle API offline errors without logout
+- Diagnosed root cause for "Flag for Review" HTTP 500:
+  * In backend/app/services/scan_records.py mutate_scan(), the row-lock query
+    select(Scan).where(Scan.id == scan_id).with_for_update().execution_options(populate_existing=True)
+    did not eager-load operator.account.
+  * When flagging, note is None, so serialize_detail() -> serialize_scan() accesses
+    scan.operator.account.full_name, which triggered an async lazy load outside a greenlet
+    raising MissingGreenlet (HTTP 500) and rolling back the mutation.
+  * In backend/app/models/operator_profile.py, account lacked lazy="selectin".
+  * In backend/app/schemas/scan.py, ScanFlagRequest lacked optional reason support.
+- Fixed backend scan mutation & quality review paths:
+  * Added lazy="selectin" to OperatorProfile.account relationship.
+  * Eager-loaded operator.account in mutate_scan() locked scan query and quality.py flagged scans query.
+  * Added optional reason field to ScanFlagRequest.
+  * Prioritized operator_name_snapshot in dashboard projection.
+- Fixed Logs & Review Filtering:
+  * Added review filter banner in Logs.tsx when cardFilter === "review" (matching at-risk/success banners)
+    allowing users to see active "Pending Quality Reviews" filter and clear it.
+  * Verified that Dashboard KPI pending_review_count and Scan Logs attention="review" use the identical
+    filter predicate (or_(scans.c.flagged.is_(True), scans.c.confidence < threshold)).
+  * Verified that flagging or unflagging a scan updates pending review count and filtered results.
+  * Verified that review notes and scan flags work completely independently.
+- Regressions added:
+  * test_flag_mutation_loads_operator_account_before_serialization in test_connectivity.py.
+  * test_flag_and_unflag_independence_with_notes_and_dashboard in test_scan_records.py.
+
 VERIFIED RESULTS
-- Backend isolated suite (fresh temp cwd, pyproject.toml, pytest):
-  225 passed, 28 skipped in 46.36s.
-- Focused backend connectivity regressions:
-  8 passed in 1.64s (test_legacy_detail_loads_operator_account_before_serialization,
-  test_production_cors_covers_errors_without_allowing_other_origins for 401/403/404/410/503/500,
-  test_preflight_is_allowed_without_authentication).
+- Backend full test suite (fresh temp cwd, pyproject.toml, pytest):
+  227 passed, 28 skipped in 55.37s.
+- Focused backend connectivity & scan records tests:
+  24 passed in 3.56s.
 - Frontend typecheck (tsc --noEmit): exit 0 clean.
-- Frontend build (tsc -b && vite build): exit 0 clean (built in 8.36s).
-- Frontend lint (eslint .): 42 existing debt errors / 8 warnings in untouched files;
-  zero diagnostics introduced in modified files (api.ts, Landing.tsx, connectivity.fixture.tsx).
-- git diff --check HEAD~2..HEAD: exit 0 clean.
+- Frontend production build (tsc -b && vite build): exit 0 clean (built in 8.84s).
+- Frontend lint (eslint .): 42 baseline debt errors / 8 warnings in untouched files;
+  zero new diagnostics in modified files (Logs.tsx).
+- git diff --check: exit 0 clean.
+
 SAFETY & CONSTRAINTS
-- main only, working tree clean.
-- No live .env/DB/captures/hardware/cameras/power/retention touched.
-- No push/merge/deploy without explicit authorization.
+- main branch only; no branches or worktrees created.
+- Existing UI/UX design, layout, spacing, and styling strictly maintained.
+- Isolated test fixtures only; no live .env, live DB, captures, cameras, retention, or power touched.
+- No push/merge/deploy without authorization.
+
 IN PROGRESS / NEXT
-Task complete. No pending implementation or regression work.
+- Ready for local commit on main.

@@ -9,6 +9,7 @@ from sqlalchemy import select, func, desc
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import DbSession, AdminUser
+from app.models.operator_profile import OperatorProfile
 from app.models.scan import Scan
 
 
@@ -25,7 +26,10 @@ async def get_flagged_scans(
     """Get all flagged scans for quality review."""
     query = (
         select(Scan)
-        .options(selectinload(Scan.classification), selectinload(Scan.operator))
+        .options(
+            selectinload(Scan.classification),
+            selectinload(Scan.operator).selectinload(OperatorProfile.account),
+        )
         .where(Scan.flagged == True)  # noqa: E712
         .order_by(desc(Scan.date_time), desc(Scan.id))
     )

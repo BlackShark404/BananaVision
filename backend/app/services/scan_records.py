@@ -287,8 +287,12 @@ async def mutate_scan(db, scan_id, user, kind, body):
     # Bulk inventory and scan attachment share this parent-first lock order.
     if scan.intake_id:
         await db.execute(select(Intake.id).where(Intake.id == scan.intake_id).with_for_update())
-    scan = (await db.execute(select(Scan).where(Scan.id == scan_id).with_for_update()
-                            .execution_options(populate_existing=True))).scalar_one_or_none()
+    scan = (await db.execute(
+        select(Scan).where(Scan.id == scan_id)
+        .options(selectinload(Scan.operator).selectinload(OperatorProfile.account))
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )).scalar_one_or_none()
     await authorize_scan(db, scan, user)
     fingerprint = mutation_fingerprint(user, scan_id, kind, body)
     replay = await mutation_replay(db, user, body, fingerprint)

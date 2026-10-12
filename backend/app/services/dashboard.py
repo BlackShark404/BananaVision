@@ -109,7 +109,7 @@ def _scoped_projection(user: UserAccount, now: datetime):
             Scan.source_text.label("original_source_text"),
             Intake.source.label("legacy_intake_source"),
             Scan.operator_id,
-            UserAccount.full_name.label("operator_name"),
+            func.coalesce(Scan.operator_name_snapshot, UserAccount.full_name, "Unknown").label("operator_name"),
             UserAccount.username,
             Supplier.id.label("supplier_id"),
             source_text.label("source_text"),
