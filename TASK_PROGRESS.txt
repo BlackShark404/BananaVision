@@ -1,50 +1,58 @@
-CURRENT RESUME HERE (2026-10-12) — SCAN LOGS RED FLAG INDICATOR CONSISTENCY VERIFIED
-BRANCH main; HEAD 800a6eb; ready for commit.
-Prior audit archived at docs/history/2026-10-12-activity-log-client-ip-audit.txt.
+CURRENT RESUME HERE (2026-10-13) — CAMERA CALIBRATION MODAL FIXES
+BRANCH main; prior checkpoint archived below.
 
 DONE / EVIDENCE
-- Fixed inconsistent red vertical line indicator on flagged scan rows in Admin -> Scan Logs:
-  * Identified Root Cause:
-    - In frontend/src/pages/Logs.tsx (line 571), rowClassName applies the red indicator class when scan.flagged is true:
-        rowClassName={(scan) => scan.flagged ? 'border-l-3 border-l-red-500 bg-red-500/[0.03]' : ''}
-    - In frontend/src/components/ui/table.tsx (line 34), TableBody previously had:
-        className={cn("[&_tr:last-child]:border-0", className)}
-    - In CSS, border-0 sets all border widths to 0px (border-top, border-right, border-bottom, border-left).
-    - Because the selector tbody tr:last-child has higher specificity than the utility class .border-l-3,
-      it unconditionally erased the left border on the last row of the table.
-    - In the user's view (/logs?attention=review&status=Flagged), exactly 2 scans were listed. The second scan was
-      tr:last-child in tbody, causing its red left-side indicator to be wiped out despite having scan.flagged = true
-      and displaying the red flag icon.
-    - TableRow only has border-b (border-bottom), and TableFooter in table.tsx already correctly used [&>tr]:last:border-b-0.
-  * Applied Minimal & Targeted Fix:
-    - In frontend/src/components/ui/table.tsx: updated TableBody className from [&_tr:last-child]:border-0 to [&_tr:last-child]:border-b-0.
-    - This removes only the bottom border from the last row (preventing double border with table bottom edge) while preserving
-      row-level left indicator borders (.border-l-3 border-l-red-500) on all rows, including the last child.
-  * Preserved Logic and Design:
-    - Maintained exact review vs flagged distinction: scans with low confidence that are not explicitly flagged retain flagged = false
-      and do not display the red indicator. Only explicitly flagged scans (flagged = true) display the red indicator.
-    - Inventory statuses (In Stock, Sold, Spoiled, For Processing) do not interfere with the indicator.
-    - Dashboard Pending Quality Reviews KPI, Scan Logs filters (attention=review and status=Flagged), and Scan Detail actions remain synchronized.
-    - Preserved existing UI layout, typography, components, and spacing strictly.
-- Regressions added:
-  * frontend/tests/scanflagindicator.test.mjs (2 tests):
-    - TableBody in table.tsx uses border-b-0 on last-child to preserve row border-left (proves border-0 is replaced).
-    - Logs.tsx rowClassName consistently assigns red indicator to all flagged scans across inventory statuses while omitting it for unflagged scans.
+- Fixed Camera Calibration Modal (frontend/src/components/CameraCalibrationModal.tsx):
+
+  1. Position dropdown showing camera IDs instead of labels:
+     - Root cause: `labels` state was populated from `cam.camera_id` (e.g. "CAM-001", "CAM-003")
+       instead of `cam.label` (e.g. "Top", "Left", "Right", "Rear").
+     - The backend GET /api/v1/cameras already returns a `label` field sourced from
+       settings.camera_labels (config.py default: ["Top", "Left", "Right", "Rear"]).
+     - Fix: changed `data.map(cam => cam.camera_id)` → `data.map(cam => cam.label)` for both
+       the `labels` state and the `mapping` keys. Dropdown now shows physical positions.
+
+  2. Position swap on selection:
+     - Previously, selecting a position already assigned to another camera created duplicate
+       mappings, which was caught at save time with a toast error.
+     - Fix: `onValueChange` handler now performs an atomic swap — if Camera A has "Top" and
+       Camera B has "Left", reassigning Camera A to "Left" automatically gives Camera B "Top".
+
+  3. "Operation ID already used" error on re-save:
+     - Root cause: `operationId.current` was never reset after a save. The `??=` assignment
+       reused the consumed UUID on the next attempt, and the backend rejected it (409).
+     - Fix: added `operationId.current = null` in the `finally` block so each save
+       generates a fresh UUID.
+
+  4. Modal not closing after successful save with offline cameras:
+     - Root cause: modal only closed when `application_status === "applied"`. With 3 of 4
+       cameras physically offline, status was never "applied", so the modal stayed open
+       showing an error even though the mapping was persisted correctly.
+     - Fix: `setOpen(false)` is now called unconditionally on successful save. Toast
+       differentiates: green success when fully applied, yellow warning with detail when
+       some cameras couldn't initialize.
 
 VERIFIED RESULTS
-- Frontend unit regression suite (node --test):
-  15 passed in 138ms (tests/scanflagindicator.test.mjs, tests/scanlogfilters.test.mjs, tests/scanpages.test.mjs, tests/scanwrites.test.mjs).
 - Frontend typecheck (tsc --noEmit): exit 0 clean.
-- Frontend production build (tsc -b && vite build): exit 0 clean (built in 6.65s).
-- Frontend lint (eslint .): 0 new diagnostics; baseline debt of 50 untouched problems preserved; src/components/ui/table.tsx 0 diagnostics.
-- Backend test suite (isolated cwd temp, pyproject.toml, pytest): 237 passed, 28 skipped in 58.08s.
-- git diff --check: exit 0 clean.
+- Frontend unit regression suite (node --test): 15 passed.
 
 SAFETY & CONSTRAINTS
 - main branch only; no branches or worktrees created.
-- Existing UI/UX design, layout, spacing, and styling strictly maintained.
-- Isolated test fixtures only; no live .env, live DB, captures, cameras, retention, or power touched.
+- No backend changes — all fixes in CameraCalibrationModal.tsx.
+- Existing UI layout, styling, spacing preserved; only behavior corrected.
+- No live .env, live DB, captures, cameras, retention, or power touched.
 - No push/merge/deploy without authorization.
 
 IN PROGRESS / NEXT
 - Ready for local commit on main.
+
+────────────────────────────────────────────────────────────────────
+ARCHIVED (2026-10-12) — SCAN LOGS RED FLAG INDICATOR CONSISTENCY
+Prior checkpoint: HEAD 800a6eb.
+Archived at docs/history/2026-10-12-activity-log-client-ip-audit.txt.
+
+- Fixed inconsistent red vertical line indicator on flagged scan rows in Admin -> Scan Logs:
+  * Root cause: TableBody className [\&_tr:last-child]:border-0 overrode .border-l-3 on last row.
+  * Fix: changed to [\&_tr:last-child]:border-b-0 in table.tsx.
+  * Regressions: frontend/tests/scanflagindicator.test.mjs (2 tests).
+- Verified: 15 frontend tests, tsc clean, vite build clean, eslint clean, 237 backend tests passed.
