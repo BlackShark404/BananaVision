@@ -86,8 +86,9 @@ export function CameraCalibrationModal({ disabled = false }: { disabled?: boolea
       const saved: ApiConfig = await res.json()
       acceptConfig(saved)
       setLoadedConfig(saved)
-      if (saved.application_status === "applied") { toast.success("Camera mapping saved and applied"); setOpen(false) }
-      else { setError(saved.application_error ?? "Mapping saved; some cameras could not initialize"); toast.warning("Camera mapping saved; physical configuration is incomplete") }
+      setOpen(false)
+      if (saved.application_status === "applied") { toast.success("Camera mapping saved and applied") }
+      else { toast.warning("Camera mapping saved", { description: saved.application_error ?? "Some cameras could not initialize — they may be offline or disconnected." }) }
     } catch (error) {
       toast.error("Failed to save camera mapping", { description: error instanceof Error ? error.message : "Please try again." })
     } finally {
