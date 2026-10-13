@@ -95,6 +95,11 @@ def station(tmp_path):
             m.ActivityLog(user_id=user.id, action="LOGIN", details="Preserve audit"),
             m.AppNotification(type="scan", title="Ready", message="Preserve notification", user_id=user.id),
             m.SensorReading(temperature=25.75, humidity=80.5),
+            m.PrintJob(
+                prediction_id=scan_id, owner_id=user.id, quantity=1,
+                printer_name="Fixture printer", width_mm=40, height_mm=30,
+                label_data={}, status="QUEUED",
+            ),
         ])
         db.commit()
         yield db, root, scan_id, instant
@@ -140,6 +145,7 @@ def test_complete_all_table_roundtrip_preserves_values_and_instants(archive_modu
     assert len(validated.manifest["tables"]) == 21
     assert all(t["count"] == 1 for t in validated.manifest["tables"].values())
     assert "maintenance_state" not in validated.manifest["tables"]
+    assert "scan_label_print_job" not in validated.manifest["tables"]
     assert set(validated.evidence) == {f"{station[2]}/camera.jpg", f"{station[2]}/thumbnail.jpg"}
     assert validated.evidence[f"{station[2]}/camera.jpg"].read_bytes() == b"captured frame"
     engine = create_engine("sqlite://")
@@ -156,8 +162,11 @@ def test_complete_all_table_roundtrip_preserves_values_and_instants(archive_modu
         assert restored.scalar(select(m.OperatorProfile)).pin_hash == "original-pin-hash"
         assert restored.scalar(select(m.UserAccount)).password_hash == station[0].scalar(select(m.UserAccount)).password_hash
         for table in Base.metadata.sorted_tables:
-            if table.name not in ("maintenance_state", "scan_browse_snapshot"):
+            if table.name not in (
+                "maintenance_state", "scan_browse_snapshot", "scan_label_print_job",
+            ):
                 assert len(restored.execute(select(table)).all()) == 1
+        assert restored.scalar(select(m.PrintJob)) is None  # Never restore/replay label work.
     engine.dispose()
 
 

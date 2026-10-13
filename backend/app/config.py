@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     app_cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     trusted_proxies: list[str] = []
 
+    bananavision_printer_name: str = "TP870 S"
+    bananavision_label_width_mm: float = Field(40, ge=20, le=110)
+    bananavision_label_height_mm: float = Field(30, ge=20, le=300)
+
     # ── Database ─────────────────────────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://bv_user:bv_pass@localhost:5432/bananavision"
     database_echo: bool = False

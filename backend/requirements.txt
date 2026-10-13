@@ -76,3 +76,5 @@ uvloop==0.22.1; sys_platform != "win32"
 winloop; sys_platform == "win32"
 watchfiles==1.1.1
 websockets==16.0
+
+pywin32; sys_platform == "win32"

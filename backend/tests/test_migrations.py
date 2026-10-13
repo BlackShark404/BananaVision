@@ -13,8 +13,15 @@ from tests.test_time_and_writes import sqlite_jsonb  # noqa: F401 -- SQLite JSON
 
 
 def legacy_schema(connection):
-    connection.execute(text("CREATE TABLE user_account (id INTEGER PRIMARY KEY, username VARCHAR(50), password_hash VARCHAR(255))"))
-    connection.execute(text("INSERT INTO user_account VALUES (1, 'existing-owner', 'unchanged-secret-hash')"))
+    # Real station account IDs are UUIDs; dependent FKs must validate on PostgreSQL.
+    connection.execute(text(
+        "CREATE TABLE user_account (id UUID PRIMARY KEY, "
+        "username VARCHAR(50), password_hash VARCHAR(255))"
+    ))
+    connection.execute(text(
+        "INSERT INTO user_account VALUES "
+        "('00000000-0000-0000-0000-000000000001', 'existing-owner', 'unchanged-secret-hash')"
+    ))
     connection.execute(text("CREATE TABLE delivery_intake (id INTEGER PRIMARY KEY, source VARCHAR(100))"))
     connection.execute(text("INSERT INTO delivery_intake VALUES (1, 'Existing source')"))
     connection.execute(text("CREATE TABLE scan_classification (id INTEGER PRIMARY KEY, confidence NUMERIC(5,2))"))
@@ -31,7 +38,7 @@ def assert_upgraded(connection):
     }
     assert (
         connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        == "0006_inventory_provenance"
+        == "0008_windows_label_jobs"
     )
 
 
@@ -61,7 +68,7 @@ def test_current_schema_adopts_revision_without_duplicate_columns():
                 assert [column["name"] for column in inspect(connection).get_columns(table)] == columns
             assert (
                 connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                == "0006_inventory_provenance"
+                == "0008_windows_label_jobs"
             )
     finally:
         engine.dispose()
@@ -146,7 +153,7 @@ async def test_postgresql_schema_startup_upgrade(legacy):
             async with engine.begin() as connection:
                 assert (
                     await connection.execute(text("SELECT version_num FROM alembic_version"))
-                ).scalar_one() == "0006_inventory_provenance"
+                ).scalar_one() == "0008_windows_label_jobs"
         async with engine.begin() as connection:
             await connection.run_sync(upgrade_connection)
             if legacy:

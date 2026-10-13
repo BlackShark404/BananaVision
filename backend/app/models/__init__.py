@@ -23,6 +23,7 @@ from app.models.sensor_reading import SensorReading
 from app.models.maintenance_state import MaintenanceState
 from app.models.scan_history import ScanEvent, ScanMutation, ScanTombstone
 from app.models.scan_snapshot import ScanSnapshot
+from app.models.print_job import PrintJob
 
 __all__ = [
     "UserRole",
@@ -46,4 +47,5 @@ __all__ = [
     "MaintenanceState",
     "ScanEvent", "ScanMutation", "ScanTombstone",
     "ScanSnapshot",
+    "PrintJob",
 ]

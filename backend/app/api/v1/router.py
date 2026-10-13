@@ -22,6 +22,7 @@ from app.api.v1.cameras import router as cameras_router
 from app.api.v1.system import router as system_router
 from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.scan_logs import router as scan_logs_router
+from app.api.v1.printing import router as printing_router
 
 v1_router = APIRouter(prefix="/api/v1")
 
@@ -41,6 +42,7 @@ v1_router.include_router(cameras_router)
 v1_router.include_router(system_router)
 v1_router.include_router(dashboard_router)
 v1_router.include_router(scan_logs_router)
+v1_router.include_router(printing_router)
 
 from app.api.v1.maintenance import router as maintenance_router
 v1_router.include_router(maintenance_router)

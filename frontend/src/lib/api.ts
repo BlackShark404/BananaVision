@@ -8,6 +8,7 @@ import { getToken, clearAuth } from "@/lib/auth"
 import type { DashboardScanPage, DashboardScanParams, DashboardSummary } from "@/types/dashboard"
 import type { ScanLogPage, ScanLogParams } from "@/types/scanLogs"
 import type { ApiScan, ApiScanNote, RecordPage } from "@/lib/scanData"
+import type { LabelPreview, PrintJob } from "@/types/printing"
 import type { InventoryStatus, IntakeStatus } from "@/types"
 import type { AnalyticsRange, AnalyticsSummary, AnalyticsOperator } from "@/types/analytics"
 import type { ApiConfigUpdate, MaintenanceOperation, MaintenanceStatus, RestoreValidation, ApiActivity, ApiConfig, ApiDevice, ApiIntake, ApiMessage, ApiNotification, ApiSensor, ApiSupplier, ApiSupplierWrite, ApiUser, ApiUserCreate, ApiUserCreated, ApiUserUpdate } from "@/types/api"
@@ -157,6 +158,13 @@ export const api = {
 
   // ── Scans ────────────────────────────────────────────────────────────────
   scans: {
+    label: (id: string) => get<LabelPreview>(`/api/v1/scans/${id}/label`),
+    print: (id: string, data: { request_id: string; quantity: number }) =>
+      post<PrintJob>(`/api/v1/scans/${id}/print`, data),
+    printStatus: (id: string, jobId: string) =>
+      get<PrintJob>(`/api/v1/scans/${id}/print-jobs/${jobId}`),
+    retryPrint: (id: string, jobId: string, expectedAttempt: number) =>
+      post<PrintJob>(`/api/v1/scans/${id}/print-jobs/${jobId}/retry`, { expected_attempt: expectedAttempt }),
     trigger: (data: { source?: string; intake_id?: string }) =>
       post<ApiScan>("/api/v1/scans/trigger", { source_text: data.source, intake_id: data.intake_id }),
 

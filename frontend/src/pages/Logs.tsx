@@ -22,7 +22,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
-import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, QrCode, X, Printer, Edit, Flag, Calendar, RefreshCw, Loader2 } from "lucide-react"
+import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, QrCode, X, Edit, Flag, Calendar, RefreshCw, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { getImageUrl } from "@/lib/utils"
 import { api } from "@/lib/api"
@@ -35,7 +35,8 @@ import { useDashboardResource } from "@/hooks/useDashboardResource"
 import type { ScanLogRow, ScanLogParams } from "@/types/scanLogs"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { generateQRCodeDataUrl, printQRTag } from "@/lib/qrcode"
+import { generateQRCodeDataUrl } from "@/lib/qrcode"
+import { ScanLabelPrint } from "@/components/ScanLabelPrint"
 import type { Cultivar, Ripeness, InventoryStatus, ScanResult } from "@/types"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 
@@ -582,7 +583,7 @@ const columns: ColumnDef<LogScan>[] = [
       {qrModalScan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={() => setQrModalScan(null)}>
           <div
-            className="relative bg-background rounded-2xl shadow-2xl p-6 max-w-xs w-full mx-4 animate-in zoom-in-95"
+            className="relative bg-background rounded-2xl shadow-2xl p-6 max-w-xs w-full mx-4 max-h-[90dvh] overflow-y-auto animate-in zoom-in-95"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -596,27 +597,12 @@ const columns: ColumnDef<LogScan>[] = [
                 <QrCode className="w-4 h-4" />
                 Scan QR Code
               </div>
-              <div className="bg-white rounded-xl p-4 border">
-                {qrModalScan.qrCode ? (
-                  <img src={qrModalScan.qrCode} alt="QR Code" className="w-full h-auto" />
-                ) : (
-                  <div className="w-full aspect-square flex items-center justify-center text-muted-foreground">
-                    <QrCode className="w-16 h-16" />
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="font-semibold">{qrModalScan.cultivar}</p>
-                <p className="text-xs text-muted-foreground font-mono uppercase">ID: {qrModalScan.id}</p>
-              </div>
-              <Button
-                variant="outline"
-                className="w-full gap-2"
-                onClick={() => printQRTag(qrModalScan)}
-              >
-                <Printer className="w-4 h-4" />
-                Print Tag
-              </Button>
+              <ScanLabelPrint key={qrModalScan.id} scanId={qrModalScan.id}>
+                <div>
+                  <p className="font-semibold">{qrModalScan.cultivar}</p>
+                  <p className="text-xs text-muted-foreground font-mono uppercase">ID: {qrModalScan.id}</p>
+                </div>
+              </ScanLabelPrint>
             </div>
           </div>
         </div>
