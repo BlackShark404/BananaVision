@@ -38,8 +38,8 @@ export function CameraCalibrationModal({ disabled = false }: { disabled?: boolea
         if (!res.ok) throw new Error("Camera list could not be loaded")
         const data: CameraSlot[] = await res.json()
         if (controller.signal.aborted) return
-        setCameras(data); setLabels(data.map(cam => cam.camera_id))
-        setMapping(Object.fromEntries(data.map(cam => [cam.camera_id, cam.device_id])))
+        setCameras(data); setLabels(data.map(cam => cam.label))
+        setMapping(Object.fromEntries(data.map(cam => [cam.label, cam.device_id])))
         setLoadedConfig(saved)
       } catch (error) {
         if (!controller.signal.aborted) setError(error instanceof Error ? error.message : "Camera configuration unavailable")
@@ -92,6 +92,7 @@ export function CameraCalibrationModal({ disabled = false }: { disabled?: boolea
       toast.error("Failed to save camera mapping", { description: error instanceof Error ? error.message : "Please try again." })
     } finally {
       pending.current = false
+      operationId.current = null
       setLoading(false)
     }
   }
@@ -144,8 +145,21 @@ export function CameraCalibrationModal({ disabled = false }: { disabled?: boolea
                   <span className="text-sm font-medium">Position:</span>
                   <Select 
                     value={Object.keys(mapping).find(key => mapping[key] === cam.device_id) || ""} 
-                    onValueChange={(val) => {
-                      setMapping(prev => ({ ...prev, [val]: cam.device_id }))
+                    onValueChange={(newLabel) => {
+                      setMapping(prev => {
+                        const next = { ...prev }
+                        // Find the label this camera currently holds
+                        const oldLabel = Object.keys(next).find(k => next[k] === cam.device_id)
+                        // Find the device that currently holds the target label
+                        const otherDeviceId = next[newLabel]
+                        // Swap: give the other camera our old label
+                        if (oldLabel && otherDeviceId !== undefined) {
+                          next[oldLabel] = otherDeviceId
+                        }
+                        // Assign the new label to this camera
+                        next[newLabel] = cam.device_id
+                        return next
+                      })
                     }}
                   >
                     <SelectTrigger className="w-[140px]">
