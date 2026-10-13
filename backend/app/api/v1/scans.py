@@ -18,6 +18,8 @@ from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
 from app.models.scan_note import ScanNote
 from app.schemas.scan import (
+    PublicScanImageRef,
+    PublicScanResponse,
     ScanDetailResponse,
     ScanFlagRequest,
     ScanHistoryResponse,
@@ -39,6 +41,7 @@ from app.services.scan_records import (
     serialize_detail,
     serialize_scan,
 )
+from app.services.scan_evidence import evidence_url
 from app.services.scan_service import execute_scan_pipeline
 
 router = APIRouter(prefix="/scans", tags=["Scans"])
@@ -149,6 +152,44 @@ async def list_scans(
         total=total,
         page=page,
         page_size=page_size,
+    )
+
+
+@router.get("/{scan_id}/track", response_model=PublicScanResponse)
+async def public_scan_track(scan_id: uuid.UUID, db: DbSession):
+    """Public read-only scan summary for QR code tracking — no auth required."""
+    scan = (await db.execute(
+        select(Scan).where(Scan.id == scan_id).options(
+            selectinload(Scan.classification),
+            selectinload(Scan.status_logs),
+            selectinload(Scan.images),
+        )
+    )).scalar_one_or_none()
+    if scan is None:
+        raise NotFoundException("Scan")
+    classification = scan.classification
+    latest = scan.status_logs[-1] if scan.status_logs else None
+    return PublicScanResponse(
+        id=scan.id,
+        date_time=scan.date_time,
+        cultivar=classification.cultivar if classification else None,
+        ripeness=classification.ripeness if classification else None,
+        confidence=classification.confidence if classification else None,
+        spoilage_days=classification.spoilage_days if classification else None,
+        finger_count=classification.finger_count if classification else 0,
+        temperature=classification.temperature if classification else None,
+        humidity=classification.humidity if classification else None,
+        vpd=classification.vpd if classification else None,
+        treatment=classification.treatment if classification else None,
+        source_text=scan.source_text,
+        inventory_status=latest.inventory_status if latest else "In Stock",
+        images=[
+            PublicScanImageRef(
+                camera_id=img.camera_id,
+                file_path=evidence_url(img.file_path) or "",
+            )
+            for img in scan.images
+        ],
     )
 
 

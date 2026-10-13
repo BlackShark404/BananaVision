@@ -21,6 +21,7 @@ const DeviceStatus = React.lazy(() => import("@/pages/DeviceStatus"))
 const Profile = React.lazy(() => import("@/pages/Profile"))
 const Inventory = React.lazy(() => import("@/pages/Inventory"))
 const ScanDetail = React.lazy(() => import("@/pages/ScanDetail"))
+const PublicScanView = React.lazy(() => import("@/pages/PublicScanView"))
 const Kiosk = React.lazy(() => import("@/pages/Kiosk"))
 
 // Lazy load admin pages
@@ -65,6 +66,7 @@ function AppRoutes() {
         <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/kiosk" element={<Kiosk />} />
+        <Route path="/track/:scanId" element={<PublicScanView />} />
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/logs" element={<Logs />} />

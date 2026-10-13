@@ -185,6 +185,29 @@ class ScanDetailResponse(ScanResponse):
     history: list[ScanHistoryResponse] = []
 
 
+class PublicScanImageRef(BaseModel):
+    camera_id: str
+    file_path: str
+
+
+class PublicScanResponse(BaseModel):
+    """Public-facing scan summary for QR code tracking — no PII or admin data."""
+    id: uuid.UUID
+    date_time: Timestamp
+    cultivar: CultivarEnum | None
+    ripeness: RipenessEnum | None
+    confidence: float | None
+    spoilage_days: str | None
+    finger_count: int
+    temperature: float | None = None
+    humidity: float | None = None
+    vpd: float | None = None
+    treatment: str | None = None
+    source_text: str | None = None
+    inventory_status: InventoryStatusEnum
+    images: list[PublicScanImageRef] = []
+
+
 class ScanListResponse(BaseModel):
     snapshot_id: uuid.UUID | None = None
     snapshot_expires_at: Timestamp | None = None

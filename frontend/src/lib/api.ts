@@ -181,6 +181,31 @@ export const api = {
       list: (scanId: string) => get<ApiScanNote[]>(`/api/v1/scans/${scanId}/notes`),
       add: (scanId: string, data: ScanMutationEnvelope & { note: string }) => post<ApiScanNote & { revision: number }>(`/api/v1/scans/${scanId}/notes`, data),
     },
+
+    /** Public scan lookup for QR code tracking — no auth token attached. */
+    publicTrack: async (id: string, signal?: AbortSignal) => {
+      const res = await fetch(`${BASE_URL}/api/v1/scans/${id}/track`, { signal, cache: "no-store" })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }))
+        throw Object.assign(new Error(typeof err.detail === "string" ? err.detail : `Error ${res.status}`), { status: res.status })
+      }
+      return res.json() as Promise<{
+        id: string
+        date_time: string
+        cultivar: string | null
+        ripeness: string | null
+        confidence: number | null
+        spoilage_days: string | null
+        finger_count: number
+        temperature: number | null
+        humidity: number | null
+        vpd: number | null
+        treatment: string | null
+        source_text: string | null
+        inventory_status: string
+        images: { camera_id: string; file_path: string }[]
+      }>
+    },
   },
 
   // ── Cameras ─────────────────────────────────────────────────────────────

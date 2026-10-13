@@ -17,7 +17,7 @@ export async function generateQRCodeDataUrl(scanData: {
 }): Promise<string> {
   // Encode a URL that links to the scan detail page
   const baseUrl = window.location.origin
-  const trackingUrl = `${baseUrl}/scans/${scanData.id}`
+  const trackingUrl = `${baseUrl}/track/${scanData.id}`
 
   return QRCode.toDataURL(trackingUrl, {
     width: 256,

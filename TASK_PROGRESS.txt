@@ -1,50 +1,50 @@
-CURRENT RESUME HERE (2026-10-13) — CAMERA CALIBRATION MODAL FIXES
+CURRENT RESUME HERE (2026-10-13) — QR CODE PUBLIC TRACKING
 BRANCH main; prior checkpoint archived below.
 
 DONE / EVIDENCE
-- Fixed Camera Calibration Modal (frontend/src/components/CameraCalibrationModal.tsx):
+- QR Code Mobile Redirect — public scan tracking without authentication:
 
-  1. Position dropdown showing camera IDs instead of labels:
-     - Root cause: `labels` state was populated from `cam.camera_id` (e.g. "CAM-001", "CAM-003")
-       instead of `cam.label` (e.g. "Top", "Left", "Right", "Rear").
-     - The backend GET /api/v1/cameras already returns a `label` field sourced from
-       settings.camera_labels (config.py default: ["Top", "Left", "Right", "Rear"]).
-     - Fix: changed `data.map(cam => cam.camera_id)` → `data.map(cam => cam.label)` for both
-       the `labels` state and the `mapping` keys. Dropdown now shows physical positions.
+  Problem: QR codes on printed banana tags encoded /scans/{id}, which required
+  login. Mobile users scanning the QR code were bounced to the landing page.
 
-  2. Position swap on selection:
-     - Previously, selecting a position already assigned to another camera created duplicate
-       mappings, which was caught at save time with a toast error.
-     - Fix: `onValueChange` handler now performs an atomic swap — if Camera A has "Top" and
-       Camera B has "Left", reassigning Camera A to "Left" automatically gives Camera B "Top".
+  Root cause: Both the frontend route (/scans/:scanId inside ProtectedRoute)
+  and the backend API (GET /api/v1/scans/{id} requiring CurrentUser) block
+  unauthenticated access.
 
-  3. "Operation ID already used" error on re-save:
-     - Root cause: `operationId.current` was never reset after a save. The `??=` assignment
-       reused the consumed UUID on the next attempt, and the backend rejected it (409).
-     - Fix: added `operationId.current = null` in the `finally` block so each save
-       generates a fresh UUID.
+  Solution: Added a parallel public path:
+  1. Backend: new GET /api/v1/scans/{id}/track endpoint (no auth) returning
+     PublicScanResponse — only classification data, no PII/flags/notes/history.
+     (backend/app/api/v1/scans.py, backend/app/schemas/scan.py)
+  2. Frontend: new /track/:scanId route outside ProtectedRoute, served by
+     PublicScanView.tsx — mobile-friendly summary card with cultivar, ripeness,
+     confidence, spoilage, finger count, environmental data, camera images.
+     Authenticated users auto-redirect to full /scans/:scanId detail page.
+     (frontend/src/pages/PublicScanView.tsx, frontend/src/App.tsx)
+  3. QR URL changed from /scans/ → /track/ in qrcode.ts.
+  4. Public API method api.scans.publicTrack() added — fetches without
+     Authorization header, no 401 redirect. (frontend/src/lib/api.ts)
 
-  4. Modal not closing after successful save with offline cameras:
-     - Root cause: modal only closed when `application_status === "applied"`. With 3 of 4
-       cameras physically offline, status was never "applied", so the modal stayed open
-       showing an error even though the mapping was persisted correctly.
-     - Fix: `setOpen(false)` is now called unconditionally on successful save. Toast
-       differentiates: green success when fully applied, yellow warning with detail when
-       some cameras couldn't initialize.
+  Security: Public endpoint excludes operator names, admin notes, flag status,
+  override history, provenance details. Only scan UUID (non-sequential) exposed.
 
 VERIFIED RESULTS
 - Frontend typecheck (tsc --noEmit): exit 0 clean.
-- Frontend unit regression suite (node --test): 15 passed.
+- Frontend unit tests (node --test): 139 tests, exit 0.
+- Frontend build (vite build): ✓ built in 2.68s.
+- Backend import verification: both schema and router imports OK.
 
 SAFETY & CONSTRAINTS
 - main branch only; no branches or worktrees created.
-- No backend changes — all fixes in CameraCalibrationModal.tsx.
-- Existing UI layout, styling, spacing preserved; only behavior corrected.
+- Existing /scans/:scanId auth behavior unchanged.
 - No live .env, live DB, captures, cameras, retention, or power touched.
 - No push/merge/deploy without authorization.
 
 IN PROGRESS / NEXT
 - Ready for local commit on main.
+
+────────────────────────────────────────────────────────────────────
+ARCHIVED (2026-10-13) — CAMERA CALIBRATION MODAL FIXES
+Prior checkpoint archived below.
 
 ────────────────────────────────────────────────────────────────────
 ARCHIVED (2026-10-12) — SCAN LOGS RED FLAG INDICATOR CONSISTENCY
