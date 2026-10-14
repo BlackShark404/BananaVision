@@ -28,9 +28,12 @@ import {
   AlertDescription
 } from "@/components/ui/alert"
 import { CameraCalibrationModal } from "@/components/CameraCalibrationModal"
+import { CameraDevicePicker } from "@/components/CameraDevicePicker"
+import { useCameraDiscovery } from "@/hooks/useCameraDiscovery"
 
 export default function SystemConfig() {
   const { config, updateConfig, configReady, configError, configConflict, reloadConfig, acceptConfig } = useAdmin()
+  const cameraDiscovery = useCameraDiscovery()
   const [localConfig, setLocalConfig] = useState(config)
   const previousConfig = useRef(config)
   const [maintenance, setMaintenance] = useState<MaintenanceStatus | null>(null)
@@ -79,14 +82,28 @@ export default function SystemConfig() {
     setLocalConfig(draft => ({
       ...config,
       cameraIds: draft.cameraIds === previous.cameraIds ? config.cameraIds : draft.cameraIds,
+      cameraDeviceIds: JSON.stringify(draft.cameraDeviceIds) === JSON.stringify(previous.cameraDeviceIds) ? config.cameraDeviceIds : draft.cameraDeviceIds,
       confidenceThreshold: draft.confidenceThreshold === previous.confidenceThreshold ? config.confidenceThreshold : draft.confidenceThreshold,
       dataRetentionEnabled: draft.dataRetentionEnabled === previous.dataRetentionEnabled ? config.dataRetentionEnabled : draft.dataRetentionEnabled,
     }))
   }, [config])
 
-  const hasChanges = configReady && (localConfig.cameraIds !== config.cameraIds || localConfig.confidenceThreshold !== config.confidenceThreshold || localConfig.dataRetentionEnabled !== config.dataRetentionEnabled)
+  const hasChanges = configReady && (localConfig.cameraIds !== config.cameraIds || JSON.stringify(localConfig.cameraDeviceIds) !== JSON.stringify(config.cameraDeviceIds) || localConfig.confidenceThreshold !== config.confidenceThreshold || localConfig.dataRetentionEnabled !== config.dataRetentionEnabled)
 
   const activeCameraIds = localConfig.cameraIds.split(",").map(s => s.trim()).filter(Boolean)
+
+  const addCamera = () => {
+    if (disabled || saving || activeCameraIds.length >= 4) return
+    const devices = localConfig.cameraDeviceIds ?? []
+    let deviceId = 0
+    while (devices.includes(deviceId)) deviceId++
+    let suffix = activeCameraIds.length + 1
+    while (activeCameraIds.includes(`CAM-${String(suffix).padStart(3, "0")}`)) suffix++
+    setLocalConfig({ ...localConfig,
+      cameraIds: [...activeCameraIds, `CAM-${String(suffix).padStart(3, "0")}`].join(", "),
+      cameraDeviceIds: [...devices, deviceId],
+    })
+  }
 
   const startEditingCameraId = (idToEdit: string) => {
     if (disabled || saving) return
@@ -125,6 +142,11 @@ export default function SystemConfig() {
 
   const handleSave = async () => {
     if (disabled || configFlight.current) return
+    const deviceIds = localConfig.cameraDeviceIds ?? []
+    if (deviceIds.length !== activeCameraIds.length || new Set(deviceIds).size !== deviceIds.length || deviceIds.some(id => !Number.isSafeInteger(id) || id < 0)) {
+      toast.error("Assign a distinct nonnegative device index to every camera")
+      return
+    }
     configFlight.current = true
     setSaving(true)
     try {
@@ -308,9 +330,48 @@ export default function SystemConfig() {
                     ))}
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">These cameras capture in parallel, with sequential fallback when needed.</p>
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Label className="text-sm">Detected camera devices</Label>
+                    <Button variant="outline" size="sm" disabled={disabled || saving || cameraDiscovery.loading} onClick={cameraDiscovery.refresh}>
+                      <RefreshCw className="w-4 h-4 mr-2" />{cameraDiscovery.loading ? "Listing Devices..." : "Refresh Device List"}
+                    </Button>
+                  </div>
+                  {cameraDiscovery.error && <p role="alert" className="text-sm text-destructive">{cameraDiscovery.error} You can still enter device indices manually.</p>}
+                  {cameraDiscovery.discovery && !cameraDiscovery.error && <div className="space-y-1 text-xs text-muted-foreground">
+                    <p>Device list uses {cameraDiscovery.discovery.backend.toUpperCase()}. Detection confirms presence; previews confirm a usable feed.</p>
+                    {cameraDiscovery.discovery.devices.length === 0 && <p>No camera devices detected. Check the connections and refresh.</p>}
+                    {cameraDiscovery.discovery.devices.map(device => <p key={device.device_id}>
+                      Index {device.device_id} — {device.name}{device.device_uid ? ` · ${device.device_uid}` : ""}
+                      {device.configured_camera_id ? ` · ${device.configured_camera_id}: ${device.online ? "Online" : "Offline"}` : " · Not assigned"}
+                    </p>)}
+                  </div>}
+                  {activeCameraIds.map((id, index) => (
+                    <div key={index} className="flex flex-wrap items-center gap-3">
+                      <Label htmlFor={`camera-device-${index}`} className="text-sm">{id} device index</Label>
+                      <Input id={`camera-device-${index}`} aria-label={`Device index for camera ${index + 1}`} type="number" min={0} step={1}
+                        className="w-24" disabled={disabled || saving}
+                        value={Number.isNaN(localConfig.cameraDeviceIds?.[index]) ? "" : localConfig.cameraDeviceIds?.[index] ?? ""}
+                        onChange={event => {
+                          const devices = [...(localConfig.cameraDeviceIds ?? [])]
+                          devices[index] = event.target.value === "" ? Number.NaN : Number(event.target.value)
+                          setLocalConfig({ ...localConfig, cameraDeviceIds: devices })
+                        }} />
+                      <CameraDevicePicker discovery={cameraDiscovery.discovery} value={localConfig.cameraDeviceIds?.[index]}
+                        slot={index + 1} disabled={disabled || saving || cameraDiscovery.loading}
+                        onChange={deviceId => {
+                          const devices = [...(localConfig.cameraDeviceIds ?? [])]
+                          devices[index] = deviceId
+                          setLocalConfig({ ...localConfig, cameraDeviceIds: devices })
+                        }} />
+                    </div>
+                  ))}
+                  <Button variant="outline" onClick={addCamera} disabled={disabled || saving || activeCameraIds.length >= 4}>Add Camera</Button>
+                  <p className="text-xs text-muted-foreground">{activeCameraIds.length}/4 camera slots configured. Assign a different device index to each scanner camera, save, then verify the feeds in calibration. The laptop webcam may occupy one index.</p>
+                </div>
+                <p className="text-xs text-muted-foreground">All configured online cameras participate in each scan.</p>
                 <div className="pt-2">
-                  <CameraCalibrationModal disabled={saving || disabled} />
+                  <CameraCalibrationModal disabled={saving || disabled || hasChanges} />
                 </div>
               </div>
             </CardContent>

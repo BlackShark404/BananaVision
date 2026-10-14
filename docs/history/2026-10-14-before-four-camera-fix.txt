@@ -1,0 +1,50 @@
+CURRENT RESUME HERE (2026-10-14) - KIOSK DEMO AND OPTIONAL AUTOMATIC PRINTING VERIFIED
+BRANCH main; base ff284ea; changes are uncommitted.
+Prior checkpoint: docs/history/2026-10-14-before-kiosk-demo.txt.
+
+CURRENT USER SCOPE / COMPLETED MILESTONES
+- Demonstrate kiosk result and label printing without a banana; preserve working kiosk.
+- Explicit Demo mode replays an accessible saved prediction and queues one DEMO label.
+- Demo progress/results stay local; Accept/Flag do not mutate the source, stock or intake.
+- No fake predictions, history rows, inventory counts or real completion broadcasts.
+- Lost acknowledgements reuse the same request UUID; failed-job retry keeps its snapshot.
+- Label payload/panel have TEST=DEMO / DEMO; ordinary jobs retain TEST=LIVE.
+- Real automatic printing is implemented, opt-in via BANANAVISION_AUTO_PRINT=false default.
+- trigger_scan queues only after execute_scan_pipeline returns its committed prediction.
+- Deterministic UUIDv5 per scan + existing job PK / worker claim prevent auto duplicates.
+- Shared printer service; JSON demo flag is backward compatible; no new migration.
+- Demo off uses the existing operator/intake/camera/inference/Accept/Flag path.
+- docs/KIOSK_DEMO.md has setup, implementation map, changed files and verification.
+
+VERIFIED RESULTS
+- Backend from isolated temporary cwd: 289 passed, 1 deselected in 177.63s.
+- Deselected idle-WebSocket test passed separately: 1 passed in 4.46s (known intermittent hang).
+- Real PostgreSQL concurrency tests used disposable schemas on localhost56918 bvtest/postgres.
+- Cluster C:/Users/Kent/AppData/Local/Temp/bv-kiosk-pg-e28f15ba8f644313815762d5c6b8f773
+  was verified, stopped and REMOVED after tests.
+- Kiosk browser tests: 4 passed in targeted and full suites. Mocked APIs only.
+- Full frontend suite retains 5 confirmed existing failures: 2 connectivity,
+  2 dashboard review links, 1 maintenance camera partial-application UI.
+- Frontend typecheck and production build pass (build 10.58s).
+- Frontend lint: 43 existing errors + 8 warnings; new files clean; changed diagnostics match HEAD.
+- Backend Ruff: 638 existing diagnostics; no new diagnostics; wrapped trigger removes one old E501.
+- git diff --check passes; scoped diff reviewed; mocked kiosk screenshot visually inspected.
+
+CONSTRAINTS / LIMITATIONS
+- No live station .env/DB, captures, camera tests, OS power, physical print or deployment.
+- No commit/push/merge; no branch/worktree; separate printer tester untouched.
+- SUBMITTED confirms Windows spooler acceptance, not actual paper output.
+- Demo validates kiosk/printing flow, not camera capture or model accuracy.
+- Existing tracking QR/public track workflow and Scan Logs manual batches preserved.
+- Windows sandbox helper currently fails initialization; read/test commands used approved
+  escalation. Source/document edits remained inside the workspace.
+- Older stopped bv-print-pg-* files from 2026-10-13 remain per archived cleanup limitation;
+  the NEW kiosk test instance has been removed.
+
+EXACT NEXT STEP / USER PHYSICAL ACCEPTANCE
+- Restart backend normally. Open Kiosk, select operator, turn on Demo mode,
+  choose a saved prediction, press Run Demo & Print.
+- Verify one 40 x 30 mm label, correct values/DEMO marker and readable phone decode;
+  check offline status and explicit retry without creating fake records.
+- When banana/hardware is ready, turn Demo mode OFF. Set BANANAVISION_AUTO_PRINT=true
+  and restart backend to enable one label after a committed real scan; no code rewrite needed.

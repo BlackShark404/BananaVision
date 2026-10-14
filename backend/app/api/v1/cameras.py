@@ -9,7 +9,9 @@ from app.services.runtime_operations import station_lock, run_blocking, coordina
 from pydantic import BaseModel, Field, StrictInt, field_validator
 
 from app.services.camera_manager import camera_manager
+from app.services.camera_discovery import discover_camera_devices
 from app.config import get_settings
+from app.schemas.cameras import CameraDiscoveryResponse
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -23,6 +25,26 @@ from app.services import configuration
 from app.models.admin_profile import AdminProfile
 from app.models.activity_log import ActivityLog
 from app.services.maintenance_state import operation_result, record_operation
+
+
+@router.get("/discovery", response_model=CameraDiscoveryResponse)
+async def discover_cameras(db: DbSession, admin: AdminUser):
+    """Enumerate named devices for administrators without acquiring camera handles."""
+    config = await configuration.get_config(db)
+    async with coordinator.operation():
+        discovered = await run_blocking(discover_camera_devices)
+    saved = dict(zip(config.camera_device_ids,
+                     (name.strip() for name in config.camera_ids.split(',')), strict=True))
+    applied = dict(zip(camera_manager._device_ids, camera_manager._logical_ids, strict=False))
+    online = set(camera_manager.online_cameras)
+    for device in discovered['devices']:
+        device_id = device['device_id']
+        name = saved.get(device_id)
+        device['configured_camera_id'] = name
+        device['online'] = (
+            name is not None and applied.get(device_id) == name and device_id in online
+        )
+    return discovered
 
 @router.get("")
 async def list_cameras(db: DbSession):

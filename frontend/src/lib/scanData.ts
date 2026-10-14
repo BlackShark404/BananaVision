@@ -2,6 +2,8 @@ import type { ScanResult, ScanNote } from "@/types"
 
 /** Stored records never receive a client-generated timestamp. */
 export interface ApiScan {
+  print_job?: ScanResult["printJob"] | null
+  print_error?: string | null
   id: string
   revision: number
   date_time?: string
@@ -55,6 +57,8 @@ export function storedTimestamp(value: string | undefined | null): string {
 
 export function mapApiScan(scan: ApiScan, imageUrl: (path: string) => string = path => path): ScanResult {
   return {
+    printJob: scan.print_job ?? undefined,
+    printError: scan.print_error ?? undefined,
     id: scan.id,
     revision: scan.revision,
     dateTime: storedTimestamp(scan.date_time ?? scan.scanned_at ?? scan.dateTime),

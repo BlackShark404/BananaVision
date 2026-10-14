@@ -114,8 +114,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setStoredUser(authUser)
       setUser(authUser)
       return "success" as const
-    } catch {
-      return "failed" as const
+    } catch (error) {
+      const status = (error as { status?: number } | null)?.status
+      if (status === 401) return "failed" as const
+      if (status === 403) return "inactive" as const
+      throw error
     }
   }, [])
 
@@ -196,7 +199,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setStoredUser(authUser)
       setUser(authUser)
       return true
-    } catch {
+    } catch (error) {
+      const status = (error as { status?: number } | null)?.status
+      if (status === 0 || status === 429 || (status !== undefined && status >= 500)) throw error
       return false
     }
   }, [])

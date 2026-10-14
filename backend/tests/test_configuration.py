@@ -160,7 +160,7 @@ def test_saved_mapping_reports_partial_hardware_failure_without_env_write(config
     frame = np.tile(np.arange(64, dtype=np.uint8), (64, 1)) * 4
     frame = np.stack([frame] * 3, axis=2)
     class Handle:
-        def __init__(self, index): self.index = index
+        def __init__(self, index, *args): self.index = index
         def isOpened(self): return True
         def set(self, *_): pass
         def read(self): return True, frame if self.index == 2 else np.zeros_like(frame)
@@ -198,3 +198,28 @@ def test_logical_rename_preserves_slot_uuid(configured, monkeypatch):
     with Session(configured.engine) as db:
         assert db.get(Device, left_id).camera_id == 'RIGHT'
         assert db.get(Device, right_id).camera_id == 'LEFT'
+
+
+def test_expand_two_slots_to_four_persists_and_lists_every_camera(configured, monkeypatch):
+    from app.api.v1 import cameras
+    from app.services import configuration
+
+    apply = AsyncMock()
+    monkeypatch.setattr(configuration, 'apply_camera_config', apply)
+    configured.app.include_router(cameras.router, prefix='/api/v1')
+    revision = configured.client.get('/api/v1/config').json()['revision']
+    response = configured.client.patch('/api/v1/config', json={
+        'expected_revision': revision, 'camera_ids': 'LEFT, RIGHT, TOP, REAR',
+        'camera_device_ids': [1, 2, 3, 4],
+    })
+    assert response.status_code == 200, response.text
+    apply.assert_awaited_once()
+    assert response.json()['camera_device_ids'] == [1, 2, 3, 4]
+    listed = configured.client.get('/api/v1/cameras').json()
+    assert [camera['device_id'] for camera in listed] == [1, 2, 3, 4]
+    assert [camera['camera_id'] for camera in listed] == ['LEFT', 'RIGHT', 'TOP', 'REAR']
+    with Session(configured.engine) as db:
+        assert db.scalar(select(SystemConfig)).camera_device_ids == [1, 2, 3, 4]
+        assert {device.camera_id for device in db.scalars(select(Device))} == {
+            'LEFT', 'RIGHT', 'TOP', 'REAR',
+        }

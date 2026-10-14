@@ -1,12 +1,14 @@
-# Manual prediction labels from Scan Logs
+# Prediction labels from Scan Logs and Kiosk
 
 ## Current scope
 
 The first stage prints existing saved predictions from **Scan Logs → QR icon →
 Print labels**. Choose **1–10 labels per request**. No IoT station, camera capture,
 new scan, or inference is required. The existing scan and inventory are unchanged.
-Automatic printing from **Scan Now is deferred**, as requested, until the user
-has checked the physical labels.
+The kiosk also offers an explicit **Demo mode** which replays an accessible saved
+prediction and prints one DEMO label without adding scans or stock. Real **Scan Now**
+automatic printing is implemented behind `BANANAVISION_AUTO_PRINT` (default false).
+See `KIOSK_DEMO.md` for demonstration and switching back to normal operation.
 
 The modal QR encodes the saved prediction values, not the old tracking-page URL.
 The label contains the scan UUID, ripeness, estimated spoilage days, confidence
@@ -35,7 +37,9 @@ tracking QR/browser-print action is outside this first-stage change.
 
 The printer must be attached to the **FastAPI machine**, not just the browser's
 computer. The exact configured queue is used; no default-printer fallback exists.
-This stage has no auto-print setting or automatic scan hook.
+`BANANAVISION_AUTO_PRINT=false` preserves opt-in real-scan printing. Set it to `true`
+when ready to print one label after each successful committed real scan. The explicit
+kiosk demo action prints one DEMO label independently of this setting.
 
 Schema setup follows `backend/README.md`: application startup initializes missing
 tables and applies migrations, or the operator can run `python -m app.core.migrations`
@@ -95,9 +99,10 @@ A worker can claim each queued attempt only once. Read endpoints never create jo
 
 **Print another batch** is a deliberate new request and can legitimately print
 more labels. The 10-label limit is per request, not a lifetime limit per scan.
-This stage intentionally does not add a unique constraint on prediction ID:
-multiple manual batches are supported. A future automatic-print integration
-must add its own unique automatic-job key and post-commit scan hook.
+There is no unique constraint on prediction ID because multiple manual batches are
+supported. Automatic printing uses a deterministic request UUID per scan, protected
+by the existing print-job primary key and atomic worker claim. Demo batches use their
+own explicit request UUIDs and immutable `demo=true` snapshots.
 
 On failure, the complete application error is stored and displayed. **RETRY PRINT**
 reuses the same batch, snapshot, printer, dimensions and quantity; an atomic
@@ -123,6 +128,19 @@ the table. Archive formats and maintenance behavior are unchanged.
   under the Windows account running FastAPI.
 - Offline / paused / paper error: check power, USB, loaded media, and Windows queue;
   clear the fault, then explicitly retry the failed batch.
+- `TP870 S reports ERROR`: Windows is reporting the generic driver/spooler error
+  flag. This is a printer status failure before GDI starts a new document, not a
+  model or saved-prediction failure. The message now makes that boundary explicit.
+  Open Windows Settings > Bluetooth & devices > Printers & scanners > TP870 S,
+  inspect its print queue and driver status, check power/USB, close the cover and
+  load the configured 40 x 30 mm labels. Confirm a Windows test page works, then
+  use **RETRY PRINT** for the failed BananaVision job. If the Windows test page
+  also fails, resolve the driver/device/queue fault first. Existing queue entries
+  and uncertain earlier output must be checked before retrying a batch.
+  [Microsoft documents `PRINTER_STATUS_ERROR` as an error state](https://learn.microsoft.com/en-us/windows/win32/printdocs/printer-info-2).
+  BananaVision continues to block that status; its presence alone does not prove
+  a harmless or stale driver flag. No queue deletion, spooler reset, driver
+  replacement or physical test is performed by the application.
 - Driver replaced dimensions: configure 40 × 30 mm stock and driver copies = 1.
 - QR too dense / clipped: check media dimensions and printable driver area. The
   renderer rejects fewer than two pixels per module rather than shrinking further.
@@ -135,7 +153,7 @@ Then request two labels and check that exactly two print. Test offline failure
 and explicit retry. These physical checks remain for the user; development tests
 mock Windows printing and a test guard rejects physical GDI submission under pytest.
 
-## Future Scan Now integration (not implemented)
+## Scan Now integration
 
 The existing path is `Kiosk.handleScan` → `ScanContext.startScan` →
 `backend/app/api/v1/scans.py::trigger_scan` →
@@ -143,9 +161,11 @@ The existing path is `Kiosk.handleScan` → `ScanContext.startScan` →
 The latter calls `camera_manager.capture_all/save_captures`,
 `banana_pre_detector.detect`, `banana_classifier.predict`, `fusion_engine.fuse`,
 and `spoilage_predictor.predict`; it persists and commits the final prediction
-before broadcasting completion. That successful commit boundary is where a
-future unique automatic print job belongs. No scan/ML/persistence behavior was
-changed in this manual-print stage.
+before broadcasting completion. After it returns, `trigger_scan` optionally calls
+`queue_automatic_label` and schedules the background worker. Queue/print errors preserve
+the committed prediction. React never creates the automatic job. Capture, ML and
+prediction persistence remain unchanged. See `KIOSK_DEMO.md` for the demo isolation
+boundaries and all current kiosk behavior.
 
 ## Changed files for this stage
 

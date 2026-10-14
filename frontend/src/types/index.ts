@@ -1,3 +1,5 @@
+import type { PrintJob } from "./printing"
+
 export const CultivarEnum = {
   LAKATAN: "Lakatan",
   LATUNDAN: "Latundan",
@@ -99,6 +101,8 @@ export interface ScanHistory {
 }
 
 export interface ScanResult {
+  printJob?: PrintJob
+  printError?: string
   id: string
   revision?: number
   notes?: ScanNote[]

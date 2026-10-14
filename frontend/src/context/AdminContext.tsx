@@ -240,6 +240,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     if (!configReady || configConflict || !config.revision) throw new Error("Reload saved settings before making changes")
     const apiData: ApiConfigUpdate = { expected_revision: config.revision }
     if (cfg.cameraIds !== undefined && cfg.cameraIds !== config.cameraIds) apiData.camera_ids = cfg.cameraIds
+    if (cfg.cameraDeviceIds !== undefined && JSON.stringify(cfg.cameraDeviceIds) !== JSON.stringify(config.cameraDeviceIds)) apiData.camera_device_ids = cfg.cameraDeviceIds
     if (cfg.confidenceThreshold !== undefined && cfg.confidenceThreshold !== config.confidenceThreshold) apiData.confidence_threshold = cfg.confidenceThreshold
     if (cfg.dataRetentionEnabled !== undefined && cfg.dataRetentionEnabled !== config.dataRetentionEnabled) apiData.data_retention_enabled = cfg.dataRetentionEnabled
     if (Object.keys(apiData).length === 1) return config
@@ -247,7 +248,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     try {
       const saved = await api.config.update(apiData)
       acceptConfig(saved)
-      if (cfg.cameraIds !== undefined) api.devices.list().then(res => setDevices(res.map(mapApiDevice))).catch(console.error)
+      if (apiData.camera_ids !== undefined || apiData.camera_device_ids !== undefined) api.devices.list().then(res => setDevices(res.map(mapApiDevice))).catch(console.error)
       return mapConfig(saved)
     } catch (error) {
       if ((error as { status?: number }).status === 409) setConfigConflict(true)

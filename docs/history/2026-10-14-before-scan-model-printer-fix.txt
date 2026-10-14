@@ -1,0 +1,59 @@
+CURRENT RESUME HERE (2026-10-14) - KIOSK PIN SERVICE FAILURE FIXED; RESTART PENDING
+BRANCH main; all work uncommitted. Prior printing/demo/camera work and user models preserved.
+Previous checkpoint archived: docs/history/2026-10-14-before-kiosk-pin-recovery.txt.
+
+CURRENT USER SCOPE / COMPLETED
+- User confirmed 1234 is the operator's kiosk PIN. Do not reset or assume a global default PIN.
+- Supplied log1869263b shows AnyIO request cancellation interrupting the persistent station
+  ownership connection, then PendingRollbackError, recovery-required and POST auth/swap503.
+  These requests were blocked before checking the PIN; UI incorrectly called them Invalid PIN.
+- Ownership query/commit now complete under a cancellation shield and existing mutex before
+  propagating caller cancellation. Admission remains active until the check finishes.
+- Release uses the same mutex and cancellation protection. Failed unlock sessions are
+  invalidated before pool close. Genuine owner loss still blocks with503; never reconnect
+  or silently reacquire ownership after loss. Backend restart is required for existing loss.
+- Kiosk distinguishes incorrect PIN, inactive account,429 lockout, network and503 errors.
+  Setup retries preserve limited in-memory proof. Credential401 preserves the existing
+  session; protected-request401 still clears expired authentication and redirects.
+- Existing UI layout and successful PIN/temporary PIN setup flow retained.
+- Previous camera issue resolved physically by direct laptop USB ports: all4 feeds shown
+  online by user; mapping0,1,3,2, index4OBS virtual. Startup fallback cleanup completed.
+
+VERIFIED RESULTS
+- All backend tests imported from fresh temporary cwd; no station .env loaded.
+- pytest -p no:cacheprovider -q with backend/pyproject.toml: 108 passed in25.10s across
+  test_station_owner, test_kiosk_pin, test_assigned_fixes, test_time_and_writes,
+  test_maintenance, test_maintenance_integration, test_configuration, test_kiosk_printing.
+- Additional unlock-failure regression added afterwards; focused ownership/PIN suite
+  (test_station_owner + test_kiosk_pin) 8 passed in3.56s.
+- Disposable PostgreSQL: test_station_owner_postgresql plus existing ownership/external
+  writer test in test_maintenance_postgresql: 4 passed,13 deselected in7.44s.
+  Both asyncio and AnyIO cancellation preserved real session PID and advisory lock;
+  termination of only the fixture owner stayed blocked without reacquiring ownership.
+- Frontend node --test --test-concurrency=1 tests/kiosk-pin.test.mjs tests/assigned.test.mjs
+  tests/kiosk.test.mjs: 21/21 passed in69.15s (11 new PIN regressions). Mocked API in Edge.
+- npm.cmd run typecheck passes; npm.cmd run build passes (Vite10.16s).
+- Configured ruff check backend/app backend/tests:635 existing diagnostics, no new ones;
+  new regression test files clean. Three existing long lines reduced from baseline638.
+- npm.cmd run lint:43 existing errors+8 warnings; no new diagnostics. Two existing unused
+  imports in KioskOperatorSwap match HEAD. No broad lint autofixes performed.
+- Scoped diff and independent ownership/auth review completed; git diff --check passes.
+- Lint reports: C:\Users\Kent\AppData\Local\Temp\bv-pin-checks-xn1czrzb.
+
+CONSTRAINTS / CLEANUP
+- No live station DB, .env, stored credential, camera stream, captures, sensor, printer
+  or OS power tested/edited. No backend restart/deployment, commit/push/history rewrite.
+- Isolated PostgreSQL clusters bv-pin-pg-e0riwfol(port51669) and bv-pin-pg-10pgrpki
+  (port49884) were stopped and removed. No disposable database server remains running.
+- First cluster harness hung on inherited pg_ctl stderr; stopped exact test cluster,
+  corrected harness with detached output, and completed real PostgreSQL verification.
+- Actual station account PIN not inspected or changed. Fixture-stored1234 authenticates.
+- Previous full maintenance/kiosk browser run has1 existing calibration alert timeout.
+  Current relevant PIN/auth/kiosk regressions all pass.
+
+EXACT NEXT STEP
+- User stops/restarts the backend normally once to clear existing recovery-required state,
+  refreshes the browser, selects the intended operator and enters their assigned PIN1234.
+- If login still fails, inspect the new request status/message.503 indicates station
+  unavailability; HTTP200 statusfailed indicates credential rejection. Preserve normal
+  account/PIN administration rather than forcing a default PIN or bypassing ownership.

@@ -1,0 +1,58 @@
+CURRENT RESUME HERE (2026-10-13) - MANUAL SCAN LOGS LABEL PRINTING IMPLEMENTED
+BRANCH main; changes are uncommitted.
+Prior checkpoints preserved under docs/history/2026-10-13-*before*printing.txt.
+
+CURRENT SCOPE / USER DECISION
+- Test existing predictions from Scan Logs with a quantity limit first.
+- Automatic printing from Scan Now is DEFERRED until physical labels are verified.
+- Preserve the existing public /track QR workflow and unrelated committed work.
+
+DONE
+- Scan Logs QR modal prints saved prediction data through FastAPI and Windows GDI.
+- Quantity 1-10 per deliberate batch, validated on frontend and backend.
+- 40 x 30 mm stock, exact configured TP870 S queue, four-module QR quiet zone.
+- QR/panel use saved ripeness, spoilage DAYS, 0-100 confidence and available sensors.
+- QUEUED/SUBMITTED/FAILED status, background worker, spool ID, explicit failed-job retry.
+- Durable scan_label_print_job table stores immutable snapshot, quantity, attempts/errors.
+- Request UUID uniqueness and atomic worker/retry claims prevent duplicate delivery.
+- 0008_windows_label_jobs follows the pre-existing 0007 compatibility placeholder.
+- Preserved user's 0007 file; extended their existing migration-test head update.
+- Print receipts excluded from data archive restore/replay, verified by regression.
+- docs/PRINTING_INTEGRATION.md has setup, exact changed files, flow and limitations.
+- Existing public tracking milestone retained: /api/v1/scans/{id}/track and /track/:id;
+  tracking QR URLs remain available outside the new prediction-label modal.
+
+VERIFIED RESULTS
+- Backend ran from fresh temporary cwd, avoiding station .env.
+- Final full run: 280 passed, 1 deselected in 170.09s. Deselected idle-WebSocket
+  revocation test passed separately (1 passed in 3.78s) after a repeat hung.
+- PostgreSQL cases used unique schemas on disposable port 56917.
+- Disposable server STOPPED. Automatic approval review blocked directory deletion
+  with 'blocked by policy'. Remaining stopped test files:
+  C:/Users/Kent/AppData/Local/Temp/bv-print-pg-af9c797c13fc4b72a6103baa27afe942
+- Frontend full node suite: 82 passed, 5 failed. Same failures reproduced on untouched
+  HEAD in a temp copy: 2 connectivity, 2 dashboard review links, 1 maintenance UI.
+- Final focused printing + scanrecords browser suite: 18 passed.
+- Frontend typecheck and production build pass.
+- Frontend lint: 43 existing errors + 8 existing warnings; no new diagnostics.
+- Backend Ruff: 639 existing diagnostics; new Python files clean; no added diagnostics
+  in changed existing files. New migration also lint-clean.
+- git diff --check passes; scoped diff reviewed.
+- Edge used for browser fixtures; Chrome absent. Tools in OS temp/bv-print-tools.
+- pywin32 was already installed in backend/venv; no production dependency changes.
+
+CONSTRAINTS / LIMITATIONS
+- No physical print, live station DB/migration, captures, cameras, power or deployment.
+- No commit/push/merge; no branches/worktrees; separate printer tester untouched.
+- SUBMITTED confirms Windows acceptance, not physical output.
+- Uncertain jobs are not replayed automatically. Inspect the Windows queue before
+  a new batch or retry; an error can occur after some labels have already printed.
+- Keep the modal open while checking a batch; closing does not cancel background work.
+- Existing Scan Detail tracking QR/browser-print action remains outside this stage.
+
+EXACT NEXT STEP
+- User restarts backend through normal procedure to load settings/migration,
+  confirms official TP870 S driver and 40 x 30 mm stock, then opens Scan Logs ->
+  QR -> quantity 1 -> Print labels.
+- Verify physical alignment, QR payload, exact copy count and offline/retry behavior.
+- After physical acceptance, implement the deferred Scan Now auto-print stage.

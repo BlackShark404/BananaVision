@@ -1,0 +1,55 @@
+CURRENT RESUME HERE (2026-10-14) - NAMED CAMERA DEVICE SELECTION VERIFIED
+BRANCH main; changes are uncommitted. Prior camera/kiosk/printing/user model work preserved.
+Prior checkpoint: docs/history/2026-10-14-before-camera-device-names.txt.
+
+CURRENT USER SCOPE / COMPLETED
+- Latest hardware log: indices 0,1,3 initialize; index4 fails; user requests camera names
+  so the missing fourth slot can be configured without guessing.
+- New admin-only GET /api/v1/cameras/discovery lists capture-backend indices, native names,
+  hashed device identifiers, saved assignments and actual applied online state.
+- Shared capture_backend helper keeps capture and enumeration index namespaces aligned.
+- cv2-enumerate-cameras==1.4.0 added for Windows and installed in backend/venv.
+  Library source inspected: native metadata enumeration, COM initialized per call;
+  no VideoCapture/stream creation. No real enumeration invoked during verification.
+- Existing Scanner Config card shows all detected devices, including unassigned indices.
+  Slots offer named device selection synchronized with existing manual index fields.
+  Unlisted saved indices display not detected; same model names have distinct identifiers.
+- Refresh Device List handles reconnections. Failure leaves manual editing and drafts intact.
+- Calibration cards now display index, native name and device identifier alongside feeds.
+- Existing administrator authorization, revision checks, slot validation, commit-before-
+  application, camera health and preview mapping preserved. No schema migration.
+- docs/FOUR_CAMERA_SETUP.md explains named selection, driver mapping and index2 candidate.
+
+VERIFIED RESULTS
+- Backend from isolated temporary cwd: 98 passed in 34.80s across camera discovery,
+  Windows camera, configuration, time/writes, assigned fixes, maintenance integration.
+- After adding strict zip arguments: discovery suite 8 passed in 1.70s.
+- New named-selection and discovery-failure browser checks: 2 passed.
+- Combined maintenance + kiosk browser: 17 passed, 1 existing failed in 57.45s.
+  Existing failure is calibration partial-result alert locator timeout; previously recorded.
+  All new checks pass; kiosk remains 4/4 passing. Mocked HTTP/WebSocket and Edge only.
+- npm.cmd run typecheck passes. npm.cmd run build passes (Vite 36.69s).
+- Configured Ruff: 638 existing diagnostics; changed camera API/manager compared with HEAD,
+  no additions. New service/schema/tests clean.
+- Configured ESLint: 43 existing errors + 8 warnings; all changed/new frontend files clean.
+- git diff --check passes; scoped implementation, tests and docs reviewed.
+- Desktop/mobile mocked screenshots visually inspected; mobile has no horizontal overflow.
+  Screenshots: C:/Users/Kent/AppData/Local/Temp/bv-camera-names-view-kYTp3f.
+- Lint reports: C:\Users\Kent\AppData\Local\Temp\bv-camera-names-checks-76_bek1s
+
+CONSTRAINTS / PENDING HARDWARE ACCEPTANCE
+- No live station DB, camera streams, captures, sensor, printer or power operations tested.
+- No live device enumeration, backend restart, saved station mapping change or deployment.
+- Local .env and user-provided model files preserved; no secrets read/printed.
+- Device metadata presence does not prove stream usability; previews/health remain decisive.
+- Physical fourth-camera identity/USB availability is still unverified; no auto-remapping.
+- Non-Windows name discovery returns an explicit unsupported message and manual fallback.
+- No commit/push/merge. Prior kiosk/printing behavior and unrelated changes preserved.
+
+EXACT NEXT STEP
+- User restarts backend normally and refreshes the browser.
+- Admin > System Configuration > Scanner Config > Refresh Device List.
+- Read the named inventory for the unused index2 and offline index4. Choose the correct
+  named device for the fourth slot, Save Changes, then check Calibrate Camera Positions.
+- Exclude the laptop webcam if four external scanners are required. Verify four online feeds;
+  if a named device still cannot open, its physical driver/USB state needs station diagnosis.

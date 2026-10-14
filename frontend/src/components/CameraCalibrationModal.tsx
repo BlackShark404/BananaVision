@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { Camera, RefreshCw } from "lucide-react"
+import { useCameraDiscovery } from "@/hooks/useCameraDiscovery"
 
 interface CameraSlot { device_id: number; camera_id: string; label: string; online: boolean }
 
@@ -18,11 +19,13 @@ export function CameraCalibrationModal({ disabled = false }: { disabled?: boolea
   const pending = useRef(false)
   const operationId = useRef<string | null>(null)
   const [open, setOpen] = useState(false)
+  const cameraDiscovery = useCameraDiscovery(open)
   const [cameras, setCameras] = useState<CameraSlot[]>([])
   const [labels, setLabels] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   // Mapping of label -> device_id
   const [mapping, setMapping] = useState<Record<string, number>>({})
+  const detectedDevices = new Map(cameraDiscovery.discovery?.devices.map(device => [device.device_id, device]))
 
   useEffect(() => {
     if (!open) return
@@ -116,12 +119,17 @@ export function CameraCalibrationModal({ disabled = false }: { disabled?: boolea
         </DialogHeader>
 
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        {cameraDiscovery.error && <p className="text-sm text-muted-foreground">{cameraDiscovery.error}</p>}
         {!loadedConfig && !error ? (
           <div className="py-8 flex justify-center"><RefreshCw className="animate-spin w-8 h-8 text-primary" /></div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {cameras.map((cam) => (
               <div key={cam.device_id} className="border rounded-xl p-2 bg-muted/10 space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Index {cam.device_id} — {detectedDevices.get(cam.device_id)?.name ?? "Device name unavailable"}
+                  {detectedDevices.get(cam.device_id)?.device_uid && ` · ${detectedDevices.get(cam.device_id)?.device_uid}`}
+                </p>
                 <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
                   {cam.online ? (
                     <img 

@@ -16,3 +16,9 @@ export interface PrintJob {
   error: string | null
   attempt_count: number
 }
+
+export interface KioskDemoResponse {
+  scan: import("@/lib/scanData").ApiScan
+  label: LabelPreview
+  print_job: PrintJob
+}

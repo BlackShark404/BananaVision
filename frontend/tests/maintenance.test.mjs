@@ -15,6 +15,7 @@ async function setup(t, options={}) {
  if(path==='/api/v1/config'&&method==='PATCH'){if(state.conflict)return reply({detail:'Configuration changed; reload to review'},409);state.config={...state.config,...body,revision:state.config.revision+1};return reply(state.config)}
  if(path==='/api/v1/config/maintenance')return state.maintenance ? state.maintenance(reply) : reply({state:'ready',active_operations:0})
  if(path==='/api/v1/config/maintenance/recover')return reply({state:'ready',active_operations:0})
+ if(path==='/api/v1/cameras/discovery')return state.discoveryFailure?reply({detail:'Device list unavailable'},503):reply(state.discovery??{backend:'dshow',devices:[],error:null})
  if(path==='/api/v1/cameras')return reply([{device_id:0,camera_id:'CAM-001',label:'CAM-001',online:false}])
  if(path==='/api/v1/cameras/mapping')return reply({...state.config,revision:2,application_status:'partial',application_error:'Camera 0 failed',results:{'0':false}})
  if(path==='/api/v1/config/backups')return reply({id:body.operation_id,status:'completed',filename:'station.zip',manifest:{tables:18}})
@@ -27,6 +28,76 @@ async function setup(t, options={}) {
  await page.goto(runtime.url+'/dashboard',{waitUntil:'domcontentloaded'});await page.getByRole('heading',{name:'System Configuration'}).waitFor();return {page,state}
 }
 test('failed initial load prevents editing fallback and permits retry',async t=>{const {page,state}=await setup(t,{failLoad:true});await until(()=>page.getByRole('button',{name:'Retry configuration'}).count());assert(await page.getByRole('button',{name:'Reset Defaults'}).isDisabled());assert(await page.getByRole('button',{name:'Calibrate Camera Positions'}).isDisabled());state.failLoad=false;await page.getByRole('button',{name:'Retry configuration'}).click();await until(async()=>!(await page.getByRole('button',{name:'Reset Defaults'}).isDisabled()))})
+
+test('two camera slots expand to four and save physical indices with names', async t => {
+ const {page,state}=await setup(t,{config:{...config,camera_ids:'TOP, LEFT',camera_device_ids:[0,1]}})
+ await page.getByRole('button',{name:'Add Camera',exact:true}).click()
+ await page.getByRole('button',{name:'Add Camera',exact:true}).click()
+ assert(await page.getByRole('button',{name:'Add Camera',exact:true}).isDisabled())
+ for (let index=0;index<4;index++) await page.getByLabel(`Device index for camera ${index+1}`,{exact:true}).fill(String(index+1))
+ await page.getByRole('button',{name:'Save Changes',exact:true}).click()
+ await until(()=>state.requests.some(r=>r.method==='PATCH'))
+ assert.deepEqual(state.requests.find(r=>r.method==='PATCH').body,{
+  expected_revision:1,camera_ids:'TOP, LEFT, CAM-003, CAM-004',camera_device_ids:[1,2,3,4],
+ })
+})
+
+test('device-only mapping edits survive refresh and send only the changed mapping', async t => {
+ const {page,state}=await setup(t)
+ await page.getByLabel('Device index for camera 1',{exact:true}).fill('4')
+ await page.getByRole('button',{name:'Fixture refresh'}).click()
+ await until(()=>state.requests.filter(r=>r.path==='/api/v1/config'&&r.method==='GET').length>=2)
+ assert.equal(await page.getByLabel('Device index for camera 1',{exact:true}).inputValue(),'4')
+ await page.getByRole('button',{name:'Save Changes',exact:true}).click()
+ await until(()=>state.requests.some(r=>r.method==='PATCH'))
+ assert.deepEqual(state.requests.find(r=>r.method==='PATCH').body,{expected_revision:1,camera_device_ids:[4]})
+})
+
+test('named device inventory exposes unused index and replaces missing fourth camera', async t => {
+ const {page,state}=await setup(t,{config:{...config,camera_ids:'TOP, LEFT, RIGHT, REAR',camera_device_ids:[0,1,3,4]},discovery:{
+  backend:'dshow',error:null,devices:[
+   {device_id:0,name:'ACER HD User Facing',device_uid:'builtin',configured_camera_id:'TOP',online:true},
+   {device_id:1,name:'EMEET SmartCam C100 2K',device_uid:'emeet-one',configured_camera_id:'LEFT',online:true},
+   {device_id:2,name:'EMEET SmartCam C100 2K',device_uid:'emeet-two',configured_camera_id:null,online:false},
+   {device_id:3,name:'Rapoo Camera',device_uid:'rapoo',configured_camera_id:'RIGHT',online:true},
+  ]}})
+ await page.getByText(/Index 2 — EMEET.*emeet-two.*Not assigned/).waitFor()
+ assert.match(await page.getByRole('combobox',{name:'Detected device for camera 4'}).textContent(),/Index 4.*not detected/)
+ await page.getByRole('combobox',{name:'Detected device for camera 4'}).click()
+ await page.getByRole('option',{name:/Index 2 — EMEET.*emeet-two/}).click()
+ assert.equal(await page.getByLabel('Device index for camera 4',{exact:true}).inputValue(),'2')
+ await page.getByRole('button',{name:'Save Changes',exact:true}).click()
+ await until(()=>state.requests.some(r=>r.method==='PATCH'))
+ assert.deepEqual(state.requests.find(r=>r.method==='PATCH').body,{expected_revision:1,camera_device_ids:[0,1,3,2]})
+})
+
+test('failed device discovery preserves saved mapping and manual editing', async t => {
+ const {page,state}=await setup(t,{discoveryFailure:true})
+ await page.getByRole('alert').filter({hasText:'Device list unavailable'}).waitFor()
+ await page.getByLabel('Device index for camera 1',{exact:true}).fill('2')
+ state.discoveryFailure=false
+ await page.getByRole('button',{name:'Refresh Device List'}).click()
+ await until(()=>state.requests.filter(r=>r.path==='/api/v1/cameras/discovery').length===2)
+ assert.equal(await page.getByLabel('Device index for camera 1',{exact:true}).inputValue(),'2')
+ assert.equal(state.requests.filter(r=>r.method==='PATCH').length,0)
+})
+
+test('duplicate and empty device indices cannot be saved', async t => {
+ const {page,state}=await setup(t,{config:{...config,camera_ids:'TOP, LEFT',camera_device_ids:[0,1]}})
+ const index=page.getByLabel('Device index for camera 2',{exact:true})
+ await index.fill('0')
+ await page.getByRole('button',{name:'Save Changes',exact:true}).click()
+ await page.clock.runFor(100)
+ assert.equal(state.requests.filter(r=>r.method==='PATCH').length,0)
+ await index.fill('')
+ await page.getByRole('button',{name:'Save Changes',exact:true}).click()
+ await page.clock.runFor(100)
+ assert.equal(state.requests.filter(r=>r.method==='PATCH').length,0)
+ await index.fill('4')
+ await page.getByRole('button',{name:'Save Changes',exact:true}).click()
+ await until(()=>state.requests.some(r=>r.method==='PATCH'))
+ assert.deepEqual(state.requests.find(r=>r.method==='PATCH').body,{expected_revision:1,camera_device_ids:[0,4]})
+})
 test('threshold sends only changed fields and loaded revision; conflict retains draft',async t=>{const {page,state}=await setup(t);await page.getByRole('tab',{name:'AI Settings'}).click();await page.getByRole('slider').press('ArrowLeft');await page.getByRole('button',{name:'Save Changes',exact:true}).click();await until(()=>state.requests.some(r=>r.method==='PATCH'));assert.deepEqual(state.requests.find(r=>r.method==='PATCH').body,{confidence_threshold:84,expected_revision:1});await until(async()=>JSON.parse(await page.getByTestId('config').textContent()).revision===2);state.conflict=true;await page.getByRole('slider').press('ArrowLeft');await page.getByRole('button',{name:'Save Changes',exact:true}).click();await page.getByText(/Configuration changed elsewhere/).first().waitFor();assert.equal(await page.getByRole('slider').getAttribute('aria-valuenow'),'83');assert(await page.getByRole('button',{name:'Reload saved settings'}).count())})
 test('late read cannot replace a more recent saved revision',async t=>{const {page,state}=await setup(t);let release;state.holdRead=()=>new Promise(r=>release=r);await page.getByRole('button',{name:'Fixture refresh'}).click();await until(()=>Boolean(release));await page.getByRole('tab',{name:'AI Settings'}).click();await page.getByRole('slider').press('ArrowLeft');await page.getByRole('button',{name:'Save Changes',exact:true}).click();await until(async()=>JSON.parse(await page.getByTestId('config').textContent()).revision===2);release();await until(async()=>JSON.parse(await page.getByTestId('config').textContent()).confidenceThreshold===84)})
 test('camera partial application is never reported as fully applied',async t=>{const {page,state}=await setup(t);await page.getByRole('button',{name:'Calibrate Camera Positions'}).click();await page.getByRole('button',{name:'Save Mapping'}).click();await page.getByRole('alert').filter({hasText:'Camera 0 failed'}).waitFor();assert.equal(state.requests.find(r=>r.path.endsWith('/mapping')).body.expected_revision,1);assert.equal(await page.getByText('Camera mapping saved and camera manager refreshed').count(),0)})

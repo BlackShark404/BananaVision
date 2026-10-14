@@ -1,7 +1,8 @@
-"""Explicit, idempotent manual label batches. No automatic scan hook."""
+"""Idempotent manual/demo batches and one automatic label per committed prediction."""
 
 import logging
 from dataclasses import asdict
+from uuid import uuid5
 
 from fastapi import HTTPException
 from sqlalchemy import select, update
@@ -9,7 +10,7 @@ from sqlalchemy import select, update
 from app.config import get_settings
 from app.core import database
 from app.models.print_job import PrintJob
-from app.schemas.printing import PrintJobResponse
+from app.schemas.printing import LabelPrintRequest, PrintJobResponse
 from app.services.prediction_label import PredictionData
 from app.services.runtime_operations import coordinator, run_blocking
 from app.services.windows_printer import print_prediction_label
@@ -25,9 +26,9 @@ def serialize_job(job):
     )
 
 
-async def create_job(db, scan, user, body):
+async def create_job(db, scan, user, body, *, demo=False):
     try:
-        data = PredictionData.from_scan(scan)
+        data = PredictionData.from_scan(scan, demo=demo)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     settings = get_settings()
@@ -47,10 +48,22 @@ async def create_job(db, scan, user, body):
     created = inserted.scalar_one_or_none() is not None
     job = (await db.execute(select(PrintJob).where(PrintJob.id == body.request_id))).scalar_one()
     if (job.owner_id != user.id or job.prediction_id != scan.id
-            or job.quantity != body.quantity):
+            or job.quantity != body.quantity
+            or bool(job.label_data.get("demo", False)) != demo):
         raise HTTPException(409, "This print request ID was already used for another action.")
     await db.commit()
     return job, created
+
+
+async def queue_automatic_label(db, scan, user, background_tasks):
+    """Called by the trigger route only after the successful pipeline commit."""
+    request = LabelPrintRequest(
+        request_id=uuid5(scan.id, "bananavision:automatic-label:v1"), quantity=1,
+    )
+    job, created = await create_job(db, scan, user, request)
+    if created:
+        background_tasks.add_task(submit_job, job.id)
+    return serialize_job(job)
 
 
 async def retry_job(db, job, expected_attempt):

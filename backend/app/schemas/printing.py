@@ -34,3 +34,17 @@ class LabelPrintRequest(BaseModel):
 
 class RetryPrintRequest(BaseModel):
     expected_attempt: int = Field(ge=1, strict=True)
+
+
+class KioskDemoRequest(BaseModel):
+    request_id: uuid.UUID
+    model_config = {"extra": "forbid"}
+
+
+class LabelPreviewResponse(BaseModel):
+    payload: str
+    panel: tuple[str, ...]
+    printer_name: str
+    max_quantity: int
+    width_mm: float
+    height_mm: float

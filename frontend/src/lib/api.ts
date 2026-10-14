@@ -8,7 +8,8 @@ import { getToken, clearAuth } from "@/lib/auth"
 import type { DashboardScanPage, DashboardScanParams, DashboardSummary } from "@/types/dashboard"
 import type { ScanLogPage, ScanLogParams } from "@/types/scanLogs"
 import type { ApiScan, ApiScanNote, RecordPage } from "@/lib/scanData"
-import type { LabelPreview, PrintJob } from "@/types/printing"
+import type { KioskDemoResponse, LabelPreview, PrintJob } from "@/types/printing"
+import type { CameraDiscovery } from "@/types/cameras"
 import type { InventoryStatus, IntakeStatus } from "@/types"
 import type { AnalyticsRange, AnalyticsSummary, AnalyticsOperator } from "@/types/analytics"
 import type { ApiConfigUpdate, MaintenanceOperation, MaintenanceStatus, RestoreValidation, ApiActivity, ApiConfig, ApiDevice, ApiIntake, ApiMessage, ApiNotification, ApiSensor, ApiSupplier, ApiSupplierWrite, ApiUser, ApiUserCreate, ApiUserCreated, ApiUserUpdate } from "@/types/api"
@@ -60,8 +61,10 @@ async function request<T>(
     throw Object.assign(new Error("Backend unavailable — please check the server and retry"), { status: 0 })
   }
 
-  // Handle 401 — token expired / invalid
-  if (res.status === 401) {
+  // Credential rejection must not expire an existing operator/admin session.
+  const isCredentialSubmission = path === "/api/v1/auth/login" || path === "/api/v1/auth/swap"
+  // Handle 401 — token expired / invalid on protected requests.
+  if (res.status === 401 && !isCredentialSubmission) {
     clearAuth()
     window.location.href = "/login"
     throw new Error("Session expired")
@@ -158,6 +161,8 @@ export const api = {
 
   // ── Scans ────────────────────────────────────────────────────────────────
   scans: {
+    kioskDemo: (id: string, requestId: string) =>
+      post<KioskDemoResponse>(`/api/v1/scans/${id}/kiosk-demo`, { request_id: requestId }),
     label: (id: string) => get<LabelPreview>(`/api/v1/scans/${id}/label`),
     print: (id: string, data: { request_id: string; quantity: number }) =>
       post<PrintJob>(`/api/v1/scans/${id}/print`, data),
@@ -218,6 +223,7 @@ export const api = {
 
   // ── Cameras ─────────────────────────────────────────────────────────────
   cameras: {
+    discover: (signal?: AbortSignal) => get<CameraDiscovery>("/api/v1/cameras/discovery", undefined, signal),
     map: (device_ids: number[], expected_revision: number) => post<ApiConfig>("/api/v1/cameras/mapping", { device_ids, expected_revision }),
     list: (signal?: AbortSignal) => get<{ device_id: number; camera_id: string; label: string; online: boolean }[]>("/api/v1/cameras", undefined, signal),
   },

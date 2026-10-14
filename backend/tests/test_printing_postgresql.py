@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
+from fastapi import BackgroundTasks
 from sqlalchemy import func, select
 
 from app.core import database
@@ -50,3 +51,26 @@ async def test_concurrent_manual_delivery_and_workers_print_once(station, monkey
         job = await db.get(PrintJob, body.request_id)
         assert job.status == "SUBMITTED" and job.windows_job_id == 456
         assert job.attempt_count == 1
+
+
+async def test_automatic_slot_is_unique_under_concurrent_requests(station):
+    x = station
+    async with x.sessions() as db:
+        db.add(ScanClassification(
+            scan_id=x.scan, cultivar="Lakatan", ripeness="Ripe", confidence=95,
+            spoilage_days="3-5", finger_count=7,
+        ))
+        await db.commit()
+
+    async def enqueue():
+        async with x.sessions() as db:
+            scan = await db.get(Scan, x.scan)
+            tasks = BackgroundTasks()
+            job = await print_jobs.queue_automatic_label(
+                db, scan, SimpleNamespace(id=x.actors[0]), tasks,
+            )
+            return job.id, len(tasks.tasks)
+
+    results = await asyncio.gather(enqueue(), enqueue(), enqueue())
+    assert len({job_id for job_id, _ in results}) == 1
+    assert sum(task_count for _, task_count in results) == 1

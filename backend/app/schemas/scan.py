@@ -11,6 +11,7 @@ from app.schemas.timestamps import Timestamp
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from .enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
+from .printing import LabelPreviewResponse, PrintJobResponse
 
 
 # ── Requests ─────────────────────────────────────────────────────────────────
@@ -134,6 +135,8 @@ class ScanImageRef(BaseModel):
 class ScanResponse(BaseModel):
     id: uuid.UUID
     revision: int
+    print_job: PrintJobResponse | None = None
+    print_error: str | None = None
     date_time: Timestamp
     cultivar: CultivarEnum | None
     ripeness: RipenessEnum | None
@@ -183,6 +186,12 @@ class ScanDetailResponse(ScanResponse):
     images: list[ScanImageResponse] = []
     notes: list[ScanNoteResponse] = []
     history: list[ScanHistoryResponse] = []
+
+
+class KioskDemoResponse(BaseModel):
+    scan: ScanDetailResponse
+    label: LabelPreviewResponse
+    print_job: PrintJobResponse
 
 
 class PublicScanImageRef(BaseModel):

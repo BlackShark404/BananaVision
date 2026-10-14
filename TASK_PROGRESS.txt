@@ -1,58 +1,73 @@
-CURRENT RESUME HERE (2026-10-13) - MANUAL SCAN LOGS LABEL PRINTING IMPLEMENTED
-BRANCH main; changes are uncommitted.
-Prior checkpoints preserved under docs/history/2026-10-13-*before*printing.txt.
+CURRENT RESUME HERE (2026-10-14) - MODEL/SCAN FIXES VERIFIED; WINDOWS PRINTER NOW NORMAL
+BRANCH main; all work uncommitted. Prior camera, PIN, printing/demo work and model files preserved.
+Previous checkpoint archived: docs/history/2026-10-14-before-printer-queue-recovery.txt.
 
-CURRENT SCOPE / USER DECISION
-- Test existing predictions from Scan Logs with a quantity limit first.
-- Automatic printing from Scan Now is DEFERRED until physical labels are verified.
-- Preserve the existing public /track QR workflow and unrelated committed work.
+CURRENT USER SCOPE / COMPLETED
+- Latest log6cc985ca reports spoilage dict.predict failure, POST scan serialization
+  MissingGreenlet at inventory_facts(scan.intake), and TP870 S Windows ERROR.
+- User model copies and configured weights copies are byte-identical; no missing model
+  or path change needed. YOLO loads/detects; trained files were not replaced.
+- SpoilagePredictor now accepts saved {model, metadata} bundles and plain estimators.
+  Extracts the embedded forest, validates 4/6-feature count, honors training column order
+  and encoding maps, normalizes Semi-Ripe training label to backend Semi Ripe.
+  Existing legacy support/rule fallback retained; invalid bundle metadata rejected.
+- Actual user RFR bundle successfully predicted three synthetic scenarios with fallback
+  forbidden. Real loaded estimator now uses six enhanced features rather than dict.predict.
+- New pipeline Scan initializes intake relationship and empty notes for synchronous
+  response serialization. Unknown requested intake explicitly404 before persistence,
+  preventing accidental silent conversion into an unlinked scan.
+- Fresh results for Admin/Operator with/without linked intake return successfully, keep
+  provenance, and queue one automatic label. No implicit serialization SQL/async lazy load.
+- Printer error now explains Windows driver/spooler fault and no new document submitted,
+  guides Windows queue/test page before explicit retry. Real ERROR gates remain intact.
+- Prior four cameras physically confirmed online on direct laptop USB ports, mapping0,1,3,2.
+  Prior PIN503 cancellation fix retained. User PIN1234 not reset or inspected.
 
-DONE
-- Scan Logs QR modal prints saved prediction data through FastAPI and Windows GDI.
-- Quantity 1-10 per deliberate batch, validated on frontend and backend.
-- 40 x 30 mm stock, exact configured TP870 S queue, four-module QR quiet zone.
-- QR/panel use saved ripeness, spoilage DAYS, 0-100 confidence and available sensors.
-- QUEUED/SUBMITTED/FAILED status, background worker, spool ID, explicit failed-job retry.
-- Durable scan_label_print_job table stores immutable snapshot, quantity, attempts/errors.
-- Request UUID uniqueness and atomic worker/retry claims prevent duplicate delivery.
-- 0008_windows_label_jobs follows the pre-existing 0007 compatibility placeholder.
-- Preserved user's 0007 file; extended their existing migration-test head update.
-- Print receipts excluded from data archive restore/replay, verified by regression.
-- docs/PRINTING_INTEGRATION.md has setup, exact changed files, flow and limitations.
-- Existing public tracking milestone retained: /api/v1/scans/{id}/track and /track/:id;
-  tracking QR URLs remain available outside the new prediction-label modal.
+WINDOWS PRINTER / VERIFIED CURRENT STATE
+- Initial read-only inspection: TP870 S on USB001 with installed driver, Windows ERROR,
+  WorkOffline=True, stalled job25 Error+Printing+Retained and jobs26/27 waiting.
+- Latest read-only recheck: PrinterStatus=Normal, queue EMPTY, WorkOffline=False,
+  Spooler Running, present TP870 S Printer and PrintQueue PnP statuses OK.
+- No duplicate TP870 S copy queue; USB001 remains the correct installed port.
+- State changed externally during investigation. Agent made no queue/setting/service
+  changes and submitted no labels. Empty queue alone cannot establish physical output.
+- Earlier asynchronous permission request to cancel job25 is OBSOLETE; user told to
+  disregard it. Do not cancel anything based on a late reply; no live target remains.
+- Printer fault recovery currently needs no queue intervention. Confirm actual label
+  output on user side; preserve real Windows ERROR gates if a fault returns.
 
 VERIFIED RESULTS
-- Backend ran from fresh temporary cwd, avoiding station .env.
-- Final full run: 280 passed, 1 deselected in 170.09s. Deselected idle-WebSocket
-  revocation test passed separately (1 passed in 3.78s) after a repeat hung.
-- PostgreSQL cases used unique schemas on disposable port 56917.
-- Disposable server STOPPED. Automatic approval review blocked directory deletion
-  with 'blocked by policy'. Remaining stopped test files:
-  C:/Users/Kent/AppData/Local/Temp/bv-print-pg-af9c797c13fc4b72a6103baa27afe942
-- Frontend full node suite: 82 passed, 5 failed. Same failures reproduced on untouched
-  HEAD in a temp copy: 2 connectivity, 2 dashboard review links, 1 maintenance UI.
-- Final focused printing + scanrecords browser suite: 18 passed.
-- Frontend typecheck and production build pass.
-- Frontend lint: 43 existing errors + 8 existing warnings; no new diagnostics.
-- Backend Ruff: 639 existing diagnostics; new Python files clean; no added diagnostics
-  in changed existing files. New migration also lint-clean.
-- git diff --check passes; scoped diff reviewed.
-- Edge used for browser fixtures; Chrome absent. Tools in OS temp/bv-print-tools.
-- pywin32 was already installed in backend/venv; no production dependency changes.
+- Backend imported from fresh temporary cwd, isolated SQLite/generated joblib fixtures.
+- Broader 139 passed in44.90s: test_spoilage_models, test_scan_trigger,
+  test_time_and_writes, test_scan_records, test_scan_snapshots, test_scan_evidence,
+  test_printer_readiness, test_printing, test_kiosk_printing, test_configuration,
+  test_station_owner, test_kiosk_pin. After missing-intake safeguard, targeted
+  scan_trigger/time_and_writes/kiosk_printing 47 passed in7.30s.
+- New test_scan_trigger_postgresql + existing test_printing_postgresql +
+  test_station_owner_postgresql:10 passed in9.96s on disposable PostgreSQL.
+  Proved zero serializer SQL, detached fresh graphs, real saved/once-claimed print receipts
+  with GDI mocked, unknown intake404, cancellation and true ownership-loss boundaries.
+- Frontend node --test --test-concurrency=1 tests/printing.test.mjs tests/kiosk.test.mjs:
+  7/7 passed in41.71s, mocked API/printing in Edge.
+- npm.cmd run typecheck passes; npm.cmd run build passes (Vite14.29s).
+- Configured Ruff635 existing diagnostics; new tests clean/no new source diagnostics.
+- Configured frontend lint43 existing errors+8 warnings, unchanged/no new regressions.
+- Independent model/scan/printer reviews and scoped diff completed; git diff --check passes.
+- Lint reports: C:\Users\Kent\AppData\Local\Temp\bv-model-print-checks-xyjrnrva.
+- Disposable PostgreSQL bv-scan-pg-watjjarn/data port60349 stopped and removed.
 
-CONSTRAINTS / LIMITATIONS
-- No physical print, live station DB/migration, captures, cameras, power or deployment.
-- No commit/push/merge; no branches/worktrees; separate printer tester untouched.
-- SUBMITTED confirms Windows acceptance, not physical output.
-- Uncertain jobs are not replayed automatically. Inspect the Windows queue before
-  a new batch or retry; an error can occur after some labels have already printed.
-- Keep the modal open while checking a batch; closing does not cancel background work.
-- Existing Scan Detail tracking QR/browser-print action remains outside this stage.
+CONSTRAINTS / LIMITS
+- No station .env/secrets/database/captures/camera/sensor/physical print/OS power tests.
+  Printer inspection read-only; all regression printer modules/GDI mocked.
+- No dependency/model/credential change, backend restart/deployment, commit/push/history rewrite.
+- sklearn1.6.1-trained forest versus installed1.8.0 warning remains. Synthetic predictions
+  work, but cross-version persistence is unsupported; no automatic environment downgrade.
+- Preserve unrelated user changes and previous UI layout and timestamps.
 
 EXACT NEXT STEP
-- User restarts backend through normal procedure to load settings/migration,
-  confirms official TP870 S driver and 40 x 30 mm stock, then opens Scan Logs ->
-  QR -> quantity 1 -> Print labels.
-- Verify physical alignment, QR payload, exact copy count and offline/retry behavior.
-- After physical acceptance, implement the deferred Scan Now auto-print stage.
+- User restarts backend normally once, refreshes browser and retries a normal scan.
+  Expect enhanced6-feature RFR loading and a persisted scan response withoutMissingGreenlet.
+- User confirms actual TP870 S label output using the now-normal Windows queue.
+- If Windows ERROR returns, inspect fresh exact queue/job/status and USB/power/media/
+  cover evidence. Do not act on historicaljob25 or clear/cancel live output without
+  explicit authorization under AGENTS.md.

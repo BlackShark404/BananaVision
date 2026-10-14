@@ -40,6 +40,17 @@ const KEYPAD_KEYS = [
   ["", "0", "backspace"],
 ] as const
 
+function showPinRequestError(error: unknown, fallbackTitle: string) {
+  const status = (error as { status?: number } | null)?.status
+  const detail = error instanceof Error ? error.message : "Unable to contact the station."
+  toast.error(
+    status === 429 ? "Too many PIN attempts"
+      : status === 503 || status === 0 ? "Kiosk temporarily unavailable"
+        : fallbackTitle,
+    { description: status === 429 ? detail : `${detail} Please retry when the station is ready.` },
+  )
+}
+
 // ── Helper: Initials ───────────────────────────────────────────────────────
 
 function getInitials(name: string) {
@@ -247,6 +258,9 @@ export default function KioskOperatorSwap({
           setPin("")
           triggerShake()
         }
+      } catch (error) {
+        showPinRequestError(error, "Unable to verify PIN")
+        setPin("")
       } finally {
         setIsProcessing(false)
       }
@@ -282,6 +296,11 @@ export default function KioskOperatorSwap({
           setConfirmPin("")
           setPhase("new-pin")
         }
+      } catch (error) {
+        showPinRequestError(error, "Unable to update PIN")
+        setNewPin("")
+        setConfirmPin("")
+        setPhase("new-pin")
       } finally {
         setIsProcessing(false)
       }

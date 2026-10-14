@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import SecretStr, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -34,6 +35,7 @@ class Settings(BaseSettings):
     bananavision_printer_name: str = "TP870 S"
     bananavision_label_width_mm: float = Field(40, ge=20, le=110)
     bananavision_label_height_mm: float = Field(30, ge=20, le=300)
+    bananavision_auto_print: bool = False
 
     # ── Database ─────────────────────────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://bv_user:bv_pass@localhost:5432/bananavision"
@@ -55,6 +57,10 @@ class Settings(BaseSettings):
     camera_capture_timeout_ms: int = 3000
     camera_autofocus: bool = False
     camera_manual_focus_value: int = 25
+    # auto uses DirectShow on Windows; explicit overrides help driver compatibility.
+    camera_backend: Literal["auto", "dshow", "msmf"] = "auto"
+    camera_fps: int = Field(15, ge=1, le=60)
+    camera_fourcc: str = Field("MJPG", min_length=4, max_length=4)
 
     # ── Sensor ───────────────────────────────────────────────────────────────
     sensor_serial_port: str = "/dev/ttyUSB0"

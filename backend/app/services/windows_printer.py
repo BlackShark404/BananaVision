@@ -143,9 +143,15 @@ def _get_installed_printer(printer_name: str) -> PrinterInfo:
             f'Printer "{printer_name}" is not installed. Check USB and the official driver.'
         )
     if not match.is_ready:
+        detail = (
+            "Windows reports a driver/spooler error without a specific paper or connection status. "
+            if match.status == "ERROR" else ""
+        )
         raise PrinterServiceError(
             f'Printer "{match.name}" reports {match.status}. '
-            "Check power, USB, labels, and the Windows print queue."
+            f"{detail}No new label document was submitted. "
+            "Check power, USB, labels, and the Windows print queue. "
+            "Confirm a Windows test page works before retrying this label."
         )
     return match
 

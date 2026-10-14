@@ -31,6 +31,10 @@ TREATMENT_MAP = {TreatmentEnum.NATURAL.value: 0, TreatmentEnum.ETHEPHON.value: 1
 
 LEGACY_FEATURE_COUNT = 4
 ENHANCED_FEATURE_COUNT = 6  # + [vpd, treatment]
+LEGACY_FEATURE_COLUMNS = (
+    "cultivar_encoded", "ripeness_encoded", "temperature", "humidity",
+)
+ENHANCED_FEATURE_COLUMNS = LEGACY_FEATURE_COLUMNS + ("vpd", "treatment_encoded")
 
 
 class SpoilagePredictor:
@@ -54,7 +58,14 @@ class SpoilagePredictor:
     def __init__(self):
         self._model = None
         self._loaded = False
+        self._reset_feature_metadata()
+
+    def _reset_feature_metadata(self) -> None:
         self._n_features: int = LEGACY_FEATURE_COUNT
+        self._feature_columns = LEGACY_FEATURE_COLUMNS
+        self._cultivar_map = CULTIVAR_MAP.copy()
+        self._ripeness_map = RIPENESS_MAP.copy()
+        self._treatment_map = TREATMENT_MAP.copy()
 
     @property
     def is_loaded(self) -> bool:
@@ -63,10 +74,73 @@ class SpoilagePredictor:
     @property
     def uses_enhanced_features(self) -> bool:
         """True if the loaded model expects engineered chemical features."""
-        return self._n_features >= ENHANCED_FEATURE_COUNT
+        return self._n_features == ENHANCED_FEATURE_COUNT
+
+    @staticmethod
+    def _training_encoding(metadata: dict, key: str, default: dict) -> dict:
+        """Convert training's code-to-label maps to the app's label-to-code maps."""
+        raw_map = metadata.get(key)
+        if raw_map is None:
+            return default.copy()
+        if not isinstance(raw_map, dict):
+            raise ValueError(f"Invalid RFR {key} metadata")
+
+        def normalized(label: str) -> str:
+            return " ".join(label.casefold().replace("-", " ").replace("_", " ").split())
+
+        labels = {normalized(label): label for label in default}
+        encoding = {}
+        for code, label in raw_map.items():
+            if (
+                isinstance(code, bool) or not isinstance(code, (int, np.integer))
+                or code < 0 or not isinstance(label, str)
+            ):
+                raise ValueError(f"Invalid RFR {key} entry")
+            canonical = labels.get(normalized(label))
+            if canonical is None or canonical in encoding:
+                raise ValueError(f"Unknown or duplicate RFR {key} label: {label}")
+            encoding[canonical] = int(code)
+        if set(encoding) != set(default):
+            raise ValueError(f"Incomplete RFR {key} metadata")
+        return encoding
+
+    def _configure_artifact(self, artifact) -> None:
+        """Accept bare estimators and training bundles with their feature metadata."""
+        model = artifact.get("model") if isinstance(artifact, dict) else artifact
+        metadata = artifact.get("metadata", {}) if isinstance(artifact, dict) else {}
+        if not callable(getattr(model, "predict", None)):
+            raise ValueError("RFR artifact does not contain a prediction model")
+        if not isinstance(metadata, dict):
+            raise ValueError("RFR bundle metadata must be a dictionary")
+
+        columns = metadata.get("feature_columns")
+        feature_count = getattr(model, "n_features_in_", None)
+        if feature_count is None:
+            feature_count = len(columns) if columns is not None else LEGACY_FEATURE_COUNT
+        if feature_count not in (LEGACY_FEATURE_COUNT, ENHANCED_FEATURE_COUNT):
+            raise ValueError(f"Unsupported RFR feature count: {feature_count}")
+        expected = (
+            ENHANCED_FEATURE_COLUMNS if feature_count == ENHANCED_FEATURE_COUNT
+            else LEGACY_FEATURE_COLUMNS
+        )
+        columns = tuple(columns) if columns is not None else expected
+        if len(columns) != feature_count or set(columns) != set(expected):
+            raise ValueError("RFR training feature columns do not match the model")
+
+        cultivar_map = self._training_encoding(metadata, "cultivar_map", CULTIVAR_MAP)
+        ripeness_map = self._training_encoding(metadata, "ripeness_map", RIPENESS_MAP)
+        treatment_map = self._training_encoding(metadata, "treatment_map", TREATMENT_MAP)
+        self._model = model
+        self._n_features = int(feature_count)
+        self._feature_columns = columns
+        self._cultivar_map = cultivar_map
+        self._ripeness_map = ripeness_map
+        self._treatment_map = treatment_map
 
     def load(self) -> None:
         """Load RFR model from .joblib file. Call once at startup."""
+        self._model = None
+        self._reset_feature_metadata()
         try:
             import joblib
 
@@ -82,19 +156,12 @@ class SpoilagePredictor:
                 self._loaded = True
                 return
 
-            self._model = joblib.load(model_path)
+            self._configure_artifact(joblib.load(model_path))
             self._loaded = True
-
-            # Auto-detect feature count from the loaded model
-            if hasattr(self._model, "n_features_in_"):
-                self._n_features = self._model.n_features_in_
-                logger.info(
-                    f"RFR model loaded — expects {self._n_features} features "
-                    f"({'enhanced' if self.uses_enhanced_features else 'legacy'} mode)"
-                )
-            else:
-                self._n_features = LEGACY_FEATURE_COUNT
-                logger.info("RFR model loaded (legacy mode, feature count unknown)")
+            logger.info(
+                f"RFR model loaded — expects {self._n_features} features "
+                f"({'enhanced' if self.uses_enhanced_features else 'legacy'} mode)"
+            )
 
         except Exception as exc:
             logger.error(f"Failed to load RFR model: {exc}")
@@ -142,21 +209,25 @@ class SpoilagePredictor:
     ) -> str:
         """Use the loaded RFR model for prediction."""
         try:
-            cultivar_enc = CULTIVAR_MAP.get(cultivar, 0)
-            ripeness_enc = RIPENESS_MAP.get(ripeness, 1)
+            values = {
+                "cultivar_encoded": self._cultivar_map.get(
+                    cultivar, self._cultivar_map[CultivarEnum.LAKATAN.value],
+                ),
+                "ripeness_encoded": self._ripeness_map.get(
+                    ripeness, self._ripeness_map[RipenessEnum.SEMI_RIPE.value],
+                ),
+                "temperature": temperature,
+                "humidity": humidity,
+            }
 
             if self.uses_enhanced_features:
                 # Compute VPD if not provided
-                v = vpd if vpd is not None else calc_vpd(temperature, humidity)
-                treat_enc = TREATMENT_MAP.get(treatment, 0) if treatment else 0
+                values["vpd"] = vpd if vpd is not None else calc_vpd(temperature, humidity)
+                values["treatment_encoded"] = self._treatment_map.get(
+                    treatment, self._treatment_map[TreatmentEnum.NATURAL.value],
+                )
 
-                features = np.array([[
-                    cultivar_enc, ripeness_enc, temperature, humidity,
-                    v, treat_enc,
-                ]])
-            else:
-                # Legacy 4-feature model
-                features = np.array([[cultivar_enc, ripeness_enc, temperature, humidity]])
+            features = np.array([[values[column] for column in self._feature_columns]])
 
             prediction = float(self._model.predict(features)[0])
 

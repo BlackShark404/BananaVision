@@ -77,6 +77,8 @@ function ScanStore({ children }: { children: React.ReactNode }) {
     const known = knownScans.current.get(incoming.id)
     if ((known?.revision ?? 0) > (incoming.revision ?? 0)) return known!
     const saved = { ...known, ...incoming,
+      printJob: raw.print_job == null ? known?.printJob : incoming.printJob,
+      printError: raw.print_error == null ? known?.printError : incoming.printError,
       images: raw.images === undefined ? known?.images : incoming.images,
       detections: raw.detections === undefined ? known?.detections : incoming.detections,
       notes: raw.notes === undefined ? known?.notes : incoming.notes,

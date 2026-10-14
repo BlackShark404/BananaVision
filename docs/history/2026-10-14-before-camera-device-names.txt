@@ -1,0 +1,50 @@
+CURRENT RESUME HERE (2026-10-14) - FOUR-CAMERA CONFIGURATION FIX VERIFIED
+BRANCH main; changes are uncommitted. Existing kiosk/printing work preserved.
+Prior checkpoint: docs/history/2026-10-14-before-four-camera-fix.txt.
+
+CURRENT SCOPE / COMPLETED
+- User narrowed request to camera access only; model work is excluded.
+- Logs show [0,1], online 2/2: only two saved slots, not automatic device discovery.
+- Existing calibration could reorder saved slots but could not add missing cameras.
+- Scanner Config now adds up to four slots and edits per-slot physical indices.
+- AdminContext persists camera_device_ids with logical IDs through existing config PATCH.
+- Drafts survive refresh; duplicates/empty/negative/fractional indices cannot save.
+- Existing revision checks, administrator authorization, commit-before-hardware application,
+  partial/offline health reporting and retry behavior retained. No schema migration.
+- Windows auto backend selects DirectShow and requests MJPG/15 FPS before warmup.
+  CAMERA_BACKEND=msmf is an explicit deployment override. Non-Windows auto unchanged.
+- Local backend/.env camera seed now contains four indices [0,1,2,3] and four labels;
+  environment parsing verified. Existing saved System Configuration remains authoritative.
+- Failed opens release handles before warmup. Four handles/captures verified with mocks.
+- Setup and hardware acceptance steps: docs/FOUR_CAMERA_SETUP.md.
+
+VERIFIED RESULTS
+- Backend isolated temporary cwd: 90 passed in 19.54s across test_camera_windows,
+  test_configuration, test_time_and_writes, test_assigned_fixes, test_maintenance_integration.
+- After logging-only formatting: Windows-camera suite 4 passed in 1.77s.
+- Browser maintenance: 11 passed, 1 existing failure in 26.15s (calibration partial-result
+  alert locator timeout, already recorded in prior checkpoint). All 3 new tests pass.
+- Kiosk browser regressions: 4 passed in 64.38s. Mock APIs, Edge channel, local Playwright.
+- Frontend npm.cmd run typecheck passes; npm.cmd run build passes (Vite 26.19s).
+- Configured lint: backend 638 existing Ruff diagnostics; frontend 43 errors + 8 warnings.
+  Changed source diagnostics compared against HEAD: no additions. New backend tests clean.
+- git diff --check passes; scoped implementation/tests reviewed.
+- Backend tests use in-memory isolated fixtures; no PostgreSQL-dependent changes/tests.
+- Lint reports: C:\Users\Kent\AppData\Local\Temp\bv-camera-checks-vlvimzzh
+
+CONSTRAINTS / PENDING ACCEPTANCE
+- No live station database, .env, cameras, captures, sensor, printer or OS power tested/edited.
+- Saved station configuration was not changed. No restart, deployment, commit or push.
+- Local backend/.env was updated to seed four cameras; it is ignored by Git and was not
+  printed or committed.
+- Device Manager shows five devices including ACER webcam; actual external indices remain
+  unverified. Do not infer OpenCV ordering from that screenshot or auto-overwrite saved slots.
+- Four simultaneous physical USB feeds still require station acceptance.
+- Missing trained model remains outside this narrowed camera-only request.
+
+EXACT NEXT STEP
+- User restarts backend and refreshes UI. Admin > System Configuration > Scanner Config:
+  Add Camera twice (from two slots), assign four distinct physical indices, Save Changes.
+- Check all four previews in Calibrate Camera Positions. Exclude laptop webcam; [1,2,3,4]
+  is only a candidate if built-in webcam is index 0. Correct and save indices as needed.
+- Confirm four online devices; use Retry Applying Cameras after reconnecting hardware.

@@ -5,8 +5,9 @@ Scan routes — trigger scans, CRUD, flagging, notes, overrides.
 from __future__ import annotations
 
 import uuid
+import logging
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from sqlalchemy import desc, func, select
 from app.core.http import get_client_ip
 from sqlalchemy.orm import selectinload
@@ -43,12 +44,18 @@ from app.services.scan_records import (
 )
 from app.services.scan_evidence import evidence_url
 from app.services.scan_service import execute_scan_pipeline
+from app.config import get_settings
+from app.services.print_jobs import queue_automatic_label
 
 router = APIRouter(prefix="/scans", tags=["Scans"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/trigger", response_model=ScanResponse)
-async def trigger_scan(body: ScanTriggerRequest, db: DbSession, user: CurrentUser, request: Request):
+async def trigger_scan(
+    body: ScanTriggerRequest, db: DbSession, user: CurrentUser,
+    request: Request, background_tasks: BackgroundTasks,
+):
     """Trigger a full scan pipeline (capture → detect → fuse → predict)."""
     if not user.operator_profile:
         raise NotFoundException("OperatorProfile")
@@ -66,7 +73,19 @@ async def trigger_scan(body: ScanTriggerRequest, db: DbSession, user: CurrentUse
     except ModelInferenceError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
-    return serialize_scan(scan, user)
+    response = serialize_scan(scan, user)
+    if get_settings().bananavision_auto_print:
+        try:
+            response.print_job = await queue_automatic_label(db, scan, user, background_tasks)
+        except Exception:
+            # The prediction has already committed. Printing cannot invalidate it.
+            await db.rollback()
+            logger.exception("Could not queue automatic label for scan %s", response.id)
+            response.print_error = (
+                "Prediction saved, but its label could not be queued. "
+                "Check the server log and print status before printing from Scan Logs."
+            )
+    return response
 
 
 @router.get("", response_model=ScanListResponse)

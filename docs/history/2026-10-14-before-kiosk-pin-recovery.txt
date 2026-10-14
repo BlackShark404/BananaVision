@@ -1,0 +1,52 @@
+CURRENT RESUME HERE (2026-10-14) - FOUR PHYSICAL FEEDS CONFIRMED; STARTUP CLEANUP VERIFIED
+BRANCH main; all work uncommitted. Prior kiosk/printing, named-camera UI and user models preserved.
+Prior checkpoint: docs/history/2026-10-14-before-camera-startup-cleanup.txt.
+
+CURRENT USER SCOPE / COMPLETED
+- User confirmed USB hub bottleneck: cameras moved directly to laptop ports and screenshot
+  shows all four ONLINE with live images. Physical mapping 0,1,3,2; index4 is OBS virtual.
+- Additional recovery/fallback implementation was interrupted during cleanup after hardware
+  solved the problem. User's latest log crashed on missing Settings.camera_usb_fallback.
+- Finished removing the unused group fallback, reconnect, diagnostics and modal polling
+  experiment. No camera_usb_fallback/reconnect/active_profile/device_diagnostics references
+  remain in app/frontend. No silent resolution reduction or new deployment flags.
+- Restored pre-task startup/devices/configuration services and their unchanged tests;
+  retained previously verified named-device selection and four-camera mapping functionality.
+- Retained small DirectShow fix: FPS first, resolution next, FOURCC last, so FPS graph rebuild
+  cannot undo the MJPG request. Regression simulates driver FPS reset to YUY2 and proves four
+  valid captures after the final compressed format request.
+- docs/FOUR_CAMERA_SETUP.md records confirmed direct-port connection, mapping and setup order.
+- Latest sklearn warning (model1.6.1 versus installed1.8.0) is separate from startup crash.
+  Models load in supplied log; no estimator compatibility changes performed.
+
+VERIFIED RESULTS
+- Backend isolated temporary cwd: 99 passed in24.21s across test_camera_windows,
+  test_camera_discovery, test_configuration, test_time_and_writes, test_assigned_fixes,
+  test_maintenance_integration. Focused camera/API suite32 passed in2.73s.
+- Frontend camera config/named selection browser regressions5 passed in6.62s.
+  These are mocked API/WebSocket checks in Edge, without hardware/station access.
+- npm.cmd run typecheck passes; npm.cmd run build passes (Vite22.47s).
+- Configured backend lint638 existing diagnostics; new test clean; no new source diagnostics.
+- Configured frontend lint43 existing errors+8 warnings; changed camera frontend matches
+  the previously verified implementation.
+- git diff --check passes; scoped cleanup diff reviewed; no unfinished recovery files remain.
+- Previous full maintenance+kiosk browser run retained1 existing calibration alert test timeout.
+- Lint reports: C:\Users\Kent\AppData\Local\Temp\bv-camera-startup-checks-lv08bvme
+
+CONSTRAINTS
+- No live station DB, .env, camera streams, captures, sensor, printer or OS power tested/edited.
+- User supplied physical confirmation; agent only used isolated fixtures and mocked streams.
+- No backend restart/deployment, commit/push/history rewrite performed.
+- User model files and unrelated prior uncommitted work preserved.
+- Standard earlier camera health/retry behavior retained; no new automatic recovery policy.
+
+EXACT NEXT STEP
+- User restarts backend normally to clear the failed startup process and refreshes browser.
+- Expect camera initialization without missing Settings attribute, and four feeds on the
+  confirmed direct laptop ports using saved0,1,3,2 mapping. No mapping/.env rewrite needed.
+- If another error appears, inspect the new first exception; do not treat the previous
+  subsequent event-loop-closed cleanup errors as the initiating failure.
+
+ACTIVE ISOLATED PIN/OWNER VERIFICATION: C:\Users\Kent\AppData\Local\Temp\bv-pin-pg-e0riwfol\data, port51669. No station DB used.
+
+ACTIVE ISOLATED PIN/OWNER VERIFICATION: C:\Users\Kent\AppData\Local\Temp\bv-pin-pg-10pgrpki\data, port49884. No station DB used.

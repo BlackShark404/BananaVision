@@ -8,14 +8,32 @@ from sqlalchemy import select
 from app.api.deps import CurrentUser, DbSession
 from app.config import get_settings
 from app.models.print_job import PrintJob
-from app.schemas.printing import LabelPrintRequest, PrintJobResponse, RetryPrintRequest
+from app.schemas.enums import RipenessEnum
+from app.schemas.printing import (
+    KioskDemoRequest,
+    LabelPreviewResponse,
+    LabelPrintRequest,
+    PrintJobResponse,
+    RetryPrintRequest,
+)
+from app.schemas.scan import KioskDemoResponse
 from app.services import print_jobs
 from app.services.prediction_label import PredictionData
 from app.services.runtime_operations import run_blocking
-from app.services.scan_records import load_authorized_scan, scan_scope
+from app.services.scan_records import load_authorized_scan, scan_scope, serialize_detail
 from app.services.windows_printer import PrinterServiceError, list_printers
 
 router = APIRouter(tags=["Printing"])
+
+
+def label_preview(data):
+    settings = get_settings()
+    return LabelPreviewResponse(
+        payload=data.payload(), panel=data.panel(),
+        printer_name=settings.bananavision_printer_name, max_quantity=10,
+        width_mm=settings.bananavision_label_width_mm,
+        height_mm=settings.bananavision_label_height_mm,
+    )
 
 
 @router.get("/printers")
@@ -34,13 +52,33 @@ async def label(scan_id: UUID, db: DbSession, user: CurrentUser):
         data = PredictionData.from_scan(scan)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
-    settings = get_settings()
-    return {
-        "payload": data.payload(), "panel": data.panel(),
-        "printer_name": settings.bananavision_printer_name, "max_quantity": 10,
-        "width_mm": settings.bananavision_label_width_mm,
-        "height_mm": settings.bananavision_label_height_mm,
-    }
+    return label_preview(data)
+
+
+@router.post("/scans/{scan_id}/kiosk-demo", response_model=KioskDemoResponse)
+async def kiosk_demo(
+    scan_id: UUID, body: KioskDemoRequest, db: DbSession,
+    user: CurrentUser, background_tasks: BackgroundTasks,
+):
+    """Replay a saved prediction and print one DEMO label; never create a scan."""
+    scan = await load_authorized_scan(db, scan_id, user)
+    detail = await serialize_detail(db, scan, user)
+    job, created = await print_jobs.create_job(
+        db, scan, user, LabelPrintRequest(request_id=body.request_id, quantity=1), demo=True,
+    )
+    if created:
+        background_tasks.add_task(print_jobs.submit_job, job.id)
+    # Replayed requests must display the same values as their immutable printed label.
+    data = PredictionData(**job.label_data)
+    detail = detail.model_copy(update={
+        "ripeness": RipenessEnum(data.ripeness), "confidence": data.confidence,
+        "spoilage_days": data.spoilage_days,
+        "temperature": data.temperature, "humidity": data.humidity,
+    })
+    return KioskDemoResponse(
+        scan=detail, label=label_preview(data),
+        print_job=print_jobs.serialize_job(job),
+    )
 
 
 @router.post("/scans/{scan_id}/print", response_model=PrintJobResponse)

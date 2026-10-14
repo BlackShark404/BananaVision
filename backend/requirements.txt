@@ -78,3 +78,4 @@ watchfiles==1.1.1
 websockets==16.0
 
 pywin32; sys_platform == "win32"
+cv2-enumerate-cameras==1.4.0; sys_platform == "win32"

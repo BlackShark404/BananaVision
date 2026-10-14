@@ -28,7 +28,7 @@ from app.models.scan_detection import ScanDetection
 from app.models.scan_image import ScanImage
 from app.models.activity_log import ActivityLog
 from app.models.app_notification import AppNotification
-from app.core.exceptions import ModelInferenceError
+from app.core.exceptions import ModelInferenceError, NotFoundException
 from app.services.camera_manager import camera_manager
 from app.services.classification import banana_classifier
 from app.services.banana_detector import banana_pre_detector
@@ -235,7 +235,9 @@ async def _execute_scan_pipeline(
                 .execution_options(populate_existing=True)
             )
             intake_obj = intake_result.scalar_one_or_none()
-            if intake_obj and intake_obj.treatment:
+            if intake_obj is None:
+                raise NotFoundException("Intake")
+            if intake_obj.treatment:
                 intake_treatment = intake_obj.treatment
 
         spoilage_days = await run_blocking(spoilage_predictor.predict,
@@ -248,10 +250,14 @@ async def _execute_scan_pipeline(
         )
 
         # ── Step 7: Persist scan to DB ───────────────────────────────────
+        # New objects do not receive selectin eager loads. Initialize relationships
+        # read by response serialization so it cannot trigger implicit async DB I/O.
         scan = Scan(
             id=scan_id,
             operator_id=operator_id,
             intake_id=intake_id,
+            intake=intake_obj,
+            notes=[],
             date_time=now_manila(),
             flagged=fused.auto_flagged,
             source_text=supplier_name,

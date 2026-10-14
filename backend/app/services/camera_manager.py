@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 import threading
 import time
 from functools import wraps
@@ -20,6 +21,7 @@ import numpy as np
 
 from app.config import get_settings
 from app.core.exceptions import CameraError
+from app.services.camera_discovery import capture_backend
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -191,9 +193,29 @@ class CameraManager:
         for dev_id in self._device_ids:
             cap = None
             try:
-                cap = cv2.VideoCapture(dev_id)
+                backend, api = capture_backend(settings.camera_backend)
+                cap = cv2.VideoCapture(dev_id) if backend == "auto" else cv2.VideoCapture(
+                    dev_id, api,
+                )
+                if not cap.isOpened():
+                    results[dev_id] = False
+                    logger.error("Camera %s failed to open with backend %s", dev_id, backend)
+                    cap.release()
+                    continue
+                # DirectShow may rebuild the graph on FPS changes without preserving FOURCC.
+                if sys.platform == "win32" and not cap.set(cv2.CAP_PROP_FPS, settings.camera_fps):
+                    logger.warning(
+                        "Camera %s rejected requested FPS %s", dev_id, settings.camera_fps,
+                    )
                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, settings.camera_resolution_w)
                 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, settings.camera_resolution_h)
+                # Request compression last, after FPS and dimensions can rebuild the stream.
+                if sys.platform == "win32":
+                    if not cap.set(cv2.CAP_PROP_FOURCC,
+                                   cv2.VideoWriter_fourcc(*settings.camera_fourcc)):
+                        logger.warning(
+                            "Camera %s rejected format %s", dev_id, settings.camera_fourcc,
+                        )
 
                 if not settings.camera_autofocus:
                     cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)

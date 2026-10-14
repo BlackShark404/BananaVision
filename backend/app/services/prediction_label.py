@@ -15,9 +15,10 @@ class PredictionData:
     confidence: float
     temperature: float | None = None
     humidity: float | None = None
+    demo: bool = False
 
     @classmethod
-    def from_scan(cls, scan):
+    def from_scan(cls, scan, *, demo=False):
         result = scan.classification
         if (result is None or result.ripeness is None or result.confidence is None
                 or result.spoilage_days is None):
@@ -27,6 +28,7 @@ class PredictionData:
             float(result.confidence),
             float(result.temperature) if result.temperature is not None else None,
             float(result.humidity) if result.humidity is not None else None,
+            demo,
         )
 
     def payload(self) -> str:
@@ -39,12 +41,12 @@ class PredictionData:
             lines.append(f"TEMP={self.temperature:g}C")
         if self.humidity is not None:
             lines.append(f"HUMIDITY={self.humidity:g}%")
-        lines.append("TEST=LIVE")
+        lines.append("TEST=DEMO" if self.demo else "TEST=LIVE")
         return "\n".join(lines)
 
     def panel(self) -> tuple[str, ...]:
         return (
             "BANANAVISION", self.prediction_id[:8], self.ripeness,
             f"{self.spoilage_days} days", f"{self.confidence:g}%",
-            "PREDICTION",
+            "DEMO" if self.demo else "PREDICTION",
         )
