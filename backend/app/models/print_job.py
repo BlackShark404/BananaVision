@@ -1,4 +1,4 @@
-"""Durable, immutable label snapshots and Windows submission history."""
+"""Durable, immutable label snapshots and print submission history."""
 
 import uuid
 from datetime import datetime

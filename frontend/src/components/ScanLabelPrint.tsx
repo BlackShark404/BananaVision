@@ -100,9 +100,9 @@ export function ScanLabelPrint({ scanId, children }: { scanId: string; children?
     </div>
     <div role="status" className="text-xs">
       {job?.status === "QUEUED" && "Label queued"}
-      {job?.status === "SUBMITTED" && `${job.quantity} label(s) sent to ${job.printer_name}. Windows submission confirmed; check the printed labels.`}
+      {job?.status === "SUBMITTED" && `${job.quantity} label(s) sent to ${job.printer_name}. Submission confirmed; check the printed labels.`}
       {job?.status === "FAILED" && <p className="text-destructive">{job.error}</p>}
-      {pollingStopped && job?.status === "QUEUED" && <p>Submission is still unconfirmed. Check the Windows queue before creating another batch.</p>}
+      {pollingStopped && job?.status === "QUEUED" && <p>Submission is still unconfirmed. Check the print queue before creating another batch.</p>}
     </div>
     {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     {error && job && job.status !== "QUEUED" && <Button variant="outline" className="w-full" onClick={refresh}>Refresh print status</Button>}

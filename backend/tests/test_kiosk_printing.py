@@ -11,7 +11,7 @@ from app.api.v1 import scans
 from app.config import get_settings
 from app.core.exceptions import ModelInferenceError
 from app.models import Intake, PrintJob, Scan, ScanClassification
-from app.services.windows_printer import PrinterServiceError
+from app.services.printer_service import PrinterServiceError
 from tests.test_printing import station as station
 from tests.test_time_and_writes import application as application
 

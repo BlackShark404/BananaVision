@@ -1,4 +1,4 @@
-"""Windows label submission contracts."""
+"""Label submission contracts."""
 
 import uuid
 from typing import Literal

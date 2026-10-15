@@ -56,7 +56,7 @@ export function KioskPrintStatus({ scanId, initialJob }: { scanId: string; initi
       <p className="text-muted-foreground">Check for a partially printed label before retrying.</p>
       <Button variant="outline" size="sm" disabled={busy} onClick={() => act(true)}>RETRY PRINT</Button>
     </>}
-    {waiting && job.status === "QUEUED" && <p>Submission is unconfirmed. Check the Windows queue.</p>}
+    {waiting && job.status === "QUEUED" && <p>Submission is unconfirmed. Check the print queue.</p>}
     {error && <p role="alert" className="text-destructive">{error}</p>}
     {(job.status === "QUEUED" || error) && <Button variant="outline" size="sm" disabled={busy}
       onClick={() => act(false)}>Refresh print status</Button>}

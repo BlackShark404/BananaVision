@@ -13,7 +13,7 @@ from app.models.print_job import PrintJob
 from app.schemas.printing import LabelPrintRequest, PrintJobResponse
 from app.services.prediction_label import PredictionData
 from app.services.runtime_operations import coordinator, run_blocking
-from app.services.windows_printer import print_prediction_label
+from app.services.printer_service import print_prediction_label
 
 logger = logging.getLogger(__name__)
 
@@ -105,4 +105,4 @@ async def submit_job(job_id):
             await db.commit()
     except Exception:
         # The saved prediction and receipt survive even when final status cannot be written.
-        logger.exception("Could not complete label job %s; inspect the Windows queue", job_id)
+        logger.exception("Could not complete label job %s; inspect the print queue", job_id)
