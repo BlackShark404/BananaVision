@@ -207,7 +207,7 @@ function LogsContent() {
   }
 
   const exportToCSV = async () => {
-    if (resource.isPreviousData || resource.loading || !response) return
+    if (resource.isPreviousData || resource.loading) return
     setExporting(true)
     try {
       await api.scanLogs.export({ ...requestParams, snapshot_id: response?.snapshot_id }, AbortSignal.timeout(60_000))
@@ -413,7 +413,7 @@ const columns: ColumnDef<LogScan>[] = [
                 Clear Intake Filter
               </Button>
             )}
-            <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={exportToCSV} disabled={exporting || resource.loading || resource.isPreviousData || !response}>
+            <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={exportToCSV} disabled={exporting || resource.loading || resource.isPreviousData}>
               {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               <span className="hidden sm:inline">{exporting ? "Exporting…" : "Export CSV"}</span>
             </Button>

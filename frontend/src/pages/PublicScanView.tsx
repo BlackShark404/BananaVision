@@ -70,9 +70,6 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
       setLoading(false)
       controller.abort()
     }, 15_000)
-    setLoading(true)
-    setError(null)
-    setNotFound(false)
 
     api.scans.publicTrack(scanId, controller.signal)
       .then((data) => {
@@ -91,6 +88,13 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
 
     return () => { cancelled = true; window.clearTimeout(timeout); controller.abort() }
   }, [scanId, user, retry])
+
+  const handleRetry = () => {
+    setLoading(true)
+    setError(null)
+    setNotFound(false)
+    setRetry(value => value + 1)
+  }
 
   // Build image URL from backend path
   const getImageUrl = (path: string) => {
@@ -122,7 +126,7 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
                   : error || "Check your connection and try again."}
             </EmptyDescription>
           </EmptyHeader>
-          {!loading && !notFound && <Button className="mt-4" onClick={() => setRetry(value => value + 1)}>Retry</Button>}
+          {!loading && !notFound && <Button className="mt-4" onClick={handleRetry}>Retry</Button>}
           {!loading && (
             <Button variant="outline" className="mt-4 gap-2" onClick={() => navigate("/login")}>
               <LogIn className="w-4 h-4" /> Log in

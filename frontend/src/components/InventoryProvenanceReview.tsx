@@ -43,7 +43,7 @@ export function InventoryProvenanceReview({ scan, reason, setReason, onSaved, on
     {user?.role === "Admin" && <>
       <Label htmlFor="provenance-reason">Evidence and reason for provenance review</Label>
       <Textarea id="provenance-reason" value={reason} onChange={e => setReason(e.target.value)} disabled={pending} />
-      {pending && <p role="status" className="flex items-center gap-2 text-sm"><Loader2 className="w-4 h-4 animate-spin" />Saving provenance review…</p>}
+      {pending && <p role="status" className="flex items-center gap-2 text-sm"><Loader2 className="w-4 h-4 animate-spin" />Saving provenance reviewâ€¦</p>}
       <div className="flex flex-wrap gap-2">
         <Button size="sm" disabled={pending || !reason.trim()} onClick={() => void save("unlinked")}>Verify genuinely unlinked</Button>
         <Button size="sm" variant="outline" disabled={pending || !reason.trim()} onClick={() => void save("excluded")}>Keep excluded</Button>

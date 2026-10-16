@@ -343,7 +343,7 @@ export default function DeliveryIntake() {
               onClick={(event) => { event.preventDefault(); void confirmBulkUpdate() }}
               className={confirmAction?.status === "Spoiled" ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}
             >
-              {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Updating…" : "Confirm"}
+              {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Updatingâ€¦" : "Confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

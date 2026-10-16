@@ -242,6 +242,13 @@ export default function SystemConfig() {
         <Button variant="outline" disabled={saving || reloading} onClick={async () => { if (reloadFlight.current) return; reloadFlight.current = true; setReloading(true); try { await reloadConfig() } finally { reloadFlight.current = false; setReloading(false) } }}>{reloading && <Loader2 className="w-4 h-4 animate-spin" />}{configConflict ? "Reload saved settings" : "Retry configuration"}</Button>
       </Alert>}
       {configReady && <p className="text-xs text-muted-foreground">Saved revision {config.revision} Â· Cameras {config.applicationStatus}. {config.applicationError} Threshold applies to the next scan. Deployment model changes require a backend restart.</p>}
+      {configReady && config.applicationStatus !== "applied" && config.applicationError && (
+        <Alert variant="destructive" role="alert">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Camera application {config.applicationStatus}</AlertTitle>
+          <AlertDescription>{config.applicationError}</AlertDescription>
+        </Alert>
+      )}
       {configReady && config.applicationStatus !== "applied" && <Button variant="outline" disabled={disabled || saving} onClick={async () => {
         if (configFlight.current) return
         configFlight.current = true; setSaving(true)
@@ -475,7 +482,7 @@ export default function SystemConfig() {
                   <p className="text-xs sm:text-sm text-muted-foreground">Download scan summaries as CSV. Accounts, settings, audit logs and images are excluded; this export cannot restore the database.</p>
                 </div>
                 <Button variant="outline" disabled={exporting} onClick={handleExportData} className="w-full sm:w-auto">
-                  {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />} {exporting ? "Exporting…" : "Export CSV"}
+                  {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />} {exporting ? "Exportingâ€¦" : "Export CSV"}
                 </Button>
               </div>
               <StationBackupControls disabled={disabled || saving} onBusy={setArchiveBusy} />
@@ -577,8 +584,8 @@ export default function SystemConfig() {
               disabled={powerPending} onClick={event => { event.preventDefault(); void handlePower("shutdown") }}
             >
               <Power className="w-4 h-4 mr-2" />
-              {powerPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              {powerPending ? "Waiting for active work…" : "Shutdown Now"}
+              {powerPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Shutdown Now
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -591,14 +598,15 @@ export default function SystemConfig() {
             <AlertDialogTitle>Restart System?</AlertDialogTitle>
             <AlertDialogDescription>
               This schedules a reboot of the mini PC. Services resume if host autostart is configured. Active scans will finish before the request is sent.
+              {powerPending && <span className="block text-xs font-medium text-muted-foreground mt-2">Waiting for active work to finishâ€¦</span>}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={powerPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction disabled={powerPending} onClick={event => { event.preventDefault(); void handlePower("restart") }}>
               <RefreshCw className="w-4 h-4 mr-2" />
-              {powerPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              {powerPending ? "Waiting for active work…" : "Restart Now"}
+              {powerPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Restart Now
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

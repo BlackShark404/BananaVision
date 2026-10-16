@@ -26,7 +26,7 @@ export function StationBackupControls({ disabled, onBusy }: { disabled: boolean;
     catch (error) { setMessage(error instanceof Error ? error.message : "Operation unavailable; check its status before retrying") }
     finally { pending.current = false; setBusy(false); onBusy(false) }
   }
-  const create = () => run("Creating backup; waiting for active work to finish…", async () => {
+  const create = () => run("Creating backup; waiting for active work to finishâ€¦", async () => {
     if (backup?.status === "completed" || backup?.status === "failed") backupId.current = null
     backupId.current ??= crypto.randomUUID()
     const result = await api.config.backup(backupId.current)
@@ -34,12 +34,12 @@ export function StationBackupControls({ disabled, onBusy }: { disabled: boolean;
     if (result.status !== "completed") throw new Error(result.message ?? `Backup ${result.status}; check operation status`)
     toast.success("Backup created on server")
   })
-  const validate = () => run("Uploading and validating backup…", async () => {
+  const validate = () => run("Uploading and validating backupâ€¦", async () => {
     if (!file) return
     setValidation(null); setPassword(""); setConfirmation(""); restoreId.current = null
     setValidation(await api.config.validateRestore(file))
   })
-  const restore = () => run("Restoring station data; waiting for active work to finish…", async () => {
+  const restore = () => run("Restoring station data; waiting for active work to finishâ€¦", async () => {
     if (!validation || confirmation !== "REPLACE") return
     restoreId.current ??= crypto.randomUUID()
     const result = await api.config.restore({ operation_id: restoreId.current, validation_id: validation.validation_id,
@@ -49,7 +49,7 @@ export function StationBackupControls({ disabled, onBusy }: { disabled: boolean;
     toast.success("Station data restored. Sign in with a restored account.")
     window.location.assign("/login")
   })
-  const check = () => run("Checking operation status…", async () => {
+  const check = () => run("Checking operation statusâ€¦", async () => {
     const id = restoreId.current ?? backupId.current
     if (!id) return
     const result = await api.config.operation(id)
@@ -63,7 +63,7 @@ export function StationBackupControls({ disabled, onBusy }: { disabled: boolean;
         <p className="text-xs sm:text-sm text-muted-foreground">Restorable station data, accounts, settings, history and referenced images. Keep this private: it includes credential hashes. Deployment secrets and models are excluded.</p>
       </div>
       <Button variant="outline" disabled={disabled || busy} onClick={create}>Create Backup</Button>
-      {backup?.status === "completed" && <Button variant="outline" disabled={busy} onClick={() => run("Downloading backup…", async () => {
+      {backup?.status === "completed" && <Button variant="outline" disabled={busy} onClick={() => run("Downloading backupâ€¦", async () => {
         await api.config.downloadBackup(backup.id, backup.filename ?? "station.zip"); toast.info("Backup download started")
       })}>Download Backup</Button>}
     </div>

@@ -165,7 +165,7 @@ export default function ActivityLog() {
 
       {(activityLoading || activityError) && (
         <p role={activityError ? "alert" : "status"} className="text-sm text-muted-foreground">
-          {activityError || (activityReady ? "Refreshing activity…" : "Loading activity…")}
+          {activityError || (activityReady ? "Refreshing activityâ€¦" : "Loading activityâ€¦")}
         </p>
       )}
 

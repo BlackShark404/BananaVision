@@ -70,7 +70,7 @@ export default function DeviceStatus() {
       try {
         const res = await api.system.metrics()
         if (active) { setSystemMetrics(res); setLastUpdate(new Date()); setMetricsError("") }
-      } catch { if (active) setMetricsError("System metrics unavailable. Retrying automatically…") }
+      } catch { if (active) setMetricsError("System metrics unavailable. Retrying automaticallyâ€¦") }
       finally {
         if (active) { setMetricsLoading(false); timer = setTimeout(fetchMetrics, 5000) }
       }
@@ -203,7 +203,7 @@ export default function DeviceStatus() {
             </CardTitle>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <RefreshCw className={`w-3.5 h-3.5 ${metricsLoading ? "animate-spin" : ""}`} />
-              <span>{metricsLoading ? "Refreshing metrics…" : systemMetrics ? `Updated ${lastUpdate.toLocaleTimeString()}` : "Metrics unavailable"}</span>
+              <span>{metricsLoading ? "Refreshing metricsâ€¦" : systemMetrics ? `Updated ${lastUpdate.toLocaleTimeString()}` : "Metrics unavailable"}</span>
             </div>
           </div>
         </CardHeader>
@@ -216,7 +216,7 @@ export default function DeviceStatus() {
                 <Cpu className="w-4 h-4 text-blue-600" />
                 <span className="font-medium">CPU Usage</span>
               </div>
-              <span className="text-muted-foreground">{systemMetrics ? `${systemMetrics.cpu_percent}%` : "—"}</span>
+              <span className="text-muted-foreground">{systemMetrics ? `${systemMetrics.cpu_percent}%` : "â€”"}</span>
             </div>
             <Progress value={systemMetrics?.cpu_percent ?? 0} className="h-2" />
           </div>

@@ -38,7 +38,6 @@ import { AppStatusBadge } from "@/components/AppStatusBadge"
 
 const PAGE_SIZE = 15
 
-import { useEffect } from "react"
 export default function QualityControl() {
   const { scans, scansLoading, scansReady, scansError, refreshScans, flagScan, addScanNote, getScanNotes, getScanNotesState, loadScanNotes, updateScanData, acceptScan } = useScans()
   const { config } = useAdmin()
@@ -767,12 +766,12 @@ export default function QualityControl() {
                       <div className="min-w-0">
                         <p className="text-foreground">{note.note}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {note.author} • {new Date(note.timestamp).toLocaleString()}
+                          {note.author} â€¢ {new Date(note.timestamp).toLocaleString()}
                         </p>
                       </div>
                     </div>
                   ))}
-                  {getScanNotesState(selectedScan.id).loading && <p role="status" className="text-sm text-muted-foreground text-center py-4"><Loader2 aria-hidden="true" className="inline h-4 w-4 animate-spin mr-2" />Loading notes�</p>}
+                  {getScanNotesState(selectedScan.id).loading && <p role="status" className="text-sm text-muted-foreground text-center py-4"><Loader2 aria-hidden="true" className="inline h-4 w-4 animate-spin mr-2" />Loading notes…</p>}
                   {getScanNotesState(selectedScan.id).error && <p role="alert" className="text-sm text-muted-foreground">{getScanNotesState(selectedScan.id).error}<Button variant="outline" size="sm" onClick={() => loadScanNotes(selectedScan.id)}>Retry</Button></p>}
                   {getScanNotesState(selectedScan.id).ready && !getScanNotesState(selectedScan.id).loading && !getScanNotesState(selectedScan.id).error && getScanNotes(selectedScan.id).length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">No notes yet</p>
@@ -787,7 +786,7 @@ export default function QualityControl() {
                     rows={2}
                   />
                   <Button onClick={handleAddNote} disabled={!noteText.trim() || pendingWrite}>
-                    {pendingWrite && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{pendingWrite ? "Saving�" : "Add"}
+                    {pendingWrite && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{pendingWrite ? "Saving…" : "Add"}
                   </Button>
                 </div>
               </div>
@@ -802,7 +801,7 @@ export default function QualityControl() {
                   Cancel
                 </Button>
                 <Button onClick={handleSaveEdit} disabled={pendingWrite || !editReason.trim()}>
-                  {pendingWrite && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{pendingWrite ? "Saving�" : "Save Changes"}
+                  {pendingWrite && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{pendingWrite ? "Saving…" : "Save Changes"}
                 </Button>
               </>
             ) : (

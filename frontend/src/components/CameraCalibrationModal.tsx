@@ -120,7 +120,7 @@ export function CameraCalibrationModal({ disabled = false }: { disabled?: boolea
         </DialogHeader>
 
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-        {cameraDiscovery.loading && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><RefreshCw className="w-4 h-4 animate-spin" />Listing camera devices…</p>}
+        {cameraDiscovery.loading && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><RefreshCw className="w-4 h-4 animate-spin" />Listing camera devicesâ€¦</p>}
         {cameraDiscovery.error && <p className="text-sm text-muted-foreground">{cameraDiscovery.error}</p>}
         {!loadedConfig && !error ? (
           <div role="status" aria-label="Loading camera configuration" className="grid grid-cols-1 md:grid-cols-2 gap-4">{[0, 1].map(i => <div key={i} className="border rounded-xl p-2 space-y-2"><Skeleton className="h-4 w-2/3" /><Skeleton className="aspect-video w-full" /><Skeleton className="h-9 w-full" /></div>)}</div>

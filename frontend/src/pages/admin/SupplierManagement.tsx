@@ -254,7 +254,7 @@ export default function SupplierManagement() {
               onClick={(event) => { event.preventDefault(); void confirmDeactivate() }}
               className="bg-red-600 hover:bg-red-700"
             >
-              {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Deactivating…" : "Deactivate"}
+              {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Deactivatingâ€¦" : "Deactivate"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -300,7 +300,7 @@ export default function SupplierManagement() {
           </div>
           <DialogFooter>
             <Button variant="outline" disabled={saving} onClick={() => setEditTarget(null)}>Cancel</Button>
-            <Button disabled={saving} onClick={handleSaveEdit}>{saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Saving…" : "Save Changes"}</Button>
+            <Button disabled={saving} onClick={handleSaveEdit}>{saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Savingâ€¦" : "Save Changes"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -355,7 +355,7 @@ export default function SupplierManagement() {
               </div>
               <DialogFooter>
                 <Button disabled={saving} variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-                <Button disabled={saving} onClick={handleAdd}>{saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Saving…" : "Save Supplier"}</Button>
+                <Button disabled={saving} onClick={handleAdd}>{saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Savingâ€¦" : "Save Supplier"}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -364,7 +364,7 @@ export default function SupplierManagement() {
 
       {(suppliersLoading || suppliersError) && (
         <p role={suppliersError ? "alert" : "status"} className="text-sm text-muted-foreground">
-          {suppliersError || (suppliersReady ? "Refreshing suppliers…" : "Loading suppliers…")}
+          {suppliersError || (suppliersReady ? "Refreshing suppliersâ€¦" : "Loading suppliersâ€¦")}
         </p>
       )}
 

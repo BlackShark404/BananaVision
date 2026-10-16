@@ -225,7 +225,7 @@ export default function UserManagement() {
 
       {(usersLoading || usersError) && (
         <p role={usersError ? "alert" : "status"} className="text-sm text-muted-foreground">
-          {usersError || (usersReady ? "Refreshing users…" : "Loading users…")}
+          {usersError || (usersReady ? "Refreshing usersâ€¦" : "Loading usersâ€¦")}
         </p>
       )}
 
@@ -385,7 +385,7 @@ export default function UserManagement() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
             <AlertDialogAction disabled={saving} className="bg-amber-600 focus:ring-amber-600 hover:bg-amber-700" onClick={event => { event.preventDefault(); void confirmResetPassword() }}>
-              {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Resetting…" : "Reset Password"}
+              {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Resettingâ€¦" : "Reset Password"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -404,7 +404,7 @@ export default function UserManagement() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
             <AlertDialogAction disabled={saving} className="bg-amber-600 focus:ring-amber-600 hover:bg-amber-700" onClick={event => { event.preventDefault(); void confirmResetPin() }}>
-              {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Resetting…" : "Reset PIN"}
+              {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Resettingâ€¦" : "Reset PIN"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

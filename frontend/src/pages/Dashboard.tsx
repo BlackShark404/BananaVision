@@ -48,7 +48,6 @@ function legacyScanLogsUrl(params: URLSearchParams, selectedDate: string): strin
     source_key: sourceKey,
     operator_id: operatorId,
     attention: view === "expiring" ? "at-risk" : view === "review" ? "review" : undefined,
-    status: view === "review" ? "Flagged" : undefined,
     sort: view === "confidence" || params.get("sort") === "confidence" ? "confidence" : undefined,
     direction: view === "confidence" || params.get("direction") === "asc" ? "asc" : params.get("direction") === "desc" ? "desc" : undefined,
   })
@@ -144,7 +143,6 @@ function DashboardContent() {
       source_key: filters?.source_key,
       operator_id: filters?.operator_id,
       attention: view === "expiring" ? "at-risk" : view === "review" ? "review" : view === "success" ? "success" : undefined,
-      status: view === "review" ? "Flagged" : undefined,
       sort: view === "confidence" ? "confidence" : undefined,
       direction: view === "confidence" ? "asc" : undefined,
     }))

@@ -103,8 +103,8 @@ function AnalyticsContent() {
     return response
   }, [dateRange, sourceFilter, cultivarFilter, statusFilter])
   const resource = useDashboardResource(fetchAnalytics, { keepPreviousData: true })
-  // Retained results are explicitly labelled when filters change or refresh fails.
-  const summary = resource.data
+  // A failed request is never presented as a successful empty dataset or old filter result.
+  const summary = resource.error ? null : resource.data
   const loading = resource.loading
 
   useEffect(() => {
@@ -191,9 +191,8 @@ function AnalyticsContent() {
         }
       />
 
-      {summary && (loading || resource.isPreviousData || resource.error) && <div role={resource.error ? "alert" : "status"} className="rounded-lg border p-3 text-sm text-muted-foreground">
-        {resource.isPreviousData ? "Showing results for the previous selection." : "Showing the last successful results."} {loading ? <><Loader2 className="inline size-4 animate-spin" /> Updating analytics…</> : resource.error}
-        {resource.error && <Button variant="link" onClick={() => void resource.refresh()}>Retry</Button>}
+      {summary && (loading || resource.isPreviousData) && <div role="status" className="rounded-lg border p-3 text-sm text-muted-foreground">
+        {resource.isPreviousData ? "Showing results for the previous selection." : "Showing the last successful results."} {loading ? <><Loader2 className="inline size-4 animate-spin" /> Updating analytics…</> : null}
       </div>}
       {!summary ? loading ? <ContentSkeleton label="Loading analytics…" chart /> : (
         <div className="flex flex-col items-center justify-center h-[60vh] text-muted-foreground" role={resource.error ? "alert" : "status"}>

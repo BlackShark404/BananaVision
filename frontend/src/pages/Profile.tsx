@@ -512,7 +512,7 @@ export default function Profile() {
                               ? "bg-emerald-500 text-white"
                               : "bg-muted text-muted-foreground"
                         }`}>
-                          {(pinStep === "new" && step === "current") || (pinStep === "confirm" && step !== "confirm") ? "✓" : i + 1}
+                          {(pinStep === "new" && step === "current") || (pinStep === "confirm" && step !== "confirm") ? "âœ“" : i + 1}
                         </div>
                         {i < 2 && <div className={`w-8 h-0.5 rounded-full ${
                           (pinStep === "new" && i === 0) || (pinStep === "confirm") ? "bg-emerald-500" : "bg-muted"
@@ -542,7 +542,7 @@ export default function Profile() {
                     </InputOTP>
                   </div>
 
-                  {savingCredential && <p role="status" className="flex items-center justify-center gap-2 text-sm"><Loader2 className="w-4 h-4 animate-spin" />Updating PIN�</p>}
+                  {savingCredential && <p role="status" className="flex items-center justify-center gap-2 text-sm"><Loader2 className="w-4 h-4 animate-spin" />Updating PIN…</p>}
                   <Button disabled={savingCredential} variant="ghost" className="w-full text-muted-foreground h-10" onClick={resetPinDialog}>
                     Cancel
                   </Button>
