@@ -33,3 +33,4 @@ Documented architectural, technical, and operational decisions in BananaVision.
 - **Rationale**: Prevents human manual overrides or quality control corrections from contaminating AI model metrics. Analytics reflects genuine machine-learning model performance.
 - **Role Isolation**: Scoped strictly by role: Operators are isolated to their own scans (`OperatorProfile.account_id == user.id`), whereas Admins view station-wide aggregates.
 - **Zero-Count Safety**: Guarded denominators prevent division-by-zero across all metrics when `total_scans == 0`, presenting `"―"` gracefully without NaN or errors.
+- **Operator Performance Metrics**: Surfaced backend `flag_rate` (as `Flag Rate (%)`) and `overridden_scans` (as `QC Overrides`) columns for Administrator users in the Operator Performance Table (`Analytics.tsx`), providing supervisory visibility into operator defect flags and manual correction counts.

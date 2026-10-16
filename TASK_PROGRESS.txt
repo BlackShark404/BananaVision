@@ -1,4 +1,4 @@
-CURRENT RESUME HERE (2026-10-17) - MODULES 1 THROUGH 9 VERIFIED
+CURRENT RESUME HERE (2026-10-17) - MODULES 1 THROUGH 10 VERIFIED
 BRANCH main; working directory clean of unexpected modifications. No staging/commit/push/deployment executed.
 Previous completed checkpoint: docs/history/2026-10-16-before-loading-audit.txt.
 
@@ -55,16 +55,20 @@ DONE
   * Verified deliberate architectural design: The 14-day trend intentionally maintains a fixed historical window independent of the summary date-range filter (`backend/app/services/analytics.py:7, 54-58`), allowing operators to view trailing momentum regardless of whether the KPI cards are filtered to "Today".
   * Verified dedicated Peak Scanning Hours (`hourly_distribution`) provides the hourly breakdown (12 AM to 11 PM Manila) when "Today" is filtered.
   * Backend iterates across the 14-day calendar window (`backend/app/services/analytics.py:298-301`), backfilling missing dates with zero points to prevent jagged line artifacts.
-  * Preserves accessibility titles, dot styling (`dot={{ fill: "var(--color-count)", strokeWidth: 2, r: 4 }}`), and contract test assertions in `test_analytics.py` and `analytics.test.mjs`.
+- Module 10 (Operator Performance Table) verified & enhanced:
+  * RBAC compliance verified: Operators strictly isolated to their own performance row (`OperatorProfile.account_id == user.id`), while Admins view station-wide operator leaderboards.
+  * Rendered Missing Backend Metrics: Added `Flag Rate (%)` and `QC Overrides` columns to the Admin view of the Operator Performance Table in `frontend/src/pages/Analytics.tsx`, surfacing backend `flag_rate` and `overridden_scans` previously omitted by frontend column definitions.
+  * Sortable metrics: Enabled sortable columns for `flagRate` and `overriddenScans` with right-aligned tabular formatting.
+  * Verified in Playwright browser tests (`frontend/tests/analytics.test.mjs`: 6/6 passed) and backend tests (`backend/tests/test_analytics.py`: 10/10 passed).
 - Verified dashboard browser regression suite (`tests/dashboard.test.mjs`): 14/14 tests passed in 14.7s.
 - Verified frontend TypeScript check (`npm run typecheck`): 0 errors.
-- Verified frontend production build (`npm run build`): PASSED in 10.05s.
+- Verified frontend production build (`npm run build`): PASSED in 5.54s.
 
 IN PROGRESS
-- None. Modules 1 through 9 verified.
+- None. Modules 1 through 10 verified.
 
 REMAINING
-- Review remaining assigned modules for authorized implementation (Modules 10–13: Operator Performance Table, Quality Control, Edit Scan Data, Review Notes).
+- Review remaining assigned modules for authorized implementation (Modules 11–13: Quality Control, Edit Scan Data, Review Notes).
 - Awaiting user authorization before staging, committing, or pushing changes.
 
 TEST RESULTS

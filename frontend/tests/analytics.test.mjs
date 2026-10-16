@@ -129,3 +129,25 @@ test("cultivar and status selections combine with source and date filters", asyn
   assert.equal(query.get("cultivar"), "Cardaba")
   assert.equal(query.get("inventory_status"), "Sold")
 })
+
+test("operator performance table renders flag rate and QC overrides for admin", async t => {
+  const { page } = await setup(t, payload({
+    operator_performance: [{
+      operator_id: "operator-a",
+      name: "Kiosk Operator",
+      total_scans: 12,
+      avg_confidence: 90,
+      confidence_sample_count: 12,
+      flagged_scans: 3,
+      flag_rate: 25.0,
+      overridden_scans: 2,
+    }],
+  }))
+  await expectCount(page, 12)
+  await page.getByText("Operator Performance Table", { exact: true }).waitFor()
+  await page.getByText("Flag Rate (%)", { exact: true }).waitFor()
+  await page.getByText("QC Overrides", { exact: true }).waitFor()
+  await page.getByText("25%", { exact: true }).waitFor()
+  await page.getByRole("cell", { name: "2", exact: true }).waitFor()
+})
+

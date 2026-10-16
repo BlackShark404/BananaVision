@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ContentSkeleton } from "@/components/LoadingState"
 import { AppStatsCard } from "@/components/AppStatsCard"
-import { AppDataTable } from "@/components/AppDataTable"
+import { AppDataTable, type ColumnDef } from "@/components/AppDataTable"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { CultivarEnum, InventoryStatusEnum, RipenessEnum } from "@/types"
 import {
@@ -90,6 +90,8 @@ export default function Analytics() {
 }
 
 function AnalyticsContent() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === "Admin"
   const [dateRange, setDateRange] = useState<DateRange>("week")
   const [sourceFilter, setSourceFilter] = useState("all")
   const [cultivarFilter, setCultivarFilter] = useState("all")
@@ -130,9 +132,21 @@ function AnalyticsContent() {
     return cfg
   }, [summary])
 
-  const operatorPerformance = (summary?.operator_performance ?? []).map(op => ({
+  type OperatorRow = {
+    id: string
+    name: string
+    scans: number
+    avgConfidence: number | null
+    confidenceSamples: number
+    flagRate: number
+    overriddenScans: number
+  }
+
+  const operatorPerformance: OperatorRow[] = (summary?.operator_performance ?? []).map(op => ({
     id: op.operator_id, name: op.name, scans: op.total_scans,
     avgConfidence: op.avg_confidence, confidenceSamples: op.confidence_sample_count,
+    flagRate: op.flag_rate ?? 0,
+    overriddenScans: op.overridden_scans ?? 0,
   }))
   const percent = (value: number | null | undefined) => value == null ? "—" : `${value}%`
   const emptyChart = (message = "No classified scans in this selection.") => (
@@ -459,6 +473,26 @@ function AnalyticsContent() {
                   </Badge>
                 ),
               },
+              ...(isAdmin ? [
+                {
+                  header: "Flag Rate (%)",
+                  sortable: true,
+                  sortKey: "flagRate",
+                  className: "text-right",
+                  cell: (op: OperatorRow) => (
+                    <span className="text-sm">{op.flagRate}%</span>
+                  ),
+                },
+                {
+                  header: "QC Overrides",
+                  sortable: true,
+                  sortKey: "overriddenScans",
+                  className: "text-right",
+                  cell: (op: OperatorRow) => (
+                    <span className="text-sm">{op.overriddenScans}</span>
+                  ),
+                },
+              ] : []),
             ]}
           />
         </div>
