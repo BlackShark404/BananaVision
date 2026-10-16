@@ -1,3 +1,11 @@
 # Project defaults; explicit session overrides still take precedence.
 model = "gpt-6-astra"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
+
+[mcp_servers.icm]
+command = "C:/Users/Roronoa Zoro/AppData/Local/icm/bin/icm.exe"
+args = ["serve"]
+
+[mcp_servers.icm.env]
+ICM_DB = "C:/Users/Roronoa Zoro/Documents/GitHub/BananaVision/.icm/memories.db"
+ICM_NO_EMBEDDINGS = "1"

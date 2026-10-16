@@ -47,3 +47,16 @@ backend/app/ml/weights/*.joblib
 
 # Matrix testing output
 matrix_results_*.txt
+
+# ICM project-local memory
+.icm/
+
+# Obsidian local preferences
+docs/knowledge/.obsidian/
+
+# Graphify generated outputs (if kept locally)
+graphify-out/
+
+# Claude (Codex) project-specific files
+.codex/
+
