@@ -209,6 +209,7 @@ def test_mutation_validation_and_failed_commit_are_atomic(application):
         ).status_code
         == 422
     )
+    assert app.client.post(url + "/notes", json=mutation(note="   ")).status_code == 422
     assert (
         app.client.patch(
             url, json=mutation(reason="Correction", inventory_status="Sold")

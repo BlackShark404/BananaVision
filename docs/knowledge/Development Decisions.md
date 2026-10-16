@@ -41,3 +41,10 @@ Documented architectural, technical, and operational decisions in BananaVision.
 - **Decision**: In `backend/app/schemas/scan.py`, `ScanOverrideRequest.finger_count` enforces `Field(default=None, ge=1)` with a Pydantic field validator rejecting `< 1` or `null`. In `QualityControl.tsx` and `ScanDetail.tsx`, form submission is blocked and the Save Changes button disabled when `fingerCount` is empty or `< 1`. Changing cultivar or ripeness passes ambient `temperature` and `humidity` to `getSpoilageDays()`.
 - **Rationale**: Eliminates the previous silent fallback `parseInt(...) || 0`, which caused non-numeric or cleared inputs to persist 0-finger bunches and pollute downstream batch statistics. Dynamically recalculating shelf-life estimates with environmental factors ensures operational spoilage predictions remain accurate after quality control overrides.
 
+## 2026-10-17: Review Notes Validation & Recovery UX
+
+### Review Note Error Layout & Whitespace Stripping
+- **Decision**: In `frontend/src/pages/admin/QualityControl.tsx`, note loading failure alerts wrap the error message and inline Retry action in `flex items-center justify-between gap-3 text-sm text-muted-foreground`. In backend Pydantic models, `ScanNoteCreate` inherits `Reason` constraints (`strip_whitespace=True, min_length=1`), strictly rejecting whitespace-only notes with HTTP 422.
+- **Rationale**: Prevents text overlapping or colliding against button borders on error displays during network recovery, and guarantees audit trail integrity by preventing empty or whitespace-only administrative notes.
+
+

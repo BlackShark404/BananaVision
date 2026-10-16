@@ -787,7 +787,12 @@ export default function QualityControl() {
                     </div>
                   ))}
                   {getScanNotesState(selectedScan.id).loading && <p role="status" className="text-sm text-muted-foreground text-center py-4"><Loader2 aria-hidden="true" className="inline h-4 w-4 animate-spin mr-2" />Loading notes…</p>}
-                  {getScanNotesState(selectedScan.id).error && <p role="alert" className="text-sm text-muted-foreground">{getScanNotesState(selectedScan.id).error}<Button variant="outline" size="sm" onClick={() => loadScanNotes(selectedScan.id)}>Retry</Button></p>}
+                  {getScanNotesState(selectedScan.id).error && (
+                    <div role="alert" className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+                      <span>{getScanNotesState(selectedScan.id).error}</span>
+                      <Button variant="outline" size="sm" onClick={() => loadScanNotes(selectedScan.id)}>Retry</Button>
+                    </div>
+                  )}
                   {getScanNotesState(selectedScan.id).ready && !getScanNotesState(selectedScan.id).loading && !getScanNotesState(selectedScan.id).error && getScanNotes(selectedScan.id).length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">No notes yet</p>
                   )}
