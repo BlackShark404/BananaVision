@@ -1,4 +1,4 @@
-CURRENT RESUME HERE (2026-10-16) - MODULE 1 (DASHBOARD) & MODULE 2 (SCAN LOGS) FIXES VERIFIED
+CURRENT RESUME HERE (2026-10-17) - MODULES 1, 2, AND 3 VERIFIED
 BRANCH main; working directory clean of unexpected modifications. No staging/commit/push/deployment executed.
 Previous completed checkpoint: docs/history/2026-10-16-before-loading-audit.txt.
 
@@ -19,15 +19,21 @@ DONE
   * Added and passed backend unit tests in `backend/tests/test_scan_logs.py` (21/21 passed).
   * Added and passed frontend unit tests in `frontend/tests/scanlogfilters.test.mjs` (7/7 passed).
   * Verified full scan records Playwright browser suite in `frontend/tests/scanrecords.test.mjs` (15/15 passed).
+- Module 3 (Scan Detail View) verified:
+  * Multi-angle camera views (overhead/lateral), YOLO defect bounding boxes, detection legend, classification metrics, and spoilage estimates verified.
+  * Robust HTTP 404, 403, and 410 error recovery cards verified via headless browser test suite (`scanrecords.test.mjs`).
+  * 15-second AbortController timeout verified.
+  * Admin-only controls (QC Override, Notes) strictly isolated from Operators while preserving full read access to operator's own scans.
+  * Backend authorized scan loading (`test_scan_records.py`: 15/15 passed) and frontend history collection (`scanpages.test.mjs`: 4/4 passed) verified.
 - Verified dashboard browser regression suite (`tests/dashboard.test.mjs`): 14/14 tests passed in 14.7s.
 - Verified frontend TypeScript check (`npm run typecheck`): 0 errors.
 - Verified frontend production build (`npm run build`): PASSED in 5.62s.
 
 IN PROGRESS
-- None. Module 1 and Module 2 fixes and testing documentation completed and verified.
+- None. Modules 1, 2, and 3 verified.
 
 REMAINING
-- Review remaining assigned modules for authorized implementation (Modules 3–13: Scan Detail View, Search & Filter Scans, Export CSV, Analytics Overview, Ripeness Distribution Chart, Cultivar Counts Chart, Scan Trend Chart, Operator Performance Table, Quality Control, Edit Scan Data, Review Notes).
+- Review remaining assigned modules for authorized implementation (Modules 4–13: Search & Filter Scans, Export CSV, Analytics Overview, Ripeness Distribution Chart, Cultivar Counts Chart, Scan Trend Chart, Operator Performance Table, Quality Control, Edit Scan Data, Review Notes).
 - Awaiting user authorization before staging, committing, or pushing changes.
 
 TEST RESULTS
