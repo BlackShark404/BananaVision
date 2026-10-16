@@ -58,19 +58,19 @@ def _conditions(scans, query: ScanLogQuery, threshold: float):
         conditions.append(dashboard._successful(scans, threshold))
     if query.search and query.search.strip():
         text = query.search.strip().lower()
-        fields = [
-            cast(scans.c.id, String), scans.c.operator_name, scans.c.username,
-            scans.c.source_name,
-            func.replace(cast(scans.c.cultivar, String), "_", " "),
-            func.replace(cast(scans.c.ripeness, String), "_", " "),
-            func.replace(cast(scans.c.inventory_status, String), "_", " "),
-        ]
-        matches = [func.lower(field).contains(text, autoescape=True) for field in fields]
         try:
-            matches.append(scans.c.id == UUID(text))
+            exact_uuid = UUID(text)
+            conditions.append(scans.c.id == exact_uuid)
         except ValueError:
-            pass
-        conditions.append(or_(*matches))
+            fields = [
+                cast(scans.c.id, String), scans.c.operator_name, scans.c.username,
+                scans.c.source_name,
+                func.replace(cast(scans.c.cultivar, String), "_", " "),
+                func.replace(cast(scans.c.ripeness, String), "_", " "),
+                func.replace(cast(scans.c.inventory_status, String), "_", " "),
+            ]
+            matches = [func.lower(field).contains(text, autoescape=True) for field in fields]
+            conditions.append(or_(*matches))
     return conditions
 
 

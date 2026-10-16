@@ -204,6 +204,8 @@ async def test_extended_fields_numeric_sort_literal_search_and_safe_csv(logs_db)
         cultivar="Latundan", ripeness="Semi Ripe", search="semi ripe",
     ))
     assert [r.id for r in by_enum.items] == [high]
+    by_uuid = await scan_logs.list_scan_logs(db, operator, ScanLogQuery(search=str(high)))
+    assert [r.id for r in by_uuid.items] == [high]
 
 
 @pytest.mark.asyncio
