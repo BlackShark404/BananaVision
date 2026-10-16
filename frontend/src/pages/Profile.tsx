@@ -485,8 +485,8 @@ export default function Profile() {
                     Cancel
                   </Button>
                   <Button type="submit" className="flex-1" disabled={savingCredential}>
-                    {savingCredential && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
-                    Update Password
+                    {savingCredential && <Loader2 className="w-4 h-4 animate-spin mr-2" aria-hidden="true" />}
+                    {savingCredential ? "Updating…" : "Update Password"}
                   </Button>
                 </div>
               </form>
@@ -512,7 +512,7 @@ export default function Profile() {
                               ? "bg-emerald-500 text-white"
                               : "bg-muted text-muted-foreground"
                         }`}>
-                          {(pinStep === "new" && step === "current") || (pinStep === "confirm" && step !== "confirm") ? "âœ“" : i + 1}
+                          {(pinStep === "new" && step === "current") || (pinStep === "confirm" && step !== "confirm") ? "✓" : i + 1}
                         </div>
                         {i < 2 && <div className={`w-8 h-0.5 rounded-full ${
                           (pinStep === "new" && i === 0) || (pinStep === "confirm") ? "bg-emerald-500" : "bg-muted"

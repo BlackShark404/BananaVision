@@ -293,7 +293,8 @@ export default function Kiosk() {
                 }
               }}
             >
-              Start Intake Session
+              {startingIntake && <Loader2 className="w-5 h-5 animate-spin mr-2" />}
+              {startingIntake ? "Starting Intake Session…" : "Start Intake Session"}
             </Button>
           </div>
         </DialogContent>
@@ -803,8 +804,12 @@ export default function Kiosk() {
                       }
                     }}
                   >
-                    <Flag className="w-4 h-4 lg:w-5 lg:h-5" />
-                    {lastResult.id === scanAction?.id && scanAction?.action === 'flagged' ? "Flagged" : demoMode ? "Flag demo" : "Flag for Review"}
+                    {flaggingScan ? (
+                      <Loader2 className="w-4 h-4 lg:w-5 lg:h-5 animate-spin" />
+                    ) : (
+                      <Flag className="w-4 h-4 lg:w-5 lg:h-5" />
+                    )}
+                    {flaggingScan ? "Flagging..." : lastResult.id === scanAction?.id && scanAction?.action === 'flagged' ? "Flagged" : demoMode ? "Flag demo" : "Flag for Review"}
                   </Button>
                 </div>
               </CardContent>

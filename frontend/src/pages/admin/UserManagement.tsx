@@ -355,7 +355,7 @@ export default function UserManagement() {
             )}
             <DialogFooter className="pt-4">
               <Button type="button" variant="outline" disabled={saving} onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={saving}>{saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Saving..." : editingId ? "Save Changes" : "Create User"}</Button>
+              <Button type="submit" disabled={saving}>{saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin mr-2" />}{saving ? "Saving…" : editingId ? "Save Changes" : "Create User"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -385,7 +385,7 @@ export default function UserManagement() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
             <AlertDialogAction disabled={saving} className="bg-amber-600 focus:ring-amber-600 hover:bg-amber-700" onClick={event => { event.preventDefault(); void confirmResetPassword() }}>
-              {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Resetting…" : "Reset Password"}
+              {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin mr-2" />}{saving ? "Resetting…" : "Reset Password"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -404,7 +404,7 @@ export default function UserManagement() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
             <AlertDialogAction disabled={saving} className="bg-amber-600 focus:ring-amber-600 hover:bg-amber-700" onClick={event => { event.preventDefault(); void confirmResetPin() }}>
-              {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Resetting…" : "Reset PIN"}
+              {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin mr-2" />}{saving ? "Resetting…" : "Reset PIN"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

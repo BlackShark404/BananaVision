@@ -1,4 +1,4 @@
-CURRENT RESUME HERE (2026-10-16) - LOADING STATE AUDIT COMPLETED & VERIFIED
+CURRENT RESUME HERE (2026-10-16) - LOADING STATE AUDIT & ACTION FEEDBACK COMPLETED & VERIFIED
 BRANCH main; working directory clean of unexpected modifications. No staging/commit/push/deployment executed.
 Previous completed checkpoint: docs/history/2026-10-16-before-loading-audit.txt.
 
@@ -10,8 +10,14 @@ DONE
 - Fixed Dashboard review queue links in `legacyScanLogsUrl` and `openRecords` to use the complete review predicate (`attention=review`) without dropping low-confidence scans.
 - Fixed Logs CSV export handling in `Logs.tsx` to remain functional during oversized 413 snapshots when filter parameters are set.
 - Fixed SystemConfig accessible button names for shutdown/restart actions during in-flight requests and added application error alerts (`role="alert"`).
-- Resolved Windows CP1252 / UTF-8 mojibake across 11 frontend files, normalizing all em dashes, ellipses, and middle dots to clean UTF-8 literals.
-- Synchronized Graphify AST knowledge graph (`graphify update .`: 3,391 nodes, 10,438 edges, 224 communities).
+- Added action-matching spinners (`<Loader2 className="animate-spin" />`) and active verb labels to operator and admin actions:
+  * Kiosk intake initiation (`startingIntake` -> `"Starting Intake Session…"`) and QC flag submission (`flaggingScan` -> `"Flagging..."`).
+  * Station backup, validation, and restoration buttons in `StationBackupControls.tsx` (`"Creating Backup…"`, `"Validating Backup…"`, `"Restoring Station Data…"`, `"Checking Status…"`) with enhanced status bar.
+  * QualityControl scan note adding and edit saving (`pendingWrite` -> `"Saving…"`) with refined refresh message distinguishing background refresh from initial load.
+  * Profile password credential submit button (`savingCredential` -> `"Updating…"`).
+  * DeliveryIntake, SupplierManagement, and UserManagement action confirmation dialogs with proper `mr-2` spinner spacing.
+- Resolved Windows CP1252 / UTF-8 mojibake across 11 frontend files, normalizing all em dashes, ellipses, middle dots, checkmarks (`✓`), and bullet points (`•`) to clean UTF-8 literals.
+- Synchronized Graphify AST knowledge graph (`graphify update .`: 3,409 nodes, 10,460 edges, 212 communities).
 - Stored key reusable decisions and bug resolutions in ICM long-term memory.
 - Documented frontend loading conventions and resolved bugs in Obsidian knowledge base (`Frontend.md`, `Resolved Bugs.md`).
 
@@ -24,9 +30,9 @@ REMAINING
 
 TEST RESULTS
 - Frontend TypeScript check (`npm run typecheck`): PASSED (0 errors).
-- Frontend production build (`npm run build`): PASSED (0 errors, 9.07s).
-- Frontend lint (`npm run lint`): PASSED at exact baseline (43 errors, 8 warnings; 0 regressions).
-- Frontend headless browser test suites (14 suites, 101/101 tests passed):
+- Frontend production build (`npm run build`): PASSED (0 errors, 7.10s).
+- Frontend lint (`npm run lint`): PASSED at exact baseline (41 errors, 8 warnings; 0 regressions).
+- Frontend headless browser test suites (14 suites, 105/105 tests passed in 44.98s):
   * adminloading.test.mjs: 3/3 passed
   * analytics.test.mjs: 5/5 passed
   * dashboard.test.mjs: 14/14 passed
@@ -41,7 +47,7 @@ TEST RESULTS
   * scanlogfilters.test.mjs: 5/5 passed
   * scanwrites.test.mjs: 4/4 passed
   * scanpages.test.mjs: 4/4 passed
-- Backend pytest (isolated temporary directory runner): PASSED (317 passed, 38 skipped in 81.29s, 0 failures).
+- Backend pytest (isolated temporary directory runner): PASSED (317 passed, 38 skipped in 50.23s, 0 failures).
 
 CONSTRAINTS & REPOSITORY SAFETY
 - Preserved exact UI design, styling, typography, spacing, navigation, and Asia/Manila timestamp conversions.

@@ -371,7 +371,7 @@ export default function QualityControl() {
 
       {(scansLoading || scansError) && (
         <Card className="rounded-2xl"><CardContent className="p-4 flex items-center justify-between gap-3" role={scansError ? "alert" : "status"}>
-          <p className="text-sm text-muted-foreground">{scansError || "Loading complete scan history…"}</p>
+          <p className="text-sm text-muted-foreground">{scansError || (scansReady ? "Refreshing scan history…" : "Loading complete scan history…")}</p>
           {scansError && <Button variant="outline" size="sm" onClick={() => void refreshScans()}>Retry</Button>}
         </CardContent></Card>
       )}
@@ -766,7 +766,7 @@ export default function QualityControl() {
                       <div className="min-w-0">
                         <p className="text-foreground">{note.note}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {note.author} â€¢ {new Date(note.timestamp).toLocaleString()}
+                          {note.author} • {new Date(note.timestamp).toLocaleString()}
                         </p>
                       </div>
                     </div>
@@ -786,7 +786,7 @@ export default function QualityControl() {
                     rows={2}
                   />
                   <Button onClick={handleAddNote} disabled={!noteText.trim() || pendingWrite}>
-                    {pendingWrite && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{pendingWrite ? "Saving…" : "Add"}
+                    {pendingWrite && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin mr-2" />}{pendingWrite ? "Saving…" : "Add"}
                   </Button>
                 </div>
               </div>
@@ -801,7 +801,7 @@ export default function QualityControl() {
                   Cancel
                 </Button>
                 <Button onClick={handleSaveEdit} disabled={pendingWrite || !editReason.trim()}>
-                  {pendingWrite && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{pendingWrite ? "Saving…" : "Save Changes"}
+                  {pendingWrite && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin mr-2" />}{pendingWrite ? "Saving…" : "Save Changes"}
                 </Button>
               </>
             ) : (

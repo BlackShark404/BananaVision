@@ -62,7 +62,10 @@ export function StationBackupControls({ disabled, onBusy }: { disabled: boolean;
         <h4 className="font-medium text-sm sm:text-base">Database Backup</h4>
         <p className="text-xs sm:text-sm text-muted-foreground">Restorable station data, accounts, settings, history and referenced images. Keep this private: it includes credential hashes. Deployment secrets and models are excluded.</p>
       </div>
-      <Button variant="outline" disabled={disabled || busy} onClick={create}>Create Backup</Button>
+      <Button variant="outline" disabled={disabled || busy} onClick={create}>
+        {busy && operation.startsWith("Creating backup") && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+        {busy && operation.startsWith("Creating backup") ? "Creating Backup…" : "Create Backup"}
+      </Button>
       {backup?.status === "completed" && <Button variant="outline" disabled={busy} onClick={() => run("Downloading backup…", async () => {
         await api.config.downloadBackup(backup.id, backup.filename ?? "station.zip"); toast.info("Backup download started")
       })}>Download Backup</Button>}
@@ -74,18 +77,27 @@ export function StationBackupControls({ disabled, onBusy }: { disabled: boolean;
       <Input id="station-backup" type="file" accept=".zip" disabled={busy || disabled} onChange={event => {
         setFile(event.target.files?.[0] ?? null); setValidation(null); setPassword(""); setConfirmation("")
       }} />
-      <Button variant="outline" onClick={validate} disabled={!file || disabled || busy}>Validate Backup</Button>
+      <Button variant="outline" onClick={validate} disabled={!file || disabled || busy}>
+        {busy && operation.startsWith("Uploading") && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+        {busy && operation.startsWith("Uploading") ? "Validating Backup…" : "Validate Backup"}
+      </Button>
       {validation && <div className="space-y-3">
         <p className="text-xs text-muted-foreground">Archive validated. Confirmation expires {new Date(validation.expires_at).toLocaleString()}.</p>
         <Label htmlFor="restore-password">Administrator password</Label>
         <Input id="restore-password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} disabled={busy} />
         <Label htmlFor="restore-confirm">Type REPLACE to confirm</Label>
         <Input id="restore-confirm" value={confirmation} onChange={e => setConfirmation(e.target.value)} disabled={busy} />
-        <Button variant="destructive" onClick={restore} disabled={busy || disabled || !password || confirmation !== "REPLACE"}>Replace Station Data</Button>
+        <Button variant="destructive" onClick={restore} disabled={busy || disabled || !password || confirmation !== "REPLACE"}>
+          {busy && operation.startsWith("Restoring") && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+          {busy && operation.startsWith("Restoring") ? "Restoring Station Data…" : "Replace Station Data"}
+        </Button>
       </div>}
-      {busy && <p role="status" className="text-xs text-muted-foreground">Waiting for active work, then processing the archive…</p>}
+      {busy && <p role="status" className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />{operation || "Waiting for active work, then processing the archive…"}</p>}
       {message && <p role="alert" className="text-sm text-destructive">{message}</p>}
-      {(backupId.current || restoreId.current) && <Button variant="outline" disabled={busy} onClick={check}>Check Operation Status</Button>}
+      {(backupId.current || restoreId.current) && <Button variant="outline" disabled={busy} onClick={check}>
+        {busy && operation.startsWith("Checking") && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+        {busy && operation.startsWith("Checking") ? "Checking Status…" : "Check Operation Status"}
+      </Button>}
     </div>
   </>
 }

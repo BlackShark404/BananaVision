@@ -33,3 +33,22 @@ Documented log of confirmed bug root causes, verified solutions, and test covera
 - **Root Cause**: Double-encoded UTF-8 strings or raw CP1252 bytes written into files.
 - **Fix**: Systematically normalized all corrupted characters across 11 frontend files to clean UTF-8 literals (`…`, `—`, `·`).
 - **Verification**: Successful AST parsing in `graphify update .`, clean `npm run typecheck`, and 100% test pass rate across 101 tests.
+
+### 6. Kiosk Operator Action Feedback Missing Spinners
+- **Issue**: In `Kiosk.tsx`, clicking `Start Intake Session` or `Flag for Review` disabled the buttons without visual progress indication, leading to uncertain operator state on touchscreen kiosks.
+- **Root Cause**: Submit buttons lacked conditional `<Loader2>` spinners and dynamic busy labels.
+- **Fix**: Added `<Loader2 className="animate-spin" />` and dynamic labels (`"Starting Intake Session…"`, `"Flagging..."`).
+- **Verification**: `tests/kiosk.test.mjs` (4/4 passed).
+
+### 7. Quality Control Refresh Phrasing & Note Metadata Corruption
+- **Issue**: In `QualityControl.tsx`, background scan refresh claimed to be `"Loading complete scan history…"` even when records were already loaded. In addition, note timestamps contained mojibake `â€¢` instead of bullet `•`.
+- **Root Cause**: Static string conditional on `scansLoading` without checking `scansReady`, plus double-encoded UTF-8 bullet byte sequence.
+- **Fix**: Rendered `scansReady ? "Refreshing scan history…" : "Loading complete scan history…"` and replaced `â€¢` with clean `•`.
+- **Verification**: `tests/scanrecords.test.mjs` (15/15 passed).
+
+### 8. Station Backup & Restore Critical Action Feedback
+- **Issue**: In `StationBackupControls.tsx`, `Create Backup`, `Validate Backup`, `Replace Station Data`, and `Check Operation Status` disabled on `busy` without identifying which action was running or displaying a spinner.
+- **Root Cause**: Generic `busy` state flag without action-specific button indicators.
+- **Fix**: Added action-matching `<Loader2 className="animate-spin mr-2" />` spinners and active verb labels (`"Creating Backup…"`, `"Validating Backup…"`, `"Restoring Station Data…"`) and an enhanced status bar.
+- **Verification**: `tests/maintenance.test.mjs` (14/14 passed).
+

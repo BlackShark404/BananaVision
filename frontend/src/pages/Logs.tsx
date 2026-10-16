@@ -399,7 +399,7 @@ const columns: ColumnDef<LogScan>[] = [
           <DialogHeader><DialogTitle>Mark scan as {statusAction?.status}?</DialogTitle><DialogDescription>This change will be recorded in the scan history.</DialogDescription></DialogHeader>
           <Label htmlFor="status-reason">Reason for change</Label>
           <Textarea id="status-reason" value={statusReason} onChange={event => setStatusReason(event.target.value)} disabled={!!pendingScans.size} />
-          <DialogFooter><Button variant="outline" disabled={!!pendingScans.size} onClick={() => setStatusAction(null)}>Cancel</Button><Button disabled={resource.isPreviousData || !statusReason.trim() || !!pendingScans.size} onClick={() => void handleStatusUpdate()}>Save Changes</Button></DialogFooter>
+          <DialogFooter><Button variant="outline" disabled={!!pendingScans.size} onClick={() => setStatusAction(null)}>Cancel</Button><Button disabled={resource.isPreviousData || !statusReason.trim() || !!pendingScans.size} onClick={() => void handleStatusUpdate()}>{!!pendingScans.size && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin mr-2" />}{pendingScans.size ? "Saving…" : "Save Changes"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
       <AppPageHeader
