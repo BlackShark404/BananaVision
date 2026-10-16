@@ -208,9 +208,9 @@ function LogsContent() {
     if (resource.isPreviousData || resource.loading) return
     setExporting(true)
     try {
-      await api.scanLogs.export({ ...requestParams, snapshot_id: response?.snapshot_id }, AbortSignal.timeout(60_000))
+      await api.scanLogs.export({ ...requestParams, snapshot_id: response?.snapshot_id }, AbortSignal.timeout(300_000))
       toast.success("Exported all matching scan records")
-    } catch (error) { toast.error(error instanceof Error ? error.message : "Export failed") }
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Export failed. Check connection or narrow date range.") }
     finally { setExporting(false) }
   }
 

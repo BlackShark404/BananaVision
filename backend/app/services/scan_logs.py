@@ -223,7 +223,7 @@ async def export_scan_logs(db: AsyncSession, user: UserAccount, query: ScanLogQu
     # Start the query before HTTP headers are sent, so initial DB failures propagate.
     if query.snapshot_id:
         key = binding(
-            "logs", query.model_dump(mode="json", exclude={"page", "snapshot_id", "stable"})
+            "logs", query.model_dump(mode="json", exclude={"page", "snapshot_id", "stable", "limit"})
         )
         saved = await load_snapshot(db, user, query.snapshot_id, key)
 

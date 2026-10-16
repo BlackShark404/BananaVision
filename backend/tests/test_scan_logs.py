@@ -361,3 +361,20 @@ def test_scan_logs_query_limit_alias_syncs_with_page_size():
     key_page_size = binding("logs", ScanLogQuery(page_size=25).model_dump(mode="json", exclude={"page", "snapshot_id", "stable", "limit"}))
     assert key_limit == key_page_size
 
+    # Export binding key must also match when limit alias is used
+    export_key = binding("logs", ScanLogQuery(limit=25, snapshot_id=uuid4()).model_dump(mode="json", exclude={"page", "snapshot_id", "stable", "limit"}))
+    assert export_key == key_page_size
+
+
+@pytest.mark.asyncio
+async def test_export_scan_logs_with_limit_alias(logs_db):
+    db = logs_db
+    own = account(db)
+    scan(db, own, confidence=88, prediction="3")
+    export_query = ScanLogQuery(limit=25)
+    rows = await csv_rows(db, own, export_query)
+    assert len(rows) == 1
+    assert float(rows[0]["Confidence (%)"]) == 88.0
+
+
+

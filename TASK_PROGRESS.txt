@@ -1,4 +1,4 @@
-CURRENT RESUME HERE (2026-10-17) - MODULES 1, 2, 3, AND 4 VERIFIED
+CURRENT RESUME HERE (2026-10-17) - MODULES 1 THROUGH 5 VERIFIED
 BRANCH main; working directory clean of unexpected modifications. No staging/commit/push/deployment executed.
 Previous completed checkpoint: docs/history/2026-10-16-before-loading-audit.txt.
 
@@ -31,15 +31,20 @@ DONE
   * Optimized backend search conditions in `backend/app/services/scan_logs.py`: Valid UUID searches directly match primary key `scans.c.id == exact_uuid`, hitting the B-tree index directly and avoiding full-table substring scans.
   * Unit test added in `backend/tests/test_scan_logs.py` asserting exact UUID search resolution (21/21 passed).
   * Browser regression test verified: "Logs latest search wins" in `frontend/tests/scanrecords.test.mjs` (15/15 passed).
+- Module 5 (Export CSV) verified & optimized:
+  * Fixed snapshot cache binding key in `export_scan_logs` (`backend/app/services/scan_logs.py`) to exclude `limit`, preventing false HTTP 409 snapshot token invalidations during CSV export after page size changes.
+  * Increased client-side CSV download abort timeout in `frontend/src/pages/Logs.tsx` from 60 seconds to 300 seconds (5 minutes) to ensure complete data transfer on large multi-month and annual audits.
+  * Verified formula injection protection (`_safe_cell`), Excel UTF-8 BOM (`\ufeff`), and bounded chunk streaming (`yield_per=200`).
+  * Verified backend unit tests in `backend/tests/test_scan_logs.py` (22/22 passed) and browser export tests in `frontend/tests/scanrecords.test.mjs` (15/15 passed).
 - Verified dashboard browser regression suite (`tests/dashboard.test.mjs`): 14/14 tests passed in 14.7s.
 - Verified frontend TypeScript check (`npm run typecheck`): 0 errors.
-- Verified frontend production build (`npm run build`): PASSED in 5.62s.
+- Verified frontend production build (`npm run build`): PASSED in 10.05s.
 
 IN PROGRESS
-- None. Modules 1, 2, 3, and 4 verified.
+- None. Modules 1 through 5 verified.
 
 REMAINING
-- Review remaining assigned modules for authorized implementation (Modules 5–13: Export CSV, Analytics Overview, Ripeness Distribution Chart, Cultivar Counts Chart, Scan Trend Chart, Operator Performance Table, Quality Control, Edit Scan Data, Review Notes).
+- Review remaining assigned modules for authorized implementation (Modules 6–13: Analytics Overview, Ripeness Distribution Chart, Cultivar Counts Chart, Scan Trend Chart, Operator Performance Table, Quality Control, Edit Scan Data, Review Notes).
 - Awaiting user authorization before staging, committing, or pushing changes.
 
 TEST RESULTS
