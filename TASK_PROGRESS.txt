@@ -1,4 +1,4 @@
-CURRENT RESUME HERE (2026-10-17) - MODULES 1 THROUGH 7 VERIFIED
+CURRENT RESUME HERE (2026-10-17) - MODULES 1 THROUGH 8 VERIFIED
 BRANCH main; working directory clean of unexpected modifications. No staging/commit/push/deployment executed.
 Previous completed checkpoint: docs/history/2026-10-16-before-loading-audit.txt.
 
@@ -46,16 +46,20 @@ DONE
   * Safely aggregates from SQL matrix grouping by `(cultivar, ripeness)` in `backend/app/services/analytics.py:216-224`, excluding incomplete or unclassified scans.
   * Dedicated `emptyChart()` container with `role="status"` gracefully renders when `classification_count === 0` ("No classified scans in this selection.").
   * Zero-division safe percentage calculations: `((percent || 0) * 100).toFixed(0)%` prevents NaN rendering on empty slices.
-  * Verified server contract binding for card header title in `frontend/tests/analytics.test.mjs` (5/5 passed).
+- Module 8 (Cultivar Counts Chart) verified:
+  * Categorical BarChart displays scan counts across supported Philippine banana cultivars (Lakatan `#f59e0b`, Latundan `#fbbf24`, Cardaba `#d97706`).
+  * Backend matrix aggregation (`backend/app/services/analytics.py:225-228`) tallies cultivar frequencies and identifies `most_common_cultivar` safely with `"N/A"` fallback when no scans exist.
+  * Preserves accessibility titles (`title={summary.metric_definitions.classifications}`), rounded top bar corners (`radius={[8, 8, 0, 0]}`), and empty fallback (`emptyChart()`).
+  * Verified in Playwright browser tests (`frontend/tests/analytics.test.mjs`: 5/5 passed) and backend tests (`backend/tests/test_analytics.py`: 10/10 passed).
 - Verified dashboard browser regression suite (`tests/dashboard.test.mjs`): 14/14 tests passed in 14.7s.
 - Verified frontend TypeScript check (`npm run typecheck`): 0 errors.
 - Verified frontend production build (`npm run build`): PASSED in 10.05s.
 
 IN PROGRESS
-- None. Modules 1 through 7 verified.
+- None. Modules 1 through 8 verified.
 
 REMAINING
-- Review remaining assigned modules for authorized implementation (Modules 8–13: Cultivar Counts Chart, Scan Trend Chart, Operator Performance Table, Quality Control, Edit Scan Data, Review Notes).
+- Review remaining assigned modules for authorized implementation (Modules 9–13: Scan Trend Chart, Operator Performance Table, Quality Control, Edit Scan Data, Review Notes).
 - Awaiting user authorization before staging, committing, or pushing changes.
 
 TEST RESULTS
