@@ -238,6 +238,7 @@ export interface SystemConfig {
   legacyConflict?: boolean
   cameraIds: string
   confidenceThreshold: number
+  readonly detectionConfidenceThreshold?: number
   dataRetentionEnabled: boolean
 }
 

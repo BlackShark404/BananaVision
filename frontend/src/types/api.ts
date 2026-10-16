@@ -64,6 +64,7 @@ export interface ApiConfig {
   legacy_conflict: boolean
   camera_ids: string
   confidence_threshold: number
+  readonly detection_confidence_threshold?: number
   data_retention_enabled: boolean
 }
 

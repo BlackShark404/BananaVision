@@ -97,7 +97,14 @@ async def _execute_scan_pipeline(
     })
 
     try:
-        confidence_threshold = (await get_config(db)).confidence_threshold / 100.0
+        config = await get_config(db)
+        review_confidence_threshold = config.confidence_threshold / 100.0
+        # Retain moderate-confidence boxes before fusion. The stricter saved
+        # threshold governs review, rather than discarding camera evidence.
+        confidence_threshold = min(
+            review_confidence_threshold, get_settings().yolo_confidence_threshold,
+        )
+        expected_camera_count = len(config.camera_device_ids)
         # ── Step 2: Capture from all cameras ─────────────────────────────
         await send_scan_event(events.SCAN_CAPTURING, {
             "scan_id": scan_id_str,
@@ -203,7 +210,10 @@ async def _execute_scan_pipeline(
             "progress_pct": 80,
         })
 
-        fused = fusion_engine.fuse(classification_results)
+        fused = fusion_engine.fuse(
+            classification_results, expected_camera_count=expected_camera_count,
+            review_confidence_threshold=review_confidence_threshold,
+        )
 
         # Guard: if no banana was detected, abort the scan gracefully
         if fused.cultivar == "Unknown" or fused.ripeness == "Unknown":

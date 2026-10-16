@@ -78,6 +78,7 @@ const mapApiActivityLog = (a: ApiActivity): ActivityLog => ({
 
 const mapConfig = (saved: ApiConfig): SystemConfig => ({
   cameraIds: saved.camera_ids, confidenceThreshold: saved.confidence_threshold,
+  detectionConfidenceThreshold: saved.detection_confidence_threshold,
   dataRetentionEnabled: saved.data_retention_enabled, revision: saved.revision,
   cameraDeviceIds: saved.camera_device_ids, appliedRevision: saved.applied_revision,
   applicationStatus: saved.application_status, applicationError: saved.application_error,

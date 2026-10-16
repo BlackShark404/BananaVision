@@ -414,12 +414,12 @@ export default function SystemConfig() {
           <Card className="rounded-xl sm:rounded-2xl">
             <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
               <CardTitle className="text-base sm:text-lg">YOLO26 Detection Parameters</CardTitle>
-              <CardDescription className="text-xs sm:text-sm">Tune the AI model confidence and detection thresholds.</CardDescription>
+              <CardDescription className="text-xs sm:text-sm">Retain banana detections and set when scan results need review.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 px-4 sm:px-6">
               <div className="space-y-4">
                 <div className="flex justify-between">
-                  <Label className="text-sm">Minimum Confidence Threshold</Label>
+                  <Label className="text-sm">Review Confidence Threshold</Label>
                   <span className="font-bold text-primary">{localConfig.confidenceThreshold}%</span>
                 </div>
                 <Slider 
@@ -432,8 +432,11 @@ export default function SystemConfig() {
                   className="w-full"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Detections below {localConfig.confidenceThreshold}% will be ignored and not recorded. 
-                  Higher values reduce false positives.
+                  Results below {localConfig.confidenceThreshold}% are flagged for review.
+                  Additional detection boxes keep their original confidence scores.
+                  {config.detectionConfidenceThreshold !== undefined && (
+                    <span className="block">Current YOLO detection cutoff: {config.detectionConfidenceThreshold}%</span>
+                  )}
                 </p>
               </div>
             </CardContent>

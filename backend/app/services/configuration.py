@@ -80,6 +80,9 @@ def config_response(config) -> dict:
     return {
         'camera_ids': config.camera_ids, 'camera_device_ids': config.camera_device_ids,
         'confidence_threshold': config.confidence_threshold,
+        'detection_confidence_threshold': min(
+            config.confidence_threshold, get_settings().yolo_confidence_threshold * 100,
+        ),
         'data_retention_enabled': config.data_retention_enabled, 'revision': config.revision,
         'legacy_conflict': config.legacy_conflict,
         'applied_camera_ids': ', '.join(applied_ids) if camera_manager.is_initialized else None,

@@ -217,8 +217,12 @@ async def test_retention_disabled_failed_commit_and_safe_orphans(application, tm
 
 @pytest.mark.asyncio
 async def test_failed_scan_removes_partial_captures(tmp_path, monkeypatch):
-    monkeypatch.setattr(scan_service, "get_settings", lambda: SimpleNamespace(capture_path=tmp_path))
-    monkeypatch.setattr(scan_service, "get_config", AsyncMock(return_value=SimpleNamespace(confidence_threshold=85)))
+    monkeypatch.setattr(scan_service, "get_settings", lambda: SimpleNamespace(
+        capture_path=tmp_path, yolo_confidence_threshold=0.50,
+    ))
+    monkeypatch.setattr(scan_service, "get_config", AsyncMock(return_value=SimpleNamespace(
+        confidence_threshold=85, camera_device_ids=[0],
+    )))
     async def capture_all():
         return [SimpleNamespace(frame=None)]
     def save(captures, scan_id):

@@ -2,6 +2,16 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-10-16: Live Detection and Result Review
+
+- YOLO retains candidates at `min(YOLO_CONFIDENCE_THRESHOLD, saved confidence_threshold / 100)`. The model setting defaults to 0.50; the saved review setting defaults to 85%. Lower saved settings remain supported.
+- Fusion uses the saved setting for confidence review, alongside camera support and conflict checks. A confident box score does not establish agreement across camera views.
+- Both thresholds are snapshotted before processing the camera views. Original box confidence scores are retained.
+- The configuration response reports the effective saved detection cutoff as read-only `detection_confidence_threshold` in percent. The settings slider controls review; its helper identifies the **current** saved detection cutoff.
+- Kiosk scan results expose the existing review flag in the result title. No database schema or model weight change is required.
+- Finger count currently means the maximum per-camera YOLO box count, assuming one detection per finger. There is no matching of physical fingers across views. Do not sum view counts or infer a correction multiplier from a reported total; validate per-view detection recall and whole-bunch count error separately. Large overlapping rectangles alone do not establish incorrect training annotations.
+- See [[Resolved Bugs]] for the filtering and label-pair regressions. Real-world accuracy still requires labeled offline fixtures; synthetic tests establish pipeline behavior only.
+
 ## 2026-10-16: Loading States & Data Consistency
 
 ### 1. Distinction Between Initial Load, Action, and Background Refresh

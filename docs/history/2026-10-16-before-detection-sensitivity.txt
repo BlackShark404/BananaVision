@@ -1,0 +1,62 @@
+CURRENT RESUME HERE (2026-10-16) - LIVE INFERENCE VOTING FIX VERIFIED
+Branch main; HEAD c94b303. No staging, commit, push, deployment or backend restart.
+Previous checkpoint: docs/history/2026-10-16-before-live-inference-fix.txt.
+
+USER SCOPE / FINDINGS
+- User reports a separate demo system identified bananas accurately, while this live
+  four-camera app detects poorly. Separate demo code/model settings and the true
+  variety in the screenshot are unavailable; do not confuse it with Kiosk Demo mode.
+- Reproduced independent cultivar/ripeness votes inventing an unobserved label pair,
+  then passing that pair to RFR. Also reproduced one 86% view plus three empty views
+  producing an unflagged result; repeated camera summaries hid internal ambiguity.
+- RFR estimates shelf life from YOLO classification; it does not identify variety.
+- Default weight metadata inspected offline contains all 12 cultivar/ripeness labels
+  and training image size 640. BGR input handling matches local Ultralytics code/docs.
+  Station .env, active saved threshold and runtime model choice were not inspected.
+
+IMPLEMENTED
+- classification.py preserves confidence-weighted cultivar consensus, selects ripeness
+  only among that cultivar's actual labels, and averages confidence for that pair.
+  Carries internal conflict evidence when selected pair has less than 60% vote weight.
+- fusion_engine.py uses complete observed camera pairs, propagates ambiguity, requires
+  pair consensus, and flags insufficient supporting views or missing configured captures.
+  Two agreeing views can confirm a four-view scan with occlusion; an intentionally
+  configured single camera is supported. Duplicate IDs/invalid confidence cannot vote.
+- scan_service.py snapshots expected camera count with the saved confidence threshold.
+  Existing review flags flow through persisted scan/original AI and completion events.
+- Added 29 synthetic classifier/fusion regressions and 3 API pipeline regressions proving
+  RFR inputs, saved flags, original AI and completion-event flags. Updated existing
+  config/fusion test stubs, including optional PostgreSQL fixtures, for the new API.
+- Preserved model files, thresholds, RFR behavior, UI, timezone helpers, previous reverts,
+  concurrently committed frontend loading changes and unrelated untracked BananaVision/.
+
+VERIFICATION
+- Five selected new behavioral tests fail against original HEAD services loaded only
+  in isolated memory, proving unsupported pairs, wrong confidence and hidden/sparse votes.
+- Final backend: temporary-cwd pytest wrapper per development-workflow.md, no live .env,
+  -p no:cacheprovider -q --basetemp <temporary fixtures> -c backend/pyproject.toml
+  backend/tests -k 'not test_socket_subscriptions_accept_once_and_idle_revocation':
+  348 PASSED, 38 SKIPPED, 1 DESELECTED in 57.66s. Includes all 32 added cases.
+- An earlier combined run stalled in that unchanged WebSocket test; stopped only its
+  verified disposable pytest process. The test PASSED separately in 1.71s (25 deselected).
+  Therefore do not describe the entire suite as passing together in one invocation.
+- PostgreSQL cases skipped: no disposable PostgreSQL URL supplied; no DB schema changes.
+- Frontend: node --test --test-concurrency=1 tests/kiosk.test.mjs tests/printing.test.mjs
+  tests/scanflagindicator.test.mjs: 9/9 PASSED in 58.50s, mocked APIs and headless Edge.
+  Initial browser attempt lacked Playwright; installed it only in a temporary tool folder
+  and reran successfully with PLAYWRIGHT_MODULE and PLAYWRIGHT_CHANNEL=msedge.
+- npm run typecheck PASS; npm run build PASS (Vite 54.79s).
+- npm run lint FAILS with existing 43 errors/8 warnings; frontend source unchanged here.
+- uv tool run --from ruff ruff check backend/app backend/tests: existing 637 diagnostics
+  with Ruff 0.17.1. Compared every scoped file with HEAD: ZERO new lint diagnostics.
+- Focused independent review found no blockers; scoped source/test diff reviewed.
+  git diff --check PASS, including checkpoint updates.
+
+EXACT NEXT STEP / LIMITS
+- Code fixes are ready for review; no live accuracy percentage has been established.
+- When available, compare separate demo model/script/settings with labeled offline
+  image fixtures representing all varieties, ripeness stages and four views before
+  tuning confidence, changing cameras or retraining. A higher box count alone does
+  not establish accuracy. Do not claim these voting fixes cure raw model misses.
+- No tests against station database/captures/cameras/printer/power. Keep future tests
+  isolated. Do not repeat prior credential recovery or change models/thresholds blindly.

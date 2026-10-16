@@ -211,6 +211,7 @@ class SystemConfigResponse(BaseModel):
     camera_ids: str
     camera_device_ids: list[int]
     confidence_threshold: int
+    detection_confidence_threshold: float
     data_retention_enabled: bool
     revision: int
     applied_camera_ids: str | None

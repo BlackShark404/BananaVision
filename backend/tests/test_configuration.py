@@ -117,7 +117,7 @@ def test_capture_rejects_unusable_frames():
 
 
 @pytest.mark.asyncio
-async def test_async_scan_uses_one_saved_threshold_snapshot_in_worker(configured, monkeypatch):
+async def test_scan_snapshots_detection_cutoff_separately_from_review(configured, monkeypatch):
     from app.services import scan_service
     from app.core.exceptions import ModelInferenceError
     with Session(configured.engine) as db:
@@ -141,7 +141,7 @@ async def test_async_scan_uses_one_saved_threshold_snapshot_in_worker(configured
     async with SessionAdapter(configured.engine, configured.state) as db:
         with pytest.raises(ModelInferenceError):
             await scan_service.execute_scan_pipeline(db, configured.ids.profile, configured.ids.operator, 'Operator')
-    assert calls == [(0.63, True), (0.63, True)]
+    assert calls == [(0.50, True), (0.50, True)]
 
 
 def test_slot_count_mismatch_does_not_save(configured):

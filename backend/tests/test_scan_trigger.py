@@ -43,7 +43,9 @@ def scan_station(application, monkeypatch):  # noqa: F811 - imported pytest fixt
     monkeypatch.setattr(scan_service, "banana_classifier", SimpleNamespace(
         predict=lambda _, **kwargs: result,
     ))
-    monkeypatch.setattr(scan_service, "fusion_engine", SimpleNamespace(fuse=lambda _: result))
+    monkeypatch.setattr(scan_service, "fusion_engine", SimpleNamespace(
+        fuse=lambda _, **kwargs: result,
+    ))
     monkeypatch.setattr(scan_service, "spoilage_predictor", SimpleNamespace(
         predict=lambda **_: "3-6",
     ))
@@ -115,3 +117,70 @@ def test_missing_requested_intake_does_not_create_unlinked_scan_or_label(scan_st
     with Session(app.engine) as db:
         assert db.scalar(select(func.count()).select_from(Scan)) == 1
         assert db.scalar(select(func.count()).select_from(PrintJob)) == 0
+
+
+@pytest.mark.parametrize("scenario", ["conflicting_pairs", "sparse_views", "missing_captures"])
+def test_real_fusion_passes_observed_pair_to_rfr_and_persists_review_flag(
+    scan_station, monkeypatch, scenario,
+):
+    from app.services.classification import ClassificationResult
+    from app.services.fusion_engine import FusionEngine
+
+    app, _ = scan_station
+    app.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id=app.ids.operator, full_name="Fixture Operator", role=SimpleNamespace(name="Operator"),
+        operator_profile=SimpleNamespace(id=app.ids.profile),
+    )
+    agreeing = ClassificationResult(cultivar="Lakatan", ripeness="Ripe", confidence=91)
+    if scenario == "conflicting_pairs":
+        results = [
+            agreeing,
+            ClassificationResult(cultivar="Lakatan", ripeness="Unripe", confidence=90),
+            ClassificationResult(cultivar="Cardaba", ripeness="Overripe", confidence=95),
+            ClassificationResult(cultivar="Latundan", ripeness="Overripe", confidence=95),
+        ]
+    elif scenario == "sparse_views":
+        results = [agreeing, ClassificationResult(), ClassificationResult(), ClassificationResult()]
+    else:
+        results = [agreeing, agreeing]
+        original_capture_all = scan_service.camera_manager.capture_all
+
+        async def partial_capture():
+            return (await original_capture_all())[:2]
+
+        monkeypatch.setattr(scan_service.camera_manager, "capture_all", partial_capture)
+
+    predictions = iter(results)
+    monkeypatch.setattr(scan_service, "banana_classifier", SimpleNamespace(
+        predict=lambda _, **kwargs: next(predictions),
+    ))
+    monkeypatch.setattr(scan_service, "fusion_engine", FusionEngine())
+    rfr_calls = []
+
+    def predict_spoilage(**kwargs):
+        rfr_calls.append(kwargs)
+        return "3-6"
+
+    monkeypatch.setattr(scan_service, "spoilage_predictor", SimpleNamespace(
+        predict=predict_spoilage,
+    ))
+    completed = []
+
+    async def capture_event(_room, event, data, **_kwargs):
+        if event == "scan:completed":
+            completed.append(data)
+
+    monkeypatch.setattr(scan_service.ws_manager, "send_to_room", capture_event)
+    response = app.client.post("/api/v1/scans/trigger", json={"intake_id": str(app.ids.intake)})
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert (data["cultivar"], data["ripeness"], data["confidence"]) == ("Lakatan", "Ripe", 91)
+    assert data["flagged"] is True
+    assert len(rfr_calls) == 1
+    assert (rfr_calls[0]["cultivar"], rfr_calls[0]["ripeness"]) == ("Lakatan", "Ripe")
+    assert completed and all(event["flagged"] is True for event in completed)
+    with Session(app.engine) as db:
+        saved = db.get(Scan, UUID(data["id"]))
+        assert saved.flagged is True
+        assert len(saved.detections) == len(results)
+        assert saved.original_ai_result.ripeness == "Ripe"

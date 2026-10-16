@@ -19,6 +19,7 @@ from app.schemas.enums import CultivarEnum, RipenessEnum
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+VOTE_CONFLICT_THRESHOLD = 0.60
 
 
 @dataclass
@@ -41,6 +42,7 @@ class ClassificationResult:
     finger_count: int = 0
     detections: list[Detection] = field(default_factory=list)
     inference_time_ms: float = 0.0
+    conflict_detected: bool = False
 
 
 # ── Class label parsing ─────────────────────────────────────────────────────
@@ -192,7 +194,7 @@ class BananaClassifier:
 
         detections: list[Detection] = []
         cultivar_votes: dict[str, list[float]] = {}
-        ripeness_votes: dict[str, list[float]] = {}
+        class_votes: dict[tuple[str | None, str | None], list[float]] = {}
 
         if results and len(results) > 0:
             result = results[0]
@@ -212,13 +214,27 @@ class BananaClassifier:
                     cultivar, ripeness = _parse_class_label(cls_name)
                     if cultivar:
                         cultivar_votes.setdefault(cultivar, []).append(conf)
-                    if ripeness:
-                        ripeness_votes.setdefault(ripeness, []).append(conf)
+                    if cultivar or ripeness:
+                        class_votes.setdefault((cultivar, ripeness), []).append(conf)
 
-        # Determine best cultivar and ripeness via max weighted vote
+        # Preserve cultivar consensus, then choose ripeness from that cultivar's
+        # actual labels. Independent votes can invent a pair YOLO never detected.
         best_cultivar = self._best_vote(cultivar_votes)
+        ripeness_votes = {
+            ripeness: confs for (cultivar, ripeness), confs in class_votes.items()
+            if cultivar == best_cultivar and ripeness
+        }
         best_ripeness = self._best_vote(ripeness_votes)
-        avg_conf = self._avg_confidence(cultivar_votes, ripeness_votes, best_cultivar, best_ripeness)
+        winning_confs = class_votes.get((best_cultivar, best_ripeness), [])
+        avg_conf = (
+            round(sum(winning_confs) / len(winning_confs) * 100, 1)
+            if winning_confs else 0.0
+        )
+        total_weight = sum(sum(confs) for confs in class_votes.values())
+        conflict_detected = (
+            best_cultivar is None or best_ripeness is None
+            or sum(winning_confs) < total_weight * VOTE_CONFLICT_THRESHOLD
+        )
 
         return ClassificationResult(
             cultivar=best_cultivar,
@@ -227,29 +243,13 @@ class BananaClassifier:
             finger_count=len(detections),
             detections=detections,
             inference_time_ms=elapsed_ms,
+            conflict_detected=conflict_detected,
         )
 
     def _best_vote(self, votes: dict[str, list[float]]) -> str | None:
         if not votes:
             return None
         return max(votes, key=lambda k: sum(votes[k]))
-
-    def _avg_confidence(
-        self,
-        cultivar_votes: dict[str, list[float]],
-        ripeness_votes: dict[str, list[float]],
-        best_cultivar: str | None,
-        best_ripeness: str | None,
-    ) -> float:
-        confs: list[float] = []
-        if best_cultivar and best_cultivar in cultivar_votes:
-            confs.extend(cultivar_votes[best_cultivar])
-        if best_ripeness and best_ripeness in ripeness_votes:
-            confs.extend(ripeness_votes[best_ripeness])
-        return round(sum(confs) / len(confs) * 100, 1) if confs else 0.0
-
-
-
 
 # Singleton instance
 banana_classifier = BananaClassifier()

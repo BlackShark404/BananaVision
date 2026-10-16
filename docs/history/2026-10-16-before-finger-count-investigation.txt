@@ -1,0 +1,73 @@
+CURRENT RESUME HERE (2026-10-16) - DETECTION RETENTION / REVIEW VERIFIED
+Branch main; HEAD c94b303. No stage, commit, push, deployment or backend restart.
+Previous checkpoint: docs/history/2026-10-16-before-detection-sensitivity.txt.
+
+CURRENT USER SCOPE / EVIDENCE
+- Prior label-pair/camera-voting fix improved results, but user reports missed boxes
+  in crowded views (new screenshot: top 2, left 1). Wants better live YOLO detection.
+- User confirms the trained varieties are Lakatan, Latundan and Cardaba; they did not
+  identify the true variety in these photos. Separate demo script/settings unavailable.
+- Confirmed pipeline used saved confidence_threshold (default85%) as YOLO conf cutoff,
+  while existing model yolo_confidence_threshold (default50%) was unused. This discards
+  moderate candidates before fusion. Fusion also had its own fixed50% review floor.
+- Station .env, active saved configuration and live images were not inspected or tested.
+  Do not claim the actual station had85%, or that screenshot accuracy was measured.
+
+IMPLEMENTED
+- Scan snapshots review threshold and detection cutoff before all camera views.
+  YOLO receives min(saved review /100, configured model cutoff). Existing saved values
+  below50% remain supported; original per-box confidence scores are retained.
+- Fusion receives the saved review threshold. Low-confidence results are flagged along
+  with existing conflict, sparse-view and missing-capture flags. Equality at the review
+  threshold passes confidence review. Prior observed-label-pair safeguards are retained.
+- Settings.yolo_confidence_threshold validated in(0,1], rejecting NaN/infinite values.
+- Config response adds read-only effective detection_confidence_threshold in PERCENT;
+  updates reject that field. No new DB column, migration, saved value or secret edit.
+- Frontend types/mapping synchronize optional detectionConfidenceThreshold for old
+  backend/fixture compatibility. Existing AI slider is clearly labeled Review Confidence
+  Threshold; helper displays CURRENT saved YOLO cutoff (not an unsaved draft promise).
+- Flagged live kiosk result title now says Scan Complete - Review Needed. Existing
+  components/layout/styles preserved; Demo Complete wording retained for replay.
+- Model weights, IoU, image size/color processing, RFR and camera settings unchanged.
+- Added15 backend sensitivity regressions and2 browser regressions. Updated prior worker
+  expectation and capture-cleanup fixture for separated thresholds. Kiosk navigation
+  timeout45s matches existing browser harness tolerance for cold fixture startup.
+
+VERIFIED RESULTS
+- New backend file RED:14failed/1passed before implementation. GREEN targeted set:
+  test_detection_sensitivity.py + test_classification_fusion.py + test_scan_trigger.py,
+  52passed in9.51s. Synthetic92%,72%,65%,42% candidates retain first3 at50%; stored raw
+  scores unchanged, mean76.3% flagged at85%. Tests cover caps/lower cutoffs, boundary,
+  snapshots, persisted/original/event flags, read-only API contract and invalid settings.
+- Full backend: fresh temporary cwd per docs/development-workflow.md; no live.env;
+  -p no:cacheprovider -q --basetemp <temp fixtures> -c backend/pyproject.toml backend/tests
+  -k 'not test_socket_subscriptions_accept_once_and_idle_revocation':
+  363PASSED,38SKIPPED,1DESELECTED in408.00s. PostgreSQL skipped: no disposable URL supplied.
+  Excluded WebSocket case passed separately in the previous checkpoint; not rerun here.
+- Frontend targeted browser cases all PASS: kiosk5 + maintenance15 + printing3 +
+  scanflagindicator2 =25. Includes new saved-cutoff/writable-PATCH and visible review tests.
+  Initial combined run with adminloading:26passed/3failed (2cold navigation timeouts and
+  90s file deadline during concurrent validation). Unchanged adminloading suite retried
+  separately:3/3PASS in49.82s. Total28unique frontend cases pass across these runs.
+  Used temporary installed Playwright from prior task and headless msedge, mocked APIs.
+- npm run typecheck PASS, repeated after final kiosk text edit: PASS in1.80s.
+- npm run build PASS (Vite1m7s); built Kiosk bundle includes final Review Needed title.
+- npm run lint FAIL with existing43errors/8warnings, no new frontend diagnostics.
+- uv tool run --from ruff ruff check backend/app backend/tests: existing636diagnostics
+  with Ruff0.17.1; compared every scoped file with HEAD:ZERO new diagnostics.
+- Independent review found no blockers. Scoped diff and git diff --check PASS.
+
+KNOWLEDGE / CONSTRAINTS / NEXT STEP
+- Updated docs/knowledge/Development Decisions.md and Resolved Bugs.md with verified
+  inference policy, contracts and tests, preserving existing notes and internal links.
+- Graphify skill read, but graphify-out/graph.json and Graphify CLI absent; no ICM tools
+  exposed. Reported limitation; did not install/reinitialize tools or claim synchronization.
+- Preserve all prior uncommitted voting/test work, explicit reverts, committed frontend
+  loading work and unrelated untracked BananaVision/. No live DB/capture/camera/printer/
+  OS-power testing; all persistence fixtures isolated. Do not apply migrations/recovery.
+- Code is ready for review. After ordinary app refresh, AI Settings reports the actual
+  effective cutoff; defaults are50% detection retention and85% result review.
+- Next evidence needed for accuracy measurement/tuning: labeled OFFLINE image fixtures
+  from representative four-view scenes, or the separate demo model/script/settings.
+  More boxes do not establish correct variety/ripeness or recovery of hidden/cropped
+  bananas. Do not force class labels, promise measured gains or reprocess live captures.

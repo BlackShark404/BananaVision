@@ -320,7 +320,9 @@ async def test_scan_pipeline_never_announces_completion_before_persistence(appli
         detect=lambda _: SimpleNamespace(banana_detected=True),
     ))
     monkeypatch.setattr(scan_service, "banana_classifier", SimpleNamespace(predict=lambda _, **kwargs: detection_result))
-    monkeypatch.setattr(scan_service, "fusion_engine", SimpleNamespace(fuse=lambda _: result))
+    monkeypatch.setattr(scan_service, "fusion_engine", SimpleNamespace(
+        fuse=lambda _, **kwargs: result,
+    ))
     monkeypatch.setattr(scan_service, "spoilage_predictor", SimpleNamespace(predict=lambda **_: "1"))
     monkeypatch.setattr(scan_service, "sensor_reader", SimpleNamespace(latest=None))
     monkeypatch.setattr(scan_service.ws_manager, "send_to_room", send)

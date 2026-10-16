@@ -1,0 +1,54 @@
+CURRENT RESUME HERE (2026-10-16) - FINGER COUNT LIMITATION CONFIRMED
+Branch main; no stage/commit/push/deploy or backend restart.
+Previous checkpoint: docs/history/2026-10-16-before-finger-count-investigation.txt.
+
+CURRENT SCOPE / FINDINGS
+- User reports known19 physical fingers but estimated12 in latest screenshot.
+- Counting chain traced: classification.py sets finger_count=len(detections);
+  fusion_engine.py takes max(per-camera finger_count); scan_service persists it;
+  scanData.ts maps it directly; Kiosk displays Est. Fingers. No arithmetic clamp,
+  scaling, truncation or lost API/UI field was found.
+- Four views do not identify the same physical finger across cameras. They currently
+  provide independent detections and a best-view count estimate. The separate box
+  badge sums image boxes for display; it is not the estimated physical finger count.
+- Screenshot has crowded/overlapping fingers and boxes. Wide axis-aligned boxes can
+  enclose neighboring fingers even when intended for one curved finger; do not claim
+  merged/whole-hand training labels without inspecting actual annotations.
+- Need labeled offline images/annotations to separate missing detections, duplicates,
+  NMS suppression, view occlusion and training-label quality. Do not tune parameters,
+  sum camera counts, multiply estimates or force19 solely to fit this single example.
+
+WORK DONE / VERIFICATION
+- Independent read-only review confirmed count chain and found no separate count bug.
+- Isolated synthetic fixture with view counts5,8,8,12 returns12; summed boxes33 would
+  not establish a unique-finger total. Ran from fresh temp cwd, no live.env/hardware/DB.
+- No application code, model, threshold or saved scan changed this turn. Full application
+  tests/build/lint were not repeated for this read-only diagnosis/documentation update.
+- Existing correction verified in source: ADMIN opens Scan Detail -> Classification
+  Edit -> Est. Finger Count ->19 -> Reason for change -> Save Changes. Server enforces
+  AdminUser and retains original AI result plus a reasoned audit event. Quality Control
+  Edit Data also exposes correction. Do not perform a live correction automatically.
+- Updated Development Decisions.md with counting semantics; scoped git diff --check
+  passed. Graphify graph/CLI and ICM tools remain unavailable.
+
+PRIOR VERIFIED CODE / RESULTS RETAINED
+- Observed cultivar/ripeness pairing, camera-support/conflict flags and review title.
+- Detection cutoff=min(saved review/100, model cutoff), defaults50% retention/85% review;
+  read-only effective cutoff shown in AI Settings; no database migration/model retuning.
+- Prior backend363passed,38skipped,1WebSocket deselected; targeted52passed including15
+  sensitivity cases. Prior frontend25targeted passed +3adminloading passed on retry.
+  Prior typecheck/build passed. Existing lint636backend diagnostics,43frontend errors/
+  8warnings; prior scoped changes add none. See archived checkpoint for exact commands.
+
+EXACT NEXT STEP / PENDING INPUT
+- Asked user whether the YOLO dataset (data.yaml or Roboflow images/labels folder) is
+  available locally, and requested its path. Answer is pending. Original four-view
+  images supplied explicitly as offline fixtures would also support count diagnostics;
+  screenshot panels alone are insufficient for trustworthy parameter calibration.
+- With data: inspect per-finger annotations first; measure per-view missed/duplicate
+  boxes and whole-bunch count error on several known-count bunches. Then test justified
+  inference changes or fine-tuning. Do not assume retraining is necessarily required.
+- Preserve all previous uncommitted work, explicit reverts, current UI/architecture,
+  committed loading changes and unrelated untracked BananaVision/. No live station DB,
+  capture/camera/printer/OS-power tests or secret reads. No broad filesystem search for
+  private training data without a user-provided location.

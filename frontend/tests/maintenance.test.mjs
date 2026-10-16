@@ -29,6 +29,23 @@ async function setup(t, options={}) {
 }
 test('failed initial load prevents editing fallback and permits retry',async t=>{const {page,state}=await setup(t,{failLoad:true});await until(()=>page.getByRole('button',{name:'Retry configuration'}).count());assert(await page.getByRole('button',{name:'Reset Defaults'}).isDisabled());assert(await page.getByRole('button',{name:'Calibrate Camera Positions'}).isDisabled());state.failLoad=false;await page.getByRole('button',{name:'Retry configuration'}).click();await until(async()=>!(await page.getByRole('button',{name:'Reset Defaults'}).isDisabled()))})
 
+test('AI settings distinguish the current detection cutoff from result review', async t => {
+ const {page,state}=await setup(t,{config:{...config,detection_confidence_threshold:42.5}})
+ await page.getByRole('tab',{name:'AI Settings'}).click()
+ await page.getByText('Review Confidence Threshold',{exact:true}).waitFor()
+ await page.getByText('Current YOLO detection cutoff: 42.5%',{exact:true}).waitFor()
+ assert.equal(JSON.parse(await page.getByTestId('config').textContent()).detectionConfidenceThreshold,42.5)
+ assert.equal(await page.getByRole('slider').getAttribute('aria-valuenow'),'85')
+ await page.getByRole('slider').press('ArrowLeft')
+ await page.getByText(/Results below 84% are flagged for review/).waitFor()
+ await page.getByText('Current YOLO detection cutoff: 42.5%',{exact:true}).waitFor()
+ await page.getByRole('button',{name:'Save Changes',exact:true}).click()
+ await until(()=>state.requests.some(r=>r.method==='PATCH'))
+ assert.deepEqual(state.requests.find(r=>r.method==='PATCH').body,{
+   confidence_threshold:84,expected_revision:1,
+ })
+})
+
 test('two camera slots expand to four and save physical indices with names', async t => {
  const {page,state}=await setup(t,{config:{...config,camera_ids:'TOP, LEFT',camera_device_ids:[0,1]}})
  await page.getByRole('button',{name:'Add Camera',exact:true}).click()

@@ -45,7 +45,7 @@ def mocked_pipeline(monkeypatch):
         pass
 
     async def config(_db):
-        return SimpleNamespace(confidence_threshold=85)
+        return SimpleNamespace(confidence_threshold=85, camera_device_ids=[0, 1, 3, 2])
 
     monkeypatch.setattr(scan_service, "camera_manager", SimpleNamespace(
         online_cameras=[0, 1, 3, 2], capture_all=capture_all,
@@ -57,7 +57,9 @@ def mocked_pipeline(monkeypatch):
     monkeypatch.setattr(scan_service, "banana_classifier", SimpleNamespace(
         predict=lambda _, **kwargs: result,
     ))
-    monkeypatch.setattr(scan_service, "fusion_engine", SimpleNamespace(fuse=lambda _: result))
+    monkeypatch.setattr(scan_service, "fusion_engine", SimpleNamespace(
+        fuse=lambda _, **kwargs: result,
+    ))
     monkeypatch.setattr(scan_service, "spoilage_predictor", SimpleNamespace(
         predict=lambda **_: "3-6",
     ))

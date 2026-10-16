@@ -12,10 +12,11 @@ const saved = {
   inventory_status: 'In Stock', images: [], detections: [],
 }
 
-async function setup(t, { offline = false, loseResponse = false, empty = false } = {}) {
+async function setup(t, { offline = false, loseResponse = false, empty = false, flagged = false } = {}) {
   const context = await runtime.browser.newContext({ viewport: { width: 1600, height: 1000 } })
   const page = await context.newPage()
   page.setDefaultTimeout(10000)
+  page.setDefaultNavigationTimeout(45000)
   t.after(() => context.close())
   await installEnvironment(page)
   await page.route('https://fonts.googleapis.com/**', route => route.abort())
@@ -54,7 +55,7 @@ async function setup(t, { offline = false, loseResponse = false, empty = false }
       if (path === '/api/v1/scans/trigger') {
         const job = { id: 'live-job', quantity: 1, printer_name: 'TP870 S', attempt_count: 1, status: 'SUBMITTED', windows_job_id: 713, error: null }
         state.jobs.set(job.id, job)
-        const result = { ...saved, id: '20000000-0000-4000-8000-000000000002', intake_id: body.intake_id, print_job: { ...job, status: 'QUEUED' } }
+        const result = { ...saved, id: '20000000-0000-4000-8000-000000000002', flagged, intake_id: body.intake_id, print_job: { ...job, status: 'QUEUED' } }
         state.scans = [result, saved]
         return reply(result)
       }
@@ -141,4 +142,14 @@ test('normal kiosk still requires an intake and calls the real trigger after dem
   assert.deepEqual(writesTo(state, '/trigger')[0].body, { intake_id: 'fixture-intake' })
   assert.equal(writesTo(state, '/kiosk-demo').length, 1)
   assert.equal(writesTo(state, '/print').length, 0)
+})
+
+test('a live scan requiring review makes the flag visible to the operator', async t => {
+  const { page, state } = await setup(t, { flagged: true })
+  await page.getByRole('button', { name: 'Select Source', exact: false }).click()
+  await page.getByText('Fixture Supplier', { exact: true }).click()
+  await page.getByRole('button', { name: /Start.*Intake/i }).click()
+  await page.getByRole('button', { name: 'Scan Now', exact: true }).click()
+  await page.getByText('Scan Complete - Review Needed', { exact: true }).waitFor()
+  assert.equal(writesTo(state, '/trigger').length, 1)
 })
