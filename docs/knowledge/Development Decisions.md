@@ -34,3 +34,10 @@ Documented architectural, technical, and operational decisions in BananaVision.
 - **Role Isolation**: Scoped strictly by role: Operators are isolated to their own scans (`OperatorProfile.account_id == user.id`), whereas Admins view station-wide aggregates.
 - **Zero-Count Safety**: Guarded denominators prevent division-by-zero across all metrics when `total_scans == 0`, presenting `"―"` gracefully without NaN or errors.
 - **Operator Performance Metrics**: Surfaced backend `flag_rate` (as `Flag Rate (%)`) and `overridden_scans` (as `QC Overrides`) columns for Administrator users in the Operator Performance Table (`Analytics.tsx`), providing supervisory visibility into operator defect flags and manual correction counts.
+
+## 2026-10-17: Scan Classification Overrides & Spoilage Recalculation
+
+### Strict Finger Count Validation & Environmental Spoilage
+- **Decision**: In `backend/app/schemas/scan.py`, `ScanOverrideRequest.finger_count` enforces `Field(default=None, ge=1)` with a Pydantic field validator rejecting `< 1` or `null`. In `QualityControl.tsx` and `ScanDetail.tsx`, form submission is blocked and the Save Changes button disabled when `fingerCount` is empty or `< 1`. Changing cultivar or ripeness passes ambient `temperature` and `humidity` to `getSpoilageDays()`.
+- **Rationale**: Eliminates the previous silent fallback `parseInt(...) || 0`, which caused non-numeric or cleared inputs to persist 0-finger bunches and pollute downstream batch statistics. Dynamically recalculating shelf-life estimates with environmental factors ensures operational spoilage predictions remain accurate after quality control overrides.
+

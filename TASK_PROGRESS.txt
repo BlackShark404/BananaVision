@@ -64,15 +64,18 @@ DONE
   * Strict RBAC enforcement verified: Route guarded by `<ProtectedRoute reqAdmin>` (`App.tsx:82`), navigation isolated to `isAdmin` sidebar (`AppSidebar.tsx:80-93`), and backend endpoints (`/quality/flagged`, `/scans/{id}`, `/notes`, `/provenance`) require `AdminUser`.
   * Optimistic concurrency conflict trapping: Tracks scan revisions and gracefully handles HTTP 409 Conflict with `"Reload latest"` recovery action.
   * Passed headless browser regression suites in `frontend/tests/scanrecords.test.mjs` (15/15 passed) and `frontend/tests/scanwrites.test.mjs` (4/4 passed).
-- Verified dashboard browser regression suite (`tests/dashboard.test.mjs`): 14/14 tests passed in 14.7s.
-- Verified frontend TypeScript check (`npm run typecheck`): 0 errors.
-- Verified frontend production build (`npm run build`): PASSED in 5.54s.
+- Module 12 (Edit Scan Data) verified & resolved:
+  * Strict Finger Count Validation: Enforced `finger_count >= 1` in backend Pydantic schema validation (`ScanOverrideRequest` in `backend/app/schemas/scan.py`) and added unit test in `backend/tests/test_scan_records.py` verifying HTTP 422 Unprocessable Entity rejection for `finger_count=0` or `null`.
+  * Client-Side Validation Guards: Replaced silent fallback `|| 0` in `frontend/src/pages/admin/QualityControl.tsx` and `frontend/src/pages/ScanDetail.tsx` with strict input parsing, `toast.error("Finger count must be at least 1")` validation guard in `handleSaveEdit`, and disabled Save button when `fingerCount` is empty string or `< 1`.
+  * Dynamic Environmental Spoilage Recalculation: Updated cultivar and ripeness `onValueChange` handlers in both `QualityControl.tsx` and `ScanDetail.tsx` to supply ambient `temperature` and `humidity` to `getSpoilageDays()`, ensuring accurate shelf-life prediction and environmental multiplier re-evaluation whenever classification attributes are modified.
+  * Verified Playwright browser regression test suite (`frontend/tests/scanrecords.test.mjs`: 15/15 passed).
+  * Verified backend pytest scan records and writes suites (`test_scan_records.py` 15/15 passed, `test_time_and_writes.py` 34/34 passed).
 
 IN PROGRESS
-- None. Modules 1 through 11 verified.
+- None. Modules 1 through 12 verified.
 
 REMAINING
-- Review remaining assigned modules for authorized implementation (Modules 12–13: Edit Scan Data, Review Notes).
+- Review remaining assigned module for authorized implementation: Module 13 (Review Notes).
 - Awaiting user authorization before staging, committing, or pushing changes.
 
 TEST RESULTS

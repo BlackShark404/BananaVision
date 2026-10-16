@@ -39,16 +39,17 @@ class ScanOverrideRequest(ScanMutationRequest):
     reason: Reason
     cultivar: CultivarEnum | None = None
     ripeness: RipenessEnum | None = None
-    finger_count: int | None = Field(default=None, ge=0)
+    finger_count: int | None = Field(default=None, ge=1)
     spoilage_days: str | None = Field(default=None, max_length=20)
     source_text: str | None = Field(default=None, max_length=100)
-
 
     @field_validator("finger_count")
     @classmethod
     def count_cannot_be_null(cls, value):
         if value is None:
-            raise ValueError("Finger count must be a non-negative integer")
+            raise ValueError("Finger count must be a positive integer")
+        if value < 1:
+            raise ValueError("Finger count must be at least 1")
         return value
 
 

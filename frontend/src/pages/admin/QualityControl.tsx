@@ -123,10 +123,17 @@ export default function QualityControl() {
 
   const handleSaveEdit = async () => {
     if (selectedScan && editData && editReason.trim() && !pendingWrite) {
+      const parsedFingerCount = typeof editData.fingerCount === 'string'
+        ? parseInt(editData.fingerCount, 10)
+        : editData.fingerCount
+      if (parsedFingerCount === undefined || isNaN(parsedFingerCount) || parsedFingerCount < 1) {
+        toast.error("Finger count must be at least 1")
+        return
+      }
       setPendingWrite(true)
       const saveData = {
         ...editData,
-        fingerCount: typeof editData.fingerCount === 'string' ? (parseInt(editData.fingerCount) || 0) : editData.fingerCount,
+        fingerCount: parsedFingerCount,
         spoilageDays: editData.spoilageDays,
       } as Partial<ScanResult>
       try {
@@ -639,7 +646,7 @@ export default function QualityControl() {
                         <Label htmlFor="cultivar">Cultivar</Label>
                         <Select value={editData.cultivar} onValueChange={(v) => {
                           const newCultivar = v as Cultivar;
-                          setEditData({...editData, cultivar: newCultivar, spoilageDays: editData.ripeness && editData.ripeness !== "Unknown" ? getSpoilageDays(newCultivar, editData.ripeness) : editData.spoilageDays});
+                          setEditData({...editData, cultivar: newCultivar, spoilageDays: editData.ripeness && editData.ripeness !== "Unknown" ? getSpoilageDays(newCultivar, editData.ripeness, selectedScan?.temperature ?? undefined, selectedScan?.humidity ?? undefined) : editData.spoilageDays});
                         }}>
                           <SelectTrigger id="cultivar">
                             <SelectValue />
@@ -655,7 +662,7 @@ export default function QualityControl() {
                         <Label htmlFor="ripeness">Ripeness</Label>
                         <Select value={editData.ripeness} onValueChange={(v) => {
                           const newRipeness = v as Ripeness;
-                          setEditData({...editData, ripeness: newRipeness, spoilageDays: editData.cultivar && editData.cultivar !== "Unknown" ? getSpoilageDays(editData.cultivar, newRipeness) : editData.spoilageDays});
+                          setEditData({...editData, ripeness: newRipeness, spoilageDays: editData.cultivar && editData.cultivar !== "Unknown" ? getSpoilageDays(editData.cultivar, newRipeness, selectedScan?.temperature ?? undefined, selectedScan?.humidity ?? undefined) : editData.spoilageDays});
                         }}>
                           <SelectTrigger id="ripeness">
                             <SelectValue />
@@ -685,8 +692,16 @@ export default function QualityControl() {
                           type="number"
                           min="1"
                           max="30"
-                          value={editData.fingerCount}
-                          onChange={(e) => setEditData({...editData, fingerCount: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0)})}
+                          value={editData.fingerCount ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '') {
+                              setEditData({ ...editData, fingerCount: '' });
+                            } else {
+                              const parsed = parseInt(val, 10);
+                              setEditData({ ...editData, fingerCount: isNaN(parsed) ? '' : Math.max(1, parsed) });
+                            }
+                          }}
                         />
                       </div>
                     </div>
@@ -800,7 +815,16 @@ export default function QualityControl() {
                 <Button variant="outline" disabled={pendingWrite} onClick={() => setEditMode(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSaveEdit} disabled={pendingWrite || !editReason.trim()}>
+                <Button
+                  onClick={handleSaveEdit}
+                  disabled={
+                    pendingWrite ||
+                    !editReason.trim() ||
+                    editData.fingerCount === '' ||
+                    editData.fingerCount === undefined ||
+                    Number(editData.fingerCount) < 1
+                  }
+                >
                   {pendingWrite && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin mr-2" />}{pendingWrite ? "Saving…" : "Save Changes"}
                 </Button>
               </>

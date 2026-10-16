@@ -257,6 +257,8 @@ def test_incomplete_classification_keeps_original_unknowns_and_rejects_null_coun
     url = f'/api/v1/scans/{app.ids.scan}'
     invalid = app.client.patch(url, json=mutation(reason='Count correction', finger_count=None))
     assert invalid.status_code == 422, invalid.text
+    zero_count = app.client.patch(url, json=mutation(reason='Count correction', finger_count=0))
+    assert zero_count.status_code == 422, zero_count.text
     saved = app.client.patch(url, json=mutation(reason='Verified cultivar', cultivar='Cardaba'))
     assert saved.status_code == 200, saved.text
     assert saved.json()['original_ai_result']['cultivar'] is None

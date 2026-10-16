@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ContentSkeleton } from "@/components/LoadingState"
 import { AppStatsCard } from "@/components/AppStatsCard"
-import { AppDataTable, type ColumnDef } from "@/components/AppDataTable"
+import { AppDataTable } from "@/components/AppDataTable"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { CultivarEnum, InventoryStatusEnum, RipenessEnum } from "@/types"
 import {

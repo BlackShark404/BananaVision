@@ -214,10 +214,17 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
 
   const handleSaveEdit = async () => {
     if (scan && editData && editReason.trim() && !editPending) {
+      const parsedFingerCount = typeof editData.fingerCount === 'string'
+        ? parseInt(editData.fingerCount, 10)
+        : editData.fingerCount
+      if (parsedFingerCount === undefined || isNaN(parsedFingerCount) || parsedFingerCount < 1) {
+        toast.error("Finger count must be at least 1")
+        return
+      }
       setEditPending(true)
       const saveData = {
         ...editData,
-        fingerCount: typeof editData.fingerCount === 'string' ? (parseInt(editData.fingerCount) || 0) : editData.fingerCount,
+        fingerCount: parsedFingerCount,
         spoilageDays: editData.spoilageDays,
       } as Partial<ScanResult>
       try {
@@ -499,7 +506,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                       <Label htmlFor="edit-cultivar" className="text-xs">Cultivar</Label>
                       <Select value={editData.cultivar} onValueChange={(v) => {
                         const newCultivar = v as Cultivar;
-                        setEditData({...editData, cultivar: newCultivar, spoilageDays: editData.ripeness ? getSpoilageDays(newCultivar, editData.ripeness) : editData.spoilageDays})
+                        setEditData({...editData, cultivar: newCultivar, spoilageDays: editData.ripeness ? getSpoilageDays(newCultivar, editData.ripeness, scan.temperature ?? undefined, scan.humidity ?? undefined) : editData.spoilageDays})
                       }}>
                         <SelectTrigger id="edit-cultivar" className="rounded-xl mt-1">
                           <SelectValue />
@@ -515,7 +522,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                       <Label htmlFor="edit-ripeness" className="text-xs">Ripeness</Label>
                       <Select value={editData.ripeness} onValueChange={(v) => {
                         const newRipeness = v as Ripeness;
-                        setEditData({...editData, ripeness: newRipeness, spoilageDays: editData.cultivar ? getSpoilageDays(editData.cultivar, newRipeness) : editData.spoilageDays})
+                        setEditData({...editData, ripeness: newRipeness, spoilageDays: editData.cultivar ? getSpoilageDays(editData.cultivar, newRipeness, scan.temperature ?? undefined, scan.humidity ?? undefined) : editData.spoilageDays})
                       }}>
                         <SelectTrigger id="edit-ripeness" className="rounded-xl mt-1">
                           <SelectValue />
@@ -545,8 +552,16 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                         type="number"
                         min="1"
                         max="30"
-                        value={editData.fingerCount}
-                        onChange={(e) => setEditData({...editData, fingerCount: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0)})}
+                        value={editData.fingerCount ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setEditData({ ...editData, fingerCount: '' });
+                          } else {
+                            const parsed = parseInt(val, 10);
+                            setEditData({ ...editData, fingerCount: isNaN(parsed) ? '' : Math.max(1, parsed) });
+                          }
+                        }}
                         className="rounded-xl mt-1"
                       />
                     </div>
@@ -564,7 +579,18 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setEditMode(false)}>
                       <X className="w-3.5 h-3.5" /> Cancel
                     </Button>
-                    <Button size="sm" className="gap-1.5" onClick={handleSaveEdit} disabled={editPending || !editReason.trim()}>
+                    <Button
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={handleSaveEdit}
+                      disabled={
+                        editPending ||
+                        !editReason.trim() ||
+                        editData.fingerCount === '' ||
+                        editData.fingerCount === undefined ||
+                        Number(editData.fingerCount) < 1
+                      }
+                    >
                       {editPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} {editPending ? "Saving…" : "Save Changes"}
                     </Button>
                   </div>
