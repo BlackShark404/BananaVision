@@ -1,4 +1,4 @@
-CURRENT RESUME HERE (2026-10-17) - MODULES 1 THROUGH 5 VERIFIED
+CURRENT RESUME HERE (2026-10-17) - MODULES 1 THROUGH 6 VERIFIED
 BRANCH main; working directory clean of unexpected modifications. No staging/commit/push/deployment executed.
 Previous completed checkpoint: docs/history/2026-10-16-before-loading-audit.txt.
 
@@ -36,15 +36,21 @@ DONE
   * Increased client-side CSV download abort timeout in `frontend/src/pages/Logs.tsx` from 60 seconds to 300 seconds (5 minutes) to ensure complete data transfer on large multi-month and annual audits.
   * Verified formula injection protection (`_safe_cell`), Excel UTF-8 BOM (`\ufeff`), and bounded chunk streaming (`yield_per=200`).
   * Verified backend unit tests in `backend/tests/test_scan_logs.py` (22/22 passed) and browser export tests in `frontend/tests/scanrecords.test.mjs` (15/15 passed).
+- Module 6 (Analytics Overview) verified:
+  * Computes aggregate KPI summary cards: Total Scans, Quality Flagged Scans, Defect Percentage, Average AI Confidence, and Peak Processing Hour.
+  * Verified AI model confidence isolation in `backend/app/services/analytics.py:85-92`: Queries `ScanOriginalAiResult` instead of mutable `scans` table, preventing manual operator overrides from artificially skewing model metrics.
+  * Strict role scoping verified: Scoped to `user.id` when requested by an Operator; station-wide when requested by an Admin.
+  * Division-by-zero protection verified: Guarded calculations for `total_scans == 0`, displaying `"―"` safely with 0 NaN or runtime error occurrences.
+  * Passed backend tests in `test_analytics.py` (10/10 passed) and Playwright browser regression tests in `frontend/tests/analytics.test.mjs` (5/5 passed).
 - Verified dashboard browser regression suite (`tests/dashboard.test.mjs`): 14/14 tests passed in 14.7s.
 - Verified frontend TypeScript check (`npm run typecheck`): 0 errors.
 - Verified frontend production build (`npm run build`): PASSED in 10.05s.
 
 IN PROGRESS
-- None. Modules 1 through 5 verified.
+- None. Modules 1 through 6 verified.
 
 REMAINING
-- Review remaining assigned modules for authorized implementation (Modules 6–13: Analytics Overview, Ripeness Distribution Chart, Cultivar Counts Chart, Scan Trend Chart, Operator Performance Table, Quality Control, Edit Scan Data, Review Notes).
+- Review remaining assigned modules for authorized implementation (Modules 7–13: Ripeness Distribution Chart, Cultivar Counts Chart, Scan Trend Chart, Operator Performance Table, Quality Control, Edit Scan Data, Review Notes).
 - Awaiting user authorization before staging, committing, or pushing changes.
 
 TEST RESULTS

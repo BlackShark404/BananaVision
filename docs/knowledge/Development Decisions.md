@@ -25,3 +25,11 @@ Documented architectural, technical, and operational decisions in BananaVision.
 ### 3. Review Queue Scope
 - **Decision**: Review links must not pre-filter by `status=Flagged`. They must navigate using `attention=review` alone.
 - **Rationale**: Low-confidence or unclassified scans require manual inspection even if not yet formally marked as "Flagged". Filtering by `status=Flagged` inadvertently hid scans that needed review.
+
+## 2026-10-17: Analytics & AI Metric Isolation
+
+### AI Model Confidence Isolation from Mutable Scans
+- **Decision**: In `backend/app/services/analytics.py:85-92`, confidence metrics strictly query `ScanOriginalAiResult` (via outer join) rather than mutable `scans` table columns. If a scan was overridden by an operator and lacks an original AI prediction record, it evaluates to `None` and is excluded from model confidence metrics.
+- **Rationale**: Prevents human manual overrides or quality control corrections from contaminating AI model metrics. Analytics reflects genuine machine-learning model performance.
+- **Role Isolation**: Scoped strictly by role: Operators are isolated to their own scans (`OperatorProfile.account_id == user.id`), whereas Admins view station-wide aggregates.
+- **Zero-Count Safety**: Guarded denominators prevent division-by-zero across all metrics when `total_scans == 0`, presenting `"―"` gracefully without NaN or errors.
