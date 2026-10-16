@@ -124,7 +124,7 @@ async def _options(db: AsyncSession, scans) -> ScanLogOptions:
 async def list_scan_logs(
     db: AsyncSession, user: UserAccount, query: ScanLogQuery,
 ) -> ScanLogList:
-    key = binding("logs", query.model_dump(mode="json", exclude={"page", "snapshot_id", "stable"}))
+    key = binding("logs", query.model_dump(mode="json", exclude={"page", "snapshot_id", "stable", "limit"}))
     if query.snapshot_id:
         saved = await load_snapshot(db, user, query.snapshot_id, key)
         return ScanLogList(**slice_snapshot(saved, query.page, query.page_size))

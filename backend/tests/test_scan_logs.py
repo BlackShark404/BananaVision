@@ -339,3 +339,23 @@ async def test_review_drilldown_preserves_low_confidence_scans_with_flagged_stat
     )
     assert flagged_only_result.total == 1
     assert flagged_only_result.items[0].id == flagged_high_conf
+
+
+def test_scan_logs_query_limit_alias_syncs_with_page_size():
+    q_default = ScanLogQuery()
+    assert q_default.page_size == 10
+    assert q_default.limit is None
+
+    q_limit = ScanLogQuery(limit=25)
+    assert q_limit.page_size == 25
+    assert q_limit.limit == 25
+
+    q_page_size = ScanLogQuery(page_size=50)
+    assert q_page_size.page_size == 50
+
+    from app.services.scan_snapshots import binding
+    # Binding key should match whether limit or page_size was specified for the same page_size
+    key_limit = binding("logs", q_limit.model_dump(mode="json", exclude={"page", "snapshot_id", "stable", "limit"}))
+    key_page_size = binding("logs", ScanLogQuery(page_size=25).model_dump(mode="json", exclude={"page", "snapshot_id", "stable", "limit"}))
+    assert key_limit == key_page_size
+

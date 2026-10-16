@@ -12,6 +12,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ChevronsLeft, ChevronsRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 
 export interface ColumnDef<T> {
@@ -34,6 +35,8 @@ export interface AppDataTableProps<T> {
   }
   pagination?: {
     pageSize: number
+    pageSizeOptions?: number[]
+    onPageSizeChange?: (pageSize: number) => void
   }
   serverState?: {
     page: number
@@ -203,12 +206,35 @@ export function AppDataTable<T>({
       </Table>
 
       {/* Pagination */}
-      {!loading && pagination && total > pageSize && (
+      {!loading && pagination && (total > pageSize || (pagination.pageSizeOptions && pagination.pageSizeOptions.length > 0)) && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t bg-muted/20">
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, total)} of {total}
-          </p>
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Showing {total === 0 ? 0 : ((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, total)} of {total}
+            </p>
+            {pagination.pageSizeOptions && pagination.onPageSizeChange && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="hidden sm:inline">Rows per page:</span>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(val) => pagination.onPageSizeChange?.(Number(val))}
+                >
+                  <SelectTrigger className="h-7 w-[72px] text-xs" aria-label="Rows per page">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pagination.pageSizeOptions.map((opt) => (
+                      <SelectItem key={opt} value={String(opt)} className="text-xs">
+                        {opt}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          {total > pageSize && (
+            <div className="flex justify-end">
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
@@ -288,8 +314,9 @@ export function AppDataTable<T>({
               </PaginationContent>
             </Pagination>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    )}
     </div>
   )
 }

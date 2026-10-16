@@ -43,3 +43,19 @@ test('scanLogParams parses inventory status properly with and without review att
   assert.equal(sold.inventory_status, 'Sold')
   assert.equal(sold.flagged_only, false)
 })
+
+test('scanLogParams parses limit or page_size for supported sizes (10, 25, 50, 100) and defaults to 10', () => {
+  assert.equal(scanLogParams(new URLSearchParams('limit=25')).page_size, 25)
+  assert.equal(scanLogParams(new URLSearchParams('page_size=50')).page_size, 50)
+  assert.equal(scanLogParams(new URLSearchParams('limit=100')).page_size, 100)
+  assert.equal(scanLogParams(new URLSearchParams('limit=999')).page_size, 10, 'unsupported size defaults to 10')
+  assert.equal(scanLogParams(new URLSearchParams('limit=-5')).page_size, 10, 'negative size defaults to 10')
+  assert.equal(scanLogParams(new URLSearchParams('limit=invalid')).page_size, 10, 'invalid string defaults to 10')
+  assert.equal(scanLogParams(new URLSearchParams('')).page_size, 10, 'omitted size defaults to 10')
+})
+
+test('buildScanLogsUrl includes limit or page_size when specified', () => {
+  assert.equal(buildScanLogsUrl({ limit: 25 }), '/logs?limit=25')
+  assert.equal(buildScanLogsUrl({ page_size: 50 }), '/logs?page_size=50')
+})
+

@@ -8,19 +8,26 @@ export interface ScanLogNavigation {
   status?: string
   sort?: ScanLogParams["sort"]
   direction?: ScanLogParams["direction"]
+  page?: number
+  page_size?: number
+  limit?: number
 }
 
 export function buildScanLogsUrl(filters: ScanLogNavigation = {}) {
   const params = new URLSearchParams()
-  for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value)
+  for (const [key, value] of Object.entries(filters)) if (value !== undefined && value !== "") params.set(key, String(value))
   return `/logs${params.size ? `?${params}` : ""}`
 }
+
+export const VALID_PAGE_SIZES = [10, 25, 50, 100] as const
 
 export function scanLogParams(params: URLSearchParams): ScanLogParams {
   const page = Number(params.get("page"))
   const sort = params.get("sort")
   const attention = params.get("attention")
   const status = params.get("status")
+  const rawPageSize = Number(params.get("limit") || params.get("page_size"))
+  const pageSize = (VALID_PAGE_SIZES as readonly number[]).includes(rawPageSize) ? rawPageSize : 10
   return {
     business_date: params.get("date") || undefined,
     source_key: params.get("source_key") || undefined,
@@ -34,8 +41,9 @@ export function scanLogParams(params: URLSearchParams): ScanLogParams {
     attention: attention === "at-risk" || attention === "review" || attention === "success" ? attention : "all",
     search: params.get("search") || undefined,
     page: Number.isSafeInteger(page) && page > 0 ? page : 1,
-    page_size: 10,
+    page_size: pageSize,
     sort: sort === "cultivar" || sort === "confidence" || sort === "spoilage_days" || sort === "finger_count" ? sort : "date_time",
     direction: params.get("direction") === "asc" ? "asc" : "desc",
   }
 }
+

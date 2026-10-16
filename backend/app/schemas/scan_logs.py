@@ -5,7 +5,7 @@ from app.schemas.timestamps import Timestamp
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.dashboard import DashboardScan
 from app.schemas.enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
@@ -27,8 +27,15 @@ class ScanLogQuery(BaseModel):
     search: str | None = Field(None, max_length=200)
     page: int = Field(1, ge=1)
     page_size: int = Field(10, ge=1, le=100)
+    limit: int | None = Field(None, ge=1, le=100, description="Alias for page_size")
     sort: Literal["date_time", "cultivar", "confidence", "spoilage_days", "finger_count"] = "date_time"
     direction: Literal["asc", "desc"] = "desc"
+
+    @model_validator(mode="after")
+    def sync_limit(self):
+        if self.limit is not None and self.page_size == 10:
+            self.page_size = self.limit
+        return self
 
 
 class ScanLogRow(DashboardScan):

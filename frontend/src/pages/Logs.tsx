@@ -31,7 +31,7 @@ import { scanWrite, scanRevision, isScanConflict } from "@/lib/scanWrites"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { scanLogParams } from "@/lib/scanLogFilters"
+import { scanLogParams, VALID_PAGE_SIZES } from "@/lib/scanLogFilters"
 import { useDashboardResource } from "@/hooks/useDashboardResource"
 import type { ScanLogRow, ScanLogParams } from "@/types/scanLogs"
 import { Input } from "@/components/ui/input"
@@ -40,8 +40,6 @@ import { generateQRCodeDataUrl } from "@/lib/qrcode"
 import { ScanLabelPrint } from "@/components/ScanLabelPrint"
 import type { Cultivar, Ripeness, InventoryStatus, ScanResult } from "@/types"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
-
-const PAGE_SIZE = 10
 
 type LogScan = Omit<ScanResult, "cultivar" | "ripeness" | "confidence"> & {
   cultivar: string
@@ -161,11 +159,11 @@ function LogsContent() {
     if (!resource.isPreviousData && response && response.page > 1 && response.items.length === 0) {
       setSearchParams(previous => {
         const next = new URLSearchParams(previous)
-        next.set("page", String(Math.max(1, Math.ceil(response.total / PAGE_SIZE))))
+        next.set("page", String(Math.max(1, Math.ceil(response.total / requestParams.page_size))))
         return next
       }, { replace: true })
     }
-  }, [response, resource.isPreviousData, setSearchParams])
+  }, [response, resource.isPreviousData, requestParams.page_size, setSearchParams])
 
   const handleStatusUpdate = async () => {
     if (resource.isPreviousData || !statusAction || !statusReason.trim() || inFlight.current.has(statusAction.scan.id)) return
@@ -570,7 +568,15 @@ const columns: ColumnDef<LogScan>[] = [
         columns={columns}
         rowKey={(scan) => scan.id}
         onRowClick={(scan) => navigate(`/scans/${scan.id}`)}
-        pagination={{ pageSize: PAGE_SIZE }}
+        pagination={{
+          pageSize: requestParams.page_size,
+          pageSizeOptions: [...VALID_PAGE_SIZES],
+          onPageSizeChange: (newPageSize) => {
+            if (!resource.isPreviousData) {
+              updateFilters({ limit: String(newPageSize), page_size: String(newPageSize), page: "1" })
+            }
+          },
+        }}
         serverState={{ page: response.page, total: response.total, sort: { key: requestParams.sort, direction: requestParams.direction },
           onPageChange: page => { if (!resource.isPreviousData) updateFilters({ page: String(page) }) },
           onSortChange: (sort, direction) => { if (!resource.isPreviousData) updateFilters({ sort, direction }) },
