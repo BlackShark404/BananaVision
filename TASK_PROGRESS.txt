@@ -1,32 +1,26 @@
-CURRENT RESUME HERE (2026-10-16) - LOADING STATE AUDIT & ACTION FEEDBACK COMPLETED & VERIFIED
+CURRENT RESUME HERE (2026-10-16) - MODULE 1 (DASHBOARD) FIXES & TESTING DOCS VERIFIED
 BRANCH main; working directory clean of unexpected modifications. No staging/commit/push/deployment executed.
 Previous completed checkpoint: docs/history/2026-10-16-before-loading-audit.txt.
 
 DONE
-- Audited routes, providers, operations, and API boundaries across data, admin, and operational pages.
-- Implemented structured skeletons for initial page/card/table/detail loading without premature empty/zero states.
-- Enhanced `useDashboardResource.ts` with `{ keepPreviousData?: boolean }` and `isPreviousData` to support seamless background refresh without blanking screens or flashing spinners.
-- Fixed Analytics KPI error display to surface `<Alert>` and Retry button on failed refresh rather than showing stale cards.
-- Fixed Dashboard review queue links in `legacyScanLogsUrl` and `openRecords` to use the complete review predicate (`attention=review`) without dropping low-confidence scans.
-- Fixed Logs CSV export handling in `Logs.tsx` to remain functional during oversized 413 snapshots when filter parameters are set.
-- Fixed SystemConfig accessible button names for shutdown/restart actions during in-flight requests and added application error alerts (`role="alert"`).
-- Added action-matching spinners (`<Loader2 className="animate-spin" />`) and active verb labels to operator and admin actions:
-  * Kiosk intake initiation (`startingIntake` -> `"Starting Intake Session…"`) and QC flag submission (`flaggingScan` -> `"Flagging..."`).
-  * Station backup, validation, and restoration buttons in `StationBackupControls.tsx` (`"Creating Backup…"`, `"Validating Backup…"`, `"Restoring Station Data…"`, `"Checking Status…"`) with enhanced status bar.
-  * QualityControl scan note adding and edit saving (`pendingWrite` -> `"Saving…"`) with refined refresh message distinguishing background refresh from initial load.
-  * Profile password credential submit button (`savingCredential` -> `"Updating…"`).
-  * DeliveryIntake, SupplierManagement, and UserManagement action confirmation dialogs with proper `mr-2` spinner spacing.
-- Resolved Windows CP1252 / UTF-8 mojibake across 11 frontend files, normalizing all em dashes, ellipses, middle dots, checkmarks (`✓`), and bullet points (`•`) to clean UTF-8 literals.
-- Synchronized Graphify AST knowledge graph (`graphify update .`: 3,409 nodes, 10,460 edges, 212 communities).
-- Stored key reusable decisions and bug resolutions in ICM long-term memory.
-- Documented frontend loading conventions and resolved bugs in Obsidian knowledge base (`Frontend.md`, `Resolved Bugs.md`).
+- Audited all 13 assigned modules under Analytics & System Configuration (Lawrence S. Ramirez per Table 38).
+- Generated prioritized bug audit and improvement assessment report (`audit_report_analytics_system_config.md`).
+- Populated `docs/knowledge/Testing and Validation.md` Obsidian note with comprehensive testing strategies, safety rules, backend pytest isolation runners, Playwright headless suites, and Asia/Manila test constraints.
+- Module 1 (Dashboard) improvements implemented & verified:
+  * Enhanced `useWebSocket` hook (`hooks/useWebSocket.ts`) with an explicit `reconnect()` callback resetting backoff and socket references.
+  * Added inline manual WebSocket reconnection triggers in `Dashboard.tsx` (in the header connection status bar and delay notice) to eliminate connection stagnation.
+  * Clarified operator success rate metric description to `"Auto-approved scans (all-time)"` in `Dashboard.tsx` to align operator expectations with server-wide lifetime auto-approval calculations.
+  * Preserved explicit filter dates in `openRecords` (`filters?.business_date`) while keeping all-time drilldowns for unconstrained metric cards.
+- Verified dashboard browser regression suite (`tests/dashboard.test.mjs`): 14/14 tests passed in 14.7s.
+- Verified frontend TypeScript check (`npm run typecheck`): 0 errors.
+- Verified frontend production build (`npm run build`): PASSED in 5.43s.
 
 IN PROGRESS
-- None. All planned loading state audit items, components, and fixes are implemented and verified.
+- None. Module 1 fixes and testing documentation completed and verified.
 
 REMAINING
-- Final user review of changes on `main`.
-- Awaiting explicit user authorization before staging, committing, or pushing changes.
+- Review remaining assigned modules for authorized implementation (Modules 2–13: Scan Logs, Search/Filter, CSV Export, Analytics, Quality Control, Edit Scan Data, Review Notes).
+- Awaiting user authorization before staging, committing, or pushing changes.
 
 TEST RESULTS
 - Frontend TypeScript check (`npm run typecheck`): PASSED (0 errors).

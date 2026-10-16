@@ -99,6 +99,19 @@ export function useWebSocket({ rooms = [], onEvent, enabled = true }: UseWebSock
     }
   }, [enabled, rooms.join(",")])
 
+  const reconnect = useCallback(() => {
+    if (reconnectTimer.current) {
+      clearTimeout(reconnectTimer.current)
+      reconnectTimer.current = null
+    }
+    reconnectAttempt.current = 0
+    if (wsRef.current) {
+      wsRef.current.close(1000)
+      wsRef.current = null
+    }
+    connect()
+  }, [connect])
+
   // Connect on mount / when deps change
   useEffect(() => {
     connect()
@@ -112,5 +125,5 @@ export function useWebSocket({ rooms = [], onEvent, enabled = true }: UseWebSock
     }
   }, [connect])
 
-  return { status, lastEvent }
+  return { status, lastEvent, reconnect }
 }

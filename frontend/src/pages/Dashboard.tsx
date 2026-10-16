@@ -81,7 +81,7 @@ function DashboardContent() {
       }, 750)
     }
   }, [refreshMetrics, refreshCameras])
-  const { status: connectionStatus } = useWebSocket({ rooms: ["dashboard", "devices"], onEvent })
+  const { status: connectionStatus, reconnect: reconnectWs } = useWebSocket({ rooms: ["dashboard", "devices"], onEvent })
   useEffect(() => {
     if (connectionStatus === "connected") {
       void refreshMetrics()
@@ -128,7 +128,7 @@ function DashboardContent() {
   const metricDescription = (description: string) => summary ? description : metrics.loading ? "Loading…" : "Unavailable · refresh to retry"
   const operatorMetric = user?.role === "Operator" ? {
     value: summary?.success_rate == null ? "N/A" : `${summary.success_rate.toFixed(1)}%`,
-    label: "Scan Success Rate", icon: ClipboardCheck, desc: "Auto-approved scans",
+    label: "Scan Success Rate", icon: ClipboardCheck, desc: "Auto-approved scans (all-time)",
   } : {
     value: summary?.active_operator_count, label: "Active Operators", icon: Users, desc: "Operators with scan records today",
   }
@@ -139,7 +139,7 @@ function DashboardContent() {
       return
     }
     navigate(buildScanLogsUrl({
-      date: view === "review" || view === "expiring" || view === "success" ? undefined : date,
+      date: filters?.business_date ? filters.business_date : view === "review" || view === "expiring" || view === "success" ? undefined : date,
       source_key: filters?.source_key,
       operator_id: filters?.operator_id,
       attention: view === "expiring" ? "at-risk" : view === "review" ? "review" : view === "success" ? "success" : undefined,
@@ -170,7 +170,12 @@ function DashboardContent() {
         </Badge>
         <span>{summary ? `Last refreshed ${manilaTime.format(new Date(summary.generated_at))}` : "No successful refresh yet"}</span>
         <span aria-hidden="true">·</span>
-        <span>{connectionStatus === "connected" ? "Live updates connected" : connectionStatus === "connecting" ? "Connecting live updates" : "Live updates disconnected"}</span>
+        <span>{connectionStatus === "connected" ? "Live updates connected" : connectionStatus === "connecting" ? "Connecting live updates…" : "Live updates disconnected"}</span>
+        {connectionStatus !== "connected" && (
+          <Button variant="ghost" size="sm" onClick={reconnectWs} className="h-auto p-0 text-xs font-normal underline hover:text-foreground text-muted-foreground">
+            Reconnect
+          </Button>
+        )}
       </div>
       {metrics.error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
         <strong>{summary ? "Dashboard refresh failed." : "Dashboard unavailable."}</strong> {metrics.error}
@@ -178,7 +183,14 @@ function DashboardContent() {
         <Button variant="link" size="sm" onClick={() => void refreshMetrics()}>Retry metrics</Button>
       </div>}
       {previousDay && <p className="text-xs text-amber-700">Showing {summary.business_date} while today's totals refresh.</p>}
-      {connectionStatus !== "connected" && <p className="text-xs text-muted-foreground">Live changes may be delayed. Checking for updates every 30 seconds and on reconnection.</p>}
+      {connectionStatus !== "connected" && (
+        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <span>Live changes may be delayed. Checking for updates every 30 seconds and on reconnection.</span>
+          <Button variant="link" size="sm" onClick={reconnectWs} className="h-auto p-0 text-xs underline">
+            Reconnect live stream
+          </Button>
+        </p>
+      )}
 
       {/* KPI StatsRow */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
