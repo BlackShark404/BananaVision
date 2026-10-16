@@ -1,73 +1,32 @@
-CURRENT RESUME HERE (2026-10-14) - MODEL/SCAN FIXES VERIFIED; WINDOWS PRINTER NOW NORMAL
-BRANCH main; all work uncommitted. Prior camera, PIN, printing/demo work and model files preserved.
-Previous checkpoint archived: docs/history/2026-10-14-before-printer-queue-recovery.txt.
+CURRENT RESUME HERE (2026-10-16) - LOADING STATE AUDIT IN PROGRESS
+BRANCH main; initial checkout clean. No staging/commit/push/deployment authorized.
+Previous completed checkpoint: docs/history/2026-10-16-before-loading-audit.txt.
 
-CURRENT USER SCOPE / COMPLETED
-- Latest log6cc985ca reports spoilage dict.predict failure, POST scan serialization
-  MissingGreenlet at inventory_facts(scan.intake), and TP870 S Windows ERROR.
-- User model copies and configured weights copies are byte-identical; no missing model
-  or path change needed. YOLO loads/detects; trained files were not replaced.
-- SpoilagePredictor now accepts saved {model, metadata} bundles and plain estimators.
-  Extracts the embedded forest, validates 4/6-feature count, honors training column order
-  and encoding maps, normalizes Semi-Ripe training label to backend Semi Ripe.
-  Existing legacy support/rule fallback retained; invalid bundle metadata rejected.
-- Actual user RFR bundle successfully predicted three synthetic scenarios with fallback
-  forbidden. Real loaded estimator now uses six enhanced features rather than dict.predict.
-- New pipeline Scan initializes intake relationship and empty notes for synchronous
-  response serialization. Unknown requested intake explicitly404 before persistence,
-  preventing accidental silent conversion into an unlinked scan.
-- Fresh results for Admin/Operator with/without linked intake return successfully, keep
-  provenance, and queue one automatic label. No implicit serialization SQL/async lazy load.
-- Printer error now explains Windows driver/spooler fault and no new document submitted,
-  guides Windows queue/test page before explicit retry. Real ERROR gates remain intact.
-- Prior four cameras physically confirmed online on direct laptop USB ports, mapping0,1,3,2.
-  Prior PIN503 cancellation fix retained. User PIN1234 not reset or inspected.
+DONE
+- Read checkpoint/Git status/workflow; previous scan/model/printer fixes preserved.
+- Graphify queried; project-local ICM recall and Context7 React race guidance consulted.
+- Audited routes/providers/shared components and API flows across data/admin/operations.
+- Found premature empty/zero states, refresh content replacement, missing action feedback,
+  public scan timeout/stale issues and notification silent failures.
 
-WINDOWS PRINTER / VERIFIED CURRENT STATE
-- Initial read-only inspection: TP870 S on USB001 with installed driver, Windows ERROR,
-  WorkOffline=True, stalled job25 Error+Printing+Retained and jobs26/27 waiting.
-- Latest read-only recheck: PrinterStatus=Normal, queue EMPTY, WorkOffline=False,
-  Spooler Running, present TP870 S Printer and PrintQueue PnP statuses OK.
-- No duplicate TP870 S copy queue; USB001 remains the correct installed port.
-- State changed externally during investigation. Agent made no queue/setting/service
-  changes and submitted no labels. Empty queue alone cannot establish physical output.
-- Earlier asynchronous permission request to cancel job25 is OBSOLETE; user told to
-  disregard it. Do not cancel anything based on a late reply; no live target remains.
-- Printer fault recovery currently needs no queue intervention. Confirm actual label
-  output on user side; preserve real Windows ERROR gates if a fault returns.
+IN PROGRESS
+- Shared skeletons/table/card flags and optional previous resource snapshots.
+- Data pages/ScanContext: data_loading agent.
+- Admin pages/AdminContext/InventoryContext: admin_loading agent.
+- Operations/camera/printing/profile/config: operations_loading agent.
+- Regression tests with mocked APIs/headless browsers only.
 
-VERIFIED RESULTS
-- Backend imported from fresh temporary cwd, isolated SQLite/generated joblib fixtures.
-- Broader 139 passed in44.90s: test_spoilage_models, test_scan_trigger,
-  test_time_and_writes, test_scan_records, test_scan_snapshots, test_scan_evidence,
-  test_printer_readiness, test_printing, test_kiosk_printing, test_configuration,
-  test_station_owner, test_kiosk_pin. After missing-intake safeguard, targeted
-  scan_trigger/time_and_writes/kiosk_printing 47 passed in7.30s.
-- New test_scan_trigger_postgresql + existing test_printing_postgresql +
-  test_station_owner_postgresql:10 passed in9.96s on disposable PostgreSQL.
-  Proved zero serializer SQL, detached fresh graphs, real saved/once-claimed print receipts
-  with GDI mocked, unknown intake404, cancellation and true ownership-loss boundaries.
-- Frontend node --test --test-concurrency=1 tests/printing.test.mjs tests/kiosk.test.mjs:
-  7/7 passed in41.71s, mocked API/printing in Edge.
-- npm.cmd run typecheck passes; npm.cmd run build passes (Vite14.29s).
-- Configured Ruff635 existing diagnostics; new tests clean/no new source diagnostics.
-- Configured frontend lint43 existing errors+8 warnings, unchanged/no new regressions.
-- Independent model/scan/printer reviews and scoped diff completed; git diff --check passes.
-- Lint reports: C:\Users\Kent\AppData\Local\Temp\bv-model-print-checks-xyjrnrva.
-- Disposable PostgreSQL bv-scan-pg-watjjarn/data port60349 stopped and removed.
+REMAINING
+- Complete changes/regressions; frontend full tests/typecheck/lint/build, final review.
+- Refresh Graphify once; update knowledge docs/ICM and this checkpoint.
 
-CONSTRAINTS / LIMITS
-- No station .env/secrets/database/captures/camera/sensor/physical print/OS power tests.
-  Printer inspection read-only; all regression printer modules/GDI mocked.
-- No dependency/model/credential change, backend restart/deployment, commit/push/history rewrite.
-- sklearn1.6.1-trained forest versus installed1.8.0 warning remains. Synthetic predictions
-  work, but cross-version persistence is unsupported; no automatic environment downgrade.
-- Preserve unrelated user changes and previous UI layout and timestamps.
+TEST RESULTS
+- Baseline lint running; no success claims yet.
 
-EXACT NEXT STEP
-- User restarts backend normally once, refreshes browser and retries a normal scan.
-  Expect enhanced6-feature RFR loading and a persisted scan response withoutMissingGreenlet.
-- User confirms actual TP870 S label output using the now-normal Windows queue.
-- If Windows ERROR returns, inspect fresh exact queue/job/status and USB/power/media/
-  cover evidence. Do not act on historicaljob25 or clear/cancel live output without
-  explicit authorization under AGENTS.md.
+CONSTRAINTS
+- Preserve UI design, contracts, Asia/Manila dates, previous fixes/reverts.
+- Never use live station DB/captures/cameras/printer/power; no deployment/Git writes.
+
+EXACT RESUME POINT
+- Continue plan docs/superpowers/plans/2026-10-16-loading-states.md.
+- Read current diff/agent results before editing; do not repeat completed audit.

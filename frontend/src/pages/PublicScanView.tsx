@@ -1,3 +1,4 @@
+import { DetailSkeleton } from "@/components/LoadingState"
 import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
@@ -36,9 +37,14 @@ type PublicScan = Awaited<ReturnType<typeof api.scans.publicTrack>>
 
 export default function PublicScanView() {
   const { scanId } = useParams<{ scanId: string }>()
+  return <PublicScanRecord key={scanId} scanId={scanId} />
+}
+
+function PublicScanRecord({ scanId }: { scanId?: string }) {
   const { user } = useAuth()
   const navigate = useNavigate()
 
+  const [retry, setRetry] = useState(0)
   const [scan, setScan] = useState<PublicScan | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
@@ -56,25 +62,35 @@ export default function PublicScanView() {
   useEffect(() => {
     if (!scanId || user) return
     const controller = new AbortController()
+    let cancelled = false
+    let timedOut = false
+    const timeout = window.setTimeout(() => {
+      timedOut = true
+      setError("Loading took too long. Please retry.")
+      setLoading(false)
+      controller.abort()
+    }, 15_000)
     setLoading(true)
     setError(null)
     setNotFound(false)
 
     api.scans.publicTrack(scanId, controller.signal)
       .then((data) => {
+        if (cancelled || timedOut) return
         setScan(data)
         setLoading(false)
       })
       .catch((err: unknown) => {
+        if (cancelled || timedOut) return
         if (err instanceof DOMException && err.name === "AbortError") return
         const status = typeof err === "object" && err !== null && "status" in err ? Number((err as { status: number }).status) : 0
         setNotFound(status === 404)
         setError(err instanceof Error ? err.message : "Could not load scan data")
         setLoading(false)
-      })
+      }).finally(() => window.clearTimeout(timeout))
 
-    return () => controller.abort()
-  }, [scanId, user])
+    return () => { cancelled = true; window.clearTimeout(timeout); controller.abort() }
+  }, [scanId, user, retry])
 
   // Build image URL from backend path
   const getImageUrl = (path: string) => {
@@ -83,6 +99,8 @@ export default function PublicScanView() {
     const normalizedPath = path.startsWith("/") ? path : `/${path}`
     return `${BASE_URL}${normalizedPath}`
   }
+
+  if (loading) return <div className="max-w-2xl mx-auto p-4"><DetailSkeleton /></div>
 
   // Loading / error states
   if (loading || !scan) {
@@ -104,6 +122,7 @@ export default function PublicScanView() {
                   : error || "Check your connection and try again."}
             </EmptyDescription>
           </EmptyHeader>
+          {!loading && !notFound && <Button className="mt-4" onClick={() => setRetry(value => value + 1)}>Retry</Button>}
           {!loading && (
             <Button variant="outline" className="mt-4 gap-2" onClick={() => navigate("/login")}>
               <LogIn className="w-4 h-4" /> Log in

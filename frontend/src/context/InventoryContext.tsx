@@ -10,6 +10,7 @@ import { useLocation } from "react-router-dom"
 
 interface InventoryContextType {
   intakes: DailyIntake[]
+  intakesReady: boolean
   intakesLoading: boolean
   intakesError: string | null
   intakesStale: boolean
@@ -18,6 +19,9 @@ interface InventoryContextType {
   setActiveIntake: (intake: DailyIntake | null) => void
   startIntake: (supplierId: string, batchNumber: string, treatment?: string) => Promise<DailyIntake>
   bulkUpdateIntakeInventory: (intakeId: string, status: InventoryStatus, reason: string, revisions: Record<string, number>) => Promise<void>
+  suppliersLoading: boolean
+  suppliersReady: boolean
+  suppliersError: string | null
   suppliers: Supplier[]
   addSupplier: (supplierData: Omit<Supplier, "id" | "dateAdded">) => Promise<void>
   updateSupplier: (id: string, data: Partial<Omit<Supplier, "id" | "dateAdded">>) => Promise<void>
@@ -68,6 +72,10 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation()
 
   const [intakes, setIntakes] = useState<DailyIntake[]>([])
+  const [intakesReady, setIntakesReady] = useState(false)
+  const [suppliersReady, setSuppliersReady] = useState(false)
+  const [suppliersLoading, setSuppliersLoading] = useState(Boolean(user))
+  const [suppliersError, setSuppliersError] = useState<string | null>(null)
   const [intakesLoading, setIntakesLoading] = useState(true)
   const [intakesError, setIntakesError] = useState<string | null>(null)
   const [intakesStale, setIntakesStale] = useState(false)
@@ -79,6 +87,7 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
   const acceptWrite = useCallback(() => {
     ++loadSeq.current
     setIntakesLoading(false)
+    setSuppliersLoading(false)
   }, [])
 
   // ── Load data on mount / navigation ─────────────────────────────────────
@@ -87,6 +96,8 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
     if (!user) return
     const mySeq = ++loadSeq.current
     setIntakesLoading(true)
+    setSuppliersLoading(true)
+    setSuppliersError(null)
     try {
       const [suppliersRes, intakesRes] = await Promise.allSettled([
         api.suppliers.list(),
@@ -96,13 +107,16 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
       if (mySeq !== loadSeq.current) return
       if (suppliersRes.status === "fulfilled") {
         setSuppliers((suppliersRes.value as any[]).map(mapApiSupplier))
+        setSuppliersReady(true)
       } else {
+        setSuppliersError("Suppliers could not be loaded. Please reload to retry.")
         console.warn("[InventoryContext] Suppliers API unavailable")
       }
 
       if (intakesRes.status === "fulfilled") {
         setIntakes((intakesRes.value as any[]).map(mapApiIntake))
         hasIntakeSnapshot.current = true
+        setIntakesReady(true)
         setIntakesError(null)
         setIntakesStale(false)
       } else {
@@ -116,7 +130,7 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
       setIntakesError("Backend unreachable. Stock totals may be inaccurate.")
       console.warn("[InventoryContext] Backend unreachable", err)
     } finally {
-      if (mySeq === loadSeq.current) setIntakesLoading(false)
+      if (mySeq === loadSeq.current) { setIntakesLoading(false); setSuppliersLoading(false) }
     }
   }, [user])
 
@@ -195,7 +209,7 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
   return (
     <InventoryContext value={{
       intakes,
-      intakesLoading,
+      intakesLoading, intakesReady,
       intakesError,
       intakesStale,
       refreshIntakes,
@@ -203,7 +217,7 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
       setActiveIntake,
       startIntake,
       bulkUpdateIntakeInventory,
-      suppliers,
+      suppliers, suppliersLoading, suppliersReady, suppliersError,
       addSupplier,
       updateSupplier,
       updateSupplierStatus,

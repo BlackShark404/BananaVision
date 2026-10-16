@@ -1,5 +1,6 @@
+import { TableSkeleton } from "@/components/LoadingState"
 import { useEffect, useState } from "react"
-import { ArrowRight, Loader2 } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -67,9 +68,7 @@ function GroupRecords({ summary, view, onClose, onSelectView, businessDate, revi
               <Button variant="outline" onClick={() => setRetry(value => value + 1)}>Retry</Button>
             </div>
           ) : (
-            <div role="status" className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Loading records…
-            </div>
+            <TableSkeleton columns={3} label="Loading records…" />
           ) : groups?.length === 0 ? (
             <p className="py-10 text-center text-muted-foreground">No {view === "sources" ? "delivery sources" : "operators"} recorded.</p>
           ) : (

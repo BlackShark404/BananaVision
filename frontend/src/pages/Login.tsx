@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,6 +9,7 @@ import { Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 
 export default function Login() {
+  const inFlight = useRef(false)
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -25,6 +26,9 @@ export default function Login() {
 
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (inFlight.current) return
+    inFlight.current = true
+    try {
 
     if (isChangingPassword) {
       if (newPassword !== confirmPassword) {
@@ -70,6 +74,8 @@ export default function Login() {
       toast.error("Login failed", { description: "Check your username and password, or contact an administrator." })
     }
     setLoading(false)
+    } catch { toast.error("Sign in unavailable", { description: "Please try again." }) }
+    finally { inFlight.current = false; setLoading(false) }
   }
 
   return (

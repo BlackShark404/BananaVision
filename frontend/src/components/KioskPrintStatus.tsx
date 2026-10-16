@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import type { PrintJob } from "@/types/printing"
@@ -54,11 +55,11 @@ export function KioskPrintStatus({ scanId, initialJob }: { scanId: string; initi
     {job.status === "FAILED" && <>
       <p className="text-destructive">{job.error}</p>
       <p className="text-muted-foreground">Check for a partially printed label before retrying.</p>
-      <Button variant="outline" size="sm" disabled={busy} onClick={() => act(true)}>RETRY PRINT</Button>
+      <Button variant="outline" size="sm" disabled={busy} onClick={() => act(true)}>{busy && <Loader2 className="w-4 h-4 animate-spin" />}RETRY PRINT</Button>
     </>}
     {waiting && job.status === "QUEUED" && <p>Submission is unconfirmed. Check the print queue.</p>}
     {error && <p role="alert" className="text-destructive">{error}</p>}
     {(job.status === "QUEUED" || error) && <Button variant="outline" size="sm" disabled={busy}
-      onClick={() => act(false)}>Refresh print status</Button>}
+      onClick={() => act(false)}>{busy && <Loader2 className="w-4 h-4 animate-spin" />}Refresh print status</Button>}
   </div>
 }

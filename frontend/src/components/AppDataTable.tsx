@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Pagination,
   PaginationContent,
@@ -45,6 +46,7 @@ export interface AppDataTableProps<T> {
   rowKey: (row: T) => string | number
   className?: string
   rowClassName?: (row: T, index: number) => string
+  loading?: boolean
 }
 
 export function AppDataTable<T>({
@@ -57,6 +59,7 @@ export function AppDataTable<T>({
   className,
   rowClassName,
   serverState,
+  loading = false,
 }: AppDataTableProps<T>) {
   const [localPage, setLocalPage] = useState(1)
   const [localSort, setSortConfig] = useState<{ columnIdx: number, direction: 'asc' | 'desc' } | null>(null)
@@ -74,7 +77,7 @@ export function AppDataTable<T>({
   }, [totalPages])
 
   const handleSort = (colIdx: number, column: ColumnDef<T>) => {
-    if (!column.sortable) return
+    if (loading || !column.sortable) return
     if (serverState && typeof column.sortKey === "string") {
       serverState.onSortChange(column.sortKey, serverState.sort.key === column.sortKey && serverState.sort.direction === "asc" ? "desc" : "asc")
       return
@@ -122,7 +125,8 @@ export function AppDataTable<T>({
   const paginatedData = pagination && !serverState ? sortedData.slice((page - 1) * pageSize, page * pageSize) : sortedData
 
   return (
-    <div className={`rounded-xl sm:rounded-2xl border bg-card text-card-foreground shadow-sm overflow-hidden ${className || ''}`}>
+    <div aria-busy={loading || undefined} className={`rounded-xl sm:rounded-2xl border bg-card text-card-foreground shadow-sm overflow-hidden ${className || ''}`}>
+      {loading && <span role="status" className="sr-only">Loading records…</span>}
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30">
@@ -149,7 +153,9 @@ export function AppDataTable<T>({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {data.length === 0 ? (
+          {loading ? Array.from({ length: 5 }, (_, index) => <TableRow key={index} aria-hidden="true" className="hover:bg-transparent">
+            {columns.map((col, colIdx) => <TableCell key={colIdx} className={col.className}><Skeleton className="h-5 my-2 w-full min-w-12" /></TableCell>)}
+          </TableRow>) : data.length === 0 ? (
             <TableRow className="hover:bg-transparent">
               <TableCell colSpan={columns.length} className="h-64">
                 {emptyState ? (
@@ -197,7 +203,7 @@ export function AppDataTable<T>({
       </Table>
 
       {/* Pagination */}
-      {pagination && total > pageSize && (
+      {!loading && pagination && total > pageSize && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t bg-muted/20">
           <p className="text-xs sm:text-sm text-muted-foreground">
             Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, total)} of {total}

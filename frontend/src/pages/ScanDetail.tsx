@@ -1,3 +1,4 @@
+import { DetailSkeleton } from "@/components/LoadingState"
 import { scanRetryAction } from "@/lib/scanWriteFeedback"
 import { ScanImage } from "@/components/ScanImage"
 import { InventoryProvenanceReview } from "@/components/InventoryProvenanceReview"
@@ -234,6 +235,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
 
   if (!scan) {
     const loading = Boolean(scanId) && !currentDetail
+    if (loading) return <DetailSkeleton />
     const notFound = !scanId || currentDetail?.notFound
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -563,7 +565,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                       <X className="w-3.5 h-3.5" /> Cancel
                     </Button>
                     <Button size="sm" className="gap-1.5" onClick={handleSaveEdit} disabled={editPending || !editReason.trim()}>
-                      <Save className="w-3.5 h-3.5" /> Save Changes
+                      {editPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} {editPending ? "Saving…" : "Save Changes"}
                     </Button>
                   </div>
                 </div>
@@ -702,7 +704,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     onClick={handleFlag}
                     disabled={flagPending}
                   >
-                    <Flag className={`w-3.5 h-3.5 ${scan.flagged ? 'fill-current' : ''}`} />
+                    {flagPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Flag className={`w-3.5 h-3.5 ${scan.flagged ? 'fill-current' : ''}`} />}
                     {scan.flagged ? 'Remove Flag' : 'Flag for Review'}
                   </Button>
                 </div>
@@ -749,7 +751,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                       rows={2}
                     />
                     <Button onClick={handleAddNote} disabled={!noteText.trim() || notePending} className="self-end">
-                      Add
+                      {notePending && <Loader2 className="size-4 animate-spin" />} {notePending ? "Adding…" : "Add"}
                     </Button>
                   </div>
                 </div>

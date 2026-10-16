@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton"
 import { useState, useEffect, useRef } from "react"
 import { useAdmin } from "@/context/AdminContext"
 import { StationBackupControls } from "@/components/StationBackupControls"
@@ -20,7 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, Edit2, AlertTriangle, Undo2 } from "lucide-react"
+import { Loader2, Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, Edit2, AlertTriangle, Undo2 } from "lucide-react"
 import { toast } from "sonner"
 import {
   Alert,
@@ -38,6 +39,12 @@ export default function SystemConfig() {
   const previousConfig = useRef(config)
   const [maintenance, setMaintenance] = useState<MaintenanceStatus | null>(null)
   const [maintenanceError, setMaintenanceError] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const exportFlight = useRef(false)
+  const [reloading, setReloading] = useState(false)
+  const reloadFlight = useRef(false)
+  const [checkingPower, setCheckingPower] = useState(false)
+  const checkFlight = useRef(false)
   const [archiveBusy, setArchiveBusy] = useState(false)
   const [powerPending, setPowerPending] = useState(false)
   const [powerAccepted, setPowerAccepted] = useState(false)
@@ -172,12 +179,14 @@ export default function SystemConfig() {
   }
 
   const handleExportData = async () => {
+    if (exportFlight.current) return
+    exportFlight.current = true; setExporting(true)
     try {
       await api.config.export()
       toast.success("Scan summaries exported", { description: "CSV download started" })
     } catch {
       toast.error("Export Failed", { description: "Could not export scan summaries" })
-    }
+    } finally { exportFlight.current = false; setExporting(false) }
   }
 
   const toggleDataRetention = async () => {
@@ -227,18 +236,19 @@ export default function SystemConfig() {
         <p className="text-muted-foreground text-xs sm:text-sm mt-1">Manage global BananaVision settings</p>
       </div>
 
-      {(!configReady || configError || configConflict) && <Alert>
+      {(configError || configConflict) && <Alert>
         <AlertTitle>{configConflict ? "Configuration changed elsewhere" : configError ?? "Loading configurationâ€¦"}</AlertTitle>
         <AlertDescription>Your draft is preserved. Reload saved settings before making changes.</AlertDescription>
-        <Button variant="outline" disabled={saving} onClick={() => void reloadConfig()}>{configConflict ? "Reload saved settings" : "Retry configuration"}</Button>
+        <Button variant="outline" disabled={saving || reloading} onClick={async () => { if (reloadFlight.current) return; reloadFlight.current = true; setReloading(true); try { await reloadConfig() } finally { reloadFlight.current = false; setReloading(false) } }}>{reloading && <Loader2 className="w-4 h-4 animate-spin" />}{configConflict ? "Reload saved settings" : "Retry configuration"}</Button>
       </Alert>}
       {configReady && <p className="text-xs text-muted-foreground">Saved revision {config.revision} Â· Cameras {config.applicationStatus}. {config.applicationError} Threshold applies to the next scan. Deployment model changes require a backend restart.</p>}
       {configReady && config.applicationStatus !== "applied" && <Button variant="outline" disabled={disabled || saving} onClick={async () => {
-        setSaving(true)
+        if (configFlight.current) return
+        configFlight.current = true; setSaving(true)
         try { acceptConfig(await api.config.applyCameras(crypto.randomUUID())) }
         catch (error) { toast.error(error instanceof Error ? error.message : "Camera application failed") }
-        finally { setSaving(false) }
-      }}>Retry Applying Cameras</Button>}
+        finally { configFlight.current = false; setSaving(false) }
+      }}>{saving && <Loader2 className="w-4 h-4 animate-spin" />}Retry Applying Cameras</Button>}
       {hasChanges && (
         <div className="fixed bottom-4 sm:bottom-6 left-0 right-0 flex justify-center px-4 z-50 pointer-events-none">
           <Alert className="bg-amber-500/10 text-amber-600 border-amber-500/30 w-full max-w-xl animate-in slide-in-from-bottom-5 fade-in duration-300 py-3 sm:py-4 px-4 sm:px-5 shadow-xl shadow-amber-500/10 backdrop-blur-md pointer-events-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 !pr-4 sm:!pr-5">
@@ -256,14 +266,14 @@ export default function SystemConfig() {
                 Discard
               </Button>
               <Button size="sm" onClick={handleSave} disabled={saving || disabled} className="flex-1 sm:flex-none h-8 px-4 text-xs font-semibold shadow-sm text-amber-50 bg-amber-600 hover:bg-amber-700 border-none">
-                {saving ? "Saving..." : "Save Now"}
+                {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : "Save Now"}
               </Button>
             </div>
           </Alert>
         </div>
       )}
 
-      <Tabs defaultValue="scanner" orientation="vertical" className="flex flex-col md:flex-row gap-4 sm:gap-6 w-full">
+      {!configReady && !configError ? <div role="status" aria-label="Loading configuration" className="flex flex-col md:flex-row gap-4 sm:gap-6"><Skeleton className="h-56 w-full md:w-60" /><div className="flex-1 space-y-4"><Skeleton className="h-12 w-2/3" /><Skeleton className="h-72 w-full" /></div></div> : <Tabs defaultValue="scanner" orientation="vertical" className="flex flex-col md:flex-row gap-4 sm:gap-6 w-full">
         <TabsList className="flex !flex-row md:!flex-col h-auto justify-start items-stretch rounded-xl sm:rounded-2xl bg-muted/50 p-1.5 sm:p-2 shrink-0 !w-full md:!w-60 overflow-x-auto overflow-y-hidden snap-x gap-1 sm:gap-1.5 border border-muted/50 no-scrollbar">
           <TabsTrigger value="scanner" className="justify-start px-4 py-2.5 sm:py-3 text-left rounded-lg sm:rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap snap-start shrink-0 !w-auto md:!w-full">
             <Camera className="w-4 h-4 mr-2 shrink-0" /> Scanner Config
@@ -334,7 +344,7 @@ export default function SystemConfig() {
                   <div className="flex flex-wrap items-center gap-3">
                     <Label className="text-sm">Detected camera devices</Label>
                     <Button variant="outline" size="sm" disabled={disabled || saving || cameraDiscovery.loading} onClick={cameraDiscovery.refresh}>
-                      <RefreshCw className="w-4 h-4 mr-2" />{cameraDiscovery.loading ? "Listing Devices..." : "Refresh Device List"}
+                      <RefreshCw className={`w-4 h-4 mr-2 ${cameraDiscovery.loading ? "animate-spin" : ""}`} />{cameraDiscovery.loading ? "Listing Devices..." : "Refresh Device List"}
                     </Button>
                   </div>
                   {cameraDiscovery.error && <p role="alert" className="text-sm text-destructive">{cameraDiscovery.error} You can still enter device indices manually.</p>}
@@ -386,7 +396,7 @@ export default function SystemConfig() {
                   </Button>
                 )}
                 <Button onClick={handleSave} disabled={saving || disabled || !hasChanges} className="w-full sm:w-auto">
-                  {saving ? "Saving..." : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
+                  {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
                 </Button>
               </div>
             </CardFooter>
@@ -431,7 +441,7 @@ export default function SystemConfig() {
                   </Button>
                 )}
                 <Button onClick={handleSave} disabled={saving || disabled || !hasChanges} className="w-full sm:w-auto">
-                  {saving ? "Saving..." : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
+                  {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
                 </Button>
               </div>
             </CardFooter>
@@ -464,8 +474,8 @@ export default function SystemConfig() {
                   <h4 className="font-medium text-sm sm:text-base">Export Scan Summaries</h4>
                   <p className="text-xs sm:text-sm text-muted-foreground">Download scan summaries as CSV. Accounts, settings, audit logs and images are excluded; this export cannot restore the database.</p>
                 </div>
-                <Button variant="outline" onClick={handleExportData} className="w-full sm:w-auto">
-                  <Download className="w-4 h-4 mr-2" /> Export CSV
+                <Button variant="outline" disabled={exporting} onClick={handleExportData} className="w-full sm:w-auto">
+                  {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />} {exporting ? "Exporting…" : "Export CSV"}
                 </Button>
               </div>
               <StationBackupControls disabled={disabled || saving} onBusy={setArchiveBusy} />
@@ -513,25 +523,30 @@ export default function SystemConfig() {
                 </Button>
               </div>
 
-              {powerId.current && <Button variant="outline" onClick={async () => {
+              {powerId.current && <Button variant="outline" disabled={checkingPower} onClick={async () => {
+                if (checkFlight.current) return
+                checkFlight.current = true; setCheckingPower(true)
                 try { const result = await api.config.operation(powerId.current!); setPowerMessage(result.message ?? result.status); setPowerAccepted(["accepted", "unknown", "dispatching"].includes(result.status)) }
                 catch (error) { setPowerMessage(error instanceof Error ? error.message : "Status unavailable") }
-              }}>Check Power Status</Button>}
+                finally { checkFlight.current = false; setCheckingPower(false) }
+              }}>{checkingPower && <Loader2 className="w-4 h-4 animate-spin" />}Check Power Status</Button>}
               {(powerAccepted || maintenance?.state === "power-accepted" || maintenance?.state === "recovery-required") && <div className="space-y-3 p-4 rounded-xl border">
                 <Label htmlFor="power-password">Recovery administrator password</Label>
                 <Input id="power-password" type="password" value={recoveryPassword} onChange={e => setRecoveryPassword(e.target.value)} />
                 <Button variant="outline" disabled={!recoveryPassword || powerPending} onClick={async () => {
-                  setPowerPending(true)
+                  if (powerFlight.current) return
+                  powerFlight.current = true; setPowerPending(true)
                   try { await api.config.recoverPower(recoveryPassword); setPowerAccepted(false); acceptMaintenance(await api.config.maintenance()); setRecoveryPassword("") }
                   catch (error) { setPowerMessage(error instanceof Error ? error.message : "Cancellation unconfirmed; admission remains closed") }
-                  finally { setPowerPending(false) }
-                }}>Cancel Pending Power Command</Button>
+                  finally { powerFlight.current = false; setPowerPending(false) }
+                }}>{powerPending && <Loader2 className="w-4 h-4 animate-spin" />}Cancel Pending Power Command</Button>
                 <Button variant="outline" disabled={!recoveryPassword || powerPending} onClick={async () => {
-                  setPowerPending(true)
+                  if (powerFlight.current) return
+                  powerFlight.current = true; setPowerPending(true)
                   try { acceptMaintenance(await api.config.recoverRestore(recoveryPassword)); setRecoveryPassword("") }
                   catch (error) { setPowerMessage(error instanceof Error ? error.message : "Recovery failed") }
-                  finally { setPowerPending(false) }
-                }}>Retry Restore Recovery</Button>
+                  finally { powerFlight.current = false; setPowerPending(false) }
+                }}>{powerPending && <Loader2 className="w-4 h-4 animate-spin" />}Retry Restore Recovery</Button>
               </div>}
               <div className="mt-4 p-3 rounded-lg bg-muted/50 border">
                 <p className="text-xs text-muted-foreground">
@@ -543,7 +558,7 @@ export default function SystemConfig() {
           </Card>
         </TabsContent>
         </div>
-      </Tabs>
+      </Tabs>}
 
       {/* Shutdown Confirmation Dialog */}
       <AlertDialog open={showShutdownDialog} onOpenChange={open => { if (!powerPending) setShowShutdownDialog(open) }}>
@@ -556,13 +571,14 @@ export default function SystemConfig() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={powerPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90" 
               disabled={powerPending} onClick={event => { event.preventDefault(); void handlePower("shutdown") }}
             >
               <Power className="w-4 h-4 mr-2" />
-              Shutdown Now
+              {powerPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {powerPending ? "Waiting for active work…" : "Shutdown Now"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -578,10 +594,11 @@ export default function SystemConfig() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={powerPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction disabled={powerPending} onClick={event => { event.preventDefault(); void handlePower("restart") }}>
               <RefreshCw className="w-4 h-4 mr-2" />
-              Restart Now
+              {powerPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {powerPending ? "Waiting for active work…" : "Restart Now"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

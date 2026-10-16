@@ -18,8 +18,9 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp"
-import { User, Shield, Calendar, Activity, TrendingUp, Target, Moon, Sun, Eye, EyeOff, Camera } from "lucide-react"
+import { Loader2, User, Shield, Calendar, Activity, TrendingUp, Target, Moon, Sun, Eye, EyeOff, Camera } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 
 export default function Profile() {
@@ -33,6 +34,8 @@ export default function Profile() {
   const [pinStep, setPinStep] = useState<"current" | "new" | "confirm">("current")
   const [pinData, setPinData] = useState({ current: "", new: "", confirm: "" })
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const credentialFlight = useRef(false)
+  const [savingCredential, setSavingCredential] = useState(false)
   const [savingAvatar, setSavingAvatar] = useState(false)
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,6 +143,7 @@ export default function Profile() {
 
   const handlePasswordChange = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (credentialFlight.current) return
     if (passwordData.new !== passwordData.confirm) {
       toast.error("Passwords don't match")
       return
@@ -154,6 +158,7 @@ export default function Profile() {
     }
     
     if (user) {
+      credentialFlight.current = true; setSavingCredential(true)
       try {
         const success = await changePassword(passwordData.current, passwordData.new)
         if (success) {
@@ -165,11 +170,12 @@ export default function Profile() {
         }
       } catch {
         toast.error("An error occurred while changing password.")
-      }
+      } finally { credentialFlight.current = false; setSavingCredential(false) }
     }
   }
 
   const handlePinOtpChange = async (val: string) => {
+    if (credentialFlight.current) return
     if (pinStep === "current") {
       setPinData(prev => ({ ...prev, current: val }))
       if (val.length === 4) {
@@ -192,6 +198,7 @@ export default function Profile() {
           return
         }
         if (user) {
+          credentialFlight.current = true; setSavingCredential(true)
           try {
             const success = await changePin(pinData.current, val)
             if (success) {
@@ -208,13 +215,14 @@ export default function Profile() {
             toast.error("Current PIN is incorrect")
             setPinData({ current: "", new: "", confirm: "" })
             setPinStep("current")
-          }
+          } finally { credentialFlight.current = false; setSavingCredential(false) }
         }
       }
     }
   }
 
   const resetPinDialog = () => {
+    if (credentialFlight.current) return
     setPinData({ current: "", new: "", confirm: "" })
     setPinStep("current")
     setIsEditingPin(false)
@@ -234,6 +242,7 @@ export default function Profile() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <AppStatsCard
+          loading={!summary && !summaryError}
           title={user.role === "Admin" ? "System Scans" : "Total Scans"}
           value={stats.totalScans}
           icon={Activity}
@@ -242,6 +251,7 @@ export default function Profile() {
         />
         {user.role === "Admin" ? (
           <AppStatsCard
+          loading={!summary && !summaryError}
             title="Total Users"
             value={stats.totalUsers || 0}
             icon={User}
@@ -252,6 +262,7 @@ export default function Profile() {
           />
         ) : (
           <AppStatsCard
+          loading={!summary && !summaryError}
             title="Last 7 Days"
             value={stats.last7Days || 0}
             icon={TrendingUp}
@@ -262,6 +273,7 @@ export default function Profile() {
           />
         )}
         <AppStatsCard
+          loading={!summary && !summaryError}
           title={user.role === "Admin" ? "System Avg Confidence" : "Avg Confidence"}
           value={stats.avgConfidence === null ? "â€”" : `${stats.avgConfidence}%`}
           icon={Target}
@@ -283,6 +295,7 @@ export default function Profile() {
               <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
                 <div 
                   className="relative group cursor-pointer inline-block rounded-full" 
+                  aria-busy={savingAvatar}
                   onClick={() => !savingAvatar && fileInputRef.current?.click()}
                   title="Upload new avatar"
                 >
@@ -398,7 +411,7 @@ export default function Profile() {
           </Card>
 
           {/* Change Password Dialog */}
-          <Dialog open={isEditingPassword} onOpenChange={setIsEditingPassword}>
+          <Dialog open={isEditingPassword} onOpenChange={open => { if (!savingCredential) setIsEditingPassword(open) }}>
             <DialogContent className="sm:max-w-md rounded-2xl">
               <DialogHeader>
                 <DialogTitle>Change Password</DialogTitle>
@@ -468,10 +481,11 @@ export default function Profile() {
                   </div>
                 </div>
                 <div className="flex gap-2 pt-2">
-                  <Button type="button" variant="outline" onClick={() => setIsEditingPassword(false)} className="flex-1">
+                  <Button type="button" variant="outline" disabled={savingCredential} onClick={() => setIsEditingPassword(false)} className="flex-1">
                     Cancel
                   </Button>
-                  <Button type="submit" className="flex-1">
+                  <Button type="submit" className="flex-1" disabled={savingCredential}>
+                    {savingCredential && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
                     Update Password
                   </Button>
                 </div>
@@ -513,6 +527,7 @@ export default function Profile() {
 
                   <div className="flex justify-center py-2">
                     <InputOTP
+                      disabled={savingCredential}
                       maxLength={4}
                       value={pinStep === "current" ? pinData.current : pinStep === "new" ? pinData.new : pinData.confirm}
                       onChange={handlePinOtpChange}
@@ -527,7 +542,8 @@ export default function Profile() {
                     </InputOTP>
                   </div>
 
-                  <Button variant="ghost" className="w-full text-muted-foreground h-10" onClick={resetPinDialog}>
+                  {savingCredential && <p role="status" className="flex items-center justify-center gap-2 text-sm"><Loader2 className="w-4 h-4 animate-spin" />Updating PIN…</p>}
+                  <Button disabled={savingCredential} variant="ghost" className="w-full text-muted-foreground h-10" onClick={resetPinDialog}>
                     Cancel
                   </Button>
                 </div>
@@ -560,7 +576,8 @@ export default function Profile() {
                     </div>
                   </div>
                 ))}
-                {recentActivityFeed.length === 0 && (
+                {!summary && !summaryError && <div role="status" aria-label="Loading recent activity" className="space-y-3">{[0, 1, 2].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>}
+                {summary && recentActivityFeed.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-8">No recent activity</p>
                 )}
               </div>

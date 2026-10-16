@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
 import type { LucideProps } from "lucide-react"
 import type { ForwardRefExoticComponent, RefAttributes } from "react"
 
@@ -18,6 +19,7 @@ interface AppStatsCardProps {
   onClick?: () => void
   active?: boolean
   disabled?: boolean
+  loading?: boolean
 }
 
 export function AppStatsCard({
@@ -33,7 +35,9 @@ export function AppStatsCard({
   onClick,
   active,
   disabled = false,
+  loading = false,
 }: AppStatsCardProps) {
+  disabled = disabled || loading
   return (
     <Card 
       className={cn(
@@ -45,6 +49,7 @@ export function AppStatsCard({
       style={{ animationDelay: `${delay}ms` }}
       title={helpText}
       aria-description={helpText}
+      aria-busy={loading || undefined}
       role={onClick ? "button" : undefined}
       tabIndex={onClick && !disabled ? 0 : undefined}
       aria-disabled={onClick ? disabled : undefined}
@@ -79,9 +84,9 @@ export function AppStatsCard({
         
         {/* Value + description */}
         <div className="flex flex-col gap-0.5">
-          <h3 className="text-3xl sm:text-[2.25rem] font-extrabold tracking-tight text-foreground leading-none">{value}</h3>
+          <h3 className="text-3xl sm:text-[2.25rem] font-extrabold tracking-tight text-foreground leading-none">{loading ? <><span className="sr-only">Loading {title}</span><Skeleton aria-hidden="true" className="h-[1em] w-24" /></> : value}</h3>
           {description && (
-            <p className="text-xs text-muted-foreground/60 font-medium mt-1">{description}</p>
+            <p className="text-xs text-muted-foreground/60 font-medium mt-1">{loading ? <Skeleton aria-hidden="true" className="h-4 w-3/4" /> : description}</p>
           )}
         </div>
       </CardContent>

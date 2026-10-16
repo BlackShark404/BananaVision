@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton"
 import { useAdmin } from "@/context/AdminContext"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,9 +9,11 @@ import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
 import { useWebSocket } from "@/hooks/useWebSocket"
 export default function DeviceStatus() {
-  const { devices } = useAdmin()
+  const { devices, devicesLoading, devicesReady, devicesError } = useAdmin()
   const online = devices.filter((d) => d.status === "Online").length
   const total = devices.length
+  const [metricsLoading, setMetricsLoading] = useState(true)
+  const [metricsError, setMetricsError] = useState("")
   const [lastUpdate, setLastUpdate] = useState(new Date())
 
   const [systemMetrics, setSystemMetrics] = useState<{
@@ -60,16 +63,20 @@ export default function DeviceStatus() {
 
   // Fetch live system metrics every 5 seconds
   useEffect(() => {
-    const fetchMetrics = () => {
-      api.system.metrics().then((res) => {
-        setSystemMetrics(res)
-        setLastUpdate(new Date())
-      }).catch(console.error)
+    let active = true
+    let timer: ReturnType<typeof setTimeout>
+    const fetchMetrics = async () => {
+      setMetricsLoading(true)
+      try {
+        const res = await api.system.metrics()
+        if (active) { setSystemMetrics(res); setLastUpdate(new Date()); setMetricsError("") }
+      } catch { if (active) setMetricsError("System metrics unavailable. Retrying automatically…") }
+      finally {
+        if (active) { setMetricsLoading(false); timer = setTimeout(fetchMetrics, 5000) }
+      }
     }
-
-    fetchMetrics() // Initial fetch
-    const interval = setInterval(fetchMetrics, 5000)
-    return () => clearInterval(interval)
+    void fetchMetrics()
+    return () => { active = false; clearTimeout(timer) }
   }, [])
 
   return (
@@ -84,7 +91,8 @@ export default function DeviceStatus() {
       </div>
 
       {/* Camera Cards */}
-      {devices.length === 0 ? (
+      {devicesError && <p role="alert" className="text-sm text-destructive">{devicesError}</p>}
+      {!devicesReady && devicesLoading ? <div role="status" aria-label="Loading cameras" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-40 rounded-2xl" />)}</div> : devices.length === 0 && !devicesError ? (
         <Card className="rounded-2xl">
           <CardContent className="p-12">
             <Empty>
@@ -165,21 +173,21 @@ export default function DeviceStatus() {
               <Cpu className="w-5 h-5 text-muted-foreground" />
               <div>
                 <p className="text-xs text-muted-foreground">Processor</p>
-                <p className="text-sm font-medium">{systemMetrics?.cpu_name ?? "Loading..."}</p>
+                <p className="text-sm font-medium">{systemMetrics?.cpu_name ?? (metricsLoading ? <Skeleton className="h-5 w-24" /> : "Unavailable")}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
               <HardDrive className="w-5 h-5 text-muted-foreground" />
               <div>
                 <p className="text-xs text-muted-foreground">Storage</p>
-                <p className="text-sm font-medium">{systemMetrics ? `${systemMetrics.disk_used_gb} GB / ${systemMetrics.disk_total_gb} GB` : "Loading..."}</p>
+                <p className="text-sm font-medium">{systemMetrics ? `${systemMetrics.disk_used_gb} GB / ${systemMetrics.disk_total_gb} GB` : metricsLoading ? <Skeleton className="h-5 w-24" /> : "Unavailable"}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
               <Clock className="w-5 h-5 text-muted-foreground" />
               <div>
                 <p className="text-xs text-muted-foreground">Uptime</p>
-                <p className="text-sm font-medium">{systemMetrics?.uptime ?? "Loading..."}</p>
+                <p className="text-sm font-medium">{systemMetrics?.uptime ?? (metricsLoading ? <Skeleton className="h-5 w-24" /> : "Unavailable")}</p>
               </div>
             </div>
           </div>
@@ -194,19 +202,21 @@ export default function DeviceStatus() {
               <Activity className="w-5 h-5" /> System Performance
             </CardTitle>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '3s' }} />
-              <span>Updated {lastUpdate.toLocaleTimeString()}</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${metricsLoading ? "animate-spin" : ""}`} />
+              <span>{metricsLoading ? "Refreshing metrics…" : systemMetrics ? `Updated ${lastUpdate.toLocaleTimeString()}` : "Metrics unavailable"}</span>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
+          {metricsError && <p role="alert" className="text-sm text-destructive">{metricsError}</p>}
+          {!systemMetrics && metricsLoading ? <div role="status" aria-label="Loading system metrics" className="space-y-5">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div> : <>
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
                 <Cpu className="w-4 h-4 text-blue-600" />
                 <span className="font-medium">CPU Usage</span>
               </div>
-              <span className="text-muted-foreground">{systemMetrics?.cpu_percent ?? 0}%</span>
+              <span className="text-muted-foreground">{systemMetrics ? `${systemMetrics.cpu_percent}%` : "—"}</span>
             </div>
             <Progress value={systemMetrics?.cpu_percent ?? 0} className="h-2" />
           </div>
@@ -245,6 +255,7 @@ export default function DeviceStatus() {
             </div>
             <Progress value={systemMetrics?.cpu_temp != null ? (systemMetrics.cpu_temp / 100) * 100 : 0} className="h-2" />
           </div>
+          </>}
         </CardContent>
       </Card>
 

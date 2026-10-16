@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import type { InventoryStatus } from "@/types"
 import { 
+  Loader2,
   Package, 
   Filter, 
   Download, 
@@ -64,8 +65,10 @@ const PAGE_SIZE = 15
 
 export default function DeliveryIntake() {
   const navigate = useNavigate()
-  const { scans, scansLoading, scansError } = useScans()
-  const { intakes, bulkUpdateIntakeInventory } = useInventory()
+  const { scans, scansLoading, scansReady, scansError } = useScans()
+  const { intakes, intakesLoading, intakesReady, intakesError, bulkUpdateIntakeInventory } = useInventory()
+  const initialLoading = (scansLoading && !scansReady) || (intakesLoading && !intakesReady)
+  const dataUnavailable = scansLoading || intakesLoading || !!scansError || !!intakesError
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("Active")
   const [confirmAction, setConfirmAction] = useState<{ intakeId: string; status: InventoryStatus; scanCount: number; revisions: Record<string, number> } | null>(null)
@@ -143,7 +146,7 @@ export default function DeliveryIntake() {
   }
 
   const handleBulkUpdate = async (intake: { id: string; inventoryStatus: InventoryStatus; scanCount: number }, status: InventoryStatus) => {
-    if (saving || scansLoading || scansError) return
+    if (saving || dataUnavailable) return
     setSaving(true)
     try {
       const snapshot = await api.intakes.scanRevisions(intake.id)
@@ -155,7 +158,7 @@ export default function DeliveryIntake() {
   }
 
   const confirmBulkUpdate = async () => {
-    if (!confirmAction || !reason.trim() || saving || scansLoading || scansError) return
+    if (!confirmAction || !reason.trim() || saving || dataUnavailable) return
     setSaving(true)
     try {
       await bulkUpdateIntakeInventory(confirmAction.intakeId, confirmAction.status, reason.trim(), confirmAction.revisions)
@@ -293,7 +296,7 @@ export default function DeliveryIntake() {
               { status: "Spoiled" as InventoryStatus, icon: AlertTriangle, color: "text-red-500" },
             ] as const).map(({ status, icon: ItemIcon, color }) => {
               const allowed = VALID_TRANSITIONS[intake.inventoryStatus] || []
-              const isDisabled = saving || scansLoading || !!scansError || !allowed.includes(status) || intake.inventoryStatus === status
+              const isDisabled = saving || dataUnavailable || !allowed.includes(status) || intake.inventoryStatus === status
               return (
                 <DropdownMenuItem
                   key={status}
@@ -336,11 +339,11 @@ export default function DeliveryIntake() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              disabled={saving || !reason.trim() || scansLoading || !!scansError}
+              disabled={saving || !reason.trim() || dataUnavailable}
               onClick={(event) => { event.preventDefault(); void confirmBulkUpdate() }}
               className={confirmAction?.status === "Spoiled" ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}
             >
-              Confirm
+              {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Updating…" : "Confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -351,15 +354,15 @@ export default function DeliveryIntake() {
         description="Monitor automated, scan-driven implicit delivery intakes"
         icon={Package}
         action={
-          <Button variant="outline" className="gap-2 w-full sm:w-auto" disabled={scansLoading || !!scansError} onClick={exportToCSV}>
+          <Button variant="outline" className="gap-2 w-full sm:w-auto" disabled={dataUnavailable} onClick={exportToCSV}>
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export CSV</span>
           </Button>
         }
       />
 
-      {(scansLoading || scansError) && (
-        <p role={scansError ? "alert" : "status"} className="text-sm text-muted-foreground">
+      {dataUnavailable && (
+        <p role={scansError || intakesError ? "alert" : "status"} className="text-sm text-muted-foreground">
           {scansError ? "Scan history is unavailable. Reload before updating or exporting intakes." : "Loading complete scan historyâ€¦"}
         </p>
       )}
@@ -367,6 +370,7 @@ export default function DeliveryIntake() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <AppStatsCard
+          loading={intakesLoading && !intakesReady}
           title="Active Intakes"
           value={stats.activeIntakes}
           icon={Activity}
@@ -376,6 +380,7 @@ export default function DeliveryIntake() {
           description="Awaiting processing"
         />
         <AppStatsCard
+          loading={intakesLoading && !intakesReady}
           title="Depleted Intakes"
           value={stats.depletedIntakes}
           icon={ArchiveRestore}
@@ -425,6 +430,7 @@ export default function DeliveryIntake() {
 
       {/* Table */}
       <AppDataTable
+        loading={initialLoading}
         data={filtered}
         columns={columns}
         rowKey={(intake) => intake.id}
@@ -432,7 +438,7 @@ export default function DeliveryIntake() {
         pagination={{ pageSize: PAGE_SIZE }}
         emptyState={{
           icon: Package,
-          title: "No intakes found",
+          title: intakesError && !intakesReady ? "Intakes unavailable" : "No intakes found",
           description: "Try adjusting your filters or wait for operators to scan new deliveries."
         }}
       />

@@ -1,4 +1,5 @@
 import { useEffect, useState, type ImgHTMLAttributes } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Banana } from "lucide-react"
 import { BASE_URL } from "@/lib/api"
 import { getToken } from "@/lib/auth"
@@ -32,7 +33,8 @@ function ImageEvidence({ src, alt, className, onUnavailable, ...props }: Props) 
     return () => { controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl) }
   }, [src, protectedImage])
   useEffect(() => { if (failed) onUnavailable?.() }, [failed, onUnavailable])
-  if (failed || !resolved) return <span role="img" aria-label={failed ? "Image unavailable" : "Loading image"}
+  if (!failed && !resolved) return <Skeleton role="status" aria-label="Loading image" className={className} />
+  if (failed) return <span role="img" aria-label={failed ? "Image unavailable" : "Loading image"}
     className={`flex items-center justify-center flex-col gap-1 text-muted-foreground bg-muted/50 ${className ?? ''}`}>
     <Banana className="w-6 h-6 opacity-40" />
     {failed && <span className="text-xs">Image unavailable</span>}

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import QRCode from "qrcode"
-import { Printer } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Loader2, Printer } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,6 +15,8 @@ export function ScanLabelPrint({ scanId, children }: { scanId: string; children?
   const [quantity, setQuantity] = useState("1")
   const [job, setJob] = useState<PrintJob | null>(null)
   const [error, setError] = useState("")
+  const [previewLoading, setPreviewLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [busy, setBusy] = useState(false)
   const [pollingStopped, setPollingStopped] = useState(false)
   const inFlight = useRef(false)
@@ -22,10 +25,11 @@ export function ScanLabelPrint({ scanId, children }: { scanId: string; children?
 
   useEffect(() => {
     let active = true
+    setPreviewLoading(true); setPreview(null); setQr(""); setError("")
     api.scans.label(scanId).then(async data => {
       const image = await QRCode.toDataURL(data.payload, { margin: 4, errorCorrectionLevel: "M", width: 256 })
       if (active) { setPreview(data); setQr(image) }
-    }).catch(err => { if (active) setError(err instanceof Error ? err.message : "Label preview unavailable") })
+    }).catch(err => { if (active) setError(err instanceof Error ? err.message : "Label preview unavailable") }).finally(() => { if (active) setPreviewLoading(false) })
     return () => { active = false }
   }, [scanId])
 
@@ -77,12 +81,15 @@ export function ScanLabelPrint({ scanId, children }: { scanId: string; children?
   }
 
   const refresh = async () => {
-    if (!job) return
+    if (!job || inFlight.current) return
+    inFlight.current = true; setRefreshing(true)
     try { setJob(await api.scans.printStatus(scanId, job.id)); setError("") }
     catch (err) { setError(err instanceof Error ? err.message : "Status unavailable") }
+    finally { inFlight.current = false; setRefreshing(false) }
   }
 
   return <div className="space-y-3">
+    {previewLoading && <Skeleton role="status" aria-label="Loading label preview" className="w-full aspect-square rounded-xl" />}
     {qr && <div className="bg-white rounded-xl p-4 border">
       <img src={qr} alt="Prediction QR label" className="w-full h-auto" />
     </div>}
@@ -105,11 +112,11 @@ export function ScanLabelPrint({ scanId, children }: { scanId: string; children?
       {pollingStopped && job?.status === "QUEUED" && <p>Submission is still unconfirmed. Check the print queue before creating another batch.</p>}
     </div>
     {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
-    {error && job && job.status !== "QUEUED" && <Button variant="outline" className="w-full" onClick={refresh}>Refresh print status</Button>}
+    {error && job && job.status !== "QUEUED" && <Button variant="outline" className="w-full" disabled={refreshing || busy} onClick={refresh}>{refreshing && <Loader2 className="w-4 h-4 animate-spin" />}Refresh print status</Button>}
     {job?.status === "FAILED" && <p className="text-xs text-muted-foreground">Check for partially printed labels before retrying the full batch of {job.quantity}.</p>}
-    {job?.status === "QUEUED" ? <Button variant="outline" className="w-full" onClick={refresh}>Refresh print status</Button>
-      : <Button variant="outline" className="w-full gap-2" onClick={submit} disabled={busy || !preview}>
-        <Printer className="w-4 h-4" />
+    {job?.status === "QUEUED" ? <Button variant="outline" className="w-full" disabled={refreshing || busy} onClick={refresh}>{refreshing && <Loader2 className="w-4 h-4 animate-spin" />}Refresh print status</Button>
+      : <Button variant="outline" className="w-full gap-2" onClick={submit} disabled={busy || refreshing || !preview}>
+        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
         {busy ? "Submitting…" : job?.status === "FAILED" ? "RETRY PRINT" : pending.current ? "Check / retry request" : job?.status === "SUBMITTED" ? "Print another batch" : "Print labels"}
       </Button>}
   </div>

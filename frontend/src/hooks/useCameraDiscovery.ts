@@ -9,7 +9,7 @@ export function useCameraDiscovery(enabled = true) {
   const [request, setRequest] = useState(0)
 
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled) { setLoading(false); return }
     const controller = new AbortController()
     const load = async () => {
       setLoading(true)
@@ -19,7 +19,6 @@ export function useCameraDiscovery(enabled = true) {
         if (!controller.signal.aborted) { setDiscovery(result); setError(result.error) }
       } catch (cause) {
         if (!controller.signal.aborted) {
-          setDiscovery(null)
           setError(cause instanceof Error ? cause.message : "Camera device list unavailable")
         }
       } finally {

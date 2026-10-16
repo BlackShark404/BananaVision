@@ -23,15 +23,16 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppActionButton } from "@/components/AppActionButton"
 import { AppTableFilters } from "@/components/AppTableFilters"
 import { AppPageHeader } from "@/components/AppPageHeader"
-import { Users, Plus, Pencil, ShieldAlert, ShieldCheck, UserCheck, Filter, KeyRound, Key } from "lucide-react"
+import { Loader2, Users, Plus, Pencil, ShieldAlert, ShieldCheck, UserCheck, Filter, KeyRound, Key } from "lucide-react"
 import { toast } from "sonner"
 import type { Role, User } from "@/types"
 
 const PAGE_SIZE = 10
 
 export default function UserManagement() {
-  const { users, addUser, updateUser, resetPassword, resetPin } = useAdmin()
+  const { users, usersLoading, usersReady, usersError, addUser, updateUser, resetPassword, resetPin } = useAdmin()
   const [saving, setSaving] = useState(false)
+  const initialLoading = usersLoading && !usersReady
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -181,12 +182,14 @@ export default function UserManagement() {
       cell: (user) => (
         <div className="flex items-center justify-end gap-1">
           <AppActionButton 
+            disabled={saving}
             tooltip="Edit User" 
             icon={Pencil} 
             onClick={() => handleOpenDialog(user.id)} 
             className="hover:text-primary" 
           />
           <AppActionButton 
+            disabled={saving}
             tooltip="Reset Password" 
             icon={KeyRound} 
             onClick={() => setResetConfirmUser({ id: user.id, fullName: user.fullName })} 
@@ -194,6 +197,7 @@ export default function UserManagement() {
           />
           {user.role === "Operator" && (
             <AppActionButton 
+            disabled={saving}
               tooltip="Reset Kiosk PIN" 
               icon={Key} 
               onClick={() => setResetConfirmPin({ id: user.id, fullName: user.fullName })} 
@@ -213,15 +217,22 @@ export default function UserManagement() {
           description="Manage operators and system administrators"
           icon={Users}
           action={
-            <Button onClick={() => handleOpenDialog()} className="shadow-md gap-2 w-full sm:w-auto">
+            <Button disabled={saving} onClick={() => handleOpenDialog()} className="shadow-md gap-2 w-full sm:w-auto">
               <Plus className="w-4 h-4" /> Add User
             </Button>
           }
         />
 
+      {(usersLoading || usersError) && (
+        <p role={usersError ? "alert" : "status"} className="text-sm text-muted-foreground">
+          {usersError || (usersReady ? "Refreshing users…" : "Loading users…")}
+        </p>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <AppStatsCard
+          loading={initialLoading}
           title="Total Users"
           value={users.length}
           icon={Users}
@@ -229,6 +240,7 @@ export default function UserManagement() {
           description="System accounts"
         />
         <AppStatsCard
+          loading={initialLoading}
           title="Active Users"
           value={users.filter(u => u.status === "Active").length}
           icon={UserCheck}
@@ -238,6 +250,7 @@ export default function UserManagement() {
           description="Currently enabled"
         />
         <AppStatsCard
+          loading={initialLoading}
           title="Admins"
           value={users.filter(u => u.role === "Admin").length}
           icon={ShieldAlert}
@@ -285,6 +298,7 @@ export default function UserManagement() {
       </AppTableFilters>
 
       <AppDataTable
+        loading={initialLoading}
         data={filteredUsers}
         columns={columns}
         rowKey={(user) => user.id}
@@ -292,8 +306,8 @@ export default function UserManagement() {
         className="rounded-2xl border-none shadow-none"
         emptyState={{
           icon: Users,
-          title: "No users found",
-          description: "Try adjusting your search query"
+          title: usersError && !usersReady ? "Data unavailable" : "No users found",
+          description: usersError && !usersReady ? "Reload to try again." : "Try adjusting your search query"
         }}
       />
 
@@ -341,7 +355,7 @@ export default function UserManagement() {
             )}
             <DialogFooter className="pt-4">
               <Button type="button" variant="outline" disabled={saving} onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={saving}>{saving ? "Saving..." : editingId ? "Save Changes" : "Create User"}</Button>
+              <Button type="submit" disabled={saving}>{saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Saving..." : editingId ? "Save Changes" : "Create User"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -371,7 +385,7 @@ export default function UserManagement() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
             <AlertDialogAction disabled={saving} className="bg-amber-600 focus:ring-amber-600 hover:bg-amber-700" onClick={event => { event.preventDefault(); void confirmResetPassword() }}>
-              Reset Password
+              {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Resetting…" : "Reset Password"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -390,7 +404,7 @@ export default function UserManagement() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
             <AlertDialogAction disabled={saving} className="bg-amber-600 focus:ring-amber-600 hover:bg-amber-700" onClick={event => { event.preventDefault(); void confirmResetPin() }}>
-              Reset PIN
+              {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Resetting…" : "Reset PIN"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

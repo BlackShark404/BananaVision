@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ContentSkeleton } from "@/components/LoadingState"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { Progress } from "@/components/ui/progress"
@@ -13,8 +14,8 @@ import { Package, AlertTriangle, TrendingDown, CheckCircle, Clock, Banana } from
 import { InventoryStatusEnum, RipenessEnum, CultivarEnum } from "@/types"
 
 export default function Inventory() {
-  const { scans, scansLoading, scansError, refreshScans } = useScans()
-  const { intakesLoading, intakesError, intakesStale, refreshIntakes } = useInventory()
+  const { scans, scansReady, scansLoading, scansError, refreshScans } = useScans()
+  const { intakesReady, intakesLoading, intakesError, intakesStale, refreshIntakes } = useInventory()
   const [sourceFilter, setSourceFilter] = useState<string>("all")
   const [asOf, setAsOf] = useState(Date.now)
   useEffect(() => {
@@ -144,18 +145,18 @@ export default function Inventory() {
   const isLoading = scansLoading || intakesLoading
   const loadError = scansError || (!intakesLoading && intakesError && !intakesStale ? intakesError : null)
 
-  if (isLoading || loadError) {
+  if (!scansReady || !intakesReady) {
     return (
       <div className="space-y-4 sm:space-y-6">
         <AppPageHeader title="Inventory" description="Track stock levels and manage banana inventory" icon={Package} />
-        <Card className="rounded-xl sm:rounded-2xl">
+        {isLoading ? <ContentSkeleton label="Loading inventory…" chart /> : <Card className="rounded-xl sm:rounded-2xl">
           <CardContent className="p-4 sm:p-6" role={loadError ? "alert" : "status"}>
             <p className="text-sm text-muted-foreground">
               {loadError ? `${scansError ? "Complete scan history is unavailable." : "Intake data is unavailable."} Refresh to view stock and FIFO recommendations.` : intakesLoading ? "Loading intake data…" : "Loading complete scan history…"}
             </p>
             {loadError && <Button variant="outline" className="mt-3" onClick={() => { if (scansError) { void refreshScans() } else { refreshIntakes() } }}>Retry</Button>}
           </CardContent>
-        </Card>
+        </Card>}
       </div>
     )
   }
@@ -183,6 +184,8 @@ export default function Inventory() {
         }
       />
 
+      {isLoading && <p role="status" className="text-sm text-muted-foreground">Refreshing inventory… Showing the last successful snapshot.</p>}
+      {scansError && <div role="alert" className="rounded-lg border border-destructive/30 p-3 text-sm">Scan history refresh failed. Showing the last successful snapshot. <Button variant="link" onClick={() => void refreshScans()}>Retry scan history</Button></div>}
       {intakesStale && <Card className="rounded-xl sm:rounded-2xl">
         <CardContent className="p-4 sm:p-6" role="alert">
           <p className="text-sm text-muted-foreground">Intake data is stale. The last successful intake snapshot is retained.</p>

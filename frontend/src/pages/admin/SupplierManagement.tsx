@@ -21,13 +21,14 @@ import { Label } from "@/components/ui/label"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppTableFilters } from "@/components/AppTableFilters"
-import { Package, Plus, Building2, Phone, User, CheckCircle2, XCircle, Filter, Pencil } from "lucide-react"
+import { Loader2, Package, Plus, Building2, Phone, User, CheckCircle2, XCircle, Filter, Pencil } from "lucide-react"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { toast } from "sonner"
 import type { Supplier } from "@/types"
 
 export default function SupplierManagement() {
-  const { suppliers, addSupplier, updateSupplier, updateSupplierStatus } = useInventory()
+  const { suppliers, suppliersLoading, suppliersReady, suppliersError, addSupplier, updateSupplier, updateSupplierStatus } = useInventory()
+  const initialLoading = suppliersLoading && !suppliersReady
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [isAddOpen, setIsAddOpen] = useState(false)
@@ -253,7 +254,7 @@ export default function SupplierManagement() {
               onClick={(event) => { event.preventDefault(); void confirmDeactivate() }}
               className="bg-red-600 hover:bg-red-700"
             >
-              Deactivate
+              {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Deactivating…" : "Deactivate"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -299,7 +300,7 @@ export default function SupplierManagement() {
           </div>
           <DialogFooter>
             <Button variant="outline" disabled={saving} onClick={() => setEditTarget(null)}>Cancel</Button>
-            <Button disabled={saving} onClick={handleSaveEdit}>Save Changes</Button>
+            <Button disabled={saving} onClick={handleSaveEdit}>{saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Saving…" : "Save Changes"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -354,16 +355,23 @@ export default function SupplierManagement() {
               </div>
               <DialogFooter>
                 <Button disabled={saving} variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-                <Button disabled={saving} onClick={handleAdd}>Save Supplier</Button>
+                <Button disabled={saving} onClick={handleAdd}>{saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{saving ? "Saving…" : "Save Supplier"}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         }
       />
 
+      {(suppliersLoading || suppliersError) && (
+        <p role={suppliersError ? "alert" : "status"} className="text-sm text-muted-foreground">
+          {suppliersError || (suppliersReady ? "Refreshing suppliers…" : "Loading suppliers…")}
+        </p>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <AppStatsCard
+          loading={initialLoading}
           title="Active Suppliers"
           value={stats.active}
           icon={CheckCircle2}
@@ -373,6 +381,7 @@ export default function SupplierManagement() {
           description="Available on Kiosk"
         />
         <AppStatsCard
+          loading={initialLoading}
           title="Inactive Suppliers"
           value={stats.inactive}
           icon={XCircle}
@@ -406,13 +415,14 @@ export default function SupplierManagement() {
 
       {/* Table */}
       <AppDataTable
+        loading={initialLoading}
         data={filteredSuppliers}
         columns={columns}
         rowKey={(supplier) => supplier.id}
         emptyState={{
           icon: Building2,
-          title: "No suppliers found",
-          description: search ? "Try adjusting your search terms." : "Add a supplier to start receiving items."
+          title: suppliersError && !suppliersReady ? "Data unavailable" : "No suppliers found",
+          description: suppliersError && !suppliersReady ? "Reload to try again." : search ? "Try adjusting your search terms." : "Add a supplier to start receiving items."
         }}
       />
     </div>

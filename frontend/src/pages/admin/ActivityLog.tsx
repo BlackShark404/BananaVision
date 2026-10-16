@@ -28,7 +28,8 @@ const actionTypeColors: Record<string, string> = {
 const PAGE_SIZE = 15
 
 export default function ActivityLog() {
-  const { activityLogs } = useAdmin()
+  const { activityLogs, activityLoading, activityReady, activityError } = useAdmin()
+  const initialLoading = activityLoading && !activityReady
   const [search, setSearch] = useState("")
   const [actionFilter, setActionFilter] = useState<string>("all")
   const [userFilter, setUserFilter] = useState<string>("all")
@@ -155,16 +156,23 @@ export default function ActivityLog() {
         description="System activity and audit trail"
         icon={ScrollText}
         action={
-          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={exportToCSV}>
+          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={exportToCSV} disabled={activityLoading || !!activityError || !activityReady}>
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export CSV</span>
           </Button>
         }
       />
 
+      {(activityLoading || activityError) && (
+        <p role={activityError ? "alert" : "status"} className="text-sm text-muted-foreground">
+          {activityError || (activityReady ? "Refreshing activity…" : "Loading activity…")}
+        </p>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <AppStatsCard
+          loading={initialLoading}
           title="Last 24 Hours"
           value={stats.last24h}
           icon={Activity}
@@ -172,6 +180,7 @@ export default function ActivityLog() {
           description="Recent activity"
         />
         <AppStatsCard
+          loading={initialLoading}
           title="Active Users"
           value={stats.uniqueUsers}
           icon={UserCheck}
@@ -181,6 +190,7 @@ export default function ActivityLog() {
           description="Unique operators"
         />
         <AppStatsCard
+          loading={initialLoading}
           title="Critical Actions"
           value={stats.criticalActions}
           icon={AlertCircle}
@@ -231,14 +241,15 @@ export default function ActivityLog() {
 
       {/* Table */}
       <AppDataTable
+        loading={initialLoading}
         data={filtered}
         columns={columns}
         rowKey={(log) => log.id}
         pagination={{ pageSize: PAGE_SIZE }}
         emptyState={{
           icon: Activity,
-          title: "No activities found",
-          description: "Try adjusting your filters or search query"
+          title: activityError && !activityReady ? "Data unavailable" : "No activities found",
+          description: activityError && !activityReady ? "Reload to try again." : "Try adjusting your filters or search query"
         }}
       />
     </div>

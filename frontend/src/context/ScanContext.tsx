@@ -31,6 +31,8 @@ interface ScanContextType {
   loadScanNotes: (scanId: string) => void
   updateScanData: (id: string, data: Partial<ScanResult>, reason: string, baseline?: ScanResult) => Promise<ScanResult>
   acceptScan: (data: ApiScan) => ScanResult
+  scansReady: boolean
+  getScanNotesState: (scanId: string) => { loading: boolean; error: string | null; ready: boolean }
   scansLoading: boolean
   scansError: string | null
   refreshScans: () => Promise<void>
@@ -65,6 +67,8 @@ function ScanStore({ children }: { children: React.ReactNode }) {
   })
 
 
+  const [scansReady, setScansReady] = useState(false)
+  const [notesState, setNotesState] = useState<Record<string, { loading: boolean; error: string | null; ready: boolean }>>({})
   const [scansLoading, setScansLoading] = useState(Boolean(user))
   const [scansError, setScansError] = useState<string | null>(null)
   const historyRequest = useRef<AbortController | null>(null)
@@ -88,7 +92,10 @@ function ScanStore({ children }: { children: React.ReactNode }) {
     knownScans.current.set(saved.id, saved)
     setScans(previous => previous.map(scan => scan.id === saved.id ? saved : scan))
     setScanState(previous => previous.lastResult?.id === saved.id ? { ...previous, lastResult: saved } : previous)
-    if (saved.notes) setScanNotes(previous => [...previous.filter(note => note.scanId !== saved.id), ...saved.notes!])
+    if (saved.notes) {
+      setScanNotes(previous => [...previous.filter(note => note.scanId !== saved.id), ...saved.notes!])
+      setNotesState(previous => ({ ...previous, [saved.id]: { loading: false, error: null, ready: true } }))
+    }
     return saved
   }, [])
 
@@ -103,7 +110,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
       const raw = await collectScanPages((page, page_size, signal, snapshot_id) => api.scans.list({ page, page_size, stable: true, snapshot_id }, signal), controller.signal)
       if (controller.signal.aborted || !mounted.current) return
       const mapped = raw.map(record => acceptScan(record))
-      if (!controller.signal.aborted && mounted.current) setScans(mapped)
+      if (!controller.signal.aborted && mounted.current) { setScans(mapped); setScansReady(true) }
     } catch (error) {
       if (!controller.signal.aborted && mounted.current) {
         setScansError(error instanceof Error ? error.message : "Scan history could not be loaded. Please retry.")
@@ -219,6 +226,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
       const saved = mapApiScanNote(raw)
       if (mounted.current) {
         noteRequests.current.set(scanId, (noteRequests.current.get(scanId) ?? 0) + 1)
+        setNotesState(previous => ({ ...previous, [scanId]: { loading: false, error: null, ready: true } }))
         const known = knownScans.current.get(scanId)
         if (known && (known.revision ?? 0) <= raw.revision) {
           const updated = { ...known, revision: raw.revision, hasNotes: true,
@@ -234,13 +242,21 @@ function ScanStore({ children }: { children: React.ReactNode }) {
 
   const getScanNotes = useCallback((scanId: string) => scanNotes.filter(note => note.scanId === scanId), [scanNotes])
 
+  const getScanNotesState = useCallback((scanId: string) => notesState[scanId] ?? { loading: false, error: null, ready: false }, [notesState])
+
   const loadScanNotes = useCallback((scanId: string) => {
     const sequence = (noteRequests.current.get(scanId) ?? 0) + 1
     noteRequests.current.set(scanId, sequence)
-    api.scans.detail(scanId).then(raw => {
-      if (mounted.current && noteRequests.current.get(scanId) === sequence) acceptScan(raw)
+    setNotesState(previous => ({ ...previous, [scanId]: { loading: true, error: null, ready: previous[scanId]?.ready ?? false } }))
+    api.scans.detail(scanId, AbortSignal.timeout(15_000)).then(raw => {
+      if (mounted.current && noteRequests.current.get(scanId) === sequence) {
+        acceptScan(raw)
+        setNotesState(previous => ({ ...previous, [scanId]: { loading: false, error: null, ready: true } }))
+      }
     }).catch(() => {
-      if (mounted.current && noteRequests.current.get(scanId) === sequence) toast.error("Review notes could not be loaded. Please retry.")
+      if (mounted.current && noteRequests.current.get(scanId) === sequence) {
+        setNotesState(previous => ({ ...previous, [scanId]: { loading: false, error: "Review notes could not be loaded. Please retry.", ready: previous[scanId]?.ready ?? false } }))
+      }
     })
   }, [acceptScan])
 
@@ -277,6 +293,8 @@ function ScanStore({ children }: { children: React.ReactNode }) {
   return (
     <ScanContext value={{
       scans,
+      scansReady,
+      getScanNotesState,
       scansLoading,
       scansError,
       refreshScans,

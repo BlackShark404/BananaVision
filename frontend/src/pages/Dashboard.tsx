@@ -1,3 +1,5 @@
+import { TableSkeleton } from "@/components/LoadingState"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
@@ -183,6 +185,7 @@ function DashboardContent() {
       {/* KPI StatsRow */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <AppStatsCard
+          loading={!summary && metrics.loading}
           title={previousDay ? `Scans · ${summary.business_date}` : "Scans Today"}
           value={metricValue(summary?.total_scans)}
           icon={TrendingUp}
@@ -194,6 +197,7 @@ function DashboardContent() {
           disabled={!summary}
         />
         <AppStatsCard
+          loading={!summary && metrics.loading}
           title={operatorMetric.label}
           value={metricValue(operatorMetric.value)}
           icon={operatorMetric.icon}
@@ -205,6 +209,7 @@ function DashboardContent() {
           disabled={!summary}
         />
         <AppStatsCard
+          loading={!summary && metrics.loading}
           title={user?.role === "Operator" ? "My Sources" : "Active Sources"}
           value={metricValue(summary?.active_source_count ?? summary?.sources.length)}
           icon={Package}
@@ -216,6 +221,7 @@ function DashboardContent() {
           disabled={!summary}
         />
         <AppStatsCard
+          loading={!cameras.data && cameras.loading}
           title="System Health"
           value={cameras.data ? devices.length ? `${onlineCameras}/${devices.length}` : "—" : cameras.loading ? "…" : "—"}
           icon={Activity}
@@ -267,7 +273,7 @@ function DashboardContent() {
               <TableBody>
                 {!summary ? (
                   <TableRow><TableCell colSpan={user?.role === "Operator" ? 5 : 6} className="h-48 text-center text-muted-foreground">
-                    {metrics.loading ? "Loading recent scans…" : "Recent scans unavailable. Retry the dashboard refresh."}
+                    {metrics.loading ? <TableSkeleton columns={user?.role === "Operator" ? 5 : 6} label="Loading recent scans…" /> : "Recent scans unavailable. Retry the dashboard refresh."}
                   </TableCell></TableRow>
                 ) : recentScans.length === 0 ? (
                   <TableRow>
@@ -328,7 +334,7 @@ function DashboardContent() {
             </Button>
           </CardHeader>
           <CardContent className="p-0 flex-1">
-            {!summary ? <p className="p-8 text-center text-sm text-muted-foreground">{metrics.loading ? "Loading sources…" : "Source data unavailable."}</p> : activeSourcesList.length === 0 ? (
+            {!summary ? <p className="p-8 text-center text-sm text-muted-foreground">{metrics.loading ? <span role="status" aria-label="Loading sources…" className="block space-y-4">{[0, 1, 2].map(row => <Skeleton key={row} className="h-10 w-full" />)}</span> : "Source data unavailable."}</p> : activeSourcesList.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
                 <Package className="w-8 h-8 mb-2 opacity-20" />
                 <p className="text-sm">No active sources</p>

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { ContentSkeleton } from "@/components/LoadingState"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppDataTable } from "@/components/AppDataTable"
 import { AppPageHeader } from "@/components/AppPageHeader"
@@ -101,9 +102,9 @@ function AnalyticsContent() {
     if (!signal.aborted) setAvailableSources(response.source_options)
     return response
   }, [dateRange, sourceFilter, cultivarFilter, statusFilter])
-  const resource = useDashboardResource(fetchAnalytics)
-  // A failed request is never presented as a successful empty dataset or old filter result.
-  const summary = resource.error ? null : resource.data
+  const resource = useDashboardResource(fetchAnalytics, { keepPreviousData: true })
+  // Retained results are explicitly labelled when filters change or refresh fails.
+  const summary = resource.data
   const loading = resource.loading
 
   useEffect(() => {
@@ -190,7 +191,11 @@ function AnalyticsContent() {
         }
       />
 
-      {!summary ? (
+      {summary && (loading || resource.isPreviousData || resource.error) && <div role={resource.error ? "alert" : "status"} className="rounded-lg border p-3 text-sm text-muted-foreground">
+        {resource.isPreviousData ? "Showing results for the previous selection." : "Showing the last successful results."} {loading ? <><Loader2 className="inline size-4 animate-spin" /> Updating analytics…</> : resource.error}
+        {resource.error && <Button variant="link" onClick={() => void resource.refresh()}>Retry</Button>}
+      </div>}
+      {!summary ? loading ? <ContentSkeleton label="Loading analytics…" chart /> : (
         <div className="flex flex-col items-center justify-center h-[60vh] text-muted-foreground" role={resource.error ? "alert" : "status"}>
           {loading ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : <><BarChart3 className="w-12 h-12 mb-4" /><p>{resource.error || "Analytics unavailable."}</p><Button variant="outline" className="mt-4" onClick={() => void resource.refresh()}>Retry</Button></>}
         </div>

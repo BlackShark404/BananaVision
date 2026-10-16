@@ -1,3 +1,4 @@
+import { TableSkeleton } from "@/components/LoadingState"
 import { scanRetryAction } from "@/lib/scanWriteFeedback"
 import { ScanImage } from "@/components/ScanImage"
 import { useState, useCallback, useRef, useEffect } from "react"
@@ -105,7 +106,7 @@ function LogsContent() {
     const rows = await Promise.all(result.items.map(mapScan))
     return { result, rows }
   }, [queryKey])
-  const resource = useDashboardResource(load)
+  const resource = useDashboardResource(load, { keepPreviousData: true })
   const refreshResource = resource.refresh
   const refreshSnapshot = useCallback(() => { snapshot.current = null; return refreshResource() }, [refreshResource])
   const latestRefresh = useRef(refreshSnapshot)
@@ -157,17 +158,17 @@ function LogsContent() {
 
   // A deletion/status change can shrink the final page while this view is open.
   useEffect(() => {
-    if (response && response.page > 1 && response.items.length === 0) {
+    if (!resource.isPreviousData && response && response.page > 1 && response.items.length === 0) {
       setSearchParams(previous => {
         const next = new URLSearchParams(previous)
         next.set("page", String(Math.max(1, Math.ceil(response.total / PAGE_SIZE))))
         return next
       }, { replace: true })
     }
-  }, [response, setSearchParams])
+  }, [response, resource.isPreviousData, setSearchParams])
 
   const handleStatusUpdate = async () => {
-    if (!statusAction || !statusReason.trim() || inFlight.current.has(statusAction.scan.id)) return
+    if (resource.isPreviousData || !statusAction || !statusReason.trim() || inFlight.current.has(statusAction.scan.id)) return
     const { scan, status } = statusAction
     inFlight.current.add(scan.id)
     setPendingScans(new Set(inFlight.current))
@@ -206,6 +207,7 @@ function LogsContent() {
   }
 
   const exportToCSV = async () => {
+    if (resource.isPreviousData || resource.loading || !response) return
     setExporting(true)
     try {
       await api.scanLogs.export({ ...requestParams, snapshot_id: response?.snapshot_id }, AbortSignal.timeout(60_000))
@@ -370,7 +372,7 @@ const columns: ColumnDef<LogScan>[] = [
               { actionStatus: "Sold" as InventoryStatus, icon: DollarSign, color: "text-emerald-500" },
               { actionStatus: "Spoiled" as InventoryStatus, icon: AlertTriangle, color: "text-red-500" },
             ] as const).map(({ actionStatus, icon: ItemIcon, color }) => {
-              const isDisabled = scan.inventoryStatus === actionStatus || pendingScans.has(scan.id)
+              const isDisabled = resource.isPreviousData || scan.inventoryStatus === actionStatus || pendingScans.has(scan.id)
               return (
                 <DropdownMenuItem
                   key={actionStatus}
@@ -397,7 +399,7 @@ const columns: ColumnDef<LogScan>[] = [
           <DialogHeader><DialogTitle>Mark scan as {statusAction?.status}?</DialogTitle><DialogDescription>This change will be recorded in the scan history.</DialogDescription></DialogHeader>
           <Label htmlFor="status-reason">Reason for change</Label>
           <Textarea id="status-reason" value={statusReason} onChange={event => setStatusReason(event.target.value)} disabled={!!pendingScans.size} />
-          <DialogFooter><Button variant="outline" disabled={!!pendingScans.size} onClick={() => setStatusAction(null)}>Cancel</Button><Button disabled={!statusReason.trim() || !!pendingScans.size} onClick={() => void handleStatusUpdate()}>Save Changes</Button></DialogFooter>
+          <DialogFooter><Button variant="outline" disabled={!!pendingScans.size} onClick={() => setStatusAction(null)}>Cancel</Button><Button disabled={resource.isPreviousData || !statusReason.trim() || !!pendingScans.size} onClick={() => void handleStatusUpdate()}>Save Changes</Button></DialogFooter>
         </DialogContent>
       </Dialog>
       <AppPageHeader
@@ -411,8 +413,8 @@ const columns: ColumnDef<LogScan>[] = [
                 Clear Intake Filter
               </Button>
             )}
-            <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={exportToCSV} disabled={exporting || resource.loading}>
-              <Download className="w-4 h-4" />
+            <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={exportToCSV} disabled={exporting || resource.loading || resource.isPreviousData || !response}>
+              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               <span className="hidden sm:inline">{exporting ? "Exporting…" : "Export CSV"}</span>
             </Button>
           </div>
@@ -422,8 +424,9 @@ const columns: ColumnDef<LogScan>[] = [
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" role="status" aria-live="polite">
         <span>{resource.error ? response ? "Stale Data" : "Unavailable" : resource.loading ? "Loading…" : "Updated"}</span>
         {response && <span>Snapshot {new Date(response.generated_at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila" })} · Asia/Manila</span>}
-        <Button variant="ghost" size="sm" onClick={() => void refreshSnapshot()} disabled={resource.loading}><RefreshCw className="size-3.5" /> Refresh</Button>
+        <Button variant="ghost" size="sm" onClick={() => void refreshSnapshot()} disabled={resource.loading}><RefreshCw className={`size-3.5 ${resource.loading ? "animate-spin" : ""}`} /> {resource.loading ? "Refreshing…" : "Refresh"}</Button>
       </div>
+      {resource.isPreviousData && <p role="status" className="text-sm text-muted-foreground">Showing results for the previous selection. {resource.loading ? "Updating records…" : "Retry to load the selected filters."}</p>}
       {resource.error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
         <strong>{response ? "Scan Logs refresh failed. Showing the last successful results." : "Scan Logs unavailable."}</strong> {resource.error}
         <Button variant="link" size="sm" onClick={() => void refreshSnapshot()}>Retry</Button>
@@ -432,6 +435,7 @@ const columns: ColumnDef<LogScan>[] = [
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-3">
         <AppStatsCard
+          loading={!response && resource.loading}
           title="Total Scans"
           value={response ? response.total : resource.loading ? "…" : "—"}
           icon={TrendingUp}
@@ -440,6 +444,7 @@ const columns: ColumnDef<LogScan>[] = [
           onClick={clearAllFilters}
         />
         <AppStatsCard
+          loading={!response && resource.loading}
           title="Avg Confidence"
           value={response ? stats.avgConfidence == null ? "—" : `${stats.avgConfidence.toFixed(1)}%` : resource.loading ? "…" : "—"}
           icon={Target}
@@ -449,6 +454,7 @@ const columns: ColumnDef<LogScan>[] = [
           description="Current classification confidence"
         />
         <AppStatsCard
+          loading={!response && resource.loading}
           title="At-Risk Scans"
           value={response ? stats.spoilingSoon ?? 0 : resource.loading ? "…" : "—"}
           icon={Clock}
@@ -558,7 +564,7 @@ const columns: ColumnDef<LogScan>[] = [
       </div>}
 
       {/* Table */}
-      {!response ? <Card className="p-10 text-center text-muted-foreground" role="status">{resource.loading ? <span className="inline-flex items-center gap-2"><Loader2 className="size-4 animate-spin" /> Loading scan records…</span> : "Records could not be loaded. Retry above."}</Card> : (
+      {!response ? resource.loading ? <TableSkeleton columns={8} label="Loading scan records…" /> : <Card className="p-10 text-center text-muted-foreground" role="status">{resource.loading ? <span className="inline-flex items-center gap-2"><Loader2 className="size-4 animate-spin" /> Loading scan records…</span> : "Records could not be loaded. Retry above."}</Card> : (
       <AppDataTable
         data={filtered}
         columns={columns}
@@ -566,8 +572,8 @@ const columns: ColumnDef<LogScan>[] = [
         onRowClick={(scan) => navigate(`/scans/${scan.id}`)}
         pagination={{ pageSize: PAGE_SIZE }}
         serverState={{ page: response.page, total: response.total, sort: { key: requestParams.sort, direction: requestParams.direction },
-          onPageChange: page => updateFilters({ page: String(page) }),
-          onSortChange: (sort, direction) => updateFilters({ sort, direction }),
+          onPageChange: page => { if (!resource.isPreviousData) updateFilters({ page: String(page) }) },
+          onSortChange: (sort, direction) => { if (!resource.isPreviousData) updateFilters({ sort, direction }) },
         }}
         rowClassName={(scan) => scan.flagged ? 'border-l-3 border-l-red-500 bg-red-500/[0.03]' : ''}
         emptyState={{

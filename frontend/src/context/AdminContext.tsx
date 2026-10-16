@@ -10,8 +10,15 @@ import { useLocation } from "react-router-dom"
 
 interface AdminContextType {
   users: User[]
+  usersReady: boolean
+  usersLoading: boolean
+  usersError: string | null
   devices: Device[]
+  devicesReady: boolean
+  devicesLoading: boolean
+  devicesError: string | null
   activityLogs: ActivityLog[]
+  activityReady: boolean
   activityLoading: boolean
   activityError: string | null
   configReady: boolean
@@ -103,6 +110,13 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [activityLogs, setActivityLogs] = useScopedState<ActivityLog[]>(scope, [])
   const [activityLoading, setActivityLoading] = useScopedState(scope, user?.role === "Admin")
   const [activityError, setActivityError] = useScopedState<string | null>(scope, null)
+  const [usersReady, setUsersReady] = useScopedState(scope, false)
+  const [usersLoading, setUsersLoading] = useScopedState(scope, Boolean(user?.role === "Admin"))
+  const [usersError, setUsersError] = useScopedState<string | null>(scope, null)
+  const [devicesReady, setDevicesReady] = useScopedState(scope, false)
+  const [devicesLoading, setDevicesLoading] = useScopedState(scope, Boolean(user))
+  const [devicesError, setDevicesError] = useScopedState<string | null>(scope, null)
+  const [activityReady, setActivityReady] = useScopedState(scope, false)
   const [config, setConfig] = useScopedState<SystemConfig>(scope, { cameraIds: "CAM-001, CAM-002", confidenceThreshold: 85, dataRetentionEnabled: true })
 
   // ── Load data on mount / navigation ─────────────────────────────────────
@@ -138,46 +152,55 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       if (controller.signal.aborted) return
       setActivityLoading(user.role === "Admin")
       setActivityError(null)
-      try {
-        const [usersRes, devicesRes, activityRes] = await Promise.allSettled([
-          user.role === "Admin" ? api.users.list() : Promise.resolve({ items: [], total: 0 }),
-          api.devices.list(),
-          user.role === "Admin" ? collectScanPages((page, page_size, signal) => api.activity.list({ page, page_size }, signal), controller.signal) : Promise.resolve([]),
-        ])
-        if (controller.signal.aborted) return
-
-        if (usersRes.status === "fulfilled") {
-          setUsers(usersRes.value.items.map(mapApiUser))
-        } else {
-          console.warn("[AdminContext] Users API unavailable")
-        }
-
-        if (devicesRes.status === "fulfilled") {
-          setDevices(devicesRes.value.map(mapApiDevice))
-        } else {
-          console.warn("[AdminContext] Devices API unavailable")
-        }
-
-        if (activityRes.status === "fulfilled") {
-          setActivityLogs(activityRes.value.map(mapApiActivityLog))
-        } else {
-          console.warn("[AdminContext] Activity API unavailable")
-          setActivityError("Activity history could not be loaded completely. Please reload to retry.")
-        }
-        setActivityLoading(false)
-
-
-      } catch (err) {
-        if (controller.signal.aborted) return
-        setActivityLoading(false)
-        setActivityError("Activity history could not be loaded completely. Please reload to retry.")
-        console.warn("[AdminContext] Backend unreachable", err)
-      }
+      setUsersLoading(user.role === "Admin")
+      setDevicesLoading(true)
+      setUsersError(null)
+      setDevicesError(null)
+      await Promise.allSettled([
+        (async () => {
+          try {
+            const result = user.role === "Admin" ? await api.users.list() : { items: [] }
+            if (controller.signal.aborted) return
+            setUsers(result.items.map(mapApiUser))
+            setUsersReady(true)
+          } catch {
+            if (!controller.signal.aborted) setUsersError("Users could not be loaded. Please reload to retry.")
+          } finally {
+            if (!controller.signal.aborted) setUsersLoading(false)
+          }
+        })(),
+        (async () => {
+          try {
+            const result = await api.devices.list()
+            if (controller.signal.aborted) return
+            setDevices(result.map(mapApiDevice))
+            setDevicesReady(true)
+          } catch {
+            if (!controller.signal.aborted) setDevicesError("Devices could not be loaded. Please reload to retry.")
+          } finally {
+            if (!controller.signal.aborted) setDevicesLoading(false)
+          }
+        })(),
+        (async () => {
+          try {
+            const result = user.role === "Admin"
+              ? await collectScanPages((page, page_size, signal) => api.activity.list({ page, page_size }, signal), controller.signal)
+              : []
+            if (controller.signal.aborted) return
+            setActivityLogs(result.map(mapApiActivityLog))
+            setActivityReady(true)
+          } catch {
+            if (!controller.signal.aborted) setActivityError("Activity history could not be loaded completely. Please reload to retry.")
+          } finally {
+            if (!controller.signal.aborted) setActivityLoading(false)
+          }
+        })(),
+      ])
     }
 
     void loadData()
     return () => controller.abort()
-  }, [user, pathname, setUsers, setDevices, setActivityLogs, setActivityLoading, setActivityError, setConfig])
+  }, [user, pathname, setUsers, setDevices, setActivityLogs, setActivityLoading, setActivityError, setUsersLoading, setUsersReady, setUsersError, setDevicesLoading, setDevicesReady, setDevicesError, setActivityReady])
 
   // ── CRUD Operations ─────────────────────────────────────────────────────
 
@@ -281,10 +304,10 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AdminContext value={{
-      users,
-      devices,
+      users, usersLoading, usersReady, usersError,
+      devices, devicesLoading, devicesReady, devicesError,
       activityLogs,
-      activityLoading,
+      activityLoading, activityReady,
       activityError,
       config, configReady, configError, configConflict, reloadConfig, acceptConfig,
       addUser,

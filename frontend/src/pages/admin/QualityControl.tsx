@@ -25,7 +25,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { ShieldCheck, Flag, MessageSquare, Edit, AlertTriangle, CheckCircle, Banana, ChevronsLeft, ChevronsRight, Download, Filter, Thermometer, Droplets } from "lucide-react"
+import { Loader2, ShieldCheck, Flag, MessageSquare, Edit, AlertTriangle, CheckCircle, Banana, ChevronsLeft, ChevronsRight, Download, Filter, Thermometer, Droplets } from "lucide-react"
 import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
 import { CULTIVARS, RIPENESS_LEVELS, type ScanResult, type Cultivar, type Ripeness } from "@/types"
@@ -40,7 +40,7 @@ const PAGE_SIZE = 15
 
 import { useEffect } from "react"
 export default function QualityControl() {
-  const { scans, scansLoading, scansError, refreshScans, flagScan, addScanNote, getScanNotes, loadScanNotes, updateScanData, acceptScan } = useScans()
+  const { scans, scansLoading, scansReady, scansError, refreshScans, flagScan, addScanNote, getScanNotes, getScanNotesState, loadScanNotes, updateScanData, acceptScan } = useScans()
   const { config } = useAdmin()
   const [selectedScan, setSelectedScan] = useState<ScanResult | null>(null)
   const [noteText, setNoteText] = useState("")
@@ -379,6 +379,7 @@ export default function QualityControl() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <AppStatsCard
+          loading={scansLoading && !scansReady}
           title="Low Confidence"
           value={lowConfidenceCount}
           icon={AlertTriangle}
@@ -388,6 +389,7 @@ export default function QualityControl() {
           description="Below threshold"
         />
         <AppStatsCard
+          loading={scansLoading && !scansReady}
           title="Flagged"
           value={flaggedCount}
           icon={Flag}
@@ -397,6 +399,7 @@ export default function QualityControl() {
           description="Needs review"
         />
         <AppStatsCard
+          loading={scansLoading && !scansReady}
           title="Sources with Issues"
           value={sourcesWithIssues}
           icon={CheckCircle}
@@ -449,6 +452,7 @@ export default function QualityControl() {
 
       {/* Scans Table */}
       <AppDataTable
+        loading={scansLoading && !scansReady}
         data={filteredScans}
         columns={columns}
         rowKey={(scan) => scan.id}
@@ -456,15 +460,15 @@ export default function QualityControl() {
         pagination={{ pageSize: PAGE_SIZE }}
         emptyState={{
           icon: ShieldCheck,
-          title: "No scans to review",
-          description: filterView !== "all" || sourceFilter !== "all"
+          title: scansError && !scansReady ? "Scan history unavailable" : "No scans to review",
+          description: scansError && !scansReady ? "Retry loading scan history." : filterView !== "all" || sourceFilter !== "all"
             ? "Try adjusting your filters"
             : "All scans have been reviewed"
         }}
       />
 
       {/* Scan Details Dialog */}
-      <Dialog open={!!selectedScan} onOpenChange={() => { setSelectedScan(null); setEditMode(false); setNoteText("") }}>
+      <Dialog open={!!selectedScan} onOpenChange={() => { if (pendingWrite) return; setSelectedScan(null); setEditMode(false); setNoteText("") }}>
         <DialogContent className="sm:max-w-2xl rounded-2xl max-h-[90vh] flex flex-col p-0 gap-0">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <div className="flex items-center justify-between pr-8">
@@ -768,7 +772,9 @@ export default function QualityControl() {
                       </div>
                     </div>
                   ))}
-                  {getScanNotes(selectedScan.id).length === 0 && (
+                  {getScanNotesState(selectedScan.id).loading && <p role="status" className="text-sm text-muted-foreground text-center py-4"><Loader2 aria-hidden="true" className="inline h-4 w-4 animate-spin mr-2" />Loading notes…</p>}
+                  {getScanNotesState(selectedScan.id).error && <p role="alert" className="text-sm text-muted-foreground">{getScanNotesState(selectedScan.id).error}<Button variant="outline" size="sm" onClick={() => loadScanNotes(selectedScan.id)}>Retry</Button></p>}
+                  {getScanNotesState(selectedScan.id).ready && !getScanNotesState(selectedScan.id).loading && !getScanNotesState(selectedScan.id).error && getScanNotes(selectedScan.id).length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">No notes yet</p>
                   )}
                 </div>
@@ -781,7 +787,7 @@ export default function QualityControl() {
                     rows={2}
                   />
                   <Button onClick={handleAddNote} disabled={!noteText.trim() || pendingWrite}>
-                    Add
+                    {pendingWrite && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{pendingWrite ? "Saving…" : "Add"}
                   </Button>
                 </div>
               </div>
@@ -792,24 +798,25 @@ export default function QualityControl() {
           <DialogFooter className="px-6 pb-6 pt-4 border-t flex-col sm:flex-row gap-2">
             {editMode ? (
               <>
-                <Button variant="outline" onClick={() => setEditMode(false)}>
+                <Button variant="outline" disabled={pendingWrite} onClick={() => setEditMode(false)}>
                   Cancel
                 </Button>
                 <Button onClick={handleSaveEdit} disabled={pendingWrite || !editReason.trim()}>
-                  Save Changes
+                  {pendingWrite && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{pendingWrite ? "Saving…" : "Save Changes"}
                 </Button>
               </>
             ) : (
               <>
                 <Button 
                   variant={selectedScan?.flagged ? "secondary" : "outline"}
+                  disabled={pendingWrite}
                   onClick={() => selectedScan && handleFlag(selectedScan)}
                   className={selectedScan?.flagged ? "text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200" : ""}
                 >
                   <Flag className={`w-4 h-4 mr-2 ${selectedScan?.flagged ? "fill-current" : ""}`} />
                   {selectedScan?.flagged ? 'Remove Flag' : 'Flag for Review'}
                 </Button>
-                <Button onClick={() => setEditMode(true)}>
+                <Button disabled={pendingWrite} onClick={() => setEditMode(true)}>
                   <Edit className="w-4 h-4 mr-2" />
                   Edit Data
                 </Button>
