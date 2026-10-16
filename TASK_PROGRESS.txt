@@ -1,4 +1,4 @@
-CURRENT RESUME HERE (2026-10-17) - MODULES 1 THROUGH 8 VERIFIED
+CURRENT RESUME HERE (2026-10-17) - MODULES 1 THROUGH 9 VERIFIED
 BRANCH main; working directory clean of unexpected modifications. No staging/commit/push/deployment executed.
 Previous completed checkpoint: docs/history/2026-10-16-before-loading-audit.txt.
 
@@ -50,16 +50,21 @@ DONE
   * Categorical BarChart displays scan counts across supported Philippine banana cultivars (Lakatan `#f59e0b`, Latundan `#fbbf24`, Cardaba `#d97706`).
   * Backend matrix aggregation (`backend/app/services/analytics.py:225-228`) tallies cultivar frequencies and identifies `most_common_cultivar` safely with `"N/A"` fallback when no scans exist.
   * Preserves accessibility titles (`title={summary.metric_definitions.classifications}`), rounded top bar corners (`radius={[8, 8, 0, 0]}`), and empty fallback (`emptyChart()`).
-  * Verified in Playwright browser tests (`frontend/tests/analytics.test.mjs`: 5/5 passed) and backend tests (`backend/tests/test_analytics.py`: 10/10 passed).
+- Module 9 (Scan Trend Chart) verified:
+  * Trailing 14-day longitudinal LineChart (`Scan Trend (Last 14 Days)`) displays daily scan throughput.
+  * Verified deliberate architectural design: The 14-day trend intentionally maintains a fixed historical window independent of the summary date-range filter (`backend/app/services/analytics.py:7, 54-58`), allowing operators to view trailing momentum regardless of whether the KPI cards are filtered to "Today".
+  * Verified dedicated Peak Scanning Hours (`hourly_distribution`) provides the hourly breakdown (12 AM to 11 PM Manila) when "Today" is filtered.
+  * Backend iterates across the 14-day calendar window (`backend/app/services/analytics.py:298-301`), backfilling missing dates with zero points to prevent jagged line artifacts.
+  * Preserves accessibility titles, dot styling (`dot={{ fill: "var(--color-count)", strokeWidth: 2, r: 4 }}`), and contract test assertions in `test_analytics.py` and `analytics.test.mjs`.
 - Verified dashboard browser regression suite (`tests/dashboard.test.mjs`): 14/14 tests passed in 14.7s.
 - Verified frontend TypeScript check (`npm run typecheck`): 0 errors.
 - Verified frontend production build (`npm run build`): PASSED in 10.05s.
 
 IN PROGRESS
-- None. Modules 1 through 8 verified.
+- None. Modules 1 through 9 verified.
 
 REMAINING
-- Review remaining assigned modules for authorized implementation (Modules 9–13: Scan Trend Chart, Operator Performance Table, Quality Control, Edit Scan Data, Review Notes).
+- Review remaining assigned modules for authorized implementation (Modules 10–13: Operator Performance Table, Quality Control, Edit Scan Data, Review Notes).
 - Awaiting user authorization before staging, committing, or pushing changes.
 
 TEST RESULTS
