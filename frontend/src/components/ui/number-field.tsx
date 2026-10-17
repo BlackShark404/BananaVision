@@ -10,6 +10,8 @@ interface NumberFieldProps
   min?: number
   max?: number
   step?: number
+  /** Allow forms with explicit validation to keep the user's invalid draft visible. */
+  clampOnBlur?: boolean
 }
 
 function NumberField({
@@ -19,6 +21,7 @@ function NumberField({
   min,
   max,
   step = 1,
+  clampOnBlur = true,
   disabled,
   id,
   ...props
@@ -63,6 +66,7 @@ function NumberField({
   }
 
   function handleBlur() {
+    if (!clampOnBlur) return
     if (typeof value === "string" && value !== "") {
       const parsed = Number(value)
       if (!Number.isNaN(parsed)) {

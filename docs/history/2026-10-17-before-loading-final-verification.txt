@@ -1,0 +1,54 @@
+CURRENT RESUME HERE (2026-10-17) - LOADING FIXES MERGED, VERIFICATION IN PROGRESS
+BRANCH main. User explicitly authorized commit, merge/pull resolution and push. No deployment.
+Local loading commit: cb3b88e. Merging origin/main=f365b2f (12 incoming commits).
+Previous checkpoints preserved in docs/history/2026-10-17-before-double-check.txt and
+ docs/history/2026-10-17-remote-before-loading-merge.txt; remote completed camera work retained.
+
+DONE
+- Loading audit and fixes: structured skeletons, retained refresh data, finite JSON reads,
+  stale user/supplier response guards, correct intake errors, account-scoped notifications,
+  unknown sensor data, kiosk operator recovery and single-flight/cancellable PIN entry.
+- QC recovery moved inside modal; preserves correction baseline/draft until explicit reload.
+  Confirmed-write/failed-read and definitive 403/422 retry cases now recover correctly.
+- PIN swap/setup and notification mark-read opt into 15s deadlines; hardware mutations retain
+  operation/status workflows. Five timeout/replay regressions plus three QC cases passed.
+- Remote merge conflicts resolved in Kiosk, ScanDetail, QC and this checkpoint. Preserved
+  remote demo removal, camera/cultivar safeguards, layout and NumberField appearance.
+  Scan count editors disable NumberField blur-clamping to preserve validation/draft semantics.
+- Merged full suite exposed print quantity blur-clamping that bypassed validation; fixed it
+  without changing NumberField styling. All 3 mocked printing tests pass, including invalid
+  empty/zero/fractional/over-limit quantities and duplicate/retry protection.
+- Source/API contracts traced; Context7, Superpowers review, Graphify and ICM used.
+
+VERIFIED BEFORE MERGE
+- Frontend full suite:132 passed,2 pre-existing connectivity failures (238.62s).
+- Latest targeted review regressions:5 passed; QC recovery/rejection3 passed.
+- TypeScript projects + Vite build PASS (14.37s). Frontend lint37errors5warnings;
+  no new diagnostics relative to original HEAD. Backend Ruff641errors (unchanged backend).
+- Isolated backend suite389 passed,38 PostgreSQL skips. No live station access.
+- Graphify3524->3540nodes,10902edges; no graph loss. SQL parser missing for2SQL files.
+
+IN PROGRESS / REMAINING
+- Merged backend482passed38skipped(85.06s); final TypeScript/build PASS(Vite8.95s).
+- Merged frontend first run139passed12failed:2baseline connectivity,1printing(fixed),
+ 9browser-closed cascade. Scanrecords rerun24/24passes; final full rerun session12476,
+ log frontend/node_modules/.tmp/bv-merged-frontend-final.txt. Collect actual counts.
+- Final frontend lint37errors5warnings;15changed files vs origin/main have no rule/count
+ increases. Backend Ruff651existing errors; no backend task diff relative to origin/main.
+- Graphify3685nodes11230edges; final update PASS/no topology changes, no graph loss.
+- Preserve baseline WebSocket failures: existing tests expect shared sockets/message auth,
+  actual unchanged frontend/backend implement per-hook sockets/query auth. Do not weaken tests.
+- Update audit/report/knowledge/graph with final merged results; review staged resolution.
+- Commit merge and push main normally; verify local and remote HEAD match. Preserve .idea/.
+
+CONSTRAINTS
+- Main only; no force push/history rewrite/deployment or unrelated changes.
+- Never use live DB, captures, cameras, printers or OS power. Mock/disposable tests only.
+- Preserve UI design and existing remote work. No project dependency changes.
+
+EXACT RESUME POINT
+- Merge is in progress; source conflict markers resolved but not yet staged.
+- Poll final frontend session12476, then record exact result; no backend/build/lint rerun
+  needed unless relevant code changes again. Printing3/3 and Scanrecords24/24 already pass.
+- Finalize docs/audits/2026-10-17-loading-recheck.md and this checkpoint, stage resolved files,
+  commit merge, push origin main. Do not repeat previous broad audit or discard .idea/.

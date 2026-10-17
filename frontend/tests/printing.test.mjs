@@ -43,10 +43,14 @@ async function setup(t, { fail = false, loseResponse = false } = {}) {
 test('StrictMode and previews never print; quantity is bounded and explicit submission works', async t => {
   const { page, writes } = await setup(t)
   assert.equal(writes.length, 0)
-  await page.getByLabel('Labels (1–10)').fill('11')
-  await page.getByRole('button', { name: 'Print labels', exact: true }).click()
-  await page.getByRole('alert').waitFor()
-  assert.equal(writes.length, 0)
+  for (const invalid of ['11', '0', '1.5', '']) {
+    await page.getByLabel('Labels (1–10)').fill(invalid)
+    await page.getByLabel('Labels (1–10)').blur()
+    assert.equal(await page.getByLabel('Labels (1–10)').inputValue(), invalid)
+    await page.getByRole('button', { name: 'Print labels', exact: true }).click()
+    await page.getByRole('alert').waitFor()
+    assert.equal(writes.length, 0)
+  }
   await page.getByLabel('Labels (1–10)').fill('3')
   await page.getByRole('button', { name: 'Print labels', exact: true }).dblclick()
   await page.getByText('3 label(s) sent to TP870 S.', { exact: false }).waitFor()

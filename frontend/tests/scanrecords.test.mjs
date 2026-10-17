@@ -319,6 +319,7 @@ for (const screen of ['detail', 'quality']) {
     const count = page.locator(screen === 'quality' ? '#fingers' : '#edit-fingers')
     for (const invalid of ['', '0', '1.5']) {
       await count.fill(invalid)
+      await count.blur()
       assert.equal(await count.inputValue(), invalid)
       assert.equal(await page.getByRole('button', { name: 'Save Changes', exact: true }).isDisabled(), true)
     }

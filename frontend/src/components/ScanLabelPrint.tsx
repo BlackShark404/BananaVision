@@ -100,7 +100,7 @@ export function ScanLabelPrint({ scanId, children }: { scanId: string; children?
     </p>}
     <div className="flex items-center justify-between gap-3">
       <Label htmlFor="label-quantity">Labels (1–10)</Label>
-      <NumberField id="label-quantity" min={1} max={10} step={1}
+      <NumberField id="label-quantity" min={1} max={10} step={1} clampOnBlur={false}
         value={quantity} onChange={val => setQuantity(String(val))}
         disabled={busy || !!pending.current || (!!job && job.status !== "SUBMITTED")}
         className="w-28" />
