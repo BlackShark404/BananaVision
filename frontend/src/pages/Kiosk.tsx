@@ -84,6 +84,7 @@ export default function Kiosk() {
   const [scanAction, setScanAction] = useState<{ id: string, action: 'accepted' | 'flagged' } | null>(null)
   const [showKioskBoxes, setShowKioskBoxes] = useState(true)
   const [kioskActiveDetImg, setKioskActiveDetImg] = useState(0)
+  const [showDetectionModal, setShowDetectionModal] = useState(false)
 
   // Backend camera list with actual device IDs (excludes laptop camera)
   const [backendCameras, setBackendCameras] = useState<{ device_id: number; camera_id: string; label: string; online: boolean }[]>([])
@@ -658,83 +659,115 @@ export default function Kiosk() {
                   )
                 })()}
 
-                {/* Detection Images with Bounding Boxes */}
+                {/* Detection Images — Compact Grid + Lightbox */}
                 {lastResult.detections && lastResult.detections.length > 0 && lastResult.images && lastResult.images.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                        <Target className="w-3.5 h-3.5 text-primary" />
-                        YOLO Detection
-                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 rounded-full">
-                          {lastResult.detections.reduce((acc: number, d: ScanDetection) => acc + (d.bounding_boxes?.length || 0), 0)} boxes
-                        </Badge>
-                      </div>
-                      <button
-                        onClick={() => setShowKioskBoxes(!showKioskBoxes)}
-                        className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-muted"
-                      >
-                        {showKioskBoxes ? "Hide" : "Show"} Boxes
-                      </button>
-                    </div>
-                    {/* Image thumbnails with bounding box overlays */}
-                    <div className="flex gap-2 overflow-x-auto pb-1 kiosk-scroll">
+                  <>
+                    <div className="grid grid-cols-4 gap-2">
                       {lastResult.images.map((img: { camera_id: string; file_path: string }, idx: number) => {
                         const detection = lastResult.detections?.find((d: ScanDetection) => d.camera_id === img.camera_id)
-                        const boxes: BoundingBox[] = showKioskBoxes ? (detection?.bounding_boxes || []) : []
                         const imgUrl = img.file_path.startsWith('http') ? img.file_path : getImageUrl(img.file_path)
+                        const boxCount = detection?.bounding_boxes?.length || 0
                         return (
-                          <div
+                          <button
                             key={img.camera_id}
-                            className={`relative shrink-0 w-36 lg:w-44 rounded-xl overflow-hidden border-2 cursor-pointer transition-all duration-200 ${
-                              kioskActiveDetImg === idx
-                                ? 'border-primary ring-2 ring-primary/20'
-                                : 'border-border hover:border-primary/40'
-                            }`}
-                            onClick={() => setKioskActiveDetImg(idx)}
+                            onClick={() => { setKioskActiveDetImg(idx); setShowDetectionModal(true) }}
+                            className="relative rounded-xl overflow-hidden border-2 border-border hover:border-primary/60 transition-all duration-200 cursor-pointer group"
                           >
-                            <BoundingBoxOverlay
+                            <img
                               src={imgUrl}
                               alt={`${img.camera_id} detection`}
-                              boxes={boxes}
-                              className="w-full aspect-[4/3]"
-                              showLabels={false}
-                              showConfidence={false}
+                              className="w-full aspect-square object-cover"
                             />
-                            <div className="absolute top-1 left-1 bg-black/60 text-white px-1.5 py-0.5 rounded text-[8px] font-medium">
-                              {detection?.camera_label || img.camera_id}
+                            {/* Dark overlay on hover */}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200" />
+                            {/* Camera label */}
+                            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 pt-4 pb-1.5">
+                              <p className="text-[9px] text-white font-medium truncate">{detection?.camera_label || img.camera_id}</p>
                             </div>
-                            {detection && detection.bounding_boxes && detection.bounding_boxes.length > 0 && (
-                              <div className="absolute top-1 right-1 bg-primary/80 text-white px-1.5 py-0.5 rounded text-[8px] font-bold">
-                                {detection.bounding_boxes.length}
+                            {/* Detection count badge */}
+                            {boxCount > 0 && (
+                              <div className="absolute top-1 right-1 bg-primary text-white min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[9px] font-bold shadow-sm">
+                                {boxCount}
                               </div>
                             )}
-                          </div>
+                          </button>
                         )
                       })}
                     </div>
-                    {/* Expanded active detection image */}
-                    {lastResult.images[kioskActiveDetImg] && (() => {
-                      const activeImg = lastResult.images![kioskActiveDetImg]
-                      const activeDet = lastResult.detections?.find((d: ScanDetection) => d.camera_id === activeImg.camera_id)
-                      const activeBoxes: BoundingBox[] = showKioskBoxes ? (activeDet?.bounding_boxes || []) : []
-                      const activeUrl = activeImg.file_path.startsWith('http') ? activeImg.file_path : getImageUrl(activeImg.file_path)
-                      return (
-                        <div className="rounded-xl overflow-hidden border border-border relative">
-                          <BoundingBoxOverlay
-                            src={activeUrl}
-                            alt={`${activeImg.camera_id} detection expanded`}
-                            boxes={activeBoxes}
-                            className="w-full aspect-[4/3]"
-                            showLabels={true}
-                            showConfidence={true}
-                          />
-                          <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-0.5 rounded-md text-[10px] font-medium">
-                            {activeDet?.camera_label || activeImg.camera_id}
+
+                    {/* Detection Lightbox Modal */}
+                    <Dialog open={showDetectionModal} onOpenChange={setShowDetectionModal}>
+                      <DialogContent className="sm:max-w-3xl max-h-[90dvh] flex flex-col gap-0 p-0 overflow-hidden">
+                        <DialogHeader className="p-4 pb-3 shrink-0 border-b">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Target className="w-4 h-4 text-primary" />
+                              <DialogTitle className="text-sm font-bold">YOLO Detection</DialogTitle>
+                              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 rounded-full">
+                                {lastResult.detections.reduce((acc: number, d: ScanDetection) => acc + (d.bounding_boxes?.length || 0), 0)} boxes
+                              </Badge>
+                            </div>
+                            <button
+                              onClick={() => setShowKioskBoxes(!showKioskBoxes)}
+                              className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 px-2 py-1 rounded-md hover:bg-muted"
+                            >
+                              {showKioskBoxes ? "Hide" : "Show"} Boxes
+                            </button>
                           </div>
+                          <DialogDescription className="sr-only">Detection bounding box viewer</DialogDescription>
+                        </DialogHeader>
+
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                          {/* Camera tabs */}
+                          <div className="flex gap-1.5">
+                            {lastResult.images.map((img: { camera_id: string; file_path: string }, idx: number) => {
+                              const det = lastResult.detections?.find((d: ScanDetection) => d.camera_id === img.camera_id)
+                              return (
+                                <button
+                                  key={img.camera_id}
+                                  onClick={() => setKioskActiveDetImg(idx)}
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                    kioskActiveDetImg === idx
+                                      ? 'bg-primary text-primary-foreground shadow-sm'
+                                      : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                                  }`}
+                                >
+                                  {det?.camera_label || img.camera_id}
+                                  {det?.bounding_boxes && det.bounding_boxes.length > 0 && (
+                                    <span className={`min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold ${
+                                      kioskActiveDetImg === idx ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'
+                                    }`}>
+                                      {det.bounding_boxes.length}
+                                    </span>
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+
+                          {/* Active detection image */}
+                          {lastResult.images[kioskActiveDetImg] && (() => {
+                            const activeImg = lastResult.images![kioskActiveDetImg]
+                            const activeDet = lastResult.detections?.find((d: ScanDetection) => d.camera_id === activeImg.camera_id)
+                            const activeBoxes: BoundingBox[] = showKioskBoxes ? (activeDet?.bounding_boxes || []) : []
+                            const activeUrl = activeImg.file_path.startsWith('http') ? activeImg.file_path : getImageUrl(activeImg.file_path)
+                            return (
+                              <div className="rounded-xl overflow-hidden border border-border relative">
+                                <BoundingBoxOverlay
+                                  src={activeUrl}
+                                  alt={`${activeImg.camera_id} detection expanded`}
+                                  boxes={activeBoxes}
+                                  className="w-full aspect-[4/3]"
+                                  showLabels={true}
+                                  showConfidence={true}
+                                />
+                              </div>
+                            )
+                          })()}
                         </div>
-                      )
-                    })()}
-                  </div>
+                      </DialogContent>
+                    </Dialog>
+                  </>
                 )}
 
                 {/* QR Code Preview */}
