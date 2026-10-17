@@ -1,0 +1,75 @@
+CURRENT RESUME HERE (2026-10-17) - TRAINING RESUMED; AUTOMATIC EVALUATION READY
+Branch main; preserve all existing changes. No staging, commits, pushes or deployment.
+Previous milestone: docs/history/2026-10-17-before-detached-yolov8-lifecycle.txt.
+Completed13-module work is historical, not pending; see earlier archived checkpoint.
+
+AUTHORIZED SCOPE / CONSTRAINTS
+- User explicitly authorized training YOLOv8 on D:\Banana_Ripeness.v13i.yolo26 for
+  identification/counting (reported19 fingers vs estimate12). No model swap authorized.
+- No station DB/captures/cameras/printer/OS-power tests or secret/.env reads.
+- Preserve main, UI/architecture, explicit reverts and unrelated untracked BananaVision/.
+- Training files/environment live outside checkout; app dependencies/weights unchanged.
+
+CURRENT RUN / EXACT NEXT STEP
+- Root: D:\BananaVision-Training\v13-yolov8-20261016.
+- Read status.json, lifecycle-status.json, active-training-job.json and completion.json
+  if present BEFORE launching anything. Do not duplicate a running job.
+- Latest verified: epoch2 completed, epoch3 continuing; zero stderr errors. Early metrics
+  are provisional. Maximum100epochs, patience20, batch16,640,workers2,AMP,seed42.
+- Checkpoints: runs/yolov8n_v13_b16/weights/{last,best}.pt. Resume last.pt, not freshCOCO.
+- ACTIVE worker wrapperPID13844, creationtime1792175453.1162033; bootstrapPID22588,
+  creationtime1792175452.899648. Exact paths/nonce/logs in active-training-job.json.
+- Current logs: train-resume-20261016T183053Z.{stdout,stderr}.log.
+- Hidden WMI launch returned0; detached-launch.json wrapperPID8044. Resume log explicitly
+  confirms epoch2->100. Breakaway flag was requested; IsProcessInJob reported membership
+  in an unspecified job for bootstrap/worker. Persistence through all external cleanup
+  policies is NOT proven; do not guarantee it. No OS services/power policies changed.
+- Original shell-launched batch16job4280 stopped silently during epoch2, after saving
+  epoch1; cause unverified, stderr empty. Its logs/run and originalbatch4 attempt preserved.
+- training_lifecycle.py retainsPopenhandle, records exact identities/logs, waits for
+  training exit0+complete status, then automatically invokes finish_training.py.
+- Completion workflow: candidateVALID at NMS.45/.65, choose.65 only with lower countMAE,
+  <=0.5percentage-point loss in spatial/combined precision and nondecreasing recalls;
+  freeze calibration.json BEFORE TEST. Evaluate baseline/candidate TEST once, reuseonly
+  matching immutable reports. Checkpoint/data/config/matching identity guards active.
+- Expected outputs: evaluations/*.json, TRAINING_RESULTS.md, completion.json; no automatic
+  deployment. If lifecycle-status=failed, inspect error/logs and savedcheckpoint first.
+  Revalidate recorded PID+creationtime+script before any process action. Never kill by
+  python-name sweep or use os.kill(pid,0) on Windows.
+- NEXT: monitor existing training to completion, inspect automatic validation/test reports,
+  compare per-class/view count and identification errors. Do not claim improvedlive
+  accuracy or completedtraining while these are pending. Training may take severalhours.
+
+VERIFIED DATA / ENVIRONMENT
+- Source7501images/67237boxes; all12classes; maxannotations/image17 is not modelcountcap.
+- Separate copy: train5262images/47091boxes/13groups, valid137/1183/3groups,
+  test137/1252/3groups. All12classes each; validation LakatanSemiRipe only6labels.
+- Conservative90prefix->19cultivar/ordinal aliases; user unsure physicalidentities.
+  Groups stay together; heldouts use originalvalid/test, excluding augmentedtrainversions.
+  Alias proxy may merge unrelatedfruit and cannot guarantee independence ifrenumbered.
+- Copy removesonly2confirmed backgroundboxrows;7files/65boxes in contradictory capture
+  B2_Latundan3_CH_01131 quarantined, no relabeling. Source unchanged.
+- preflight.json verifies5536copied labeltexts/image sizes,11image hashes, group/class
+  coverage and sourcebadrows intact. Source/images/weights not rewritten.
+- Separate Python3.12 CUDAvenv: torch2.11.0+cu126, torchvision0.26.0, ultralytics8.4.40.
+  pipcheck/CUDA arithmetic/AMP PASS onRTX2050 4GB. OfficialYOLOv8n80class weights
+  fine-tuned to12classes; environment lock/pretrained SHA recorded in trainingroot.
+
+VERIFICATION / KNOWLEDGE
+- Dataset utility23synthetic tests PASS55.17s; scopedRuff/diff PASS. Only2lint constants
+  and strongerCLI alias/quarantine/source-preservation test changed in repo code.
+- Evaluation17pure geometry/CLI/preflight checks PASS, no evaluatorTESTinference yet.
+- Supervisor12synthetic unittest methods PASS; testdata cannot calibrate, frozeninput/
+  matching guards and VALID-before-TEST workflow covered. Lifecycle --check PASS;
+  supervisor --check --job active-training-job.json PASS. Independent scoped review done.
+- No frontend/appcode changed; app suites/typecheck/build not repeated for offline-only
+  training work. Their prior results remain in archived completed-module checkpoint.
+- Obsidian Development Decisions and dataset audit updated with verified findings.
+  Graphifygraph/CLI and ICMtools unavailable, confirmed today; no false graph/memoryclaim,
+  duplicateinstall/reinitialization or private/globalmemoryDB access performed.
+- ExistingYOLO26 benchmark417originalVALID: NMS.45->.65 countMAE.938->.844, exact161->188,
+  spatialrecall92.95->97.06%, precision92.47->92.39%, bias+.046->+.446. ProductionIoU.45
+  unchanged. Evidence docs/yolo-dataset-audit-2026-10-16.md and linked auditJSON.
+- Appcount=max(per-view boxes), not cross-view physicalidentity matching. Perfectvisible
+  detection can stillunderestimate19 if no singleview seesall; summing duplicates fingers.
+  Plainbackground/newgroup identity uncertainty and oldbaseline provenance limit conclusions.

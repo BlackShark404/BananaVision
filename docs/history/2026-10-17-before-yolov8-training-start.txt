@@ -1,0 +1,53 @@
+CURRENT RESUME HERE (2026-10-17) - YOLOV8 V13 TRAINING IN PREPARATION
+Branch main, HEAD at resume 77ff51c. No staging, commits, pushes or deployment this turn.
+Archive of completed 13-module work: docs/history/2026-10-17-before-yolov8-training-resume.txt.
+Those modules are complete; do not repeat them or restore historical pending work.
+
+AUTHORIZED OBJECTIVE / CONSTRAINTS
+- Improve live banana identification/counting; user reports19 fingers vs estimated12.
+- User supplied D:\Banana_Ripeness.v13i.yolo26 and explicitly chose TRAIN YOLOV8 on v13.
+- No newer best.pt; v13 not trained yet. User unsure whether filenames uniquely identify
+  physical bunches. No live DB/capture/camera/printer/OS-power tests or secret/.env reads.
+- Preserve latest committed work, UI/architecture, explicit reverts and untracked BananaVision/.
+- Training is authorized; station restart, deployment and model replacement are not.
+
+VERIFIED DATA / BENCHMARK
+- Source7501 images,67237 boxes, all12 classes; largest annotation count/image17, not
+  a model count cap. Plain-background samples differ from live station screenshots.
+- Two confirmed background-sized train label row7 defects; remove only exact rows in copy.
+- Quarantine B2_Latundan3_CH_01131 (7 files,65 Lakatan boxes despite Latundan filename)
+  in copy pending review. No class relabeling or original dataset modification.
+- Named captures overlap train and original heldouts; filenames alone cannot prove
+  physical identity. Conservative aliases join90 prefixes into19 cultivar+ordinal groups.
+  This can merge unrelated fruit and cannot guarantee independence if fruit was renumbered.
+- Full417-original-validation YOLO26 benchmark complete (no test inference): IoU.45->.65
+  count MAE.938->.844, exact count161->188, localization recall92.95->97.06%, precision
+  92.47->92.39%. Bias rises+.046->+.446;76 images improve,50 worsen,291 tie.
+  All4 views/10of12 class groups improve; Cardaba Ripe/Overripe count error worsens.
+  Candidate.65 needs new-model calibration; production IoU stays.45.
+- Evidence: docs/yolo-dataset-audit-2026-10-16.md and
+  docs/audits/yolo-v13-overlap-validation-2026-10-16.json.
+- Counts are per-view retained boxes, fusion=max(viewcounts); summing duplicates fruit.
+  Even perfect visible-object detection cannot prove all19 if no single view sees them.
+
+CURRENT EXECUTION / EXACT NEXT STEP
+- Training root D:\BananaVision-Training\v13-yolov8-20261016, outside app checkout.
+- Separate Python3.12 venv installed torch2.11.0+cu126, torchvision0.26.0+cu126 and
+  ultralytics8.4.40. App environment unchanged. GPU RTX2050 4GB (~2.3GB free initially).
+- GPU verification exec session77193 active: pip check passed, CUDA/import probe pending.
+  Poll write_stdin; do not start training until CUDA probe succeeds.
+- Real copy preparation exec session51810 active; output trainingroot/dataset; source
+  unchanged. Uses group-aliases.json and exclude-captures.json in trainingroot, seed42.
+  Poll; inspect manifest coverage, source preservation, exclusions and no group overlap.
+- Utility backend/scripts/prepare_yolo_dataset.py and synthetic tests reviewed:23passed
+  in55.17s, scoped Ruff/diff check pass. Agent made only2 lint fixes and strengthened CLI
+  alias/quarantine regression. No app code changed this turn.
+- trainingroot/train.py and training-plan.json prepared: COCO YOLOv8n,100epochs,
+  patience20,640,batch4,workers2,AMP,seed42; hue shifts disabled to preserve ripeness hue.
+  Launcher requires CUDA, exact12classes, prepared data path; disables cloud integrations,
+  refuses existing run, writes status.json/checkpoints. No training started yet.
+- Next: finish CUDA/copy checks; validate launcher syntax/config; launch train.py hidden
+  with persistent stdout/stderr logs and record its exact PID in trainingroot. Monitor
+  first epoch/memory, then training through validation. Evaluate best.pt before any app swap.
+- Prior current application tests are in archived completed-module checkpoint. Do not
+  rerun app/frontend suites for offline-only preparation unless app code changes.

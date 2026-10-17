@@ -269,10 +269,15 @@ def test_unknown_alias_and_quarantine_keys_fail_usefully(export, tmp_path):
         prepare_dataset(source, tmp_path / "bad-quarantine", exclude_captures={"typo": "review"})
 
 
-def test_cli_reads_alias_json_without_app_settings_or_model_dependencies(export, tmp_path):
+def test_cli_reads_alias_and_quarantine_json_without_app_or_model_dependencies(export, tmp_path):
     source = export()
     aliases = tmp_path / "aliases.json"
-    aliases.write_text("{}")
+    aliases.write_text(json.dumps({"B1_Latundan1_NoneChemical": "latundan_1"}))
+    capture = "B1_Latundan1_NoneChemical_09999"
+    add_photo(source, "train", f"{capture}_top-1-_jpg.rf.suspect", ["5 .5 .5 .2 .4"])
+    quarantine = tmp_path / "exclude-captures.json"
+    quarantine.write_text(json.dumps({capture: "Cultivar disagreement; pending human review"}))
+    before = snapshot(source)
     result = subprocess.run(
         [
             sys.executable,
@@ -286,6 +291,8 @@ def test_cli_reads_alias_json_without_app_settings_or_model_dependencies(export,
             "123",
             "--aliases",
             str(aliases),
+            "--exclude-captures",
+            str(quarantine),
         ],
         cwd=tmp_path,
         text=True,
@@ -294,3 +301,12 @@ def test_cli_reads_alias_json_without_app_settings_or_model_dependencies(export,
     )
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["output"] == str(tmp_path / "prepared")
+    manifest = json.loads((tmp_path / "prepared" / "manifest.json").read_text())
+    assert manifest["aliases"] == {"B1_Latundan1_NoneChemical": "latundan_1"}
+    assert "latundan_1" in manifest["group_assignments"]
+    quarantined = [
+        item for item in manifest["exclusions"] if item["reason"] == "explicit_capture_quarantine"
+    ]
+    assert len(quarantined) == 1
+    assert quarantined[0]["capture"] == capture
+    assert snapshot(source) == before

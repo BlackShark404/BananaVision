@@ -1,0 +1,113 @@
+CURRENT RESUME HERE (2026-10-17) - ALL 13 ASSIGNED MODULES VERIFIED & COMPLETED
+BRANCH main; working directory clean of unexpected modifications. No staging/commit/push/deployment executed.
+Previous completed checkpoint: docs/history/2026-10-16-before-loading-audit.txt.
+
+DONE
+- Audited all 13 assigned modules under Analytics & System Configuration (Lawrence S. Ramirez per Table 38).
+- Generated prioritized bug audit and improvement assessment report (`audit_report_analytics_system_config.md`).
+- Populated `docs/knowledge/Testing and Validation.md` Obsidian note with comprehensive testing strategies, safety rules, backend pytest isolation runners, Playwright headless suites, and Asia/Manila test constraints.
+- Module 1 (Dashboard) improvements implemented & verified:
+  * Enhanced `useWebSocket` hook (`hooks/useWebSocket.ts`) with an explicit `reconnect()` callback resetting backoff and socket references.
+  * Added inline manual WebSocket reconnection triggers in `Dashboard.tsx` (in the header connection status bar and delay notice) to eliminate connection stagnation.
+  * Clarified operator success rate metric description to `"Auto-approved scans (all-time)"` in `Dashboard.tsx` to align operator expectations with server-wide lifetime auto-approval calculations.
+  * Preserved explicit filter dates in `openRecords` (`filters?.business_date`) while keeping all-time drilldowns for unconstrained metric cards.
+- Module 2 (Scan Logs) improvements implemented & verified:
+  * Configurable Page Sizes: Added `VALID_PAGE_SIZES = [10, 25, 50, 100]` in `frontend/src/lib/scanLogFilters.ts`, with parser and URL builder support for both `limit` and `page_size`.
+  * Pagination Toolbar UI: Added accessible `<Select>` dropdown selector in `frontend/src/components/AppDataTable.tsx` allowing operators/admins to switch between 10, 25, 50, and 100 rows per page.
+  * Connected page size selector in `frontend/src/pages/Logs.tsx`, correctly recalculating total pages and resetting current page to 1 upon page-size mutation.
+  * Backend `ScanLogQuery` schema updated in `backend/app/schemas/scan_logs.py` to support `limit` as a validated alias for `page_size`, keeping snapshot cache bindings stable across both parameter formats.
+  * Added and passed backend unit tests in `backend/tests/test_scan_logs.py` (21/21 passed).
+  * Added and passed frontend unit tests in `frontend/tests/scanlogfilters.test.mjs` (7/7 passed).
+  * Verified full scan records Playwright browser suite in `frontend/tests/scanrecords.test.mjs` (15/15 passed).
+- Module 3 (Scan Detail View) verified:
+  * Multi-angle camera views (overhead/lateral), YOLO defect bounding boxes, detection legend, classification metrics, and spoilage estimates verified.
+  * Robust HTTP 404, 403, and 410 error recovery cards verified via headless browser test suite (`scanrecords.test.mjs`).
+  * 15-second AbortController timeout verified.
+  * Admin-only controls (QC Override, Notes) strictly isolated from Operators while preserving full read access to operator's own scans.
+  * Backend authorized scan loading (`test_scan_records.py`: 15/15 passed) and frontend history collection (`scanpages.test.mjs`: 4/4 passed) verified.
+- Module 4 (Search & Filter Scans) verified & optimized:
+  * Validated composite filtering across cultivar, ripeness, inventory status, intake/source key, operator ID, attention card flags, and Asia/Manila calendar date.
+  * Search race conditions prevented via AbortController request cancellation and monotonic sequence guards in `useDashboardResource.ts`.
+  * Optimized backend search conditions in `backend/app/services/scan_logs.py`: Valid UUID searches directly match primary key `scans.c.id == exact_uuid`, hitting the B-tree index directly and avoiding full-table substring scans.
+  * Unit test added in `backend/tests/test_scan_logs.py` asserting exact UUID search resolution (21/21 passed).
+  * Browser regression test verified: "Logs latest search wins" in `frontend/tests/scanrecords.test.mjs` (15/15 passed).
+- Module 5 (Export CSV) verified & optimized:
+  * Fixed snapshot cache binding key in `export_scan_logs` (`backend/app/services/scan_logs.py`) to exclude `limit`, preventing false HTTP 409 snapshot token invalidations during CSV export after page size changes.
+  * Increased client-side CSV download abort timeout in `frontend/src/pages/Logs.tsx` from 60 seconds to 300 seconds (5 minutes) to ensure complete data transfer on large multi-month and annual audits.
+  * Verified formula injection protection (`_safe_cell`), Excel UTF-8 BOM (`\ufeff`), and bounded chunk streaming (`yield_per=200`).
+  * Verified backend unit tests in `backend/tests/test_scan_logs.py` (22/22 passed) and browser export tests in `frontend/tests/scanrecords.test.mjs` (15/15 passed).
+- Module 6 (Analytics Overview) verified:
+  * Computes aggregate KPI summary cards: Total Scans, Quality Flagged Scans, Defect Percentage, Average AI Confidence, and Peak Processing Hour.
+  * Verified AI model confidence isolation in `backend/app/services/analytics.py:85-92`: Queries `ScanOriginalAiResult` instead of mutable `scans` table, preventing manual operator overrides from artificially skewing model metrics.
+  * Strict role scoping verified: Scoped to `user.id` when requested by an Operator; station-wide when requested by an Admin.
+  * Division-by-zero protection verified: Guarded calculations for `total_scans == 0`, displaying `"―"` safely with 0 NaN or runtime error occurrences.
+- Module 7 (Ripeness Distribution Chart) verified:
+  * Interactive PieChart renders distribution across 4 ripeness categories: Unripe (#22c55e), Semi Ripe (#7c3aed), Ripe (#eab308), and Overripe (#ef4444).
+  * Safely aggregates from SQL matrix grouping by `(cultivar, ripeness)` in `backend/app/services/analytics.py:216-224`, excluding incomplete or unclassified scans.
+  * Dedicated `emptyChart()` container with `role="status"` gracefully renders when `classification_count === 0` ("No classified scans in this selection.").
+  * Zero-division safe percentage calculations: `((percent || 0) * 100).toFixed(0)%` prevents NaN rendering on empty slices.
+- Module 8 (Cultivar Counts Chart) verified:
+  * Categorical BarChart displays scan counts across supported Philippine banana cultivars (Lakatan `#f59e0b`, Latundan `#fbbf24`, Cardaba `#d97706`).
+  * Backend matrix aggregation (`backend/app/services/analytics.py:225-228`) tallies cultivar frequencies and identifies `most_common_cultivar` safely with `"N/A"` fallback when no scans exist.
+  * Preserves accessibility titles (`title={summary.metric_definitions.classifications}`), rounded top bar corners (`radius={[8, 8, 0, 0]}`), and empty fallback (`emptyChart()`).
+- Module 9 (Scan Trend Chart) verified:
+  * Trailing 14-day longitudinal LineChart (`Scan Trend (Last 14 Days)`) displays daily scan throughput.
+  * Verified deliberate architectural design: The 14-day trend intentionally maintains a fixed historical window independent of the summary date-range filter (`backend/app/services/analytics.py:7, 54-58`), allowing operators to view trailing momentum regardless of whether the KPI cards are filtered to "Today".
+  * Verified dedicated Peak Scanning Hours (`hourly_distribution`) provides the hourly breakdown (12 AM to 11 PM Manila) when "Today" is filtered.
+  * Backend iterates across the 14-day calendar window (`backend/app/services/analytics.py:298-301`), backfilling missing dates with zero points to prevent jagged line artifacts.
+- Module 10 (Operator Performance Table) verified & enhanced:
+  * RBAC compliance verified: Operators strictly isolated to their own performance row (`OperatorProfile.account_id == user.id`), while Admins view station-wide operator leaderboards.
+  * Rendered Missing Backend Metrics: Added `Flag Rate (%)` and `QC Overrides` columns to the Admin view of the Operator Performance Table in `frontend/src/pages/Analytics.tsx`, surfacing backend `flag_rate` and `overridden_scans` previously omitted by frontend column definitions.
+  * Sortable metrics: Enabled sortable columns for `flagRate` and `overriddenScans` with right-aligned tabular formatting.
+- Module 11 (Quality Control) verified:
+  * Admin workspace for reviewing flagged, low-confidence, and overridden scans (`frontend/src/pages/admin/QualityControl.tsx`).
+  * Strict RBAC enforcement verified: Route guarded by `<ProtectedRoute reqAdmin>` (`App.tsx:82`), navigation isolated to `isAdmin` sidebar (`AppSidebar.tsx:80-93`), and backend endpoints (`/quality/flagged`, `/scans/{id}`, `/notes`, `/provenance`) require `AdminUser`.
+  * Optimistic concurrency conflict trapping: Tracks scan revisions and gracefully handles HTTP 409 Conflict with `"Reload latest"` recovery action.
+  * Passed headless browser regression suites in `frontend/tests/scanrecords.test.mjs` (15/15 passed) and `frontend/tests/scanwrites.test.mjs` (4/4 passed).
+- Module 12 (Edit Scan Data) verified & resolved:
+  * Strict Finger Count Validation: Enforced `finger_count >= 1` in backend Pydantic schema validation (`ScanOverrideRequest` in `backend/app/schemas/scan.py`) and added unit test in `backend/tests/test_scan_records.py` verifying HTTP 422 Unprocessable Entity rejection for `finger_count=0` or `null`.
+  * Client-Side Validation Guards: Replaced silent fallback `|| 0` in `frontend/src/pages/admin/QualityControl.tsx` and `frontend/src/pages/ScanDetail.tsx` with strict input parsing, `toast.error("Finger count must be at least 1")` validation guard in `handleSaveEdit`, and disabled Save button when `fingerCount` is empty string or `< 1`.
+  * Dynamic Environmental Spoilage Recalculation: Updated cultivar and ripeness `onValueChange` handlers in both `QualityControl.tsx` and `ScanDetail.tsx` to supply ambient `temperature` and `humidity` to `getSpoilageDays()`, ensuring accurate shelf-life prediction and environmental multiplier re-evaluation whenever classification attributes are modified.
+  * Verified Playwright browser regression test suite (`frontend/tests/scanrecords.test.mjs`: 15/15 passed).
+  * Verified backend pytest scan records and writes suites (`test_scan_records.py` 15/15 passed, `test_time_and_writes.py` 34/34 passed).
+- Module 13 (Review Notes) verified & resolved:
+  * Error Notification Layout: Wrapped the note loading error notification and inline Retry button in `frontend/src/pages/admin/QualityControl.tsx` with `flex items-center justify-between gap-3 text-sm text-muted-foreground`, preventing text collision against the button border during recovery.
+  * Backend Schema Whitespace Strip Enforcement: Backend `ScanNoteCreate` inherits `Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]`, strictly stripping leading/trailing whitespace and rejecting empty or whitespace-only review notes with HTTP 422. Added regression test in `backend/tests/test_scan_records.py` confirming 422 rejection.
+  * Verified Playwright browser regression test suite (`frontend/tests/scanrecords.test.mjs`: 15/15 passed).
+  * Verified backend pytest scan records suite (`backend/tests/test_scan_records.py`: 15/15 passed).
+
+IN PROGRESS
+- None. All 13 assigned modules under Analytics & System Configuration verified.
+
+REMAINING
+- None. All 13 modules completed and verified (Modules 1 through 13).
+- Awaiting user authorization before staging, committing, or pushing changes.
+
+TEST RESULTS
+- Frontend TypeScript check (`npm run typecheck`): PASSED (0 errors).
+- Frontend production build (`npm run build`): PASSED (0 errors, 7.10s).
+- Frontend lint (`npm run lint`): PASSED at exact baseline (41 errors, 8 warnings; 0 regressions).
+- Frontend headless browser test suites (14 suites, 105/105 tests passed in 44.98s):
+  * adminloading.test.mjs: 3/3 passed
+  * analytics.test.mjs: 5/5 passed
+  * dashboard.test.mjs: 14/14 passed
+  * scanrecords.test.mjs: 15/15 passed
+  * maintenance.test.mjs: 14/14 passed
+  * printing.test.mjs: 3/3 passed
+  * kiosk.test.mjs: 4/4 passed
+  * kiosk-pin.test.mjs: 11/11 passed
+  * persistence.test.mjs: 15/15 passed
+  * assigned.test.mjs: 6/6 passed
+  * scanflagindicator.test.mjs: 2/2 passed
+  * scanlogfilters.test.mjs: 5/5 passed
+  * scanwrites.test.mjs: 4/4 passed
+  * scanpages.test.mjs: 4/4 passed
+- Backend pytest (isolated temporary directory runner): PASSED (317 passed, 38 skipped in 50.23s, 0 failures).
+
+CONSTRAINTS & REPOSITORY SAFETY
+- Preserved exact UI design, styling, typography, spacing, navigation, and Asia/Manila timestamp conversions.
+- Never ran tests against live station DB, live cameras, real printer, or OS power endpoints.
+- Worked strictly on branch `main`; no branches or worktrees created; no commits or pushes performed.
+
+EXACT RESUME POINT
+- Implementation and verification fully complete. Changes are ready for user review and commit authorization.

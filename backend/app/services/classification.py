@@ -7,6 +7,7 @@ Detects cultivar (Lakatan/Latundan/Cardaba) and ripeness (Unripe/Semi Ripe/Ripe/
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import time
 from dataclasses import dataclass, field
@@ -20,6 +21,20 @@ from app.schemas.enums import CultivarEnum, RipenessEnum
 logger = logging.getLogger(__name__)
 settings = get_settings()
 VOTE_CONFLICT_THRESHOLD = 0.60
+# Calibrated on prepared VALID Top photos; see docs/yolo-dataset-audit-2026-10-16.md.
+# A different checkpoint or custom confidence/NMS setting needs its own calibration.
+TOP_OVERLAP_CHECKPOINT_SHA256 = (
+    "e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89"
+)
+TOP_OVERLAP_CONFIDENCE = 0.50
+TOP_OVERLAP_BASE_IOU = 0.45
+TOP_OVERLAP_IOU = 0.65
+
+
+def _checkpoint_digest(path: str) -> str:
+    """Identify the actual checkpoint once at load; filenames are not model identity."""
+    with open(path, "rb") as handle:
+        return hashlib.file_digest(handle, "sha256").hexdigest()
 
 
 @dataclass
@@ -114,6 +129,8 @@ class BananaClassifier:
     def __init__(self):
         self._model = None
         self._loaded = False
+        self._checkpoint_sha256: str | None = None
+        self._image_size = 640
 
     @property
     def is_loaded(self) -> bool:
@@ -121,6 +138,7 @@ class BananaClassifier:
 
     def load(self) -> None:
         """Load YOLO model from disk. Call once at startup."""
+        self._checkpoint_sha256 = None
         try:
             from ultralytics import YOLO
 
@@ -129,6 +147,14 @@ class BananaClassifier:
             logger.info(f"Loading {self._model_name} model from {model_path}")
             self._model = YOLO(model_path)
             self._loaded = True
+            # Preserve the saved resolution of custom checkpoints as well.
+            self._image_size = getattr(self._model, "overrides", {}).get("imgsz", 640)
+            try:
+                self._checkpoint_sha256 = _checkpoint_digest(model_path)
+            except OSError:
+                logger.warning(
+                    "Checkpoint fingerprint unavailable; using standard overlap filtering"
+                )
 
             # Try to read extra info from the loaded model
             model_type = getattr(self._model, "task", None) or "detect"
@@ -158,12 +184,16 @@ class BananaClassifier:
             except Exception as exc:
                 logger.warning(f"{self._model_name} warmup failed: {exc}")
 
-    def predict(self, image: np.ndarray, *, confidence_threshold: float) -> ClassificationResult:
+    def predict(
+        self, image: np.ndarray, *, confidence_threshold: float,
+        camera_label: str | None = None,
+    ) -> ClassificationResult:
         """
         Run YOLO inference on a single image.
 
         Args:
             image: BGR numpy array (from OpenCV)
+            camera_label: Configured camera view, independent of device/logical ID.
 
         Returns:
             ClassificationResult with detections, cultivar, ripeness, etc.
@@ -180,11 +210,28 @@ class BananaClassifier:
         if not 0 < confidence_threshold <= 1:
             raise ValueError("Confidence threshold must be in (0, 1]")
 
+        iou_threshold = settings.yolo_iou_threshold
+        if (
+            settings.yolo_top_overlap_refinement
+            and (camera_label or "").strip().casefold() == "top"
+            and self._checkpoint_sha256 == TOP_OVERLAP_CHECKPOINT_SHA256
+            and self._image_size == 640
+            and confidence_threshold == TOP_OVERLAP_CONFIDENCE
+            and iou_threshold == TOP_OVERLAP_BASE_IOU
+        ):
+            iou_threshold = TOP_OVERLAP_IOU
+
         try:
             results = self._model.predict(
                 image,
                 conf=confidence_threshold,
-                iou=settings.yolo_iou_threshold,
+                iou=iou_threshold,
+                # Ultralytics retains predictor arguments between calls. Set these
+                # explicitly so a Top call cannot alter subsequent camera views.
+                imgsz=self._image_size,
+                augment=False,
+                agnostic_nms=False,
+                max_det=300,
                 verbose=False,
             )
         except Exception as exc:

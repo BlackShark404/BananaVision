@@ -1,0 +1,65 @@
+CURRENT RESUME HERE (2026-10-17) - YOLOV8 V13 TRAINING RUNNING
+Branch main, HEAD77ff51c at resume. No staging, commits, pushes, deployment or station restart.
+Previous milestone: docs/history/2026-10-17-before-yolov8-training-start.txt.
+Completed13-module checkpoint: docs/history/2026-10-17-before-yolov8-training-resume.txt.
+
+AUTHORIZED OBJECTIVE / CONSTRAINTS
+- User explicitly authorized TRAIN YOLOV8 on D:\Banana_Ripeness.v13i.yolo26 to improve
+  variety/ripeness identification and finger count (reported19, estimated12).
+- No newer best.pt; v13 was not trained. Physical bunch identity mapping is uncertain.
+- Preserve committed work, UI/architecture, explicit reverts, untracked BananaVision/.
+- No station DB/captures/cameras/printer/OS-power tests, secret/.env reads, model swap or
+  deployment. Separate offline data/model training is authorized. No app code changed.
+
+VERIFIED PREPARATION
+- Source7501 images,67237 boxes, all12 classes; max annotations/image17 is not a countcap.
+- Copy at D:\BananaVision-Training\v13-yolov8-20261016\dataset:
+  train5262images/47091boxes/13groups; valid137/1183/3groups; test137/1252/3groups.
+  All12classes in each split. Validation Lakatan Semi Ripe has only6annotations.
+- Conservative aliases90filenameprefixes->19cultivar/ordinal groups acrossbatch/treatment.
+  User unsure of physical IDs: aliases canmergeunrelatedfruit andcannotprove independence
+  ifrenumbered. No resulting group crosses splits. Heldouts useonly originalvalid/test;
+  originaltrain augmentedvariants ofheldout groups excluded, not copied intoheldouts.
+- Removedonly2confirmed backgroundboxrows inCOPY; quarantined7files/65boxes fromcapture
+  B2_Latundan3_CH_01131 withcontradictory cultivar filename/labels; no relabeling.
+- preflight.json in trainingroot: verifiedall5536copied labeltexts andimagesizes against
+  source,11sample imagehashes,2oldsource defectrowsstillintact,group separation/coverage.
+- Prep utility23synthetic tests PASS(55.17s), scopedRuff/diff PASS. Agent onlyfixed2E501
+  constants andstrengthenedCLI alias+quarantine/sourcepreservation test. App untouched.
+
+ACTIVE TRAINING / EXACT RESUME
+- Root D:\BananaVision-Training\v13-yolov8-20261016 (outside appcheckout).
+- Separate venv Python3.12, torch2.11.0+cu126/torchvision0.26.0, ultralytics8.4.40.
+  pipcheck PASS, CUDA arithmeticprobe PASS onRTX2050 4GB. Appenv unchanged.
+- Official COCO yolov8n.pt downloadedlocally; pretrained-model.json recordsSHA256.
+  Traininghead overrides80->12 classes. AMPcheck PASS; data scan no corruptimages.
+- training-plan.json:100epochs,patience20,640,batch16,workers2,AMP,seed42, hueaug0.
+- ACTIVE hiddenjob: job-b16.json, wrapperPID4280 (started18:02:55UTC Oct16/02:02Oct17local).
+  stdout=train-b16.stdout.log, stderr=train-b16.stderr.log; status.json atomic epochstate.
+  Output best: runs/yolov8n_v13_b16/weights/best.pt whenavailable.
+- Originalbatch4job4652+child29848 stopped duringepoch1 for lowGPUthroughput; original
+  plan/logs/run retained, batch4-attempt.json recordsreason. No liveprocess touched.
+- NEXT: inspectbatch16 firstepoch/memory/errorlogs. IfOOM, verifyownprocess finished,
+  choosebatch8 withNEWrun/log/jobname; do notdeleteoldruns. Do not duplicatejobs.
+- Agent /root/review_inference writingtrainingroot/evaluate.py (no inference yet): local
+  weights,preparedsplit valid/test,conf.5,NMSIoUfixed,640; maximum-cardinality spatial/
+  exactclassmatchingIoU>=.5,countMAE/bias/perview/class,immutableJSONreports.
+- Rootnextprepares post-training supervisor: waittraining_complete/failed usingpsutil
+  (NEVERos.kill(pid,0)onWindows), candidatevalidation.45/.65 calibration, freezechoice,
+  candidate+oldbaseline TESTonce, humanreport. No automatic appdeployment. Needvalidate
+  evaluatorschema/geometry andsupervisor beforelaunching hiddenpersistentjob.
+- Currentlongjobs arebackgroundprocesses, not exec sessions. GPUsetup/prep/preflight
+  sessionsfinished. No trainingcompleteclaim ornewmodelaccuracyclaimyet.
+
+EXISTING MODEL EVIDENCE / COUNT LIMITATION
+- OldYOLO26 all417originalvalidation: IoU.45->.65 countMAE.938->.844, exact161->188,
+  spatialrecall92.95->97.06%,precision92.47->92.39%;bias+.046->+.446.
+ 76imagesimprove/50worse/291tie; all4views/10classesbenefit,CardabaRipe/Overripeworsen.
+- Candidate.65 needsnewmodelcalibration; productiondefaultremains.45. Evidencein
+  docs/yolo-dataset-audit-2026-10-16.md and docs/audits/yolo-v13-overlap-validation-2026-10-16.json.
+- Count=max(perviewretainedboxes), notuniqueidentityfusion. Evenperfectperviewdetection
+  canunderestimatephysical19 ifnoindividualviewseesall19; summingcountsduplicatesfruit.
+- Originalheldoutscenesrelatedtotrain, background/framing differfromlive. Newtest identity
+  proxy uncertain; oldbaselinemayalreadyhaveseenrelatedbunches. No liveaccuracyguarantee.
+- Relevant Obsidian Development Decisions updated. Currentapptestresults remain in
+  archivedcompleted-module checkpoint; do notrepeatapp/frontend suitesforoffline-only work.

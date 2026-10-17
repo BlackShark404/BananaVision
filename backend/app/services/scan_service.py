@@ -161,7 +161,10 @@ async def _execute_scan_pipeline(
 
         for cap in captures:
             # Classify
-            result = await run_blocking(banana_classifier.predict, cap.frame, confidence_threshold=confidence_threshold)
+            result = await run_blocking(
+                banana_classifier.predict, cap.frame,
+                confidence_threshold=confidence_threshold, camera_label=cap.camera_label,
+            )
             classification_results.append((cap.camera_id, cap.camera_label, result))
 
             # Store per-camera detection record

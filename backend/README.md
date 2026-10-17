@@ -36,6 +36,27 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 open http://localhost:8000/docs
 ```
 
+## Top-camera overlap refinement
+
+`YOLO_TOP_OVERLAP_REFINEMENT` defaults to `true`. For the calibrated existing
+YOLO26m checkpoint, the configured `Top` view uses NMS IoU 0.65 when detection
+confidence is 0.50 and the configured baseline IoU is 0.45. Other views keep
+their configured IoU. Set `YOLO_TOP_OVERLAP_REFINEMENT=false` before startup
+to use the baseline for every view.
+
+The classifier identifies the checkpoint by SHA-256, independently of its filename.
+Different weights, custom confidence/IoU thresholds and unidentified checkpoints
+use the baseline; the new YOLOv8n candidate did not pass this calibration's guards.
+The calibrated checkpoint uses image size 640; custom checkpoints retain their saved
+resolution and bypass this profile at other sizes. Inputs remain full-frame BGR,
+with original-pixel box coordinates.
+Explicit inference options prevent a Top prediction from changing later views.
+No database migration or frontend change is needed.
+
+See the [dataset and inference audit](../docs/yolo-dataset-audit-2026-10-16.md)
+for the validation results and limits. These offline measurements do not establish
+an exact physical bunch count or accuracy on the live camera scene.
+
 ## Project Structure
 
 ```
