@@ -2,6 +2,12 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-10-17: Detection Box Cropping and Duplicate Suppression Resolution
+
+- In `classification.py`: Pass-1 nested duplicate box suppression was previously miscoded as `_box_containment == 1.0`, which prevented real-world floating-point bounding boxes from being deduplicated. Implemented `_is_same_class_sub_box(det, existing)` to cleanly suppress nested sub-boxes (substantially smaller area ratio <= 0.85 and containment >= 0.80) and near-identical same-class duplicates (IoU >= 0.80), while preserving distinct neighboring fingers of equal size.
+- In `_unique_box_detections`: Clustered detections with IoU >= 0.70 or containment >= 0.85 to avoid floating-point coordinate jitter on coincident hypotheses inflating the finger count.
+- In `BoundingBoxOverlay.tsx` and `Kiosk.tsx`: Replaced rigid `aspect-[4/3]` with natural image aspect ratio (`aspectRatio: imgNaturalSize.w / imgNaturalSize.h`), preventing 16:9 camera captures from having the ends of banana bunches and edge boxes sliced off. Implemented visual display deduplication `deduplicateDisplayBoxes` to prevent overlapping clashing boxes from rendering over the same finger.
+
 ## 2026-10-17: Split Camera Cultivars Require Verification
 
 - User evidence shows the same known Lakatan bunch predicted as Lakatan from Top/Right and Latundan from Left/Rear. Higher wrong-view scores can win weighted fusion; the mean winning score is not cross-view agreement. This is a real unresolved recognition failure, not a cultivar name-map swap.
