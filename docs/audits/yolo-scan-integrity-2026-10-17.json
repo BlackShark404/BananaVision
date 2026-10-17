@@ -1,0 +1,1066 @@
+{
+  "format_version": 1,
+  "created_utc": "2026-10-17T10:31:09.509423+00:00",
+  "scope": "Prepared static VALID only; 137 images / 1183 visible labeled fingers. No frozen TEST rerun, model training, station database/captures/cameras, or live scan evaluation.",
+  "checkpoint": {
+    "path": "D:\\KENT EDUCATION PROJECTS\\BananaVision\\backend\\app\\ml\\weights\\banana_yolo26m.pt",
+    "sha256": "e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89",
+    "class_names": [
+      "cardaba_overripe",
+      "cardaba_ripe",
+      "cardaba_semi_ripe",
+      "cardaba_unripe",
+      "lakatan_overripe",
+      "lakatan_ripe",
+      "lakatan_semi_ripe",
+      "lakatan_unripe",
+      "latundan_overripe",
+      "latundan_ripe",
+      "latundan_semi_ripe",
+      "latundan_unripe"
+    ]
+  },
+  "runtime": {
+    "configuration": {
+      "confidence": 0.5,
+      "base_iou": 0.45,
+      "top_iou": 0.65,
+      "top_rotation_fallback": true,
+      "top_overlap_refinement": true,
+      "image_size": 640,
+      "device": "cuda:0"
+    },
+    "versions": {
+      "torch": "2.11.0+cu126",
+      "ultralytics": "8.4.40",
+      "numpy": "2.5.2"
+    },
+    "before_runtime_source_sha256": {
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\classification_snapshot.py": "f08d9ecb26f932daff4685ac98cccbc7e17386fb0cf7fc989fccf4e3639cf85d",
+      "D:\\KENT EDUCATION PROJECTS\\BananaVision\\backend\\app\\config.py": "e0d21f203b0aa292671f571ed55d47e36098a87c59f40d0430c8d30a249c8978",
+      "D:\\KENT EDUCATION PROJECTS\\BananaVision\\backend\\app\\core\\exceptions.py": "ab58f03b49390611ea9bc069fb718b0ab91ed93868df9a3a6916614ffeaaeae2",
+      "D:\\KENT EDUCATION PROJECTS\\BananaVision\\backend\\app\\schemas\\enums.py": "b1f7bf4872545b62f26a9c850686689bccd2018efd50686430ba501a84573d84",
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\audit_current.py": "f8a8aa7f5aa8c2129d872c62d20de6a2c8d17b9bc9589a246bf317d049b81f5d"
+    },
+    "replay_source_sha256": {
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\classification_snapshot.py": "f08d9ecb26f932daff4685ac98cccbc7e17386fb0cf7fc989fccf4e3639cf85d",
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\classification_final_snapshot.py": "7d892aebacdb3af0270129e8928081f0e9379a1fdc89214c8528a70e18efab11",
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\replay_final.py": "1ef0c24843337cc33b42043c2a4789b1bc2fdaf5b8e35e9da9583c2aed86b16c"
+    },
+    "before_runtime_replay_identical": true,
+    "cached_predictor_calls_replayed": 168,
+    "inference_wall_seconds": 15.443404099998588,
+    "note": "After results replay the identical cached original/180-degree-rotated YOLO boxes through revised application code; no model reinference or threshold tuning. Source hashes identify frozen snapshots and may differ from later formatting-only edits.",
+    "final_application_classification_source": {
+      "path": "D:\\KENT EDUCATION PROJECTS\\BananaVision\\backend\\app\\services\\classification.py",
+      "sha256": "7d892aebacdb3af0270129e8928081f0e9379a1fdc89214c8528a70e18efab11"
+    },
+    "final_source_replayed_with_identical_metrics_and_per_image_outputs": true,
+    "final_replay_report": "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\final-valid-replay.json"
+  },
+  "provenance": {
+    "external_artifacts": [
+      {
+        "path": "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\current-valid-audit.json",
+        "sha256": "901d07ad8ebe459691f8fe0a93b08bac99003b95c887bd0a2b8ae123924a7bc5"
+      },
+      {
+        "path": "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\revised-valid-replay.json",
+        "sha256": "24596644f571fea5f07f9a4b7196527c271d50a967624b1ea91094832a8cf72a"
+      },
+      {
+        "path": "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\raw-predictor-calls.json",
+        "sha256": "e81ba83a6c2e36add0d59435208078b86085eef83d32bb8f2d42b420b1ae5ee2"
+      },
+      {
+        "path": "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\classification_snapshot.py",
+        "sha256": "f08d9ecb26f932daff4685ac98cccbc7e17386fb0cf7fc989fccf4e3639cf85d"
+      },
+      {
+        "path": "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\classification_revised_snapshot.py",
+        "sha256": "eb2e98e9f61e2f9dd8c27a495a652c7af1bb79114f0e715f2ec0e355b6d7a138"
+      },
+      {
+        "path": "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\audit_current.py",
+        "sha256": "f8a8aa7f5aa8c2129d872c62d20de6a2c8d17b9bc9589a246bf317d049b81f5d"
+      },
+      {
+        "path": "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\replay_revised.py",
+        "sha256": "a2635a967b8fdb12edd039aaf827138a4bfce19cbcd3ea05fe75c28e26fcebc6"
+      },
+      {
+        "path": "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\final-valid-replay.json",
+        "sha256": "f99d63f7b92935c2c6fdbffb6902c21b35446398948960b1f6767c80ca7c0942"
+      },
+      {
+        "path": "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\classification_final_snapshot.py",
+        "sha256": "7d892aebacdb3af0270129e8928081f0e9379a1fdc89214c8528a70e18efab11"
+      },
+      {
+        "path": "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\replay_final.py",
+        "sha256": "1ef0c24843337cc33b42043c2a4789b1bc2fdaf5b8e35e9da9583c2aed86b16c"
+      }
+    ],
+    "dataset_manifest": {
+      "path": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\manifest.json",
+      "sha256": "0d42e5df62cd0af3ad447414a7049f8e1abfd59678b8760576141b7436189ea2"
+    },
+    "original_valid_reference": {
+      "path": "D:\\BananaVision-Training\\v13-yolov8-20261016\\evaluations\\baseline-yolo26-valid-iou0.45.json",
+      "sha256": "cfb4395e1e9de073745621108bc742c568a61220071d5c946685e32811c823ae"
+    }
+  },
+  "matching": {
+    "iou_inclusive_threshold": 0.5,
+    "assignment": "Separate spatial and exact combined cultivar/ripeness maximum-cardinality one-to-one Hungarian assignments; maximum total IoU breaks ties.",
+    "count_definition": "Per-photo visible labeled instance count; no physical-finger matching across views.",
+    "confidence_outcomes": "Correct/wrong combined score means use spatially matched pairs, so their counts differ from the separate exact-class assignment TP count."
+  },
+  "before": {
+    "overall": {
+      "images": 137,
+      "ground_truth_boxes": 1183,
+      "predicted_boxes": 1067,
+      "count_mae": 1.5182481751824817,
+      "count_bias_predicted_minus_ground_truth": -0.8467153284671532,
+      "exact_count_images": 30,
+      "exact_count_fraction": 0.21897810218978103,
+      "under_count_images": 85,
+      "over_count_images": 22,
+      "spatial": {
+        "tp": 985,
+        "fp": 82,
+        "fn": 198,
+        "precision": 0.9231490159325211,
+        "recall": 0.8326289095519864
+      },
+      "combined_class": {
+        "tp": 945,
+        "fp": 122,
+        "fn": 238,
+        "precision": 0.8856607310215557,
+        "recall": 0.7988165680473372
+      },
+      "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+        "Cardaba": {
+          "Cardaba": 383,
+          "Lakatan": 0,
+          "Latundan": 0
+        },
+        "Lakatan": {
+          "Cardaba": 0,
+          "Lakatan": 173,
+          "Latundan": 0
+        },
+        "Latundan": {
+          "Cardaba": 0,
+          "Lakatan": 0,
+          "Latundan": 429
+        }
+      },
+      "confidence_by_outcome": {
+        "correct_cultivar": {
+          "count": 985,
+          "mean": 0.8941262418848609
+        },
+        "correct_combined": {
+          "count": 935,
+          "mean": 0.898606182865918
+        },
+        "unmatched_predictions": {
+          "count": 82,
+          "mean": 0.7568201720714569
+        },
+        "correct_image_cultivar": {
+          "count": 137,
+          "mean": 0.8904160583941605
+        },
+        "wrong_combined": {
+          "count": 50,
+          "mean": 0.810351345539093
+        }
+      },
+      "image_cultivar_correct": 137,
+      "image_cultivar_accuracy": 1.0,
+      "image_cultivar_conflict_flagged": 5,
+      "image_cultivar_errors_flagged": 0
+    },
+    "by_view": {
+      "back": {
+        "images": 30,
+        "ground_truth_boxes": 303,
+        "predicted_boxes": 287,
+        "count_mae": 1.3333333333333333,
+        "count_bias_predicted_minus_ground_truth": -0.5333333333333333,
+        "exact_count_images": 7,
+        "exact_count_fraction": 0.23333333333333334,
+        "under_count_images": 18,
+        "over_count_images": 5,
+        "spatial": {
+          "tp": 267,
+          "fp": 20,
+          "fn": 36,
+          "precision": 0.9303135888501742,
+          "recall": 0.8811881188118812
+        },
+        "combined_class": {
+          "tp": 259,
+          "fp": 28,
+          "fn": 44,
+          "precision": 0.9024390243902439,
+          "recall": 0.8547854785478548
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 85,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 30,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 152
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 267,
+            "mean": 0.9021526041548796
+          },
+          "correct_combined": {
+            "count": 257,
+            "mean": 0.9055642160924028
+          },
+          "unmatched_predictions": {
+            "count": 20,
+            "mean": 0.7347278028726578
+          },
+          "correct_image_cultivar": {
+            "count": 30,
+            "mean": 0.9001333333333333
+          },
+          "wrong_combined": {
+            "count": 10,
+            "mean": 0.8144741773605346
+          }
+        },
+        "image_cultivar_correct": 30,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 1,
+        "image_cultivar_errors_flagged": 0
+      },
+      "left": {
+        "images": 34,
+        "ground_truth_boxes": 260,
+        "predicted_boxes": 237,
+        "count_mae": 1.2647058823529411,
+        "count_bias_predicted_minus_ground_truth": -0.6764705882352942,
+        "exact_count_images": 10,
+        "exact_count_fraction": 0.29411764705882354,
+        "under_count_images": 20,
+        "over_count_images": 4,
+        "spatial": {
+          "tp": 216,
+          "fp": 21,
+          "fn": 44,
+          "precision": 0.9113924050632911,
+          "recall": 0.8307692307692308
+        },
+        "combined_class": {
+          "tp": 208,
+          "fp": 29,
+          "fn": 52,
+          "precision": 0.8776371308016878,
+          "recall": 0.8
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 100,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 39,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 77
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 216,
+            "mean": 0.8951176791279404
+          },
+          "correct_combined": {
+            "count": 207,
+            "mean": 0.8976232818359338
+          },
+          "unmatched_predictions": {
+            "count": 21,
+            "mean": 0.778749236038753
+          },
+          "correct_image_cultivar": {
+            "count": 34,
+            "mean": 0.8885882352941177
+          },
+          "wrong_combined": {
+            "count": 9,
+            "mean": 0.8374888168440925
+          }
+        },
+        "image_cultivar_correct": 34,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 0,
+        "image_cultivar_errors_flagged": 0
+      },
+      "right": {
+        "images": 42,
+        "ground_truth_boxes": 327,
+        "predicted_boxes": 308,
+        "count_mae": 1.2142857142857142,
+        "count_bias_predicted_minus_ground_truth": -0.4523809523809524,
+        "exact_count_images": 12,
+        "exact_count_fraction": 0.2857142857142857,
+        "under_count_images": 21,
+        "over_count_images": 9,
+        "spatial": {
+          "tp": 281,
+          "fp": 27,
+          "fn": 46,
+          "precision": 0.9123376623376623,
+          "recall": 0.8593272171253823
+        },
+        "combined_class": {
+          "tp": 270,
+          "fp": 38,
+          "fn": 57,
+          "precision": 0.8766233766233766,
+          "recall": 0.8256880733944955
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 119,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 50,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 112
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 281,
+            "mean": 0.8788765399481479
+          },
+          "correct_combined": {
+            "count": 265,
+            "mean": 0.8844716632141257
+          },
+          "unmatched_predictions": {
+            "count": 27,
+            "mean": 0.7695039223741602
+          },
+          "correct_image_cultivar": {
+            "count": 42,
+            "mean": 0.8768809523809524
+          },
+          "wrong_combined": {
+            "count": 16,
+            "mean": 0.7862073108553886
+          }
+        },
+        "image_cultivar_correct": 42,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 3,
+        "image_cultivar_errors_flagged": 0
+      },
+      "top": {
+        "images": 31,
+        "ground_truth_boxes": 293,
+        "predicted_boxes": 235,
+        "count_mae": 2.3870967741935485,
+        "count_bias_predicted_minus_ground_truth": -1.8709677419354838,
+        "exact_count_images": 1,
+        "exact_count_fraction": 0.03225806451612903,
+        "under_count_images": 26,
+        "over_count_images": 4,
+        "spatial": {
+          "tp": 221,
+          "fp": 14,
+          "fn": 72,
+          "precision": 0.9404255319148936,
+          "recall": 0.7542662116040956
+        },
+        "combined_class": {
+          "tp": 208,
+          "fp": 27,
+          "fn": 85,
+          "precision": 0.8851063829787233,
+          "recall": 0.7098976109215017
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 79,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 54,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 88
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 221,
+            "mean": 0.90285012004602
+          },
+          "correct_combined": {
+            "count": 206,
+            "mean": 0.9090959580199233
+          },
+          "unmatched_predictions": {
+            "count": 14,
+            "mean": 0.731025585106441
+          },
+          "correct_image_cultivar": {
+            "count": 31,
+            "mean": 0.9013548387096775
+          },
+          "wrong_combined": {
+            "count": 15,
+            "mean": 0.8170739452044169
+          }
+        },
+        "image_cultivar_correct": 31,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 1,
+        "image_cultivar_errors_flagged": 0
+      }
+    }
+  },
+  "after": {
+    "overall": {
+      "images": 137,
+      "ground_truth_boxes": 1183,
+      "predicted_boxes": 1205,
+      "count_mae": 0.9343065693430657,
+      "count_bias_predicted_minus_ground_truth": 0.16058394160583941,
+      "exact_count_images": 55,
+      "exact_count_fraction": 0.40145985401459855,
+      "under_count_images": 42,
+      "over_count_images": 40,
+      "spatial": {
+        "tp": 1110,
+        "fp": 95,
+        "fn": 73,
+        "precision": 0.921161825726141,
+        "recall": 0.9382924767540152
+      },
+      "combined_class": {
+        "tp": 1069,
+        "fp": 136,
+        "fn": 114,
+        "precision": 0.8871369294605809,
+        "recall": 0.9036348267117498
+      },
+      "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+        "Cardaba": {
+          "Cardaba": 418,
+          "Lakatan": 0,
+          "Latundan": 0
+        },
+        "Lakatan": {
+          "Cardaba": 0,
+          "Lakatan": 190,
+          "Latundan": 0
+        },
+        "Latundan": {
+          "Cardaba": 0,
+          "Lakatan": 0,
+          "Latundan": 502
+        }
+      },
+      "confidence_by_outcome": {
+        "correct_cultivar": {
+          "count": 1110,
+          "mean": 0.8901241670857679
+        },
+        "correct_combined": {
+          "count": 1059,
+          "mean": 0.8940861745754203
+        },
+        "unmatched_predictions": {
+          "count": 95,
+          "mean": 0.7580852696770116
+        },
+        "correct_image_cultivar": {
+          "count": 137,
+          "mean": 0.8853722627737227
+        },
+        "wrong_combined": {
+          "count": 51,
+          "mean": 0.807854246859457
+        }
+      },
+      "image_cultivar_correct": 137,
+      "image_cultivar_accuracy": 1.0,
+      "image_cultivar_conflict_flagged": 16
+    },
+    "by_view": {
+      "back": {
+        "images": 30,
+        "ground_truth_boxes": 303,
+        "predicted_boxes": 302,
+        "count_mae": 1.1,
+        "count_bias_predicted_minus_ground_truth": -0.03333333333333333,
+        "exact_count_images": 10,
+        "exact_count_fraction": 0.3333333333333333,
+        "under_count_images": 13,
+        "over_count_images": 7,
+        "spatial": {
+          "tp": 280,
+          "fp": 22,
+          "fn": 23,
+          "precision": 0.9271523178807947,
+          "recall": 0.9240924092409241
+        },
+        "combined_class": {
+          "tp": 272,
+          "fp": 30,
+          "fn": 31,
+          "precision": 0.9006622516556292,
+          "recall": 0.8976897689768977
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 88,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 30,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 162
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 280,
+            "mean": 0.8991609403065273
+          },
+          "correct_combined": {
+            "count": 270,
+            "mean": 0.9022974870823047
+          },
+          "unmatched_predictions": {
+            "count": 22,
+            "mean": 0.7426410534165122
+          },
+          "correct_image_cultivar": {
+            "count": 30,
+            "mean": 0.8971666666666667
+          },
+          "wrong_combined": {
+            "count": 10,
+            "mean": 0.8144741773605346
+          }
+        },
+        "image_cultivar_correct": 30,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 1
+      },
+      "left": {
+        "images": 34,
+        "ground_truth_boxes": 260,
+        "predicted_boxes": 267,
+        "count_mae": 1.0294117647058822,
+        "count_bias_predicted_minus_ground_truth": 0.20588235294117646,
+        "exact_count_images": 12,
+        "exact_count_fraction": 0.35294117647058826,
+        "under_count_images": 11,
+        "over_count_images": 11,
+        "spatial": {
+          "tp": 242,
+          "fp": 25,
+          "fn": 18,
+          "precision": 0.9063670411985019,
+          "recall": 0.9307692307692308
+        },
+        "combined_class": {
+          "tp": 233,
+          "fp": 34,
+          "fn": 27,
+          "precision": 0.8726591760299626,
+          "recall": 0.8961538461538462
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 112,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 42,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 88
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 242,
+            "mean": 0.8889421697490472
+          },
+          "correct_combined": {
+            "count": 232,
+            "mean": 0.8920306121480877
+          },
+          "unmatched_predictions": {
+            "count": 25,
+            "mean": 0.7654199266433716
+          },
+          "correct_image_cultivar": {
+            "count": 34,
+            "mean": 0.880764705882353
+          },
+          "wrong_combined": {
+            "count": 10,
+            "mean": 0.8172903060913086
+          }
+        },
+        "image_cultivar_correct": 34,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 0
+      },
+      "right": {
+        "images": 42,
+        "ground_truth_boxes": 327,
+        "predicted_boxes": 336,
+        "count_mae": 0.8333333333333334,
+        "count_bias_predicted_minus_ground_truth": 0.21428571428571427,
+        "exact_count_images": 18,
+        "exact_count_fraction": 0.42857142857142855,
+        "under_count_images": 12,
+        "over_count_images": 12,
+        "spatial": {
+          "tp": 307,
+          "fp": 29,
+          "fn": 20,
+          "precision": 0.9136904761904762,
+          "recall": 0.9388379204892966
+        },
+        "combined_class": {
+          "tp": 296,
+          "fp": 40,
+          "fn": 31,
+          "precision": 0.8809523809523809,
+          "recall": 0.9051987767584098
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 126,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 53,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 128
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 307,
+            "mean": 0.8765927308545439
+          },
+          "correct_combined": {
+            "count": 291,
+            "mean": 0.8815623759404081
+          },
+          "unmatched_predictions": {
+            "count": 29,
+            "mean": 0.7656805700269239
+          },
+          "correct_image_cultivar": {
+            "count": 42,
+            "mean": 0.8740238095238096
+          },
+          "wrong_combined": {
+            "count": 16,
+            "mean": 0.7862073108553886
+          }
+        },
+        "image_cultivar_correct": 42,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 3
+      },
+      "top": {
+        "images": 31,
+        "ground_truth_boxes": 293,
+        "predicted_boxes": 300,
+        "count_mae": 0.8064516129032258,
+        "count_bias_predicted_minus_ground_truth": 0.22580645161290322,
+        "exact_count_images": 15,
+        "exact_count_fraction": 0.4838709677419355,
+        "under_count_images": 6,
+        "over_count_images": 10,
+        "spatial": {
+          "tp": 281,
+          "fp": 19,
+          "fn": 12,
+          "precision": 0.9366666666666666,
+          "recall": 0.9590443686006825
+        },
+        "combined_class": {
+          "tp": 268,
+          "fp": 32,
+          "fn": 25,
+          "precision": 0.8933333333333333,
+          "recall": 0.9146757679180887
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 92,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 65,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 124
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 281,
+            "mean": 0.8969209563265491
+          },
+          "correct_combined": {
+            "count": 266,
+            "mean": 0.9012450524290702
+          },
+          "unmatched_predictions": {
+            "count": 19,
+            "mean": 0.7547243551204079
+          },
+          "correct_image_cultivar": {
+            "count": 31,
+            "mean": 0.8943870967741935
+          },
+          "wrong_combined": {
+            "count": 15,
+            "mean": 0.820240318775177
+          }
+        },
+        "image_cultivar_correct": 31,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 12
+      }
+    },
+    "by_ground_truth_cultivar": {
+      "Cardaba": {
+        "images": 51,
+        "ground_truth_boxes": 444,
+        "predicted_boxes": 457,
+        "count_mae": 1.1176470588235294,
+        "count_bias_predicted_minus_ground_truth": 0.2549019607843137,
+        "exact_count_images": 16,
+        "exact_count_fraction": 0.3137254901960784,
+        "under_count_images": 16,
+        "over_count_images": 19,
+        "spatial": {
+          "tp": 418,
+          "fp": 39,
+          "fn": 26,
+          "precision": 0.9146608315098468,
+          "recall": 0.9414414414414415
+        },
+        "combined_class": {
+          "tp": 405,
+          "fp": 52,
+          "fn": 39,
+          "precision": 0.8862144420131292,
+          "recall": 0.9121621621621622
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 418,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 418,
+            "mean": 0.8853055950272026
+          },
+          "correct_combined": {
+            "count": 400,
+            "mean": 0.8905489411950112
+          },
+          "unmatched_predictions": {
+            "count": 39,
+            "mean": 0.7603213221598895
+          },
+          "correct_image_cultivar": {
+            "count": 51,
+            "mean": 0.8804117647058824
+          },
+          "wrong_combined": {
+            "count": 18,
+            "mean": 0.7687867912981245
+          }
+        },
+        "image_cultivar_correct": 51,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 7
+      },
+      "Lakatan": {
+        "images": 23,
+        "ground_truth_boxes": 198,
+        "predicted_boxes": 216,
+        "count_mae": 1.1304347826086956,
+        "count_bias_predicted_minus_ground_truth": 0.782608695652174,
+        "exact_count_images": 9,
+        "exact_count_fraction": 0.391304347826087,
+        "under_count_images": 4,
+        "over_count_images": 10,
+        "spatial": {
+          "tp": 190,
+          "fp": 26,
+          "fn": 8,
+          "precision": 0.8796296296296297,
+          "recall": 0.9595959595959596
+        },
+        "combined_class": {
+          "tp": 184,
+          "fp": 32,
+          "fn": 14,
+          "precision": 0.8518518518518519,
+          "recall": 0.9292929292929293
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 190,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 190,
+            "mean": 0.8967825478629062
+          },
+          "correct_combined": {
+            "count": 180,
+            "mean": 0.9040362116363313
+          },
+          "unmatched_predictions": {
+            "count": 26,
+            "mean": 0.7776973843574524
+          },
+          "correct_image_cultivar": {
+            "count": 23,
+            "mean": 0.8886956521739131
+          },
+          "wrong_combined": {
+            "count": 10,
+            "mean": 0.7662165999412537
+          }
+        },
+        "image_cultivar_correct": 23,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 4
+      },
+      "Latundan": {
+        "images": 63,
+        "ground_truth_boxes": 541,
+        "predicted_boxes": 532,
+        "count_mae": 0.7142857142857143,
+        "count_bias_predicted_minus_ground_truth": -0.14285714285714285,
+        "exact_count_images": 30,
+        "exact_count_fraction": 0.47619047619047616,
+        "under_count_images": 22,
+        "over_count_images": 11,
+        "spatial": {
+          "tp": 502,
+          "fp": 30,
+          "fn": 39,
+          "precision": 0.943609022556391,
+          "recall": 0.9279112754158965
+        },
+        "combined_class": {
+          "tp": 480,
+          "fp": 52,
+          "fn": 61,
+          "precision": 0.9022556390977443,
+          "recall": 0.8872458410351202
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 502
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 502,
+            "mean": 0.8916163399399989
+          },
+          "correct_combined": {
+            "count": 479,
+            "mean": 0.8933009693169643
+          },
+          "unmatched_predictions": {
+            "count": 30,
+            "mean": 0.7381812353928884
+          },
+          "correct_image_cultivar": {
+            "count": 63,
+            "mean": 0.8881746031746032
+          },
+          "wrong_combined": {
+            "count": 23,
+            "mean": 0.8565321020458055
+          }
+        },
+        "image_cultivar_correct": 63,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 5
+      }
+    }
+  },
+  "per_image_count_absolute_error_change": {
+    "worsened": 16,
+    "unchanged": 62,
+    "improved": 59
+  },
+  "original_plain_yolo_iou045_valid_context": {
+    "images": 137,
+    "ground_truth_boxes": 1183,
+    "predicted_boxes": 1201,
+    "count_mae": 0.9781021897810219,
+    "count_bias_predicted_minus_ground_truth": 0.13138686131386862,
+    "exact_count_images": 54,
+    "exact_count_fraction": 0.39416058394160586,
+    "under_count_images": 43,
+    "over_count_images": 40,
+    "spatial": {
+      "tp": 1104,
+      "fp": 97,
+      "fn": 79,
+      "precision": 0.9192339716902581,
+      "recall": 0.9332206255283179
+    },
+    "combined_class": {
+      "tp": 1062,
+      "fp": 139,
+      "fn": 121,
+      "precision": 0.884263114071607,
+      "recall": 0.8977176669484361
+    }
+  },
+  "interpretation": [
+    "Removing over-aggressive application suppression recovers distinct neighboring detections: visible count MAE 1.51825 -> 0.93431; Top MAE 2.38710 -> 0.80645.",
+    "Overall spatial recall improves 83.26% -> 93.83%, while spatial precision falls slightly 92.31% -> 92.12%; 16 of 137 image counts worsen.",
+    "Exact visible counts improve 30/137 -> 55/137 (40.15%); automatic counting remains limited.",
+    "All 137 dominant image cultivar votes agree with prepared labels and no cultivar mismatch occurs among 1110 final spatial matches. This does not establish station cultivar correctness or reproduce the reported Lakatan/Latundan error.",
+    "The prepared images cannot establish the physical 17-finger count or unique cross-view counting for the attached live scan.",
+    "Mean model scores of correct/wrong outcomes are descriptive scores, not calibrated probabilities or verified accuracy percentages.",
+    "No model weights, class mapping, confidence cutoff, NMS thresholds, or training data were changed during this audit."
+  ],
+  "limitations": [
+    "Visible labeled fingers per still photo; does not validate unique physical fingers across camera views.",
+    "Prepared VALID only, 137 images; no frozen TEST runs or tuning.",
+    "Ground truth is dataset labels; not independently relabeled cultivar or bounding-box truth.",
+    "Filename prefix before capture number/camera is an unverified bunch proxy; aliases join proxies but do not establish physical identity. All sessions/views/augmentations for each resulting group stay together.",
+    "Baseline training provenance unknown; may have seen related held-out photographs.",
+    "Confidence is a model score, not calibrated probability of cultivar correctness.",
+    "Attached station screenshots/reference images were not evaluated.",
+    "Prepared validation photographs largely use controlled/plain backgrounds and differ from the cluttered station scene, lighting, pose, overlap, and camera scale.",
+    "Filename-derived group identities are uncertain; possible related training/validation images and unknown baseline training provenance prevent a claim of independent unseen-scene accuracy.",
+    "No independent expert cultivar relabeling or fresh station-domain holdout was available. Existing dataset class labels are the evaluation reference.",
+    "The actual model run used CUDA and fresh local Ultralytics configuration; app configuration dependencies were reused from the existing backend environment without installs."
+  ],
+  "grouping_assumption": "Filename prefix before capture number/camera is an unverified bunch proxy; aliases join proxies but do not establish physical identity. All sessions/views/augmentations for each resulting group stay together.",
+  "heldout_policy": "Only original valid/test files are copied to held-out splits. Their unaugmented status follows the supplied export convention, not RF hashes. Original train variants assigned to held-out groups are excluded.",
+  "safety": {
+    "fresh_cwd": "C:\\Users\\Kent\\AppData\\Local\\Temp\\bv-valid-audit-x42sm_i1",
+    "env_file": null,
+    "offline": true,
+    "forbidden_app_modules_loaded": [],
+    "inputs_checkpoint_manifest_unmodified": true
+  }
+}

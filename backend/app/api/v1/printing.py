@@ -8,19 +8,16 @@ from sqlalchemy import select
 from app.api.deps import CurrentUser, DbSession
 from app.config import get_settings
 from app.models.print_job import PrintJob
-from app.schemas.enums import RipenessEnum
 from app.schemas.printing import (
-    KioskDemoRequest,
     LabelPreviewResponse,
     LabelPrintRequest,
     PrintJobResponse,
     RetryPrintRequest,
 )
-from app.schemas.scan import KioskDemoResponse
 from app.services import print_jobs
 from app.services.prediction_label import PredictionData
 from app.services.runtime_operations import run_blocking
-from app.services.scan_records import load_authorized_scan, scan_scope, serialize_detail
+from app.services.scan_records import load_authorized_scan, scan_scope
 from app.services.printer_service import PrinterServiceError, list_printers
 
 router = APIRouter(tags=["Printing"])
@@ -53,32 +50,6 @@ async def label(scan_id: UUID, db: DbSession, user: CurrentUser):
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     return label_preview(data)
-
-
-@router.post("/scans/{scan_id}/kiosk-demo", response_model=KioskDemoResponse)
-async def kiosk_demo(
-    scan_id: UUID, body: KioskDemoRequest, db: DbSession,
-    user: CurrentUser, background_tasks: BackgroundTasks,
-):
-    """Replay a saved prediction and print one DEMO label; never create a scan."""
-    scan = await load_authorized_scan(db, scan_id, user)
-    detail = await serialize_detail(db, scan, user)
-    job, created = await print_jobs.create_job(
-        db, scan, user, LabelPrintRequest(request_id=body.request_id, quantity=1), demo=True,
-    )
-    if created:
-        background_tasks.add_task(print_jobs.submit_job, job.id)
-    # Replayed requests must display the same values as their immutable printed label.
-    data = PredictionData(**job.label_data)
-    detail = detail.model_copy(update={
-        "ripeness": RipenessEnum(data.ripeness), "confidence": data.confidence,
-        "spoilage_days": data.spoilage_days,
-        "temperature": data.temperature, "humidity": data.humidity,
-    })
-    return KioskDemoResponse(
-        scan=detail, label=label_preview(data),
-        print_job=print_jobs.serialize_job(job),
-    )
 
 
 @router.post("/scans/{scan_id}/print", response_model=PrintJobResponse)

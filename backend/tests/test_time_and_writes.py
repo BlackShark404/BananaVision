@@ -423,7 +423,10 @@ async def test_camera_monitor_retries_persistence_failure_before_announcing_stat
     monkeypatch.setattr(startup.asyncio, "sleep", tick)
     monkeypatch.setattr(startup.asyncio, "get_event_loop", lambda: Loop())
     monkeypatch.setattr(startup, "sensor_reader", SimpleNamespace(start_polling=no_sensor))
-    monkeypatch.setattr(startup, "camera_manager", SimpleNamespace(_device_ids=[0], probe_all=probe, _get_camera_id=lambda _: "CAM-001"))
+    monkeypatch.setattr(startup, "camera_manager", SimpleNamespace(
+        _device_ids=[0], probe_all=probe, _get_camera_id=lambda _: "CAM-001",
+        get_resolution=lambda _: (640, 480),
+    ))
     monkeypatch.setattr(startup, "settings", SimpleNamespace(camera_device_ids=[0], camera_labels=["Camera 1"]))
     monkeypatch.setattr(startup, "async_session_factory", CameraSession)
     monkeypatch.setattr(startup.ws_manager, "send_to_room", send)

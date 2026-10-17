@@ -295,9 +295,17 @@ was changed following this retest report.
 
 ## Counting semantics and next data needed
 
-`classification.py` counts retained YOLO boxes per image. `fusion_engine.py`
-selects the maximum per-camera count, and the API/UI preserve that number.
-There is no cross-camera correspondence for individual physical fingers.
+As of the October 17 counting-integrity fix, `classification.py` counts unique
+exact box geometries per image while preserving competing class boxes for review.
+Its pass-1 fragment cleanup preserves distinct overlapping neighbors retained by
+the configured NMS. Conflicting duplicate class hypotheses require review, even
+when the selected model score is high. Raw box badges can exceed finger counts.
+
+`fusion_engine.py` optionally estimates additional fingers from peripheral box
+positions. If Rear supplies the count anchor, its own peripheral boxes are not
+added again. Any estimate above every individual view's count is flagged for
+review; disabling `MULTI_CAMERA_FINGER_FUSION` uses the maximum per-camera count.
+There is still no cross-camera correspondence for individual physical fingers.
 Adding camera counts would count some fingers repeatedly; a multiplier would
 not be justified by one reported total. Even perfect per-view detection can
 return 12 for a physical total of 19 when each individual camera sees at most
@@ -311,3 +319,41 @@ Report per-view misses/duplicates separately from whole-bunch count error.
 Completely hidden fingers cannot be established from an individual 2D view.
 The current export and screenshots do not establish that a parameter change
 will recover exactly seven missing fingers.
+
+The [October 17 integrity audit](audits/yolo-scan-integrity-2026-10-17.json)
+compares the resumed checkout with the corrected application postprocessing on
+all 137 prepared VALID images using cached identical model calls. Visible-count
+MAE decreases from 1.518 to 0.934; 55 images have exact visible counts. Count error
+improves on 59 images, worsens on 16 and ties on 62. These figures are per-image
+visible-label metrics, not physical bunch counts or live-station accuracy.
+No frozen TEST image was rerun or used to select this change.
+
+All validation image cultivar decisions agree with the existing dataset labels;
+the reported Lakatan-to-Latundan station error is not reproduced by this set.
+Dataset label correctness, uncertain bunch grouping and background differences
+remain material limitations. Wrong combined-class spatial matches still have
+an average model score of approximately 80.8%; confidence is not an accuracy
+measurement. Investigating the new 17/18-finger scan requires original offline
+images from all four views, verified cultivar/ripeness and physical total, and
+visible-instance annotations to separate missed, repeated and hidden fingers.
+
+### Supplied YOLO26n Run and Cross-View Cultivar Conflict
+
+The later supplied `v26n_run5_khen27_1024` training run saves input size 800 and
+the expected 12 classes. Its `best.pt` matches local `banana_yolov26.pt`, not the
+audited default YOLO26m weights. The [application comparison](audits/yolo26n-supplied-run-validation-2026-10-17.json)
+uses the same 137 prepared VALID images without frozen TEST inference or tuning.
+Candidate versus default visible-count MAE is 0.942 versus 0.934; combined-class
+recall is 88.50% versus 90.36%. Exact-count images are 58 versus 55. Both match
+all image cultivar labels in this set, so neither comparison establishes a fix
+for the station Lakatan-to-Latundan error or an overall replacement benefit.
+
+These 137 validation images occupy just three inferred filename groups, with
+uncertain physical identities. The user evidence instead shows a known Lakatan
+bunch split between Top/Right Lakatan predictions and Left/Rear Latundan
+predictions, some above 90% score. Fusion now requires review when the weighted
+candidate lacks a strict camera majority; the kiosk exposes the split as
+`Uncertain` and withholds confidence/spoilage from the main result card.
+This is uncertainty disclosure, not an improvement to trained recognition.
+Follow the [station cultivar protocol](knowledge/Testing%20and%20Validation.md#station-cultivar-recognition-protocol)
+for trusted labels, physical-bunch splits and untouched station evaluation.

@@ -128,6 +128,59 @@ def _box_iou(a: Detection, b: Detection) -> float:
     return inter / union if union > 0 else 0.0
 
 
+def _box_containment(a: Detection, b: Detection) -> float:
+    """Intersection over the smaller box's area (containment ratio in [0, 1])."""
+    ax2, ay2 = a.x + a.w, a.y + a.h
+    bx2, by2 = b.x + b.w, b.y + b.h
+    inter_w = max(0.0, min(ax2, bx2) - max(a.x, b.x))
+    inter_h = max(0.0, min(ay2, by2) - max(a.y, b.y))
+    inter = inter_w * inter_h
+    min_area = min(a.w * a.h, b.w * b.h)
+    return inter / min_area if min_area > 0 else 0.0
+
+
+def _unique_box_detections(detections: list[Detection]) -> list[Detection]:
+    """Count coincident class hypotheses once, retaining raw boxes for review.
+
+    Exact geometry is deliberately conservative: overlap alone cannot establish
+    that neighboring, occluding fingers are the same physical object.
+    """
+    unique: dict[tuple[float, float, float, float], Detection] = {}
+    for detection in detections:
+        geometry = (detection.x, detection.y, detection.w, detection.h)
+        unique.setdefault(geometry, detection)
+    return list(unique.values())
+
+
+def _is_duplicate_detection(
+    candidate: Detection,
+    existing: Detection,
+    iou_thresh: float = TOP_ROTATION_DEDUP_IOU,
+) -> bool:
+    """Determine whether candidate is a duplicate bounding box of an existing finger.
+
+    Combines standard IoU with containment ratio and longitudinal axis alignment
+    to prevent partial, shifted, or nested bounding boxes from double-counting
+    elongated banana fingers.
+    """
+    if _box_iou(candidate, existing) > iou_thresh:
+        return True
+
+    cont = _box_containment(candidate, existing)
+    if cont >= 0.75:
+        return True
+
+    if cont >= 0.45:
+        min_w = min(candidate.w, existing.w)
+        if min_w > 0:
+            cx_cand = candidate.x + candidate.w / 2
+            cx_exist = existing.x + existing.w / 2
+            if abs(cx_cand - cx_exist) <= 0.25 * min_w:
+                return True
+
+    return False
+
+
 class BananaClassifier:
     """
     YOLO banana classification model wrapper.
@@ -254,11 +307,13 @@ class BananaClassifier:
         detections: list[Detection] = []
         cultivar_votes: dict[str, list[float]] = {}
         class_votes: dict[tuple[str | None, str | None], list[float]] = {}
+        duplicate_label_conflict = False
 
         if results and len(results) > 0:
             result = results[0]
             if result.boxes is not None:
-                for box in result.boxes:
+                raw_boxes = sorted(result.boxes, key=lambda b: float(b.conf[0]), reverse=True)
+                for box in raw_boxes:
                     x1, y1, x2, y2 = box.xyxy[0].tolist()
                     conf = float(box.conf[0])
                     cls_id = int(box.cls[0])
@@ -268,6 +323,15 @@ class BananaClassifier:
                         x=x1, y=y1, w=x2 - x1, h=y2 - y1,
                         cls=cls_name, confidence=conf,
                     )
+                    # Only remove fully nested same-class fragments here. Reapplying
+                    # a lower IoU/alignment cutoff would undo the calibrated NMS and
+                    # remove separate overlapping fingers (including horizontal ones).
+                    if any(
+                        existing.cls == det.cls and _box_containment(det, existing) == 1.0
+                        for existing in detections
+                    ):
+                        continue
+
                     detections.append(det)
 
                     cultivar, ripeness = _parse_class_label(cls_name)
@@ -296,8 +360,8 @@ class BananaClassifier:
             if rot_results and len(rot_results) > 0:
                 rot_result = rot_results[0]
                 if rot_result.boxes is not None:
-                    pass1_detections = list(detections)
-                    for box in rot_result.boxes:
+                    rot_boxes = sorted(rot_result.boxes, key=lambda b: float(b.conf[0]), reverse=True)
+                    for box in rot_boxes:
                         rx1, ry1, rx2, ry2 = box.xyxy[0].tolist()
                         conf = float(box.conf[0])
                         cls_id = int(box.cls[0])
@@ -309,10 +373,22 @@ class BananaClassifier:
                             x=ox1, y=oy1, w=ox2 - ox1, h=oy2 - oy1,
                             cls=cls_name, confidence=conf,
                         )
-                        if any(
-                            _box_iou(candidate, existing) > TOP_ROTATION_DEDUP_IOU
-                            for existing in pass1_detections
-                        ):
+                        # Check against all accepted detections (pass 1 and newly accepted)
+                        # using robust containment and spatial alignment
+                        duplicates = [
+                            existing for existing in detections
+                            if _is_duplicate_detection(
+                                candidate, existing, TOP_ROTATION_DEDUP_IOU,
+                            )
+                        ]
+                        if duplicates:
+                            # Suppression must not conceal cultivar/ripeness disagreement
+                            # between orientations of the same boxed finger.
+                            candidate_label = _parse_class_label(candidate.cls)
+                            duplicate_label_conflict = duplicate_label_conflict or any(
+                                candidate_label != _parse_class_label(existing.cls)
+                                for existing in duplicates
+                            )
                             continue
                         detections.append(candidate)
                         cultivar, ripeness = _parse_class_label(cls_name)
@@ -336,16 +412,18 @@ class BananaClassifier:
             if winning_confs else 0.0
         )
         total_weight = sum(sum(confs) for confs in class_votes.values())
+        unique_detections = _unique_box_detections(detections)
         conflict_detected = (
             best_cultivar is None or best_ripeness is None
             or sum(winning_confs) < total_weight * VOTE_CONFLICT_THRESHOLD
+            or duplicate_label_conflict or len(unique_detections) < len(detections)
         )
 
         return ClassificationResult(
             cultivar=best_cultivar,
             ripeness=best_ripeness,
             confidence=avg_conf,
-            finger_count=len(detections),
+            finger_count=len(unique_detections),
             detections=detections,
             inference_time_ms=elapsed_ms,
             conflict_detected=conflict_detected,

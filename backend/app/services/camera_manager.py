@@ -60,6 +60,7 @@ class CameraManager:
         self.application_error: str | None = None
         self.generation = 0
         self._cameras: dict[int, cv2.VideoCapture] = {}
+        self._resolutions: dict[int, tuple[int, int]] = {}
         self._locks: dict[int, threading.Lock] = {}
         self._device_ids: list[int] = list(settings.camera_device_ids)
         self._labels: list[str] = list(settings.camera_labels)
@@ -178,6 +179,73 @@ class CameraManager:
         return results
 
     @synchronized
+    def get_resolution(self, device_id: int) -> tuple[int, int] | None:
+        """Dimensions measured from a usable frame, not requested driver settings."""
+        return self._resolutions.get(device_id)
+
+    def _try_property(self, cap, device_id: int, prop: int, value: float) -> None:
+        """Unsupported UVC controls must not discard an otherwise usable camera."""
+        try:
+            accepted = cap.set(prop, value)
+        except Exception as exc:
+            logger.warning("Camera %s rejected control %s: %s", device_id, prop, exc)
+            return
+        if not accepted:
+            logger.warning("Camera %s did not accept control %s=%s", device_id, prop, value)
+
+    def _capture_modes(self) -> list[tuple[int, int]]:
+        requested = (settings.camera_resolution_w, settings.camera_resolution_h)
+        modes = [requested]
+        for fallback in [(1280, 720), (640, 480)]:
+            if (fallback not in modes and fallback[0] <= requested[0]
+                    and fallback[1] <= requested[1]):
+                modes.append(fallback)
+        return modes
+
+    def _try_mode(self, cap, device_id: int, backend: str, width: int, height: int):
+        # FPS/dimensions may rebuild DirectShow's graph and reset compression.
+        if sys.platform == "win32":
+            self._try_property(cap, device_id, cv2.CAP_PROP_FPS, settings.camera_fps)
+        self._try_property(cap, device_id, cv2.CAP_PROP_FRAME_WIDTH, width)
+        self._try_property(cap, device_id, cv2.CAP_PROP_FRAME_HEIGHT, height)
+        if sys.platform == "win32":
+            self._try_property(
+                cap, device_id, cv2.CAP_PROP_FOURCC,
+                cv2.VideoWriter_fourcc(*settings.camera_fourcc),
+            )
+        if settings.camera_auto_white_balance is not None:
+            self._try_property(
+                cap, device_id, cv2.CAP_PROP_AUTO_WB, int(settings.camera_auto_white_balance),
+            )
+        # DShow/MSMF use 1 for automatic exposure. Other backends have different
+        # conventions, so retain their driver defaults rather than guessing.
+        if backend in {"dshow", "msmf"} and settings.camera_auto_exposure is not None:
+            self._try_property(
+                cap, device_id, cv2.CAP_PROP_AUTO_EXPOSURE, int(settings.camera_auto_exposure),
+            )
+        autofocus = settings.camera_autofocus
+        if autofocus is None and settings.camera_manual_focus_value is not None:
+            autofocus = False
+        if autofocus is not None:
+            self._try_property(cap, device_id, cv2.CAP_PROP_AUTOFOCUS, int(autofocus))
+        if autofocus is False and settings.camera_manual_focus_value is not None:
+            self._try_property(
+                cap, device_id, cv2.CAP_PROP_FOCUS, settings.camera_manual_focus_value,
+            )
+        try:
+            for _ in range(settings.camera_warmup_frames):
+                cap.read()
+            frame = None
+            for _ in range(self._VALIDATION_FRAMES):
+                ret, frame = cap.read()
+                if not ret or not self._is_frame_valid(frame):
+                    return None
+            return frame
+        except Exception as exc:
+            logger.warning("Camera %s mode %sx%s failed: %s", device_id, width, height, exc)
+            return None
+
+    @synchronized
     def initialize(self) -> dict[int, bool]:
         """
         Open all cameras and set resolution. Called once at boot.
@@ -202,56 +270,23 @@ class CameraManager:
                     logger.error("Camera %s failed to open with backend %s", dev_id, backend)
                     cap.release()
                     continue
-                # DirectShow may rebuild the graph on FPS changes without preserving FOURCC.
-                if sys.platform == "win32" and not cap.set(cv2.CAP_PROP_FPS, settings.camera_fps):
-                    logger.warning(
-                        "Camera %s rejected requested FPS %s", dev_id, settings.camera_fps,
-                    )
-                cap.set(cv2.CAP_PROP_FRAME_WIDTH, settings.camera_resolution_w)
-                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, settings.camera_resolution_h)
-                # Request compression last, after FPS and dimensions can rebuild the stream.
-                if sys.platform == "win32":
-                    if not cap.set(cv2.CAP_PROP_FOURCC,
-                                   cv2.VideoWriter_fourcc(*settings.camera_fourcc)):
-                        logger.warning(
-                            "Camera %s rejected format %s", dev_id, settings.camera_fourcc,
-                        )
-
-                if not settings.camera_autofocus:
-                    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
-                    cap.set(cv2.CAP_PROP_FOCUS, settings.camera_manual_focus_value)
-                else:
-                    cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)
-
-                # Discard warmup frames to stabilize exposure/white-balance
-                for _ in range(settings.camera_warmup_frames):
-                    cap.read()
-
-                if not cap.isOpened():
-                    results[dev_id] = False
-                    logger.error(f"Camera {dev_id} failed to open")
-                    cap.release()
-                    continue
-
-                # Validate with multiple consecutive frames
-                valid = True
-                for i in range(self._VALIDATION_FRAMES):
-                    ret, frame = cap.read()
-                    if not ret or frame is None:
-                        logger.error(f"Camera {dev_id} failed to read validation frame {i + 1}")
-                        valid = False
+                frame = None
+                for width, height in self._capture_modes():
+                    frame = self._try_mode(cap, dev_id, backend, width, height)
+                    if frame is not None:
+                        actual = (frame.shape[1], frame.shape[0])
+                        self._resolutions[dev_id] = actual
+                        if actual != (width, height):
+                            logger.warning(
+                                "Camera %s requested %sx%s but delivered %sx%s",
+                                dev_id, width, height, *actual,
+                            )
+                        logger.info("Camera %s usable resolution %sx%s", dev_id, *actual)
                         break
-                    if not self._is_frame_valid(frame):
-                        mean, stddev = cv2.meanStdDev(frame)
-                        logger.error(
-                            f"Camera {dev_id} frame {i + 1} failed validation "
-                            f"(mean={float(np.max(mean)):.1f}, stddev={float(np.max(stddev)):.1f}) "
-                            f"— black or blank feed detected. Discarding."
-                        )
-                        valid = False
-                        break
+                    logger.warning("Camera %s cannot use %sx%s; trying fallback", dev_id,
+                                   width, height)
 
-                if valid:
+                if frame is not None:
                     self._cameras[dev_id] = cap
                     self._locks[dev_id] = threading.Lock()
                     results[dev_id] = True
@@ -293,6 +328,7 @@ class CameraManager:
                 self.application_error = f"Unusable camera feed: {device_id}"
                 raise CameraError(device_id, "Failed to read usable frame")
             self._health[device_id] = True
+            self._resolutions[device_id] = (frame.shape[1], frame.shape[0])
 
             return CaptureResult(
                 camera_index=device_id,
@@ -367,7 +403,10 @@ class CameraManager:
             # Hardware index makes filenames independent of editable display labels.
             filename = f"camera_{capture.camera_index}.jpg"
             file_path = scan_dir / filename
-            if not cv2.imwrite(str(file_path), capture.frame):
+            if not cv2.imwrite(
+                str(file_path), capture.frame,
+                [cv2.IMWRITE_JPEG_QUALITY, settings.camera_capture_jpeg_quality],
+            ):
                 raise CameraError(capture.camera_index, "Could not save captured image")
             capture.file_path = str(file_path)
             logger.info(f"Saved capture: {file_path}")
@@ -384,6 +423,7 @@ class CameraManager:
             except Exception as exc:
                 logger.warning(f"Error releasing camera {dev_id}: {exc}")
         self._cameras.clear()
+        self._resolutions.clear()
         self._health.clear()
         self.generation += 1
         self._locks.clear()

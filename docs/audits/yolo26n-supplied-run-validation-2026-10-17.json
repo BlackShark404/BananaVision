@@ -1,0 +1,1713 @@
+{
+  "format_version": 1,
+  "created_utc": "2026-10-17T11:02:07.240306+00:00",
+  "scope": "Supplied local trained YOLO26n candidate vs audited default through identical current application classifier; prepared VALID only.",
+  "candidate_identity": {
+    "weights": "C:\\Users\\Kent\\Downloads\\v26n_run5_khen27_1024-20261017T050632Z-1-001\\v26n_run5_khen27_1024\\weights\\best.pt",
+    "sha256": "96808fa8ed706909237197e8db2510dccabfaeceed85a4d1ab5182cd28c95f7b",
+    "same_as_existing_untracked_app_file": true,
+    "different_from_audited_default": true,
+    "checkpoint_metadata": {
+      "epoch": -1,
+      "date": "2026-10-16T19:40:17.698248+00:00",
+      "version": "8.4.178",
+      "best_fitness": null
+    },
+    "saved_train_args": {
+      "model": "yolo26n.pt",
+      "imgsz": 800,
+      "epochs": 300,
+      "patience": 15,
+      "batch": 23,
+      "optimizer": "musgd",
+      "cls_remap": true,
+      "seed": 0,
+      "data": "/content/dataset/data.yaml"
+    },
+    "saved_inference_image_size": 800,
+    "architecture": {
+      "yaml_file": "yolo26n.yaml",
+      "scale": "n",
+      "nc": 12,
+      "end2end": true
+    },
+    "parameters": 2539232,
+    "runtime_model_end2end": false,
+    "runtime_detection_head_end2end": false,
+    "class_names": [
+      "cardaba_overripe",
+      "cardaba_ripe",
+      "cardaba_semi_ripe",
+      "cardaba_unripe",
+      "lakatan_overripe",
+      "lakatan_ripe",
+      "lakatan_semi_ripe",
+      "lakatan_unripe",
+      "latundan_overripe",
+      "latundan_ripe",
+      "latundan_semi_ripe",
+      "latundan_unripe"
+    ],
+    "csv_epochs": 92,
+    "csv_peak_map5095": {
+      "epoch": 77.0,
+      "time": 12874.6,
+      "train/box_loss": 0.66933,
+      "train/cls_loss": 0.50283,
+      "train/l1_loss": 0.00448,
+      "metrics/precision(B)": 0.87064,
+      "metrics/recall(B)": 0.9082,
+      "metrics/mAP50(B)": 0.94294,
+      "metrics/mAP50-95(B)": 0.8746,
+      "val/box_loss": 0.39949,
+      "val/cls_loss": 0.43284,
+      "val/l1_loss": 0.00319,
+      "lr/pg0": 0.022476,
+      "lr/pg1": 0.007492,
+      "lr/pg2": 0.022476,
+      "lr/pg3": 0.007492,
+      "lr/pg4": 0.022476,
+      "lr/pg5": 0.007492,
+      "lr/pg6": 0.022476,
+      "lr/pg7": 0.007492
+    },
+    "csv_final": {
+      "epoch": 92.0,
+      "time": 15434.5,
+      "train/box_loss": 0.64845,
+      "train/cls_loss": 0.47254,
+      "train/l1_loss": 0.00434,
+      "metrics/precision(B)": 0.87386,
+      "metrics/recall(B)": 0.90414,
+      "metrics/mAP50(B)": 0.9375,
+      "metrics/mAP50-95(B)": 0.8695,
+      "val/box_loss": 0.38205,
+      "val/cls_loss": 0.42485,
+      "val/l1_loss": 0.00298,
+      "lr/pg0": 0.020991,
+      "lr/pg1": 0.006997,
+      "lr/pg2": 0.020991,
+      "lr/pg3": 0.006997,
+      "lr/pg4": 0.020991,
+      "lr/pg5": 0.006997,
+      "lr/pg6": 0.020991,
+      "lr/pg7": 0.006997
+    },
+    "notes": [
+      "Directory name includes1024, but supplied args.yaml and actual checkpoint both save imgsz800.",
+      "Checkpoint epoch is stripped(-1); CSV peak epoch77 is not embedded best-epoch proof.",
+      "Training validation metrics use an unspecified source dataset/split and cannot establish station accuracy.",
+      "Checkpoint created with newer Ultralytics than installed evaluation/runtime; report exact installed versions."
+    ],
+    "versions": {
+      "torch": "2.11.0+cu126",
+      "ultralytics": "8.4.40",
+      "numpy": "2.5.2"
+    },
+    "original_artifact_sha256": {
+      "C:\\Users\\Kent\\Downloads\\v26n_run5_khen27_1024-20261017T050632Z-1-001\\v26n_run5_khen27_1024\\weights\\best.pt": "96808fa8ed706909237197e8db2510dccabfaeceed85a4d1ab5182cd28c95f7b",
+      "C:\\Users\\Kent\\Downloads\\v26n_run5_khen27_1024-20261017T050632Z-1-001\\v26n_run5_khen27_1024\\weights\\last.pt": "368fd921ee0db1b08eeb17fbba3476024c949b6369360a36db9b4c6110e0fe91",
+      "C:\\Users\\Kent\\Downloads\\v26n_run5_khen27_1024-20261017T050632Z-1-001\\v26n_run5_khen27_1024\\args.yaml": "b9f52d9de8c199ad3b28b4ee50d70ee472155ca4a645da5fddcc9b7620c4cdda",
+      "C:\\Users\\Kent\\Downloads\\v26n_run5_khen27_1024-20261017T050632Z-1-001\\v26n_run5_khen27_1024\\results.csv": "935d3678341dc54d4b23511b948e074554c24b5ff44dcb340f8ce9c821e19648"
+    }
+  },
+  "runtime_configuration": {
+    "confidence": 0.5,
+    "configured_iou": 0.45,
+    "image_size": 800,
+    "device": "cuda:0",
+    "augment": false,
+    "agnostic_nms": false,
+    "max_det": 300,
+    "candidate_top_calibrated_refinement_eligible": false
+  },
+  "baseline": {
+    "weights_sha256": "e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89",
+    "image_size": 640,
+    "overall": {
+      "images": 137,
+      "ground_truth_boxes": 1183,
+      "predicted_boxes": 1205,
+      "count_mae": 0.9343065693430657,
+      "count_bias_predicted_minus_ground_truth": 0.16058394160583941,
+      "exact_count_images": 55,
+      "exact_count_fraction": 0.40145985401459855,
+      "under_count_images": 42,
+      "over_count_images": 40,
+      "spatial": {
+        "tp": 1110,
+        "fp": 95,
+        "fn": 73,
+        "precision": 0.921161825726141,
+        "recall": 0.9382924767540152
+      },
+      "combined_class": {
+        "tp": 1069,
+        "fp": 136,
+        "fn": 114,
+        "precision": 0.8871369294605809,
+        "recall": 0.9036348267117498
+      },
+      "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+        "Cardaba": {
+          "Cardaba": 418,
+          "Lakatan": 0,
+          "Latundan": 0
+        },
+        "Lakatan": {
+          "Cardaba": 0,
+          "Lakatan": 190,
+          "Latundan": 0
+        },
+        "Latundan": {
+          "Cardaba": 0,
+          "Lakatan": 0,
+          "Latundan": 502
+        }
+      },
+      "image_cultivar_confusion_ground_truth_rows_prediction_columns": {
+        "Cardaba": {
+          "Cardaba": 51,
+          "Lakatan": 0,
+          "Latundan": 0,
+          "null": 0
+        },
+        "Lakatan": {
+          "Cardaba": 0,
+          "Lakatan": 23,
+          "Latundan": 0,
+          "null": 0
+        },
+        "Latundan": {
+          "Cardaba": 0,
+          "Lakatan": 0,
+          "Latundan": 63,
+          "null": 0
+        }
+      },
+      "confidence_by_outcome": {
+        "correct_cultivar": {
+          "count": 1110,
+          "mean": 0.8901241670857679
+        },
+        "correct_combined": {
+          "count": 1059,
+          "mean": 0.8940861745754203
+        },
+        "wrong_combined": {
+          "count": 51,
+          "mean": 0.807854246859457
+        }
+      },
+      "image_cultivar_correct": 137,
+      "image_cultivar_accuracy": 1.0,
+      "image_cultivar_conflict_flagged": 16
+    },
+    "by_view": {
+      "back": {
+        "images": 30,
+        "ground_truth_boxes": 303,
+        "predicted_boxes": 302,
+        "count_mae": 1.1,
+        "count_bias_predicted_minus_ground_truth": -0.03333333333333333,
+        "exact_count_images": 10,
+        "exact_count_fraction": 0.3333333333333333,
+        "under_count_images": 13,
+        "over_count_images": 7,
+        "spatial": {
+          "tp": 280,
+          "fp": 22,
+          "fn": 23,
+          "precision": 0.9271523178807947,
+          "recall": 0.9240924092409241
+        },
+        "combined_class": {
+          "tp": 272,
+          "fp": 30,
+          "fn": 31,
+          "precision": 0.9006622516556292,
+          "recall": 0.8976897689768977
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 88,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 30,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 162
+          }
+        },
+        "image_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 9,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 4,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 17,
+            "null": 0
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 280,
+            "mean": 0.8991609403065273
+          },
+          "correct_combined": {
+            "count": 270,
+            "mean": 0.9022974870823047
+          },
+          "wrong_combined": {
+            "count": 10,
+            "mean": 0.8144741773605346
+          }
+        },
+        "image_cultivar_correct": 30,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 1
+      },
+      "left": {
+        "images": 34,
+        "ground_truth_boxes": 260,
+        "predicted_boxes": 267,
+        "count_mae": 1.0294117647058822,
+        "count_bias_predicted_minus_ground_truth": 0.20588235294117646,
+        "exact_count_images": 12,
+        "exact_count_fraction": 0.35294117647058826,
+        "under_count_images": 11,
+        "over_count_images": 11,
+        "spatial": {
+          "tp": 242,
+          "fp": 25,
+          "fn": 18,
+          "precision": 0.9063670411985019,
+          "recall": 0.9307692307692308
+        },
+        "combined_class": {
+          "tp": 233,
+          "fp": 34,
+          "fn": 27,
+          "precision": 0.8726591760299626,
+          "recall": 0.8961538461538462
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 112,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 42,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 88
+          }
+        },
+        "image_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 15,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 6,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 13,
+            "null": 0
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 242,
+            "mean": 0.8889421697490472
+          },
+          "correct_combined": {
+            "count": 232,
+            "mean": 0.8920306121480877
+          },
+          "wrong_combined": {
+            "count": 10,
+            "mean": 0.8172903060913086
+          }
+        },
+        "image_cultivar_correct": 34,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 0
+      },
+      "right": {
+        "images": 42,
+        "ground_truth_boxes": 327,
+        "predicted_boxes": 336,
+        "count_mae": 0.8333333333333334,
+        "count_bias_predicted_minus_ground_truth": 0.21428571428571427,
+        "exact_count_images": 18,
+        "exact_count_fraction": 0.42857142857142855,
+        "under_count_images": 12,
+        "over_count_images": 12,
+        "spatial": {
+          "tp": 307,
+          "fp": 29,
+          "fn": 20,
+          "precision": 0.9136904761904762,
+          "recall": 0.9388379204892966
+        },
+        "combined_class": {
+          "tp": 296,
+          "fp": 40,
+          "fn": 31,
+          "precision": 0.8809523809523809,
+          "recall": 0.9051987767584098
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 126,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 53,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 128
+          }
+        },
+        "image_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 16,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 7,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 19,
+            "null": 0
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 307,
+            "mean": 0.8765927308545439
+          },
+          "correct_combined": {
+            "count": 291,
+            "mean": 0.8815623759404081
+          },
+          "wrong_combined": {
+            "count": 16,
+            "mean": 0.7862073108553886
+          }
+        },
+        "image_cultivar_correct": 42,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 3
+      },
+      "top": {
+        "images": 31,
+        "ground_truth_boxes": 293,
+        "predicted_boxes": 300,
+        "count_mae": 0.8064516129032258,
+        "count_bias_predicted_minus_ground_truth": 0.22580645161290322,
+        "exact_count_images": 15,
+        "exact_count_fraction": 0.4838709677419355,
+        "under_count_images": 6,
+        "over_count_images": 10,
+        "spatial": {
+          "tp": 281,
+          "fp": 19,
+          "fn": 12,
+          "precision": 0.9366666666666666,
+          "recall": 0.9590443686006825
+        },
+        "combined_class": {
+          "tp": 268,
+          "fp": 32,
+          "fn": 25,
+          "precision": 0.8933333333333333,
+          "recall": 0.9146757679180887
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 92,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 65,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 124
+          }
+        },
+        "image_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 11,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 6,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 14,
+            "null": 0
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 281,
+            "mean": 0.8969209563265491
+          },
+          "correct_combined": {
+            "count": 266,
+            "mean": 0.9012450524290702
+          },
+          "wrong_combined": {
+            "count": 15,
+            "mean": 0.820240318775177
+          }
+        },
+        "image_cultivar_correct": 31,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 12
+      }
+    },
+    "by_ground_truth_cultivar": {
+      "Cardaba": {
+        "images": 51,
+        "ground_truth_boxes": 444,
+        "predicted_boxes": 457,
+        "count_mae": 1.1176470588235294,
+        "count_bias_predicted_minus_ground_truth": 0.2549019607843137,
+        "exact_count_images": 16,
+        "exact_count_fraction": 0.3137254901960784,
+        "under_count_images": 16,
+        "over_count_images": 19,
+        "spatial": {
+          "tp": 418,
+          "fp": 39,
+          "fn": 26,
+          "precision": 0.9146608315098468,
+          "recall": 0.9414414414414415
+        },
+        "combined_class": {
+          "tp": 405,
+          "fp": 52,
+          "fn": 39,
+          "precision": 0.8862144420131292,
+          "recall": 0.9121621621621622
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 418,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          }
+        },
+        "image_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 51,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 418,
+            "mean": 0.8853055950272026
+          },
+          "correct_combined": {
+            "count": 400,
+            "mean": 0.8905489411950112
+          },
+          "wrong_combined": {
+            "count": 18,
+            "mean": 0.7687867912981245
+          }
+        },
+        "image_cultivar_correct": 51,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 7
+      },
+      "Lakatan": {
+        "images": 23,
+        "ground_truth_boxes": 198,
+        "predicted_boxes": 216,
+        "count_mae": 1.1304347826086956,
+        "count_bias_predicted_minus_ground_truth": 0.782608695652174,
+        "exact_count_images": 9,
+        "exact_count_fraction": 0.391304347826087,
+        "under_count_images": 4,
+        "over_count_images": 10,
+        "spatial": {
+          "tp": 190,
+          "fp": 26,
+          "fn": 8,
+          "precision": 0.8796296296296297,
+          "recall": 0.9595959595959596
+        },
+        "combined_class": {
+          "tp": 184,
+          "fp": 32,
+          "fn": 14,
+          "precision": 0.8518518518518519,
+          "recall": 0.9292929292929293
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 190,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          }
+        },
+        "image_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 23,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 190,
+            "mean": 0.8967825478629062
+          },
+          "correct_combined": {
+            "count": 180,
+            "mean": 0.9040362116363313
+          },
+          "wrong_combined": {
+            "count": 10,
+            "mean": 0.7662165999412537
+          }
+        },
+        "image_cultivar_correct": 23,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 4
+      },
+      "Latundan": {
+        "images": 63,
+        "ground_truth_boxes": 541,
+        "predicted_boxes": 532,
+        "count_mae": 0.7142857142857143,
+        "count_bias_predicted_minus_ground_truth": -0.14285714285714285,
+        "exact_count_images": 30,
+        "exact_count_fraction": 0.47619047619047616,
+        "under_count_images": 22,
+        "over_count_images": 11,
+        "spatial": {
+          "tp": 502,
+          "fp": 30,
+          "fn": 39,
+          "precision": 0.943609022556391,
+          "recall": 0.9279112754158965
+        },
+        "combined_class": {
+          "tp": 480,
+          "fp": 52,
+          "fn": 61,
+          "precision": 0.9022556390977443,
+          "recall": 0.8872458410351202
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 502
+          }
+        },
+        "image_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 63,
+            "null": 0
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 502,
+            "mean": 0.8916163399399989
+          },
+          "correct_combined": {
+            "count": 479,
+            "mean": 0.8933009693169643
+          },
+          "wrong_combined": {
+            "count": 23,
+            "mean": 0.8565321020458055
+          }
+        },
+        "image_cultivar_correct": 63,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 5
+      }
+    },
+    "per_class_combined": {
+      "cardaba_overripe": {
+        "class_id": 0,
+        "ground_truth_boxes": 82,
+        "predicted_boxes": 90,
+        "tp": 73,
+        "fp": 17,
+        "fn": 9,
+        "precision": 0.8111111111111111,
+        "recall": 0.8902439024390244
+      },
+      "cardaba_ripe": {
+        "class_id": 1,
+        "ground_truth_boxes": 146,
+        "predicted_boxes": 147,
+        "tp": 135,
+        "fp": 12,
+        "fn": 11,
+        "precision": 0.9183673469387755,
+        "recall": 0.9246575342465754
+      },
+      "cardaba_semi_ripe": {
+        "class_id": 2,
+        "ground_truth_boxes": 64,
+        "predicted_boxes": 60,
+        "tp": 56,
+        "fp": 4,
+        "fn": 8,
+        "precision": 0.9333333333333333,
+        "recall": 0.875
+      },
+      "cardaba_unripe": {
+        "class_id": 3,
+        "ground_truth_boxes": 152,
+        "predicted_boxes": 160,
+        "tp": 141,
+        "fp": 19,
+        "fn": 11,
+        "precision": 0.88125,
+        "recall": 0.9276315789473685
+      },
+      "lakatan_overripe": {
+        "class_id": 4,
+        "ground_truth_boxes": 69,
+        "predicted_boxes": 76,
+        "tp": 65,
+        "fp": 11,
+        "fn": 4,
+        "precision": 0.8552631578947368,
+        "recall": 0.9420289855072463
+      },
+      "lakatan_ripe": {
+        "class_id": 5,
+        "ground_truth_boxes": 61,
+        "predicted_boxes": 60,
+        "tp": 55,
+        "fp": 5,
+        "fn": 6,
+        "precision": 0.9166666666666666,
+        "recall": 0.9016393442622951
+      },
+      "lakatan_semi_ripe": {
+        "class_id": 6,
+        "ground_truth_boxes": 6,
+        "predicted_boxes": 9,
+        "tp": 5,
+        "fp": 4,
+        "fn": 1,
+        "precision": 0.5555555555555556,
+        "recall": 0.8333333333333334
+      },
+      "lakatan_unripe": {
+        "class_id": 7,
+        "ground_truth_boxes": 62,
+        "predicted_boxes": 71,
+        "tp": 59,
+        "fp": 12,
+        "fn": 3,
+        "precision": 0.8309859154929577,
+        "recall": 0.9516129032258065
+      },
+      "latundan_overripe": {
+        "class_id": 8,
+        "ground_truth_boxes": 99,
+        "predicted_boxes": 94,
+        "tp": 87,
+        "fp": 7,
+        "fn": 12,
+        "precision": 0.925531914893617,
+        "recall": 0.8787878787878788
+      },
+      "latundan_ripe": {
+        "class_id": 9,
+        "ground_truth_boxes": 201,
+        "predicted_boxes": 206,
+        "tp": 186,
+        "fp": 20,
+        "fn": 15,
+        "precision": 0.9029126213592233,
+        "recall": 0.9253731343283582
+      },
+      "latundan_semi_ripe": {
+        "class_id": 10,
+        "ground_truth_boxes": 64,
+        "predicted_boxes": 70,
+        "tp": 54,
+        "fp": 16,
+        "fn": 10,
+        "precision": 0.7714285714285715,
+        "recall": 0.84375
+      },
+      "latundan_unripe": {
+        "class_id": 11,
+        "ground_truth_boxes": 177,
+        "predicted_boxes": 162,
+        "tp": 153,
+        "fp": 9,
+        "fn": 24,
+        "precision": 0.9444444444444444,
+        "recall": 0.864406779661017
+      }
+    }
+  },
+  "candidate": {
+    "overall": {
+      "images": 137,
+      "ground_truth_boxes": 1183,
+      "predicted_boxes": 1178,
+      "count_mae": 0.9416058394160584,
+      "count_bias_predicted_minus_ground_truth": -0.0364963503649635,
+      "exact_count_images": 58,
+      "exact_count_fraction": 0.4233576642335766,
+      "under_count_images": 46,
+      "over_count_images": 33,
+      "spatial": {
+        "tp": 1094,
+        "fp": 84,
+        "fn": 89,
+        "precision": 0.9286926994906621,
+        "recall": 0.9247675401521556
+      },
+      "combined_class": {
+        "tp": 1047,
+        "fp": 131,
+        "fn": 136,
+        "precision": 0.8887945670628183,
+        "recall": 0.8850380388841927
+      },
+      "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+        "Cardaba": {
+          "Cardaba": 403,
+          "Lakatan": 0,
+          "Latundan": 0
+        },
+        "Lakatan": {
+          "Cardaba": 0,
+          "Lakatan": 189,
+          "Latundan": 0
+        },
+        "Latundan": {
+          "Cardaba": 0,
+          "Lakatan": 0,
+          "Latundan": 502
+        }
+      },
+      "image_cultivar_confusion_ground_truth_rows_prediction_columns": {
+        "Cardaba": {
+          "Cardaba": 51,
+          "Lakatan": 0,
+          "Latundan": 0,
+          "null": 0
+        },
+        "Lakatan": {
+          "Cardaba": 0,
+          "Lakatan": 23,
+          "Latundan": 0,
+          "null": 0
+        },
+        "Latundan": {
+          "Cardaba": 0,
+          "Lakatan": 0,
+          "Latundan": 63,
+          "null": 0
+        }
+      },
+      "confidence_by_outcome": {
+        "correct_cultivar": {
+          "count": 1094,
+          "mean": 0.8749778341004791
+        },
+        "correct_combined": {
+          "count": 1036,
+          "mean": 0.8804045623333758
+        },
+        "wrong_combined": {
+          "count": 58,
+          "mean": 0.7780452401473604
+        }
+      },
+      "image_cultivar_correct": 137,
+      "image_cultivar_accuracy": 1.0,
+      "image_cultivar_conflict_flagged": 5
+    },
+    "by_view": {
+      "back": {
+        "images": 30,
+        "ground_truth_boxes": 303,
+        "predicted_boxes": 301,
+        "count_mae": 0.9333333333333333,
+        "count_bias_predicted_minus_ground_truth": -0.06666666666666667,
+        "exact_count_images": 10,
+        "exact_count_fraction": 0.3333333333333333,
+        "under_count_images": 14,
+        "over_count_images": 6,
+        "spatial": {
+          "tp": 282,
+          "fp": 19,
+          "fn": 21,
+          "precision": 0.9368770764119602,
+          "recall": 0.9306930693069307
+        },
+        "combined_class": {
+          "tp": 268,
+          "fp": 33,
+          "fn": 35,
+          "precision": 0.8903654485049833,
+          "recall": 0.8844884488448845
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 86,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 30,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 166
+          }
+        },
+        "image_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 9,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 4,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 17,
+            "null": 0
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 282,
+            "mean": 0.8809386124002173
+          },
+          "correct_combined": {
+            "count": 267,
+            "mean": 0.8885172625605979
+          },
+          "wrong_combined": {
+            "count": 15,
+            "mean": 0.7460386395454407
+          }
+        },
+        "image_cultivar_correct": 30,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 0
+      },
+      "left": {
+        "images": 34,
+        "ground_truth_boxes": 260,
+        "predicted_boxes": 264,
+        "count_mae": 1.0588235294117647,
+        "count_bias_predicted_minus_ground_truth": 0.11764705882352941,
+        "exact_count_images": 13,
+        "exact_count_fraction": 0.38235294117647056,
+        "under_count_images": 10,
+        "over_count_images": 11,
+        "spatial": {
+          "tp": 238,
+          "fp": 26,
+          "fn": 22,
+          "precision": 0.9015151515151515,
+          "recall": 0.9153846153846154
+        },
+        "combined_class": {
+          "tp": 231,
+          "fp": 33,
+          "fn": 29,
+          "precision": 0.875,
+          "recall": 0.8884615384615384
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 109,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 43,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 86
+          }
+        },
+        "image_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 15,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 6,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 13,
+            "null": 0
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 238,
+            "mean": 0.8685141839400059
+          },
+          "correct_combined": {
+            "count": 228,
+            "mean": 0.8728566569717306
+          },
+          "wrong_combined": {
+            "count": 10,
+            "mean": 0.7695057988166809
+          }
+        },
+        "image_cultivar_correct": 34,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 2
+      },
+      "right": {
+        "images": 42,
+        "ground_truth_boxes": 327,
+        "predicted_boxes": 332,
+        "count_mae": 0.6904761904761905,
+        "count_bias_predicted_minus_ground_truth": 0.11904761904761904,
+        "exact_count_images": 23,
+        "exact_count_fraction": 0.5476190476190477,
+        "under_count_images": 9,
+        "over_count_images": 10,
+        "spatial": {
+          "tp": 309,
+          "fp": 23,
+          "fn": 18,
+          "precision": 0.9307228915662651,
+          "recall": 0.944954128440367
+        },
+        "combined_class": {
+          "tp": 298,
+          "fp": 34,
+          "fn": 29,
+          "precision": 0.8975903614457831,
+          "recall": 0.9113149847094801
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 124,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 53,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 132
+          }
+        },
+        "image_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 16,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 7,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 19,
+            "null": 0
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 309,
+            "mean": 0.8688421679546147
+          },
+          "correct_combined": {
+            "count": 296,
+            "mean": 0.8720997584027212
+          },
+          "wrong_combined": {
+            "count": 13,
+            "mean": 0.794669339290032
+          }
+        },
+        "image_cultivar_correct": 42,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 2
+      },
+      "top": {
+        "images": 31,
+        "ground_truth_boxes": 293,
+        "predicted_boxes": 281,
+        "count_mae": 1.1612903225806452,
+        "count_bias_predicted_minus_ground_truth": -0.3870967741935484,
+        "exact_count_images": 12,
+        "exact_count_fraction": 0.3870967741935484,
+        "under_count_images": 13,
+        "over_count_images": 6,
+        "spatial": {
+          "tp": 265,
+          "fp": 16,
+          "fn": 28,
+          "precision": 0.9430604982206405,
+          "recall": 0.9044368600682594
+        },
+        "combined_class": {
+          "tp": 250,
+          "fp": 31,
+          "fn": 43,
+          "precision": 0.8896797153024911,
+          "recall": 0.8532423208191127
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 84,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 63,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 118
+          }
+        },
+        "image_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 11,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 6,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 14,
+            "null": 0
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 265,
+            "mean": 0.8815941740881722
+          },
+          "correct_combined": {
+            "count": 245,
+            "mean": 0.8886211069262757
+          },
+          "wrong_combined": {
+            "count": 20,
+            "mean": 0.7955142468214035
+          }
+        },
+        "image_cultivar_correct": 31,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 1
+      }
+    },
+    "by_ground_truth_cultivar": {
+      "Cardaba": {
+        "images": 51,
+        "ground_truth_boxes": 444,
+        "predicted_boxes": 437,
+        "count_mae": 1.1176470588235294,
+        "count_bias_predicted_minus_ground_truth": -0.13725490196078433,
+        "exact_count_images": 16,
+        "exact_count_fraction": 0.3137254901960784,
+        "under_count_images": 21,
+        "over_count_images": 14,
+        "spatial": {
+          "tp": 403,
+          "fp": 34,
+          "fn": 41,
+          "precision": 0.9221967963386728,
+          "recall": 0.9076576576576577
+        },
+        "combined_class": {
+          "tp": 391,
+          "fp": 46,
+          "fn": 53,
+          "precision": 0.8947368421052632,
+          "recall": 0.8806306306306306
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 403,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          }
+        },
+        "image_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 51,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 403,
+            "mean": 0.8715994044509774
+          },
+          "correct_combined": {
+            "count": 386,
+            "mean": 0.8771791606369413
+          },
+          "wrong_combined": {
+            "count": 17,
+            "mean": 0.7449061169343836
+          }
+        },
+        "image_cultivar_correct": 51,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 2
+      },
+      "Lakatan": {
+        "images": 23,
+        "ground_truth_boxes": 198,
+        "predicted_boxes": 215,
+        "count_mae": 1.0869565217391304,
+        "count_bias_predicted_minus_ground_truth": 0.7391304347826086,
+        "exact_count_images": 11,
+        "exact_count_fraction": 0.4782608695652174,
+        "under_count_images": 3,
+        "over_count_images": 9,
+        "spatial": {
+          "tp": 189,
+          "fp": 26,
+          "fn": 9,
+          "precision": 0.8790697674418605,
+          "recall": 0.9545454545454546
+        },
+        "combined_class": {
+          "tp": 182,
+          "fp": 33,
+          "fn": 16,
+          "precision": 0.8465116279069768,
+          "recall": 0.9191919191919192
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 189,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          }
+        },
+        "image_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 23,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 189,
+            "mean": 0.8739571448356386
+          },
+          "correct_combined": {
+            "count": 181,
+            "mean": 0.8808927611751451
+          },
+          "wrong_combined": {
+            "count": 8,
+            "mean": 0.7170388251543045
+          }
+        },
+        "image_cultivar_correct": 23,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 2
+      },
+      "Latundan": {
+        "images": 63,
+        "ground_truth_boxes": 541,
+        "predicted_boxes": 526,
+        "count_mae": 0.746031746031746,
+        "count_bias_predicted_minus_ground_truth": -0.23809523809523808,
+        "exact_count_images": 31,
+        "exact_count_fraction": 0.49206349206349204,
+        "under_count_images": 22,
+        "over_count_images": 10,
+        "spatial": {
+          "tp": 502,
+          "fp": 24,
+          "fn": 39,
+          "precision": 0.9543726235741445,
+          "recall": 0.9279112754158965
+        },
+        "combined_class": {
+          "tp": 474,
+          "fp": 52,
+          "fn": 67,
+          "precision": 0.9011406844106464,
+          "recall": 0.8761552680221811
+        },
+        "spatial_match_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 502
+          }
+        },
+        "image_cultivar_confusion_ground_truth_rows_prediction_columns": {
+          "Cardaba": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Lakatan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 0,
+            "null": 0
+          },
+          "Latundan": {
+            "Cardaba": 0,
+            "Lakatan": 0,
+            "Latundan": 63,
+            "null": 0
+          }
+        },
+        "confidence_by_outcome": {
+          "correct_cultivar": {
+            "count": 502,
+            "mean": 0.8780742831439136
+          },
+          "correct_combined": {
+            "count": 469,
+            "mean": 0.8828707479718906
+          },
+          "wrong_combined": {
+            "count": 33,
+            "mean": 0.8099063436190287
+          }
+        },
+        "image_cultivar_correct": 63,
+        "image_cultivar_accuracy": 1.0,
+        "image_cultivar_conflict_flagged": 1
+      }
+    },
+    "per_class_combined": {
+      "cardaba_overripe": {
+        "class_id": 0,
+        "ground_truth_boxes": 82,
+        "predicted_boxes": 79,
+        "tp": 71,
+        "fp": 8,
+        "fn": 11,
+        "precision": 0.8987341772151899,
+        "recall": 0.8658536585365854
+      },
+      "cardaba_ripe": {
+        "class_id": 1,
+        "ground_truth_boxes": 146,
+        "predicted_boxes": 141,
+        "tp": 131,
+        "fp": 10,
+        "fn": 15,
+        "precision": 0.9290780141843972,
+        "recall": 0.8972602739726028
+      },
+      "cardaba_semi_ripe": {
+        "class_id": 2,
+        "ground_truth_boxes": 64,
+        "predicted_boxes": 65,
+        "tp": 54,
+        "fp": 11,
+        "fn": 10,
+        "precision": 0.8307692307692308,
+        "recall": 0.84375
+      },
+      "cardaba_unripe": {
+        "class_id": 3,
+        "ground_truth_boxes": 152,
+        "predicted_boxes": 152,
+        "tp": 135,
+        "fp": 17,
+        "fn": 17,
+        "precision": 0.8881578947368421,
+        "recall": 0.8881578947368421
+      },
+      "lakatan_overripe": {
+        "class_id": 4,
+        "ground_truth_boxes": 69,
+        "predicted_boxes": 79,
+        "tp": 65,
+        "fp": 14,
+        "fn": 4,
+        "precision": 0.8227848101265823,
+        "recall": 0.9420289855072463
+      },
+      "lakatan_ripe": {
+        "class_id": 5,
+        "ground_truth_boxes": 61,
+        "predicted_boxes": 53,
+        "tp": 51,
+        "fp": 2,
+        "fn": 10,
+        "precision": 0.9622641509433962,
+        "recall": 0.8360655737704918
+      },
+      "lakatan_semi_ripe": {
+        "class_id": 6,
+        "ground_truth_boxes": 6,
+        "predicted_boxes": 10,
+        "tp": 6,
+        "fp": 4,
+        "fn": 0,
+        "precision": 0.6,
+        "recall": 1.0
+      },
+      "lakatan_unripe": {
+        "class_id": 7,
+        "ground_truth_boxes": 62,
+        "predicted_boxes": 73,
+        "tp": 60,
+        "fp": 13,
+        "fn": 2,
+        "precision": 0.821917808219178,
+        "recall": 0.967741935483871
+      },
+      "latundan_overripe": {
+        "class_id": 8,
+        "ground_truth_boxes": 99,
+        "predicted_boxes": 93,
+        "tp": 89,
+        "fp": 4,
+        "fn": 10,
+        "precision": 0.956989247311828,
+        "recall": 0.898989898989899
+      },
+      "latundan_ripe": {
+        "class_id": 9,
+        "ground_truth_boxes": 201,
+        "predicted_boxes": 177,
+        "tp": 168,
+        "fp": 9,
+        "fn": 33,
+        "precision": 0.9491525423728814,
+        "recall": 0.835820895522388
+      },
+      "latundan_semi_ripe": {
+        "class_id": 10,
+        "ground_truth_boxes": 64,
+        "predicted_boxes": 92,
+        "tp": 60,
+        "fp": 32,
+        "fn": 4,
+        "precision": 0.6521739130434783,
+        "recall": 0.9375
+      },
+      "latundan_unripe": {
+        "class_id": 11,
+        "ground_truth_boxes": 177,
+        "predicted_boxes": 164,
+        "tp": 157,
+        "fp": 7,
+        "fn": 20,
+        "precision": 0.9573170731707317,
+        "recall": 0.8870056497175142
+      }
+    }
+  },
+  "count_absolute_error_change": {
+    "tied": 78,
+    "worsened": 31,
+    "improved": 28
+  },
+  "baseline_current_source_replay_identical": true,
+  "baseline_cached_calls_replayed": 168,
+  "provenance": {
+    "source_sha256": {
+      "D:\\KENT EDUCATION PROJECTS\\BananaVision\\backend\\app\\services\\classification.py": "7d892aebacdb3af0270129e8928081f0e9379a1fdc89214c8528a70e18efab11",
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\supplied-v26n-valid-20261017\\classification_snapshot.py": "7d892aebacdb3af0270129e8928081f0e9379a1fdc89214c8528a70e18efab11",
+      "D:\\KENT EDUCATION PROJECTS\\BananaVision\\backend\\app\\config.py": "e0d21f203b0aa292671f571ed55d47e36098a87c59f40d0430c8d30a249c8978",
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\evaluate.py": "ecae67ed8ab23db44fbcc70d80d1b3d2c04dfd16f3a650439f1b781b9734e1f2",
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\supplied-v26n-valid-20261017\\evaluate_candidate.py": "873bbf63efb8346259fc545d3b1cd09e610a78d184f1afed478c3fa1e99d68e3"
+    },
+    "input_artifact_sha256": {
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\manifest.json": "0d42e5df62cd0af3ad447414a7049f8e1abfd59678b8760576141b7436189ea2",
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\final-valid-replay.json": "f99d63f7b92935c2c6fdbffb6902c21b35446398948960b1f6767c80ca7c0942",
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\scan-audit-20261017\\raw-predictor-calls.json": "e81ba83a6c2e36add0d59435208078b86085eef83d32bb8f2d42b420b1ae5ee2"
+    },
+    "external_artifacts": {
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\supplied-v26n-valid-20261017\\candidate-valid.json": "4861e7d6fb56e49ebd9040c6ff43de06387098ec86048abb0012a899d23d9a9c",
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\supplied-v26n-valid-20261017\\candidate-raw-calls.json": "315ca735f39c3ab0904b0a58d307dfa461f1f3900f9d5320b704d79ad28c4a56",
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\supplied-v26n-valid-20261017\\checkpoint-metadata.json": "7403a985942641a7ee133cc8a810642e67d0735c76ccf2495fbbb7dfbfc5b0eb",
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\supplied-v26n-valid-20261017\\classification_snapshot.py": "7d892aebacdb3af0270129e8928081f0e9379a1fdc89214c8528a70e18efab11",
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\supplied-v26n-valid-20261017\\evaluate_candidate.py": "873bbf63efb8346259fc545d3b1cd09e610a78d184f1afed478c3fa1e99d68e3"
+    }
+  },
+  "matching": "Maximum-cardinality one-to-one assignments at IoU>=.50; separate spatial/exact combined-class matching.",
+  "limitations": [
+    "Prepared VALID137 only /1183 visible labels; no frozen TEST inference or tuning.",
+    "This compares existing app behavior: baseline saved640 with checkpoint-specific Top refinement/rotation, candidate saved800 with default configured IoU. It is not a controlled equal-resolution architecture comparison.",
+    "All scores are against existing dataset annotations, without independent expert cultivar or box relabeling.",
+    "Validation137 comprises only3 inferred physical-bunch groups(one per cultivar); identities and independence remain uncertain.",
+    "Training provenance of both models relative to these validation images is unknown; generalization ranking is not established.",
+    "Original four station images were unavailable; screenshots were not used as model inputs and station error is not reproduced.",
+    "Visible labeled fingers per photo are different from unique physical fingers across views.",
+    "Confidence values are uncalibrated scores and not empirical accuracy.",
+    "Filename prefix before capture number/camera is an unverified bunch proxy; aliases join proxies but do not establish physical identity. All sessions/views/augmentations for each resulting group stay together."
+  ],
+  "isolation": {
+    "fresh_cwd": "C:\\Users\\Kent\\AppData\\Local\\Temp\\bv-supplied-v26n-valid-2j4tsx2j",
+    "env_file": null,
+    "offline": true,
+    "forbidden_app_modules_loaded": [],
+    "original_artifacts_inputs_unmodified": true
+  },
+  "independent_saved_report_verification": {
+    "path": "D:\\BananaVision-Training\\v13-yolov8-20261016\\supplied-v26n-valid-20261017\\verification.json",
+    "sha256": "7cf643d8312b4c9e2211cc35c6915091ece3b253eaada8d107786f82ed30473c",
+    "created_utc": "2026-10-17T11:03:09.070408+00:00",
+    "status": "PASS",
+    "images": 137,
+    "labels": 1183,
+    "checks": [
+      "original run artifact hashes unchanged",
+      "classifier/source/input/report hashes",
+      "all137 prepared validation image and label hashes",
+      "actual candidate calls all800/conf.50/iou.45",
+      "all per-image spatial and combined-class assignments/metrics recomputed",
+      "aggregate/per-view/per-cultivar/all12class metrics recomputed",
+      "baseline/candidate inputs identical",
+      "count change tally recomputed",
+      "no model inference or frozen TEST access in this verification"
+    ],
+    "summary_sha256": "6199e99e51b0ca560c90d1498f9d9aa754b0d8383c2348bb767512d92210e677"
+  }
+}

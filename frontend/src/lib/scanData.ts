@@ -103,6 +103,39 @@ export function mapApiScanNote(note: ApiScanNote): ScanNote {
   return { id: note.id, scanId: note.scan_id, note: note.text, author: note.author_name, timestamp: storedTimestamp(note.timestamp) }
 }
 
+/** Describe conflicting views when the AI candidate lacks a camera majority. */
+export function cultivarCameraConflict(
+  scan: Pick<ScanResult, "cultivar" | "isOverridden" | "originalAiResult" | "history" | "detections">,
+): string | null {
+  const originalCultivar = scan.originalAiResult?.cultivar
+  const cultivarCorrection = originalCultivar && originalCultivar !== "Unknown"
+    && originalCultivar !== scan.cultivar
+  const recordedCorrection = scan.history?.some(event =>
+    event.new_values.cultivar === scan.cultivar
+    && typeof event.previous_values?.cultivar === "string"
+    && event.previous_values.cultivar !== scan.cultivar,
+  )
+  // Editing the count/ripeness also sets isOverridden; only cultivar evidence
+  // can resolve cultivar disagreement.
+  if (scan.isOverridden && (cultivarCorrection || recordedCorrection)) return null
+  const seen = new Set<string>()
+  const views = new Map<string, string[]>()
+  for (const detection of scan.detections ?? []) {
+    if (seen.has(detection.camera_id)) continue
+    seen.add(detection.camera_id)
+    const { detected_cultivar: cultivar, detected_ripeness: ripeness, confidence } = detection
+    if (!cultivar || !ripeness || confidence === null || !Number.isFinite(confidence)
+      || confidence <= 0 || confidence > 100) continue
+    const labels = views.get(cultivar) ?? []
+    labels.push(detection.camera_label || detection.camera_id)
+    views.set(cultivar, labels)
+  }
+  const total = [...views.values()].reduce((sum, labels) => sum + labels.length, 0)
+  const supporting = views.get(scan.cultivar)?.length ?? 0
+  if (views.size < 2 || supporting * 2 > total) return null
+  return [...views].map(([cultivar, labels]) => `${labels.join(" + ")}: ${cultivar}`).join("; ")
+}
+
 export interface RecordPage<T> { items: T[]; total: number; page: number; page_size: number; snapshot_id?: string }
 
 /** Publish a complete history only after every page succeeds. */

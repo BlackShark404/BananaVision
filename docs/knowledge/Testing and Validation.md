@@ -100,6 +100,49 @@ npm run lint
 
 ---
 
+## Station Cultivar Recognition Protocol
+
+The October 17 station case predicts a known Lakatan bunch as Lakatan from
+Top/Right and Latundan from Left/Rear, with some wrong-view scores above 90%.
+Raising a detection threshold does not establish correct cultivar recognition.
+The current split-camera safeguard exposes uncertainty; it is not retraining.
+
+1. Save original, unannotated copies of all four result images into a separate
+   offline case folder. Keep the checkpoint hash, saved input resolution,
+   inference settings and per-camera predictions. Browser screenshots with drawn
+   labels/resizing are useful evidence but are not the original model inputs.
+2. Record a trusted cultivar label and a stable physical `bunch_id`. Confirm the
+   physical finger total separately, and annotate every visible finger in each
+   image. Cultivar ground truth follows the same physical bunch across views;
+   model predictions must not become training labels without human verification.
+3. Collect additional independently identified Lakatan and Latundan bunches in
+   the station setup, including all four angles, lighting/placement variations,
+   ripeness coverage and overlapping fingers. Review cultivar labels with a
+   knowledgeable person; preserve the source dataset and edit a training copy.
+4. Split by physical bunch before augmentation. All views, repeat scans and dates
+   of a bunch stay together. Use separate training, validation and untouched
+   station test bunches. The already examined failing bunch is diagnostic data,
+   not final independent accuracy evidence.
+5. Fine-tune candidate weights offline with balanced class coverage; compare with
+   the unchanged baseline on validation. Freeze the checkpoint and inference
+   policy before evaluating the untouched station test cohort. Do not select a
+   model solely because it fixes one bunch, or favor Top/Right without evidence.
+6. Report per-view cultivar confusion, per-bunch cultivar decisions, incorrect
+   accepted decisions and review/abstention rate. Report box precision/recall,
+   visible-count MAE and exact physical-count rate separately. Review routing
+   improves disclosure and must not be reported as recognition accuracy gain.
+
+The prepared dataset's 137 VALID images occupy only three inferred filename
+groups (`cardaba_1`, `lakatan_7`, `latundan_4`). Its 137 TEST images likewise occupy
+three (`cardaba_6`, `lakatan_2`, `latundan_5`). These are grouping proxies with
+uncertain physical identities; they do not prove either three or 137 independent
+bunches. The existing checkpoint's training provenance is also incomplete.
+This limits claims about unseen bananas despite high agreement with those labels.
+
+Ultralytics recommends [representative data and annotation review](https://docs.ultralytics.com/guides/data-collection-and-annotation/)
+and [testing in deployment conditions while avoiding leakage](https://docs.ultralytics.com/guides/model-testing/).
+See [[Development Decisions]] for the implemented conflict/count safeguards.
+
 ## Knowledge & Decision Links
 
 - [[Frontend]] — UI architecture, component patterns, and loading state conventions.

@@ -1,80 +1,90 @@
-CURRENT RESUME HERE (2026-10-17) - MULTI-CAMERA SPATIAL COMPLEMENTARITY FINGER FUSION IMPLEMENTED & VERIFIED
-Branch main. No staging, commits, pushes, deployment or station restart.
-Previous checkpoint: docs/history/2026-10-17-before-reported-top-retest.txt.
+CURRENT RESUME HERE (2026-10-17) - SPLIT-CAMERA CULTIVAR SAFEGUARD VERIFIED; SUPPLIED MODEL AUDITED; RECOGNITION FIX NEEDS EXACT OFFLINE SCAN DATA
+Existing main checkout. No staging/commit/push/deploy/manual station restart or model/config replacement.
+Previous current checkpoint archived intact: docs/history/2026-10-17-before-split-camera-cultivar.txt.
 
-USER INTENT / CONSTRAINTS
-- User reports banana hand physically contains 19 fingers; Top view detects 10, Left sees 10+3,
-  Right sees +3, Rear sees 3-4, totaling 35 bounding boxes across 4 cameras, but Est. Fingers
-  showed 10 due to naive max(finger_counts) fusion logic.
-- Inaccurate counts threaten inventory integrity (intake, batching, tracking loss).
-- Requirement: mathematically and geometrically defensible multi-camera fusion suitable for
-  thesis/defense panel scrutiny without arbitrary heuristics.
-- Guard conditions: bounded between max(per_view) and sum(per_view); safe fallback if disabled,
-  uncalibrated, or single-camera; preserve working views, UI, architecture and explicit reverts.
-- No tests against live station DB/captures/cameras/printer/OS power; no secrets/.env reads.
+CURRENT USER INTENT / OBSERVED EVIDENCE
+- Same user-confirmed Lakatan Ripe bunch: Top+Right predict Lakatan Ripe;
+  Left+Rear predict Latundan Ripe, some wrong Left scores89-93%.
+- Latest screenshots: candidateLatundan77.9%,ReviewNeeded,estimated16fingers.
+  Earlier reported physical17 vs18;latest physical count not independently established.
+- Goal is accurate cultivar recognition,not merely hiding/confidence-adjusting errors.
+- Preserve all prior dirty work/user reverts,UI style/layout/API enums,Manila dates;
+  no station DB/captures/cameras/printer/OS power,secrets/.env access.
+- Initial user changes include missing best.pt,untracked banana_yolov26.pt and
+  BananaVision/;these remain untouched. Branch exclusively main.
 
-IMPLEMENTED / EXACT NEXT STEP
-- config.py: adds MULTI_CAMERA_FINGER_FUSION setting (default True).
-- fusion_engine.py: implements multi-camera spatial complementarity finger count fusion:
-  * Anchors base count on Top camera view (primary visible tier).
-  * Extracts novel peripheral fingers from Left camera (lateral outer flank rel_x <= 0.35).
-  * Extracts novel peripheral fingers from Right camera (lateral outer flank rel_x >= 0.65).
-  * Extracts novel underside/inner tier fingers from Rear camera (concavity rel_y >= 0.55).
-  * Strictly bounds fused count: max(finger_counts) <= N_fused <= sum(finger_counts).
-  * Seamless fallback to max(finger_counts) if Top is missing or fusion setting disabled.
-- test_classification_fusion.py: added 3 new comprehensive tests:
-  * test_multi_camera_spatial_complementarity_recovers_nineteen_fingers: simulates 19 physical fingers
-    (10 Top + 3 Left outer + 3 Right outer + 3 Rear underside) -> asserts exact fused count 19.
-  * test_multi_camera_finger_fusion_respects_disabled_setting: verifies fallback to max(finger_counts).
-  * test_multi_camera_finger_fusion_single_top_view: verifies single-camera compatibility.
-- Verification: 32/32 tests PASS in test_classification_fusion.py.
-  Targeted backend suite: 123/123 PASS across fusion, top inference, sensitivity, trigger, and writes.
-  Frontend production build & TypeScript typecheck: PASS (7.30s).
-  git diff --check: clean (0 issues).
-- NEXT: Present verified implementation to the user and await live scan test.
+IMPLEMENTED THIS FOLLOWUP
+- Fusion tracks complete valid unique-camera cultivar votes. A weighted candidate
+  with<=half the camera votes amid competing cultivars is conflicting/review-needed,
+  even when high candidate scores dominate. Candidate/mean score/count unchanged.
+  Existing60%weighted conflict checks remain;no forced Top/Right preference.
+- Kiosk helper uses existing detection summaries to show Uncertain with grouped
+  opposing camera predictions;main confidence/progress and cultivar-dependent
+  spoilage withheld. Existing stored candidate,score and raw boxes preserved.
+- isOverridden alone is not proof of cultivar correction:count/ripeness/spoilage
+  edits also set it. Bypass ambiguity only with original-result cultivar difference
+  or recorded actual cultivar change. Count-only correction retains uncertainty.
+- No schema/type/DB migration,YOLO postprocessing/weights change or retraining.
+- Previous counting fixes and initial137VALID audit remain current;see archive
+  and docs/audits/yolo-scan-integrity-2026-10-17.json for that work.
 
-VALIDATION EVIDENCE / LIMITS
-- All31 preparedVALID Top photos/293 labels;640/conf.50/class-aware NMS; matchingIoU>=.50.
-  Existing26m IoU.45->.65: countMAE1.000->.80645, spatialP92.86->93.18%,R93.17->97.95%;
-  combined-classP88.10->88.64%,R88.40->93.17%; spatialTP273->287, FP21 unchanged.
-- Count error improves7 photos, worsens3, ties21. Undercount photos8->3, overcount10->14,
-  bias+.032->+.484. Aggregate improvement does not guarantee every scene improves.
-- Larger960 input,90/270 rotations and newv8n IoU.65 failed guards; not enabled.
-  No frozenTEST reruns/tuning. Group identities uncertain; plain backgrounds differ
-  from live scenes. Fusion remains max(per-view box count), not physical-finger matching.
-- Evidence: docs/audits/yolo-top-overlap-validation-2026-10-17.json.
-- Training root D:\BananaVision-Training\v13-yolov8-20261016 contains:
-  top-view-experiment-31 (rejected policies), top-view-experiment-iou065 (accepted
-  predictions/summary). app-integration.json:62 real CPU predictions,31 Top->Rear pairs,
-  counts/classes match.65/.45 refs; boxes<=.1px, confidence<=.001; hashes/BGR unchanged.
-  Post-resolution-fix two predictions alsoPASS: app-integration-post-compatibility.json.
+USER-SUPPLIED FOLDERS / NEW MODEL AUDIT
+- Dataset:D:/Banana_Ripeness.v13i.yolo26.
+- Run:C:/Users/Kent/Downloads/v26n_run5_khen27_1024-20261017T050632Z-1-001/v26n_run5_khen27_1024.
+- Runbest.pt matches existing untracked banana_yolov26.pt SHA:
+  96808fa8ed706909237197e8db2510dccabfaeceed85a4d1ab5182cd28c95f7b.
+- YOLO26n2,539,232parameters;12expected classes/order;savedinput800 despite1024
+  foldername.92CSVepochs;peakmAP50-95.8746 at77 (not proof of embedded bestepoch).
+- Different from audited defaultYOLO26m e6f4e682...640px;actual live runtime model
+  identity not inspected (no.env/live access). Do not equate default with verified
+  loaded station model,or treat filename as model identity.
+- Same137 preparedVALID/1183visible labels,actual app behavior,conf.50;no tuningTEST.
+  Candidate vsdefault countMAE.94161vs.93431,exact58vs55,boxP92.87vs92.12%,
+  boxR92.48vs93.83%,combinedP88.88vs88.71%,combinedR88.50vs90.36%.
+  TopMAE1.1613vs.80645. Count error improves28,worsens31,ties78.
+- Both models137/137 imagecultivars match dataset labels;neither reproduces new
+  station cultivar error. No overall replacement benefit established.
+- VALID137 occupies3 inferred filenamegroups(one/cultivar);TEST137 likewise3;
+  physical identities and default training provenance uncertain. These are grouping
+  proxies,not a count of independently known physical bunches. Plain/light training
+  backgrounds differ from station;possible domain/view sensitivity remains inference.
+- docs/audits/yolo26n-supplied-run-validation-2026-10-17.json includes provenance,
+  appsettings/versions,perview/classes,hashes and limits. External artifacts under
+  D:/BananaVision-Training/v13-yolov8-20261016/supplied-v26n-valid-20261017/.
+  Independently recomputed137input hashes,matches/metrics/perview/countdeltas,
+  candidate137calls800/conf.50/iou.45,baseline168cachedcall replay:PASS.
+  Training artifacts unchanged;no station images or frozenTEST inference.
 
-VERIFICATION / EXISTING FAILURES
-- New17 regressions initiallyFAIL; implementation17PASS. Final file20 tests includes
-  custom960, unreadable fingerprint, Top in CAM-003 and Top->Rear settings reset.
-- Full backend406PASS/38SKIP in128.40s before final custom-resolution compatibility fix.
-  Afterward, targeted91PASS in5.74s across Top/classification/config/sensitivity/trigger.
-  Fresh temporary cwd, SQLite fixtures only. PostgreSQL test URL unset; those cases skip.
-- Frontend typecheck/buildPASS. Targeted kiosk/flagindicator/scanpages10PASS/1FAIL:
-  pre-existing HEAD test expects ScanComplete-ReviewNeeded; committed UI renders only
-  ScanComplete. Preserve source/test; weakening the assertion would hide that issue.
-- Configured backend Ruff FAIL640 existing diagnostics (HEAD-equivalent642), no added
-  diagnostics; new test file RuffPASS. Frontend lint FAIL41 errors/8 warnings; no
-  frontend edits. Do not claim all verification clean. Scoped diff/JSON/link review done.
-- Independent review found custom resolution concern; fixed and regression-tested.
-- Updated backendREADME, dataset audit, Obsidian Development Decisions; prior checkpoint
-  archived. Graphify graph/CLI and ICM tools unavailable; no installation/init or false
-  graph/memory update claim. Preserve their configurations and private memory database.
+VERIFICATION THIS FOLLOWUP
+- Targeted backend:test_classification_fusion,test_top_view_inference,
+  test_detection_sensitivity,test_scan_trigger,test_time_and_writes:
+  154PASS in41.28s;fresh temporary cwd,SQLite/mock fixtures,no databaseenvURL.
+- New backend high-score split regressions failed first;guard thenpassed.
+- Frontend scanpages12PASS;kiosk browser8PASS in30.06s,including AI split,
+  explicit cultivar correction and count-only correction. Initial count-only
+  bypass caught by independent review,regression failed then fixed andpassed.
+- Final frontend typecheckPASS;productionbuildPASS after override fix.
+- Final scoped source/test/UI diff,git diff --check,finite audit JSON and new
+  documentation links PASS. New model audit independently verified by saved reports.
+- Configured Ruff652existing diagnostics unchanged;new guard/test sections0.
+  Frontend lint41errors/8warnings unchanged;new helper/tests0diagnostics;
+  Kiosk retains2preexisting unused navigation handlers. No lint-clean claim.
+- Prior full backend result442PASS/38SKIP/1deselected,excludedwebsockettest1PASS
+  separately;not rerun needlessly this turn. PostgreSQLcases not exercised.
 
-TRAINING / PRIOR ARTIFACTS RETAINED
-- YOLOv8n training complete:78 total epochs, best58, patience20; completion/lifecycle/
-  evaluation JSON complete. Candidate best.pt SHA:
-  6a9ea2913b68465ee33e0991b125af4a598de526758b1cbe8a3591d430868916.
-- Frozen137TEST existing vs8n countMAE.832 vs.905, combined recall89.46% vs84.42%,
-  exact54 vs60. Baseline may have seen related images; neither checkpoint discarded.
-- visual_comparison.html shows both models on137VALID photos;68 Edge checks/source audit
-  PASS. candidate-app-runtime-smoke.json four-view inferencePASS. Final weights have
-  stripped optimizers; do not resume a completed run as though optimizer state remains.
-- Original7501images/67237boxes untouched. Prepared train5262/valid137/test137,12 classes,
- 19 uncertain filename groups; only2 background rows removed/7 contradictory files
-  quarantined in the copy. No active training process. Earlier13-module work complete.
+KNOWLEDGE / EXACT NEXT STEP
+- Updated Obsidian Development Decisions and Testing and Validation with strict
+  camera support,override evidence and a representative station validation protocol;
+  backendREADME/dataset audit linked. Graphify graph/CLI and ICM tools unavailable;
+  no integration resets/install or graph/memory refresh claimed.
+- Prepared D:/BananaVision-Training/station-cultivar-test/README.txt as offline
+  destination. Need originals forONE SAME scan namedtop.jpg,left.jpg,right.jpg,rear.jpg.
+  User-supplied paths contain training artifacts,not confirmed exact scan originals.
+- NEXT: report modelcomparison and safeguard results;ask user to save the four
+  unannotated original result images into that offline folder,then give filenames.
+  Test exact frames with known cultivar and verified visible/physical counts.
+- Recognition error is NOT resolved by uncertainty disclosure. Audit labels and
+  collect multiple independently identified Lakatan/Latundan station bunches across
+  all4views;group byphysicalbunch beforeaugmentation;fine-tune balanced offlinecopy;
+  freeze policy onvalidation and evaluate untouched station bunches. Current failing
+  bunch is diagnostic/training data,not independent final accuracy evidence.

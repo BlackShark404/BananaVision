@@ -1,0 +1,79 @@
+CURRENT RESUME HERE (2026-10-17) - CULTIVAR/COUNT INTEGRITY SAFEGUARDS VERIFIED; STATION ERROR NEEDS ORIGINAL OFFLINE FRAMES
+Branch main. No staging, commits, pushes, deployment or manual station restart.
+Previous checkpoint archived intact: docs/history/2026-10-17-before-cultivar-count-integrity.txt.
+
+CURRENT USER ISSUE / CONSTRAINTS
+- User-confirmed Lakatan is displayed as Latundan (screenshots: confidence81.8/77.1%).
+- Expected physical17 fingers; repeated scan sometimes estimates18. Raw all-view box totals29/30.
+- Preserve UI layout, API/types, existing unrelated edits and reverts, settings and model files.
+- Initial checkout already had classification/fusion/dedup changes, tests/knowledge notes,
+  missing backend/app/ml/best.pt, untracked banana_yolov26.pt and BananaVision/. Preserve them.
+- Never use live DB/captures/cameras/printer/OS power or secrets. Existing main checkout only.
+
+CONFIRMED FINDINGS / IMPLEMENTED
+- No Lakatan/Latundan label-map swap found: names come from model result.names[cls_id].
+  Each camera contributes one weighted cultivar vote; final mean selected-pair score
+  is not empirical accuracy, camera agreement or confidence in finger count.
+- Identical box geometry with conflicting labels previously counted multiple fingers.
+  _unique_box_detections now counts each exact(x,y,w,h) once; raw boxes/votes remain
+  available for class-conflict evidence. Peripheral fusion uses the same dedup helper.
+- Pass1 extra IoU/alignment suppression removed distinct overlapping neighbors,
+  undoing calibrated NMS. Restrict pass1 fragment cleanup to fully contained same-class
+  boxes. Preserve rotation geometric dedup; a suppressed alternative parsed class now
+  sets conflict_detected rather than silently discarding disagreement.
+- Rear promoted to count anchor no longer contributes its own peripheral additions.
+  Existing cross-view estimates above max(per-view) now require operator review.
+  This heuristic still does not match physical identities across cameras.
+- Kiosk now displays Scan Complete - Review Needed for flagged results; current
+  Confidence/Est.Fingers labels have explanatory native titles. Existing styling retained.
+- No cultivar relabeling rule, score inflation, retraining or weight replacement.
+
+OFFLINE EVIDENCE (PREPARED VALID ONLY)
+- docs/audits/yolo-scan-integrity-2026-10-17.json;137 photos/1183 labeled visible fingers.
+- Same checkpoint e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89.
+- CUDA raw calls saved outside repo under D:/BananaVision-Training/v13-yolov8-20261016/
+  scan-audit-20261017;168 original/rotated predictor calls replayed identically through
+  frozen resumed source and final source. Final hashes and artifact hashes verified.
+- Visible countMAE1.51825->0.93431;exact30->55/137;improved59,worsened16,tied62.
+- Localization P92.31->92.12%,R83.26->93.83%;exact combined cultivar/ripeness
+  P88.57->88.71%,R79.88->90.36%. FP82->95;improved recall has a precision tradeoff.
+- Top MAE2.387->.806;spatialP93.67%,R95.90% after correction.
+- All137 image cultivar votes agree with existing dataset labels;zero cultivar
+  confusion among1110 spatial matches. This DOES NOT establish real-scene accuracy.
+  Wrong combined-class spatial matches still average80.8% score. Labels were not
+  independently expert-verified;group identities/training provenance uncertain and
+  plain-background dataset differs from station. No frozen TEST rerun or tuning.
+- This is per-photo visible-instance validation, not unique physical bunch counting.
+  New screenshots/reference photos were not run as original model inputs.
+
+VERIFICATION / EXACT RESULTS
+- Targeted top-view + classification/fusion:83PASS in2.07s (new regressions failed first).
+- Full backend first run stalled at existing websocket idle-revocation test;stopped
+  only that test process. No auth source changes. Same test isolated:1PASS in1.64s.
+- Full suite retry excluding that test:442PASS/38SKIP/1DESELECTED in69.13s.
+  Fresh temporary cwd, no station.env, SQLite/mocked hardware;isolated PostgreSQL URL
+  removed from child environment, so disposable-PostgreSQL tests skip.
+- Frontend kiosk browser:5PASS, including formerly failing flagged-scan regression.
+  Frontend typecheck and production build PASS;browser APIs/hardware mocked.
+- Configured backend Ruff FAIL652 diagnostics. Frozen resume classifier3->final2
+  diagnostics;new regression sections0. Existing test/source debt remains.
+- Frontend configured lint FAIL41errors/8warnings (same existing baseline,no added
+  diagnostics). Do not claim lint clean or the original full-suite hang resolved.
+- Audit finite JSON/provenance/source fingerprints,new documentation links and
+  git diff --check PASS. Scoped source/test/UI/documentation diff reviewed.
+
+KNOWLEDGE / PENDING / EXACT NEXT STEP
+- Updated backendREADME,dataset audit,Obsidian Development Decisions;corrected old
+  unsupported claim that peripheral positions establish true physical bunch counts.
+- Graphify graph/CLI and ICM tools unavailable;no install/init,graph refresh or memory
+  storage claimed. Existing configurations/integrations/private DB preserved.
+- Code safeguards are verified. User's exact Lakatan->Latundan error and physical17
+  vs18 remain unresolved without original offline images and trusted annotations.
+- NEXT: report these results and ask for the four original result images (Top/Left/
+  Right/Rear) from the known17-finger Lakatan scan, saved/attached as offline copies.
+  Verify cultivar/ripeness and visible fingers per view,then run a frozen exact-frame
+  diagnosis to separate model confusion,missed/duplicate boxes and fusion ambiguity.
+  Further training requires verified station-style data grouped by physical bunch;
+  never force17 or Lakatan using an unvalidated constant/appearance rule.
+- Retain prior training/checkpoint/frozenTEST artifacts;see archived checkpoint and
+  docs/yolo-dataset-audit-2026-10-16.md for previous experiments and limitations.

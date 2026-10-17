@@ -158,7 +158,8 @@ async def sync_devices(db):
     for device in (await db.execute(select(Device))).scalars():
         ok = mapping.get(device.camera_id) in online
         device.status = 'Online' if ok else 'Offline'
-        device.resolution = f'{get_settings().camera_resolution_w}x{get_settings().camera_resolution_h}' if ok else None
+        measured = camera_manager.get_resolution(mapping[device.camera_id]) if ok else None
+        device.resolution = f'{measured[0]}x{measured[1]}' if measured else None
         if ok:
             device.last_seen = now_manila()
     await db.commit()

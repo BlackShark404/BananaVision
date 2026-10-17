@@ -57,6 +57,35 @@ See the [dataset and inference audit](../docs/yolo-dataset-audit-2026-10-16.md)
 for the validation results and limits. These offline measurements do not establish
 an exact physical bunch count or accuracy on the live camera scene.
 
+## Classification and count review
+
+Exact coincident boxes with competing class labels count once but retain their
+original boxes and scores for review. The raw box total can exceed the finger
+estimate. Fully contained same-class fragments are filtered after NMS; partial
+overlap between neighboring fingers is preserved in the first pass. A conflicting
+class suppressed during Top rotation also requires review.
+
+`MULTI_CAMERA_FINGER_FUSION` retains the existing peripheral count estimate.
+Rear's boxes are not added again when Rear supplies the anchor count, and any
+estimate above all individual view counts is flagged for operator confirmation.
+Camera-edge positions do not establish unique physical identities. Setting this
+option to `false` uses the largest per-camera count, which can undercount occluded
+fingers. The kiosk shows **Scan Complete - Review Needed** for flagged results.
+
+Confidence is the mean winning-pair detection score, not measured accuracy or
+confidence in the count. The [integrity audit](../docs/audits/yolo-scan-integrity-2026-10-17.json)
+records offline validation and the unresolved station cultivar/count limits.
+
+For competing cultivars, a weighted candidate without a strict majority of valid
+unique-camera summaries requires conflict review, including a high-score 2–2
+split. The kiosk shows **Uncertain**, the opposing camera predictions, and hides
+the main confidence/spoilage estimate pending cultivar verification. Raw model
+candidates and scores remain stored. Count-only overrides do not resolve cultivar
+uncertainty; cultivar corrections require original-result or change-history evidence.
+This guard does not change model recognition accuracy. See the
+[station validation protocol](../docs/knowledge/Testing%20and%20Validation.md#station-cultivar-recognition-protocol)
+for representative data collection, bunch-level splitting and offline evaluation.
+
 ## Project Structure
 
 ```

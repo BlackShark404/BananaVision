@@ -12,7 +12,11 @@ import math
 from dataclasses import dataclass, field
 
 from app.config import get_settings
-from app.services.classification import VOTE_CONFLICT_THRESHOLD, ClassificationResult, Detection
+from app.services.classification import (
+    VOTE_CONFLICT_THRESHOLD,
+    ClassificationResult,
+    _unique_box_detections,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +54,10 @@ class FusionEngine:
         1. Weight each complete camera classification by detection confidence
         2. Select cultivar with the highest total weight
         3. Select ripeness only from cameras supporting that cultivar
-        4. finger_count = max across cameras (most complete view)
+        4. Estimate finger count from available camera views
         5. Final confidence = mean confidence of the winning observed pair
-        6. Auto-flag conflicts, missing captures, or insufficient supporting views
+        6. Auto-flag conflicts, no cultivar camera majority, missing captures,
+           insufficient supporting views, or unverified cross-camera finger additions
     """
 
     CONFLICT_THRESHOLD = VOTE_CONFLICT_THRESHOLD
@@ -88,6 +93,7 @@ class FusionEngine:
             )
 
         cultivar_weights: dict[str, float] = {}
+        cultivar_view_counts: dict[str, int] = {}
         pair_confs: dict[tuple[str, str], list[float]] = {}
         pair_cameras: dict[tuple[str, str], set[str]] = {}
         finger_counts: list[int] = []
@@ -122,6 +128,9 @@ class FusionEngine:
             cultivar_weights[result.cultivar] = (
                 cultivar_weights.get(result.cultivar, 0) + conf
             )
+            cultivar_view_counts[result.cultivar] = (
+                cultivar_view_counts.get(result.cultivar, 0) + 1
+            )
             pair = (result.cultivar, result.ripeness)
             pair_confs.setdefault(pair, []).append(result.confidence)
             pair_cameras.setdefault(pair, set()).add(camera_id)
@@ -137,7 +146,17 @@ class FusionEngine:
         best_ripeness = self._select_winner(ripeness_weights) or "Unknown"
 
         # Check for conflicts
-        cultivar_conflict = self._has_conflict(cultivar_weights, best_cultivar)
+        # A high score cannot turn a split of independent camera labels into
+        # cultivar agreement. Keep the weighted candidate and its raw score,
+        # but require review when it lacks a strict majority of valid views.
+        no_camera_majority = (
+            len(cultivar_view_counts) > 1
+            and cultivar_view_counts.get(best_cultivar, 0) * 2
+            <= sum(cultivar_view_counts.values())
+        )
+        cultivar_conflict = (
+            self._has_conflict(cultivar_weights, best_cultivar) or no_camera_majority
+        )
         ripeness_conflict = self._has_conflict(ripeness_weights, best_ripeness)
         conflict_detected = cultivar_conflict or ripeness_conflict or per_view_conflict
 
@@ -161,16 +180,22 @@ class FusionEngine:
         supporting_views = len(pair_cameras.get(winning_pair, set()))
         insufficient_views = supporting_views < min(2, expected)
         missing_captures = len(per_camera) < expected
+        # Peripheral position does not establish physical identity across views.
+        # Counts above every individual view need operator confirmation even if
+        # all cameras agree on cultivar and ripeness.
+        count_requires_review = final_fingers > max(finger_counts, default=0)
         auto_flagged = (
             conflict_detected or final_confidence < review_confidence_threshold * 100
-            or insufficient_views or missing_captures
+            or insufficient_views or missing_captures or count_requires_review
         )
 
         if auto_flagged:
             logger.warning(
                 f"Fusion auto-flagged: cultivar={best_cultivar}, ripeness={best_ripeness}, "
                 f"conf={final_confidence}%, conflict={conflict_detected}, "
-                f"supporting_views={supporting_views}, captured={len(per_camera)}/{expected}"
+                f"no_camera_majority={no_camera_majority}, "
+                f"supporting_views={supporting_views}, captured={len(per_camera)}/{expected}, "
+                f"count_requires_review={count_requires_review}"
             )
 
         return FusedResult(
@@ -204,15 +229,18 @@ class FusionEngine:
         """
         Multi-camera spatial complementarity fusion for finger counting.
 
-        Anchors on the Top camera view (primary visible tier) and identifies
-        novel non-overlapping detections from peripheral/inner cameras:
-          - Left: lateral outer flank detections (rel_x <= 0.35)
-          - Right: lateral outer flank detections (rel_x >= 0.65)
-          - Rear: inner concave / underside tier detections (rel_y >= 0.55)
+        Anchors on the Top camera view (primary visible tier) and estimates
+        additional fingers from peripheral/inner camera positions:
+          - Left: lateral outer flank detections (rel_x <= 0.38)
+          - Right: lateral outer flank detections (rel_x >= 0.62)
+          - Rear: inner concave / underside tier detections (rel_y >= 0.50)
+
+        Position alone does not verify that these detections are new physical
+        fingers. The caller flags additions beyond the largest per-view count.
 
         Guards:
           - Always bounded between max(finger_counts) and sum(finger_counts).
-          - Falls back to max(finger_counts) if disabled, uncalibrated, or single-camera.
+          - Falls back to max(finger_counts) if disabled or no Top view is available.
         """
         if not finger_counts:
             return 0
@@ -238,13 +266,30 @@ class FusionEngine:
             return baseline_max
 
         top_count = top_res.finger_count
+        rear_res = views_by_label.get("rear")
+        rear_count = rear_res.finger_count if rear_res else 0
+
+        # Cross-validation stabilization: if Top detects fewer than Rear
+        # (detector noise / partial occlusion), trust the higher of the two
+        # as the primary tier count. No artificial +1 inflation.
+        rear_is_anchor = rear_count >= 8 and rear_count > top_count
+        if rear_is_anchor:
+            effective_top = rear_count
+        else:
+            effective_top = top_count
 
         # Extract novel peripheral detections from side and rear cameras
         novel_left = self._extract_novel_peripheral(views_by_label.get("left"), "left")
         novel_right = self._extract_novel_peripheral(views_by_label.get("right"), "right")
-        novel_rear = self._extract_novel_peripheral(views_by_label.get("rear"), "rear")
+        # If Rear supplies the anchor count, its own boxes are already included.
+        novel_rear = 0 if rear_is_anchor else self._extract_novel_peripheral(rear_res, "rear")
 
-        fused_estimate = top_count + novel_left + novel_right + novel_rear
+        # Cap combined novel additions to prevent overcounting when multiple
+        # cameras partially see overlapping peripheral fingers.
+        max_total_novel = 9  # Existing heuristic cap; does not verify physical identities.
+        total_novel = min(novel_left + novel_right + novel_rear, max_total_novel)
+
+        fused_estimate = effective_top + total_novel
 
         # Bound strictly between max(per_view) and sum(per_view)
         total_boxes = sum(finger_counts)
@@ -259,11 +304,9 @@ class FusionEngine:
         if not view_res or not view_res.detections:
             return 0
 
-        dets = view_res.detections
-        # Ignore views with very few detections (under-detected or small cluster)
-        if len(dets) < 4 and view_type != "rear":
-            return 0
-        if len(dets) < 3 and view_type == "rear":
+        dets = _unique_box_detections(view_res.detections)
+        # Ignore views with very few detections (small single-tier bunch or partial view)
+        if len(dets) < 4:
             return 0
 
         xs = [d.x for d in dets] + [d.x + d.w for d in dets]
@@ -276,16 +319,16 @@ class FusionEngine:
         novel = 0
         if view_type == "left" and span_x > 0:
             # Outer left flank of the banana hand
-            novel = sum(1 for d in dets if ((d.x + d.w / 2) - min_x) / span_x <= 0.35)
+            novel = sum(1 for d in dets if ((d.x + d.w / 2) - min_x) / span_x <= 0.38)
         elif view_type == "right" and span_x > 0:
             # Outer right flank of the banana hand
-            novel = sum(1 for d in dets if ((d.x + d.w / 2) - min_x) / span_x >= 0.65)
+            novel = sum(1 for d in dets if ((d.x + d.w / 2) - min_x) / span_x >= 0.62)
         elif view_type == "rear" and span_y > 0:
             # Inner concave underside tier
-            novel = sum(1 for d in dets if ((d.y + d.h / 2) - min_y) / span_y >= 0.55)
+            novel = sum(1 for d in dets if ((d.y + d.h / 2) - min_y) / span_y >= 0.50)
 
         # Cap novel additions per view to prevent extreme outliers
-        return min(novel, 6)
+        return min(novel, 4)
 
 
 # Singleton instance

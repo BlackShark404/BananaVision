@@ -1,4 +1,5 @@
 import { scanRetryAction } from "@/lib/scanWriteFeedback"
+import { cultivarCameraConflict } from "@/lib/scanData"
 import { useState, useEffect, useCallback } from "react"
 import KioskOperatorSwap from "@/components/KioskOperatorSwap"
 import { useAuth } from "@/context/AuthContext"
@@ -30,7 +31,6 @@ import { AppStatusBadge } from "@/components/AppStatusBadge"
 import BoundingBoxOverlay from "@/components/BoundingBoxOverlay"
 import { getImageUrl } from "@/lib/utils"
 import type { BoundingBox, ScanDetection } from "@/types"
-import { useKioskDemo } from "@/hooks/useKioskDemo"
 import { KioskPrintStatus } from "@/components/KioskPrintStatus"
 
 const ripenessIcon: Record<string, string> = {
@@ -47,12 +47,8 @@ export default function Kiosk() {
   const { scanState, startScan, scans, flagScan } = useScans()
   const { suppliers, activeIntake, startIntake } = useInventory()
   const { users, config } = useAdmin()
-  const [demoMode, setDemoMode] = useState(false)
-  const [demoScanId, setDemoScanId] = useState("")
-  const demo = useKioskDemo(`${user?.id}:${user?.role}`)
-  const demoScans = scans.filter(scan => scan.confidence !== null && scan.ripeness !== "Unknown" && scan.spoilageDays !== "Unknown")
-  const demoSourceId = demo.pendingScanId ?? (demoScans.some(scan => scan.id === demoScanId) ? demoScanId : demoScans[0]?.id || "")
-  const { isScanning, scanStep, scanProgress, lastResult } = demoMode ? demo.state : scanState
+  const { isScanning, scanStep, scanProgress, lastResult } = scanState
+  const cultivarConflict = lastResult ? cultivarCameraConflict(lastResult) : null
   const [currentTime, setCurrentTime] = useState(new Date())
   const activeSuppliers = suppliers.filter(s => s.status === "Active")
   const [showSourceModal, setShowSourceModal] = useState(false)
@@ -159,13 +155,6 @@ export default function Kiosk() {
     if (!kioskOperator) {
       toast.error("Please select an operator first")
       setShowSwapModal(true)
-      return
-    }
-    if (demoMode) {
-      if (!demoSourceId) return
-      setScanAction(null)
-      setKioskActiveDetImg(0)
-      void demo.run(demoSourceId)
       return
     }
     if (!activeIntake) {
@@ -396,7 +385,7 @@ export default function Kiosk() {
                         key={`cam-feed-${activeCameraIndex}`}
                         src={`${BASE_URL}/api/v1/cameras/preview/${cameras[activeCameraIndex]?.deviceId ?? activeCameraIndex}`}
                         alt={`Live Camera Feed - ${cameras[activeCameraIndex]?.label}`}
-                        className="inset-0 w-full h-full object-cover z-0 absolute animate-fade-in"
+                        className="inset-0 w-full h-full object-contain z-0 absolute animate-fade-in"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
                           const fallback = e.currentTarget.parentElement?.querySelector('[data-camera-fallback]');
@@ -536,33 +525,12 @@ export default function Kiosk() {
 
           {/* Scan Actions */}
           <div className="flex flex-col gap-3 shrink-0">
-            <div className="flex items-center justify-between gap-3">
-              <Button variant="outline" size="sm" aria-pressed={demoMode}
-                disabled={isScanning || scanState.isScanning}
-                onClick={() => { setDemoMode(value => !value); setScanAction(null) }}>
-                Demo mode
-              </Button>
-              {demoMode && <Badge variant="secondary">DEMO · saved prediction</Badge>}
-            </div>
-            {demoMode && <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">Shows a saved result and prints one DEMO label. Scan Logs and stock stay unchanged.</p>
-              <select aria-label="Demo prediction" value={demoSourceId}
-                disabled={isScanning || !!demo.pendingScanId}
-                onChange={event => setDemoScanId(event.target.value)}
-                className="w-full rounded-xl border border-border bg-card p-3 text-sm">
-                {demoScans.length === 0 && <option value="">No completed predictions available</option>}
-                {demoScans.map(scan => <option key={scan.id} value={scan.id}>
-                  {scan.cultivar} · {scan.ripeness} · {scan.id.slice(0, 8)}
-                </option>)}
-              </select>
-              {demo.error && <p role="alert" className="text-xs text-destructive">{demo.error}</p>}
-            </div>}
             <div className="space-y-2">
               <label className="text-xs font-semibold text-muted-foreground ml-1 uppercase tracking-wider">Source / Supplier Tag</label>
               <Button
                 variant="outline"
                 onClick={() => setShowSourceModal(true)}
-                disabled={isScanning || demoMode}
+                disabled={isScanning}
                 className="w-full h-14 bg-card hover:bg-muted text-left flex justify-between items-center px-4 rounded-xl border-border shadow-sm text-base font-medium"
               >
                 <span>{activeIntake ? `${activeIntake.supplierName}${activeIntake.batchNumber ? ` (${activeIntake.batchNumber})` : ''}` : "Select Source"}</span>
@@ -573,7 +541,7 @@ export default function Kiosk() {
             <Button
               size="lg"
               className="h-14 lg:h-16 text-base lg:text-xl font-bold rounded-2xl shadow-xl shadow-primary/20 gap-3 transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]"
-              disabled={isScanning || !kioskOperator || (demoMode ? !demoSourceId : !activeIntake)}
+              disabled={isScanning || !kioskOperator || !activeIntake}
               onClick={handleScan}
             >
               {isScanning ? (
@@ -584,7 +552,7 @@ export default function Kiosk() {
               ) : (
                 <>
                   <ScanLine className="w-6 h-6 lg:w-7 lg:h-7" />
-                  {demoMode ? demo.pendingScanId ? "Retry demo request" : "Run Demo & Print" : "Scan Now"}
+                  Scan Now
                 </>
               )}
             </Button>
@@ -606,37 +574,42 @@ export default function Kiosk() {
                       <CheckCircle2 className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold">{demoMode ? "Demo Complete" : "Scan Complete"}</p>
-                      {demoMode && <p className="text-xs text-muted-foreground">Saved prediction replay · no new scan</p>}
+                      <p className="text-sm font-bold">{lastResult.flagged || cultivarConflict ? "Scan Complete - Review Needed" : "Scan Complete"}</p>
                       <p className="text-[10px] text-muted-foreground">{new Date(lastResult.dateTime).toLocaleTimeString()}</p>
                     </div>
                   </div>
                   <AppStatusBadge type="ripeness" status={lastResult.ripeness} size="lg" />
                 </div>
 
+                {cultivarConflict && (
+                  <p role="status" className="text-xs text-muted-foreground">
+                    Cameras disagree. {cultivarConflict}. Review cultivar before accepting.
+                  </p>
+                )}
+
                 {/* Metrics Grid */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-primary/10 rounded-xl p-3 text-center border border-primary/20">
                     <Banana className="w-5 h-5 text-primary mx-auto mb-1" />
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Cultivar</p>
-                    <p className="text-lg font-bold text-primary">{lastResult.cultivar}</p>
+                    <p className="text-lg font-bold text-primary" title={cultivarConflict ? `Stored AI candidate: ${lastResult.cultivar}` : undefined}>{cultivarConflict ? "Uncertain" : lastResult.cultivar}</p>
                   </div>
                   <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
                     <Target className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Confidence</p>
-                    <p className="text-lg font-bold">{lastResult.confidence === null ? "—" : `${lastResult.confidence}%`}</p>
-                    <Progress value={lastResult.confidence} className="h-1 mt-1.5" />
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider" title={cultivarConflict ? "No cultivar consensus across camera views." : "Model prediction score; this is not measured accuracy."}>Confidence</p>
+                    <p className="text-lg font-bold">{cultivarConflict || lastResult.confidence === null ? "—" : `${lastResult.confidence}%`}</p>
+                    <Progress value={cultivarConflict ? null : lastResult.confidence} className="h-1 mt-1.5" />
                   </div>
                   <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
                     <CalendarClock className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Spoilage</p>
                     <p className="text-lg font-bold">
-                      {lastResult.spoilageDays} <span className="text-xs text-muted-foreground">days</span>
+                      {cultivarConflict ? "—" : <>{lastResult.spoilageDays} <span className="text-xs text-muted-foreground">days</span></>}
                     </p>
                   </div>
                   <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
                     <Hand className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Fingers</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider" title="Estimated finger count; confirm the physical total before accepting.">Est. Fingers</p>
                     <p className="text-lg font-bold">{lastResult.fingerCount}</p>
                   </div>
                   {lastResult.temperature !== undefined && (
@@ -770,14 +743,14 @@ export default function Kiosk() {
                     onClick={() => {
                       if (lastResult && lastResult.id !== scanAction?.id) {
                         setScanAction({ id: lastResult.id, action: 'accepted' })
-                        toast.success(demoMode ? "Demo accepted" : "Scan accepted", {
-                          description: demoMode ? "Demonstration only; no records changed." : "Result saved to intake.",
+                        toast.success("Scan accepted", {
+                          description: "Result saved to intake.",
                         })
                       }
                     }}
                   >
                     <CheckCircle2 className="w-4 h-4 lg:w-5 lg:h-5" />
-                    {lastResult.id === scanAction?.id && scanAction?.action === 'accepted' ? "Accepted" : demoMode ? "Accept demo" : "Accept"}
+                    {lastResult.id === scanAction?.id && scanAction?.action === 'accepted' ? "Accepted" : "Accept"}
                   </Button>
                   <Button
                     size="lg"
@@ -786,11 +759,6 @@ export default function Kiosk() {
                     className="flex-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 gap-2 font-bold h-12 lg:h-14 text-sm lg:text-base"
                     onClick={async () => {
                       if (lastResult && lastResult.id !== scanAction?.id && !flaggingScan) {
-                        if (demoMode) {
-                          setScanAction({ id: lastResult.id, action: 'flagged' })
-                          toast.success("Demo flagged", { description: "Demonstration only; no records changed." })
-                          return
-                        }
                         setFlaggingScan(true)
                         try {
                           await flagScan(lastResult.id, true)
@@ -809,7 +777,7 @@ export default function Kiosk() {
                     ) : (
                       <Flag className="w-4 h-4 lg:w-5 lg:h-5" />
                     )}
-                    {flaggingScan ? "Flagging..." : lastResult.id === scanAction?.id && scanAction?.action === 'flagged' ? "Flagged" : demoMode ? "Flag demo" : "Flag for Review"}
+                    {flaggingScan ? "Flagging..." : lastResult.id === scanAction?.id && scanAction?.action === 'flagged' ? "Flagged" : "Flag for Review"}
                   </Button>
                 </div>
               </CardContent>

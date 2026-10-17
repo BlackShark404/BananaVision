@@ -1,8 +1,11 @@
-"""Kiosk demonstrations never invent predictions or touch cameras/printers."""
+"""Removed kiosk replay route and isolated live/legacy label compatibility."""
 
+import asyncio
+from dataclasses import asdict
 from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -11,28 +14,25 @@ from app.api.v1 import scans
 from app.config import get_settings
 from app.core.exceptions import ModelInferenceError
 from app.models import Intake, PrintJob, Scan, ScanClassification
+from app.services import print_jobs
+from app.services.prediction_label import PredictionData
 from app.services.printer_service import PrinterServiceError
 from tests.test_printing import station as station
 from tests.test_time_and_writes import application as application
 
 
-def test_demo_uses_saved_values_prints_once_and_preserves_records(station):
+@pytest.mark.parametrize("body", [
+    {"request_id": str(uuid4())},
+    {"request_id": str(uuid4()), "quantity": 10, "confidence": 100},
+])
+def test_removed_demo_route_cannot_create_or_modify_records(station, body):
     app = station
-    body = {"request_id": str(uuid4())}
-    url = f"/api/v1/scans/{app.ids.scan}/kiosk-demo"
-    first = app.client.post(url, json=body)
-    assert first.status_code == 200, first.text
-    data = first.json()
-    assert data["scan"]["id"] == str(app.ids.scan)
-    assert data["scan"]["confidence"] == 90
-    assert data["print_job"]["quantity"] == 1
-    assert "TEST=DEMO" in data["label"]["payload"]
-    assert "SPOILAGE_DAYS=3" in data["label"]["payload"]
-    assert data["label"]["panel"][-1] == "DEMO"
-    replay = app.client.post(url, json=body)
-    assert replay.json()["print_job"]["status"] == "SUBMITTED"
-    assert app.submit.call_count == 1
-    assert app.submit.call_args.args[1].demo
+    assert not any(path.endswith("/kiosk-demo") for path in app.app.openapi()["paths"])
+    for scan_id in (app.ids.scan, uuid4()):
+        response = app.client.post(f"/api/v1/scans/{scan_id}/kiosk-demo", json=body)
+        assert response.status_code == 404, response.text
+    assert "commit" not in app.state.events
+    app.submit.assert_not_called()
     with Session(app.engine) as db:
         assert db.scalar(select(func.count()).select_from(Scan)) == 1
         assert db.scalar(select(func.count()).select_from(ScanClassification)) == 1
@@ -40,54 +40,43 @@ def test_demo_uses_saved_values_prints_once_and_preserves_records(station):
         scan = db.get(Scan, app.ids.scan)
         assert scan.revision == 1 and not scan.flagged
         assert float(scan.classification.confidence) == 90
-        assert db.scalar(select(func.count()).select_from(PrintJob)) == 1
-    # A demo request ID cannot be reused for an ordinary production label.
-    normal = app.client.post(f"/api/v1/scans/{app.ids.scan}/print", json=body)
-    assert normal.status_code == 409
-    app.submit.assert_called_once()
+        assert db.scalar(select(func.count()).select_from(PrintJob)) == 0
 
 
-def test_demo_offline_and_retry_keep_demo_snapshot(station):
+@pytest.mark.parametrize("status", ["QUEUED", "FAILED"])
+def test_legacy_demo_jobs_keep_immutable_snapshot_and_retry(station, status):
     app = station
-    app.submit.side_effect = PrinterServiceError("OFFLINE")
-    response = app.client.post(f"/api/v1/scans/{app.ids.scan}/kiosk-demo",
-                               json={"request_id": str(uuid4())})
-    job_id = response.json()["print_job"]["id"]
-    base = f"/api/v1/scans/{app.ids.scan}/print-jobs/{job_id}"
-    assert app.client.get(base).json()["status"] == "FAILED"
-    app.submit.side_effect = None
-    assert app.client.post(base + "/retry", json={"expected_attempt": 1}).status_code == 200
-    assert app.submit.call_args.args[1].demo
-    assert "TEST=DEMO" in app.submit.call_args.args[1].payload()
-    assert app.client.get(base).json()["attempt_count"] == 2
-
-
-def test_demo_replay_display_matches_original_label_after_source_change(station):
-    app = station
-    url = f"/api/v1/scans/{app.ids.scan}/kiosk-demo"
-    body = {"request_id": str(uuid4())}
-    first = app.client.post(url, json=body).json()
+    job_id = uuid4()
     with Session(app.engine) as db:
+        scan = db.get(Scan, app.ids.scan)
+        data = PredictionData.from_scan(scan, demo=True)
+        db.add(PrintJob(
+            id=job_id, prediction_id=app.ids.scan, owner_id=app.ids.admin,
+            printer_name="Fixture Printer", quantity=1, label_data=asdict(data),
+            width_mm=40, height_mm=30, status=status, claimed=status == "FAILED",
+            attempt_count=1 if status == "FAILED" else 0,
+            error_message="OFFLINE" if status == "FAILED" else None,
+        ))
         db.get(Scan, app.ids.scan).classification.confidence = 99
         db.commit()
-    replay = app.client.post(url, json=body).json()
-    assert replay["label"]["payload"] == first["label"]["payload"]
-    assert replay["scan"]["confidence"] == 90
+    base = f"/api/v1/scans/{app.ids.scan}/print-jobs/{job_id}"
+    assert app.client.get(base).json()["status"] == status
+    if status == "FAILED":
+        assert app.client.post(base + "/retry", json={"expected_attempt": 1}).status_code == 200
+    else:
+        asyncio.run(print_jobs.submit_job(job_id))
+    printed = app.submit.call_args.args[1]
+    assert printed == data and printed.demo and printed.confidence == 90
+    assert "TEST=DEMO" in printed.payload() and printed.panel()[-1] == "DEMO"
+    result = app.client.get(base).json()
+    assert result["status"] == "SUBMITTED"
+    assert result["attempt_count"] == (2 if status == "FAILED" else 1)
+    # A historical demo request ID cannot become an ordinary production label.
+    normal = app.client.post(f"/api/v1/scans/{app.ids.scan}/print", json={
+        "request_id": str(job_id),
+    })
+    assert normal.status_code == 409
     app.submit.assert_called_once()
-
-
-def test_demo_rejects_missing_unauthorized_and_client_predictions(station):
-    app = station
-    body = {"request_id": str(uuid4())}
-    assert app.client.post(f"/api/v1/scans/{uuid4()}/kiosk-demo", json=body).status_code == 404
-    url = f"/api/v1/scans/{app.ids.scan}/kiosk-demo"
-    assert app.client.post(url, json={**body, "quantity": 10}).status_code == 422
-    assert app.client.post(url, json={**body, "confidence": 100}).status_code == 422
-    app.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
-        id=uuid4(), role=SimpleNamespace(name="Operator"),
-    )
-    assert app.client.post(url, json=body).status_code == 403
-    app.submit.assert_not_called()
 
 
 def prepare_trigger(app, monkeypatch):
