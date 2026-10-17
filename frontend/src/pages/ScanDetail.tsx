@@ -74,6 +74,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const [provenanceReason, setProvenanceReason] = useState("")
   const [editBaseline, setEditBaseline] = useState<ScanResult | null>(null)
   const [editReason, setEditReason] = useState("")
+  const [fingerCountEdited, setFingerCountEdited] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [editData, setEditData] = useState<Partial<{ cultivar: Cultivar; ripeness: Ripeness; spoilageDays: string; fingerCount: number | string; source: string }>>({})
   const [activeCamera, setActiveCamera] = useState(0)
@@ -209,22 +210,23 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
       source: scan.source,
     })
     setEditReason("")
+    setFingerCountEdited(false)
     setEditMode(true)
   }
 
   const handleSaveEdit = async () => {
     if (scan && editData && editReason.trim() && !editPending) {
       const parsedFingerCount = typeof editData.fingerCount === 'string'
-        ? parseInt(editData.fingerCount, 10)
+        ? Number(editData.fingerCount)
         : editData.fingerCount
-      if (parsedFingerCount === undefined || isNaN(parsedFingerCount) || parsedFingerCount < 1) {
+      if (fingerCountEdited && (editData.fingerCount === '' || !Number.isInteger(parsedFingerCount) || parsedFingerCount === undefined || parsedFingerCount < 1)) {
         toast.error("Finger count must be at least 1")
         return
       }
       setEditPending(true)
       const saveData = {
         ...editData,
-        fingerCount: parsedFingerCount,
+        fingerCount: fingerCountEdited ? parsedFingerCount : undefined,
         spoilageDays: editData.spoilageDays,
       } as Partial<ScanResult>
       try {
@@ -554,13 +556,8 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                         max="30"
                         value={editData.fingerCount ?? ""}
                         onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === '') {
-                            setEditData({ ...editData, fingerCount: '' });
-                          } else {
-                            const parsed = parseInt(val, 10);
-                            setEditData({ ...editData, fingerCount: isNaN(parsed) ? '' : Math.max(1, parsed) });
-                          }
+                          setFingerCountEdited(true)
+                          setEditData({ ...editData, fingerCount: e.target.value })
                         }}
                         className="rounded-xl mt-1"
                       />
@@ -586,9 +583,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                       disabled={
                         editPending ||
                         !editReason.trim() ||
-                        editData.fingerCount === '' ||
-                        editData.fingerCount === undefined ||
-                        Number(editData.fingerCount) < 1
+                        (fingerCountEdited && (editData.fingerCount === '' || !Number.isInteger(Number(editData.fingerCount)) || Number(editData.fingerCount) < 1))
                       }
                     >
                       {editPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} {editPending ? "Saving…" : "Save Changes"}

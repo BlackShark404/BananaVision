@@ -1,0 +1,47 @@
+CURRENT RESUME HERE (2026-10-17) - YOLO DETECTION BOX DUPLICATION & NATURAL ASPECT RATIO DISPLAY RESOLVED AND VERIFIED
+Branch main. No staging, commits, pushes, deployment or station restart.
+Previous checkpoint archived intact: docs/history/2026-10-17-before-detection-box-integrity-fix.txt.
+
+CURRENT USER INTENT / CONFIRMED SCOPE
+- User observed YOLO detection box issues when scan picture is taken:
+  1. Expanded detection view and thumbnails cropped/chopped the banana bunch and edge boxes compared to live feed.
+  2. Duplicate and overlapping bounding boxes reappeared on same banana fingers (e.g. 4 stacked boxes on Top finger,
+     2 boxes on Right finger, 10 clashing boxes on Rear view with 28 total boxes for 15-finger bunch).
+- User confirmed intent: fix both the detection image/boxes cropping AND the duplicate/overlapping boxes on fingers.
+- Preserve existing UI layout, styles, API enums, Asia/Manila date handling, and database schemas.
+- Do not test against live station DB/captures/cameras/printer/OS power; no secrets/.env reads.
+
+IMPLEMENTED THIS FOLLOWUP
+- backend classification.py:
+  * Implemented `_is_same_class_sub_box(det, existing)` to cleanly distinguish nested sub-box fragments
+    (substantially smaller area ratio <= 0.85 and containment >= 0.80) or severe IoU duplicates (>= 0.80) from
+    distinct overlapping fingers of similar size.
+  * In pass 1: replaced rigid `== 1.0` containment check with `_is_same_class_sub_box` to prevent same-class
+    fragments and near-identical boxes from double-boxing fingers while preserving distinct neighbors.
+  * In `_unique_box_detections`: cluster detections with IoU >= 0.70 or containment >= 0.85 to prevent floating-point
+    coordinate jitter on coincident hypotheses from inflating finger count.
+- frontend BoundingBoxOverlay.tsx & Kiosk.tsx:
+  * BoundingBoxOverlay now dynamically computes and applies the image's natural aspect ratio once loaded
+    (`aspectRatio: imgNaturalSize.w / imgNaturalSize.h`), preventing 16:9 camera images from being sliced or
+    cropped by rigid 4:3 containers.
+  * In BoundingBoxOverlay: implemented `deduplicateDisplayBoxes` to clean up duplicate/severely overlapping boxes
+    (IoU >= 0.65 or containment >= 0.75) for display so that each finger displays its authoritative prediction.
+  * In Kiosk.tsx: removed hardcoded `aspect-[4/3]` from expanded active detection view and thumbnails, allowing the full
+    16:9 camera capture to display completely without cutting off banana tips or bounding boxes.
+  * In Kiosk thumbnail badge: display `detection.finger_count || detection.bounding_boxes.length` to reflect true finger counts.
+
+VERIFICATION THIS FOLLOWUP
+- Targeted backend suite: 154 PASS in ~10s across:
+  * test_top_view_inference.py & test_classification_fusion.py: 97 PASS
+  * test_detection_sensitivity.py, test_scan_trigger.py, test_time_and_writes.py: 57 PASS
+- Frontend tests & builds:
+  * TypeScript typecheck: PASS (0 errors).
+  * Vite production build: PASS (tsc -b && vite build in 7.38s).
+  * scanpages.test.mjs: 12/12 PASS.
+  * kiosk.test.mjs (Playwright with msedge): 7/7 PASS (23.6s).
+- Scoped diff check: git diff --check clean (0 issues).
+- Linting: frontend lint 41 errors/8 warnings unchanged from preexisting baseline (0 new diagnostics).
+
+EXACT NEXT STEP
+- Inform user of verified resolution for both cropping and duplicate detection boxes.
+- User can test live scan at the kiosk to confirm full-frame display and clean single boxes per finger.

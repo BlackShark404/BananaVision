@@ -1,8 +1,10 @@
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { useAuth } from "@/context/AuthContext"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Delete, ArrowLeft, ShieldCheck, KeyRound, Fingerprint, CheckCircle2, Loader2 } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -23,6 +25,9 @@ interface KioskOperatorSwapProps {
   onOpenChange: (open: boolean) => void
   /** List of active operators available for selection */
   operators: Operator[]
+  operatorsLoading?: boolean
+  operatorsError?: string | null
+  onRetryOperators?: () => void
   /** Currently active operator id, if any */
   currentOperatorId: string | null
   /** Called when operator swap is successful */
@@ -176,12 +181,20 @@ export default function KioskOperatorSwap({
   open,
   onOpenChange,
   operators,
+  operatorsLoading = false,
+  operatorsError,
+  onRetryOperators,
   currentOperatorId,
   onSwapSuccess,
 }: KioskOperatorSwapProps) {
   const { user, switchOperator, setupPinAndLogin } = useAuth()
 
   // ── Local State ──────────────────────────────────────────────────────────
+
+  const inFlight = useRef(false)
+  const delay = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const cancelDelay = useCallback(() => { clearTimeout(delay.current); delay.current = undefined }, [])
+  useEffect(() => { if (!open) cancelDelay(); return cancelDelay }, [open, cancelDelay])
 
   const [phase, setPhase] = useState<SwapPhase>("select")
   const [targetId, setTargetId] = useState<string | null>(null)
@@ -223,7 +236,9 @@ export default function KioskOperatorSwap({
 
   const handlePinVerify = useCallback(
     async (fullPin: string) => {
-      if (!targetOperator) return
+      if (!targetOperator || inFlight.current) return
+      cancelDelay()
+      inFlight.current = true
       setIsProcessing(true)
 
       try {
@@ -262,17 +277,18 @@ export default function KioskOperatorSwap({
         showPinRequestError(error, "Unable to verify PIN")
         setPin("")
       } finally {
+        inFlight.current = false
         setIsProcessing(false)
       }
     },
-    [targetOperator, switchOperator, onSwapSuccess, onOpenChange, triggerShake]
+    [targetOperator, switchOperator, onSwapSuccess, onOpenChange, triggerShake, cancelDelay]
   )
 
   // ── New PIN Confirm Handler ──────────────────────────────────────────────
 
   const handleNewPinConfirm = useCallback(
     async (confirmed: string) => {
-      if (!targetOperator) return
+      if (!targetOperator || inFlight.current) return
 
       if (newPin !== confirmed) {
         toast.error("PINs do not match. Try again.")
@@ -283,6 +299,8 @@ export default function KioskOperatorSwap({
         return
       }
 
+      cancelDelay()
+      inFlight.current = true
       setIsProcessing(true)
       try {
         const success = await setupPinAndLogin(targetOperator.username, confirmed)
@@ -302,17 +320,21 @@ export default function KioskOperatorSwap({
         setConfirmPin("")
         setPhase("new-pin")
       } finally {
+        inFlight.current = false
         setIsProcessing(false)
       }
     },
-    [targetOperator, newPin, setupPinAndLogin, onSwapSuccess, onOpenChange, triggerShake]
+    [targetOperator, newPin, setupPinAndLogin, onSwapSuccess, onOpenChange, triggerShake, cancelDelay]
   )
 
   // ── Key Press Router ─────────────────────────────────────────────────────
 
   const handleKeyPress = useCallback(
     (key: string) => {
-      if (isProcessing) return
+      if (inFlight.current) return
+      const currentPin = phase === "pin" ? pin : phase === "new-pin" ? newPin : confirmPin
+      if (key !== "backspace" && currentPin.length >= PIN_LENGTH) return
+      cancelDelay()
 
       if (phase === "pin") {
         if (key === "backspace") {
@@ -322,7 +344,7 @@ export default function KioskOperatorSwap({
           setPin(next)
           if (next.length === PIN_LENGTH) {
             // Small delay so the user sees the last dot fill
-            setTimeout(() => handlePinVerify(next), 200)
+            delay.current = setTimeout(() => handlePinVerify(next), 200)
           }
         }
       } else if (phase === "new-pin") {
@@ -332,7 +354,7 @@ export default function KioskOperatorSwap({
           const next = newPin + key
           setNewPin(next)
           if (next.length === PIN_LENGTH) {
-            setTimeout(() => {
+            delay.current = setTimeout(() => {
               setPhase("confirm-pin")
             }, 250)
           }
@@ -344,12 +366,12 @@ export default function KioskOperatorSwap({
           const next = confirmPin + key
           setConfirmPin(next)
           if (next.length === PIN_LENGTH) {
-            setTimeout(() => handleNewPinConfirm(next), 200)
+            delay.current = setTimeout(() => handleNewPinConfirm(next), 200)
           }
         }
       }
     },
-    [phase, pin, newPin, confirmPin, isProcessing, handlePinVerify, handleNewPinConfirm]
+    [phase, pin, newPin, confirmPin, handlePinVerify, handleNewPinConfirm, cancelDelay]
   )
 
   // ── Keyboard Support ─────────────────────────────────────────────────────
@@ -375,22 +397,26 @@ export default function KioskOperatorSwap({
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
+      if (inFlight.current) return
+      if (!nextOpen) cancelDelay()
       if (!nextOpen && !currentOperatorId) return // Can't dismiss without an operator
       onOpenChange(nextOpen)
     },
-    [currentOperatorId, onOpenChange]
+    [currentOperatorId, onOpenChange, cancelDelay]
   )
 
   // ── Go Back ──────────────────────────────────────────────────────────────
 
   const handleBack = useCallback(() => {
+    if (inFlight.current) return
+    cancelDelay()
     setTargetId(null)
     setPin("")
     setNewPin("")
     setConfirmPin("")
     setShake(false)
     setPhase("select")
-  }, [])
+  }, [cancelDelay])
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -414,6 +440,8 @@ export default function KioskOperatorSwap({
           <div className="flex items-center gap-3">
             {phase !== "select" && (
               <button
+                aria-label="Back to operators"
+                disabled={isProcessing}
                 onClick={handleBack}
                 className="
                   w-9 h-9 rounded-xl
@@ -443,6 +471,10 @@ export default function KioskOperatorSwap({
         {/* ─── Phase: Select Operator ─────────────────────────────── */}
         {phase === "select" && (
           <div className="px-6 pb-6 pt-4">
+            {operatorsLoading && operators.length === 0 && <div role="status" aria-label="Loading operators" className="grid grid-cols-2 sm:grid-cols-3 gap-3">{[0, 1, 2].map(i => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}</div>}
+            {operatorsError && <p role="alert" className="text-sm text-destructive mb-3">{operatorsError}</p>}
+            {!operatorsLoading && operators.length === 0 && !operatorsError && <p className="text-sm text-muted-foreground mb-3">No active operators are available.</p>}
+            {!operatorsLoading && (operatorsError || operators.length === 0) && onRetryOperators && <Button variant="outline" onClick={onRetryOperators} className="mb-3">Retry operator list</Button>}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {operators.map((op) => (
                 <button

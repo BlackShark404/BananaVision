@@ -1,10 +1,12 @@
-import { useState, useMemo, useEffect, useCallback } from "react"
+import { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 
 import { api } from "@/lib/api"
 import { toast } from "sonner"
 import type { AppNotification, NotificationType } from "@/types"
+import type { ApiNotification } from "@/types/api"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -21,6 +23,7 @@ import {
   Info,
   ShieldAlert,
   Check,
+  Loader2,
 } from "lucide-react"
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -65,46 +68,67 @@ const notificationConfig: Record<NotificationType, { icon: typeof Bell; color: s
   },
 }
 
-const mapApiNotification = (n: any): AppNotification => ({
+const mapApiNotification = (n: ApiNotification): AppNotification => ({
   id: n.id,
   type: n.type,
   title: n.title,
   message: n.message,
   timestamp: new Date(n.timestamp),
   read: n.read,
-  href: n.href,
+  href: n.href ?? undefined,
 })
 
 export function AppNotifications() {
+  const { user } = useAuth()
+  return user ? <NotificationList key={`${user.id}:${user.role}`} /> : null
+}
+
+function NotificationList() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [open, setOpen] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [markingRead, setMarkingRead] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
+  const pending = useRef(new Set<string>())
+  const confirmedRead = useRef(new Set<string>())
+  const markAllPending = useRef(false)
+  const request = useRef<AbortController | null>(null)
+  const mounted = useRef(false)
 
   const fetchNotifications = useCallback(async () => {
+    request.current?.abort()
+    const controller = new AbortController()
+    request.current = controller
+    setLoading(true)
+    setError(null)
     try {
-      const res = await api.notifications.list()
-      const items = res.items || res as any
-      if (Array.isArray(items)) {
-        setNotifications(items.map(mapApiNotification))
-      }
-    } catch {
-      console.error("[AppNotifications] Failed to fetch notifications")
+      const res = await api.notifications.list(controller.signal)
+      if (controller.signal.aborted || !mounted.current) return
+      if (!Array.isArray(res.items)) throw new Error("Notifications could not be loaded.")
+      setNotifications(res.items.map(item => ({ ...mapApiNotification(item), read: item.read || confirmedRead.current.has(item.id) })))
+      setLoaded(true)
+    } catch (cause) {
+      if (!controller.signal.aborted && mounted.current) setError(cause instanceof Error ? cause.message : "Notifications could not be loaded.")
+    } finally {
+      if (request.current === controller && mounted.current) setLoading(false)
     }
-    setLoaded(true)
-  }, [loaded])
+  }, [])
 
   // Load on mount
   useEffect(() => {
-    if (user) fetchNotifications()
-  }, [user])
+    mounted.current = true
+    void fetchNotifications()
+    return () => { mounted.current = false; request.current?.abort() }
+  }, [fetchNotifications])
 
   // Refresh when popover opens
   useEffect(() => {
-    if (open && user) fetchNotifications()
-  }, [open])
+    if (open) void fetchNotifications()
+  }, [open, fetchNotifications])
 
   const filteredNotifications = useMemo(() => {
     const OPERATOR_TYPES: NotificationType[] = ["scan_complete", "scan_flagged"]
@@ -117,25 +141,37 @@ export function AppNotifications() {
   const unreadCount = useMemo(() => filteredNotifications.filter((n) => !n.read).length, [filteredNotifications])
 
   const markAsRead = async (id: string) => {
+    if (pending.current.has(id) || markAllPending.current) return
+    pending.current.add(id)
+    setPendingIds(new Set(pending.current))
     try {
       await api.notifications.markRead(id)
+      if (!mounted.current) return
+      confirmedRead.current.add(id)
       setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
     } catch (error) {
       toast.error("Could not mark notification as read", { description: error instanceof Error ? error.message : "Please try again." })
+    } finally {
+      pending.current.delete(id)
+      if (mounted.current) setPendingIds(new Set(pending.current))
     }
   }
 
   const markAllAsRead = async () => {
-    if (markingRead) return
+    if (markAllPending.current || pending.current.size) return
+    markAllPending.current = true
     setMarkingRead(true)
     const ids = new Set(notifications.map(notification => notification.id))
     try {
       await api.notifications.markAllRead()
+      if (!mounted.current) return
+      ids.forEach(id => confirmedRead.current.add(id))
       setNotifications((prev) => prev.map((n) => ids.has(n.id) ? { ...n, read: true } : n))
     } catch (error) {
       toast.error("Could not mark notifications as read", { description: error instanceof Error ? error.message : "Please try again." })
     } finally {
-      setMarkingRead(false)
+      markAllPending.current = false
+      if (mounted.current) setMarkingRead(false)
     }
   }
 
@@ -152,6 +188,7 @@ export function AppNotifications() {
       <PopoverTrigger asChild>
         <Button
           id="notification-trigger"
+          aria-label="Notifications"
           variant="ghost"
           size="icon"
           className="relative h-9 w-9 rounded-lg hover:bg-accent"
@@ -186,9 +223,9 @@ export function AppNotifications() {
               size="sm"
               className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground"
               onClick={markAllAsRead}
-              disabled={markingRead}
+              disabled={markingRead || pendingIds.size > 0}
             >
-              <Check className="w-3 h-3 mr-1" />
+              {markingRead ? <Loader2 aria-hidden="true" className="w-3 h-3 mr-1 animate-spin" /> : <Check className="w-3 h-3 mr-1" />}
               Mark all read
             </Button>
           )}
@@ -197,8 +234,10 @@ export function AppNotifications() {
         <Separator />
 
         {/* Notification List */}
-        <div className="max-h-100 overflow-y-auto">
-          {notifications.length === 0 ? (
+        <div className="max-h-100 overflow-y-auto" aria-busy={loading}>
+          {error && <div role="alert" className="px-4 py-3 text-sm text-muted-foreground">{loaded ? "Showing previously loaded notifications. " : ""}{error}<Button variant="ghost" size="sm" disabled={loading} onClick={() => void fetchNotifications()}>Retry notifications</Button></div>}
+          {loading && loaded && <p role="status" className="px-4 py-2 text-xs text-muted-foreground">Refreshing notifications…</p>}
+          {!loaded && loading ? <div role="status" aria-label="Loading notifications" className="space-y-3 p-4"><span className="sr-only">Loading notifications</span>{[0, 1, 2].map(index => <Skeleton key={index} aria-hidden="true" className="h-14 w-full" />)}</div> : !loaded ? null : filteredNotifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
               <Bell className="w-8 h-8 mb-2 opacity-40" />
               <p className="text-sm">No notifications yet</p>
@@ -211,6 +250,8 @@ export function AppNotifications() {
                 return (
                   <button
                     key={notification.id}
+                    disabled={pendingIds.has(notification.id) || markingRead}
+                    aria-busy={pendingIds.has(notification.id)}
                     className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/60 ${!notification.read ? "bg-accent/30" : ""
                       }`}
                     onClick={() => handleNotificationClick(notification)}

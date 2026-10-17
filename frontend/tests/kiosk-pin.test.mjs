@@ -52,6 +52,82 @@ async function storedSession(page) {
   }))
 }
 
+test("back cancels delayed PIN verification before it submits", async t => {
+  const { page, requests } = await setup(t)
+  await page.clock.install()
+  await page.clock.pauseAt(new Date())
+  await enterPin(page)
+  await page.getByRole("button", { name: "Back to operators" }).click()
+  await page.clock.runFor(500)
+  assert.equal(requests.length, 0)
+  await page.getByRole("button", { name: /Fixture Operator/ }).waitFor()
+})
+
+test("PIN verification sends once and prevents navigation while pending", async t => {
+  const { page, requests } = await setup(t)
+  await page.clock.install()
+  await page.clock.pauseAt(new Date())
+  let calls = 0, release
+  const gate = new Promise(resolve => { release = resolve })
+  await page.route("**/api/v1/auth/swap", async route => {
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*" }
+    if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers })
+    calls++
+    await gate
+    await route.fulfill({ headers, json: authenticated })
+  })
+  await enterPin(page)
+  // Extra digits must not cancel the pending fourth-digit submission.
+  await page.getByRole("dialog").getByRole("button", { name: "5", exact: true }).click()
+  await page.clock.runFor(250)
+  try {
+    await page.getByText("Verifying...", { exact: true }).waitFor()
+    assert.equal(await page.getByRole("button", { name: "Back to operators" }).isDisabled(), true)
+    await page.keyboard.press("Escape")
+    assert.equal(await page.getByRole("dialog").isVisible(), true)
+    assert.equal(calls, 1)
+    assert.equal(requests.length, 0)
+  } finally { release() }
+  await page.getByRole("dialog").waitFor({ state: "hidden" })
+})
+
+for (const operation of ["swap", "setup-pin"]) {
+  test(`stalled ${operation} unlocks PIN recovery and ignores a late successful response`, async t => {
+    const { page } = await setup(t, [{ status: 200, json: { status: "requires_pin_change", reason: "pin_reset", setup_token: "limited-proof" } }])
+    if (operation === "setup-pin") {
+      await enterPin(page)
+      await page.getByRole("heading", { name: "Create New Kiosk PIN", exact: true }).waitFor()
+      await enterPin(page, "2468")
+      await page.getByRole("heading", { name: "Confirm New PIN", exact: true }).waitFor()
+    }
+    await page.clock.install()
+    await page.clock.pauseAt(new Date())
+    let release, requested
+    const gate = new Promise(resolve => { release = resolve })
+    const seen = new Promise(resolve => { requested = resolve })
+    await page.route(`**/api/v1/auth/${operation}`, async route => {
+      const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*" }
+      if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers })
+      requested()
+      await gate
+      await route.fulfill({ headers, json: authenticated }).catch(() => {})
+    })
+    try {
+      await enterPin(page, operation === "swap" ? "1234" : "2468")
+      await page.clock.runFor(250)
+      await seen
+      await page.clock.runFor(15_100)
+      await page.getByText("Kiosk temporarily unavailable", { exact: true }).waitFor({ timeout: 2000 })
+      assert.equal(await page.getByRole("button", { name: "Back to operators" }).isEnabled(), true)
+      release()
+      await page.clock.runFor(100)
+      assert.deepEqual(await storedSession(page), { token: "existing-access", user: existingUser })
+      await page.getByRole("button", { name: "Back to operators" }).click()
+      await page.getByRole("button", { name: /Fixture Operator/ }).waitFor()
+    } finally { release() }
+  })
+}
+
 test("station recovery errors explain unavailability and allow the same PIN to succeed after recovery", async t => {
   const { page, requests } = await setup(t, [
     { status: 503, json: { detail: "Station requires recovery; new work is temporarily unavailable" } },

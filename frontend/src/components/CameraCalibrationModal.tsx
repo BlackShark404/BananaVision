@@ -34,13 +34,10 @@ export function CameraCalibrationModal({ disabled = false }: { disabled?: boolea
     const load = async () => {
       setLoadedConfig(null); setError(""); operationId.current = null
       try {
-        const token = getToken()
-        const [res, saved] = await Promise.all([
-          fetch(`${BASE_URL}/api/v1/cameras`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, signal: controller.signal }),
+        const [data, saved] = await Promise.all([
+          api.cameras.list(controller.signal),
           api.config.get(controller.signal),
         ])
-        if (!res.ok) throw new Error("Camera list could not be loaded")
-        const data: CameraSlot[] = await res.json()
         if (controller.signal.aborted) return
         setCameras(data); setLabels(data.map(cam => cam.label))
         setMapping(Object.fromEntries(data.map(cam => [cam.label, cam.device_id])))

@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { Suspense, useState } from "react"
+import { ContentSkeleton } from "@/components/LoadingState"
 import { Outlet } from "react-router-dom"
 import AppHeader from "@/components/AppHeader"
 import AppSidebar from "@/components/AppSidebar"
@@ -23,7 +24,7 @@ export default function AppLayout() {
         <AppHeader />
         <div className="lg:hidden h-15" />
         <div className="p-4 lg:p-6 xl:p-8 max-w-7xl mx-auto">
-          <Outlet />
+          <Suspense fallback={<ContentSkeleton label="Loading page…" />}><Outlet /></Suspense>
         </div>
       </main>
     </div>

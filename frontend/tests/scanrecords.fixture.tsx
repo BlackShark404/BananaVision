@@ -8,6 +8,7 @@ import { InventoryProvider } from "../src/context/InventoryContext"
 import DeliveryIntake from "../src/pages/admin/DeliveryIntake"
 import ScanDetail from "../src/pages/ScanDetail"
 import Logs from "../src/pages/Logs"
+import QualityControl from "../src/pages/admin/QualityControl"
 import "../src/index.css"
 
 function NoteProbe() {
@@ -26,6 +27,7 @@ createRoot(document.getElementById("root")!).render(
   <BrowserRouter><AdminProvider><ScanProvider><InventoryProvider>
     <Link to="/logs">Test logs link</Link><Link to="/scans/10000000-0000-4000-8000-000000000001">Test detail link</Link><NoteProbe /><main className="p-6"><Routes>
       <Route path="/scans/intakes" element={<DeliveryIntake />} />
+      <Route path="/scans/quality" element={<QualityControl />} />
       <Route path="/scans/:scanId" element={<ScanDetail />} />
       <Route path="/logs" element={<Logs />} />
     </Routes></main><Toaster />

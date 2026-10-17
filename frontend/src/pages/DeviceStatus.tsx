@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { Monitor, Camera, Wifi, WifiOff, Cpu, HardDrive, Clock, MemoryStick, Thermometer, Activity, RefreshCw, Droplets } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
+import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { useWebSocket } from "@/hooks/useWebSocket"
 export default function DeviceStatus() {
@@ -29,14 +30,23 @@ export default function DeviceStatus() {
     cpu_temp: number | null
   } | null>(null)
 
-  const [sensorData, setSensorData] = useState({ temperature: 0, humidity: 0 })
-  const [sensorConnected, setSensorConnected] = useState(false)
+  const [sensorData, setSensorData] = useState<{ temperature: number; humidity: number } | null>(null)
+  const [sensorConnected, setSensorConnected] = useState<boolean | null>(null)
+  const [sensorLoading, setSensorLoading] = useState(true)
+  const [sensorError, setSensorError] = useState("")
+  const [sensorRetry, setSensorRetry] = useState(0)
+  const liveSensorRevision = useRef(0)
 
   // Listen for live sensor readings via WebSocket
   useWebSocket({
     rooms: ["dashboard"],
     onEvent: (event, data) => {
       if (event === "sensor:update") {
+        if (!Number.isFinite(data.temperature) || !Number.isFinite(data.humidity)) return
+        ++liveSensorRevision.current
+        setSensorLoading(false)
+        setSensorError("")
+        setSensorConnected(true)
         setSensorData({
           temperature: data.temperature,
           humidity: data.humidity
@@ -47,19 +57,20 @@ export default function DeviceStatus() {
 
   // Fetch initial sensor data and health on mount
   useEffect(() => {
+    let active = true
+    const revision = liveSensorRevision.current
+    setSensorLoading(true)
+    setSensorError("")
     api.sensors.latest().then((res) => {
-      if (res) {
-        setSensorData({
-          temperature: res.temperature,
-          humidity: res.humidity
-        })
-      }
-    }).catch(console.error)
+      if (active && revision === liveSensorRevision.current && res) setSensorData({ temperature: res.temperature, humidity: res.humidity })
+    }).catch(() => { if (active && revision === liveSensorRevision.current) setSensorError("Sensor readings unavailable.") })
+      .finally(() => { if (active) setSensorLoading(false) })
 
     api.health().then((res) => {
-      setSensorConnected(res.sensor_connected)
-    }).catch(console.error)
-  }, [])
+      if (active && revision === liveSensorRevision.current) setSensorConnected(res.sensor_connected)
+    }).catch(() => { if (active && revision === liveSensorRevision.current) setSensorError("Sensor connection status unavailable.") })
+    return () => { active = false }
+  }, [sensorRetry])
 
   // Fetch live system metrics every 5 seconds
   useEffect(() => {
@@ -86,7 +97,7 @@ export default function DeviceStatus() {
           <Monitor className="w-7 h-7" /> Device Status
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          {online} of {total} cameras online · IoT Sensors Active
+          {online} of {total} cameras online
         </p>
       </div>
 
@@ -278,22 +289,25 @@ export default function DeviceStatus() {
               }`}
             >
               {sensorConnected ? <Wifi className="w-3.5 h-3.5 mr-1.5" /> : <WifiOff className="w-3.5 h-3.5 mr-1.5" />}
-              {sensorConnected ? "Live" : "Offline"}
+              {sensorConnected === null ? "Status unknown" : sensorConnected ? (sensorData ? "Live" : "No readings") : "Offline"}
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-4 relative">
-          {!sensorConnected && (
+          {sensorError && <div role="alert" className="flex items-center gap-3 text-sm text-destructive">{sensorError}<Button variant="outline" size="sm" disabled={sensorLoading} onClick={() => setSensorRetry(value => value + 1)}>Retry sensor readings</Button></div>}
+          {sensorConnected === false && (
             <div className="flex items-center gap-3 px-4 py-3 bg-red-50/50 border border-red-100/50 rounded-xl">
               <div className="w-8 h-8 shrink-0 rounded-full bg-red-100 flex items-center justify-center text-red-600">
                 <WifiOff className="w-4 h-4" />
               </div>
               <div className="text-left">
                 <p className="text-sm font-semibold text-red-900 leading-none mb-1">Sensor Disconnected</p>
-                <p className="text-xs text-red-700/80 leading-tight">Showing last recorded historical data.</p>
+                <p className="text-xs text-red-700/80 leading-tight">{sensorData ? "Showing last recorded historical data." : "No recorded sensor readings available."}</p>
               </div>
             </div>
           )}
+          {sensorLoading && !sensorData && <p role="status" className="text-sm text-muted-foreground">Loading sensor readings…</p>}
+          {!sensorLoading && !sensorData && <p className="text-sm text-muted-foreground">No sensor readings available.</p>}
           <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${!sensorConnected ? 'opacity-70 grayscale-[30%]' : ''}`}>
             <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border">
               <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
@@ -302,8 +316,8 @@ export default function DeviceStatus() {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Ambient Temperature</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-2xl font-bold">{sensorData.temperature.toFixed(1)}<span className="text-base font-medium text-muted-foreground">°C</span></p>
-                  <span className="text-[10px] text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full">Optimal</span>
+                  <p className="text-2xl font-bold">{sensorData ? sensorData.temperature.toFixed(1) : "—"}<span className="text-base font-medium text-muted-foreground">°C</span></p>
+
                 </div>
               </div>
             </div>
@@ -314,8 +328,8 @@ export default function DeviceStatus() {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Ambient Humidity</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-2xl font-bold">{sensorData.humidity.toFixed(1)}<span className="text-base font-medium text-muted-foreground">%</span></p>
-                  <span className="text-[10px] text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full">Optimal</span>
+                  <p className="text-2xl font-bold">{sensorData ? sensorData.humidity.toFixed(1) : "—"}<span className="text-base font-medium text-muted-foreground">%</span></p>
+
                 </div>
               </div>
             </div>

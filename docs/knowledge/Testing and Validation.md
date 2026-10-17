@@ -46,7 +46,7 @@ raise SystemExit(pytest.main([
 ```
 
 ### Disposable PostgreSQL Testing
-For tests requiring PostgreSQL/TimescaleDB-specific features (such as hypertables, continuous aggregates, or schema migrations):
+For tests requiring PostgreSQL-specific constraints, advisory locks or schema migrations:
 - Set `BANANAVISION_TEST_DATABASE_URL` to an isolated, disposable cluster.
 - Each test run generates and drops a unique schema.
 - Once tests conclude, the temporary cluster directory and port are stopped and removed.
@@ -69,13 +69,15 @@ The frontend uses Node.js native test runner (`node --test`) driving headless Ch
 | `printing.test.mjs` | Label printing queues, GDI driver recovery, Windows spooler error handling |
 | `persistence.test.mjs` & `assigned.test.mjs` | One-time admin credential setup, role-based view scoping, session persistence |
 | `scanlogfilters.test.mjs` | Unit tests for query string builders (`buildScanLogsUrl`) and filter parsing (`scanLogParams`) |
+| `adminloading.test.mjs`, `loading.test.mjs`, `operationsloading.test.mjs` | First-load vs refresh/empty/error states, delayed reads after writes, read deadlines, notification account scope, operator-list recovery and sensor freshness |
 
 ### Running Frontend Tests
 
 **From `frontend/` directory:**
 ```powershell
-# Set PLAYWRIGHT_MODULE to the installed Playwright module path:
-$env:PLAYWRIGHT_MODULE = 'C:/Users/Roronoa Zoro/Documents/GitHub/Website Portfolio/node_modules/playwright/index.mjs'
+# When Playwright is not locally resolvable, set PLAYWRIGHT_MODULE to the existing
+# installed playwright/index.mjs path. Do not install duplicate runtimes.
+$env:PLAYWRIGHT_CHANNEL = 'msedge' # or an installed supported browser
 
 # Run all browser regression suites:
 node --test --test-concurrency=1 tests/*.test.mjs
@@ -91,7 +93,7 @@ node --test tests/scanlogfilters.test.mjs
 # TypeScript Typecheck (0 errors required):
 npm run typecheck
 
-# Production Vite Build:
+# Production Vite Build (also checks the referenced TypeScript projects with tsc -b):
 npm run build
 
 # Configured Linting:
@@ -106,3 +108,4 @@ npm run lint
 - [[Development Decisions]] — Architectural choices regarding snapshot retention and review queues.
 - [[Resolved Bugs]] — Confirmed defect root causes and regression test references.
 - [[Home]] — Knowledge base index.
+- [2026-10-17 loading recheck](../audits/2026-10-17-loading-recheck.md) — current verification results, baseline failures and coverage limits.

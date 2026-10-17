@@ -1,8 +1,8 @@
 import { scanRetryAction } from "@/lib/scanWriteFeedback"
 import { api } from "@/lib/api"
-import { isScanConflict } from "@/lib/scanWrites"
+import { isScanConflict, UncertainScanWrite } from "@/lib/scanWrites"
 import { ScanImage } from "@/components/ScanImage"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useScans } from "@/context/ScanContext"
 import { useAdmin } from "@/context/AdminContext"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -45,12 +45,25 @@ export default function QualityControl() {
   const [noteText, setNoteText] = useState("")
   const [editBaseline, setEditBaseline] = useState<ScanResult | null>(null)
   const [editReason, setEditReason] = useState("")
+  const [fingerCountEdited, setFingerCountEdited] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [editData, setEditData] = useState<Partial<Omit<ScanResult, 'fingerCount' | 'spoilageDays'> & { fingerCount: number | string; spoilageDays: string }>>({})
   const [filterView, setFilterView] = useState<"all" | "flagged" | "low-confidence" | "overridden">("all")
   const [sourceFilter, setSourceFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [pendingWrite, setPendingWrite] = useState(false)
+  const [writeFailure, setWriteFailure] = useState<{ message: string; action?: { label: string; onClick: () => Promise<void> } } | null>(null)
+  const [recoveringWrite, setRecoveringWrite] = useState(false)
+
+  // Detail/notes reads may be newer than the frozen list row used to open the modal.
+  // Refresh the displayed record/revision, preserving the user's correction draft and baseline.
+  useEffect(() => {
+    setSelectedScan(previous => {
+      if (!previous) return previous
+      const current = scans.find(scan => scan.id === previous.id)
+      return current && (current.revision ?? 0) > (previous.revision ?? 0) ? current : previous
+    })
+  }, [scans])
 
   const activeSources = useMemo(() => {
     return Array.from(new Set(scans.map(s => s.source).filter(Boolean)))
@@ -85,18 +98,58 @@ export default function QualityControl() {
   }, [scans, filterView, sourceFilter, searchQuery, config.confidenceThreshold])
 
   const reportWriteError = (error: unknown, scanId?: string, confirmed?: (request: Readonly<Record<string, unknown>>) => void) => {
+    const message = error instanceof Error ? error.message : "Could not save changes. Please retry."
+    if (scanId && selectedScan?.id === scanId) {
+      const reload = async () => {
+        const saved = acceptScan(await api.scans.detail(scanId))
+        setSelectedScan(previous => previous?.id === scanId ? saved : previous)
+        setEditBaseline(previous => previous?.id === scanId ? { ...previous, revision: saved.revision } : previous)
+      }
+      setWriteFailure({ message, action: isScanConflict(error) ? { label: "Reload latest", onClick: reload }
+        : error instanceof UncertainScanWrite ? { label: "Retry previous", onClick: async () => {
+          await error.retry()
+          confirmed?.(error.request)
+          // The retained write is now confirmed and cannot be replayed again. A failed
+          // follow-up read must offer read recovery, not the consumed write retry.
+          setWriteFailure({ message: "Previous change confirmed. Reloading the latest record…", action: { label: "Reload latest", onClick: reload } })
+          await reload()
+          toast.success("Previous change confirmed. Review the latest record before making another change.")
+        } } : undefined })
+      return
+    }
     toast.error(error instanceof Error ? error.message : "Could not save changes. Please retry.", {
       action: scanRetryAction(error, request => { confirmed?.(request); if (scanId) void api.scans.detail(scanId).then(raw => { const saved = acceptScan(raw); setSelectedScan(previous => previous?.id === scanId ? saved : previous) }).catch(error => toast.error(error.message)) }) ?? (isScanConflict(error) && scanId ? { label: "Reload latest", onClick: () => {
         void api.scans.detail(scanId).then(raw => {
           const saved = acceptScan(raw)
           setSelectedScan(previous => previous?.id === scanId ? saved : previous)
+          setEditBaseline(previous => previous?.id === scanId ? { ...previous, revision: saved.revision } : previous)
         }).catch(error => toast.error(error.message))
       } } : undefined),
     })
   }
 
+  const recoverWrite = async () => {
+    if (!writeFailure?.action || recoveringWrite || pendingWrite) return
+    setRecoveringWrite(true)
+    try {
+      await writeFailure.action.onClick()
+      setWriteFailure(null)
+    } catch (error) {
+      if (isScanConflict(error)) reportWriteError(error, selectedScan?.id)
+      else {
+        const status = typeof error === "object" && error !== null && "status" in error ? Number(error.status) : 0
+        const rejected = status >= 400 && status < 500 && status !== 408
+        setWriteFailure(previous => previous && { ...previous,
+          message: error instanceof Error ? error.message : "Could not reload this scan. Please retry.",
+          action: rejected && previous.action?.label === "Retry previous" ? undefined : previous.action,
+        })
+      }
+    } finally { setRecoveringWrite(false) }
+  }
+
   const handleFlag = async (scan: ScanResult) => {
-    if (pendingWrite) return
+    if (pendingWrite || recoveringWrite) return
+    setWriteFailure(null)
     const isNowFlagged = !scan.flagged
     setPendingWrite(true)
     try {
@@ -109,7 +162,8 @@ export default function QualityControl() {
   }
 
   const handleAddNote = async () => {
-    if (!selectedScan || !noteText.trim() || pendingWrite) return
+    if (!selectedScan || !noteText.trim() || pendingWrite || recoveringWrite) return
+    setWriteFailure(null)
     setPendingWrite(true)
     try {
       const saved = await addScanNote(selectedScan.id, noteText.trim(), selectedScan.revision)
@@ -122,22 +176,23 @@ export default function QualityControl() {
   }
 
   const handleSaveEdit = async () => {
-    if (selectedScan && editData && editReason.trim() && !pendingWrite) {
+    if (selectedScan && editData && editReason.trim() && !pendingWrite && !recoveringWrite) {
       const parsedFingerCount = typeof editData.fingerCount === 'string'
-        ? parseInt(editData.fingerCount, 10)
+        ? Number(editData.fingerCount)
         : editData.fingerCount
-      if (parsedFingerCount === undefined || isNaN(parsedFingerCount) || parsedFingerCount < 1) {
+      if (fingerCountEdited && (editData.fingerCount === '' || !Number.isInteger(parsedFingerCount) || parsedFingerCount === undefined || parsedFingerCount < 1)) {
         toast.error("Finger count must be at least 1")
         return
       }
       setPendingWrite(true)
+      setWriteFailure(null)
       const saveData = {
         ...editData,
-        fingerCount: parsedFingerCount,
+        fingerCount: fingerCountEdited ? parsedFingerCount : undefined,
         spoilageDays: editData.spoilageDays,
       } as Partial<ScanResult>
       try {
-        await updateScanData(selectedScan.id, saveData, editReason.trim(), { ...(editBaseline ?? selectedScan), revision: selectedScan.revision })
+        await updateScanData(selectedScan.id, saveData, editReason.trim(), editBaseline ?? selectedScan)
         setEditMode(false)
         setSelectedScan(null)
         setEditData({})
@@ -149,10 +204,12 @@ export default function QualityControl() {
   }
 
   const openScanDetails = (scan: ScanResult) => {
+    setWriteFailure(null)
     setSelectedScan(scan)
     setEditBaseline(scan)
     setEditMode(false)
     setEditReason("")
+    setFingerCountEdited(false)
     setEditData({
       cultivar: scan.cultivar,
       ripeness: scan.ripeness,
@@ -474,7 +531,7 @@ export default function QualityControl() {
       />
 
       {/* Scan Details Dialog */}
-      <Dialog open={!!selectedScan} onOpenChange={() => { if (pendingWrite) return; setSelectedScan(null); setEditMode(false); setNoteText("") }}>
+      <Dialog open={!!selectedScan} onOpenChange={() => { if (pendingWrite || recoveringWrite) return; setSelectedScan(null); setEditMode(false); setNoteText("") }}>
         <DialogContent className="sm:max-w-2xl rounded-2xl max-h-[90vh] flex flex-col p-0 gap-0">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <div className="flex items-center justify-between pr-8">
@@ -508,7 +565,7 @@ export default function QualityControl() {
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Date/Time</Label>
-                  <p className="text-sm mt-0.5">{new Date(selectedScan.dateTime).toLocaleString()}</p>
+                  <p className="text-sm mt-0.5">{new Date(selectedScan.dateTime).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</p>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Operator</Label>
@@ -694,13 +751,8 @@ export default function QualityControl() {
                           max="30"
                           value={editData.fingerCount ?? ""}
                           onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === '') {
-                              setEditData({ ...editData, fingerCount: '' });
-                            } else {
-                              const parsed = parseInt(val, 10);
-                              setEditData({ ...editData, fingerCount: isNaN(parsed) ? '' : Math.max(1, parsed) });
-                            }
+                            setFingerCountEdited(true)
+                            setEditData({ ...editData, fingerCount: e.target.value })
                           }}
                         />
                       </div>
@@ -781,7 +833,7 @@ export default function QualityControl() {
                       <div className="min-w-0">
                         <p className="text-foreground">{note.note}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {note.author} • {new Date(note.timestamp).toLocaleString()}
+                          {note.author} • {new Date(note.timestamp).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}
                         </p>
                       </div>
                     </div>
@@ -814,20 +866,25 @@ export default function QualityControl() {
           )}
 
           {editMode && <div className="px-6 pb-4"><div className="space-y-2"><Label htmlFor="qc-edit-reason">Reason for change</Label><Textarea id="qc-edit-reason" value={editReason} onChange={event => setEditReason(event.target.value)} disabled={pendingWrite} /></div></div>}
+          {writeFailure && <div role="alert" className="px-6 pb-4 flex items-center justify-between gap-3 text-sm text-destructive">
+            <span>{writeFailure.message}</span>
+            {writeFailure.action && <Button variant="outline" size="sm" disabled={pendingWrite || recoveringWrite} onClick={() => void recoverWrite()}>
+              {recoveringWrite && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin mr-2" />}
+              {recoveringWrite ? "Loading…" : writeFailure.action.label}
+            </Button>}
+          </div>}
           <DialogFooter className="px-6 pb-6 pt-4 border-t flex-col sm:flex-row gap-2">
             {editMode ? (
               <>
-                <Button variant="outline" disabled={pendingWrite} onClick={() => setEditMode(false)}>
+                <Button variant="outline" disabled={pendingWrite || recoveringWrite} onClick={() => { setEditMode(false); setWriteFailure(null) }}>
                   Cancel
                 </Button>
                 <Button
                   onClick={handleSaveEdit}
                   disabled={
-                    pendingWrite ||
+                    pendingWrite || recoveringWrite ||
                     !editReason.trim() ||
-                    editData.fingerCount === '' ||
-                    editData.fingerCount === undefined ||
-                    Number(editData.fingerCount) < 1
+                    (fingerCountEdited && (editData.fingerCount === '' || !Number.isInteger(Number(editData.fingerCount)) || Number(editData.fingerCount) < 1))
                   }
                 >
                   {pendingWrite && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin mr-2" />}{pendingWrite ? "Saving…" : "Save Changes"}
@@ -837,14 +894,22 @@ export default function QualityControl() {
               <>
                 <Button 
                   variant={selectedScan?.flagged ? "secondary" : "outline"}
-                  disabled={pendingWrite}
+                  disabled={pendingWrite || recoveringWrite}
                   onClick={() => selectedScan && handleFlag(selectedScan)}
                   className={selectedScan?.flagged ? "text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200" : ""}
                 >
                   <Flag className={`w-4 h-4 mr-2 ${selectedScan?.flagged ? "fill-current" : ""}`} />
                   {selectedScan?.flagged ? 'Remove Flag' : 'Flag for Review'}
                 </Button>
-                <Button disabled={pendingWrite} onClick={() => setEditMode(true)}>
+                <Button disabled={pendingWrite || recoveringWrite} onClick={() => {
+                  if (!selectedScan) return
+                  setWriteFailure(null)
+                  setEditBaseline(selectedScan)
+                  setEditData({ cultivar: selectedScan.cultivar, ripeness: selectedScan.ripeness, fingerCount: selectedScan.fingerCount, spoilageDays: selectedScan.spoilageDays, source: selectedScan.source })
+                  setFingerCountEdited(false)
+                  setEditReason("")
+                  setEditMode(true)
+                }}>
                   <Edit className="w-4 h-4 mr-2" />
                   Edit Data
                 </Button>

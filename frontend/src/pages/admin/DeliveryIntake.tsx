@@ -363,7 +363,7 @@ export default function DeliveryIntake() {
 
       {dataUnavailable && (
         <p role={scansError || intakesError ? "alert" : "status"} className="text-sm text-muted-foreground">
-          {scansError ? "Scan history is unavailable. Reload before updating or exporting intakes." : "Loading complete scan history…"}
+          {scansError ? "Scan history is unavailable. Reload before updating or exporting intakes." : intakesError ? `${intakesError} Reload before updating or exporting intakes.` : intakesLoading ? "Loading intake data…" : "Loading complete scan history…"}
         </p>
       )}
 

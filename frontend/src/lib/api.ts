@@ -21,11 +21,13 @@ export const BASE_URL = import.meta.env.VITE_API_URL || `http://${host}:8000`
 
 // ── Core Fetch Wrapper ──────────────────────────────────────────────────────
 
+type RequestOptions = { params?: Record<string, string | number | boolean | undefined>; signal?: AbortSignal }
+
 async function request<T>(
   method: string,
   path: string,
   body?: unknown,
-  opts?: { params?: Record<string, string | number | boolean | undefined>; signal?: AbortSignal }
+  opts?: RequestOptions
 ): Promise<T> {
   const token = getToken()
   const headers: Record<string, string> = {
@@ -83,16 +85,37 @@ async function request<T>(
   return res.json()
 }
 
+async function requestWithDeadline<T>(method: string, path: string, body?: unknown, opts: RequestOptions = {}, timeoutMessage = "Request timed out. Please try again.") {
+  const { signal } = opts
+  const controller = new AbortController()
+  let timedOut = false
+  const cancel = () => controller.abort(signal?.reason)
+  if (signal?.aborted) cancel()
+  else signal?.addEventListener("abort", cancel, { once: true })
+  // Keep the deadline active through body parsing, not just receipt of headers.
+  const timer = window.setTimeout(() => { timedOut = true; controller.abort() }, 15_000)
+  try {
+    return await request<T>(method, path, body, { ...opts, signal: controller.signal })
+  } catch (error) {
+    if (timedOut) throw Object.assign(new Error(timeoutMessage), { status: 0 })
+    throw error
+  } finally {
+    window.clearTimeout(timer)
+    signal?.removeEventListener("abort", cancel)
+  }
+}
+
 function get<T>(path: string, params?: Record<string, string | number | boolean | undefined>, signal?: AbortSignal) {
-  return request<T>("GET", path, undefined, { params, signal })
+  return requestWithDeadline<T>("GET", path, undefined, { params, signal })
 }
 
-function post<T>(path: string, body?: unknown) {
-  return request<T>("POST", path, body)
+// Mutations opt in only when their recovery is safe; hardware jobs keep their status workflow.
+function post<T>(path: string, body?: unknown, timeoutMessage?: string) {
+  return timeoutMessage ? requestWithDeadline<T>("POST", path, body, {}, timeoutMessage) : request<T>("POST", path, body)
 }
 
-function patch<T>(path: string, body?: unknown) {
-  return request<T>("PATCH", path, body)
+function patch<T>(path: string, body?: unknown, timeoutMessage?: string) {
+  return timeoutMessage ? requestWithDeadline<T>("PATCH", path, body, {}, timeoutMessage) : request<T>("PATCH", path, body)
 }
 
 // ── API Namespaces ──────────────────────────────────────────────────────────
@@ -116,7 +139,7 @@ export const api = {
         user: { id: string; username: string; full_name: string; role: string; avatar_url?: string } | null
         reason?: string | null
         setup_token?: string | null
-      }>("/api/v1/auth/swap", { username, pin }),
+      }>("/api/v1/auth/swap", { username, pin }, "PIN verification timed out. Your current session has not changed."),
 
     /** Self-service password change — requires JWT auth + current password. */
     changePassword: (currentPassword: string, newPassword: string) =>
@@ -148,7 +171,7 @@ export const api = {
         status: string
         token: { access_token: string; token_type: string } | null
         user: { id: string; username: string; full_name: string; role: string; avatar_url?: string } | null
-      }>("/api/v1/auth/setup-pin", { setup_token: setupToken, new_pin: newPin }),
+      }>("/api/v1/auth/setup-pin", { setup_token: setupToken, new_pin: newPin }, "PIN setup timed out; its result is unknown. Go back to operator selection and sign in with the new PIN to check whether it was saved."),
 
     logout: () => post<void>("/api/v1/auth/logout"),
 
@@ -355,9 +378,9 @@ export const api = {
 
   // ── Notifications ───────────────────────────────────────────────────────
   notifications: {
-    list: () => get<{ items: ApiNotification[]; total: number }>("/api/v1/notifications"),
-    markRead: (id: string) => patch<ApiMessage>(`/api/v1/notifications/${id}/read`),
-    markAllRead: () => post<ApiMessage>("/api/v1/notifications/read-all"),
+    list: (signal?: AbortSignal) => get<{ items: ApiNotification[]; total: number }>("/api/v1/notifications", undefined, signal),
+    markRead: (id: string) => patch<ApiMessage>(`/api/v1/notifications/${id}/read`, undefined, "Marking notification read timed out. Refresh or retry."),
+    markAllRead: () => post<ApiMessage>("/api/v1/notifications/read-all", undefined, "Marking notifications read timed out. Refresh or retry."),
   },
 
   // ── System ─────────────────────────────────────────────────────────────

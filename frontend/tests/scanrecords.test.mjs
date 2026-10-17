@@ -40,7 +40,8 @@ async function setup(t, status = 200, options = {}) {
       const snapshot = structuredClone(state.record)
       const hold = state.holdReadOnce; state.holdReadOnce = null
       if (hold) await hold()
-      return reply(status === 200 ? snapshot : { detail: 'Unavailable' }, status)
+      const code = state.readStatus ?? status
+      return reply(code === 200 ? snapshot : { detail: 'Unavailable' }, code)
     }
     if (url.pathname === '/api/v1/scan-logs/export') return route.fulfill({ status: 200, body: 'id,name\n1,Frozen\n', headers: { ...headers, 'content-type': 'text/csv' } })
     if (url.pathname === '/api/v1/scan-logs') {
@@ -54,12 +55,13 @@ async function setup(t, status = 200, options = {}) {
     }
     if (url.pathname === '/api/v1/intakes/intake-1/scan-revisions') return reply({ revisions: { [id]: state.record.revision } })
     if (url.pathname === '/api/v1/intakes' && options.screen === 'intakes') return reply([{ id: 'intake-1', source: 'Supplier', intake_date: '2026-10-02', status: 'Active', scan_count: 1 }])
-    if (url.pathname === '/api/v1/scans') return reply({ items: options.screen === 'intakes' ? [{ ...state.record, intake_id: 'intake-1' }] : [], page: 1, page_size: 100, total: options.screen === 'intakes' ? 1 : 0 })
+    if (url.pathname === '/api/v1/scans') return reply({ items: options.screen === 'quality' ? [state.listRecord ?? state.record] : options.screen === 'intakes' ? [{ ...state.record, intake_id: 'intake-1' }] : [], page: 1, page_size: 100, total: ['intakes', 'quality'].includes(options.screen) ? 1 : 0 })
     if (url.pathname === '/api/v1/config') return reply({ camera_ids: 'NEW-CAMERA', confidence_threshold: 85, revision: 1 })
     if (url.pathname === '/api/v1/activity') return reply({ items: [], page: 1, page_size: 100, total: 0 })
     if (url.pathname === '/api/v1/users') return reply({ items: [], total: 0 })
     if (method === 'GET') return reply([])
     state.writes.push({ ...request.postDataJSON(), path: url.pathname })
+    if (state.writeStatus) return reply({ detail: 'This retry was rejected. Review your access and input.' }, state.writeStatus)
     if (state.onWrite) {
       const result = await state.onWrite(request.postDataJSON(), url.pathname)
       if (state.loseResponseOnce) { state.loseResponseOnce = false; return route.abort('failed') }
@@ -67,7 +69,7 @@ async function setup(t, status = 200, options = {}) {
     }
     return reply({ detail: 'This scan changed. Reload it before saving your changes.' }, 409)
   })
-  await page.goto(`${runtime.url}${options.screen === 'logs' ? '/logs' : options.screen === 'intakes' ? '/scans/intakes' : `/scans/${id}`}`)
+  await page.goto(`${runtime.url}${options.screen === 'quality' ? '/scans/quality' : options.screen === 'logs' ? '/logs' : options.screen === 'intakes' ? '/scans/intakes' : `/scans/${id}`}`)
   return { page, state }
 }
 
@@ -291,3 +293,121 @@ test('an oversized snapshot still permits a complete filtered CSV export', async
   await until(() => state.requests.some(r => r.path.endsWith('/export')))
   assert.equal(state.requests.find(r => r.path.endsWith('/export')).query.snapshot_id, undefined)
 })
+
+for (const screen of ['detail', 'quality']) {
+  test(`${screen} allows unrelated correction on a stored zero-count scan without inventing a count`, async t => {
+    const record = { ...scan(), finger_count: 0 }
+    const { page, state } = await setup(t, 200, { screen, record,
+      onWrite: body => ({ ...record, ...body, revision: 2 }) })
+    if (screen === 'quality') await page.locator('tbody tr').first().click()
+    await page.getByRole('button', { name: screen === 'quality' ? 'Edit Data' : 'Edit', exact: true }).click()
+    await page.getByLabel('Reason for change', { exact: true }).fill('Correct classification only')
+    await page.locator(screen === 'quality' ? '#cultivar' : '#edit-cultivar').click()
+    await page.getByRole('option', { name: 'Latundan', exact: true }).click()
+    assert.equal(await page.getByRole('button', { name: 'Save Changes', exact: true }).isEnabled(), true)
+    await page.getByRole('button', { name: 'Save Changes', exact: true }).click()
+    await until(() => state.writes.length === 1)
+    assert.equal(state.writes[0].cultivar, 'Latundan')
+    assert.equal(Object.hasOwn(state.writes[0], 'finger_count'), false)
+  })
+
+  test(`${screen} rejects explicit empty, zero and fractional finger counts without clamping`, async t => {
+    const { page, state } = await setup(t, 200, { screen })
+    if (screen === 'quality') await page.locator('tbody tr').first().click()
+    await page.getByRole('button', { name: screen === 'quality' ? 'Edit Data' : 'Edit', exact: true }).click()
+    await page.getByLabel('Reason for change', { exact: true }).fill('Verify count')
+    const count = page.locator(screen === 'quality' ? '#fingers' : '#edit-fingers')
+    for (const invalid of ['', '0', '1.5']) {
+      await count.fill(invalid)
+      assert.equal(await count.inputValue(), invalid)
+      assert.equal(await page.getByRole('button', { name: 'Save Changes', exact: true }).isDisabled(), true)
+    }
+    assert.equal(state.writes.length, 0)
+    await count.fill('8')
+    assert.equal(await page.getByRole('button', { name: 'Save Changes', exact: true }).isEnabled(), true)
+  })
+}
+
+test('QC detail refresh supplies the latest revision for a new note and displays Manila time', async t => {
+  const record = { ...scan(), revision: 2, notes: [{ ...scan().notes[0], text: 'Latest review' }] }
+  const { page, state } = await setup(t, 200, { screen: 'quality', listRecord: scan(), record,
+    onWrite: body => ({ id: 'new-note', scan_id: id, text: body.note, author_name: 'Admin', timestamp: record.date_time, revision: 3 }) })
+  await page.locator('tbody tr').first().click()
+  await page.getByText('Latest review', { exact: true }).waitFor()
+  assert.match(await page.getByRole('dialog').innerText(), /8:10:00/)
+  await page.getByPlaceholder('Add a note...').fill('Verified current record')
+  await page.getByRole('button', { name: 'Add', exact: true }).click()
+  await until(() => state.writes.length === 1)
+  assert.equal(state.writes[0].expected_revision, 2)
+  await page.getByText('Verified current record', { exact: true }).waitFor()
+})
+
+test('QC late detail preserves correction draft and requires explicit revision reload', async t => {
+  let release
+  const gate = new Promise(resolve => { release = resolve })
+  const record = { ...scan(), revision: 2, notes: [{ ...scan().notes[0], text: 'Newer record arrived' }] }
+  const { page, state } = await setup(t, 200, { screen: 'quality', listRecord: scan(), record, holdReadOnce: () => gate })
+  await page.locator('tbody tr').first().click()
+  await page.getByRole('button', { name: 'Edit Data', exact: true }).click()
+  await page.locator('#fingers').fill('9')
+  await page.getByLabel('Reason for change').fill('Draft started before detail refreshed')
+  release()
+  await until(async () => JSON.parse(await page.getByTestId('scans-state').textContent())[0].revision === 2)
+  await page.getByRole('button', { name: 'Save Changes', exact: true }).click()
+  await until(() => state.writes.length === 1)
+  assert.equal(state.writes[0].expected_revision, 1)
+  assert.equal(await page.locator('#fingers').inputValue(), '9')
+  await page.clock.runFor(200)
+  await page.getByRole('dialog').getByRole('button', { name: 'Reload latest', exact: true }).click()
+  state.onWrite = body => ({ ...record, ...body, revision: 3 })
+  await until(() => state.requests.filter(r => r.path === `/api/v1/scans/${id}` && r.method === 'GET').length === 2)
+  await page.getByRole('dialog').getByRole('alert').waitFor({ state: 'hidden' })
+  await page.getByRole('button', { name: 'Save Changes', exact: true }).click()
+  await until(() => state.writes.length === 2)
+  assert.equal(state.writes[1].expected_revision, 2)
+})
+
+test('QC confirmed replay with failed refresh offers read recovery without replaying the write again', async t => {
+  const { page, state } = await setup(t, 200, { screen: 'quality', loseResponseOnce: true })
+  state.onWrite = body => {
+    const note = { id: 'confirmed-note', scan_id: id, text: body.note, author_name: 'Admin', timestamp: state.record.date_time }
+    state.record = { ...state.record, revision: 2, notes: [note] }
+    return { ...note, revision: 2 }
+  }
+  await page.locator('tbody tr').first().click()
+  await page.getByText('Recorded review note', { exact: true }).waitFor()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByPlaceholder('Add a note...').fill('Retained request')
+  await dialog.getByRole('button', { name: 'Add', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Retry previous', exact: true }).waitFor()
+  state.readStatus = 503
+  await dialog.getByRole('button', { name: 'Retry previous', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Reload latest', exact: true }).waitFor()
+  assert.equal(state.writes.length, 2)
+  assert.equal(await dialog.getByPlaceholder('Add a note...').inputValue(), '')
+  state.readStatus = 200
+  await dialog.getByRole('button', { name: 'Reload latest', exact: true }).click()
+  await dialog.getByRole('alert').waitFor({ state: 'hidden' })
+  assert.equal(state.writes.length, 2)
+  await dialog.getByText('Retained request', { exact: true }).waitFor()
+})
+
+for (const status of [403, 422]) {
+  test(`QC definitive ${status} replay rejection preserves the draft and removes the consumed retry`, async t => {
+    const { page, state } = await setup(t, 200, { screen: 'quality', loseResponseOnce: true,
+      onWrite: body => ({ id: 'new-note', scan_id: id, text: body.note, author_name: 'Admin', timestamp: scan().date_time, revision: 2 }) })
+    await page.locator('tbody tr').first().click()
+    await page.getByText('Recorded review note', { exact: true }).waitFor()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByPlaceholder('Add a note...').fill('Keep this draft')
+    await dialog.getByRole('button', { name: 'Add', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Retry previous', exact: true }).waitFor()
+    state.writeStatus = status
+    await dialog.getByRole('button', { name: 'Retry previous', exact: true }).click()
+    await dialog.getByRole('alert').getByText(/This retry was rejected/).waitFor()
+    assert.equal(await dialog.getByRole('button', { name: 'Retry previous', exact: true }).count(), 0)
+    assert.equal(await dialog.getByPlaceholder('Add a note...').inputValue(), 'Keep this draft')
+    assert.equal(await page.locator('[data-sonner-toast][data-type="success"]').count(), 0)
+    assert.equal(state.writes.length, 2)
+  })
+}

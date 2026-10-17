@@ -62,13 +62,19 @@ export default function Kiosk() {
   const [flaggingScan, setFlaggingScan] = useState(false)
 
   const [kioskOperatorsList, setKioskOperatorsList] = useState<{ id: string; username: string; fullName: string; role: string; status: string; avatar?: string }[]>([])
+  const [operatorsLoading, setOperatorsLoading] = useState(true)
+  const [operatorsError, setOperatorsError] = useState<string | null>(null)
+  const [operatorRequest, setOperatorRequest] = useState(0)
   const [kioskOperator, setKioskOperator] = useState<string | null>(null)
 
   // Fetch operators from public endpoint on mount (no auth required).
   // This ensures the kiosk selection modal is populated even on fresh sessions.
   useEffect(() => {
+    let active = true
+    setOperatorsLoading(true); setOperatorsError(null)
     api.auth.kioskOperators()
       .then((ops) => {
+        if (!active) return
         setKioskOperatorsList(ops.map(o => ({
           id: o.id,
           username: o.username,
@@ -78,8 +84,10 @@ export default function Kiosk() {
           avatar: o.avatar_url,
         })))
       })
-      .catch((err) => console.warn("[Kiosk] Failed to fetch operators", err))
-  }, [])
+      .catch(() => { if (active) setOperatorsError("Operator list unavailable. Check the station connection and retry.") })
+      .finally(() => { if (active) setOperatorsLoading(false) })
+    return () => { active = false }
+  }, [operatorRequest])
 
   // Use the publicly-fetched list; fall back to AdminContext users if populated
   const adminOperators = users.filter(u => u.status === "Active" && u.role === "Operator")
@@ -188,6 +196,9 @@ export default function Kiosk() {
         open={showSwapModal}
         onOpenChange={setShowSwapModal}
         operators={activeOperators}
+        operatorsLoading={operatorsLoading}
+        operatorsError={operatorsError}
+        onRetryOperators={() => setOperatorRequest(value => value + 1)}
         currentOperatorId={kioskOperator}
         onSwapSuccess={(id) => setKioskOperator(id)}
       />
@@ -606,7 +617,7 @@ export default function Kiosk() {
                       <CheckCircle2 className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold">{demoMode ? "Demo Complete" : "Scan Complete"}</p>
+                      <p className="text-sm font-bold">{demoMode ? "Demo Complete" : lastResult.flagged ? "Scan Complete - Review Needed" : "Scan Complete"}</p>
                       {demoMode && <p className="text-xs text-muted-foreground">Saved prediction replay · no new scan</p>}
                       <p className="text-[10px] text-muted-foreground">{new Date(lastResult.dateTime).toLocaleTimeString()}</p>
                     </div>

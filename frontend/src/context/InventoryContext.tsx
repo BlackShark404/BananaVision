@@ -82,13 +82,20 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
   const [activeIntake, setActiveIntake] = useState<DailyIntake | null>(null)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const loadSeq = useRef(0)
+  const supplierSeq = useRef(0)
+  const [supplierReload, setSupplierReload] = useState(0)
   const hasIntakeSnapshot = useRef(false)
-  const cancelLoad = useCallback(() => { ++loadSeq.current }, [])
+  const cancelLoad = useCallback(() => { ++loadSeq.current; ++supplierSeq.current }, [])
   const acceptWrite = useCallback(() => {
     ++loadSeq.current
     setIntakesLoading(false)
-    setSuppliersLoading(false)
   }, [])
+  const acceptSupplierWrite = useCallback(() => {
+    ++supplierSeq.current
+    setSuppliersLoading(false)
+    setSuppliersError(null)
+    if (!suppliersReady) setSupplierReload(value => value + 1)
+  }, [suppliersReady])
 
   // ── Load data on mount / navigation ─────────────────────────────────────
 
@@ -98,46 +105,44 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
     setIntakesLoading(true)
     setSuppliersLoading(true)
     setSuppliersError(null)
-    try {
-      const [suppliersRes, intakesRes] = await Promise.allSettled([
-        api.suppliers.list(),
-        api.intakes.list(),
-      ])
-
-      if (mySeq !== loadSeq.current) return
-      if (suppliersRes.status === "fulfilled") {
-        setSuppliers((suppliersRes.value as any[]).map(mapApiSupplier))
-        setSuppliersReady(true)
-      } else {
-        setSuppliersError("Suppliers could not be loaded. Please reload to retry.")
-        console.warn("[InventoryContext] Suppliers API unavailable")
-      }
-
-      if (intakesRes.status === "fulfilled") {
-        setIntakes((intakesRes.value as any[]).map(mapApiIntake))
-        hasIntakeSnapshot.current = true
-        setIntakesReady(true)
-        setIntakesError(null)
-        setIntakesStale(false)
-      } else {
-        setIntakesStale(hasIntakeSnapshot.current)
-        setIntakesError("Intake data unavailable. Stock totals may be inaccurate.")
-        console.warn("[InventoryContext] Intakes API unavailable")
-      }
-    } catch (err) {
-      if (mySeq !== loadSeq.current) return
-      setIntakesStale(hasIntakeSnapshot.current)
-      setIntakesError("Backend unreachable. Stock totals may be inaccurate.")
-      console.warn("[InventoryContext] Backend unreachable", err)
-    } finally {
-      if (mySeq === loadSeq.current) { setIntakesLoading(false); setSuppliersLoading(false) }
-    }
+    const mySupplierSeq = ++supplierSeq.current
+    await Promise.allSettled([
+      (async () => {
+        try {
+          const result = await api.suppliers.list()
+          if (mySupplierSeq !== supplierSeq.current) return
+          setSuppliers(result.map(mapApiSupplier))
+          setSuppliersReady(true)
+        } catch {
+          if (mySupplierSeq === supplierSeq.current) setSuppliersError("Suppliers could not be loaded. Please reload to retry.")
+        } finally {
+          if (mySupplierSeq === supplierSeq.current) setSuppliersLoading(false)
+        }
+      })(),
+      (async () => {
+        try {
+          const result = await api.intakes.list()
+          if (mySeq !== loadSeq.current) return
+          setIntakes(result.map(mapApiIntake))
+          hasIntakeSnapshot.current = true
+          setIntakesReady(true)
+          setIntakesError(null)
+          setIntakesStale(false)
+        } catch {
+          if (mySeq !== loadSeq.current) return
+          setIntakesStale(hasIntakeSnapshot.current)
+          setIntakesError("Intake data unavailable. Stock totals may be inaccurate.")
+        } finally {
+          if (mySeq === loadSeq.current) setIntakesLoading(false)
+        }
+      })(),
+    ])
   }, [user])
 
   useEffect(() => {
     void loadData()
     return cancelLoad
-  }, [loadData, cancelLoad, pathname])
+  }, [loadData, cancelLoad, pathname, supplierReload])
 
   const refreshIntakes = useCallback(() => { void loadData() }, [loadData])
 
@@ -187,8 +192,9 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
       status: supplierData.status,
     }
     const newSup = await api.suppliers.create(apiData)
+    acceptSupplierWrite()
     setSuppliers((prev) => [...prev, mapApiSupplier(newSup)])
-  }, [])
+  }, [acceptSupplierWrite])
 
   const updateSupplier = useCallback(async (id: string, data: Partial<Omit<Supplier, "id" | "dateAdded">>) => {
     const apiData: Record<string, unknown> = {}
@@ -198,13 +204,15 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
     if (data.contactPhone !== undefined) apiData.contact_phone = data.contactPhone
 
     const updated = await api.suppliers.update(id, apiData)
+    acceptSupplierWrite()
     setSuppliers((prev) => prev.map((s) => (s.id === id ? mapApiSupplier(updated) : s)))
-  }, [])
+  }, [acceptSupplierWrite])
 
   const updateSupplierStatus = useCallback(async (id: string, status: "Active" | "Inactive") => {
     const updated = await api.suppliers.update(id, { status })
+    acceptSupplierWrite()
     setSuppliers((prev) => prev.map((s) => (s.id === id ? mapApiSupplier(updated) : s)))
-  }, [])
+  }, [acceptSupplierWrite])
 
   return (
     <InventoryContext value={{

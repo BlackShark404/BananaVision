@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react"
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { api } from "@/lib/api"
 import { collectScanPages, storedTimestamp } from "@/lib/scanData"
 import { useAuth } from "@/context/AuthContext"
@@ -106,6 +106,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation()
   const scope = `${user?.id ?? "anonymous"}:${user?.role ?? "none"}`
 
+  // Each account scope owns its request generation; late writes cannot cancel a new account read.
+  const usersRequests = useMemo(() => ({ scope, generation: 0 }), [scope])
   const [users, setUsers] = useScopedState<User[]>(scope, [])
   const [devices, setDevices] = useScopedState<Device[]>(scope, [])
   const [activityLogs, setActivityLogs] = useScopedState<ActivityLog[]>(scope, [])
@@ -114,11 +116,18 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [usersReady, setUsersReady] = useScopedState(scope, false)
   const [usersLoading, setUsersLoading] = useScopedState(scope, Boolean(user?.role === "Admin"))
   const [usersError, setUsersError] = useScopedState<string | null>(scope, null)
+  const [usersReload, setUsersReload] = useScopedState(scope, 0)
   const [devicesReady, setDevicesReady] = useScopedState(scope, false)
   const [devicesLoading, setDevicesLoading] = useScopedState(scope, Boolean(user))
   const [devicesError, setDevicesError] = useScopedState<string | null>(scope, null)
   const [activityReady, setActivityReady] = useScopedState(scope, false)
   const [config, setConfig] = useScopedState<SystemConfig>(scope, { cameraIds: "CAM-001, CAM-002", confidenceThreshold: 85, dataRetentionEnabled: true })
+  const acceptUserWrite = useCallback(() => {
+    ++usersRequests.generation
+    setUsersLoading(false)
+    setUsersError(null)
+    if (!usersReady) setUsersReload(value => value + 1)
+  }, [usersRequests, usersReady, setUsersLoading, setUsersError, setUsersReload])
 
   // ── Load data on mount / navigation ─────────────────────────────────────
 
@@ -153,6 +162,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       if (controller.signal.aborted) return
       setActivityLoading(user.role === "Admin")
       setActivityError(null)
+      const usersGeneration = ++usersRequests.generation
       setUsersLoading(user.role === "Admin")
       setDevicesLoading(true)
       setUsersError(null)
@@ -161,13 +171,13 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         (async () => {
           try {
             const result = user.role === "Admin" ? await api.users.list() : { items: [] }
-            if (controller.signal.aborted) return
+            if (controller.signal.aborted || usersGeneration !== usersRequests.generation) return
             setUsers(result.items.map(mapApiUser))
             setUsersReady(true)
           } catch {
-            if (!controller.signal.aborted) setUsersError("Users could not be loaded. Please reload to retry.")
+            if (!controller.signal.aborted && usersGeneration === usersRequests.generation) setUsersError("Users could not be loaded. Please reload to retry.")
           } finally {
-            if (!controller.signal.aborted) setUsersLoading(false)
+            if (!controller.signal.aborted && usersGeneration === usersRequests.generation) setUsersLoading(false)
           }
         })(),
         (async () => {
@@ -201,7 +211,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
     void loadData()
     return () => controller.abort()
-  }, [user, pathname, setUsers, setDevices, setActivityLogs, setActivityLoading, setActivityError, setUsersLoading, setUsersReady, setUsersError, setDevicesLoading, setDevicesReady, setDevicesError, setActivityReady])
+  }, [user, pathname, usersRequests, usersReload, setUsers, setDevices, setActivityLogs, setActivityLoading, setActivityError, setUsersLoading, setUsersReady, setUsersError, setDevicesLoading, setDevicesReady, setDevicesError, setActivityReady])
 
   // ── CRUD Operations ─────────────────────────────────────────────────────
 
@@ -213,10 +223,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       status: data.status,
     }
     const result = await api.users.create(apiData)
+    acceptUserWrite()
     const savedUser = mapApiUser(result)
     setUsers((prev) => [...prev, savedUser])
     return { user: savedUser, password: result.temporary_password, pin: result.temporary_pin ?? undefined }
-  }, [setUsers])
+  }, [setUsers, acceptUserWrite])
 
   const updateUser = useCallback(async (id: string, data: Partial<User>) => {
     const apiData: ApiUserUpdate = {
@@ -232,6 +243,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     }
 
     const mapped = mapApiUser(await api.users.update(id, apiData))
+    acceptUserWrite()
     setUsers((prev) => prev.map((u) => (u.id === id ? mapped : u)))
     if (user?.id === id) {
       updateAuthUser({
@@ -242,23 +254,25 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       }, user)
     }
     return mapped
-  }, [user, updateAuthUser, setUsers])
+  }, [user, updateAuthUser, setUsers, acceptUserWrite])
 
   const resetPassword = useCallback(async (id: string) => {
     const result = await api.users.resetPassword(id)
+    acceptUserWrite()
     setUsers(prev => prev.map(u => u.id === id
       ? { ...u, requiresPasswordChange: true, passwordSetupReason: "password_reset" }
       : u))
     return result.temporary_password
-  }, [setUsers])
+  }, [setUsers, acceptUserWrite])
 
   const resetPin = useCallback(async (id: string) => {
     const result = await api.users.resetPin(id)
+    acceptUserWrite()
     setUsers(prev => prev.map(u => u.id === id
       ? { ...u, requiresPinChange: true, pinSetupReason: "pin_reset" }
       : u))
     return result.temporary_pin
-  }, [setUsers])
+  }, [setUsers, acceptUserWrite])
 
   const updateConfig = useCallback(async (cfg: Partial<SystemConfig>) => {
     if (!configReady || configConflict || !config.revision) throw new Error("Reload saved settings before making changes")
@@ -284,11 +298,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   const updateOwnProfile = useCallback(async (data: { avatar?: string }) => {
     const saved = mapApiUser(await api.users.updateProfile({ avatar_url: data.avatar }))
+    acceptUserWrite()
     setUsers((prev) => prev.map((u) => (u.id === saved.id ? saved : u)))
     if (user?.id === saved.id) {
       updateAuthUser({ avatar: saved.avatar }, user)
     }
-  }, [user, updateAuthUser, setUsers])
+  }, [user, updateAuthUser, setUsers, acceptUserWrite])
 
   // ── WebSocket handler for device status ─────────────────────────────────
 
