@@ -86,7 +86,7 @@ export function AppStatsCard({
         <div className="flex flex-col gap-0.5">
           <h3 className="text-3xl sm:text-[2.25rem] font-extrabold tracking-tight text-foreground leading-none">{loading ? <><span className="sr-only">Loading {title}</span><Skeleton aria-hidden="true" className="h-[1em] w-24" /></> : value}</h3>
           {description && (
-            <p className="text-xs text-muted-foreground/60 font-medium mt-1">{loading ? <Skeleton aria-hidden="true" className="h-4 w-3/4" /> : description}</p>
+            <span className="block text-xs text-muted-foreground/60 font-medium mt-1">{loading ? <Skeleton aria-hidden="true" className="h-4 w-3/4" /> : description}</span>
           )}
         </div>
       </CardContent>

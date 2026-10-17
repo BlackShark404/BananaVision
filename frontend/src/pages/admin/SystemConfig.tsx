@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react"
 import { useAdmin } from "@/context/AdminContext"
 import { StationBackupControls } from "@/components/StationBackupControls"
 import { Input } from "@/components/ui/input"
+import { NumberField } from "@/components/ui/number-field"
 import type { MaintenanceStatus } from "@/types/api"
 import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -366,12 +367,12 @@ export default function SystemConfig() {
                   {activeCameraIds.map((id, index) => (
                     <div key={index} className="flex flex-wrap items-center gap-3">
                       <Label htmlFor={`camera-device-${index}`} className="text-sm">{id} device index</Label>
-                      <Input id={`camera-device-${index}`} aria-label={`Device index for camera ${index + 1}`} type="number" min={0} step={1}
-                        className="w-24" disabled={disabled || saving}
+                      <NumberField id={`camera-device-${index}`} aria-label={`Device index for camera ${index + 1}`} min={0} step={1}
+                        className="w-28" disabled={disabled || saving}
                         value={Number.isNaN(localConfig.cameraDeviceIds?.[index]) ? "" : localConfig.cameraDeviceIds?.[index] ?? ""}
-                        onChange={event => {
+                        onChange={val => {
                           const devices = [...(localConfig.cameraDeviceIds ?? [])]
-                          devices[index] = event.target.value === "" ? Number.NaN : Number(event.target.value)
+                          devices[index] = val === "" ? Number.NaN : Number(val)
                           setLocalConfig({ ...localConfig, cameraDeviceIds: devices })
                         }} />
                       <CameraDevicePicker discovery={cameraDiscovery.discovery} value={localConfig.cameraDeviceIds?.[index]}
