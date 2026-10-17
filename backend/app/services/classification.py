@@ -142,14 +142,40 @@ def _box_containment(a: Detection, b: Detection) -> float:
 def _unique_box_detections(detections: list[Detection]) -> list[Detection]:
     """Count coincident class hypotheses once, retaining raw boxes for review.
 
-    Exact geometry is deliberately conservative: overlap alone cannot establish
-    that neighboring, occluding fingers are the same physical object.
+    Prevents coincident or heavily overlapping class hypotheses on the same
+    physical finger from double-counting.
     """
-    unique: dict[tuple[float, float, float, float], Detection] = {}
+    unique: list[Detection] = []
     for detection in detections:
-        geometry = (detection.x, detection.y, detection.w, detection.h)
-        unique.setdefault(geometry, detection)
-    return list(unique.values())
+        if not any(
+            (detection.x == existing.x and detection.y == existing.y
+             and detection.w == existing.w and detection.h == existing.h)
+            or _box_iou(detection, existing) >= 0.70
+            or _box_containment(detection, existing) >= 0.85
+            for existing in unique
+        ):
+            unique.append(detection)
+    return unique
+
+
+def _is_same_class_sub_box(det: Detection, existing: Detection) -> bool:
+    """Check if det is a nested fragment or severe duplicate of an existing same-class box.
+
+    Distinguishes nested sub-boxes (which are significantly smaller than the parent
+    box) and near-identical boxes from separate neighboring fingers of similar size.
+    """
+    if det.cls != existing.cls:
+        return False
+    if _box_iou(det, existing) >= 0.80:
+        return True
+    det_area = det.w * det.h
+    exist_area = existing.w * existing.h
+    min_area = min(det_area, exist_area)
+    max_area = max(det_area, exist_area)
+    if max_area > 0 and (min_area / max_area) <= 0.85:
+        if _box_containment(det, existing) >= 0.80:
+            return True
+    return False
 
 
 def _is_duplicate_detection(
@@ -323,13 +349,8 @@ class BananaClassifier:
                         x=x1, y=y1, w=x2 - x1, h=y2 - y1,
                         cls=cls_name, confidence=conf,
                     )
-                    # Only remove fully nested same-class fragments here. Reapplying
-                    # a lower IoU/alignment cutoff would undo the calibrated NMS and
-                    # remove separate overlapping fingers (including horizontal ones).
-                    if any(
-                        existing.cls == det.cls and _box_containment(det, existing) == 1.0
-                        for existing in detections
-                    ):
+                    # Suppress same-class nested duplicate boxes or severe IoU duplicates.
+                    if any(_is_same_class_sub_box(det, existing) for existing in detections):
                         continue
 
                     detections.append(det)

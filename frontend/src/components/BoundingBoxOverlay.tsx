@@ -69,6 +69,42 @@ export default function BoundingBoxOverlay(props: BoundingBoxOverlayProps) {
   return <BoundingBoxImage key={props.src} {...props} />
 }
 
+function deduplicateDisplayBoxes(boxes: BoundingBox[]): BoundingBox[] {
+  if (boxes.length <= 1) return boxes
+  const sorted = [...boxes].sort((a, b) => b.conf - a.conf)
+  const result: BoundingBox[] = []
+
+  for (const box of sorted) {
+    const isDuplicate = result.some((existing) => {
+      const ax2 = box.x + box.w
+      const ay2 = box.y + box.h
+      const bx2 = existing.x + existing.w
+      const by2 = existing.y + existing.h
+
+      const interW = Math.max(0, Math.min(ax2, bx2) - Math.max(box.x, existing.x))
+      const interH = Math.max(0, Math.min(ay2, by2) - Math.max(box.y, existing.y))
+      const interArea = interW * interH
+      if (interArea <= 0) return false
+
+      const boxArea = box.w * box.h
+      const existArea = existing.w * existing.h
+      const union = boxArea + existArea - interArea
+      const iou = union > 0 ? interArea / union : 0
+      const containment = Math.min(boxArea, existArea) > 0
+        ? interArea / Math.min(boxArea, existArea)
+        : 0
+
+      return iou >= 0.65 || containment >= 0.75
+    })
+
+    if (!isDuplicate) {
+      result.push(box)
+    }
+  }
+
+  return result
+}
+
 function BoundingBoxImage({
   src,
   alt = "Detection result",
@@ -76,6 +112,7 @@ function BoundingBoxImage({
   className = "",
   showLabels = true,
   showConfidence = true,
+  aspectRatio,
 }: BoundingBoxOverlayProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [imgNaturalSize, setImgNaturalSize] = useState<{ w: number; h: number } | null>(null)
@@ -89,11 +126,22 @@ function BoundingBoxImage({
 
   const onImageUnavailable = useCallback(() => { setImgLoaded(false); setImgNaturalSize(null) }, [])
 
+  const displayBoxes = deduplicateDisplayBoxes(boxes)
+
+  const computedAspect = aspectRatio
+    ? `${aspectRatio}`
+    : imgNaturalSize
+      ? `${imgNaturalSize.w} / ${imgNaturalSize.h}`
+      : undefined
+
   return (
     <div
       ref={containerRef}
       className={`relative overflow-hidden ${className}`}
-      style={{ position: "relative" }}
+      style={{
+        position: "relative",
+        aspectRatio: computedAspect,
+      }}
     >
       {/* Base image */}
       <ScanImage
@@ -106,14 +154,14 @@ function BoundingBoxImage({
       />
 
       {/* Bounding box overlay layer */}
-      {imgLoaded && imgNaturalSize && boxes.length > 0 && (
+      {imgLoaded && imgNaturalSize && displayBoxes.length > 0 && (
         <svg
           viewBox={`0 0 ${imgNaturalSize.w} ${imgNaturalSize.h}`}
           className="absolute inset-0 w-full h-full pointer-events-none"
           preserveAspectRatio="xMidYMid slice"
           xmlns="http://www.w3.org/2000/svg"
         >
-          {boxes.map((box, idx) => {
+          {displayBoxes.map((box, idx) => {
             const color = getClassColor(box.cls)
             const label = showLabels ? formatClassName(box.cls) : ""
             const conf = showConfidence ? `${Math.round(box.conf * 100)}%` : ""
@@ -168,14 +216,14 @@ function BoundingBoxImage({
       )}
 
       {/* Box count badge */}
-      {boxes.length > 0 && (
+      {displayBoxes.length > 0 && (
         <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 z-10">
           <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="3" width="18" height="18" rx="2" />
             <line x1="3" y1="9" x2="21" y2="9" />
             <line x1="9" y1="3" x2="9" y2="21" />
           </svg>
-          {boxes.length} detection{boxes.length !== 1 ? "s" : ""}
+          {displayBoxes.length} detection{displayBoxes.length !== 1 ? "s" : ""}
         </div>
       )}
     </div>
