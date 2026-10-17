@@ -4,7 +4,7 @@ import QRCode from "qrcode"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Loader2, Printer } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { NumberField } from "@/components/ui/number-field"
 import { Label } from "@/components/ui/label"
 import { api } from "@/lib/api"
 import type { LabelPreview, PrintJob } from "@/types/printing"
@@ -100,10 +100,10 @@ export function ScanLabelPrint({ scanId, children }: { scanId: string; children?
     </p>}
     <div className="flex items-center justify-between gap-3">
       <Label htmlFor="label-quantity">Labels (1–10)</Label>
-      <Input id="label-quantity" type="number" min={1} max={10} step={1}
-        value={quantity} onChange={event => setQuantity(event.target.value)}
+      <NumberField id="label-quantity" min={1} max={10} step={1}
+        value={quantity} onChange={val => setQuantity(String(val))}
         disabled={busy || !!pending.current || (!!job && job.status !== "SUBMITTED")}
-        className="w-20" />
+        className="w-28" />
     </div>
     <div role="status" className="text-xs">
       {job?.status === "QUEUED" && "Label queued"}

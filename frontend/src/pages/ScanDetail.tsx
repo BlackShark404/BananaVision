@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { NumberField } from "@/components/ui/number-field"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -547,21 +548,12 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     </div>
                     <div>
                       <Label htmlFor="edit-fingers" className="text-xs">Est. Finger Count</Label>
-                      <Input
+                      <NumberField
                         id="edit-fingers"
-                        type="number"
-                        min="1"
-                        max="30"
+                        min={1}
+                        max={30}
                         value={editData.fingerCount ?? ""}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === '') {
-                            setEditData({ ...editData, fingerCount: '' });
-                          } else {
-                            const parsed = parseInt(val, 10);
-                            setEditData({ ...editData, fingerCount: isNaN(parsed) ? '' : Math.max(1, parsed) });
-                          }
-                        }}
+                        onChange={(val) => setEditData({ ...editData, fingerCount: val === '' ? '' : val })}
                         className="rounded-xl mt-1"
                       />
                     </div>
