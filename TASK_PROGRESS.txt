@@ -1,6 +1,7 @@
 CURRENT RESUME HERE (2026-10-17) - LOADING RECHECK VERIFIED; BASELINE FAILURES DOCUMENTED
 BRANCH main. User authorized commit, merge/pull resolution and push. No deployment.
 Loading commit cb3b88e and incoming f365b2f combined in merge 6dd3b1e (confirmed on remote).
+Verified follow-up e6b4479 pushed normally; local and remote main hashes matched afterward.
 Prior checkpoint: docs/history/2026-10-17-before-loading-final-verification.txt.
 Full report: docs/audits/2026-10-17-loading-recheck.md.
 
@@ -34,7 +35,7 @@ VERIFICATION (FINAL MERGED SOURCE)
 - Mocked/disposable fixtures only; no live station DB/captures/cameras/printer/power access.
 
 IN PROGRESS
-- No loading implementation work remains; final verified follow-up is ready for normal push.
+- None. Loading fixes, merge resolution and push are finished; this update records completion.
 
 REMAINING / LIMITS
 - Baseline connectivity tests expect shared sockets/message auth; current unchanged contract
@@ -45,8 +46,8 @@ REMAINING / LIMITS
   performance certification were not tested. All-time drilldown/fixed 14-day trend intentional.
 
 CONSTRAINTS / EXACT RESUME POINT
-- Do not repeat this audit or passing checks without new changes. Check git status and remote
-  main before further work. If interrupted during final integration, commit only listed task
-  files and push main normally; never force push. The final chat records push verification.
+- Do not repeat this audit or passing checks without new changes. No loading work is pending.
+  Check git status and remote main before new work; the remaining items above are separate
+  baseline/verification follow-ups. The final chat records the last checkpoint push hash.
 - Preserve unrelated .idea/ files, UI design, Manila dates and prior fixes/reverts.
 - No deployment, new branch/worktree, history rewrite, live station access or dependency changes.
