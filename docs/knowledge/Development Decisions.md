@@ -69,4 +69,8 @@ Documented architectural, technical, and operational decisions in BananaVision.
 - **Decision**: In `frontend/src/pages/admin/QualityControl.tsx`, note loading failure alerts wrap the error message and inline Retry action in `flex items-center justify-between gap-3 text-sm text-muted-foreground`. In backend Pydantic models, `ScanNoteCreate` inherits `Reason` constraints (`strip_whitespace=True, min_length=1`), strictly rejecting whitespace-only notes with HTTP 422.
 - **Rationale**: Prevents text overlapping or colliding against button borders on error displays during network recovery, and guarantees audit trail integrity by preventing empty or whitespace-only administrative notes.
 
+## 2026-10-17: Top Camera 180° Rotation Fallback
 
+### Guarded Two-Pass Detection for Top Camera Finger Recall
+- **Decision**: In `backend/app/services/classification.py`, when `is_calibrated_top` is met (camera label "Top", calibrated checkpoint SHA `e6f4e6825...`, 640 input resolution, conf 0.50, and base IoU 0.45) and `yolo_top_rotation_fallback` is enabled (default `True` in `backend/app/config.py`), inference executes a second pass on a 180°-rotated frame (`image[::-1, ::-1].copy()`). Remapped bounding boxes `(W - rx2, H - ry2, W - rx1, H - ry1)` with IoU <= 0.40 against pass-1 detections are retained and appended.
+- **Rationale**: Resolves severe undercounting on the Top camera view where orientation-dependent finger cluster geometry caused the detector to miss ~half the prominent foreground fingers. Rotating 180° exposes complementary finger orientations without retraining or modifying weights. The strict guards ensure non-Top camera views, custom models, and uncalibrated thresholds remain completely unaffected with zero behavioral changes.

@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     yolo_confidence_threshold: float = Field(0.50, gt=0, le=1)
     yolo_iou_threshold: float = 0.45
     yolo_top_overlap_refinement: bool = True
+    yolo_top_rotation_fallback: bool = True
     rfr_model_path: str = "app/ml/weights/spoilage_rfr.joblib"
 
     # ── Storage ──────────────────────────────────────────────────────────────

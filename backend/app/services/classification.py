@@ -29,6 +29,7 @@ TOP_OVERLAP_CHECKPOINT_SHA256 = (
 TOP_OVERLAP_CONFIDENCE = 0.50
 TOP_OVERLAP_BASE_IOU = 0.45
 TOP_OVERLAP_IOU = 0.65
+TOP_ROTATION_DEDUP_IOU = 0.40
 
 
 def _checkpoint_digest(path: str) -> str:
@@ -114,6 +115,17 @@ def _model_name_from_path(path: str) -> str:
     """
     from pathlib import Path
     return Path(path).stem
+
+
+def _box_iou(a: Detection, b: Detection) -> float:
+    """Intersection-over-union between two Detection boxes."""
+    ax2, ay2 = a.x + a.w, a.y + a.h
+    bx2, by2 = b.x + b.w, b.y + b.h
+    inter_w = max(0.0, min(ax2, bx2) - max(a.x, b.x))
+    inter_h = max(0.0, min(ay2, by2) - max(a.y, b.y))
+    inter = inter_w * inter_h
+    union = a.w * a.h + b.w * b.h - inter
+    return inter / union if union > 0 else 0.0
 
 
 class BananaClassifier:
@@ -211,14 +223,14 @@ class BananaClassifier:
             raise ValueError("Confidence threshold must be in (0, 1]")
 
         iou_threshold = settings.yolo_iou_threshold
-        if (
-            settings.yolo_top_overlap_refinement
-            and (camera_label or "").strip().casefold() == "top"
+        is_calibrated_top = (
+            (camera_label or "").strip().casefold() == "top"
             and self._checkpoint_sha256 == TOP_OVERLAP_CHECKPOINT_SHA256
             and self._image_size == 640
             and confidence_threshold == TOP_OVERLAP_CONFIDENCE
             and iou_threshold == TOP_OVERLAP_BASE_IOU
-        ):
+        )
+        if settings.yolo_top_overlap_refinement and is_calibrated_top:
             iou_threshold = TOP_OVERLAP_IOU
 
         try:
@@ -263,6 +275,52 @@ class BananaClassifier:
                         cultivar_votes.setdefault(cultivar, []).append(conf)
                     if cultivar or ripeness:
                         class_votes.setdefault((cultivar, ripeness), []).append(conf)
+
+        # ── Rotation fallback: recover fingers missed in the original orientation ──
+        if is_calibrated_top and getattr(settings, "yolo_top_rotation_fallback", False):
+            img_h, img_w = image.shape[:2]
+            rotated = image[::-1, ::-1].copy()
+            try:
+                rot_results = self._model.predict(
+                    rotated,
+                    conf=confidence_threshold,
+                    iou=iou_threshold,
+                    imgsz=self._image_size,
+                    augment=False,
+                    agnostic_nms=False,
+                    max_det=300,
+                    verbose=False,
+                )
+            except Exception:
+                rot_results = None
+            if rot_results and len(rot_results) > 0:
+                rot_result = rot_results[0]
+                if rot_result.boxes is not None:
+                    pass1_detections = list(detections)
+                    for box in rot_result.boxes:
+                        rx1, ry1, rx2, ry2 = box.xyxy[0].tolist()
+                        conf = float(box.conf[0])
+                        cls_id = int(box.cls[0])
+                        cls_name = rot_result.names[cls_id]
+                        # Remap 180-degree-rotated coordinates back to original space
+                        ox1, oy1 = img_w - rx2, img_h - ry2
+                        ox2, oy2 = img_w - rx1, img_h - ry1
+                        candidate = Detection(
+                            x=ox1, y=oy1, w=ox2 - ox1, h=oy2 - oy1,
+                            cls=cls_name, confidence=conf,
+                        )
+                        if any(
+                            _box_iou(candidate, existing) > TOP_ROTATION_DEDUP_IOU
+                            for existing in pass1_detections
+                        ):
+                            continue
+                        detections.append(candidate)
+                        cultivar, ripeness = _parse_class_label(cls_name)
+                        if cultivar:
+                            cultivar_votes.setdefault(cultivar, []).append(conf)
+                        if cultivar or ripeness:
+                            class_votes.setdefault((cultivar, ripeness), []).append(conf)
+            elapsed_ms = (time.time() - start) * 1000
 
         # Preserve cultivar consensus, then choose ripeness from that cultivar's
         # actual labels. Independent votes can invent a pair YOLO never detected.

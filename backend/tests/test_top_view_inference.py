@@ -322,3 +322,149 @@ def test_scan_uses_camera_label_when_top_is_not_first_slot(
             "CAM-003"
         )
     assert submit.call_count == 1
+
+
+# ── Rotation Fallback Tests ──────────────────────────────────────────────────
+
+
+class SequencePredictor:
+    """Predictor fixture returning predetermined detection rows per call."""
+
+    def __init__(self, sequence_rows, names=None):
+        self.sequence_rows = sequence_rows
+        self.names = names if names is not None else {0: "latundan_ripe"}
+        self.calls = []
+        self.call_count = 0
+
+    def predict(self, image, **kwargs):
+        self.calls.append(kwargs.copy())
+        idx = min(self.call_count, len(self.sequence_rows) - 1)
+        rows = self.sequence_rows[idx]
+        self.call_count += 1
+        boxes = [
+            SimpleNamespace(
+                xyxy=np.array([[r[0], r[1], r[2], r[3]]], dtype=float),
+                conf=[r[4]],
+                cls=[r[5]],
+            )
+            for r in rows
+        ]
+        return [SimpleNamespace(boxes=boxes, names=self.names)]
+
+
+def test_rotation_setting_defaults_on_and_can_be_disabled_from_environment(monkeypatch):
+    from app.config import Settings
+
+    monkeypatch.delenv("YOLO_TOP_ROTATION_FALLBACK", raising=False)
+    assert Settings(_env_file=None).yolo_top_rotation_fallback is True
+    monkeypatch.setenv("YOLO_TOP_ROTATION_FALLBACK", "false")
+    assert Settings(_env_file=None).yolo_top_rotation_fallback is False
+
+
+def test_rotation_fallback_recovers_novel_fingers(monkeypatch):
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_iou_threshold=0.45,
+        yolo_top_overlap_refinement=True,
+        yolo_top_rotation_fallback=True,
+    ))
+    classifier = BananaClassifier()
+    # Pass 1: finger at top-left (50, 50) -> (150, 200)
+    # Pass 2: finger detected at top-left of rotated 480x640 frame (50, 50) -> (150, 200)
+    # Remapped: (640-150, 480-200) -> (640-50, 480-50) = (490, 280) -> (590, 430)
+    classifier._model = SequencePredictor([
+        [(50, 50, 150, 200, 0.90, 0)],
+        [(50, 50, 150, 200, 0.85, 0)],
+    ])
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    result = classifier.predict(frame, confidence_threshold=0.50, camera_label="Top")
+
+    assert classifier._model.call_count == 2
+    assert result.finger_count == 2
+    assert len(result.detections) == 2
+    coords = [(d.x, d.y, d.w, d.h) for d in result.detections]
+    assert coords == [(50, 50, 100, 150), (490, 280, 100, 150)]
+    assert [d.confidence for d in result.detections] == [0.90, 0.85]
+
+
+def test_rotation_fallback_suppresses_duplicate_detections(monkeypatch):
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_iou_threshold=0.45,
+        yolo_top_overlap_refinement=True,
+        yolo_top_rotation_fallback=True,
+    ))
+    classifier = BananaClassifier()
+    # Pass 1: finger at (100, 100) -> (200, 200) on 480x640
+    # Pass 2: same finger at rotated position (440, 280) -> (540, 380)
+    # Remapped: (640-540, 480-380) -> (640-440, 480-280) = (100, 100) -> (200, 200)
+    # Remapped IoU = 1.0 > 0.40 -> deduplicated and discarded
+    classifier._model = SequencePredictor([
+        [(100, 100, 200, 200, 0.92, 0)],
+        [(440, 280, 540, 380, 0.88, 0)],
+    ])
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    result = classifier.predict(frame, confidence_threshold=0.50, camera_label="Top")
+
+    assert classifier._model.call_count == 2
+    assert result.finger_count == 1
+    assert len(result.detections) == 1
+    assert (result.detections[0].x, result.detections[0].y) == (100, 100)
+    assert result.detections[0].confidence == 0.92
+
+
+@pytest.mark.parametrize(
+    ("label", "fingerprint", "rotation_enabled", "confidence", "base_iou", "image_size"),
+    [
+        ("Rear", VERIFIED_CHECKPOINT, True, 0.50, 0.45, 640),
+        ("Left", VERIFIED_CHECKPOINT, True, 0.50, 0.45, 640),
+        ("Right", VERIFIED_CHECKPOINT, True, 0.50, 0.45, 640),
+        (None, VERIFIED_CHECKPOINT, True, 0.50, 0.45, 640),
+        ("Top", VERIFIED_CHECKPOINT, False, 0.50, 0.45, 640),
+        ("Top", CANDIDATE_CHECKPOINT, True, 0.50, 0.45, 640),
+        ("Top", None, True, 0.50, 0.45, 640),
+        ("Top", VERIFIED_CHECKPOINT, True, 0.70, 0.45, 640),
+        ("Top", VERIFIED_CHECKPOINT, True, 0.50, 0.60, 640),
+        ("Top", VERIFIED_CHECKPOINT, True, 0.50, 0.45, 960),
+    ],
+)
+def test_rotation_fallback_guarded_against_uncalibrated_profiles(
+    monkeypatch, label, fingerprint, rotation_enabled, confidence, base_iou, image_size,
+):
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_iou_threshold=base_iou,
+        yolo_top_overlap_refinement=True,
+        yolo_top_rotation_fallback=rotation_enabled,
+    ))
+    classifier = BananaClassifier()
+    classifier._model = SequencePredictor([[(50, 50, 150, 200, 0.90, 0)]])
+    classifier._checkpoint_sha256 = fingerprint
+    classifier._image_size = image_size
+
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    classifier.predict(frame, confidence_threshold=confidence, camera_label=label)
+
+    # Exactly 1 prediction call; second pass was prevented by guards
+    assert classifier._model.call_count == 1
+
+
+def test_rotation_coordinate_remapping_geometry():
+    """Verify coordinate remapping math matches 180-degree rotation inversion."""
+    img_w, img_h = 640, 480
+    # Original box: x1=120, y1=80, x2=240, y2=260
+    orig_x1, orig_y1, orig_x2, orig_y2 = 120, 80, 240, 260
+    # In 180-degree rotated frame, the box corners are:
+    rx1 = img_w - orig_x2
+    ry1 = img_h - orig_y2
+    rx2 = img_w - orig_x1
+    ry2 = img_h - orig_y1
+    assert rx1 < rx2 and ry1 < ry2
+
+    # Remapping back:
+    ox1 = img_w - rx2
+    oy1 = img_h - ry2
+    ox2 = img_w - rx1
+    oy2 = img_h - ry1
+    assert (ox1, oy1, ox2, oy2) == (orig_x1, orig_y1, orig_x2, orig_y2)

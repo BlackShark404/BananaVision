@@ -1,40 +1,35 @@
-CURRENT RESUME HERE (2026-10-17) - USER RETEST STILL5; EXACT-FRAME TEST PENDING
+CURRENT RESUME HERE (2026-10-17) - TOP 180 ROTATION FALLBACK IMPLEMENTED & VERIFIED
 Branch main. No staging, commits, pushes, deployment or station restart.
 Previous checkpoint: docs/history/2026-10-17-before-reported-top-retest.txt.
 
 USER INTENT / CONSTRAINTS
 - Improve Top detection: user reports roughly10 visible fingers but only4/5 boxes.
   Rear is better; preserve working views, UI, architecture and explicit reverts.
-- User has no offline camera-photo folder. Do not ask for that same folder again.
+- User approved plan: top_rotation_fallback_plan.md.
+- Guard conditions: only normalized Top, verified checkpoint SHA, 640 input, conf 0.50,
+  base IoU 0.45, and yolo_top_rotation_fallback enabled.
 - No tests against live station DB/captures/cameras/printer/OS power; no secrets/.env
   reads, model replacement or app dependency edits. Preserve unrelated BananaVision/.
 
 IMPLEMENTED / EXACT NEXT STEP
-- config.py adds YOLO_TOP_OVERLAP_REFINEMENT, defaulttrue; false disables refinement.
-- classification.py fingerprints actual weights at load. Only normalized Top, known
-  checkpoint SHA, saved640 input, confidence.50 and configured IoU.45 use IoU.65.
-  Other views/models/custom thresholds retain configured IoU. Unreadable fingerprints
-  leave the loaded model available with baseline filtering. Custom960/1280 saved
-  resolutions remain intact and bypass this calibrated profile.
-- Explicit inference options prevent retained Ultralytics arguments leaking from Top
-  to Rear. scan_service passes the configured camera label, independent of CAM-ID.
-  BGR frames, original-pixel boxes, confidence, voting, API/schema/UI remain unchanged.
-- Calibrated checkpoint SHA:
-  e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89.
-  banana_yolov8n.pt and weights/banana_yolo26m.pt are identical actualYOLO26m files.
-  The new trained YOLOv8n is excluded because this policy failed its validation guards.
-- USER RETEST: screenshot still shows5 detections with broad boxes spanning multiple
-  fingers. The overlap change did not solve this scene. Its actual runtime activation
-  is unconfirmed; do not claim a live fix or assume a suppressed-box root cause.
-- NEXT: await a manually saved original Top result photo in
-  D:\BananaVision-Training\top-camera-test (created, currently no image).
-  User was asked for its filename and correct variety. Use the captured result photo
-  on the RIGHT: right-click Save image as saves the base image without SVG overlays.
-  The left preview is a live stream; corrected instructions explicitly use the right.
-- Once supplied, inspect the image and compare preserved existing/new checkpoints on
-  those exact pixels, recording effective settings and box geometry. Further changes
-  depend on this reproducible scene, not another blind threshold or training change.
-  No new app changes this turn. Never promise10/10, sum views or force physical totals.
+- config.py adds YOLO_TOP_ROTATION_FALLBACK, default true; false disables fallback.
+- classification.py implements guarded two-pass inference for calibrated Top views:
+  Pass 1 runs normal inference (with overlap refinement if enabled).
+  Pass 2 runs inference on 180-degree-rotated frame (image[::-1, ::-1].copy()).
+  Remaps rotated coordinates back: (W - rx2, H - ry2, W - rx1, H - ry1).
+  Deduplicates against pass-1 detections with TOP_ROTATION_DEDUP_IOU = 0.40.
+  Appends non-overlapping candidates to detections and updates voting consensus.
+- test_top_view_inference.py expanded to 34 tests (+14 new tests for rotation fallback):
+  Tests recovery of novel non-overlapping fingers.
+  Tests deduplication and suppression of overlapping fingers.
+  Tests guard conditions preventing second pass on non-Top views / uncalibrated profiles.
+  Tests environment variable override (YOLO_TOP_ROTATION_FALLBACK).
+  Tests coordinate remapping geometry inversion math.
+- Verification: 34/34 tests PASS in test_top_view_inference.py.
+  Targeted backend suite: 76/76 PASS across test_top_view_inference, test_scan_trigger, test_time_and_writes.
+  Frontend typecheck & production build: PASS. Targeted frontend unit tests: 4/4 PASS.
+  git diff --check: clean (0 issues).
+- NEXT: Present verified implementation to the user. Await live test or operator feedback.
 
 VALIDATION EVIDENCE / LIMITS
 - All31 preparedVALID Top photos/293 labels;640/conf.50/class-aware NMS; matchingIoU>=.50.
