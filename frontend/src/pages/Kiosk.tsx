@@ -666,7 +666,7 @@ export default function Kiosk() {
                       {lastResult.images.map((img: { camera_id: string; file_path: string }, idx: number) => {
                         const detection = lastResult.detections?.find((d: ScanDetection) => d.camera_id === img.camera_id)
                         const imgUrl = img.file_path.startsWith('http') ? img.file_path : getImageUrl(img.file_path)
-                        const boxCount = detection?.bounding_boxes?.length || 0
+                        const boxCount = detection?.finger_count || detection?.bounding_boxes?.length || 0
                         return (
                           <button
                             key={img.camera_id}
@@ -704,7 +704,7 @@ export default function Kiosk() {
                               <Target className="w-4 h-4 text-primary" />
                               <DialogTitle className="text-sm font-bold">YOLO Detection</DialogTitle>
                               <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 rounded-full">
-                                {lastResult.detections.reduce((acc: number, d: ScanDetection) => acc + (d.bounding_boxes?.length || 0), 0)} boxes
+                                {lastResult.detections.reduce((acc: number, d: ScanDetection) => acc + (d.finger_count || d.bounding_boxes?.length || 0), 0)} boxes
                               </Badge>
                             </div>
                             <button
@@ -737,7 +737,7 @@ export default function Kiosk() {
                                     <span className={`min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold ${
                                       kioskActiveDetImg === idx ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'
                                     }`}>
-                                      {det.bounding_boxes.length}
+                                      {det.finger_count || det.bounding_boxes.length}
                                     </span>
                                   )}
                                 </button>
@@ -757,7 +757,7 @@ export default function Kiosk() {
                                   src={activeUrl}
                                   alt={`${activeImg.camera_id} detection expanded`}
                                   boxes={activeBoxes}
-                                  className="w-full aspect-[4/3]"
+                                  className="w-full"
                                   showLabels={true}
                                   showConfidence={true}
                                 />
