@@ -1,0 +1,81 @@
+CURRENT RESUME HERE (2026-10-17) - TRAINED CANDIDATE TESTED; VISUAL COMPARISON READY
+Branch main. Preserve all existing changes; no staging, commits, pushes or deployment.
+Previous checkpoint: docs/history/2026-10-17-before-visual-model-test.txt.
+Completed 13-module work is historical, not pending.
+
+CURRENT USER INTENT / CONSTRAINTS
+- User challenged why we trained another model then recommended keeping the old one.
+  Explain honestly: comparison experiment, not a guaranteed upgrade; it HAS been tested.
+  Both checkpoints remain available. Do not treat candidate as discarded or ask for
+  the same unavailable offline-photo folder again.
+- User authorized offline training and post-training work. No live station DB/captures,
+  physical camera/printer/OS power tests, secrets/.env reads, deployment or Git writes.
+- Existing main only; preserve UI/architecture/reverts and unrelated BananaVision/.
+- No app source, dependencies, weights, inference settings or station records changed.
+
+TRAINING + FROZEN TEST COMPARISON COMPLETE
+- Root: D:\BananaVision-Training\v13-yolov8-20261016.
+- completion/lifecycle/evaluation JSON all complete; finished04:58AM October17 Manila.
+- YOLOv8n completed78 total epochs (initial1 + resumed77), best58, early stopping20.
+  Candidate runs/yolov8n_v13_b16/weights/best.pt SHA256:
+  6a9ea2913b68465ee33e0991b125af4a598de526758b1cbe8a3591d430868916.
+- Former worker13844/bootstrap22588 gone. Do not launch a duplicate. Final best/last
+  optimizers stripped; completed last.pt is not the former resumable optimizer state.
+- Existing banana_yolov8n.pt and weights/banana_yolo26m.pt are byte-identical actual
+  YOLO26m, despite the former filename. SHA256:
+  e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89.
+- VALID selected NMS.45 over.65 before TEST atconf.50; .65 exceeded precision-loss bounds.
+- Same137TEST images/1252labels,640,conf.50,NMS.45,class-aware,box IoU>=.50 matching:
+  existing vs candidate countMAE .832 vs .905; exact54 vs60;
+  spatial P94.00% vs93.10%,R93.85% vs91.61%; combined P89.60% vs85.80%,R89.46% vs84.42%.
+- Candidate count error improves31TEST photos,worsens32,ties74; MAE worse all4views.
+  Baseline may have seen relatedimages; uncertain grouping/plainbackground limit claims.
+  Retain existing default pending evidence; no universal/live model ranking established.
+- All5reports checkpoint/manifest/heldout image+label hashes, configs/GT/classorder,
+  calibration timing/split membership and recomputed aggregate/class/view metrics PASS.
+  Frozen TEST was not rerun/tuned. Original reports remain trainingroot/evaluations.
+
+NEW CANDIDATE TESTS / REVIEWABLE ARTIFACTS
+- candidate-app-runtime-smoke.json: PASS using existing backend Python interpreter,
+  fresh isolated cwd/config, no app imports, CPU inference on4 preselected VALID photos.
+  Expected12classes, finite outputs; Top13/Left10/Right8/Rear11 predictions exactly match
+  saved candidate VALID counts. These are detections, not verified physical totals.
+  Actual app runtime ultralytics8.4.40,torch2.11.0,torchvision0.26.0; no dependency edits.
+- visual_comparison.html: standalone5.5MB offline browser comparison of all137 VALID
+  photos with same photo for both models, boxes/counts/classes/confidences, filters by
+  view/cultivar/count-error outcome, annotation/miss overlays. No server/network needed.
+  VALID improvements36/worse35/ties66; separate from TEST31/32/74.
+- build_visual_comparison.py + visual-comparison-manifest.json record source/model/input
+  hashes. Builder uses frozen VALID predictions only, verifies paths/hash/GT, refuses
+  existing output. Existing model defaults are not changed by opening the HTML.
+- Independent source audit: all137 embedded images/coordinates/classes/confidences,
+  matches and stats exactly match source reports; no external assets.
+- Isolated Edge headless PASS68 checks, no JS errors: rendering, counts/labels,
+  previous/next boundaries, filters/all36 combinations, overlay pixel changes.
+  visual_comparison.smoke-result.json/source-audit.json/smoke.png hold evidence;
+  screenshot also inspected by root. No persistent browser/process/profile changes.
+
+EXACT NEXT STEP / REMAINING ACCURACY QUESTION
+- Show user visual_comparison.html and distinguish app-runtime compatibility, offline
+  accuracy comparison and as-yet-unperformed live-camera test. Do not promise improvement.
+- User has no offline four-camera station photos. A manually supplied copy of a known
+  bunch's four original views plus variety/ripeness/physicaltotal and visible-finger labels
+  is the next data needed to measure live-like misses vs hidden fruit.
+- Source rechecked: classification=len(retainedboxes),fusion=max(per-view counts),API/UI
+  preserve count; no12cap or identified plumbing/preprocessing bug. Runtime overrides
+  uninspected. Even perfect per-view detection can undercount19 if no view sees19.
+  Never sum views/apply19/12 multiplier/force totals without finger correspondence.
+
+DATA / KNOWLEDGE / VERIFICATION
+- Original7501images/67237boxes,12classes; max17labels is not a model cap. Source untouched.
+  Prepared train5262/47091/13groups,valid137/1183/3,test137/1252/3; all12classes each.
+  Filename-derived90prefix->19group identities uncertain; heldouts exclude trainaugments.
+  Only2confirmed backgroundrows removed;7contradictory files quarantined in copy.
+- Durable summary docs/audits/yolov8-v13-training-comparison-2026-10-17.json now includes
+  runtime/visual evidence. Dataset audit, Obsidian Development Decisions, training README
+  updated. Prior checkpoint archived. SummaryJSON/4relative links/diff checks PASS.
+- No app code changed; full backend/frontend suites,lints,typecheck/build not rerun for
+  standalone offline report/documentation. Earlier dataset23tests/evaluator17checks/
+  supervisor12tests/lifecyclepreflight and scoped Ruff passed in prior work.
+- Graphify graph/CLI and ICM tools unavailable; no duplicate installs, initialization,
+  graph/memory claims or private/global memoryDB access. Preserve existing integrations.

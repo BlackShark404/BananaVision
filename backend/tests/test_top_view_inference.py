@@ -1,0 +1,637 @@
+"""Top overlap refinement uses verified weights without changing other camera views."""
+
+import hashlib
+import sys
+from types import SimpleNamespace
+from uuid import UUID
+
+import numpy as np
+import pytest
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user
+from app.models import Scan
+from app.services import classification, scan_service
+from app.services.classification import BananaClassifier
+from tests.test_scan_trigger import scan_station  # noqa: F401 - isolated SQLite fixture
+from tests.test_time_and_writes import application  # noqa: F401 - fixture dependency
+
+VERIFIED_CHECKPOINT = "e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89"
+CANDIDATE_CHECKPOINT = "6a9ea2913b68465ee33e0991b125af4a598de526758b1cbe8a3591d430868916"
+
+
+def box_iou(left, right):
+    """Intersection over union for two pixel-coordinate rectangles."""
+    width = max(0, min(left[2], right[2]) - max(left[0], right[0]))
+    height = max(0, min(left[3], right[3]) - max(left[1], right[1]))
+    intersection = width * height
+    left_area = (left[2] - left[0]) * (left[3] - left[1])
+    right_area = (right[2] - right[0]) * (right[3] - right[1])
+    return intersection / (left_area + right_area - intersection)
+
+
+class OverlappingFingerPredictor:
+    """Model fixture with persistent options and real greedy, class-aware NMS."""
+
+    def __init__(self, rows=None, names=None):
+        # Two distinct neighboring fingers whose rectangular boxes overlap 54%.
+        # The last, low-confidence candidate must remain filtered in both views.
+        self.rows = rows if rows is not None else [
+            (20, 30, 120, 170, 0.92, 0),
+            (50, 30, 150, 170, 0.88, 0),
+            (155, 5, 180, 100, 0.49, 0),
+        ]
+        self.names = names if names is not None else {0: "latundan_ripe"}
+        self.options = {
+            "iou": 0.45, "imgsz": 320, "augment": True,
+            "agnostic_nms": True, "max_det": 1,
+        }
+        self.calls = []
+        self.frames = []
+
+    def predict(self, image, **kwargs):
+        self.calls.append(kwargs.copy())
+        self.frames.append(image)
+        self.options.update(kwargs)
+        selected = []
+        for row in sorted(self.rows, key=lambda candidate: candidate[4], reverse=True):
+            if row[4] < self.options["conf"]:
+                continue
+            suppress = any(
+                (self.options["agnostic_nms"] or prior[5] == row[5])
+                and box_iou(prior, row) > self.options["iou"]
+                for prior in selected
+            )
+            if not suppress and len(selected) < self.options["max_det"]:
+                selected.append(row)
+        boxes = [
+            SimpleNamespace(
+                xyxy=np.array([row[:4]], dtype=float), conf=[row[4]], cls=[row[5]],
+            )
+            for row in selected
+        ]
+        return [SimpleNamespace(boxes=boxes, names=self.names)]
+
+
+@pytest.fixture
+def verified_classifier(monkeypatch):
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_iou_threshold=0.45, yolo_top_overlap_refinement=True,
+    ))
+    classifier = BananaClassifier()
+    classifier._model = OverlappingFingerPredictor()
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+    return classifier
+
+
+def test_top_retains_neighbor_fingers_and_rear_resets_persistent_predictor(verified_classifier):
+    classifier = verified_classifier
+    # Distinct BGR channels expose unintended color conversion or frame alteration.
+    frame = np.empty((180, 200, 3), dtype=np.uint8)
+    frame[:] = [17, 93, 211]
+    original = frame.copy()
+
+    top = classifier.predict(frame, confidence_threshold=0.5, camera_label="  tOp  ")
+    rear = classifier.predict(frame, confidence_threshold=0.5, camera_label="Rear")
+
+    assert top.finger_count == len(top.detections) == 2
+    assert rear.finger_count == len(rear.detections) == 1
+    assert (top.cultivar, top.ripeness, top.confidence) == ("Latundan", "Ripe", 90)
+    assert top.conflict_detected is False
+    assert [(box.x, box.y, box.w, box.h) for box in top.detections] == [
+        (20, 30, 100, 140), (50, 30, 100, 140),
+    ]
+    assert [box.confidence for box in top.detections] == pytest.approx([0.92, 0.88])
+    np.testing.assert_array_equal(frame, original)
+    assert all(received is frame for received in classifier._model.frames)
+    # Ultralytics retains predictor arguments. Every invocation must set these,
+    # so an earlier Top refinement or external prediction cannot leak to Rear.
+    for call, expected_iou in zip(classifier._model.calls, [0.65, 0.45], strict=True):
+        assert call["iou"] == expected_iou
+        assert call["conf"] == 0.5
+        assert call["imgsz"] == 640
+        assert call["augment"] is False
+        assert call["agnostic_nms"] is False
+        assert call["max_det"] == 300
+        assert call["verbose"] is False
+
+
+@pytest.mark.parametrize(
+    ("label", "fingerprint", "enabled", "confidence", "base_iou"),
+    [
+        ("Rear", VERIFIED_CHECKPOINT, True, 0.5, 0.45),
+        ("Left", VERIFIED_CHECKPOINT, True, 0.5, 0.45),
+        ("Right", VERIFIED_CHECKPOINT, True, 0.5, 0.45),
+        (None, VERIFIED_CHECKPOINT, True, 0.5, 0.45),
+        ("Top", None, True, 0.5, 0.45),
+        ("Top", "0" * 64, True, 0.5, 0.45),
+        ("Top", CANDIDATE_CHECKPOINT, True, 0.5, 0.45),
+        ("Top", VERIFIED_CHECKPOINT, False, 0.5, 0.45),
+        ("Top", VERIFIED_CHECKPOINT, True, 0.3, 0.45),
+        ("Top", VERIFIED_CHECKPOINT, True, 0.85, 0.45),
+        ("Top", VERIFIED_CHECKPOINT, True, 0.5, 0.7),
+    ],
+)
+def test_unvalidated_profiles_keep_configured_overlap(
+    verified_classifier, label, fingerprint, enabled, confidence, base_iou,
+):
+    classifier = verified_classifier
+    classifier._checkpoint_sha256 = fingerprint
+    classification.settings.yolo_top_overlap_refinement = enabled
+    classification.settings.yolo_iou_threshold = base_iou
+
+    classifier.predict(
+        np.zeros((180, 200, 3), dtype=np.uint8),
+        confidence_threshold=confidence, camera_label=label,
+    )
+
+    assert classifier._model.calls[-1]["iou"] == base_iou
+    assert classifier._model.calls[-1]["conf"] == confidence
+
+
+def test_top_preserves_class_aware_boxes_and_observed_pair_voting(verified_classifier):
+    classifier = verified_classifier
+    classifier._model = OverlappingFingerPredictor(
+        rows=[
+            (20, 30, 120, 170, 0.91, 0), (20, 30, 120, 170, 0.90, 1),
+            (20, 30, 120, 170, 0.95, 2), (20, 30, 120, 170, 0.95, 3),
+        ],
+        names={
+            0: "lakatan_ripe", 1: "lakatan_unripe",
+            2: "cardaba_overripe", 3: "latundan_overripe",
+        },
+    )
+
+    result = classifier.predict(
+        np.zeros((180, 200, 3), dtype=np.uint8),
+        confidence_threshold=0.5, camera_label="Top",
+    )
+
+    # Four competing labels on one rectangle remain review evidence, not four fingers.
+    assert len(result.detections) == 4
+    assert result.finger_count == 1
+    assert (result.cultivar, result.ripeness, result.confidence) == ("Lakatan", "Ripe", 91)
+    assert result.conflict_detected is True
+
+
+def test_loading_records_file_fingerprint_instead_of_trusting_model_filename(
+    tmp_path, monkeypatch,
+):
+    payload = b"synthetic checkpoint, never deserialized"
+    weights = tmp_path / "banana_yolov8n.pt"
+    weights.write_bytes(payload)
+    model = OverlappingFingerPredictor()
+    monkeypatch.setitem(sys.modules, "ultralytics", SimpleNamespace(YOLO=lambda _: model))
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_model_path=str(weights), yolo_iou_threshold=0.45,
+        yolo_top_overlap_refinement=True,
+    ))
+    classifier = BananaClassifier()
+    assert classifier._checkpoint_sha256 is None
+
+    classifier.load()
+
+    assert classifier.is_loaded
+    assert classifier._checkpoint_sha256 == hashlib.sha256(payload).hexdigest()
+    classifier.predict(
+        np.zeros((180, 200, 3), dtype=np.uint8),
+        confidence_threshold=0.5, camera_label="Top",
+    )
+    assert model.calls[-1]["iou"] == 0.45
+
+
+def test_loading_failure_clears_previous_verified_fingerprint(tmp_path, monkeypatch):
+    monkeypatch.setitem(sys.modules, "ultralytics", SimpleNamespace(
+        YOLO=lambda _: (_ for _ in ()).throw(FileNotFoundError("fixture missing")),
+    ))
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_model_path=str(tmp_path / "missing.pt"),
+    ))
+    classifier = BananaClassifier()
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+
+    classifier.load()
+
+    assert classifier.is_loaded is False
+    assert classifier._model is None
+    assert classifier._checkpoint_sha256 is None
+
+
+def test_loading_custom_checkpoint_preserves_its_prediction_resolution(tmp_path, monkeypatch):
+    weights = tmp_path / "custom-resolution.pt"
+    weights.write_bytes(b"synthetic checkpoint with 960-pixel inference")
+    model = OverlappingFingerPredictor()
+    model.overrides = {"imgsz": 960}
+    monkeypatch.setitem(sys.modules, "ultralytics", SimpleNamespace(YOLO=lambda _: model))
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_model_path=str(weights), yolo_iou_threshold=0.45,
+        yolo_top_overlap_refinement=True,
+    ))
+    classifier = BananaClassifier()
+
+    classifier.load()
+    result = classifier.predict(
+        np.zeros((180, 200, 3), dtype=np.uint8),
+        confidence_threshold=0.5, camera_label="Top",
+    )
+
+    assert classifier.is_loaded
+    assert result.finger_count == 1
+    assert model.calls[-1]["imgsz"] == 960
+    assert model.calls[-1]["iou"] == 0.45
+
+
+def test_verified_checkpoint_with_custom_resolution_bypasses_top_profile(verified_classifier):
+    classifier = verified_classifier
+    classifier._image_size = 960
+
+    result = classifier.predict(
+        np.zeros((180, 200, 3), dtype=np.uint8),
+        confidence_threshold=0.5, camera_label="Top",
+    )
+
+    assert result.finger_count == 1
+    assert classifier._model.calls[-1]["imgsz"] == 960
+    assert classifier._model.calls[-1]["iou"] == 0.45
+
+
+def test_fingerprint_read_failure_keeps_loaded_model_available(tmp_path, monkeypatch):
+    model = OverlappingFingerPredictor()
+    monkeypatch.setitem(sys.modules, "ultralytics", SimpleNamespace(YOLO=lambda _: model))
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_model_path=str(tmp_path / "loaded-model.pt"), yolo_iou_threshold=0.45,
+        yolo_top_overlap_refinement=True,
+    ))
+
+    def unreadable_fingerprint(_path):
+        raise PermissionError("synthetic checkpoint fingerprint unavailable")
+
+    monkeypatch.setattr(classification, "_checkpoint_digest", unreadable_fingerprint)
+    classifier = BananaClassifier()
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+
+    classifier.load()
+    result = classifier.predict(
+        np.zeros((180, 200, 3), dtype=np.uint8),
+        confidence_threshold=0.5, camera_label="Top",
+    )
+
+    assert classifier.is_loaded
+    assert classifier._model is model
+    assert classifier._checkpoint_sha256 is None
+    assert result.finger_count == 1
+    assert model.calls[-1]["iou"] == 0.45
+
+
+def test_overlap_setting_defaults_on_and_can_be_disabled_from_environment(monkeypatch):
+    from app.config import Settings
+
+    monkeypatch.delenv("YOLO_TOP_OVERLAP_REFINEMENT", raising=False)
+    assert Settings(_env_file=None).yolo_top_overlap_refinement is True
+    monkeypatch.setenv("YOLO_TOP_OVERLAP_REFINEMENT", "false")
+    assert Settings(_env_file=None).yolo_top_overlap_refinement is False
+
+
+def test_scan_uses_camera_label_when_top_is_not_first_slot(
+    scan_station, verified_classifier, monkeypatch,  # noqa: F811 - fixture injection
+):
+    app, submit = scan_station
+    app.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id=app.ids.operator, full_name="Fixture Operator", role=SimpleNamespace(name="Operator"),
+        operator_profile=SimpleNamespace(id=app.ids.profile),
+    )
+    original_capture_all = scan_service.camera_manager.capture_all
+    order = ["Rear", "Left", "Top", "Right"]
+
+    async def reordered_captures():
+        captures = await original_capture_all()
+        for capture, label in zip(captures, order, strict=True):
+            capture.camera_label = label
+            capture.frame = np.zeros((180, 200, 3), dtype=np.uint8)
+        return captures
+
+    monkeypatch.setattr(scan_service.camera_manager, "capture_all", reordered_captures)
+    monkeypatch.setattr(scan_service, "banana_classifier", verified_classifier)
+    response = app.client.post("/api/v1/scans/trigger", json={"intake_id": str(app.ids.intake)})
+
+    assert response.status_code == 200, response.text
+    assert [call["iou"] for call in verified_classifier._model.calls] == [0.45, 0.45, 0.65, 0.45]
+    with Session(app.engine) as db:
+        saved = db.get(Scan, UUID(response.json()["id"]))
+        counts = {item.camera_label: item.finger_count for item in saved.detections}
+        assert counts == {"Rear": 1, "Left": 1, "Top": 2, "Right": 1}
+        assert next(item for item in saved.detections if item.camera_label == "Top").camera_id == (
+            "CAM-003"
+        )
+    assert submit.call_count == 1
+
+
+# ── Rotation Fallback Tests ──────────────────────────────────────────────────
+
+
+class SequencePredictor:
+    """Predictor fixture returning predetermined detection rows per call."""
+
+    def __init__(self, sequence_rows, names=None):
+        self.sequence_rows = sequence_rows
+        self.names = names if names is not None else {0: "latundan_ripe"}
+        self.calls = []
+        self.call_count = 0
+
+    def predict(self, image, **kwargs):
+        self.calls.append(kwargs.copy())
+        idx = min(self.call_count, len(self.sequence_rows) - 1)
+        rows = self.sequence_rows[idx]
+        self.call_count += 1
+        boxes = [
+            SimpleNamespace(
+                xyxy=np.array([[r[0], r[1], r[2], r[3]]], dtype=float),
+                conf=[r[4]],
+                cls=[r[5]],
+            )
+            for r in rows
+        ]
+        return [SimpleNamespace(boxes=boxes, names=self.names)]
+
+
+def test_rotation_setting_defaults_on_and_can_be_disabled_from_environment(monkeypatch):
+    from app.config import Settings
+
+    monkeypatch.delenv("YOLO_TOP_ROTATION_FALLBACK", raising=False)
+    assert Settings(_env_file=None).yolo_top_rotation_fallback is True
+    monkeypatch.setenv("YOLO_TOP_ROTATION_FALLBACK", "false")
+    assert Settings(_env_file=None).yolo_top_rotation_fallback is False
+
+
+def test_rotation_fallback_recovers_novel_fingers(monkeypatch):
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_iou_threshold=0.45,
+        yolo_top_overlap_refinement=True,
+        yolo_top_rotation_fallback=True,
+    ))
+    classifier = BananaClassifier()
+    # Pass 1: finger at top-left (50, 50) -> (150, 200)
+    # Pass 2: finger detected at top-left of rotated 480x640 frame (50, 50) -> (150, 200)
+    # Remapped: (640-150, 480-200) -> (640-50, 480-50) = (490, 280) -> (590, 430)
+    classifier._model = SequencePredictor([
+        [(50, 50, 150, 200, 0.90, 0)],
+        [(50, 50, 150, 200, 0.85, 0)],
+    ])
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    result = classifier.predict(frame, confidence_threshold=0.50, camera_label="Top")
+
+    assert classifier._model.call_count == 2
+    assert result.finger_count == 2
+    assert len(result.detections) == 2
+    coords = [(d.x, d.y, d.w, d.h) for d in result.detections]
+    assert coords == [(50, 50, 100, 150), (490, 280, 100, 150)]
+    assert [d.confidence for d in result.detections] == [0.90, 0.85]
+
+
+def test_rotation_fallback_suppresses_duplicate_detections(monkeypatch):
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_iou_threshold=0.45,
+        yolo_top_overlap_refinement=True,
+        yolo_top_rotation_fallback=True,
+    ))
+    classifier = BananaClassifier()
+    # Pass 1: finger at (100, 100) -> (200, 200) on 480x640
+    # Pass 2: same finger at rotated position (440, 280) -> (540, 380)
+    # Remapped: (640-540, 480-380) -> (640-440, 480-280) = (100, 100) -> (200, 200)
+    # Remapped IoU = 1.0 > 0.40 -> deduplicated and discarded
+    classifier._model = SequencePredictor([
+        [(100, 100, 200, 200, 0.92, 0)],
+        [(440, 280, 540, 380, 0.88, 0)],
+    ])
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    result = classifier.predict(frame, confidence_threshold=0.50, camera_label="Top")
+
+    assert classifier._model.call_count == 2
+    assert result.finger_count == 1
+    assert len(result.detections) == 1
+    assert (result.detections[0].x, result.detections[0].y) == (100, 100)
+    assert result.detections[0].confidence == 0.92
+
+
+@pytest.mark.parametrize(
+    ("label", "fingerprint", "rotation_enabled", "confidence", "base_iou", "image_size"),
+    [
+        ("Rear", VERIFIED_CHECKPOINT, True, 0.50, 0.45, 640),
+        ("Left", VERIFIED_CHECKPOINT, True, 0.50, 0.45, 640),
+        ("Right", VERIFIED_CHECKPOINT, True, 0.50, 0.45, 640),
+        (None, VERIFIED_CHECKPOINT, True, 0.50, 0.45, 640),
+        ("Top", VERIFIED_CHECKPOINT, False, 0.50, 0.45, 640),
+        ("Top", CANDIDATE_CHECKPOINT, True, 0.50, 0.45, 640),
+        ("Top", None, True, 0.50, 0.45, 640),
+        ("Top", VERIFIED_CHECKPOINT, True, 0.70, 0.45, 640),
+        ("Top", VERIFIED_CHECKPOINT, True, 0.50, 0.60, 640),
+        ("Top", VERIFIED_CHECKPOINT, True, 0.50, 0.45, 960),
+    ],
+)
+def test_rotation_fallback_guarded_against_uncalibrated_profiles(
+    monkeypatch, label, fingerprint, rotation_enabled, confidence, base_iou, image_size,
+):
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_iou_threshold=base_iou,
+        yolo_top_overlap_refinement=True,
+        yolo_top_rotation_fallback=rotation_enabled,
+    ))
+    classifier = BananaClassifier()
+    classifier._model = SequencePredictor([[(50, 50, 150, 200, 0.90, 0)]])
+    classifier._checkpoint_sha256 = fingerprint
+    classifier._image_size = image_size
+
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    classifier.predict(frame, confidence_threshold=confidence, camera_label=label)
+
+    # Exactly 1 prediction call; second pass was prevented by guards
+    assert classifier._model.call_count == 1
+
+
+def test_rotation_coordinate_remapping_geometry():
+    """Verify coordinate remapping math matches 180-degree rotation inversion."""
+    img_w, img_h = 640, 480
+    # Original box: x1=120, y1=80, x2=240, y2=260
+    orig_x1, orig_y1, orig_x2, orig_y2 = 120, 80, 240, 260
+    # In 180-degree rotated frame, the box corners are:
+    rx1 = img_w - orig_x2
+    ry1 = img_h - orig_y2
+    rx2 = img_w - orig_x1
+    ry2 = img_h - orig_y1
+    assert rx1 < rx2 and ry1 < ry2
+
+    # Remapping back:
+    ox1 = img_w - rx2
+    oy1 = img_h - ry2
+    ox2 = img_w - rx1
+    oy2 = img_h - ry1
+    assert (ox1, oy1, ox2, oy2) == (orig_x1, orig_y1, orig_x2, orig_y2)
+
+
+def test_rotation_fallback_suppresses_nested_partial_box_duplicates(monkeypatch):
+    """Verify that rotated partial sightings with IoU <= 0.40 are suppressed by containment."""
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_iou_threshold=0.45,
+        yolo_top_overlap_refinement=True,
+        yolo_top_rotation_fallback=True,
+    ))
+    classifier = BananaClassifier()
+    # Pass 1: full finger at (200, 50, 260, 350), conf 0.76 (w=60, h=300, area=18000)
+    # Pass 2: partial finger remapped to (202, 220, 258, 340), conf 0.52 (w=56, h=120, area=6720)
+    # IoU = 6720 / 18000 = 0.373 <= 0.40. Old IoU check failed, but containment = 1.0 suppresses it.
+    # In 480x640 rotated frame: rx1 = 640-258=382, ry1 = 480-340=140, rx2 = 640-202=438, ry2 = 480-220=260
+    classifier._model = SequencePredictor([
+        [(200, 50, 260, 350, 0.76, 0)],
+        [(382, 140, 438, 260, 0.52, 0)],
+    ], names={0: "lakatan_ripe"})
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    result = classifier.predict(frame, confidence_threshold=0.50, camera_label="Top")
+
+    assert classifier._model.call_count == 2
+    assert result.finger_count == 1
+    assert len(result.detections) == 1
+    assert (result.detections[0].x, result.detections[0].y) == (200, 50)
+    assert result.detections[0].confidence == 0.76
+
+
+def test_rotation_fallback_suppresses_cross_class_rotated_duplicates(monkeypatch):
+    """Verify that rotation candidate overlapping an existing finger is suppressed even with different class."""
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_iou_threshold=0.45,
+        yolo_top_overlap_refinement=True,
+        yolo_top_rotation_fallback=True,
+    ))
+    classifier = BananaClassifier()
+    # Pass 1: Finger detected as semi-ripe at (280, 50, 340, 350), conf 0.71
+    # Pass 2: Same finger detected in rotated frame as ripe at (282, 80, 338, 345), conf 0.64
+    # Remapped rx1 = 640-338=302, ry1 = 480-345=135, rx2 = 640-282=358, ry2 = 480-80=400
+    classifier._model = SequencePredictor([
+        [(280, 50, 340, 350, 0.71, 1)],
+        [(302, 135, 358, 400, 0.64, 0)],
+    ], names={0: "lakatan_ripe", 1: "lakatan_semi_ripe"})
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    result = classifier.predict(frame, confidence_threshold=0.50, camera_label="Top")
+
+    assert classifier._model.call_count == 2
+    assert result.finger_count == 1
+    assert len(result.detections) == 1
+    assert result.detections[0].cls == "lakatan_semi_ripe"
+
+
+def test_pass1_same_class_nested_sub_box_suppression(monkeypatch):
+    """Verify that pass 1 suppresses same-class nested boxes that survive relaxed IoU threshold."""
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_iou_threshold=0.45,
+        yolo_top_overlap_refinement=True,
+        yolo_top_rotation_fallback=False,
+    ))
+    classifier = BananaClassifier()
+    # Two boxes of same class: Box 1 full finger (conf 0.76), Box 2 nested sub-box (conf 0.52)
+    classifier._model = SequencePredictor([
+        [
+            (100, 50, 160, 350, 0.76, 0),
+            (102, 160, 158, 340, 0.52, 0),
+        ],
+    ], names={0: "lakatan_ripe"})
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    result = classifier.predict(frame, confidence_threshold=0.50, camera_label="Top")
+
+    assert result.finger_count == 1
+    assert len(result.detections) == 1
+    assert result.detections[0].confidence == 0.76
+
+
+def test_rotation_fallback_deduplicates_against_newly_accepted_candidates(monkeypatch):
+    """Verify that pass 2 candidates in unoccupied space deduplicate against each other."""
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_iou_threshold=0.45,
+        yolo_top_overlap_refinement=True,
+        yolo_top_rotation_fallback=True,
+    ))
+    classifier = BananaClassifier()
+    # Pass 1: empty frame (0 detections)
+    # Pass 2: two overlapping candidates for the same novel finger
+    # Candidate 1: remapped to (400, 100, 460, 350) -> rotated (180, 130, 240, 380), conf 0.85
+    # Candidate 2: remapped to (402, 180, 458, 340) -> rotated (182, 140, 238, 300), conf 0.60
+    classifier._model = SequencePredictor([
+        [],
+        [
+            (180, 130, 240, 380, 0.85, 0),
+            (182, 140, 238, 300, 0.60, 0),
+        ],
+    ], names={0: "lakatan_ripe"})
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    result = classifier.predict(frame, confidence_threshold=0.50, camera_label="Top")
+
+    assert classifier._model.call_count == 2
+    assert result.finger_count == 1
+    assert len(result.detections) == 1
+    assert result.detections[0].confidence == 0.85
+
+
+def test_coincident_cultivar_hypotheses_count_once_and_require_review(verified_classifier):
+    classifier = verified_classifier
+    classifier._model = OverlappingFingerPredictor(
+        rows=[(20, 30, 120, 170, 0.99, 0), (20, 30, 120, 170, 0.51, 1)],
+        names={0: "lakatan_ripe", 1: "latundan_ripe"},
+    )
+    result = classifier.predict(
+        np.zeros((180, 200, 3), dtype=np.uint8),
+        confidence_threshold=0.5, camera_label="Top",
+    )
+
+    assert result.finger_count == 1
+    assert len(result.detections) == 2  # Preserve both original class hypotheses.
+    assert (result.cultivar, result.ripeness, result.confidence) == ("Lakatan", "Ripe", 99)
+    assert result.conflict_detected is True
+
+
+@pytest.mark.parametrize("coordinates", [
+    [(20, 30, 120, 170), (45, 30, 145, 170)],  # IoU .60, below calibrated .65 NMS.
+    [(20, 30, 120, 60), (20, 45, 120, 75)],   # Horizontal fingers, IoU .33.
+])
+def test_pass1_preserves_distinct_overlapping_neighbors(verified_classifier, coordinates):
+    classifier = verified_classifier
+    classifier._model = OverlappingFingerPredictor(rows=[
+        (*coordinates[0], 0.92, 0), (*coordinates[1], 0.88, 0),
+    ])
+    result = classifier.predict(
+        np.zeros((180, 200, 3), dtype=np.uint8),
+        confidence_threshold=0.5, camera_label="Top",
+    )
+
+    assert result.finger_count == len(result.detections) == 2
+    assert result.confidence == 90
+
+
+def test_rotated_duplicate_with_competing_cultivar_requires_review(monkeypatch):
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_iou_threshold=0.45, yolo_top_overlap_refinement=True,
+        yolo_top_rotation_fallback=True,
+    ))
+    classifier = BananaClassifier()
+    classifier._model = SequencePredictor([
+        [(100, 100, 200, 200, 0.92, 0)],
+        [(440, 280, 540, 380, 0.88, 1)],
+    ], names={0: "lakatan_ripe", 1: "latundan_ripe"})
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+    result = classifier.predict(
+        np.zeros((480, 640, 3), dtype=np.uint8),
+        confidence_threshold=0.5, camera_label="Top",
+    )
+
+    assert result.finger_count == len(result.detections) == 1
+    assert (result.cultivar, result.ripeness, result.confidence) == ("Lakatan", "Ripe", 92)
+    assert result.conflict_detected is True

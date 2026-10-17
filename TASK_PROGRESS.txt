@@ -1,68 +1,54 @@
-CURRENT RESUME HERE (2026-10-17) - DOUBLE-CHECK FIXES IN PROGRESS
-BRANCH main. Latest user authorizes commit, fetch/merge/pull resolution and push; no deployment.
-Prior claimed-complete checkpoint archived: docs/history/2026-10-17-before-double-check.txt.
+CURRENT RESUME HERE (2026-10-17) - LOADING FIXES MERGED, VERIFICATION IN PROGRESS
+BRANCH main. User explicitly authorized commit, merge/pull resolution and push. No deployment.
+Local loading commit: cb3b88e. Merging origin/main=f365b2f (12 incoming commits).
+Previous checkpoints preserved in docs/history/2026-10-17-before-double-check.txt and
+ docs/history/2026-10-17-remote-before-loading-merge.txt; remote completed camera work retained.
 
 DONE
-- Re-audited actual HEAD77ff51c and screenshot claims using focused Graphify/source review.
-- Confirmed defects: stale user/supplier GET overwrites writes; intake error says loading;
-  unbounded GETs; kiosk list error/duplicate delayed PIN; missing sensors shown as0;
-  notification false empty/races; zero-count scan unrelated edits blocked; QC stale revision.
-- Implemented provider read/write generation guards, independent intake/supplier settlement,
-  GET deadlines, notification states, route-local loading, kiosk recovery/PIN cancellation,
-  sensor unknown/error states, count validation and QC revision/draft handling.
-- QC conflict recovery now appears inside the modal, with retry/loading feedback; the
-  modal previously blocked its toast action. Targeted real-click regression passes.
-- Screenshots: all-time success drilldown and fixed14-day trend intentional; operator
-  metrics/page-size selector/notes gap implemented. UUID optimization covers exact IDs only;
-  CSV300s still buffers Blob in browser. No performance/large-export proof.
+- Loading audit and fixes: structured skeletons, retained refresh data, finite JSON reads,
+  stale user/supplier response guards, correct intake errors, account-scoped notifications,
+  unknown sensor data, kiosk operator recovery and single-flight/cancellable PIN entry.
+- QC recovery moved inside modal; preserves correction baseline/draft until explicit reload.
+  Confirmed-write/failed-read and definitive 403/422 retry cases now recover correctly.
+- PIN swap/setup and notification mark-read opt into 15s deadlines; hardware mutations retain
+  operation/status workflows. Five timeout/replay regressions plus three QC cases passed.
+- Remote merge conflicts resolved in Kiosk, ScanDetail, QC and this checkpoint. Preserved
+  remote demo removal, camera/cultivar safeguards, layout and NumberField appearance.
+  Scan count editors disable NumberField blur-clamping to preserve validation/draft semantics.
+- Merged full suite exposed print quantity blur-clamping that bypassed validation; fixed it
+  without changing NumberField styling. All 3 mocked printing tests pass, including invalid
+  empty/zero/fractional/over-limit quantities and duplicate/retry protection.
+- Source/API contracts traced; Context7, Superpowers review, Graphify and ICM used.
 
-IN PROGRESS
-- Fetch succeeded; origin/main=f365b2f is12commits ahead of local77ff51c. Commit task changes,
-  merge remote work while preserving its kiosk/demo removal and NumberField UI, then verify.
-- Final review fixes implemented: opt-in deadlines for PIN/notification writes, QC read retry
-  after confirmed write, and removal of consumed retry after definitive403/422 rejection.
-  All5 timeout/replay regressions and3 QC recovery/rejection regressions PASS.
-- Final full frontend rerun finished132passed/2baseline failures (238.62s). Review found
-  stalled PIN POSTs and notification mark-read writes can lock newly disabled controls;
-  add opt-in deadlines (without timing out hardware mutations). Also fix QC replay success
-  followed by failed GET leaving an unusable Retry previous action. New regression tests
-  are reproducing these cases in frontend/node_modules/.tmp/bv-review-red.txt.
-- Known baseline WebSocket tests
-  expect shared sockets/message-auth, but unchanged frontend/backend use per-hook/query-auth.
-  Preserve contract; do not remove or weaken these tests to claim a pass.
+VERIFIED BEFORE MERGE
+- Frontend full suite:132 passed,2 pre-existing connectivity failures (238.62s).
+- Latest targeted review regressions:5 passed; QC recovery/rejection3 passed.
+- TypeScript projects + Vite build PASS (14.37s). Frontend lint37errors5warnings;
+  no new diagnostics relative to original HEAD. Backend Ruff641errors (unchanged backend).
+- Isolated backend suite389 passed,38 PostgreSQL skips. No live station access.
+- Graphify3524->3540nodes,10902edges; no graph loss. SQL parser missing for2SQL files.
 
-VERIFICATION
-- Pre-fix TypeScript projects and production build passed (13.18s).
-- Pre-fix configured lint FAILS with41 existing errors/8warnings (not a passing lint).
-- Isolated backend suite: 389 passed, 38 skipped in96.26s. PostgreSQL cases skipped;
-  no disposable PostgreSQL configured. No live station services used.
-- Focused frontend suites: admin/loading9 passed; operations/kiosk/scanrecords36 passed.
-- Additional QC late-detail/draft/conflict recovery test:1 passed after recovery fix.
-- Additional early-write readiness2 passed. Kiosk flagged-completion/QC error/scanwrites4 passed.
-- Final TypeScript typecheck and production build (tsc-b + Vite): PASS,27.52s build.
-- Frontend configured lint: FAIL37errors5warnings, no diagnostic increases vs HEAD in13
-  changed source files. Backend configured Ruff: FAIL641errors (backend unchanged).
-- Initial full frontend run119passed/5failed:2baseline connectivity, kiosk review status
-  (now fixed), obsolete QC toast assertion (updated to modal alert), transient spawnEINVAL
-  (scanwrites targeted rerun passed). Full rerun log: frontend/node_modules/.tmp/bv-final-frontend-2.txt.
-- Graphify AST update PASS:3524->3538nodes,10897edges, no graph loss. SQL parser unavailable;
- 2SQL files omitted as before; no paid semantic extraction. Graph outputs are ignored locally.
-- Updated Frontend and Testing knowledge notes, audit report and verified ICM correction memory.
-- Browser sandbox restriction resolved by approved isolated Edge test execution.
-
-REMAINING
-- Collect full frontend final result; address any new regressions; finish independent review.
-- Finalize report/checkpoint with exact counts. Known baseline connectivity/lint remain separate.
+IN PROGRESS / REMAINING
+- Merged backend482passed38skipped(85.06s); final TypeScript/build PASS(Vite8.95s).
+- Merged frontend first run139passed12failed:2baseline connectivity,1printing(fixed),
+ 9browser-closed cascade. Scanrecords rerun24/24passes; final full rerun session12476,
+ log frontend/node_modules/.tmp/bv-merged-frontend-final.txt. Collect actual counts.
+- Final frontend lint37errors5warnings;15changed files vs origin/main have no rule/count
+ increases. Backend Ruff651existing errors; no backend task diff relative to origin/main.
+- Graphify3685nodes11230edges; final update PASS/no topology changes, no graph loss.
+- Preserve baseline WebSocket failures: existing tests expect shared sockets/message auth,
+  actual unchanged frontend/backend implement per-hook sockets/query auth. Do not weaken tests.
+- Update audit/report/knowledge/graph with final merged results; review staged resolution.
+- Commit merge and push main normally; verify local and remote HEAD match. Preserve .idea/.
 
 CONSTRAINTS
-- Preserve UI, existing contracts, Manila dates and prior fixes/reverts.
-- Never access live station DB/captures/cameras/printer/power. Mocked/disposable tests only.
-- Main only; Git integration/push now explicitly authorized. No deployment or project dependency changes.
+- Main only; no force push/history rewrite/deployment or unrelated changes.
+- Never use live DB, captures, cameras, printers or OS power. Mock/disposable tests only.
+- Preserve UI design and existing remote work. No project dependency changes.
 
 EXACT RESUME POINT
-- Save scoped changes in a commit, merge origin/main=f365b2f and resolve overlaps.
-- Preserve remote TASK_PROGRESS in docs/history before replacing consolidated checkpoint.
-- Reverify merged frontend/backend; latest all-suite rerun was denied by approval-review
-  usage-limit availability (not unsafe); fresh focused browser calls now work.
-- Finalize docs/audits/2026-10-17-loading-recheck.md and checkpoint; preserve unrelated .idea/.
-- Backend source changes arrive from remote, so inspect updated tests and rerun isolated suite.
+- Merge is in progress; source conflict markers resolved but not yet staged.
+- Poll final frontend session12476, then record exact result; no backend/build/lint rerun
+  needed unless relevant code changes again. Printing3/3 and Scanrecords24/24 already pass.
+- Finalize docs/audits/2026-10-17-loading-recheck.md and this checkpoint, stage resolved files,
+  commit merge, push origin main. Do not repeat previous broad audit or discard .idea/.

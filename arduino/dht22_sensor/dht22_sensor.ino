@@ -53,3 +53,4 @@ void loop() {
   Serial.print(humidity, 1);
   Serial.println();
 }
+  

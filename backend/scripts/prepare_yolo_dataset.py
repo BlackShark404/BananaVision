@@ -29,9 +29,10 @@ PREFIX_PATTERN = re.compile(
     r"(?:_(?:jpg|jpeg|png|bmp|webp))?$",
     re.IGNORECASE,
 )
+BAD_IMAGE_PREFIX = "B4_Latundan1_NoneChemical_02570_top_jpg"
 KNOWN_BAD_ROWS = {
-    "B4_Latundan1_NoneChemical_02570_top_jpg.rf.995e92959d649ecc59efa0066dfece83.txt": "10 0.5 0.5 0.85 1",
-    "B4_Latundan1_NoneChemical_02570_top_jpg.rf.b17c29c829489476c6a031ff4acd8f56.txt": "10 0.5 0.5 0.75 1",
+    f"{BAD_IMAGE_PREFIX}.rf.995e92959d649ecc59efa0066dfece83.txt": "10 0.5 0.5 0.85 1",
+    f"{BAD_IMAGE_PREFIX}.rf.b17c29c829489476c6a031ff4acd8f56.txt": "10 0.5 0.5 0.75 1",
 }
 
 

@@ -1,0 +1,1472 @@
+{
+  "plan": {
+    "created_utc": "2026-10-17T05:03:43.941799+00:00",
+    "policies": [
+      {
+        "name": "fullframe640_iou065",
+        "imgsz": 640,
+        "rotation_ccw_degrees": 0,
+        "iou": 0.65
+      }
+    ],
+    "acceptance": {
+      "lower_top_count_mae": true,
+      "require_spatial_and_combined_recall_nondecreasing": true,
+      "maximum_precision_loss_fraction": 0.005,
+      "selection_split": "valid",
+      "test_accessed": false,
+      "no_ensemble": true
+    },
+    "manifest_sha256": "0d42e5df62cd0af3ad447414a7049f8e1abfd59678b8760576141b7436189ea2",
+    "maximum_images": 31,
+    "models": [
+      "baseline-yolo26",
+      "candidate-v8n"
+    ]
+  },
+  "models": {
+    "baseline-yolo26": {
+      "weights": "D:\\KENT EDUCATION PROJECTS\\BananaVision\\backend\\app\\ml\\weights\\banana_yolo26m.pt",
+      "weights_sha256": "e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89",
+      "baseline_report": "D:\\BananaVision-Training\\v13-yolov8-20261016\\evaluations\\baseline-yolo26-valid-iou0.45.json",
+      "baseline_report_sha256": "cfb4395e1e9de073745621108bc742c568a61220071d5c946685e32811c823ae",
+      "baseline": {
+        "images": 31,
+        "ground_truth_boxes": 293,
+        "predicted_boxes": 294,
+        "count_mae": 1.0,
+        "count_bias_predicted_minus_ground_truth": 0.03225806451612903,
+        "exact_count_images": 13,
+        "exact_count_fraction": 0.41935483870967744,
+        "under_count_images": 8,
+        "over_count_images": 10,
+        "spatial": {
+          "tp": 273,
+          "fp": 21,
+          "fn": 20,
+          "precision": 0.9285714285714286,
+          "recall": 0.931740614334471
+        },
+        "combined_class": {
+          "tp": 259,
+          "fp": 35,
+          "fn": 34,
+          "precision": 0.8809523809523809,
+          "recall": 0.8839590443686007
+        }
+      },
+      "policies": {
+        "fullframe640_iou065": {
+          "policy": {
+            "name": "fullframe640_iou065",
+            "imgsz": 640,
+            "rotation_ccw_degrees": 0,
+            "iou": 0.65
+          },
+          "metrics": {
+            "images": 31,
+            "ground_truth_boxes": 293,
+            "predicted_boxes": 308,
+            "count_mae": 0.8064516129032258,
+            "count_bias_predicted_minus_ground_truth": 0.4838709677419355,
+            "exact_count_images": 14,
+            "exact_count_fraction": 0.45161290322580644,
+            "under_count_images": 3,
+            "over_count_images": 14,
+            "spatial": {
+              "tp": 287,
+              "fp": 21,
+              "fn": 6,
+              "precision": 0.9318181818181818,
+              "recall": 0.9795221843003413
+            },
+            "combined_class": {
+              "tp": 273,
+              "fp": 35,
+              "fn": 20,
+              "precision": 0.8863636363636364,
+              "recall": 0.931740614334471
+            }
+          },
+          "acceptance_checks": {
+            "lower_top_count_mae": true,
+            "spatial_recall_nondecreasing": true,
+            "spatial_precision_within_loss_limit": true,
+            "combined_class_recall_nondecreasing": true,
+            "combined_class_precision_within_loss_limit": true
+          },
+          "accepted": true,
+          "wall_seconds": 6.223822400000245,
+          "predict_wall_seconds_median": 0.05121859999962908,
+          "predict_wall_seconds_mean": 0.12382456774192237,
+          "first_call_included": true,
+          "peak_torch_cuda_allocated_bytes": 207314432,
+          "peak_torch_cuda_reserved_bytes": 260046848
+        }
+      }
+    },
+    "candidate-v8n": {
+      "weights": "D:\\BananaVision-Training\\v13-yolov8-20261016\\runs\\yolov8n_v13_b16\\weights\\best.pt",
+      "weights_sha256": "6a9ea2913b68465ee33e0991b125af4a598de526758b1cbe8a3591d430868916",
+      "baseline_report": "D:\\BananaVision-Training\\v13-yolov8-20261016\\evaluations\\candidate-v8n-valid-iou0.45.json",
+      "baseline_report_sha256": "4a3a84cea21e03e9f1c36c74ff6820f801c14f3a04db34ea9263e27c734085ba",
+      "baseline": {
+        "images": 31,
+        "ground_truth_boxes": 293,
+        "predicted_boxes": 307,
+        "count_mae": 1.1612903225806452,
+        "count_bias_predicted_minus_ground_truth": 0.45161290322580644,
+        "exact_count_images": 10,
+        "exact_count_fraction": 0.3225806451612903,
+        "under_count_images": 8,
+        "over_count_images": 13,
+        "spatial": {
+          "tp": 274,
+          "fp": 33,
+          "fn": 19,
+          "precision": 0.8925081433224755,
+          "recall": 0.9351535836177475
+        },
+        "combined_class": {
+          "tp": 254,
+          "fp": 53,
+          "fn": 39,
+          "precision": 0.8273615635179153,
+          "recall": 0.8668941979522184
+        }
+      },
+      "policies": {
+        "fullframe640_iou065": {
+          "policy": {
+            "name": "fullframe640_iou065",
+            "imgsz": 640,
+            "rotation_ccw_degrees": 0,
+            "iou": 0.65
+          },
+          "metrics": {
+            "images": 31,
+            "ground_truth_boxes": 293,
+            "predicted_boxes": 323,
+            "count_mae": 1.1612903225806452,
+            "count_bias_predicted_minus_ground_truth": 0.967741935483871,
+            "exact_count_images": 12,
+            "exact_count_fraction": 0.3870967741935484,
+            "under_count_images": 3,
+            "over_count_images": 16,
+            "spatial": {
+              "tp": 286,
+              "fp": 37,
+              "fn": 7,
+              "precision": 0.8854489164086687,
+              "recall": 0.9761092150170648
+            },
+            "combined_class": {
+              "tp": 267,
+              "fp": 56,
+              "fn": 26,
+              "precision": 0.826625386996904,
+              "recall": 0.9112627986348123
+            }
+          },
+          "acceptance_checks": {
+            "lower_top_count_mae": false,
+            "spatial_recall_nondecreasing": true,
+            "spatial_precision_within_loss_limit": false,
+            "combined_class_recall_nondecreasing": true,
+            "combined_class_precision_within_loss_limit": true
+          },
+          "accepted": false,
+          "wall_seconds": 1.790212899999915,
+          "predict_wall_seconds_median": 0.03427700000020195,
+          "predict_wall_seconds_mean": 0.04815001290325522,
+          "first_call_included": true,
+          "peak_torch_cuda_allocated_bytes": 154977792,
+          "peak_torch_cuda_reserved_bytes": 167772160
+        }
+      }
+    }
+  },
+  "per_image_absolute_count_error_change": {
+    "improved": 7,
+    "worsened": 3,
+    "unchanged": 21
+  },
+  "source_summary_sha256": "f47100e20e31c303861ff9c26d9cface985e06f8dd6388478121fadd10e4afaa",
+  "raw_accepted_predictions_sha256": "8d7f8e8d7d634f6364e63c1461f81ef5a1e76e17a2c2fc7c97de0b929fbf4766",
+  "other_experiments": {
+    "plan": {
+      "created_utc": "2026-10-17T05:02:43.477641+00:00",
+      "policies": [
+        {
+          "name": "fullframe960",
+          "imgsz": 960,
+          "rotation_ccw_degrees": 0
+        },
+        {
+          "name": "rotation90_640",
+          "imgsz": 640,
+          "rotation_ccw_degrees": 90
+        },
+        {
+          "name": "rotation270_640",
+          "imgsz": 640,
+          "rotation_ccw_degrees": 270
+        }
+      ],
+      "acceptance": {
+        "lower_top_count_mae": true,
+        "require_spatial_and_combined_recall_nondecreasing": true,
+        "maximum_precision_loss_fraction": 0.005,
+        "selection_split": "valid",
+        "test_accessed": false,
+        "no_ensemble": true
+      },
+      "manifest_sha256": "0d42e5df62cd0af3ad447414a7049f8e1abfd59678b8760576141b7436189ea2",
+      "maximum_images": 31,
+      "models": [
+        "baseline-yolo26",
+        "candidate-v8n"
+      ]
+    },
+    "models": {
+      "baseline-yolo26": {
+        "weights": "D:\\KENT EDUCATION PROJECTS\\BananaVision\\backend\\app\\ml\\weights\\banana_yolo26m.pt",
+        "weights_sha256": "e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89",
+        "baseline_report": "D:\\BananaVision-Training\\v13-yolov8-20261016\\evaluations\\baseline-yolo26-valid-iou0.45.json",
+        "baseline_report_sha256": "cfb4395e1e9de073745621108bc742c568a61220071d5c946685e32811c823ae",
+        "baseline": {
+          "images": 31,
+          "ground_truth_boxes": 293,
+          "predicted_boxes": 294,
+          "count_mae": 1.0,
+          "count_bias_predicted_minus_ground_truth": 0.03225806451612903,
+          "exact_count_images": 13,
+          "exact_count_fraction": 0.41935483870967744,
+          "under_count_images": 8,
+          "over_count_images": 10,
+          "spatial": {
+            "tp": 273,
+            "fp": 21,
+            "fn": 20,
+            "precision": 0.9285714285714286,
+            "recall": 0.931740614334471
+          },
+          "combined_class": {
+            "tp": 259,
+            "fp": 35,
+            "fn": 34,
+            "precision": 0.8809523809523809,
+            "recall": 0.8839590443686007
+          }
+        },
+        "policies": {
+          "fullframe960": {
+            "policy": {
+              "name": "fullframe960",
+              "imgsz": 960,
+              "rotation_ccw_degrees": 0
+            },
+            "metrics": {
+              "images": 31,
+              "ground_truth_boxes": 293,
+              "predicted_boxes": 304,
+              "count_mae": 1.1290322580645162,
+              "count_bias_predicted_minus_ground_truth": 0.3548387096774194,
+              "exact_count_images": 11,
+              "exact_count_fraction": 0.3548387096774194,
+              "under_count_images": 7,
+              "over_count_images": 13,
+              "spatial": {
+                "tp": 274,
+                "fp": 30,
+                "fn": 19,
+                "precision": 0.9013157894736842,
+                "recall": 0.9351535836177475
+              },
+              "combined_class": {
+                "tp": 260,
+                "fp": 44,
+                "fn": 33,
+                "precision": 0.8552631578947368,
+                "recall": 0.8873720136518771
+              }
+            },
+            "acceptance_checks": {
+              "lower_top_count_mae": false,
+              "spatial_recall_nondecreasing": true,
+              "spatial_precision_within_loss_limit": false,
+              "combined_class_recall_nondecreasing": true,
+              "combined_class_precision_within_loss_limit": false
+            },
+            "accepted": false,
+            "wall_seconds": 20.015795300000036,
+            "predict_wall_seconds_median": 0.10272089999989475,
+            "predict_wall_seconds_mean": 0.2863040967741918,
+            "first_call_included": true,
+            "peak_torch_cuda_allocated_bytes": 311679488,
+            "peak_torch_cuda_reserved_bytes": 541065216
+          },
+          "rotation90_640": {
+            "policy": {
+              "name": "rotation90_640",
+              "imgsz": 640,
+              "rotation_ccw_degrees": 90
+            },
+            "metrics": {
+              "images": 31,
+              "ground_truth_boxes": 293,
+              "predicted_boxes": 281,
+              "count_mae": 1.3548387096774193,
+              "count_bias_predicted_minus_ground_truth": -0.3870967741935484,
+              "exact_count_images": 9,
+              "exact_count_fraction": 0.2903225806451613,
+              "under_count_images": 15,
+              "over_count_images": 7,
+              "spatial": {
+                "tp": 263,
+                "fp": 18,
+                "fn": 30,
+                "precision": 0.9359430604982206,
+                "recall": 0.8976109215017065
+              },
+              "combined_class": {
+                "tp": 247,
+                "fp": 34,
+                "fn": 46,
+                "precision": 0.8790035587188612,
+                "recall": 0.8430034129692833
+              }
+            },
+            "acceptance_checks": {
+              "lower_top_count_mae": false,
+              "spatial_recall_nondecreasing": false,
+              "spatial_precision_within_loss_limit": true,
+              "combined_class_recall_nondecreasing": false,
+              "combined_class_precision_within_loss_limit": true
+            },
+            "accepted": false,
+            "wall_seconds": 2.7150117999999566,
+            "predict_wall_seconds_median": 0.05477640000003703,
+            "predict_wall_seconds_mean": 0.06839653225808669,
+            "first_call_included": true,
+            "peak_torch_cuda_allocated_bytes": 205343232,
+            "peak_torch_cuda_reserved_bytes": 541065216
+          },
+          "rotation270_640": {
+            "policy": {
+              "name": "rotation270_640",
+              "imgsz": 640,
+              "rotation_ccw_degrees": 270
+            },
+            "metrics": {
+              "images": 31,
+              "ground_truth_boxes": 293,
+              "predicted_boxes": 270,
+              "count_mae": 1.3870967741935485,
+              "count_bias_predicted_minus_ground_truth": -0.7419354838709677,
+              "exact_count_images": 4,
+              "exact_count_fraction": 0.12903225806451613,
+              "under_count_images": 19,
+              "over_count_images": 8,
+              "spatial": {
+                "tp": 256,
+                "fp": 14,
+                "fn": 37,
+                "precision": 0.9481481481481482,
+                "recall": 0.8737201365187713
+              },
+              "combined_class": {
+                "tp": 243,
+                "fp": 27,
+                "fn": 50,
+                "precision": 0.9,
+                "recall": 0.8293515358361775
+              }
+            },
+            "acceptance_checks": {
+              "lower_top_count_mae": false,
+              "spatial_recall_nondecreasing": false,
+              "spatial_precision_within_loss_limit": true,
+              "combined_class_recall_nondecreasing": false,
+              "combined_class_precision_within_loss_limit": true
+            },
+            "accepted": false,
+            "wall_seconds": 2.4577467999999953,
+            "predict_wall_seconds_median": 0.052969699999948716,
+            "predict_wall_seconds_mean": 0.06152462580645636,
+            "first_call_included": true,
+            "peak_torch_cuda_allocated_bytes": 205217280,
+            "peak_torch_cuda_reserved_bytes": 541065216
+          }
+        }
+      },
+      "candidate-v8n": {
+        "weights": "D:\\BananaVision-Training\\v13-yolov8-20261016\\runs\\yolov8n_v13_b16\\weights\\best.pt",
+        "weights_sha256": "6a9ea2913b68465ee33e0991b125af4a598de526758b1cbe8a3591d430868916",
+        "baseline_report": "D:\\BananaVision-Training\\v13-yolov8-20261016\\evaluations\\candidate-v8n-valid-iou0.45.json",
+        "baseline_report_sha256": "4a3a84cea21e03e9f1c36c74ff6820f801c14f3a04db34ea9263e27c734085ba",
+        "baseline": {
+          "images": 31,
+          "ground_truth_boxes": 293,
+          "predicted_boxes": 307,
+          "count_mae": 1.1612903225806452,
+          "count_bias_predicted_minus_ground_truth": 0.45161290322580644,
+          "exact_count_images": 10,
+          "exact_count_fraction": 0.3225806451612903,
+          "under_count_images": 8,
+          "over_count_images": 13,
+          "spatial": {
+            "tp": 274,
+            "fp": 33,
+            "fn": 19,
+            "precision": 0.8925081433224755,
+            "recall": 0.9351535836177475
+          },
+          "combined_class": {
+            "tp": 254,
+            "fp": 53,
+            "fn": 39,
+            "precision": 0.8273615635179153,
+            "recall": 0.8668941979522184
+          }
+        },
+        "policies": {
+          "fullframe960": {
+            "policy": {
+              "name": "fullframe960",
+              "imgsz": 960,
+              "rotation_ccw_degrees": 0
+            },
+            "metrics": {
+              "images": 31,
+              "ground_truth_boxes": 293,
+              "predicted_boxes": 299,
+              "count_mae": 1.2258064516129032,
+              "count_bias_predicted_minus_ground_truth": 0.1935483870967742,
+              "exact_count_images": 8,
+              "exact_count_fraction": 0.25806451612903225,
+              "under_count_images": 12,
+              "over_count_images": 11,
+              "spatial": {
+                "tp": 274,
+                "fp": 25,
+                "fn": 19,
+                "precision": 0.9163879598662207,
+                "recall": 0.9351535836177475
+              },
+              "combined_class": {
+                "tp": 251,
+                "fp": 48,
+                "fn": 42,
+                "precision": 0.8394648829431438,
+                "recall": 0.856655290102389
+              }
+            },
+            "acceptance_checks": {
+              "lower_top_count_mae": false,
+              "spatial_recall_nondecreasing": true,
+              "spatial_precision_within_loss_limit": true,
+              "combined_class_recall_nondecreasing": false,
+              "combined_class_precision_within_loss_limit": true
+            },
+            "accepted": false,
+            "wall_seconds": 2.11793560000001,
+            "predict_wall_seconds_median": 0.03934309999999641,
+            "predict_wall_seconds_mean": 0.05849695483867699,
+            "first_call_included": true,
+            "peak_torch_cuda_allocated_bytes": 180996608,
+            "peak_torch_cuda_reserved_bytes": 213909504
+          },
+          "rotation90_640": {
+            "policy": {
+              "name": "rotation90_640",
+              "imgsz": 640,
+              "rotation_ccw_degrees": 90
+            },
+            "metrics": {
+              "images": 31,
+              "ground_truth_boxes": 293,
+              "predicted_boxes": 263,
+              "count_mae": 1.2258064516129032,
+              "count_bias_predicted_minus_ground_truth": -0.967741935483871,
+              "exact_count_images": 11,
+              "exact_count_fraction": 0.3548387096774194,
+              "under_count_images": 16,
+              "over_count_images": 4,
+              "spatial": {
+                "tp": 251,
+                "fp": 12,
+                "fn": 42,
+                "precision": 0.9543726235741445,
+                "recall": 0.856655290102389
+              },
+              "combined_class": {
+                "tp": 221,
+                "fp": 42,
+                "fn": 72,
+                "precision": 0.8403041825095057,
+                "recall": 0.7542662116040956
+              }
+            },
+            "acceptance_checks": {
+              "lower_top_count_mae": false,
+              "spatial_recall_nondecreasing": false,
+              "spatial_precision_within_loss_limit": true,
+              "combined_class_recall_nondecreasing": false,
+              "combined_class_precision_within_loss_limit": true
+            },
+            "accepted": false,
+            "wall_seconds": 2.2797332999998616,
+            "predict_wall_seconds_median": 0.04235470000003261,
+            "predict_wall_seconds_mean": 0.05137737096775239,
+            "first_call_included": true,
+            "peak_torch_cuda_allocated_bytes": 155093504,
+            "peak_torch_cuda_reserved_bytes": 216006656
+          },
+          "rotation270_640": {
+            "policy": {
+              "name": "rotation270_640",
+              "imgsz": 640,
+              "rotation_ccw_degrees": 270
+            },
+            "metrics": {
+              "images": 31,
+              "ground_truth_boxes": 293,
+              "predicted_boxes": 268,
+              "count_mae": 1.3870967741935485,
+              "count_bias_predicted_minus_ground_truth": -0.8064516129032258,
+              "exact_count_images": 7,
+              "exact_count_fraction": 0.22580645161290322,
+              "under_count_images": 17,
+              "over_count_images": 7,
+              "spatial": {
+                "tp": 253,
+                "fp": 15,
+                "fn": 40,
+                "precision": 0.9440298507462687,
+                "recall": 0.863481228668942
+              },
+              "combined_class": {
+                "tp": 231,
+                "fp": 37,
+                "fn": 62,
+                "precision": 0.8619402985074627,
+                "recall": 0.78839590443686
+              }
+            },
+            "acceptance_checks": {
+              "lower_top_count_mae": false,
+              "spatial_recall_nondecreasing": false,
+              "spatial_precision_within_loss_limit": true,
+              "combined_class_recall_nondecreasing": false,
+              "combined_class_precision_within_loss_limit": true
+            },
+            "accepted": false,
+            "wall_seconds": 1.8013218000000961,
+            "predict_wall_seconds_median": 0.033430500000122265,
+            "predict_wall_seconds_mean": 0.0401407354838592,
+            "first_call_included": true,
+            "peak_torch_cuda_allocated_bytes": 154967552,
+            "peak_torch_cuda_reserved_bytes": 216006656
+          }
+        }
+      }
+    }
+  },
+  "limitations": [
+    "Prepared VALID data only; no frozen TEST inference/tuning.",
+    "Does not establish that the supplied live10-finger screenshot will produce10 detections.",
+    "Annotations are visible fingers, not verified physical totals.",
+    "Only31Top images, uncertain filename-derived bunch identities, and dataset backgrounds differ from station scenes.",
+    "Count overestimation grows on some photos even though aggregate absolute error and both precision metrics improve."
+  ],
+  "implemented_application_scope": {
+    "camera_label": "Top (trimmed and case-insensitive)",
+    "weights_sha256": "e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89",
+    "confidence": 0.5,
+    "baseline_nms_iou": 0.45,
+    "top_nms_iou": 0.65,
+    "imgsz": 640,
+    "opt_out_setting": "YOLO_TOP_OVERLAP_REFINEMENT=false",
+    "other_models_views_or_custom_thresholds": "Keep the existing configured threshold.",
+    "required_saved_imgsz": 640,
+    "custom_checkpoint_resolution": "Preserve the loaded checkpoint saved resolution; non640 bypasses profile."
+  },
+  "application_integration_reports": {
+    "app-integration.json": {
+      "path": "D:\\BananaVision-Training\\v13-yolov8-20261016\\top-view-experiment-iou065\\app-integration.json",
+      "sha256": "8efaa5c6fe7b332be43f668cc4d40fc3626179bc19a8ae23134274a5fadf6eb2",
+      "evidence": {
+        "created_utc": "2026-10-17T05:09:44.217932+00:00",
+        "mode": "actual BananaClassifier CPU integration using static prepared VALID Top images",
+        "fresh_cwd": "C:\\Users\\Kent\\AppData\\Local\\Temp\\bv-top-wrapper-integration-0hoemgyk",
+        "env_file": null,
+        "weights": "D:\\KENT EDUCATION PROJECTS\\BananaVision\\backend\\app\\ml\\weights\\banana_yolo26m.pt",
+        "weights_sha256": "e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89",
+        "reference_sha256": {
+          "D:\\BananaVision-Training\\v13-yolov8-20261016\\evaluations\\baseline-yolo26-valid-iou0.45.json": "cfb4395e1e9de073745621108bc742c568a61220071d5c946685e32811c823ae",
+          "D:\\BananaVision-Training\\v13-yolov8-20261016\\top-view-experiment-iou065\\baseline-yolo26-fullframe640_iou065.json": "8d7f8e8d7d634f6364e63c1461f81ef5a1e76e17a2c2fc7c97de0b929fbf4766",
+          "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\manifest.json": "0d42e5df62cd0af3ad447414a7049f8e1abfd59678b8760576141b7436189ea2"
+        },
+        "versions": {
+          "torch": "2.11.0+cpu",
+          "ultralytics": "8.4.40"
+        },
+        "tolerances": {
+          "xyxy_absolute_pixels": 0.1,
+          "confidence_absolute": 0.001
+        },
+        "time_budget_seconds": 120,
+        "sequence_per_image": [
+          "Top",
+          "Rear"
+        ],
+        "per_image": [
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\valid__B1_Lakatan7_NoneChemical_00406_top_jpg.rf.f384246fb36fdc34d8d50366603b990b.jpg",
+            "image_sha256": "a4d2ceabacc914362ac83701b8e39f0e39fe216a22f94c38610a6b70192a0060",
+            "label_sha256": "a335c4164ce702b47d7f202ef74c70394419f9cbefd8e0317ff8c26e48dcac03",
+            "top_against_iou065": {
+              "actual_count": 11,
+              "reference_count": 11,
+              "one_to_one_exact_class_matches": 11,
+              "maximum_xyxy_absolute_pixel_error": 0.0086669921875,
+              "maximum_confidence_absolute_error": 4.00543212890625e-05,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 11,
+              "reference_count": 11,
+              "one_to_one_exact_class_matches": 11,
+              "maximum_xyxy_absolute_pixel_error": 0.0086669921875,
+              "maximum_confidence_absolute_error": 4.00543212890625e-05,
+              "passed": true
+            },
+            "top_inference_time_ms": 1576.5736103057861,
+            "rear_inference_time_ms": 1278.6602973937988
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\valid__B1_Lakatan7_NoneChemical_00672_top_jpg.rf.5f64058a7eb1e2db00cb0dea81485c45.jpg",
+            "image_sha256": "7a9521d338bfbb5c2c6732e23e34a224ce1f07690e0b06cefcd3c643b601fd7a",
+            "label_sha256": "249e4c2a346c39644c6552a0ff33f476f9489ca2916f6bc964f9a9a0484979c2",
+            "top_against_iou065": {
+              "actual_count": 12,
+              "reference_count": 12,
+              "one_to_one_exact_class_matches": 12,
+              "maximum_xyxy_absolute_pixel_error": 0.01324462890625,
+              "maximum_confidence_absolute_error": 0.0002619624137878418,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 12,
+              "reference_count": 12,
+              "one_to_one_exact_class_matches": 12,
+              "maximum_xyxy_absolute_pixel_error": 0.01324462890625,
+              "maximum_confidence_absolute_error": 0.0002619624137878418,
+              "passed": true
+            },
+            "top_inference_time_ms": 1206.6893577575684,
+            "rear_inference_time_ms": 1414.6881103515625
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\valid__B1_Lakatan7_NoneChemical_00746_top_jpg.rf.c347e5b9512c46e96871d9b1c6b104aa.jpg",
+            "image_sha256": "aca47de5a852453e01dc034e5b45cddf7d5891c7e61c664c313193579a147220",
+            "label_sha256": "e9aeda0e34d127293e24d8098eeac0614769f7110f90f76d56a8850bbb71cdc3",
+            "top_against_iou065": {
+              "actual_count": 12,
+              "reference_count": 12,
+              "one_to_one_exact_class_matches": 12,
+              "maximum_xyxy_absolute_pixel_error": 0.00896453857421875,
+              "maximum_confidence_absolute_error": 0.00013947486877441406,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 12,
+              "reference_count": 12,
+              "one_to_one_exact_class_matches": 12,
+              "maximum_xyxy_absolute_pixel_error": 0.00896453857421875,
+              "maximum_confidence_absolute_error": 0.00013947486877441406,
+              "passed": true
+            },
+            "top_inference_time_ms": 1563.3442401885986,
+            "rear_inference_time_ms": 1323.659896850586
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\valid__B1_Lakatan7_NoneChemical_00764_top_jpg.rf.eec5f63fbc9356379922c0e0ac52202d.jpg",
+            "image_sha256": "c419b1d54467dfb65b6d254515374595ba493f18f72bbeef3fb810dd2f4c8039",
+            "label_sha256": "099fcb1118a6da4ee4834dd41dd2ecd973f5d4b264cb0479ff8d821584aeee16",
+            "top_against_iou065": {
+              "actual_count": 13,
+              "reference_count": 13,
+              "one_to_one_exact_class_matches": 13,
+              "maximum_xyxy_absolute_pixel_error": 0.007293701171875,
+              "maximum_confidence_absolute_error": 0.0002493858337402344,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 13,
+              "reference_count": 13,
+              "one_to_one_exact_class_matches": 13,
+              "maximum_xyxy_absolute_pixel_error": 0.007293701171875,
+              "maximum_confidence_absolute_error": 0.0002493858337402344,
+              "passed": true
+            },
+            "top_inference_time_ms": 1225.193977355957,
+            "rear_inference_time_ms": 2069.355249404907
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\valid__B1_Latundan4_NoneChemical_00340_top_jpg.rf.de45986af88b8b8d748ca819f41688c4.jpg",
+            "image_sha256": "90c38473236e92c8aa2224891d2e94e90a684a3a27617d45d13aff7f8b97d670",
+            "label_sha256": "63f8dc184b51f5613560b834703d96676e852f533ada0a89f2638e7824f2f236",
+            "top_against_iou065": {
+              "actual_count": 8,
+              "reference_count": 8,
+              "one_to_one_exact_class_matches": 8,
+              "maximum_xyxy_absolute_pixel_error": 0.017791748046875,
+              "maximum_confidence_absolute_error": 3.0934810638427734e-05,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 8,
+              "reference_count": 8,
+              "one_to_one_exact_class_matches": 8,
+              "maximum_xyxy_absolute_pixel_error": 0.017791748046875,
+              "maximum_confidence_absolute_error": 3.0934810638427734e-05,
+              "passed": true
+            },
+            "top_inference_time_ms": 1376.8701553344727,
+            "rear_inference_time_ms": 1314.3017292022705
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\valid__B1_Latundan4_NoneChemical_00568_top_jpg.rf.73c1887e38f71fd831577dc443238ea0.jpg",
+            "image_sha256": "230e7624d106999c2695ff2e93f0fef3734004b7b6f5425b1c7cbdf986b8f985",
+            "label_sha256": "c9ba9282ed42d3cf57386b318ee486871caf02b2dde2450a50137fb444345fa2",
+            "top_against_iou065": {
+              "actual_count": 10,
+              "reference_count": 10,
+              "one_to_one_exact_class_matches": 10,
+              "maximum_xyxy_absolute_pixel_error": 0.010498046875,
+              "maximum_confidence_absolute_error": 0.00016987323760986328,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 10,
+              "reference_count": 10,
+              "one_to_one_exact_class_matches": 10,
+              "maximum_xyxy_absolute_pixel_error": 0.010498046875,
+              "maximum_confidence_absolute_error": 0.00016987323760986328,
+              "passed": true
+            },
+            "top_inference_time_ms": 1372.1845149993896,
+            "rear_inference_time_ms": 1265.5384540557861
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\valid__B1_Latundan4_NoneChemical_00818_top_jpg.rf.0ae0dc76bf48dbc02e88ed5d131f9e85.jpg",
+            "image_sha256": "006f28d91c00cc2d9555901d5b1aa875da6b9a9c3667501439d512b181ce757c",
+            "label_sha256": "933535a8e503c9baf488bd1bf1a08d7304ccfb197456e32aca91cdf0b2277152",
+            "top_against_iou065": {
+              "actual_count": 9,
+              "reference_count": 9,
+              "one_to_one_exact_class_matches": 9,
+              "maximum_xyxy_absolute_pixel_error": 0.00653076171875,
+              "maximum_confidence_absolute_error": 5.036592483520508e-05,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 8,
+              "reference_count": 8,
+              "one_to_one_exact_class_matches": 8,
+              "maximum_xyxy_absolute_pixel_error": 0.00653076171875,
+              "maximum_confidence_absolute_error": 5.036592483520508e-05,
+              "passed": true
+            },
+            "top_inference_time_ms": 1187.7996921539307,
+            "rear_inference_time_ms": 1230.196237564087
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\valid__B1_Saba1_NoneChemical_00692_top_jpg.rf.cf7d2793ee3e60c30b4dfee9f48f67f1.jpg",
+            "image_sha256": "061b25a64e70883ceb251aa17647d29289877c345162ea0a870b71f76b1a0f64",
+            "label_sha256": "0cb8c3104041120414046defcb980b34338f60ff9204b94764b2cba77278e906",
+            "top_against_iou065": {
+              "actual_count": 5,
+              "reference_count": 5,
+              "one_to_one_exact_class_matches": 5,
+              "maximum_xyxy_absolute_pixel_error": 0.01226806640625,
+              "maximum_confidence_absolute_error": 9.375810623168945e-05,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 4,
+              "reference_count": 4,
+              "one_to_one_exact_class_matches": 4,
+              "maximum_xyxy_absolute_pixel_error": 0.01226806640625,
+              "maximum_confidence_absolute_error": 9.375810623168945e-05,
+              "passed": true
+            },
+            "top_inference_time_ms": 1430.5033683776855,
+            "rear_inference_time_ms": 1302.9613494873047
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\valid__B2_Latundan4_CH_01207_top_jpg.rf.ee2a1c29c1f23359522d0c5fdce31767.jpg",
+            "image_sha256": "050fb80b59e2c560b462d09bcf3e2b46a85ffdba7c4a881a76d9375f364fdfae",
+            "label_sha256": "453ccd40a546337c484c7a6d6976ac562273edc4c9e62d83b0c822be6102dc0c",
+            "top_against_iou065": {
+              "actual_count": 10,
+              "reference_count": 10,
+              "one_to_one_exact_class_matches": 10,
+              "maximum_xyxy_absolute_pixel_error": 0.004364013671875,
+              "maximum_confidence_absolute_error": 0.00017195940017700195,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 10,
+              "reference_count": 10,
+              "one_to_one_exact_class_matches": 10,
+              "maximum_xyxy_absolute_pixel_error": 0.004364013671875,
+              "maximum_confidence_absolute_error": 0.00017195940017700195,
+              "passed": true
+            },
+            "top_inference_time_ms": 1433.9864253997803,
+            "rear_inference_time_ms": 1423.0217933654785
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\valid__B2_Saba1_CH_01135_top_jpg.rf.35240984b5c809fdbcbb2cf00328a911.jpg",
+            "image_sha256": "701899f91bebae22443b47e10e98ae6d720b372dcc308895e0d7995957980263",
+            "label_sha256": "27b63981709ed94c6fa0a7803735031c96629ae63ff903666c28cd99c56c7af2",
+            "top_against_iou065": {
+              "actual_count": 9,
+              "reference_count": 9,
+              "one_to_one_exact_class_matches": 9,
+              "maximum_xyxy_absolute_pixel_error": 0.015167236328125,
+              "maximum_confidence_absolute_error": 0.0002142190933227539,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 7,
+              "reference_count": 7,
+              "one_to_one_exact_class_matches": 7,
+              "maximum_xyxy_absolute_pixel_error": 0.015167236328125,
+              "maximum_confidence_absolute_error": 0.0002142190933227539,
+              "passed": true
+            },
+            "top_inference_time_ms": 1274.3537425994873,
+            "rear_inference_time_ms": 1276.3657569885254
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\valid__B3_Latundan4_NonChemical_02699_top_jpg.rf.d00d8116d4a18ffacdde6a2d9c3a05a3.jpg",
+            "image_sha256": "259a86032a5c316a640e3b9e7e1da83b0eac3f597a6e66af70a2bbd31547e250",
+            "label_sha256": "795c83747c834c3285a5380e07720b4efc508a665c7e11fdb549b1c2d4e9e44c",
+            "top_against_iou065": {
+              "actual_count": 6,
+              "reference_count": 6,
+              "one_to_one_exact_class_matches": 6,
+              "maximum_xyxy_absolute_pixel_error": 0.015625,
+              "maximum_confidence_absolute_error": 0.00020772218704223633,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 6,
+              "reference_count": 6,
+              "one_to_one_exact_class_matches": 6,
+              "maximum_xyxy_absolute_pixel_error": 0.015625,
+              "maximum_confidence_absolute_error": 0.00020772218704223633,
+              "passed": true
+            },
+            "top_inference_time_ms": 1191.3518905639648,
+            "rear_inference_time_ms": 1376.896619796753
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\valid__B4_Cardaba1_NoneChemical_02916_top_jpg.rf.ed30760da5b73c3d18b4e91d27be76b3.jpg",
+            "image_sha256": "6b64d124cd894951c60fd33857a7347e557c2b8d759a0692d3f25158c43f16fe",
+            "label_sha256": "3d46e2981127426a4faa1fa95a2d912762b9bbc921ae9cef02018d65a3b18ac9",
+            "top_against_iou065": {
+              "actual_count": 10,
+              "reference_count": 10,
+              "one_to_one_exact_class_matches": 10,
+              "maximum_xyxy_absolute_pixel_error": 0.018096923828125,
+              "maximum_confidence_absolute_error": 0.00027173757553100586,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 10,
+              "reference_count": 10,
+              "one_to_one_exact_class_matches": 10,
+              "maximum_xyxy_absolute_pixel_error": 0.018096923828125,
+              "maximum_confidence_absolute_error": 0.00027173757553100586,
+              "passed": true
+            },
+            "top_inference_time_ms": 1688.788652420044,
+            "rear_inference_time_ms": 1728.1906604766846
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\valid__B5_Latundan4_CH_03567_top_jpg.rf.37799f06b650ef8e7953a5bdc3b40e76.jpg",
+            "image_sha256": "879b81a38d3f539d9fb3b4280ea893b5ea5255a98a3da094d8d8f09cfacacb73",
+            "label_sha256": "ec56bc8bc35efc2d1c7597fd9d6c2ae721a5e7d2e9b5d1f3eabcc52030f9a096",
+            "top_against_iou065": {
+              "actual_count": 12,
+              "reference_count": 12,
+              "one_to_one_exact_class_matches": 12,
+              "maximum_xyxy_absolute_pixel_error": 0.015869140625,
+              "maximum_confidence_absolute_error": 0.00017595291137695312,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 11,
+              "reference_count": 11,
+              "one_to_one_exact_class_matches": 11,
+              "maximum_xyxy_absolute_pixel_error": 0.015869140625,
+              "maximum_confidence_absolute_error": 0.00017595291137695312,
+              "passed": true
+            },
+            "top_inference_time_ms": 1745.2259063720703,
+            "rear_inference_time_ms": 949.8670101165771
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\valid__B5_Latundan4_CH_03953_top_jpg.rf.24461982e1787930f061adfd85758c85.jpg",
+            "image_sha256": "328e041f707240dae1c8918f1c090b8bd2c0eea571fdbfa02b637f5f0324014d",
+            "label_sha256": "b5699b2bdc736fb3149add8f7f140bba7f2d27a168e6d4ea4d52fe1c35329178",
+            "top_against_iou065": {
+              "actual_count": 11,
+              "reference_count": 11,
+              "one_to_one_exact_class_matches": 11,
+              "maximum_xyxy_absolute_pixel_error": 0.0118408203125,
+              "maximum_confidence_absolute_error": 0.00011980533599853516,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 11,
+              "reference_count": 11,
+              "one_to_one_exact_class_matches": 11,
+              "maximum_xyxy_absolute_pixel_error": 0.0118408203125,
+              "maximum_confidence_absolute_error": 0.00011980533599853516,
+              "passed": true
+            },
+            "top_inference_time_ms": 460.3879451751709,
+            "rear_inference_time_ms": 351.24921798706055
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B1_Latundan4_NoneChemical_00416_top_jpg.rf.58a40875a66d013d2f3e0176f1459fea.jpg",
+            "image_sha256": "96734e4eccde0fa55382fd4713ac9cf9a3830a4fa51ecc2224ca6ce498a30911",
+            "label_sha256": "2569ab02d3d8686f24e1119bbe3969f40ce8920aa2bd21348beba91eb7f3074b",
+            "top_against_iou065": {
+              "actual_count": 12,
+              "reference_count": 12,
+              "one_to_one_exact_class_matches": 12,
+              "maximum_xyxy_absolute_pixel_error": 0.0103607177734375,
+              "maximum_confidence_absolute_error": 0.0004451274871826172,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 12,
+              "reference_count": 12,
+              "one_to_one_exact_class_matches": 12,
+              "maximum_xyxy_absolute_pixel_error": 0.0103607177734375,
+              "maximum_confidence_absolute_error": 0.0004451274871826172,
+              "passed": true
+            },
+            "top_inference_time_ms": 342.6227569580078,
+            "rear_inference_time_ms": 355.65757751464844
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B1_Latundan4_NoneChemical_00454_top_jpg.rf.c49b6e2d5216c60cc91ac7e2408a9090.jpg",
+            "image_sha256": "8f0f74b8e6302ee18dd42573885eba4f506c6039fe9507ff349072e6e964aca7",
+            "label_sha256": "e459f3218c160d87085aeb2ec38ca3bf5977aada41a35ed12d82a51b7c77d014",
+            "top_against_iou065": {
+              "actual_count": 12,
+              "reference_count": 12,
+              "one_to_one_exact_class_matches": 12,
+              "maximum_xyxy_absolute_pixel_error": 0.0081787109375,
+              "maximum_confidence_absolute_error": 0.00010001659393310547,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 12,
+              "reference_count": 12,
+              "one_to_one_exact_class_matches": 12,
+              "maximum_xyxy_absolute_pixel_error": 0.0081787109375,
+              "maximum_confidence_absolute_error": 0.00010001659393310547,
+              "passed": true
+            },
+            "top_inference_time_ms": 356.3523292541504,
+            "rear_inference_time_ms": 379.6806335449219
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B1_Latundan4_NoneChemical_00874_top_jpg.rf.a2f05962dfd782fc1b0c000329f6dd80.jpg",
+            "image_sha256": "9050ba8818d2309ccb385d132b8c38f9ff79e4f5685bb1dc35cce1fac6e63993",
+            "label_sha256": "7f9b81df5f07e80bc9377dce3be977b88f96b98ef22596e528ad7acfdf201070",
+            "top_against_iou065": {
+              "actual_count": 8,
+              "reference_count": 8,
+              "one_to_one_exact_class_matches": 8,
+              "maximum_xyxy_absolute_pixel_error": 0.0072021484375,
+              "maximum_confidence_absolute_error": 0.00015056133270263672,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 7,
+              "reference_count": 7,
+              "one_to_one_exact_class_matches": 7,
+              "maximum_xyxy_absolute_pixel_error": 0.0072021484375,
+              "maximum_confidence_absolute_error": 5.441904067993164e-05,
+              "passed": true
+            },
+            "top_inference_time_ms": 366.7571544647217,
+            "rear_inference_time_ms": 363.2464408874512
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B1_Saba1_NoneChemical_00047_top_jpg.rf.62bc224ec296a6fcf1ba1b4a3a3d485f.jpg",
+            "image_sha256": "07492f6d80a6b8e0feedd3905c278f5d1be74de87df157b3ab83c637e41c2976",
+            "label_sha256": "47931193e93c458c08f0303c9de50a1fefa7997d0cbafc9825399fbac8dfa5aa",
+            "top_against_iou065": {
+              "actual_count": 11,
+              "reference_count": 11,
+              "one_to_one_exact_class_matches": 11,
+              "maximum_xyxy_absolute_pixel_error": 0.0147705078125,
+              "maximum_confidence_absolute_error": 7.987022399902344e-05,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 11,
+              "reference_count": 11,
+              "one_to_one_exact_class_matches": 11,
+              "maximum_xyxy_absolute_pixel_error": 0.0147705078125,
+              "maximum_confidence_absolute_error": 7.987022399902344e-05,
+              "passed": true
+            },
+            "top_inference_time_ms": 350.3689765930176,
+            "rear_inference_time_ms": 420.57156562805176
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B1_Saba1_NoneChemical_00331_top_jpg.rf.39427ba8877e7bfffdb8b10df1790789.jpg",
+            "image_sha256": "6b5c98c3dc75a61af3378aba9b223278efc7a20a15b4faf971fcf5c39c9018ce",
+            "label_sha256": "71601f7855d73d9e10535e06b6bcbe95113612c59afd18c981567653c62d074e",
+            "top_against_iou065": {
+              "actual_count": 10,
+              "reference_count": 10,
+              "one_to_one_exact_class_matches": 10,
+              "maximum_xyxy_absolute_pixel_error": 0.007843017578125,
+              "maximum_confidence_absolute_error": 0.00022518634796142578,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 9,
+              "reference_count": 9,
+              "one_to_one_exact_class_matches": 9,
+              "maximum_xyxy_absolute_pixel_error": 0.007843017578125,
+              "maximum_confidence_absolute_error": 0.00022518634796142578,
+              "passed": true
+            },
+            "top_inference_time_ms": 365.71407318115234,
+            "rear_inference_time_ms": 356.5030097961426
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B1_Saba1_NoneChemical_00597_top_jpg.rf.ad09281d82f74c864380fcf3d9eda44a.jpg",
+            "image_sha256": "52ac5a828b0f76cd7e6c1ec9308c6fcf622cb5fdd5b722948c75cb6983eb614d",
+            "label_sha256": "3717a6fb5d2856ad1521203a2b06e192a73d820b2aa5c9a62c7f7520ca8bd02c",
+            "top_against_iou065": {
+              "actual_count": 7,
+              "reference_count": 7,
+              "one_to_one_exact_class_matches": 7,
+              "maximum_xyxy_absolute_pixel_error": 0.01220703125,
+              "maximum_confidence_absolute_error": 0.0002346038818359375,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 6,
+              "reference_count": 6,
+              "one_to_one_exact_class_matches": 6,
+              "maximum_xyxy_absolute_pixel_error": 0.01220703125,
+              "maximum_confidence_absolute_error": 0.0002346038818359375,
+              "passed": true
+            },
+            "top_inference_time_ms": 342.7083492279053,
+            "rear_inference_time_ms": 382.2014331817627
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B1_Saba1_NoneChemical_00635_top_jpg.rf.77f467b290748199f27fc2373807a1e5.jpg",
+            "image_sha256": "60a5c003ce0bd968f4e0b084e52af1e5fcc33c0f731279bf53aa32c1292dda32",
+            "label_sha256": "f0117422c00af839f766c6f0dc03a65ebae53888a314e19e78a9f47bdf038092",
+            "top_against_iou065": {
+              "actual_count": 6,
+              "reference_count": 6,
+              "one_to_one_exact_class_matches": 6,
+              "maximum_xyxy_absolute_pixel_error": 0.005615234375,
+              "maximum_confidence_absolute_error": 8.767843246459961e-05,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 5,
+              "reference_count": 5,
+              "one_to_one_exact_class_matches": 5,
+              "maximum_xyxy_absolute_pixel_error": 0.005615234375,
+              "maximum_confidence_absolute_error": 8.767843246459961e-05,
+              "passed": true
+            },
+            "top_inference_time_ms": 359.87257957458496,
+            "rear_inference_time_ms": 348.99258613586426
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B2_Latundan4_CH_01938_top_jpg.rf.09306002a8d00b96dd043e00b337023b.jpg",
+            "image_sha256": "e9d98b03ad1fa26c47a6f3284097ebc19b9599445e3f1b94cf96ce2f5df8e94f",
+            "label_sha256": "7229c9efbc26669fc772bdf37268b9f69b5a54ad71446327f0651f10c5e3e459",
+            "top_against_iou065": {
+              "actual_count": 7,
+              "reference_count": 7,
+              "one_to_one_exact_class_matches": 7,
+              "maximum_xyxy_absolute_pixel_error": 0.013275146484375,
+              "maximum_confidence_absolute_error": 0.00015527009963989258,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 7,
+              "reference_count": 7,
+              "one_to_one_exact_class_matches": 7,
+              "maximum_xyxy_absolute_pixel_error": 0.013275146484375,
+              "maximum_confidence_absolute_error": 0.00015527009963989258,
+              "passed": true
+            },
+            "top_inference_time_ms": 343.37639808654785,
+            "rear_inference_time_ms": 350.21305084228516
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B2_Saba1_CH_01238_top_jpg.rf.8e43639488114660edc7f935620eadcb.jpg",
+            "image_sha256": "78482231d8b5531c330dbd992342408ec4ccde06f270f5ab965bd2228fc94c1d",
+            "label_sha256": "f6e698cefb91526535de112f79d2a9b9ede42a574edfc65f4ed4006eb8ac1a82",
+            "top_against_iou065": {
+              "actual_count": 10,
+              "reference_count": 10,
+              "one_to_one_exact_class_matches": 10,
+              "maximum_xyxy_absolute_pixel_error": 0.00860595703125,
+              "maximum_confidence_absolute_error": 0.00016695261001586914,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 8,
+              "reference_count": 8,
+              "one_to_one_exact_class_matches": 8,
+              "maximum_xyxy_absolute_pixel_error": 0.00860595703125,
+              "maximum_confidence_absolute_error": 0.00016695261001586914,
+              "passed": true
+            },
+            "top_inference_time_ms": 359.0669631958008,
+            "rear_inference_time_ms": 359.07626152038574
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B3_Cardaba1_NonChemical_01680_top_jpg.rf.9738f7d2dd19cfafb33ce811d07a2dd3.jpg",
+            "image_sha256": "e40f23182b74a3e3990fa6221b93574179d40e9e9c77a0349ab21a0a95dcfae5",
+            "label_sha256": "09f6f5acfc2e251aad3214f1c86db8d4a00a8ff00b96268c87b192fd5c648f3e",
+            "top_against_iou065": {
+              "actual_count": 10,
+              "reference_count": 10,
+              "one_to_one_exact_class_matches": 10,
+              "maximum_xyxy_absolute_pixel_error": 0.0113525390625,
+              "maximum_confidence_absolute_error": 5.632638931274414e-05,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 10,
+              "reference_count": 10,
+              "one_to_one_exact_class_matches": 10,
+              "maximum_xyxy_absolute_pixel_error": 0.0113525390625,
+              "maximum_confidence_absolute_error": 5.632638931274414e-05,
+              "passed": true
+            },
+            "top_inference_time_ms": 349.9441146850586,
+            "rear_inference_time_ms": 369.1437244415283
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B4_Cardaba1_NoneChemical_02796_top_jpg.rf.ce00460f3cc7e746e513a631f8cfa74d.jpg",
+            "image_sha256": "5e8e45af990a2a503f63a0ce519328826a6c0689971df3745d5cc466c1bc7418",
+            "label_sha256": "b2a6b2fe65aa77e8dac3c3f78cad7d8dad1a6a4fad5a904adc5fafb947c7bf05",
+            "top_against_iou065": {
+              "actual_count": 11,
+              "reference_count": 11,
+              "one_to_one_exact_class_matches": 11,
+              "maximum_xyxy_absolute_pixel_error": 0.010894775390625,
+              "maximum_confidence_absolute_error": 9.292364120483398e-05,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 11,
+              "reference_count": 11,
+              "one_to_one_exact_class_matches": 11,
+              "maximum_xyxy_absolute_pixel_error": 0.010894775390625,
+              "maximum_confidence_absolute_error": 9.292364120483398e-05,
+              "passed": true
+            },
+            "top_inference_time_ms": 344.27499771118164,
+            "rear_inference_time_ms": 343.19424629211426
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B4_Cardaba1_NoneChemical_02844_top_jpg.rf.bc1c3a8f8b161b6e550ca1e1c40238f3.jpg",
+            "image_sha256": "7556cd23fe549387e94361111e5a343de0a91bf01c4d904d4e0be82bbc59e77f",
+            "label_sha256": "283ff1f1ae5f12dc5855cf4b7f970eb79a1e8285063055d1062d5e9c7dfd5b4b",
+            "top_against_iou065": {
+              "actual_count": 11,
+              "reference_count": 11,
+              "one_to_one_exact_class_matches": 11,
+              "maximum_xyxy_absolute_pixel_error": 0.011810302734375,
+              "maximum_confidence_absolute_error": 0.00026661157608032227,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 11,
+              "reference_count": 11,
+              "one_to_one_exact_class_matches": 11,
+              "maximum_xyxy_absolute_pixel_error": 0.011810302734375,
+              "maximum_confidence_absolute_error": 0.00026661157608032227,
+              "passed": true
+            },
+            "top_inference_time_ms": 396.81267738342285,
+            "rear_inference_time_ms": 359.2989444732666
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B4_Lakatan7_NoneChemical_03035_top_jpg.rf.6de603e2f9af19ff0a3daf6aea2e5c09.jpg",
+            "image_sha256": "159d9158b2778bdff4004a80e9e5b62ac3351240433bdfeb5839de4080b2c4e6",
+            "label_sha256": "849e7d2ecdb104ce2fb1f266469171401d42bf78d58e89a5b77b0aa43a67434b",
+            "top_against_iou065": {
+              "actual_count": 11,
+              "reference_count": 11,
+              "one_to_one_exact_class_matches": 11,
+              "maximum_xyxy_absolute_pixel_error": 0.00762939453125,
+              "maximum_confidence_absolute_error": 8.982419967651367e-05,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 11,
+              "reference_count": 11,
+              "one_to_one_exact_class_matches": 11,
+              "maximum_xyxy_absolute_pixel_error": 0.00762939453125,
+              "maximum_confidence_absolute_error": 8.982419967651367e-05,
+              "passed": true
+            },
+            "top_inference_time_ms": 368.85595321655273,
+            "rear_inference_time_ms": 1361.3786697387695
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B4_Lakatan7_NoneChemical_03694_top_jpg.rf.2aaaff7a5d1b7702f7344dbf52691616.jpg",
+            "image_sha256": "7d32a6a24e99e8a47584ad417a45f637d2c4731ac0ef12f3768d750740040c0c",
+            "label_sha256": "c078c2db05fc09d9549fee753cafe5701ab3c102ec0d9757d0e3acefc5bc5439",
+            "top_against_iou065": {
+              "actual_count": 13,
+              "reference_count": 13,
+              "one_to_one_exact_class_matches": 13,
+              "maximum_xyxy_absolute_pixel_error": 0.010833740234375,
+              "maximum_confidence_absolute_error": 0.0001499652862548828,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 13,
+              "reference_count": 13,
+              "one_to_one_exact_class_matches": 13,
+              "maximum_xyxy_absolute_pixel_error": 0.010833740234375,
+              "maximum_confidence_absolute_error": 0.0001499652862548828,
+              "passed": true
+            },
+            "top_inference_time_ms": 1080.2626609802246,
+            "rear_inference_time_ms": 1041.0828590393066
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B4_Latundan4_NoneChemical_02212_top_jpg.rf.8e64909f64e5a242d2135e93730f309c.jpg",
+            "image_sha256": "3b6f6f9d077052345f0cdd79f010b2131ecac16a06fb4887007ba936dbb89d46",
+            "label_sha256": "fff56eac877d51c39c133a411340be3d975ea365a732cd5c42b40453134696ec",
+            "top_against_iou065": {
+              "actual_count": 9,
+              "reference_count": 9,
+              "one_to_one_exact_class_matches": 9,
+              "maximum_xyxy_absolute_pixel_error": 0.007904052734375,
+              "maximum_confidence_absolute_error": 5.632638931274414e-05,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 8,
+              "reference_count": 8,
+              "one_to_one_exact_class_matches": 8,
+              "maximum_xyxy_absolute_pixel_error": 0.007904052734375,
+              "maximum_confidence_absolute_error": 5.632638931274414e-05,
+              "passed": true
+            },
+            "top_inference_time_ms": 1007.6174736022949,
+            "rear_inference_time_ms": 1092.3871994018555
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B5_Latundan4_CH_03679_top_jpg.rf.12374243aa77aee88c31da0e2596b845.jpg",
+            "image_sha256": "23882ec6e715ba069b34e9ea3ca64c844d71b4b735213cee2d28f92712cec179",
+            "label_sha256": "cc6a589b1b3a1d0d5753c1b5832f775f70df00b22471cbf375b806313417e312",
+            "top_against_iou065": {
+              "actual_count": 12,
+              "reference_count": 12,
+              "one_to_one_exact_class_matches": 12,
+              "maximum_xyxy_absolute_pixel_error": 0.011077880859375,
+              "maximum_confidence_absolute_error": 0.00015968084335327148,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 10,
+              "reference_count": 10,
+              "one_to_one_exact_class_matches": 10,
+              "maximum_xyxy_absolute_pixel_error": 0.011077880859375,
+              "maximum_confidence_absolute_error": 0.00015968084335327148,
+              "passed": true
+            },
+            "top_inference_time_ms": 1049.6797561645508,
+            "rear_inference_time_ms": 995.2030181884766
+          },
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\test__B5_Latundan4_CH_03894_top_jpg.rf.def3421fa161858f782bb831ea17e549.jpg",
+            "image_sha256": "28d3481d4d844d58a3120d01a7377b2381f80134bf104ad5e0bfdc287939a68a",
+            "label_sha256": "df75d85170533a49bd01f88d891a2373f4697b89fadc070bf461de857395a87c",
+            "top_against_iou065": {
+              "actual_count": 10,
+              "reference_count": 10,
+              "one_to_one_exact_class_matches": 10,
+              "maximum_xyxy_absolute_pixel_error": 0.01702880859375,
+              "maximum_confidence_absolute_error": 0.00014418363571166992,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 10,
+              "reference_count": 10,
+              "one_to_one_exact_class_matches": 10,
+              "maximum_xyxy_absolute_pixel_error": 0.01702880859375,
+              "maximum_confidence_absolute_error": 0.00014418363571166992,
+              "passed": true
+            },
+            "top_inference_time_ms": 1045.7642078399658,
+            "rear_inference_time_ms": 964.3869400024414
+          }
+        ],
+        "wall_seconds": 57.74017739999999,
+        "images_checked": 31,
+        "total_predictions": 62,
+        "all31_images_checked": true,
+        "all_comparisons_passed": true,
+        "passed": true,
+        "forbidden_app_modules_loaded": [],
+        "app_modules_loaded": [
+          "app",
+          "app.config",
+          "app.core",
+          "app.core.exceptions",
+          "app.schemas",
+          "app.schemas.enums",
+          "app.services",
+          "app.services.classification"
+        ],
+        "input_images_unmodified": true,
+        "checkpoint_and_reference_hashes_unchanged": true
+      }
+    },
+    "app-integration-post-compatibility.json": {
+      "path": "D:\\BananaVision-Training\\v13-yolov8-20261016\\top-view-experiment-iou065\\app-integration-post-compatibility.json",
+      "sha256": "86a61f8df6b34fdf68e373ba0ac567f57bb940e81b71c563d1b124cb607167a3",
+      "evidence": {
+        "created_utc": "2026-10-17T05:12:44.398882+00:00",
+        "mode": "actual BananaClassifier CPU integration using static prepared VALID Top images",
+        "fresh_cwd": "C:\\Users\\Kent\\AppData\\Local\\Temp\\bv-top-wrapper-integration-triswp0f",
+        "env_file": null,
+        "weights": "D:\\KENT EDUCATION PROJECTS\\BananaVision\\backend\\app\\ml\\weights\\banana_yolo26m.pt",
+        "weights_sha256": "e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89",
+        "reference_sha256": {
+          "D:\\BananaVision-Training\\v13-yolov8-20261016\\evaluations\\baseline-yolo26-valid-iou0.45.json": "cfb4395e1e9de073745621108bc742c568a61220071d5c946685e32811c823ae",
+          "D:\\BananaVision-Training\\v13-yolov8-20261016\\top-view-experiment-iou065\\baseline-yolo26-fullframe640_iou065.json": "8d7f8e8d7d634f6364e63c1461f81ef5a1e76e17a2c2fc7c97de0b929fbf4766",
+          "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\manifest.json": "0d42e5df62cd0af3ad447414a7049f8e1abfd59678b8760576141b7436189ea2"
+        },
+        "versions": {
+          "torch": "2.11.0+cpu",
+          "ultralytics": "8.4.40"
+        },
+        "tolerances": {
+          "xyxy_absolute_pixels": 0.1,
+          "confidence_absolute": 0.001
+        },
+        "time_budget_seconds": 120,
+        "images_expected": 1,
+        "captured_image_size": 640,
+        "sequence_per_image": [
+          "Top",
+          "Rear"
+        ],
+        "per_image": [
+          {
+            "image": "D:\\BananaVision-Training\\v13-yolov8-20261016\\dataset\\valid\\images\\valid__B1_Lakatan7_NoneChemical_00406_top_jpg.rf.f384246fb36fdc34d8d50366603b990b.jpg",
+            "image_sha256": "a4d2ceabacc914362ac83701b8e39f0e39fe216a22f94c38610a6b70192a0060",
+            "label_sha256": "a335c4164ce702b47d7f202ef74c70394419f9cbefd8e0317ff8c26e48dcac03",
+            "top_against_iou065": {
+              "actual_count": 11,
+              "reference_count": 11,
+              "one_to_one_exact_class_matches": 11,
+              "maximum_xyxy_absolute_pixel_error": 0.0086669921875,
+              "maximum_confidence_absolute_error": 4.00543212890625e-05,
+              "passed": true
+            },
+            "rear_after_top_against_iou045": {
+              "actual_count": 11,
+              "reference_count": 11,
+              "one_to_one_exact_class_matches": 11,
+              "maximum_xyxy_absolute_pixel_error": 0.0086669921875,
+              "maximum_confidence_absolute_error": 4.00543212890625e-05,
+              "passed": true
+            },
+            "top_inference_time_ms": 1389.824628829956,
+            "rear_inference_time_ms": 1072.9587078094482
+          }
+        ],
+        "wall_seconds": 3.591443199999958,
+        "images_checked": 1,
+        "total_predictions": 2,
+        "all_expected_images_checked": true,
+        "all_comparisons_passed": true,
+        "passed": true,
+        "forbidden_app_modules_loaded": [],
+        "app_modules_loaded": [
+          "app",
+          "app.config",
+          "app.core",
+          "app.core.exceptions",
+          "app.schemas",
+          "app.schemas.enums",
+          "app.services",
+          "app.services.classification"
+        ],
+        "input_images_unmodified": true,
+        "checkpoint_and_reference_hashes_unchanged": true
+      }
+    }
+  },
+  "verification": {
+    "new_regressions": 20,
+    "initial_regressions_failed_before_implementation": 17,
+    "targeted_backend_after_final_compatibility_fix": {
+      "passed": 91,
+      "seconds": 5.74
+    },
+    "full_backend_before_final_compatibility_fix": {
+      "passed": 406,
+      "skipped": 38,
+      "seconds": 128.4,
+      "postgresql_test_url": "not configured; no station database used"
+    },
+    "frontend_typecheck": "pass",
+    "frontend_build": "pass",
+    "frontend_targeted_tests": {
+      "passed": 10,
+      "failed": 1,
+      "existing_failure": "Committed kiosk review-title test expects Scan Complete - Review Needed; committed UI renders Scan Complete. Neither frontend source nor tests changed."
+    },
+    "backend_lint": {
+      "configured_errors": 640,
+      "HEAD_equivalent_errors": 642,
+      "new_diagnostics": 0
+    },
+    "frontend_lint": {
+      "existing_errors": 41,
+      "existing_warnings": 8,
+      "frontend_changes": false
+    },
+    "configured_lint_status": "fails existing debt, not a clean pass",
+    "new_test_scoped_ruff": "pass",
+    "diff_check": "pass",
+    "no_live_station_tests_model_replacement_or_restart": true
+  }
+}

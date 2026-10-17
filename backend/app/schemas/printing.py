@@ -36,11 +36,6 @@ class RetryPrintRequest(BaseModel):
     expected_attempt: int = Field(ge=1, strict=True)
 
 
-class KioskDemoRequest(BaseModel):
-    request_id: uuid.UUID
-    model_config = {"extra": "forbid"}
-
-
 class LabelPreviewResponse(BaseModel):
     payload: str
     panel: tuple[str, ...]

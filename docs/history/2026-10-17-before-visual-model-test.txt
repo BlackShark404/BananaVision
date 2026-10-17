@@ -1,0 +1,78 @@
+CURRENT RESUME HERE (2026-10-17) - TRAINING + COMPARISON COMPLETE; EXISTING MODEL RETAINED
+Branch main; preserve all existing changes. No staging, commits, pushes or deployment.
+Previous checkpoint: docs/history/2026-10-17-before-yolov8-comparison-review.txt.
+Earlier completed 13-module work is historical, not pending.
+
+AUTHORIZED SCOPE / CONSTRAINTS
+- User authorized offline YOLOv8 training on D:\Banana_Ripeness.v13i.yolo26 for the
+  reported19 physical fingers vs12 estimate; requested post-training work on October17.
+- No station DB/captures/cameras/printer/OS-power tests, secrets/.env reads, deployment,
+  commits or pushes. Preserve main, UI/architecture/reverts and unrelated BananaVision/.
+- Application code, dependencies, weights, inference settings and source dataset unchanged
+  during completion review. Do not replace the model with a weaker candidate.
+
+COMPLETED TRAINING / ARTIFACTS
+- Root: D:\BananaVision-Training\v13-yolov8-20261016.
+- completion.json, lifecycle-status.json and evaluation-status.json all stage=complete.
+  Evaluation completed2026-10-16T20:58:54UTC =04:58AM October17 Asia/Manila.
+- YOLOv8n:78total epochs, best58; early stopping after20epochs without improvement.
+  CSV includes initial savedepoch1 plus77resumedepochs. Training stderr0bytes.
+- Former worker13844/bootstrap22588 gone; no job running. Do not launch a duplicate.
+- Candidate: runs/yolov8n_v13_b16/weights/best.pt; SHA256
+  6a9ea2913b68465ee33e0991b125af4a598de526758b1cbe8a3591d430868916.
+- Both final weights have optimizers stripped; do not assume completed last.pt resumes
+  the former optimizer state. Preserve completed run history and immutable reports.
+- Original baseline files backend/app/ml/banana_yolov8n.pt and
+  backend/app/ml/weights/banana_yolo26m.pt are byte-identical actualYOLO26m, SHA256
+  e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89.
+  Internal yolo26m.yaml,m,21791392parameters,12classes; filename does not prove architecture.
+
+VERIFIED COMPARISON / DECISION
+- VALID calibrated candidateNMS.45/.65 atconf.50; selected.45 beforeTEST because.65
+  precisionloss exceeded0.5percentage-point bounds. Never tune against existingTEST.
+- Same137TESTimages/1252labels,640,conf.50,NMS.45,maxdet300,class-aware,IoU>=.50matching.
+  Existing26m vs candidate8n:
+  countMAE .8321168 vs .9051095; exact54/137 vs60/137;
+  spatialP94.00% vs93.10%, R93.85% vs91.61%; combinedP89.60% vs85.80%, R89.46% vs84.42%.
+- Candidate absolutecount error improves31images,worsens32,ties74; MAEworse all4views.
+  Top combinedrecall89.05%->78.45%; CardabaSemiRipe87.91%->60.44%.
+- Recommendation:retain existingmodel; candidate did not demonstrate overallupgrade.
+  Baseline may have seen relatedimages; uncertain grouping and plainbackground limit
+  fair-unseen-data/live-scene conclusions. More epochs alone are not a supportedfix.
+- Independent audit PASS: all5report checkpoint/manifest and heldoutimage/labelhashes;
+  matchingconfigs/classorder/GTinputs; calibration-before-test; exact split membership;
+  aggregate/byview/bygroup/dominantclass/all12class recomputation zero discrepancies.
+  No inference reruns or TESTtuning performed during review.
+- Durable summary: docs/audits/yolov8-v13-training-comparison-2026-10-17.json.
+  Per-image reports + TRAINING_RESULTS.md remain trainingroot/evaluations and root.
+
+COUNTING LIMITATION / EXACT NEXT STEP
+- Source rechecked: classification count=len(retainedboxes),fusion=max(perviewcounts),
+  scanservice/API/UI preserve count. No12cap or identified plumbing/preprocessing bug.
+  Runtime overrides not inspected. RFR predicts shelf-life, not fingers.
+- Perfectperview detection can stillunderestimate19physical fingers when nooneview
+  sees19. Do not sumviewcounts, applymultipliers or force19 without correspondence.
+- User confirmed no separate offline four-camera testphoto folder is available.
+  Do not ask for the same existing folder again or access live captures as a fallback.
+  Next data collection: user saves four original camera photos of one manually counted
+  bunch into a separate testfolder, with correct cultivar/ripeness/physicaltotal.
+- NEXT:use manuallyprovided offlinefixtures only; annotate visiblefingers perview and
+  measure misses/duplicates separately from physicalbunch error. Keep knownphysical
+  identities together and untouchedtestbunches. Preserve frozen completedTESTbenchmark.
+  Do not readlivecaptures, launchanothertrainingrun or swapweights without newevidence.
+
+DATA / PRIOR VERIFIED WORK
+- Source7501images/67237boxes;12classes. Max17labels/image is not a modelcountcap.
+- Copytrain5262/47091/13groups,valid137/1183/3,test137/1252/3; all12classes each.
+  Conservative90prefix->19groups is uncertain; originaltrainaugmentations excludedheldout.
+  Only2confirmedbackgroundrows removed;7contradictoryfiles quarantined; sourceuntouched.
+- Separate CUDAvenvtorch2.11.0+cu126,ultralytics8.4.40,RTX2050 4GB; appvenvunchanged.
+- Prior dataset23synthetictests/scopedRuff/diff PASS; evaluator17checks/supervisor12tests
+  and lifecyclepreflight PASS. Those are priorresults, not rerun for documentation review.
+- Existing26m originalVALID417benchmarkNMS.45->.65 MAE.938->.844; production.45unchanged.
+- Documentation updated: dataset audit, ObsidianDevelopmentDecisions, trainingrootREADME.
+  Review checks PASS: summaryJSON matches source metrics, all5source reportSHA hashes,
+  all4relativeMarkdown links, archivedcheckpoint, scoped diff review and git diff --check.
+  App suites/lint/typecheck/build not rerun: only result artifacts/documentation changed.
+- Graphifygraph/CLI and ICMtools unavailable, reconfirmedOctober17. No initialization,
+  duplicateinstall, graphclaim, globalmemoryfallback or privateICM database access.

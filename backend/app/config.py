@@ -51,16 +51,23 @@ class Settings(BaseSettings):
     # ── Camera ───────────────────────────────────────────────────────────────
     camera_device_ids: list[int] = [0, 1, 2, 3]
     camera_labels: list[str] = ["Top", "Left", "Right", "Rear"]
-    camera_resolution_w: int = 640
-    camera_resolution_h: int = 480
+    camera_resolution_w: int = Field(1280, ge=1, le=7680)
+    camera_resolution_h: int = Field(720, ge=1, le=4320)
     camera_warmup_frames: int = 30
     camera_capture_timeout_ms: int = 3000
-    camera_autofocus: bool = False
-    camera_manual_focus_value: int = 25
+    # None preserves the driver's focus; fixed-focus webcams have no calibrated numeric focus.
+    camera_autofocus: bool | None = None
+    camera_manual_focus_value: int | None = Field(None, ge=0)
+    camera_auto_white_balance: bool | None = True
+    camera_auto_exposure: bool | None = True
     # auto uses DirectShow on Windows; explicit overrides help driver compatibility.
     camera_backend: Literal["auto", "dshow", "msmf"] = "auto"
     camera_fps: int = Field(15, ge=1, le=60)
     camera_fourcc: str = Field("MJPG", min_length=4, max_length=4)
+    camera_preview_max_width: int = Field(1280, ge=1, le=3840)
+    camera_preview_max_height: int = Field(720, ge=1, le=2160)
+    camera_preview_jpeg_quality: int = Field(90, ge=1, le=100)
+    camera_capture_jpeg_quality: int = Field(95, ge=1, le=100)
 
     # ── Sensor ───────────────────────────────────────────────────────────────
     sensor_serial_port: str = "/dev/ttyUSB0"
@@ -71,6 +78,9 @@ class Settings(BaseSettings):
     yolo_model_path: str = "app/ml/weights/banana_yolo26m.pt"
     yolo_confidence_threshold: float = Field(0.50, gt=0, le=1)
     yolo_iou_threshold: float = 0.45
+    yolo_top_overlap_refinement: bool = True
+    yolo_top_rotation_fallback: bool = True
+    multi_camera_finger_fusion: bool = True
     rfr_model_path: str = "app/ml/weights/spoilage_rfr.joblib"
 
     # ── Storage ──────────────────────────────────────────────────────────────

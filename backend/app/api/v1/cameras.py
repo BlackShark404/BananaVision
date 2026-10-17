@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from app.core.http import get_client_ip
 import asyncio
@@ -82,11 +84,23 @@ async def generate_frames(camera_index: int, fps: int = 15):
             if generation != camera_manager.generation:
                 break
             
-            # Downscale frame for preview (HD 1280x720 for kiosk clarity)
-            downscaled = cv2.resize(capture.frame, (1280, 720))
+            # Preserve native geometry and pixels when already within the preview bounds.
+            frame = capture.frame
+            height, width = frame.shape[:2]
+            scale = min(
+                1.0, settings.camera_preview_max_width / width,
+                settings.camera_preview_max_height / height,
+            )
+            if scale < 1.0:
+                frame = cv2.resize(
+                    frame, (max(1, round(width * scale)), max(1, round(height * scale))),
+                    interpolation=cv2.INTER_AREA,
+                )
             
             # Encode as JPEG
-            success, buffer = cv2.imencode('.jpg', downscaled, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            success, buffer = cv2.imencode(
+                '.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, settings.camera_preview_jpeg_quality],
+            )
             if not success:
                 logger.warning(f"Failed to encode frame from camera {camera_index}")
                 await asyncio.sleep(interval)
@@ -112,7 +126,7 @@ async def generate_frames(camera_index: int, fps: int = 15):
             await asyncio.sleep(0.001)
 
 @router.get("/preview/{camera_index}")
-async def video_feed(camera_index: int, fps: int = 15):
+async def video_feed(camera_index: int, fps: Annotated[int, Query(ge=1, le=30)] = 15):
     """
     Returns an MJPEG stream for a specific camera.
     """

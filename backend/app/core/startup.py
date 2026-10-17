@@ -364,11 +364,8 @@ async def _register_cameras(db: AsyncSession, results: dict[int, bool]):
             if idx < len(settings.camera_labels)
             else f"Camera {idx + 1}"
         )
-        resolution = (
-            f"{settings.camera_resolution_w}x{settings.camera_resolution_h}"
-            if success
-            else None
-        )
+        measured = camera_manager.get_resolution(dev_id) if success else None
+        resolution = f"{measured[0]}x{measured[1]}" if measured else None
 
         # Upsert device record
         existing = await db.execute(select(Device).where(Device.camera_id == camera_id))

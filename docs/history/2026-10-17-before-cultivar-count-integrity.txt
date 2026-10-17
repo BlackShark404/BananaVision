@@ -1,0 +1,84 @@
+CURRENT RESUME HERE (2026-10-17) - YOLO BOUNDING BOX DUPLICATION & COUNT RECOVERY RESOLVED AND VERIFIED
+Branch main. No staging, commits, pushes, deployment or station restart.
+Previous checkpoint: docs/history/2026-10-17-before-reported-top-retest.txt.
+
+USER INTENT / CONSTRAINTS
+- User reported duplication issue during progressive removal:
+  A 19-finger hand counted correctly at 18/17 after removing 1 finger, but removing a second finger
+  (supposed to be 17) caused the count to jump to 20.
+- Screenshot evidence showed two distinct banana fingers in the Top camera view double-boxed:
+  Finger 3 had two overlapping boxes: Lakatan Ripe 76% (pass 1) and Lakatan Ripe 52% (rotated pass 2).
+  Finger 4 had two overlapping boxes: Lakatan Semi Ripe 71% (pass 1) and Lakatan Ripe 64% (rotated pass 2).
+  Top count inflated from 9 to 11 detections; multi-camera fusion (11 Top + 9 novel) yielded Est. Fingers = 20.
+- Guard conditions: preserve existing UI layout, API schemas, multi-camera fusion contracts,
+  class-aware voting tests, and existing test suites without regressions.
+- No tests against live station DB/captures/cameras/printer/OS power; no secrets/.env reads.
+
+IMPLEMENTED / EXACT NEXT STEP
+- classification.py:
+  * Implemented `_box_containment(a, b)`: computes intersection over the smaller box area (containment ratio).
+  * Implemented `_is_duplicate_detection(candidate, existing, iou_thresh)`:
+    Detects same-finger duplicates using standard IoU (> iou_thresh), severe containment (IoM >= 0.75),
+    or longitudinal center alignment (IoM >= 0.45 with abs(dx) <= 0.25 * min_w).
+  * In pass 1: suppresses same-class nested duplicate boxes that survived relaxed NMS (iou_thresh=0.55).
+    Preserves multi-class conflicting detections to maintain conflict-detection and class voting integrity.
+  * In pass 2 (rotation fallback): sorts candidate boxes by confidence descending, checks each candidate
+    against all currently accepted detections in `detections` (both pass 1 and newly accepted pass 2),
+    and strictly suppresses duplicate sightings on already detected fingers (cross-class and same-class).
+- test_top_view_inference.py:
+  * Added 4 comprehensive regression tests covering:
+    1. test_rotation_fallback_suppresses_nested_partial_box_duplicates (IoU <= 0.40 partial box suppressed).
+    2. test_rotation_fallback_suppresses_cross_class_rotated_duplicates (conflicting class on same finger suppressed).
+    3. test_pass1_same_class_nested_sub_box_suppression (same-class nested sub-box in pass 1 suppressed).
+    4. test_rotation_fallback_deduplicates_against_newly_accepted_candidates (pass 2 self-deduplication).
+- Verification:
+  * 71/71 tests PASS in test_top_view_inference.py & test_classification_fusion.py.
+  * 147/147 tests PASS across targeted backend suite (fusion, top view, sensitivity, config, trigger, time/writes).
+  * git diff --check: clean (0 issues).
+- NEXT: Report findings and verified resolution to user.
+
+VALIDATION EVIDENCE / LIMITS
+- All31 preparedVALID Top photos/293 labels;640/conf.50/class-aware NMS; matchingIoU>=.50.
+  Existing26m IoU.45->.65: countMAE1.000->.80645, spatialP92.86->93.18%,R93.17->97.95%;
+  combined-classP88.10->88.64%,R88.40->93.17%; spatialTP273->287, FP21 unchanged.
+- Count error improves7 photos, worsens3, ties21. Undercount photos8->3, overcount10->14,
+  bias+.032->+.484. Aggregate improvement does not guarantee every scene improves.
+- Larger960 input,90/270 rotations and newv8n IoU.65 failed guards; not enabled.
+  No frozenTEST reruns/tuning. Group identities uncertain; plain backgrounds differ
+  from live scenes. Fusion remains max(per-view box count), not physical-finger matching.
+- Evidence: docs/audits/yolo-top-overlap-validation-2026-10-17.json.
+- Training root D:\BananaVision-Training\v13-yolov8-20261016 contains:
+  top-view-experiment-31 (rejected policies), top-view-experiment-iou065 (accepted
+  predictions/summary). app-integration.json:62 real CPU predictions,31 Top->Rear pairs,
+  counts/classes match.65/.45 refs; boxes<=.1px, confidence<=.001; hashes/BGR unchanged.
+  Post-resolution-fix two predictions alsoPASS: app-integration-post-compatibility.json.
+
+VERIFICATION / EXISTING FAILURES
+- New17 regressions initiallyFAIL; implementation17PASS. Final file20 tests includes
+  custom960, unreadable fingerprint, Top in CAM-003 and Top->Rear settings reset.
+- Full backend406PASS/38SKIP in128.40s before final custom-resolution compatibility fix.
+  Afterward, targeted91PASS in5.74s across Top/classification/config/sensitivity/trigger.
+  Fresh temporary cwd, SQLite fixtures only. PostgreSQL test URL unset; those cases skip.
+- Frontend typecheck/buildPASS. Targeted kiosk/flagindicator/scanpages10PASS/1FAIL:
+  pre-existing HEAD test expects ScanComplete-ReviewNeeded; committed UI renders only
+  ScanComplete. Preserve source/test; weakening the assertion would hide that issue.
+- Configured backend Ruff FAIL640 existing diagnostics (HEAD-equivalent642), no added
+  diagnostics; new test file RuffPASS. Frontend lint FAIL41 errors/8 warnings; no
+  frontend edits. Do not claim all verification clean. Scoped diff/JSON/link review done.
+- Independent review found custom resolution concern; fixed and regression-tested.
+- Updated backendREADME, dataset audit, Obsidian Development Decisions; prior checkpoint
+  archived. Graphify graph/CLI and ICM tools unavailable; no installation/init or false
+  graph/memory update claim. Preserve their configurations and private memory database.
+
+TRAINING / PRIOR ARTIFACTS RETAINED
+- YOLOv8n training complete:78 total epochs, best58, patience20; completion/lifecycle/
+  evaluation JSON complete. Candidate best.pt SHA:
+  6a9ea2913b68465ee33e0991b125af4a598de526758b1cbe8a3591d430868916.
+- Frozen137TEST existing vs8n countMAE.832 vs.905, combined recall89.46% vs84.42%,
+  exact54 vs60. Baseline may have seen related images; neither checkpoint discarded.
+- visual_comparison.html shows both models on137VALID photos;68 Edge checks/source audit
+  PASS. candidate-app-runtime-smoke.json four-view inferencePASS. Final weights have
+  stripped optimizers; do not resume a completed run as though optimizer state remains.
+- Original7501images/67237boxes untouched. Prepared train5262/valid137/test137,12 classes,
+ 19 uncertain filename groups; only2 background rows removed/7 contradictory files
+  quarantined in the copy. No active training process. Earlier13-module work complete.

@@ -16,6 +16,7 @@ import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { AppDataTable, type ColumnDef } from "@/components/AppDataTable"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { Input } from "@/components/ui/input"
+import { NumberField } from "@/components/ui/number-field"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import {
   Dialog,
@@ -744,15 +745,15 @@ export default function QualityControl() {
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="fingers">Est. Finger Count</Label>
-                        <Input
+                        <NumberField
                           id="fingers"
-                          type="number"
-                          min="1"
-                          max="30"
+                          min={1}
+                          max={30}
                           value={editData.fingerCount ?? ""}
-                          onChange={(e) => {
+                          clampOnBlur={false}
+                          onChange={(value) => {
                             setFingerCountEdited(true)
-                            setEditData({ ...editData, fingerCount: e.target.value })
+                            setEditData({ ...editData, fingerCount: value })
                           }}
                         />
                       </div>

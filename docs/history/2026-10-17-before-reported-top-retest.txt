@@ -1,0 +1,75 @@
+CURRENT RESUME HERE (2026-10-17) - TOP OVERLAP FIX IMPLEMENTED; LIVE SCENE UNVERIFIED
+Branch main. No staging, commits, pushes, deployment or station restart.
+Previous checkpoint: docs/history/2026-10-17-before-top-view-overlap-fix.txt.
+
+USER INTENT / CONSTRAINTS
+- Improve Top detection: user reports roughly10 visible fingers but only4/5 boxes.
+  Rear is better; preserve working views, UI, architecture and explicit reverts.
+- User has no offline camera-photo folder. Do not ask for that same folder again.
+- No tests against live station DB/captures/cameras/printer/OS power; no secrets/.env
+  reads, model replacement or app dependency edits. Preserve unrelated BananaVision/.
+
+IMPLEMENTED / EXACT NEXT STEP
+- config.py adds YOLO_TOP_OVERLAP_REFINEMENT, defaulttrue; false disables refinement.
+- classification.py fingerprints actual weights at load. Only normalized Top, known
+  checkpoint SHA, saved640 input, confidence.50 and configured IoU.45 use IoU.65.
+  Other views/models/custom thresholds retain configured IoU. Unreadable fingerprints
+  leave the loaded model available with baseline filtering. Custom960/1280 saved
+  resolutions remain intact and bypass this calibrated profile.
+- Explicit inference options prevent retained Ultralytics arguments leaking from Top
+  to Rear. scan_service passes the configured camera label, independent of CAM-ID.
+  BGR frames, original-pixel boxes, confidence, voting, API/schema/UI remain unchanged.
+- Calibrated checkpoint SHA:
+  e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89.
+  banana_yolov8n.pt and weights/banana_yolo26m.pt are identical actualYOLO26m files.
+  The new trained YOLOv8n is excluded because this policy failed its validation guards.
+- NEXT: explain the change and offline evidence; user can rescan after backend reload.
+  Agent did not restart/deploy/test live. The specific10-finger screenshot is untested;
+  a later manually supplied original offline photo is needed to measure that scene.
+  Do not promise10/10, sum views, apply multipliers or force physical totals.
+
+VALIDATION EVIDENCE / LIMITS
+- All31 preparedVALID Top photos/293 labels;640/conf.50/class-aware NMS; matchingIoU>=.50.
+  Existing26m IoU.45->.65: countMAE1.000->.80645, spatialP92.86->93.18%,R93.17->97.95%;
+  combined-classP88.10->88.64%,R88.40->93.17%; spatialTP273->287, FP21 unchanged.
+- Count error improves7 photos, worsens3, ties21. Undercount photos8->3, overcount10->14,
+  bias+.032->+.484. Aggregate improvement does not guarantee every scene improves.
+- Larger960 input,90/270 rotations and newv8n IoU.65 failed guards; not enabled.
+  No frozenTEST reruns/tuning. Group identities uncertain; plain backgrounds differ
+  from live scenes. Fusion remains max(per-view box count), not physical-finger matching.
+- Evidence: docs/audits/yolo-top-overlap-validation-2026-10-17.json.
+- Training root D:\BananaVision-Training\v13-yolov8-20261016 contains:
+  top-view-experiment-31 (rejected policies), top-view-experiment-iou065 (accepted
+  predictions/summary). app-integration.json:62 real CPU predictions,31 Top->Rear pairs,
+  counts/classes match.65/.45 refs; boxes<=.1px, confidence<=.001; hashes/BGR unchanged.
+  Post-resolution-fix two predictions alsoPASS: app-integration-post-compatibility.json.
+
+VERIFICATION / EXISTING FAILURES
+- New17 regressions initiallyFAIL; implementation17PASS. Final file20 tests includes
+  custom960, unreadable fingerprint, Top in CAM-003 and Top->Rear settings reset.
+- Full backend406PASS/38SKIP in128.40s before final custom-resolution compatibility fix.
+  Afterward, targeted91PASS in5.74s across Top/classification/config/sensitivity/trigger.
+  Fresh temporary cwd, SQLite fixtures only. PostgreSQL test URL unset; those cases skip.
+- Frontend typecheck/buildPASS. Targeted kiosk/flagindicator/scanpages10PASS/1FAIL:
+  pre-existing HEAD test expects ScanComplete-ReviewNeeded; committed UI renders only
+  ScanComplete. Preserve source/test; weakening the assertion would hide that issue.
+- Configured backend Ruff FAIL640 existing diagnostics (HEAD-equivalent642), no added
+  diagnostics; new test file RuffPASS. Frontend lint FAIL41 errors/8 warnings; no
+  frontend edits. Do not claim all verification clean. Scoped diff/JSON/link review done.
+- Independent review found custom resolution concern; fixed and regression-tested.
+- Updated backendREADME, dataset audit, Obsidian Development Decisions; prior checkpoint
+  archived. Graphify graph/CLI and ICM tools unavailable; no installation/init or false
+  graph/memory update claim. Preserve their configurations and private memory database.
+
+TRAINING / PRIOR ARTIFACTS RETAINED
+- YOLOv8n training complete:78 total epochs, best58, patience20; completion/lifecycle/
+  evaluation JSON complete. Candidate best.pt SHA:
+  6a9ea2913b68465ee33e0991b125af4a598de526758b1cbe8a3591d430868916.
+- Frozen137TEST existing vs8n countMAE.832 vs.905, combined recall89.46% vs84.42%,
+  exact54 vs60. Baseline may have seen related images; neither checkpoint discarded.
+- visual_comparison.html shows both models on137VALID photos;68 Edge checks/source audit
+  PASS. candidate-app-runtime-smoke.json four-view inferencePASS. Final weights have
+  stripped optimizers; do not resume a completed run as though optimizer state remains.
+- Original7501images/67237boxes untouched. Prepared train5262/valid137/test137,12 classes,
+ 19 uncertain filename groups; only2 background rows removed/7 contradictory files
+  quarantined in the copy. No active training process. Earlier13-module work complete.

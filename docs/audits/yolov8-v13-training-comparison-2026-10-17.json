@@ -1,0 +1,834 @@
+{
+  "format_version": 1,
+  "reviewed_local_date": "2026-10-17",
+  "training_root": "D:\\BananaVision-Training\\v13-yolov8-20261016",
+  "completed_utc": "2026-10-16T20:58:54.648717+00:00",
+  "training": {
+    "model": "YOLOv8n",
+    "dataset_export_version": 13,
+    "completed_epochs": 78,
+    "best_epoch": 58,
+    "maximum_epochs": 100,
+    "early_stopping_patience": 20,
+    "candidate_checkpoint": "runs\\yolov8n_v13_b16\\weights\\best.pt"
+  },
+  "recommendation": "Retain the existing model; this candidate did not demonstrate an overall improvement on the prepared test images. Do not deploy or extend training on the basis of these test results.",
+  "application_model_changed": false,
+  "dataset_manifest_sha256": "0d42e5df62cd0af3ad447414a7049f8e1abfd59678b8760576141b7436189ea2",
+  "configuration": {
+    "imgsz": 640,
+    "conf": 0.5,
+    "iou": 0.45,
+    "max_det": 300,
+    "device": "0",
+    "agnostic_nms": false,
+    "augment": false,
+    "batch": 1,
+    "rect": true,
+    "half": false,
+    "save": false,
+    "save_txt": false,
+    "save_crop": false,
+    "show": false,
+    "verbose": false
+  },
+  "matching": {
+    "iou_threshold_inclusive": 0.5,
+    "method": "Separate spatial and exact combined-class maximum-cardinality one-to-one Hungarian assignments; reward=eligible*(min(n_pred,n_gt)+1+iou)",
+    "combined_class_requires": "Exact cultivar and ripeness class equality",
+    "count_definition": "Per-image visible labeled instances; no unique physical-finger correspondence across cameras",
+    "dominant_class_ties": "Lowest class ID among tied ground-truth frequencies"
+  },
+  "class_names": [
+    "cardaba_overripe",
+    "cardaba_ripe",
+    "cardaba_semi_ripe",
+    "cardaba_unripe",
+    "lakatan_overripe",
+    "lakatan_ripe",
+    "lakatan_semi_ripe",
+    "lakatan_unripe",
+    "latundan_overripe",
+    "latundan_ripe",
+    "latundan_semi_ripe",
+    "latundan_unripe"
+  ],
+  "calibration": {
+    "created_utc": "2026-10-16T20:58:02.985746+00:00",
+    "candidate": "D:\\BananaVision-Training\\v13-yolov8-20261016\\runs\\yolov8n_v13_b16\\weights\\best.pt",
+    "candidate_sha256": "6a9ea2913b68465ee33e0991b125af4a598de526758b1cbe8a3591d430868916",
+    "dataset_manifest_sha256": "0d42e5df62cd0af3ad447414a7049f8e1abfd59678b8760576141b7436189ea2",
+    "selected_iou": 0.45,
+    "policy": {
+      "confidence": 0.5,
+      "candidate_nms_thresholds": [
+        0.45,
+        0.65
+      ],
+      "require_lower_count_mae": true,
+      "maximum_precision_loss_fraction": 0.005,
+      "require_nondecreasing_recall": true,
+      "selection_split": "valid",
+      "test_used_for_selection": false
+    },
+    "checks": {
+      "lower_count_mae": true,
+      "spatial_precision_within_limit": false,
+      "spatial_recall_nondecreasing": true,
+      "combined_class_precision_within_limit": false,
+      "combined_class_recall_nondecreasing": true
+    },
+    "validation_reports": [
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\evaluations\\candidate-v8n-valid-iou0.45.json",
+      "D:\\BananaVision-Training\\v13-yolov8-20261016\\evaluations\\candidate-v8n-valid-iou0.65.json"
+    ]
+  },
+  "models": {
+    "existing_yolo26m": {
+      "weights": "D:\\KENT EDUCATION PROJECTS\\BananaVision\\backend\\app\\ml\\weights\\banana_yolo26m.pt",
+      "weights_sha256": "e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89",
+      "overall": {
+        "images": 137,
+        "ground_truth_boxes": 1252,
+        "predicted_boxes": 1250,
+        "count_mae": 0.8321167883211679,
+        "count_bias_predicted_minus_ground_truth": -0.014598540145985401,
+        "exact_count_images": 54,
+        "exact_count_fraction": 0.39416058394160586,
+        "under_count_images": 44,
+        "over_count_images": 39,
+        "spatial": {
+          "tp": 1175,
+          "fp": 75,
+          "fn": 77,
+          "precision": 0.94,
+          "recall": 0.9384984025559105
+        },
+        "combined_class": {
+          "tp": 1120,
+          "fp": 130,
+          "fn": 132,
+          "precision": 0.896,
+          "recall": 0.8945686900958466
+        }
+      },
+      "by_view": {
+        "back": {
+          "images": 40,
+          "ground_truth_boxes": 399,
+          "predicted_boxes": 410,
+          "count_mae": 0.725,
+          "count_bias_predicted_minus_ground_truth": 0.275,
+          "exact_count_images": 21,
+          "exact_count_fraction": 0.525,
+          "under_count_images": 8,
+          "over_count_images": 11,
+          "spatial": {
+            "tp": 388,
+            "fp": 22,
+            "fn": 11,
+            "precision": 0.9463414634146341,
+            "recall": 0.9724310776942355
+          },
+          "combined_class": {
+            "tp": 370,
+            "fp": 40,
+            "fn": 29,
+            "precision": 0.9024390243902439,
+            "recall": 0.9273182957393483
+          }
+        },
+        "left": {
+          "images": 28,
+          "ground_truth_boxes": 232,
+          "predicted_boxes": 233,
+          "count_mae": 0.9642857142857143,
+          "count_bias_predicted_minus_ground_truth": 0.03571428571428571,
+          "exact_count_images": 9,
+          "exact_count_fraction": 0.32142857142857145,
+          "under_count_images": 10,
+          "over_count_images": 9,
+          "spatial": {
+            "tp": 213,
+            "fp": 20,
+            "fn": 19,
+            "precision": 0.9141630901287554,
+            "recall": 0.9181034482758621
+          },
+          "combined_class": {
+            "tp": 198,
+            "fp": 35,
+            "fn": 34,
+            "precision": 0.8497854077253219,
+            "recall": 0.853448275862069
+          }
+        },
+        "right": {
+          "images": 39,
+          "ground_truth_boxes": 338,
+          "predicted_boxes": 328,
+          "count_mae": 0.7692307692307693,
+          "count_bias_predicted_minus_ground_truth": -0.2564102564102564,
+          "exact_count_images": 12,
+          "exact_count_fraction": 0.3076923076923077,
+          "under_count_images": 17,
+          "over_count_images": 10,
+          "spatial": {
+            "tp": 313,
+            "fp": 15,
+            "fn": 25,
+            "precision": 0.9542682926829268,
+            "recall": 0.9260355029585798
+          },
+          "combined_class": {
+            "tp": 300,
+            "fp": 28,
+            "fn": 38,
+            "precision": 0.9146341463414634,
+            "recall": 0.8875739644970414
+          }
+        },
+        "top": {
+          "images": 30,
+          "ground_truth_boxes": 283,
+          "predicted_boxes": 279,
+          "count_mae": 0.9333333333333333,
+          "count_bias_predicted_minus_ground_truth": -0.13333333333333333,
+          "exact_count_images": 12,
+          "exact_count_fraction": 0.4,
+          "under_count_images": 9,
+          "over_count_images": 9,
+          "spatial": {
+            "tp": 261,
+            "fp": 18,
+            "fn": 22,
+            "precision": 0.9354838709677419,
+            "recall": 0.9222614840989399
+          },
+          "combined_class": {
+            "tp": 252,
+            "fp": 27,
+            "fn": 31,
+            "precision": 0.9032258064516129,
+            "recall": 0.8904593639575972
+          }
+        }
+      },
+      "by_group": {
+        "cardaba_6": {
+          "images": 46,
+          "ground_truth_boxes": 393,
+          "predicted_boxes": 410,
+          "count_mae": 0.8478260869565217,
+          "count_bias_predicted_minus_ground_truth": 0.3695652173913043,
+          "exact_count_images": 19,
+          "exact_count_fraction": 0.41304347826086957,
+          "under_count_images": 9,
+          "over_count_images": 18,
+          "spatial": {
+            "tp": 375,
+            "fp": 35,
+            "fn": 18,
+            "precision": 0.9146341463414634,
+            "recall": 0.9541984732824428
+          },
+          "combined_class": {
+            "tp": 357,
+            "fp": 53,
+            "fn": 36,
+            "precision": 0.8707317073170732,
+            "recall": 0.9083969465648855
+          }
+        },
+        "lakatan_2": {
+          "images": 55,
+          "ground_truth_boxes": 562,
+          "predicted_boxes": 542,
+          "count_mae": 0.9454545454545454,
+          "count_bias_predicted_minus_ground_truth": -0.36363636363636365,
+          "exact_count_images": 18,
+          "exact_count_fraction": 0.32727272727272727,
+          "under_count_images": 26,
+          "over_count_images": 11,
+          "spatial": {
+            "tp": 516,
+            "fp": 26,
+            "fn": 46,
+            "precision": 0.9520295202952029,
+            "recall": 0.9181494661921709
+          },
+          "combined_class": {
+            "tp": 484,
+            "fp": 58,
+            "fn": 78,
+            "precision": 0.8929889298892989,
+            "recall": 0.8612099644128114
+          }
+        },
+        "latundan_5": {
+          "images": 36,
+          "ground_truth_boxes": 297,
+          "predicted_boxes": 298,
+          "count_mae": 0.6388888888888888,
+          "count_bias_predicted_minus_ground_truth": 0.027777777777777776,
+          "exact_count_images": 17,
+          "exact_count_fraction": 0.4722222222222222,
+          "under_count_images": 9,
+          "over_count_images": 10,
+          "spatial": {
+            "tp": 284,
+            "fp": 14,
+            "fn": 13,
+            "precision": 0.9530201342281879,
+            "recall": 0.9562289562289562
+          },
+          "combined_class": {
+            "tp": 279,
+            "fp": 19,
+            "fn": 18,
+            "precision": 0.9362416107382551,
+            "recall": 0.9393939393939394
+          }
+        }
+      },
+      "per_class_combined": {
+        "cardaba_overripe": {
+          "class_id": 0,
+          "ground_truth_boxes": 79,
+          "predicted_boxes": 79,
+          "tp": 69,
+          "fp": 10,
+          "fn": 10,
+          "precision": 0.8734177215189873,
+          "recall": 0.8734177215189873
+        },
+        "cardaba_ripe": {
+          "class_id": 1,
+          "ground_truth_boxes": 77,
+          "predicted_boxes": 91,
+          "tp": 74,
+          "fp": 17,
+          "fn": 3,
+          "precision": 0.8131868131868132,
+          "recall": 0.961038961038961
+        },
+        "cardaba_semi_ripe": {
+          "class_id": 2,
+          "ground_truth_boxes": 91,
+          "predicted_boxes": 96,
+          "tp": 80,
+          "fp": 16,
+          "fn": 11,
+          "precision": 0.8333333333333334,
+          "recall": 0.8791208791208791
+        },
+        "cardaba_unripe": {
+          "class_id": 3,
+          "ground_truth_boxes": 146,
+          "predicted_boxes": 144,
+          "tp": 134,
+          "fp": 10,
+          "fn": 12,
+          "precision": 0.9305555555555556,
+          "recall": 0.9178082191780822
+        },
+        "lakatan_overripe": {
+          "class_id": 4,
+          "ground_truth_boxes": 92,
+          "predicted_boxes": 102,
+          "tp": 88,
+          "fp": 14,
+          "fn": 4,
+          "precision": 0.8627450980392157,
+          "recall": 0.9565217391304348
+        },
+        "lakatan_ripe": {
+          "class_id": 5,
+          "ground_truth_boxes": 165,
+          "predicted_boxes": 162,
+          "tp": 149,
+          "fp": 13,
+          "fn": 16,
+          "precision": 0.9197530864197531,
+          "recall": 0.9030303030303031
+        },
+        "lakatan_semi_ripe": {
+          "class_id": 6,
+          "ground_truth_boxes": 97,
+          "predicted_boxes": 86,
+          "tp": 72,
+          "fp": 14,
+          "fn": 25,
+          "precision": 0.8372093023255814,
+          "recall": 0.7422680412371134
+        },
+        "lakatan_unripe": {
+          "class_id": 7,
+          "ground_truth_boxes": 208,
+          "predicted_boxes": 192,
+          "tp": 175,
+          "fp": 17,
+          "fn": 33,
+          "precision": 0.9114583333333334,
+          "recall": 0.8413461538461539
+        },
+        "latundan_overripe": {
+          "class_id": 8,
+          "ground_truth_boxes": 81,
+          "predicted_boxes": 82,
+          "tp": 76,
+          "fp": 6,
+          "fn": 5,
+          "precision": 0.926829268292683,
+          "recall": 0.9382716049382716
+        },
+        "latundan_ripe": {
+          "class_id": 9,
+          "ground_truth_boxes": 99,
+          "predicted_boxes": 99,
+          "tp": 94,
+          "fp": 5,
+          "fn": 5,
+          "precision": 0.9494949494949495,
+          "recall": 0.9494949494949495
+        },
+        "latundan_semi_ripe": {
+          "class_id": 10,
+          "ground_truth_boxes": 19,
+          "predicted_boxes": 23,
+          "tp": 18,
+          "fp": 5,
+          "fn": 1,
+          "precision": 0.782608695652174,
+          "recall": 0.9473684210526315
+        },
+        "latundan_unripe": {
+          "class_id": 11,
+          "ground_truth_boxes": 98,
+          "predicted_boxes": 94,
+          "tp": 91,
+          "fp": 3,
+          "fn": 7,
+          "precision": 0.9680851063829787,
+          "recall": 0.9285714285714286
+        }
+      }
+    },
+    "candidate_yolov8n": {
+      "weights": "D:\\BananaVision-Training\\v13-yolov8-20261016\\runs\\yolov8n_v13_b16\\weights\\best.pt",
+      "weights_sha256": "6a9ea2913b68465ee33e0991b125af4a598de526758b1cbe8a3591d430868916",
+      "overall": {
+        "images": 137,
+        "ground_truth_boxes": 1252,
+        "predicted_boxes": 1232,
+        "count_mae": 0.9051094890510949,
+        "count_bias_predicted_minus_ground_truth": -0.145985401459854,
+        "exact_count_images": 60,
+        "exact_count_fraction": 0.43795620437956206,
+        "under_count_images": 44,
+        "over_count_images": 33,
+        "spatial": {
+          "tp": 1147,
+          "fp": 85,
+          "fn": 105,
+          "precision": 0.9310064935064936,
+          "recall": 0.9161341853035144
+        },
+        "combined_class": {
+          "tp": 1057,
+          "fp": 175,
+          "fn": 195,
+          "precision": 0.8579545454545454,
+          "recall": 0.8442492012779552
+        }
+      },
+      "by_view": {
+        "back": {
+          "images": 40,
+          "ground_truth_boxes": 399,
+          "predicted_boxes": 413,
+          "count_mae": 0.75,
+          "count_bias_predicted_minus_ground_truth": 0.35,
+          "exact_count_images": 21,
+          "exact_count_fraction": 0.525,
+          "under_count_images": 8,
+          "over_count_images": 11,
+          "spatial": {
+            "tp": 383,
+            "fp": 30,
+            "fn": 16,
+            "precision": 0.927360774818402,
+            "recall": 0.9598997493734336
+          },
+          "combined_class": {
+            "tp": 360,
+            "fp": 53,
+            "fn": 39,
+            "precision": 0.8716707021791767,
+            "recall": 0.9022556390977443
+          }
+        },
+        "left": {
+          "images": 28,
+          "ground_truth_boxes": 232,
+          "predicted_boxes": 235,
+          "count_mae": 1.0357142857142858,
+          "count_bias_predicted_minus_ground_truth": 0.10714285714285714,
+          "exact_count_images": 10,
+          "exact_count_fraction": 0.35714285714285715,
+          "under_count_images": 9,
+          "over_count_images": 9,
+          "spatial": {
+            "tp": 211,
+            "fp": 24,
+            "fn": 21,
+            "precision": 0.8978723404255319,
+            "recall": 0.9094827586206896
+          },
+          "combined_class": {
+            "tp": 199,
+            "fp": 36,
+            "fn": 33,
+            "precision": 0.8468085106382979,
+            "recall": 0.8577586206896551
+          }
+        },
+        "right": {
+          "images": 39,
+          "ground_truth_boxes": 338,
+          "predicted_boxes": 319,
+          "count_mae": 0.8461538461538461,
+          "count_bias_predicted_minus_ground_truth": -0.48717948717948717,
+          "exact_count_images": 16,
+          "exact_count_fraction": 0.41025641025641024,
+          "under_count_images": 16,
+          "over_count_images": 7,
+          "spatial": {
+            "tp": 303,
+            "fp": 16,
+            "fn": 35,
+            "precision": 0.9498432601880877,
+            "recall": 0.8964497041420119
+          },
+          "combined_class": {
+            "tp": 276,
+            "fp": 43,
+            "fn": 62,
+            "precision": 0.8652037617554859,
+            "recall": 0.8165680473372781
+          }
+        },
+        "top": {
+          "images": 30,
+          "ground_truth_boxes": 283,
+          "predicted_boxes": 265,
+          "count_mae": 1.0666666666666667,
+          "count_bias_predicted_minus_ground_truth": -0.6,
+          "exact_count_images": 13,
+          "exact_count_fraction": 0.43333333333333335,
+          "under_count_images": 11,
+          "over_count_images": 6,
+          "spatial": {
+            "tp": 250,
+            "fp": 15,
+            "fn": 33,
+            "precision": 0.9433962264150944,
+            "recall": 0.8833922261484098
+          },
+          "combined_class": {
+            "tp": 222,
+            "fp": 43,
+            "fn": 61,
+            "precision": 0.8377358490566038,
+            "recall": 0.784452296819788
+          }
+        }
+      },
+      "by_group": {
+        "cardaba_6": {
+          "images": 46,
+          "ground_truth_boxes": 393,
+          "predicted_boxes": 406,
+          "count_mae": 0.9347826086956522,
+          "count_bias_predicted_minus_ground_truth": 0.2826086956521739,
+          "exact_count_images": 21,
+          "exact_count_fraction": 0.45652173913043476,
+          "under_count_images": 10,
+          "over_count_images": 15,
+          "spatial": {
+            "tp": 366,
+            "fp": 40,
+            "fn": 27,
+            "precision": 0.9014778325123153,
+            "recall": 0.9312977099236641
+          },
+          "combined_class": {
+            "tp": 316,
+            "fp": 90,
+            "fn": 77,
+            "precision": 0.7783251231527094,
+            "recall": 0.8040712468193384
+          }
+        },
+        "lakatan_2": {
+          "images": 55,
+          "ground_truth_boxes": 562,
+          "predicted_boxes": 531,
+          "count_mae": 1.0363636363636364,
+          "count_bias_predicted_minus_ground_truth": -0.5636363636363636,
+          "exact_count_images": 20,
+          "exact_count_fraction": 0.36363636363636365,
+          "under_count_images": 25,
+          "over_count_images": 10,
+          "spatial": {
+            "tp": 503,
+            "fp": 28,
+            "fn": 59,
+            "precision": 0.9472693032015066,
+            "recall": 0.895017793594306
+          },
+          "combined_class": {
+            "tp": 476,
+            "fp": 55,
+            "fn": 86,
+            "precision": 0.896421845574388,
+            "recall": 0.8469750889679716
+          }
+        },
+        "latundan_5": {
+          "images": 36,
+          "ground_truth_boxes": 297,
+          "predicted_boxes": 295,
+          "count_mae": 0.6666666666666666,
+          "count_bias_predicted_minus_ground_truth": -0.05555555555555555,
+          "exact_count_images": 19,
+          "exact_count_fraction": 0.5277777777777778,
+          "under_count_images": 9,
+          "over_count_images": 8,
+          "spatial": {
+            "tp": 278,
+            "fp": 17,
+            "fn": 19,
+            "precision": 0.9423728813559322,
+            "recall": 0.936026936026936
+          },
+          "combined_class": {
+            "tp": 265,
+            "fp": 30,
+            "fn": 32,
+            "precision": 0.8983050847457628,
+            "recall": 0.8922558922558923
+          }
+        }
+      },
+      "per_class_combined": {
+        "cardaba_overripe": {
+          "class_id": 0,
+          "ground_truth_boxes": 79,
+          "predicted_boxes": 69,
+          "tp": 59,
+          "fp": 10,
+          "fn": 20,
+          "precision": 0.855072463768116,
+          "recall": 0.7468354430379747
+        },
+        "cardaba_ripe": {
+          "class_id": 1,
+          "ground_truth_boxes": 77,
+          "predicted_boxes": 121,
+          "tp": 74,
+          "fp": 47,
+          "fn": 3,
+          "precision": 0.6115702479338843,
+          "recall": 0.961038961038961
+        },
+        "cardaba_semi_ripe": {
+          "class_id": 2,
+          "ground_truth_boxes": 91,
+          "predicted_boxes": 76,
+          "tp": 55,
+          "fp": 21,
+          "fn": 36,
+          "precision": 0.7236842105263158,
+          "recall": 0.6043956043956044
+        },
+        "cardaba_unripe": {
+          "class_id": 3,
+          "ground_truth_boxes": 146,
+          "predicted_boxes": 140,
+          "tp": 128,
+          "fp": 12,
+          "fn": 18,
+          "precision": 0.9142857142857143,
+          "recall": 0.8767123287671232
+        },
+        "lakatan_overripe": {
+          "class_id": 4,
+          "ground_truth_boxes": 92,
+          "predicted_boxes": 96,
+          "tp": 87,
+          "fp": 9,
+          "fn": 5,
+          "precision": 0.90625,
+          "recall": 0.9456521739130435
+        },
+        "lakatan_ripe": {
+          "class_id": 5,
+          "ground_truth_boxes": 165,
+          "predicted_boxes": 163,
+          "tp": 145,
+          "fp": 18,
+          "fn": 20,
+          "precision": 0.8895705521472392,
+          "recall": 0.8787878787878788
+        },
+        "lakatan_semi_ripe": {
+          "class_id": 6,
+          "ground_truth_boxes": 97,
+          "predicted_boxes": 88,
+          "tp": 72,
+          "fp": 16,
+          "fn": 25,
+          "precision": 0.8181818181818182,
+          "recall": 0.7422680412371134
+        },
+        "lakatan_unripe": {
+          "class_id": 7,
+          "ground_truth_boxes": 208,
+          "predicted_boxes": 184,
+          "tp": 172,
+          "fp": 12,
+          "fn": 36,
+          "precision": 0.9347826086956522,
+          "recall": 0.8269230769230769
+        },
+        "latundan_overripe": {
+          "class_id": 8,
+          "ground_truth_boxes": 81,
+          "predicted_boxes": 76,
+          "tp": 68,
+          "fp": 8,
+          "fn": 13,
+          "precision": 0.8947368421052632,
+          "recall": 0.8395061728395061
+        },
+        "latundan_ripe": {
+          "class_id": 9,
+          "ground_truth_boxes": 99,
+          "predicted_boxes": 98,
+          "tp": 85,
+          "fp": 13,
+          "fn": 14,
+          "precision": 0.8673469387755102,
+          "recall": 0.8585858585858586
+        },
+        "latundan_semi_ripe": {
+          "class_id": 10,
+          "ground_truth_boxes": 19,
+          "predicted_boxes": 22,
+          "tp": 17,
+          "fp": 5,
+          "fn": 2,
+          "precision": 0.7727272727272727,
+          "recall": 0.8947368421052632
+        },
+        "latundan_unripe": {
+          "class_id": 11,
+          "ground_truth_boxes": 98,
+          "predicted_boxes": 99,
+          "tp": 95,
+          "fp": 4,
+          "fn": 3,
+          "precision": 0.9595959595959596,
+          "recall": 0.9693877551020408
+        }
+      }
+    }
+  },
+  "per_image_count_error_change_candidate_vs_existing": {
+    "improved": 31,
+    "worsened": 32,
+    "unchanged": 74
+  },
+  "source_reports": {
+    "baseline-yolo26-valid-iou0.45.json": {
+      "sha256": "cfb4395e1e9de073745621108bc742c568a61220071d5c946685e32811c823ae",
+      "created_utc": "2026-10-16T20:58:17.440650+00:00",
+      "split": "valid"
+    },
+    "baseline-yolo26-test-iou0.45.json": {
+      "sha256": "3e400f00c9bc2e86f4e4a3c612a36d8752f2d281836415c0a02f9e73fe19b22b",
+      "created_utc": "2026-10-16T20:58:40.533847+00:00",
+      "split": "test"
+    },
+    "candidate-v8n-valid-iou0.45.json": {
+      "sha256": "4a3a84cea21e03e9f1c36c74ff6820f801c14f3a04db34ea9263e27c734085ba",
+      "created_utc": "2026-10-16T20:57:49.124601+00:00",
+      "split": "valid"
+    },
+    "candidate-v8n-valid-iou0.65.json": {
+      "sha256": "5f5d19318621b5c36d890b844632c3f8825ece99dc0e449a94e51a5474b10c80",
+      "created_utc": "2026-10-16T20:58:01.425406+00:00",
+      "split": "valid"
+    },
+    "candidate-v8n-test-iou0.45.json": {
+      "sha256": "817c754654e79c7b2cb50491447b6c3cc63abae04fdcb2667dabd1ef189d0d18",
+      "created_utc": "2026-10-16T20:58:53.159442+00:00",
+      "split": "test"
+    }
+  },
+  "verification": {
+    "checkpoint_and_manifest_hashes_match": true,
+    "heldout_image_and_label_hashes_match": true,
+    "saved_prediction_metric_recomputation": "overall, per-view, per-group, dominant-class and all12 combined-class metrics matched",
+    "same_test_configuration_matching_class_order_and_inputs": true,
+    "calibration_frozen_before_test": true,
+    "comparison_review_used_saved_predictions_without_test_rerun_or_tuning": true
+  },
+  "limitations": [
+    "The existing baseline may have seen related dataset images in its original training; this is not proven to be a fair unseen-data comparison.",
+    "Filename-derived physical bunch grouping is uncertain.",
+    "Prepared plain-background images do not establish station-scene accuracy.",
+    "Per-image visible-instance count is not unique physical-finger count across four cameras."
+  ],
+  "next_step": "Use a manually supplied offline copy of original four-camera test photos, known cultivar/ripeness and physical bunch totals, plus visible-finger labels per view. Keep physical bunch identities together and reserve untouched test bunches.",
+  "additional_application_runtime_smoke": {
+    "report": "D:\\BananaVision-Training\\v13-yolov8-20261016\\candidate-app-runtime-smoke.json",
+    "report_sha256": "1d00cfe48ec05ba9c6b072b95eb28a3e57d60fbc7f39ad2c73048d3bab30d09e",
+    "success": true,
+    "input_split": "valid",
+    "images": 4,
+    "versions": {
+      "ultralytics": "8.4.40",
+      "torch": "2.11.0",
+      "torchvision": "0.26.0"
+    },
+    "prediction_counts_by_view": {
+      "top": 13,
+      "left": 10,
+      "right": 8,
+      "back": 11
+    },
+    "counts_match_saved_candidate_validation_predictions": true,
+    "isolation": "Existing app Python interpreter, fresh cwd/config, CPU only, no app imports or station inputs/settings changes.",
+    "limitation": "Verifies checkpoint loading/inference compatibility; not live accuracy or physical-bunch counting."
+  },
+  "visual_validation_review": {
+    "html": "D:\\BananaVision-Training\\v13-yolov8-20261016\\visual_comparison.html",
+    "manifest": "D:\\BananaVision-Training\\v13-yolov8-20261016\\visual-comparison-manifest.json",
+    "images": 137,
+    "input_split": "valid",
+    "source": "Frozen existing/candidate prediction reports; no new inference for HTML.",
+    "description": "All validation images, same photo shown with both models, filters for view/variety/count-error outcome, detection labels/confidence and annotation overlays.",
+    "browser_verification": {
+      "browser": "Microsoft Edge headless, isolated temporary profile",
+      "status": "pass",
+      "checks": 68,
+      "javascript_errors": [],
+      "report": "D:\\BananaVision-Training\\v13-yolov8-20261016\\visual_comparison.smoke-result.json",
+      "source_audit": "D:\\BananaVision-Training\\v13-yolov8-20261016\\visual_comparison.source-audit.json",
+      "screenshot": "D:\\BananaVision-Training\\v13-yolov8-20261016\\visual_comparison.smoke.png",
+      "coverage": "All137 input/prediction rows checked against source. Browser covers rendering, navigation/end boundaries, individual filters, all36 combined filter selections, count/miss/label displays and overlay pixel changes."
+    }
+  }
+}

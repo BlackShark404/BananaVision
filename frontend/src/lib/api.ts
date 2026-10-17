@@ -8,7 +8,7 @@ import { getToken, clearAuth } from "@/lib/auth"
 import type { DashboardScanPage, DashboardScanParams, DashboardSummary } from "@/types/dashboard"
 import type { ScanLogPage, ScanLogParams } from "@/types/scanLogs"
 import type { ApiScan, ApiScanNote, RecordPage } from "@/lib/scanData"
-import type { KioskDemoResponse, LabelPreview, PrintJob } from "@/types/printing"
+import type { LabelPreview, PrintJob } from "@/types/printing"
 import type { CameraDiscovery } from "@/types/cameras"
 import type { InventoryStatus, IntakeStatus } from "@/types"
 import type { AnalyticsRange, AnalyticsSummary, AnalyticsOperator } from "@/types/analytics"
@@ -184,8 +184,6 @@ export const api = {
 
   // ── Scans ────────────────────────────────────────────────────────────────
   scans: {
-    kioskDemo: (id: string, requestId: string) =>
-      post<KioskDemoResponse>(`/api/v1/scans/${id}/kiosk-demo`, { request_id: requestId }),
     label: (id: string) => get<LabelPreview>(`/api/v1/scans/${id}/label`),
     print: (id: string, data: { request_id: string; quantity: number }) =>
       post<PrintJob>(`/api/v1/scans/${id}/print`, data),
