@@ -587,7 +587,7 @@ export default function Kiosk() {
                   </p>
                 )}
 
-                {/* Metrics Grid */}
+                {/* Metrics Grid — Primary */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-primary/10 rounded-xl p-3 text-center border border-primary/20">
                     <Banana className="w-5 h-5 text-primary mx-auto mb-1" />
@@ -607,33 +607,56 @@ export default function Kiosk() {
                       {cultivarConflict ? "—" : <>{lastResult.spoilageDays} <span className="text-xs text-muted-foreground">days</span></>}
                     </p>
                   </div>
-                  <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                    <Hand className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider" title="Estimated finger count; confirm the physical total before accepting.">Est. Fingers</p>
-                    <p className="text-lg font-bold">{lastResult.fingerCount}</p>
-                  </div>
-                  {lastResult.temperature !== undefined && (
-                    <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                      <p className="text-xl mx-auto mb-1">🌡️</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Temp</p>
-                      <p className="text-lg font-bold">{lastResult.temperature}°C</p>
-                    </div>
-                  )}
-                  {lastResult.humidity !== undefined && (
-                    <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                      <p className="text-xl mx-auto mb-1">💧</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Humidity</p>
-                      <p className="text-lg font-bold">{lastResult.humidity}%</p>
-                    </div>
-                  )}
-                  {lastResult.vpd !== undefined && lastResult.vpd !== null && (
-                    <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                      <p className="text-xl mx-auto mb-1">💨</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">VPD</p>
-                      <p className="text-lg font-bold">{lastResult.vpd} kPa</p>
-                    </div>
-                  )}
                 </div>
+
+                {/* Metrics Grid — Environment (evenly distributed) */}
+                {(() => {
+                  const envCards: React.ReactNode[] = []
+                  envCards.push(
+                    <div key="fingers" className="bg-muted/50 rounded-xl p-3 text-center border border-border">
+                      <Hand className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider" title="Estimated finger count; confirm the physical total before accepting.">Est. Fingers</p>
+                      <p className="text-lg font-bold">{lastResult.fingerCount}</p>
+                    </div>
+                  )
+                  if (lastResult.temperature !== undefined) {
+                    envCards.push(
+                      <div key="temp" className="bg-muted/50 rounded-xl p-3 text-center border border-border">
+                        <p className="text-xl mx-auto mb-1">🌡️</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Temp</p>
+                        <p className="text-lg font-bold">{lastResult.temperature}°C</p>
+                      </div>
+                    )
+                  }
+                  if (lastResult.humidity !== undefined) {
+                    envCards.push(
+                      <div key="humidity" className="bg-muted/50 rounded-xl p-3 text-center border border-border">
+                        <p className="text-xl mx-auto mb-1">💧</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Humidity</p>
+                        <p className="text-lg font-bold">{lastResult.humidity}%</p>
+                      </div>
+                    )
+                  }
+                  if (lastResult.vpd !== undefined && lastResult.vpd !== null) {
+                    envCards.push(
+                      <div key="vpd" className="bg-muted/50 rounded-xl p-3 text-center border border-border">
+                        <p className="text-xl mx-auto mb-1">💨</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">VPD</p>
+                        <p className="text-lg font-bold">{lastResult.vpd} kPa</p>
+                      </div>
+                    )
+                  }
+                  // Choose column count to evenly fill: use the card count itself (up to 4)
+                  const cols = envCards.length <= 4 ? envCards.length : 4
+                  return (
+                    <div
+                      className="grid gap-3"
+                      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+                    >
+                      {envCards}
+                    </div>
+                  )
+                })()}
 
                 {/* Detection Images with Bounding Boxes */}
                 {lastResult.detections && lastResult.detections.length > 0 && lastResult.images && lastResult.images.length > 0 && (
