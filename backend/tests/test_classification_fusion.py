@@ -246,3 +246,98 @@ def test_invalid_camera_confidence_cannot_establish_a_prediction(confidence):
     assert result.confidence == 0
     assert result.auto_flagged is True
 
+
+def _make_det(x: float, y: float, w: float = 20.0, h: float = 80.0, conf: float = 0.90) -> Detection:
+    return Detection(x=x, y=y, w=w, h=h, cls="latundan_ripe", confidence=conf)
+
+
+def test_multi_camera_spatial_complementarity_recovers_nineteen_fingers():
+    """
+    Simulates the verified physical 19-finger bunch:
+      - Top: 10 fingers visible in the main outer tier
+      - Left: 13 detections total, 3 in outer left margin (rel_x <= 0.35)
+      - Right: 13 detections total, 3 in outer right margin (rel_x >= 0.65)
+      - Rear: 6 detections total, 3 in inner concavity underside (rel_y >= 0.55)
+    Total fused count must be 10 + 3 + 3 + 3 = 19 fingers.
+    """
+    # Top view: 10 fingers across the center (span x: 100 to 500)
+    top_dets = [_make_det(x=100 + i * 40, y=200) for i in range(10)]
+    top_res = ClassificationResult(
+        cultivar="Latundan", ripeness="Ripe", confidence=90,
+        finger_count=10, detections=top_dets,
+    )
+
+    # Left view: 3 in outer left flank + 10 central
+    left_dets = (
+        [_make_det(x=50 + i * 40, y=200) for i in range(3)]
+        + [_make_det(x=250 + i * 25, y=200) for i in range(10)]
+    )
+    left_res = ClassificationResult(
+        cultivar="Latundan", ripeness="Ripe", confidence=90,
+        finger_count=13, detections=left_dets,
+    )
+
+    # Right view: 10 central + 3 in outer right flank
+    right_dets = (
+        [_make_det(x=100 + i * 25, y=200) for i in range(10)]
+        + [_make_det(x=400 + i * 40, y=200) for i in range(3)]
+    )
+    right_res = ClassificationResult(
+        cultivar="Latundan", ripeness="Ripe", confidence=90,
+        finger_count=13, detections=right_dets,
+    )
+
+    # Rear view: 3 in upper band + 3 in inner concavity underside (rel_y >= 0.55)
+    rear_dets = (
+        [_make_det(x=200 + i * 50, y=120) for i in range(3)]
+        + [_make_det(x=200 + i * 50, y=350) for i in range(3)]
+    )
+    rear_res = ClassificationResult(
+        cultivar="Latundan", ripeness="Ripe", confidence=90,
+        finger_count=6, detections=rear_dets,
+    )
+
+    fused = FusionEngine().fuse([
+        ("CAM-001", "Top", top_res),
+        ("CAM-002", "Left", left_res),
+        ("CAM-003", "Right", right_res),
+        ("CAM-004", "Rear", rear_res),
+    ])
+
+    assert fused.finger_count == 19
+    assert fused.cultivar == "Latundan"
+    assert fused.ripeness == "Ripe"
+
+
+def test_multi_camera_finger_fusion_respects_disabled_setting(monkeypatch):
+    from app.config import get_settings
+    monkeypatch.setattr(get_settings(), "multi_camera_finger_fusion", False)
+
+    top_dets = [_make_det(x=100 + i * 40, y=200) for i in range(10)]
+    top_res = ClassificationResult(
+        cultivar="Latundan", ripeness="Ripe", confidence=90,
+        finger_count=10, detections=top_dets,
+    )
+    left_dets = [_make_det(x=50 + i * 40, y=200) for i in range(3)] + [_make_det(x=250 + i * 25, y=200) for i in range(10)]
+    left_res = ClassificationResult(
+        cultivar="Latundan", ripeness="Ripe", confidence=90,
+        finger_count=13, detections=left_dets,
+    )
+
+    fused = FusionEngine().fuse([
+        ("CAM-001", "Top", top_res),
+        ("CAM-002", "Left", left_res),
+    ])
+    # When disabled, falls back to max(finger_counts) = 13
+    assert fused.finger_count == 13
+
+
+def test_multi_camera_finger_fusion_single_top_view():
+    top_dets = [_make_det(x=100 + i * 40, y=200) for i in range(10)]
+    top_res = ClassificationResult(
+        cultivar="Latundan", ripeness="Ripe", confidence=90,
+        finger_count=10, detections=top_dets,
+    )
+    fused = FusionEngine().fuse([("CAM-001", "Top", top_res)], expected_camera_count=1)
+    assert fused.finger_count == 10
+

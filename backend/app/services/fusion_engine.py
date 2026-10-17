@@ -11,7 +11,8 @@ import logging
 import math
 from dataclasses import dataclass, field
 
-from app.services.classification import VOTE_CONFLICT_THRESHOLD, ClassificationResult
+from app.config import get_settings
+from app.services.classification import VOTE_CONFLICT_THRESHOLD, ClassificationResult, Detection
 
 logger = logging.getLogger(__name__)
 
@@ -153,8 +154,8 @@ class FusionEngine:
             round(sum(winning_confs) / len(winning_confs), 1) if winning_confs else 0.0
         )
 
-        # Finger count = max across cameras (most complete view)
-        final_fingers = max(finger_counts) if finger_counts else 0
+        # Multi-camera spatial complementarity finger count
+        final_fingers = self._fuse_finger_counts(results, finger_counts)
 
         expected = expected_camera_count if expected_camera_count is not None else len(per_camera)
         supporting_views = len(pair_cameras.get(winning_pair, set()))
@@ -194,6 +195,97 @@ class FusionEngine:
             return True
         winner_ratio = weights.get(winner, 0) / total
         return winner_ratio < self.CONFLICT_THRESHOLD
+
+    def _fuse_finger_counts(
+        self,
+        results: list[tuple[str, str, ClassificationResult]],
+        finger_counts: list[int],
+    ) -> int:
+        """
+        Multi-camera spatial complementarity fusion for finger counting.
+
+        Anchors on the Top camera view (primary visible tier) and identifies
+        novel non-overlapping detections from peripheral/inner cameras:
+          - Left: lateral outer flank detections (rel_x <= 0.35)
+          - Right: lateral outer flank detections (rel_x >= 0.65)
+          - Rear: inner concave / underside tier detections (rel_y >= 0.55)
+
+        Guards:
+          - Always bounded between max(finger_counts) and sum(finger_counts).
+          - Falls back to max(finger_counts) if disabled, uncalibrated, or single-camera.
+        """
+        if not finger_counts:
+            return 0
+        baseline_max = max(finger_counts)
+        settings = get_settings()
+        if not getattr(settings, "multi_camera_finger_fusion", True):
+            return baseline_max
+
+        # Map results by normalized camera label
+        views_by_label: dict[str, ClassificationResult] = {}
+        seen_ids: set[str] = set()
+        for camera_id, camera_label, res in results:
+            if camera_id in seen_ids:
+                continue
+            seen_ids.add(camera_id)
+            norm_label = (camera_label or "").strip().casefold()
+            if norm_label and norm_label not in views_by_label:
+                views_by_label[norm_label] = res
+
+        # Anchor view is Top
+        top_res = views_by_label.get("top")
+        if not top_res or top_res.finger_count <= 0:
+            return baseline_max
+
+        top_count = top_res.finger_count
+
+        # Extract novel peripheral detections from side and rear cameras
+        novel_left = self._extract_novel_peripheral(views_by_label.get("left"), "left")
+        novel_right = self._extract_novel_peripheral(views_by_label.get("right"), "right")
+        novel_rear = self._extract_novel_peripheral(views_by_label.get("rear"), "rear")
+
+        fused_estimate = top_count + novel_left + novel_right + novel_rear
+
+        # Bound strictly between max(per_view) and sum(per_view)
+        total_boxes = sum(finger_counts)
+        return max(baseline_max, min(fused_estimate, total_boxes))
+
+    def _extract_novel_peripheral(
+        self,
+        view_res: ClassificationResult | None,
+        view_type: str,
+    ) -> int:
+        """Extract novel detections from a peripheral/concavity camera view."""
+        if not view_res or not view_res.detections:
+            return 0
+
+        dets = view_res.detections
+        # Ignore views with very few detections (under-detected or small cluster)
+        if len(dets) < 4 and view_type != "rear":
+            return 0
+        if len(dets) < 3 and view_type == "rear":
+            return 0
+
+        xs = [d.x for d in dets] + [d.x + d.w for d in dets]
+        ys = [d.y for d in dets] + [d.y + d.h for d in dets]
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+        span_x = max_x - min_x
+        span_y = max_y - min_y
+
+        novel = 0
+        if view_type == "left" and span_x > 0:
+            # Outer left flank of the banana hand
+            novel = sum(1 for d in dets if ((d.x + d.w / 2) - min_x) / span_x <= 0.35)
+        elif view_type == "right" and span_x > 0:
+            # Outer right flank of the banana hand
+            novel = sum(1 for d in dets if ((d.x + d.w / 2) - min_x) / span_x >= 0.65)
+        elif view_type == "rear" and span_y > 0:
+            # Inner concave underside tier
+            novel = sum(1 for d in dets if ((d.y + d.h / 2) - min_y) / span_y >= 0.55)
+
+        # Cap novel additions per view to prevent extreme outliers
+        return min(novel, 6)
 
 
 # Singleton instance

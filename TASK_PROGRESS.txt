@@ -1,35 +1,37 @@
-CURRENT RESUME HERE (2026-10-17) - TOP 180 ROTATION FALLBACK IMPLEMENTED & VERIFIED
+CURRENT RESUME HERE (2026-10-17) - MULTI-CAMERA SPATIAL COMPLEMENTARITY FINGER FUSION IMPLEMENTED & VERIFIED
 Branch main. No staging, commits, pushes, deployment or station restart.
 Previous checkpoint: docs/history/2026-10-17-before-reported-top-retest.txt.
 
 USER INTENT / CONSTRAINTS
-- Improve Top detection: user reports roughly10 visible fingers but only4/5 boxes.
-  Rear is better; preserve working views, UI, architecture and explicit reverts.
-- User approved plan: top_rotation_fallback_plan.md.
-- Guard conditions: only normalized Top, verified checkpoint SHA, 640 input, conf 0.50,
-  base IoU 0.45, and yolo_top_rotation_fallback enabled.
-- No tests against live station DB/captures/cameras/printer/OS power; no secrets/.env
-  reads, model replacement or app dependency edits. Preserve unrelated BananaVision/.
+- User reports banana hand physically contains 19 fingers; Top view detects 10, Left sees 10+3,
+  Right sees +3, Rear sees 3-4, totaling 35 bounding boxes across 4 cameras, but Est. Fingers
+  showed 10 due to naive max(finger_counts) fusion logic.
+- Inaccurate counts threaten inventory integrity (intake, batching, tracking loss).
+- Requirement: mathematically and geometrically defensible multi-camera fusion suitable for
+  thesis/defense panel scrutiny without arbitrary heuristics.
+- Guard conditions: bounded between max(per_view) and sum(per_view); safe fallback if disabled,
+  uncalibrated, or single-camera; preserve working views, UI, architecture and explicit reverts.
+- No tests against live station DB/captures/cameras/printer/OS power; no secrets/.env reads.
 
 IMPLEMENTED / EXACT NEXT STEP
-- config.py adds YOLO_TOP_ROTATION_FALLBACK, default true; false disables fallback.
-- classification.py implements guarded two-pass inference for calibrated Top views:
-  Pass 1 runs normal inference (with overlap refinement if enabled).
-  Pass 2 runs inference on 180-degree-rotated frame (image[::-1, ::-1].copy()).
-  Remaps rotated coordinates back: (W - rx2, H - ry2, W - rx1, H - ry1).
-  Deduplicates against pass-1 detections with TOP_ROTATION_DEDUP_IOU = 0.40.
-  Appends non-overlapping candidates to detections and updates voting consensus.
-- test_top_view_inference.py expanded to 34 tests (+14 new tests for rotation fallback):
-  Tests recovery of novel non-overlapping fingers.
-  Tests deduplication and suppression of overlapping fingers.
-  Tests guard conditions preventing second pass on non-Top views / uncalibrated profiles.
-  Tests environment variable override (YOLO_TOP_ROTATION_FALLBACK).
-  Tests coordinate remapping geometry inversion math.
-- Verification: 34/34 tests PASS in test_top_view_inference.py.
-  Targeted backend suite: 76/76 PASS across test_top_view_inference, test_scan_trigger, test_time_and_writes.
-  Frontend typecheck & production build: PASS. Targeted frontend unit tests: 4/4 PASS.
+- config.py: adds MULTI_CAMERA_FINGER_FUSION setting (default True).
+- fusion_engine.py: implements multi-camera spatial complementarity finger count fusion:
+  * Anchors base count on Top camera view (primary visible tier).
+  * Extracts novel peripheral fingers from Left camera (lateral outer flank rel_x <= 0.35).
+  * Extracts novel peripheral fingers from Right camera (lateral outer flank rel_x >= 0.65).
+  * Extracts novel underside/inner tier fingers from Rear camera (concavity rel_y >= 0.55).
+  * Strictly bounds fused count: max(finger_counts) <= N_fused <= sum(finger_counts).
+  * Seamless fallback to max(finger_counts) if Top is missing or fusion setting disabled.
+- test_classification_fusion.py: added 3 new comprehensive tests:
+  * test_multi_camera_spatial_complementarity_recovers_nineteen_fingers: simulates 19 physical fingers
+    (10 Top + 3 Left outer + 3 Right outer + 3 Rear underside) -> asserts exact fused count 19.
+  * test_multi_camera_finger_fusion_respects_disabled_setting: verifies fallback to max(finger_counts).
+  * test_multi_camera_finger_fusion_single_top_view: verifies single-camera compatibility.
+- Verification: 32/32 tests PASS in test_classification_fusion.py.
+  Targeted backend suite: 123/123 PASS across fusion, top inference, sensitivity, trigger, and writes.
+  Frontend production build & TypeScript typecheck: PASS (7.30s).
   git diff --check: clean (0 issues).
-- NEXT: Present verified implementation to the user. Await live test or operator feedback.
+- NEXT: Present verified implementation to the user and await live scan test.
 
 VALIDATION EVIDENCE / LIMITS
 - All31 preparedVALID Top photos/293 labels;640/conf.50/class-aware NMS; matchingIoU>=.50.

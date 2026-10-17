@@ -73,6 +73,7 @@ class Settings(BaseSettings):
     yolo_iou_threshold: float = 0.45
     yolo_top_overlap_refinement: bool = True
     yolo_top_rotation_fallback: bool = True
+    multi_camera_finger_fusion: bool = True
     rfr_model_path: str = "app/ml/weights/spoilage_rfr.joblib"
 
     # ── Storage ──────────────────────────────────────────────────────────────
