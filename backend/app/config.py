@@ -76,7 +76,7 @@ class Settings(BaseSettings):
     sensor_read_interval_s: int = 5
 
     # ── ML Models ────────────────────────────────────────────────────────────
-    yolo_model_path: str = "app/ml/weights/banana_yolo26m.pt"
+    yolo_model_path: str = "app/ml/weights/banana_yolov26n.pt"
     yolo_confidence_threshold: float = Field(0.50, gt=0, le=1)
     yolo_iou_threshold: float = 0.45
     yolo_top_overlap_refinement: bool = True

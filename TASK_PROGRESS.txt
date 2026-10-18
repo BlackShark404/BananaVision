@@ -1,3 +1,20 @@
+FOLLOW-UP (2026-10-18) - YOLOV26 MODEL SELECTION, ROTATION FALLBACK & BOUNDING BOX RESTORATION
+- Diagnosed regression in bounding box detection and cultivar identification reported by user:
+  * Checkpoint benchmark across all 5 placements in D:\BananaVision-Training\station-cultivar-test
+    revealed banana_yolov26s.pt (1024px, batch 8) had low recall at 0.50 threshold (0 boxes on Left,
+    2-3 on Top, false Latundan on Right), causing 2v2 cultivar split and triggering kiosk "Uncertain".
+  * banana_yolov26n.pt (800px, batch 23) correctly identifies 100% Lakatan across all 5 placements and
+    cameras with high confidence (up to 90%).
+- Updated backend/.env and app/config.py to use banana_yolov26n.pt as primary weights.
+- Updated classification.py to support calibrated Top overlap refinement and 180° rotation fallback
+  for YOLOv26 checkpoints (TOP_CALIBRATED_CHECKPOINTS), recovering curved opposing fingers on Top view
+  (Top detections improved from 2 to 9-10 fingers).
+- Tuned frontend BoundingBoxOverlay.tsx deduplicateDisplayBoxes threshold (iou >= 0.80, containment >= 0.88)
+  to suppress genuine coincident ghost duplicates without erasing distinct clustered fingers.
+- Verification: 112 passed in targeted backend suite; full backend 477 passed, 38 skipped;
+  tsc -b && vite build passed; scanpages.test.mjs 12/12 passed; verified all 5 offline test placements.
+- No live station database, captures, physical cameras, or unauthorized Git writes.
+
 FOLLOW-UP (2026-10-18) - CAMERA RESOLUTION NEGOTIATION AND PER-DEVICE CONFIGURATION
 - Fixed camera initialization: removed flawed unconfigured mode probe that defaulted
   OpenCV VideoCapture to 640x480; replaced with active candidate mode negotiation and

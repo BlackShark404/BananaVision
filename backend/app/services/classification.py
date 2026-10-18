@@ -26,6 +26,11 @@ VOTE_CONFLICT_THRESHOLD = 0.60
 TOP_OVERLAP_CHECKPOINT_SHA256 = (
     "e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89"
 )
+TOP_CALIBRATED_CHECKPOINTS: dict[str, int] = {
+    TOP_OVERLAP_CHECKPOINT_SHA256: 640,
+    "96808fa8ed706909237197e8db2510dccabfaeceed85a4d1ab5182cd28c95f7b": 800,   # banana_yolov26n.pt
+    "57ae6c0fe5bfe067f50cd8722823168e630fa99d35bc7905cc6a7010c02aaa41": 1024,  # banana_yolov26s.pt
+}
 TOP_OVERLAP_CONFIDENCE = 0.50
 TOP_OVERLAP_BASE_IOU = 0.45
 TOP_OVERLAP_IOU = 0.65
@@ -302,10 +307,11 @@ class BananaClassifier:
             raise ValueError("Confidence threshold must be in (0, 1]")
 
         iou_threshold = settings.yolo_iou_threshold
+        expected_imgsz = TOP_CALIBRATED_CHECKPOINTS.get(self._checkpoint_sha256 or "")
         is_calibrated_top = (
             (camera_label or "").strip().casefold() == "top"
-            and self._checkpoint_sha256 == TOP_OVERLAP_CHECKPOINT_SHA256
-            and self._image_size == 640
+            and expected_imgsz is not None
+            and self._image_size == expected_imgsz
             and confidence_threshold == TOP_OVERLAP_CONFIDENCE
             and iou_threshold == TOP_OVERLAP_BASE_IOU
         )

@@ -94,7 +94,9 @@ function deduplicateDisplayBoxes(boxes: BoundingBox[]): BoundingBox[] {
         ? interArea / Math.min(boxArea, existArea)
         : 0
 
-      return iou >= 0.65 || containment >= 0.75
+      // Only suppress genuine ghost/coincident duplicate boxes on the same finger,
+      // preserving distinct adjacent or overlapping fingers in a dense banana bunch.
+      return iou >= 0.80 || containment >= 0.88
     })
 
     if (!isDuplicate) {
