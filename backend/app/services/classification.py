@@ -26,6 +26,11 @@ VOTE_CONFLICT_THRESHOLD = 0.60
 TOP_OVERLAP_CHECKPOINT_SHA256 = (
     "e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89"
 )
+TOP_CALIBRATED_CHECKPOINTS: dict[str, int] = {
+    TOP_OVERLAP_CHECKPOINT_SHA256: 640,
+    "96808fa8ed706909237197e8db2510dccabfaeceed85a4d1ab5182cd28c95f7b": 800,   # banana_yolov26n.pt
+    "57ae6c0fe5bfe067f50cd8722823168e630fa99d35bc7905cc6a7010c02aaa41": 1024,  # banana_yolov26s.pt
+}
 TOP_OVERLAP_CONFIDENCE = 0.50
 TOP_OVERLAP_BASE_IOU = 0.45
 TOP_OVERLAP_IOU = 0.65
@@ -178,6 +183,25 @@ def _is_same_class_sub_box(det: Detection, existing: Detection) -> bool:
     return False
 
 
+def _is_cluster_box(det: Detection, others: list[Detection]) -> bool:
+    """Detect whether det is an encompassing cluster box covering 2+ distinct fingers."""
+    det_area = det.w * det.h
+    if det_area <= 0:
+        return False
+    contained = []
+    for o in others:
+        o_area = o.w * o.h
+        if o_area <= 0:
+            continue
+        if det_area >= 1.6 * o_area and _box_containment(det, o) >= 0.70:
+            contained.append(o)
+    for i in range(len(contained)):
+        for j in range(i + 1, len(contained)):
+            if _box_iou(contained[i], contained[j]) < 0.40:
+                return True
+    return False
+
+
 def _is_duplicate_detection(
     candidate: Detection,
     existing: Detection,
@@ -302,10 +326,11 @@ class BananaClassifier:
             raise ValueError("Confidence threshold must be in (0, 1]")
 
         iou_threshold = settings.yolo_iou_threshold
+        expected_imgsz = TOP_CALIBRATED_CHECKPOINTS.get(self._checkpoint_sha256 or "")
         is_calibrated_top = (
             (camera_label or "").strip().casefold() == "top"
-            and self._checkpoint_sha256 == TOP_OVERLAP_CHECKPOINT_SHA256
-            and self._image_size == 640
+            and expected_imgsz is not None
+            and self._image_size == expected_imgsz
             and confidence_threshold == TOP_OVERLAP_CONFIDENCE
             and iou_threshold == TOP_OVERLAP_BASE_IOU
         )
@@ -349,6 +374,12 @@ class BananaClassifier:
                         x=x1, y=y1, w=x2 - x1, h=y2 - y1,
                         cls=cls_name, confidence=conf,
                     )
+                    # Suppress table lip / saucer edge false positives on Rear view
+                    if (camera_label or "").strip().casefold() == "rear" and image is not None:
+                        img_h = image.shape[0]
+                        if y1 > 0.55 * img_h and (x2 - x1) > 2.0 * (y2 - y1) and conf < 0.60:
+                            continue
+
                     # Suppress same-class nested duplicate boxes or severe IoU duplicates.
                     if any(_is_same_class_sub_box(det, existing) for existing in detections):
                         continue
@@ -418,6 +449,13 @@ class BananaClassifier:
                         if cultivar or ripeness:
                             class_votes.setdefault((cultivar, ripeness), []).append(conf)
             elapsed_ms = (time.time() - start) * 1000
+
+        # Suppress cluster boxes that encompass 2+ distinct individual fingers
+        if len(detections) >= 3:
+            detections = [
+                det for det in detections
+                if not _is_cluster_box(det, [o for o in detections if o != det])
+            ]
 
         # Preserve cultivar consensus, then choose ripeness from that cultivar's
         # actual labels. Independent votes can invent a pair YOLO never detected.

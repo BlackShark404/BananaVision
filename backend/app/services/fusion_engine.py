@@ -43,6 +43,7 @@ class FusedResult:
     camera_count: int
     conflict_detected: bool = False
     auto_flagged: bool = False
+    cultivar_conflict: bool = False
     per_camera: list[CameraDetection] = field(default_factory=list)
 
 
@@ -206,6 +207,7 @@ class FusionEngine:
             camera_count=len(per_camera),
             conflict_detected=conflict_detected,
             auto_flagged=auto_flagged,
+            cultivar_conflict=cultivar_conflict,
             per_camera=per_camera,
         )
 
@@ -319,10 +321,10 @@ class FusionEngine:
         novel = 0
         if view_type == "left" and span_x > 0:
             # Outer left flank of the banana hand
-            novel = sum(1 for d in dets if ((d.x + d.w / 2) - min_x) / span_x <= 0.38)
+            novel = sum(1 for d in dets if ((d.x + d.w / 2) - min_x) / span_x <= 0.42)
         elif view_type == "right" and span_x > 0:
             # Outer right flank of the banana hand
-            novel = sum(1 for d in dets if ((d.x + d.w / 2) - min_x) / span_x >= 0.62)
+            novel = sum(1 for d in dets if ((d.x + d.w / 2) - min_x) / span_x >= 0.58)
         elif view_type == "rear" and span_y > 0:
             # Inner concave underside tier
             novel = sum(1 for d in dets if ((d.y + d.h / 2) - min_y) / span_y >= 0.50)

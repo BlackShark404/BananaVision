@@ -1,4 +1,5 @@
 import { scanRetryAction } from "@/lib/scanWriteFeedback"
+import { ScanImage } from "@/components/ScanImage"
 import { cultivarCameraConflict } from "@/lib/scanData"
 import { useState, useEffect, useCallback } from "react"
 import KioskOperatorSwap from "@/components/KioskOperatorSwap"
@@ -684,7 +685,7 @@ export default function Kiosk() {
                             onClick={() => { setKioskActiveDetImg(idx); setShowDetectionModal(true) }}
                             className="relative rounded-xl overflow-hidden border-2 border-border hover:border-primary/60 transition-all duration-200 cursor-pointer group"
                           >
-                            <img
+                            <ScanImage
                               src={imgUrl}
                               alt={`${img.camera_id} detection`}
                               className="w-full aspect-square object-cover"

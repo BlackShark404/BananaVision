@@ -1,7 +1,9 @@
 CURRENT RESUME HERE (2026-10-18) - VPD VERIFIED; FINALIZATION AND GIT IN PROGRESS
 
 GIT STATE
-- On main, HEAD 9a1bd6d; VPD changes uncommitted. origin/main is 5 commits ahead.
+- On main, VPD commit 930eeaa. Merge of origin/main 3fad216 is in progress.
+- Only conflict was TASK_PROGRESS.txt; retained this current checkpoint and archived the
+  incoming checkpoint. All incoming runtime/model/printer code preserved without edits.
 - Latest user explicitly authorized committing, necessary merge and pushing VPD to main
   after checkpoint completion. No deployment, history rewrite, new branch or worktree.
 - Preserve recent IDE-ignore/model-weight removal and all incoming user changes.
@@ -42,7 +44,7 @@ ACTUAL TEST RESULTS (tested VPD patch before incoming merge)
 - git diff --check PASS. Logs: frontend/node_modules/.tmp/bv-vpd-*.
 
 IN PROGRESS
-- Commit VPD, merge incoming main preserving both changes, then verify merged runtime.
+- Verify merged runtime, complete merge commit and push main after checks.
 
 REMAINING
 - Run isolated full backend/frontend, type/build/lint against merged source because
@@ -55,6 +57,6 @@ CONSTRAINTS
 - Preserve UI, scan/model/printer behavior, API compatibility and Asia/Manila boundaries.
 
 EXACT RESUME
-- Commit reviewed VPD files; merge origin/main 3fad216. Resolve only checkpoint conflict
-  using this current state and archived incoming state. Run merged checks, then publish.
+- Run merged full isolated backend/frontend, type/build/lint and Graphify; record results.
+- Stage resolved checkpoint, complete merge commit, then push normally as authorized.
 - Do not repeat loading audit. Confirm final local/remote main hashes match after push.

@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     camera_labels: list[str] = ["Top", "Left", "Right", "Rear"]
     camera_resolution_w: int = Field(1280, ge=1, le=7680)
     camera_resolution_h: int = Field(720, ge=1, le=4320)
+    camera_resolutions: dict[str, str] = Field(default_factory=dict)
     camera_warmup_frames: int = 30
     camera_capture_timeout_ms: int = 3000
     # None preserves the driver's focus; fixed-focus webcams have no calibrated numeric focus.
@@ -75,7 +76,7 @@ class Settings(BaseSettings):
     sensor_read_interval_s: int = 5
 
     # ── ML Models ────────────────────────────────────────────────────────────
-    yolo_model_path: str = "app/ml/weights/banana_yolo26m.pt"
+    yolo_model_path: str = "app/ml/weights/banana_yolov26n.pt"
     yolo_confidence_threshold: float = Field(0.50, gt=0, le=1)
     yolo_iou_threshold: float = 0.45
     yolo_top_overlap_refinement: bool = True
@@ -117,6 +118,33 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [x.strip() for x in v.split(",")]
         return v
+
+    @field_validator("camera_resolutions", mode="before")
+    @classmethod
+    def parse_camera_resolutions(cls, v: str | dict[str, str] | None) -> dict[str, str]:
+        if not v:
+            return {}
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return {}
+            if v.startswith("{") and v.endswith("}"):
+                try:
+                    import json
+                    parsed = json.loads(v)
+                    if isinstance(parsed, dict):
+                        return {str(k).strip(): str(val).strip() for k, val in parsed.items()}
+                except Exception:
+                    pass
+            result = {}
+            for item in v.split(","):
+                if ":" in item:
+                    k, val = item.split(":", 1)
+                    result[k.strip()] = val.strip()
+            return result
+        if isinstance(v, dict):
+            return {str(k).strip(): str(val).strip() for k, val in v.items()}
+        return {}
 
     @field_validator("camera_device_ids")
     @classmethod
