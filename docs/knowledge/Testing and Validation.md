@@ -62,7 +62,7 @@ The frontend uses Node.js native test runner (`node --test`) driving headless Ch
 | Suite | Focus Areas |
 |---|---|
 | `dashboard.test.mjs` | KPI card loading, skeleton states, stale data detection, WebSocket re-connections, midnight rollover, `/logs` navigation routing |
-| `scanrecords.test.mjs` | Scan logs data grid, snapshot token caching, filter criteria, CSV export, QC overrides, audit trails |
+| `scanrecords.test.mjs` | Scan logs data grid, snapshot token caching, filter criteria, CSV export, QC overrides, audit trails; recorded VPD precision/zero/missing data and isolation from live sensor updates |
 | `analytics.test.mjs` | Summary KPI error alerts, model confidence isolation from `ScanOriginalAiResult`, date range aggregations |
 | `maintenance.test.mjs` | System config, backup creation/validation/restore, shutdown/restart accessible button labels |
 | `kiosk.test.mjs` & `kiosk-pin.test.mjs` | Operator intake workflow, action spinners, PIN verification, demo simulation |
@@ -101,6 +101,24 @@ npm run lint
 ```
 
 ---
+
+## Historical VPD regression coverage
+
+- `backend/tests/test_scan_logs.py` checks authenticated list/export values, operator
+  scope, frozen snapshot values and older snapshots without a VPD key. VPD is
+  deliberately different from a value derived from the fixture's temperature and
+  humidity, so accidental recalculation is detectable.
+- `backend/tests/test_spoilage_models.py` checks existing kPa formula reference
+  values and explicit VPD (including zero) passed into a synthetic six-feature model.
+- `backend/tests/test_time_and_writes.py` checks detail/trigger serialization.
+- Ten browser cases in `scanrecords.test.mjs` cover Logs/Details with `1.555`,
+  `1.25`, zero, null and omitted VPD, including unchanged output after a newer sensor
+  event. Mocked visual checks cover the desktop table/detail and mobile detail grid.
+
+The [2026-10-18 VPD audit](../audits/2026-10-18-vpd-integration.md) records exact
+results and separates pre-existing connectivity/lint failures from these passing
+regressions. PostgreSQL tests require a disposable cluster; synthetic model tests
+do not establish the deployed model's identity or prediction accuracy.
 
 ## Station Cultivar Recognition Protocol
 

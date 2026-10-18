@@ -42,6 +42,7 @@ class ScanLogRow(DashboardScan):
     revision: int
     temperature: float | None
     humidity: float | None
+    vpd: float | None = None
     finger_count: int
     thumbnail_url: str | None
     intake_id: UUID | None

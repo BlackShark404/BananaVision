@@ -120,6 +120,7 @@ def _scoped_projection(user: UserAccount, now: datetime):
             ScanClassification.spoilage_days,
             ScanClassification.temperature,
             ScanClassification.humidity,
+            ScanClassification.vpd,
             ScanClassification.finger_count,
             ScanClassification.thumbnail_url,
             _prediction_days().label("predicted_days"),

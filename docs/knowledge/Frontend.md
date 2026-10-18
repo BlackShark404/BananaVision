@@ -32,6 +32,20 @@ The UI distinguishes between initial loads, continuous/hardware actions, and bac
    - Scan count and print quantity editors retain the existing `NumberField` appearance with `clampOnBlur={false}` for explicit validation. Unchanged stored zero counts are omitted from unrelated corrections; invalid edited counts remain visible and cannot be saved. Printing rejects invalid quantities instead of silently changing them on blur and submitting a different number of labels.
    - Lazy routes inside the application shell use a content skeleton; the centered spinner is reserved for initial application/page initialization.
 
+## Recorded environmental measurements
+
+Scan Logs and Scan Details display the scan's stored `vpd`, never a value calculated
+from current sensor readings. Logs keeps it in the existing **IoT Data** cell, and
+Details uses the existing environmental metric grid. Values use three decimals and
+`kPa`; zero is `0.000 kPa`, while null/omitted values show an accessible unavailable
+dash. The CSV export appends `VPD (kPa)` after the existing columns and leaves missing
+values blank. Older browse snapshots without the field remain valid and unknown.
+
+The scan pipeline already computes and stores VPD. Its enhanced six-feature spoilage
+model consumes VPD; legacy four-feature models and the rule fallback do not. This UI
+integration adds no calculation, backfill or model selection change. See the
+[VPD audit](../audits/2026-10-18-vpd-integration.md) and [[Testing and Validation]].
+
 ## Key Components
 
 - **`AppDataTable`**: Structured table supporting skeleton placeholders, sortable headers, pagination, and multi-filter criteria.

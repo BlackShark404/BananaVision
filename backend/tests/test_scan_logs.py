@@ -3,6 +3,7 @@
 import csv
 import io
 from datetime import date, timedelta
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -48,6 +49,85 @@ async def csv_rows(db, user, query):
     contents = await scan_logs.export_scan_logs(db, user, query)
     text = "".join([chunk async for chunk in contents]).lstrip("\ufeff")
     return list(csv.DictReader(io.StringIO(text)))
+
+
+def test_vpd_logs_api_and_export_preserve_stored_values_and_scope(logs_db):
+    own, other = account(logs_db), account(logs_db)
+    expected = {}
+    for value in (1.555, 0, None):
+        identifier = scan(logs_db, own)
+        expected[str(identifier)] = value
+        logs_db.session.execute(update(ScanClassification).where(
+            ScanClassification.scan_id == identifier,
+        ).values(temperature=22.29, humidity=53.37, vpd=value))
+    expected[str(scan(logs_db, own, confidence=None))] = None
+    scan(logs_db, other)
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1")
+
+    async def database():
+        yield logs_db
+
+    app.dependency_overrides[get_db] = database
+    app.dependency_overrides[get_stream_db] = database
+    app.dependency_overrides[get_current_user] = lambda: own
+    with TestClient(app) as client:
+        response = client.get("/api/v1/scan-logs")
+        assert response.status_code == 200
+        assert {row["id"]: row["vpd"] for row in response.json()["items"]} == expected
+        exported = client.get("/api/v1/scan-logs/export")
+        assert exported.status_code == 200
+        rows = list(csv.DictReader(io.StringIO(exported.text.lstrip("\ufeff"))))
+        assert {row["Scan ID"]: row["VPD (kPa)"] for row in rows} == {
+            identifier: "" if value is None else f"{value:.3f}"
+            for identifier, value in expected.items()
+        }
+        # Preserve existing CSV field positions for downstream consumers.
+        assert list(rows[0])[-2:] == ["Status Updated At (UTC+08:00)", "VPD (kPa)"]
+
+
+@pytest.mark.asyncio
+async def test_vpd_snapshot_keeps_recorded_value_and_legacy_missing_stays_unknown(
+    logs_db, monkeypatch,
+):
+    from app.services import auth_service
+
+    own = account(logs_db)
+    identifier = scan(logs_db, own)
+    logs_db.session.execute(update(ScanClassification).where(
+        ScanClassification.scan_id == identifier,
+    ).values(temperature=22.29, humidity=53.37, vpd=1.555))
+    saved = None
+
+    async def lock(_db, user):
+        return user
+
+    async def save(_db, _user, _key, payload):
+        nonlocal saved
+        saved = SimpleNamespace(id=uuid4(), payload=payload, expires_at=NOW + timedelta(minutes=10))
+        return saved
+
+    async def load(*_args):
+        return saved
+
+    monkeypatch.setattr(auth_service, "lock_current_account", lock)
+    monkeypatch.setattr(scan_logs, "save_snapshot", save)
+    monkeypatch.setattr(scan_logs, "load_snapshot", load)
+    first = await scan_logs.list_scan_logs(logs_db, own, ScanLogQuery(stable=True))
+    assert first.items[0].model_dump()["vpd"] == 1.555
+    logs_db.session.execute(update(ScanClassification).where(
+        ScanClassification.scan_id == identifier,
+    ).values(vpd=2.999))
+    query = ScanLogQuery(snapshot_id=first.snapshot_id)
+    frozen = await scan_logs.list_scan_logs(logs_db, own, query)
+    assert frozen.items[0].vpd == 1.555
+    assert (await csv_rows(logs_db, own, query))[0]["VPD (kPa)"] == "1.555"
+    # A snapshot captured before the API extension has no VPD key. Do not derive
+    # one from its temperature/humidity or replace it with a current DB reading.
+    del saved.payload["items"][0]["vpd"]
+    legacy = await scan_logs.list_scan_logs(logs_db, own, query)
+    assert legacy.items[0].model_dump(mode="json")["vpd"] is None
+    assert (await csv_rows(logs_db, own, query))[0]["VPD (kPa)"] == ""
 
 
 @pytest.mark.asyncio

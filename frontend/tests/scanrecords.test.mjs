@@ -82,6 +82,27 @@ test('historical direct link loads complete notes, stored camera and history wit
   assert.equal(state.imageHeaders?.authorization, 'Bearer admin-1')
 })
 
+for (const screen of ['logs', 'detail']) {
+  for (const [value, label] of [[1.555, '1.555 kPa'], [1.25, '1.250 kPa'], [0, '0.000 kPa'], [null, '—'], [undefined, '—']]) {
+    test(`${screen} VPD preserves stored ${value} with consistent units and missing-data feedback`, async t => {
+      const record = { ...scan(), temperature: 22.29, humidity: 53.37, vpd: value }
+      const { page, state } = await setup(t, 200, { screen, record })
+      const metric = page.getByRole('group', { name: 'Vapor pressure deficit' })
+      await metric.waitFor()
+      assert.match(await metric.innerText(), new RegExp(label.replace('.', '\\.')))
+      if (value == null) {
+        await metric.getByLabel('VPD unavailable').waitFor()
+        assert.equal(await metric.getByText(/kPa/).count(), 0)
+      }
+      await page.evaluate(() => window.dashboardSocket.emit('sensor_update', { temperature: 39, humidity: 15, vpd: 6.789 }))
+      await page.clock.runFor(100)
+      assert.match(await metric.innerText(), new RegExp(label.replace('.', '\\.')))
+      assert.equal(state.requests.some(r => r.path.includes('/sensors')), false)
+      if (screen === 'logs') assert.equal(await page.getByRole('columnheader', { name: 'VPD', exact: true }).count(), 0)
+    })
+  }
+}
+
 for (const [status, label] of [[403, 'Scan access denied'], [404, 'Scan not found'], [410, 'Scan deleted']]) {
   test(`direct detail distinguishes ${status}`, async t => {
     const { page } = await setup(t, status)

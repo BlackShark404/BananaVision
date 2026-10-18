@@ -13,6 +13,13 @@ FEATURE_COLUMNS = [
     "cultivar_encoded", "ripeness_encoded", "temperature", "humidity",
     "vpd", "treatment_encoded",
 ]
+
+
+@pytest.mark.parametrize("temperature,humidity,expected", [
+    (33.6, 70.1, 1.555), (25, 100, 0), (25, 0, 3.168), (0, 50, 0.305),
+])
+def test_vpd_calculation_kpa_reference_values(temperature, humidity, expected):
+    assert spoilage.calc_vpd(temperature, humidity) == expected
 METADATA = {
     "feature_columns": FEATURE_COLUMNS,
     "cultivar_map": {0: "Lakatan", 1: "Latundan", 2: "Cardaba"},
@@ -52,6 +59,16 @@ def forbid_fallback(monkeypatch, predictor):
     def unexpected_fallback(*_args, **_kwargs):
         pytest.fail("The loaded estimator must predict instead of using fallback rules")
     monkeypatch.setattr(predictor, "_fallback_predict", unexpected_fallback)
+
+
+@pytest.mark.parametrize("recorded_vpd", [0, 1.555])
+def test_enhanced_prediction_keeps_explicit_vpd_including_zero(
+    monkeypatch, tmp_path, recorded_vpd,
+):
+    predictor = load_artifact(monkeypatch, tmp_path, RecordingRegressor())
+    forbid_fallback(monkeypatch, predictor)
+    predictor.predict("Lakatan", "Ripe", 22.29, 53.37, vpd=recorded_vpd)
+    assert predictor._model.seen[-1][0, 4] == recorded_vpd
 
 
 def test_saved_training_bundle_uses_embedded_six_feature_forest(monkeypatch, tmp_path):

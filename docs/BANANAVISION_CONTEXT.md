@@ -173,7 +173,7 @@ The frontend client in `frontend/src/lib/api.ts` uses `VITE_API_URL` or `http://
 7. `fusion_engine.fuse` combines cultivar/ripeness/confidence and uses the fused finger count.
 8. If the result is unknown, the pipeline raises a model inference error and reports failure rather than persisting a normal result.
 9. The latest sensor reading supplies temperature/humidity.
-10. Feature engineering calculates dew point, VPD, and heat index when sensor values exist.
+10. Feature engineering calculates VPD in kPa when both scan temperature and humidity exist. The current pipeline leaves dew point and heat index null.
 11. Linked intake treatment is read when `intake_id` is supplied.
 12. The spoilage predictor receives classification, sensor features, and treatment.
 13. Scan, classification, original AI result, status log, camera detections, images, activity log, and notifications are persisted.
@@ -230,6 +230,11 @@ Important scan data includes cultivar, ripeness, confidence, temperature, humidi
 The canonical SQL documentation in `docs/schema_tables.md` describes the database naming and constraints in detail. It uses table names such as `USER_ACCOUNT`, `SCAN`, `SCAN_CLASSIFICATION`, `DELIVERY_INTAKE`, and `APP_NOTIFICATION`; verify the actual ORM/database naming when applying SQL manually.
 
 ## 9. Migration: `docs/migrations/001_feature_engineering.sql`
+
+This is the historical manual SQL script. The versioned Alembic migration
+`backend/migrations/versions/0002_feature_engineering.py` adds the nullable VPD
+column without backfilling it. The 2026-10-18 Logs/Details integration only reads
+stored values; it does not run either migration or derive missing historical VPD.
 
 The migration:
 

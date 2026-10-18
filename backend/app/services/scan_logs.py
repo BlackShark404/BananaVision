@@ -94,6 +94,7 @@ def _row(row) -> ScanLogRow:
         revision=row.revision,
         temperature=None if row.temperature is None else float(row.temperature),
         humidity=None if row.humidity is None else float(row.humidity),
+        vpd=None if row.vpd is None else float(row.vpd),
         finger_count=row.finger_count if row.finger_count is not None else 0,
         thumbnail_url=evidence_url(row.thumbnail_url),
         intake_id=row.intake_id,
@@ -247,6 +248,7 @@ async def export_scan_logs(db: AsyncSession, user: UserAccount, query: ScanLogQu
             "Cultivar", "Ripeness", "Confidence (%)", "Inventory Status", "Flagged",
             "Original Shelf Life (days)", "Remaining Shelf Life (days)", "Finger Count",
             "Temperature (C)", "Humidity (%)", "Intake ID", "Overridden", "Status Updated At (UTC+08:00)",
+            "VPD (kPa)",
         ])
         try:
             yield "\ufeff" + output.getvalue()
@@ -263,6 +265,7 @@ async def export_scan_logs(db: AsyncSession, user: UserAccount, query: ScanLogQu
                         row.finger_count, row.temperature, row.humidity,
                         str(row.intake_id) if row.intake_id else None, row.is_overridden,
                         row.status_updated_at.isoformat() if row.status_updated_at else None,
+                        None if row.vpd is None else f"{row.vpd:.3f}",
                     ]])
                 yield output.getvalue()
         finally:

@@ -1,0 +1,36 @@
+CURRENT RESUME HERE (2026-10-18) - HISTORICAL VPD INTEGRATION IN PROGRESS
+BRANCH main; initial HEAD9a1bd6d, clean tracked checkout. Preserve recent IDE-ignore/model removal.
+Prior completed loading work archived: docs/history/2026-10-18-before-vpd-audit.txt.
+
+DONE
+- Traced VPD across sensor reader, scan pipeline, feature engineering, ORM/migrations,
+  spoilage predictor, detail/public/trigger serialization, browse snapshots, CSV and UI.
+- Existing calc_vpd computes kPa from scan T/RH, rounded3dp; scan_classification.vpd is
+  nullable DECIMAL(6,3). Enhanced6-feature RFR uses VPD; legacy4-feature/fallback do not.
+- Detail API/map already preserve VPD/zero; Scan Detail hides null. Logs projection/schema,
+  mapping, IoT cell and CSV omit VPD. Versioned migration adds nullable column without backfill.
+- Selected bounded integration: existing IoT Data cell, existing Detail metric/grid,3dp kPa,
+  explicit unavailable value; append CSV column to preserve existing column positions.
+- Context7 confirmed nullable default for legacy snapshot compatibility. No calculation changes,
+  current-sensor substitution, historical backfill, migrations or new dependencies needed.
+
+IN PROGRESS
+- Regression tests for stored values, zero/null/omitted data, stable snapshots, export,
+  API/UI consistency and current-sensor isolation; then minimal implementation.
+
+REMAINING
+- Run focused backend/frontend tests (RED then GREEN), broader affected checks/type/lint/build.
+- Review authorization/persistence boundaries with relevant Codex Security guidance.
+- Refresh Graphify once; update relevant knowledge/docs and final checkpoint.
+
+CONSTRAINTS
+- Preserve UI, working contracts, Manila dates and unrelated changes. Main only.
+- No live DB/captures/cameras/printer/power, backfill, deployment or dependency/config changes.
+- Prior commit/push authorization covered the loading work; VPD work remains uncommitted.
+- Baseline:2frontend connectivity failures; frontend lint37errors5warnings, backend Ruff651.
+
+EXACT RESUME POINT
+- Add tests to backend/tests/test_scan_logs.py and frontend/tests/scanrecords.test.mjs.
+- Add nullable vpd to backend shared projection/ScanLogRow/row serialization; map/display
+  stored value in Logs and format/show unavailable VPD in ScanDetail. Append CSV VPD(kPa).
+- Use isolated backend temp-cwd runner and mocked Edge harness; do not repeat loading audit.

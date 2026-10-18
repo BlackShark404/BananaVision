@@ -4,6 +4,7 @@ export interface ScanLogRow extends DashboardScan {
   revision: number
   temperature: number | null
   humidity: number | null
+  vpd: number | null
   finger_count: number
   thumbnail_url: string | null
   intake_id: string | null

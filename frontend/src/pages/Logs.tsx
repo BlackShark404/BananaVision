@@ -23,7 +23,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
-import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, QrCode, X, Edit, Flag, Calendar, RefreshCw, Loader2 } from "lucide-react"
+import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, Wind, QrCode, X, Edit, Flag, Calendar, RefreshCw, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { getImageUrl } from "@/lib/utils"
 import { api } from "@/lib/api"
@@ -52,6 +52,7 @@ async function mapScan(row: ScanLogRow): Promise<LogScan> {
   const scan: LogScan = {
     id: row.id, revision: row.revision, dateTime: row.date_time, cultivar: row.cultivar ?? "Unknown", ripeness: row.ripeness ?? "Unknown",
     confidence: row.confidence, temperature: row.temperature ?? undefined, humidity: row.humidity ?? undefined,
+    vpd: row.vpd ?? undefined,
     spoilageDays: row.spoilage_days ?? "Unknown", fingerCount: row.finger_count, operator: row.operator_name,
     source: row.source_name, intakeId: row.intake_id ?? undefined, inventoryStatus: row.inventory_status as InventoryStatus,
     statusUpdatedAt: row.status_updated_at ?? undefined, flagged: row.flagged, isOverridden: row.is_overridden,
@@ -314,9 +315,12 @@ const columns: ColumnDef<LogScan>[] = [
               <span>{scan.humidity.toFixed(1)}%</span>
             </div>
           ) : null}
-          {scan.temperature == null && scan.humidity == null && (
-             <span className="text-muted-foreground">—</span>
-          )}
+          <div role="group" aria-label="Vapor pressure deficit" title="Vapor Pressure Deficit recorded for this scan" className="flex items-center gap-1.5 text-muted-foreground">
+            <Wind aria-hidden="true" className="h-3.5 w-3.5" />
+            <span>VPD {scan.vpd != null && Number.isFinite(scan.vpd)
+              ? `${scan.vpd.toFixed(3)} kPa`
+              : <span aria-label="VPD unavailable">—</span>}</span>
+          </div>
         </div>
       ),
     },

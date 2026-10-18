@@ -669,14 +669,14 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     <p className="text-2xl font-bold">{scan.humidity}%</p>
                   </div>
                 )}
-                {scan.vpd !== undefined && scan.vpd !== null && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span>💨</span> VPD
-                    </div>
-                    <p className="text-2xl font-bold">{scan.vpd}<span className="text-sm font-normal text-muted-foreground"> kPa</span></p>
+                <div role="group" aria-label="Vapor pressure deficit" title="Vapor Pressure Deficit recorded for this scan" className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span>💨</span> VPD
                   </div>
-                )}
+                  <p className="text-2xl font-bold">{scan.vpd != null && Number.isFinite(scan.vpd)
+                    ? <>{scan.vpd.toFixed(3)}<span className="text-sm font-normal text-muted-foreground"> kPa</span></>
+                    : <span aria-label="VPD unavailable">—</span>}</p>
+                </div>
                 {scan.treatment && (
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

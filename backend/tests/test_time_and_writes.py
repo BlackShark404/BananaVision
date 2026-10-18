@@ -192,7 +192,7 @@ def test_history_pagination_preserves_old_instants_incomplete_rows_and_csv(appli
     assert [(row["Date Time (UTC+08:00)"], row["Scan ID"]) for row in rows] == sorted(ordering)
 
 
-@pytest.mark.parametrize("vpd", [0, None, 1.25])
+@pytest.mark.parametrize("vpd", [0, None, 1.25, 1.555])
 def test_trigger_response_preserves_zero_and_missing_vpd(application, monkeypatch, vpd):
     app = application
     app.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(

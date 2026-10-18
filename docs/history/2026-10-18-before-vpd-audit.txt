@@ -1,0 +1,53 @@
+CURRENT RESUME HERE (2026-10-17) - LOADING RECHECK VERIFIED; BASELINE FAILURES DOCUMENTED
+BRANCH main. User authorized commit, merge/pull resolution and push. No deployment.
+Loading commit cb3b88e and incoming f365b2f combined in merge 6dd3b1e (confirmed on remote).
+Verified follow-up e6b4479 pushed normally; local and remote main hashes matched afterward.
+Prior checkpoint: docs/history/2026-10-17-before-loading-final-verification.txt.
+Full report: docs/audits/2026-10-17-loading-recheck.md.
+
+DONE
+- Completed loading audit: structured initial skeletons; local refresh/filter feedback;
+  inline action busy/duplicate guards; operation progress/status; startup-only centered spinner.
+- Fixed stale user/supplier reads, first-load write refresh, independent intake settlement,
+  retryable notification/error/empty states, finite JSON reads, unknown sensor values,
+  kiosk operator/PIN recovery and late-response rejection. Preserved existing UI design.
+- QC preserves draft/baseline revision and offers reachable modal recovery. Confirmed retries
+  switch to read recovery; definitive rejection removes consumed retry without losing draft.
+- PIN swap/setup and notification writes opt into 15s deadlines; no hardware timeout change.
+- Preserved incoming camera/inference work, kiosk safeguards/layout and demo removal.
+  NumberField keeps its appearance; scan corrections and print quantities opt out of blur
+  clamping so invalid input is validated instead of silently changed before submission.
+- Reviewed scoped diff/contracts and screenshot findings. Updated Frontend/Testing notes,
+  audit report, plan, Graphify and verified ICM lessons. No dependencies/config changes.
+
+VERIFICATION (FINAL MERGED SOURCE)
+- Full frontend: 149 passed, 2 pre-existing connectivity failures / 151 tests (191.19s).
+  Log: frontend/node_modules/.tmp/bv-merged-frontend-final.txt. All loading regressions pass.
+- First merged run: 139 passed, 12 failed; print regression fixed, browser-closed cascade
+  cleared on Scan Records 24/24 rerun and final full run. Mock printing 3/3 also passed.
+- Isolated backend: 482 passed, 38 PostgreSQL skips (85.06s). No disposable PG configured.
+- TypeScript tsc --noEmit and tsc -b PASS; production Vite build PASS (8.95s).
+- Frontend lint FAIL: 37 errors, 5 warnings. All 15 changed source files compared with
+  incoming f365b2f: no per-rule/severity diagnostic increases. Backend Ruff FAIL: 651 errors;
+  backend is unchanged by this task relative to f365b2f.
+- Graphify AST update PASS: 3685 nodes, 11230 edges; no graph loss. Final source update
+  reports no topology change. Two SQL files omitted due to unavailable optional SQL parser.
+- Mocked/disposable fixtures only; no live station DB/captures/cameras/printer/power access.
+
+IN PROGRESS
+- None. Loading fixes, merge resolution and push are finished; this update records completion.
+
+REMAINING / LIMITS
+- Baseline connectivity tests expect shared sockets/message auth; current unchanged contract
+  uses per-hook sockets/query auth. Tests preserved. Separate coordinated follow-up required.
+- Existing lint debt and PostgreSQL-specific verification remain. No all-green claim.
+- Exact UUID search alone is optimized; arbitrary substring queries and browser-buffered
+  CSV exports have no large-scale performance proof. Physical hardware and full visual/layout
+  performance certification were not tested. All-time drilldown/fixed 14-day trend intentional.
+
+CONSTRAINTS / EXACT RESUME POINT
+- Do not repeat this audit or passing checks without new changes. No loading work is pending.
+  Check git status and remote main before new work; the remaining items above are separate
+  baseline/verification follow-ups. The final chat records the last checkpoint push hash.
+- Preserve unrelated .idea/ files, UI design, Manila dates and prior fixes/reverts.
+- No deployment, new branch/worktree, history rewrite, live station access or dependency changes.
