@@ -183,6 +183,25 @@ def _is_same_class_sub_box(det: Detection, existing: Detection) -> bool:
     return False
 
 
+def _is_cluster_box(det: Detection, others: list[Detection]) -> bool:
+    """Detect whether det is an encompassing cluster box covering 2+ distinct fingers."""
+    det_area = det.w * det.h
+    if det_area <= 0:
+        return False
+    contained = []
+    for o in others:
+        o_area = o.w * o.h
+        if o_area <= 0:
+            continue
+        if det_area >= 1.6 * o_area and _box_containment(det, o) >= 0.70:
+            contained.append(o)
+    for i in range(len(contained)):
+        for j in range(i + 1, len(contained)):
+            if _box_iou(contained[i], contained[j]) < 0.40:
+                return True
+    return False
+
+
 def _is_duplicate_detection(
     candidate: Detection,
     existing: Detection,
@@ -355,6 +374,12 @@ class BananaClassifier:
                         x=x1, y=y1, w=x2 - x1, h=y2 - y1,
                         cls=cls_name, confidence=conf,
                     )
+                    # Suppress table lip / saucer edge false positives on Rear view
+                    if (camera_label or "").strip().casefold() == "rear" and image is not None:
+                        img_h = image.shape[0]
+                        if y1 > 0.55 * img_h and (x2 - x1) > 2.0 * (y2 - y1) and conf < 0.60:
+                            continue
+
                     # Suppress same-class nested duplicate boxes or severe IoU duplicates.
                     if any(_is_same_class_sub_box(det, existing) for existing in detections):
                         continue
@@ -424,6 +449,13 @@ class BananaClassifier:
                         if cultivar or ripeness:
                             class_votes.setdefault((cultivar, ripeness), []).append(conf)
             elapsed_ms = (time.time() - start) * 1000
+
+        # Suppress cluster boxes that encompass 2+ distinct individual fingers
+        if len(detections) >= 3:
+            detections = [
+                det for det in detections
+                if not _is_cluster_box(det, [o for o in detections if o != det])
+            ]
 
         # Preserve cultivar consensus, then choose ripeness from that cultivar's
         # actual labels. Independent votes can invent a pair YOLO never detected.

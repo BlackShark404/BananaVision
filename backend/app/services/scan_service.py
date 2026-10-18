@@ -30,7 +30,7 @@ from app.models.activity_log import ActivityLog
 from app.models.app_notification import AppNotification
 from app.core.exceptions import ModelInferenceError, NotFoundException
 from app.services.camera_manager import camera_manager
-from app.services.classification import banana_classifier
+from app.services.classification import banana_classifier, _parse_class_label
 from app.services.banana_detector import banana_pre_detector
 from app.services.fusion_engine import fusion_engine
 from app.services.spoilage import spoilage_predictor
@@ -225,6 +225,33 @@ async def _execute_scan_pipeline(
                 "No banana detected in any camera frame. "
                 "Please position the banana hand and try again.",
             )
+
+        # Cross-view cultivar harmonization:
+        # A single harvested banana bunch is botanically uniform. When multi-camera fusion
+        # reaches consensus on cultivar without conflict, harmonize any dissenting per-camera
+        # detection records and bounding box class labels to the bunch cultivar.
+        has_cultivar_conflict = getattr(fused, "cultivar_conflict", getattr(fused, "conflict_detected", False))
+        if not has_cultivar_conflict and fused.cultivar != "Unknown":
+            consensus_cultivar = fused.cultivar
+            consensus_prefix = consensus_cultivar.lower()
+            for det in db_detections:
+                if det.detected_cultivar and det.detected_cultivar != consensus_cultivar:
+                    logger.info(
+                        f"Harmonizing camera {det.camera_label} cultivar "
+                        f"from {det.detected_cultivar} to consensus {consensus_cultivar}"
+                    )
+                    det.detected_cultivar = consensus_cultivar
+                if det.bounding_boxes:
+                    harmonized_boxes = []
+                    for bbox in det.bounding_boxes:
+                        box_dict = dict(bbox)
+                        cls_name = box_dict.get("cls", "")
+                        cult, rip = _parse_class_label(cls_name)
+                        if cult and cult != consensus_cultivar:
+                            rip_str = f"_{rip.lower().replace(' ', '_')}" if rip else ""
+                            box_dict["cls"] = f"{consensus_prefix}{rip_str}"
+                        harmonized_boxes.append(box_dict)
+                    det.bounding_boxes = harmonized_boxes
 
         # ── Step 6: Get sensor data + compute features + predict spoilage ─
         sensor_data = sensor_reader.latest

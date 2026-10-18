@@ -1,3 +1,19 @@
+FOLLOW-UP (2026-10-18) - MULTI-VIEW CULTIVAR HARMONIZATION & BOUNDING BOX POLISHING
+- Fixed detection consistency, rogue Latundan labels, and inaccurate finger counts across Right, Left, and Rear views:
+  * Implemented cross-view cultivar harmonization in scan_service.py: when multi-camera fusion achieves decisive
+    cultivar consensus without conflict (fused.cultivar != "Unknown" and not fused.cultivar_conflict), harmonizes
+    dissenting per-camera detection records and bounding box class labels to the consensus cultivar, eliminating
+    rogue Latundan boxes on side-views of Lakatan bunches.
+  * Added table lip / saucer false positive suppression in classification.py on Rear camera (camera_label == "rear",
+    y1 > 0.55 * H, w/h > 2.0, conf < 0.60), eliminating false wooden tray edge detections.
+  * Added multi-finger cluster box suppression in classification.py (_is_cluster_box): filters out massive bounding
+    boxes that engulf 2+ distinct individual fingers.
+  * Adjusted flank thresholds in fusion_engine.py (_extract_novel_peripheral: Left rel_x <= 0.42, Right rel_x >= 0.58)
+    to capture peripheral finger contributions accurately.
+- Verification: 112 passed in targeted backend suite; full backend 484 passed, 38 skipped; frontend tsc -b && vite build
+  passed (20.04s); scanpages.test.mjs 12/12 passed; verified offline capture 10d7c3df (11 fingers, 100% Lakatan, saucer removed).
+- No live station database, captures, physical cameras, or unauthorized Git writes.
+
 FOLLOW-UP (2026-10-18) - YOLOV26 MODEL SELECTION, ROTATION FALLBACK & BOUNDING BOX RESTORATION
 - Diagnosed regression in bounding box detection and cultivar identification reported by user:
   * Checkpoint benchmark across all 5 placements in D:\BananaVision-Training\station-cultivar-test
