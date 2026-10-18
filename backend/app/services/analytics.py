@@ -16,6 +16,7 @@ from sqlalchemy import and_, case, extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import TIMEZONE_NAME, as_manila, business_day_bounds, now_manila
+from app.models.operator_profile import OperatorProfile
 from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.models.user_account import UserAccount
 from app.schemas.analytics import (
@@ -59,9 +60,9 @@ METRIC_DEFINITIONS = {
     "sources": "Scan counts grouped by stable supplier identity when linked; otherwise by recorded source text. Filter choices include all sources with accessible scan history and do not shrink when filters change.",
     "operators": (
         "All scans in the selected source/cultivar/status and date range, grouped by "
-        "stable operator ID. Mean confidence uses the same valid model-confidence "
-        "population as the confidence KPI. Flag rate divides flagged scans by all "
-        "scans for that operator; overrides are not verified accuracy."
+        "stable operator ID and displayed with the current account name. Mean "
+        "confidence uses the same valid model-confidence population as the "
+        "confidence KPI; it is model output, not operator accuracy."
     ),
     "hourly": (
         "Every scan in the selected source/cultivar/status and date range, grouped "
@@ -167,16 +168,21 @@ async def _operators(db, scans, conditions) -> list[OperatorPerformance]:
     valid = _confidence(scans)
     rows = (await db.execute(
         select(
-            scans.c.operator_id, scans.c.operator_name, scans.c.username,
+            scans.c.operator_id,
+            UserAccount.full_name.label("operator_name"), UserAccount.username,
             func.count().label("total"),
             func.avg(scans.c.model_confidence).filter(valid).label("confidence"),
             func.count().filter(valid).label("confidence_count"),
             func.count().filter(scans.c.flagged.is_(True)).label("flagged"),
             func.count().filter(scans.c.is_overridden.is_(True)).label("overridden"),
         )
+        # Historical name snapshots must not split one operator's activity.
+        .select_from(scans)
+        .join(OperatorProfile, OperatorProfile.id == scans.c.operator_id)
+        .join(UserAccount, UserAccount.id == OperatorProfile.account_id)
         .where(*conditions)
-        .group_by(scans.c.operator_id, scans.c.operator_name, scans.c.username)
-        .order_by(func.count().desc(), scans.c.operator_name, scans.c.operator_id)
+        .group_by(scans.c.operator_id, UserAccount.full_name, UserAccount.username)
+        .order_by(func.count().desc(), UserAccount.full_name, scans.c.operator_id)
     )).all()
     return [OperatorPerformance(
         operator_id=r.operator_id, name=r.operator_name, username=r.username,

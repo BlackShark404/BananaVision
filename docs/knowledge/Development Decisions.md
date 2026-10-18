@@ -75,11 +75,12 @@ Documented architectural, technical, and operational decisions in BananaVision.
 ## 2026-10-17: Analytics & AI Metric Isolation
 
 ### AI Model Confidence Isolation from Mutable Scans
-- **Decision**: In `backend/app/services/analytics.py:85-92`, confidence metrics strictly query `ScanOriginalAiResult` (via outer join) rather than mutable `scans` table columns. If a scan was overridden by an operator and lacks an original AI prediction record, it evaluates to `None` and is excluded from model confidence metrics.
+- **Decision**: In `backend/app/services/analytics.py`, confidence metrics use the saved `ScanOriginalAiResult` when available, otherwise the current classification only for scans that have not been overridden. Administrator corrections without an original AI prediction are excluded from model confidence metrics.
 - **Rationale**: Prevents human manual overrides or quality control corrections from contaminating AI model metrics. Analytics reflects genuine machine-learning model performance.
 - **Role Isolation**: Scoped strictly by role: Operators are isolated to their own scans (`OperatorProfile.account_id == user.id`), whereas Admins view station-wide aggregates.
 - **Zero-Count Safety**: Guarded denominators prevent division-by-zero across all metrics when `total_scans == 0`, presenting `"―"` gracefully without NaN or errors.
-- **Operator Performance Metrics**: Surfaced backend `flag_rate` (as `Flag Rate (%)`) and `overridden_scans` (as `QC Overrides`) columns for Administrator users in the Operator Performance Table (`Analytics.tsx`), providing supervisory visibility into operator defect flags and manual correction counts.
+- **Operator Performance Metrics (superseded 2026-10-19)**: Removed the previously displayed `Flag Rate (%)` and `QC Overrides` columns. These are scan states, not attribution of operator actions: Operators can flag their own scans through Kiosk, automatic flags also exist, and corrections are Administrator-only. API fields remain for compatibility. The table retains Total Scans and Avg Confidence with its valid-sample tooltip; confidence is model output, not operator accuracy. No permissions changed.
+- **Stable Operator Aggregation (2026-10-19)**: Analytics groups by operator ID with the current account name. Historical name snapshots remain unchanged and cannot split an operator's totals; distinct users with the same name remain separate. The existing actor scope, Manila date window and source/cultivar/status filters apply to both summary and operator endpoints. See [the operator audit](../audits/2026-10-19-operator-performance.md).
 
 ## 2026-10-17: Scan Classification Overrides & Spoilage Recalculation
 

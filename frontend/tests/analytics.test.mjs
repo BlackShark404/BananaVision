@@ -25,9 +25,10 @@ const payload = (overrides = {}) => ({
   ...overrides,
 })
 
-async function setup(t, response = payload()) {
+async function setup(t, response = payload(), user) {
   const context = await runtime.browser.newContext({ timezoneId: "America/Los_Angeles" })
   const page = await context.newPage()
+  if (user) await page.addInitScript(value => { window.dashboardUser = value }, user)
   page.setDefaultTimeout(15000)
   page.setDefaultNavigationTimeout(45000)
   const errors = []
@@ -130,7 +131,7 @@ test("cultivar and status selections combine with source and date filters", asyn
   assert.equal(query.get("inventory_status"), "Sold")
 })
 
-test("operator performance table renders flag rate and QC overrides for admin", async t => {
+test("operator performance shows scan activity without attributing QC actions to operators", async t => {
   const { page } = await setup(t, payload({
     operator_performance: [{
       operator_id: "operator-a",
@@ -145,9 +146,75 @@ test("operator performance table renders flag rate and QC overrides for admin", 
   }))
   await expectCount(page, 12)
   await page.getByText("Operator Performance Table", { exact: true }).waitFor()
-  await page.getByText("Flag Rate (%)", { exact: true }).waitFor()
-  await page.getByText("QC Overrides", { exact: true }).waitFor()
-  await page.getByText("25%", { exact: true }).waitFor()
-  await page.getByRole("cell", { name: "2", exact: true }).waitFor()
+  assert.deepEqual(await page.getByRole("columnheader").allTextContents(), ["#", "Operator", "Total Scans", "Avg Confidence"])
+  assert.equal(await page.getByRole("cell", { name: "12", exact: true }).count(), 1)
+  assert.equal(await page.getByRole("cell", { name: "90%", exact: true }).count(), 1)
+  assert.match(await page.getByRole("cell", { name: "90%", exact: true }).locator("[title]").getAttribute("title"), /12 valid model-confidence results/)
+  assert.equal(await page.getByText("Flag Rate (%)", { exact: true }).count(), 0)
+  assert.equal(await page.getByText("QC Overrides", { exact: true }).count(), 0)
+})
+
+test("operator table keeps numeric/name sorting, zero and missing confidence, and responsive scrolling", async t => {
+  const { page } = await setup(t, payload({ operator_performance: [
+    { operator_id: "c", name: "Casey Santos", total_scans: 12, avg_confidence: 90, confidence_sample_count: 10 },
+    { operator_id: "b", name: "Blair Cruz", total_scans: 2, avg_confidence: 0, confidence_sample_count: 2 },
+    { operator_id: "a", name: "Alex Reyes", total_scans: 5, avg_confidence: null, confidence_sample_count: 0 },
+  ] }))
+  await expectCount(page, 12)
+  const table = page.getByRole("table")
+  const names = () => table.locator("tbody tr").evaluateAll(rows => rows.map(row => row.cells[1].querySelector(".font-medium").textContent))
+  await table.getByRole("columnheader", { name: "Total Scans", exact: true }).click()
+  assert.deepEqual(await names(), ["Blair Cruz", "Alex Reyes", "Casey Santos"])
+  await table.getByRole("columnheader", { name: "Total Scans", exact: true }).click()
+  assert.deepEqual(await names(), ["Casey Santos", "Alex Reyes", "Blair Cruz"])
+  await table.getByRole("columnheader", { name: "Operator", exact: true }).click()
+  assert.deepEqual(await names(), ["Alex Reyes", "Blair Cruz", "Casey Santos"])
+  await table.getByRole("columnheader", { name: "Avg Confidence", exact: true }).click()
+  await table.getByRole("columnheader", { name: "Avg Confidence", exact: true }).click()
+  assert.equal((await names())[0], "Casey Santos")
+  assert.equal(await table.getByRole("cell", { name: "0%", exact: true }).count(), 1)
+  assert.equal(await table.getByRole("cell", { name: "—", exact: true }).count(), 1)
+  assert.equal(await table.getByRole("cell", { name: "—", exact: true }).locator("[title]").getAttribute("title"), "0 valid model-confidence results")
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 })
+    await table.scrollIntoViewIfNeeded()
+    await page.clock.runFor(1000)
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "No page-level horizontal overflow")
+    const bounds = await table.locator("..").boundingBox()
+    assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width + 1, "Table scroll container stays inside viewport")
+    await table.locator("..").evaluate(element => { element.scrollLeft = element.scrollWidth })
+    await table.getByRole("columnheader", { name: "Avg Confidence", exact: true }).click()
+    await page.screenshot({ path: `node_modules/.tmp/bv-operator-${width}.png` })
+  }
+})
+
+test("operator metrics update with combined filters and disappear for an empty selection", async t => {
+  const { page } = await setup(t, query => {
+    const filtered = query.get("range") === "today" && query.get("source_key") === "supplier:source-a"
+      && query.get("cultivar") === "Cardaba" && query.get("inventory_status") === "Sold"
+    return payload({ total_scans: query.get("range") === "all" ? 0 : filtered ? 2 : 12, operator_performance: query.get("range") === "all" ? [] : [{
+      operator_id: "operator-a", name: "Kiosk Operator", total_scans: filtered ? 2 : 12,
+      avg_confidence: filtered ? 0 : 90, confidence_sample_count: filtered ? 1 : 12,
+    }] })
+  })
+  await expectCount(page, 12)
+  for (const [label, option] of [["Analytics source", "Renamed Supplier"], ["Analytics date range", "Today"], ["Analytics cultivar", "Cardaba"], ["Analytics stock status", "Sold"]]) {
+    await page.getByRole("combobox", { name: label }).click()
+    await page.getByRole("option", { name: option, exact: true }).click()
+  }
+  await expectCount(page, 2)
+  assert.equal(await page.getByRole("cell", { name: "2", exact: true }).count(), 1)
+  assert.equal(await page.getByRole("cell", { name: "0%", exact: true }).count(), 1)
+  await page.getByRole("combobox", { name: "Analytics date range" }).click()
+  await page.getByRole("option", { name: "All Time", exact: true }).click()
+  await expectCount(page, 0)
+  assert.equal(await page.getByRole("table").count(), 0)
+})
+
+test("Operator view uses the same activity columns without restricted QC metrics", async t => {
+  const { page } = await setup(t, payload(), { id: "operator-a", username: "kiosk", fullName: "Kiosk Operator", role: "Operator" })
+  await expectCount(page, 12)
+  assert.deepEqual(await page.getByRole("columnheader").allTextContents(), ["#", "Operator", "Total Scans", "Avg Confidence"])
+  assert.equal(await page.getByRole("table").locator("tbody tr").count(), 1)
 })
 

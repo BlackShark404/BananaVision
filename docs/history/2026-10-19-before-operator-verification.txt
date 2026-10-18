@@ -1,0 +1,41 @@
+CURRENT RESUME HERE (2026-10-18) - OPERATOR PERFORMANCE AUDIT IN PROGRESS
+
+GIT STATE
+- main at 70afc3c, initially clean and matching origin/main. No Git writes authorized
+  for this new task. Preserve all prior VPD/loading/model/printer work.
+- Completed VPD checkpoint archived: docs/history/2026-10-18-before-operator-performance-audit.txt.
+
+DONE
+- Read checkpoint, repository guidance and workflow; scoped Graphify query, ICM recall,
+  Superpowers brainstorming/TDD and Context7 SQLAlchemy documentation.
+- Traced Analytics UI, API/projection/aggregates, role dependencies and scan write services.
+- Operators CAN flag their own scans through Kiosk/backend; other operators' scans are
+  forbidden. QC corrections/notes/provenance are Admin-only. Permissions stay unchanged.
+- Flag/override fields describe record state, not action authorship; remove their UI
+  columns. Retain total scans and model confidence/sample context without invented metrics.
+- Found potential name-snapshot grouping split; test stable operator identity before fix.
+
+IN PROGRESS
+- RED/GREEN regressions for table columns and historical operator-name aggregation.
+
+REMAINING
+- Minimal UI/aggregation changes, sorting/filter/date/role/zero/missing/empty regressions.
+- Relevant frontend/backend suites, typecheck, configured lint, build, responsive UI review.
+- Scoped Codex Security review, final diff, Graphify refresh and relevant knowledge updates.
+
+ACTUAL TEST RESULTS
+- No new-task tests run yet. Prior VPD source: backend 493 passed/38 PostgreSQL skips;
+  frontend 159 passed/2 pre-existing connectivity failures (per-hook/query auth contract
+  differs from shared-socket/message-auth test expectations). These are historical results.
+- Baseline frontend lint 37 errors/5 warnings; backend Ruff 652 errors. Do not claim clean lint.
+
+CONSTRAINTS
+- main only; no branch/worktree, commit/push/merge/deployment, permission expansion or
+  dependency/config changes. Preserve UI and Asia/Manila dates.
+- Never access live station database/captures/cameras/printer/power. Isolated fixtures only.
+
+EXACT RESUME
+- Add failing tests in frontend/tests/analytics.test.mjs and backend/tests/test_analytics.py.
+- Remove misleading columns; group metrics by stable operator ID with current account name,
+  retaining API fields for compatibility and existing scoped scan/filter population.
+- Do not repeat completed loading/VPD investigations or unrelated passing tests.

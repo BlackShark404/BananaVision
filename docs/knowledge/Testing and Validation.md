@@ -165,6 +165,19 @@ See [[Development Decisions]] for the implemented conflict/count safeguards.
 
 ## Knowledge & Decision Links
 
+### Operator Performance verification (2026-10-19)
+
+- `backend/tests/test_analytics.py`: 15 passed. Covers historical name changes, namesakes,
+  role scope, original model confidence, zero/missing values, date boundaries and combined filters.
+- `frontend/tests/analytics.test.mjs`: 9 passed. Covers column removal, retained tooltip,
+  sorting, filters, empty selections, both roles and 1440px/390px responsive layout.
+- Related Dashboard, Scan Records and Time/Writes backend suites: 59 passed. Browser
+  Dashboard, Scan Records and Operation Loading suites: 48 passed. Fixtures are isolated.
+- TypeScript and production build passed. Configured frontend lint remains 37 errors/5
+  warnings; backend Ruff remains 652 errors. Changed-file diagnostics match HEAD.
+- Full-suite connectivity failures and PostgreSQL skips are historical baseline limits,
+  not results of these focused runs. See [the operator audit](../audits/2026-10-19-operator-performance.md).
+
 - [[Frontend]] — UI architecture, component patterns, and loading state conventions.
 - [[Development Decisions]] — Architectural choices regarding snapshot retention and review queues.
 - [[Resolved Bugs]] — Confirmed defect root causes and regression test references.

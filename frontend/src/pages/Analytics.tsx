@@ -90,8 +90,6 @@ export default function Analytics() {
 }
 
 function AnalyticsContent() {
-  const { user } = useAuth()
-  const isAdmin = user?.role === "Admin"
   const [dateRange, setDateRange] = useState<DateRange>("week")
   const [sourceFilter, setSourceFilter] = useState("all")
   const [cultivarFilter, setCultivarFilter] = useState("all")
@@ -138,15 +136,11 @@ function AnalyticsContent() {
     scans: number
     avgConfidence: number | null
     confidenceSamples: number
-    flagRate: number
-    overriddenScans: number
   }
 
   const operatorPerformance: OperatorRow[] = (summary?.operator_performance ?? []).map(op => ({
     id: op.operator_id, name: op.name, scans: op.total_scans,
     avgConfidence: op.avg_confidence, confidenceSamples: op.confidence_sample_count,
-    flagRate: op.flag_rate ?? 0,
-    overriddenScans: op.overridden_scans ?? 0,
   }))
   const percent = (value: number | null | undefined) => value == null ? "—" : `${value}%`
   const emptyChart = (message = "No classified scans in this selection.") => (
@@ -457,7 +451,7 @@ function AnalyticsContent() {
                 ),
               },
               {
-                header: "Scans",
+                header: "Total Scans",
                 sortable: true,
                 sortKey: "scans",
                 cell: (op) => <span className="text-sm">{op.scans}</span>,
@@ -473,26 +467,6 @@ function AnalyticsContent() {
                   </Badge>
                 ),
               },
-              ...(isAdmin ? [
-                {
-                  header: "Flag Rate (%)",
-                  sortable: true,
-                  sortKey: "flagRate",
-                  className: "text-right",
-                  cell: (op: OperatorRow) => (
-                    <span className="text-sm">{op.flagRate}%</span>
-                  ),
-                },
-                {
-                  header: "QC Overrides",
-                  sortable: true,
-                  sortKey: "overriddenScans",
-                  className: "text-right",
-                  cell: (op: OperatorRow) => (
-                    <span className="text-sm">{op.overriddenScans}</span>
-                  ),
-                },
-              ] : []),
             ]}
           />
         </div>

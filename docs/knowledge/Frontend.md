@@ -48,6 +48,13 @@ integration adds no calculation, backfill or model selection change. See the
 
 ## Key Components
 
+The Analytics Operator Performance table shows **Total Scans** and **Avg Confidence**,
+including the existing valid-confidence sample-count tooltip. It keeps sortable headers,
+badges, avatars and mobile horizontal scrolling. Flag Rate/QC Overrides are omitted because
+record state does not identify the actor performing a QC action. Rows use stable operator
+IDs and current account names; confidence zero and unavailable values remain distinct.
+See [[Development Decisions]] and [the operator audit](../audits/2026-10-19-operator-performance.md).
+
 - **`AppDataTable`**: Structured table supporting skeleton placeholders, sortable headers, pagination, and multi-filter criteria.
 - **`AppStatsCard`**: KPI indicator cards with support for skeleton loading and stale data indicators.
 - **`useDashboardResource`**: Handles async data fetching with cancellation, request sequencing, and snapshot retention.

@@ -1,0 +1,71 @@
+CURRENT RESUME HERE (2026-10-18) - VPD INTEGRATION VERIFIED; FINAL CHECKPOINT
+
+GIT STATE
+- On main, VPD commit 930eeaa and merge 4e6ba42 include incoming main 3fad216.
+- Merge completed while tests ran; remote main 4e6ba42 confirmed with ls-remote.
+  Runtime diff still exactly matches the tested patch. This checkpoint accompanies the
+  documentation-only follow-up; the final chat records its published commit hash.
+- Only conflict was TASK_PROGRESS.txt; retained this current checkpoint and archived the
+  incoming checkpoint. All incoming runtime/model/printer code preserved without edits.
+- Latest user explicitly authorized committing, necessary merge and pushing VPD to main
+  after checkpoint completion. No deployment, history rewrite, new branch or worktree.
+- Preserve recent IDE-ignore/model-weight removal and all incoming user changes.
+- Earlier checkpoints: docs/history/2026-10-18-before-vpd-audit.txt and
+  docs/history/2026-10-18-before-vpd-finalization.txt.
+
+DONE
+- Existing VPD traced through sensor capture, formula, nullable DECIMAL(6,3) storage,
+  enhanced six-feature predictor and detail/public/trigger API. No formula/model changes.
+- Logs now selects/serializes/maps recorded VPD and displays it inside existing IoT cell.
+- Detail keeps its existing metric/grid and explicitly displays unavailable VPD.
+- Values use 3 decimals and kPa; zero is retained. CSV appends VPD (kPa), missing is blank.
+- Legacy snapshots missing VPD stay null; new snapshots freeze it. No current-sensor
+  replacement, recalculation, backfill, migration or dependency/configuration changes.
+- RED/GREEN regressions verified; source/test diff still matches tested immutable patch
+  SHA256 5015caeb353ae538994e720466bf5f1cbac655765872b45a74adae54614ece62.
+- Codex Security scoped patch review and JSON validation completed; no new blocker found.
+  Advisory merge with human review; existing failed gates and PG gaps remain disclosed.
+- Mocked desktop Logs/Detail and mobile Detail visually reviewed. Existing UI preserved.
+- Graphify refreshed: 3685 -> 3693 nodes, 11251 edges, 236 communities; no loss.
+  Two SQL files omitted by unavailable optional parser; no paid extraction.
+- Audit and Frontend/Testing knowledge notes updated; stale pipeline documentation fixed.
+  Report: docs/audits/2026-10-18-vpd-integration.md.
+- ICM project-local VPD integration memory saved successfully on resume.
+- Incoming main 3fad216 inspected: camera resolution, detection boxes, multi-view cultivar
+  harmonization and Kiosk ScanImage. No VPD source overlap; only checkpoint overlaps.
+  Incoming checkpoint archived: docs/history/2026-10-18-incoming-main-before-vpd-merge.txt.
+
+ACTUAL TEST RESULTS (final merged source 4e6ba42)
+- Full isolated backend: 493 passed, 38 PostgreSQL skips, 157.03s. No disposable PG configured.
+- Full frontend: 159 passed, 2 pre-existing connectivity failures, 299.26s.
+  Tests expect shared sockets/message auth; unchanged runtime uses per-hook/query auth.
+- All 10 VPD browser regressions pass in full merged run (zero/null/omitted/3dp/sensor isolation).
+- TypeScript and tsc-b/Vite build PASS; Vite 38.98s.
+- Frontend lint FAIL: 37 errors/5 warnings. Backend Ruff FAIL: 652 errors.
+  The sole increase from pre-merge 651 is incoming scan_service.py E501 (1 -> 2).
+  VPD adds no diagnostics in 3 changed frontend and 6 changed Python files vs base.
+- Prior targeted backend: 94 passed, 2 skips, 18.34s; VPD browser 10 passed, 13.44s.
+  Prior full backend 491 passed/38 skipped and frontend 159 passed/2 baseline failures.
+- Merged Graphify PASS: 3711 nodes, 11296 edges, 235 communities; no graph loss.
+- Scoped security review finalized against incoming 3fad216 and merge 4e6ba42; JSON validated.
+- git diff --check PASS. Logs: frontend/node_modules/.tmp/bv-vpd-merged-*.
+
+IN PROGRESS
+- None in implementation or scoped verification. Final documentation publication is authorized.
+
+REMAINING / LIMITS
+- No new VPD defects found. Existing connectivity/lint debt and PostgreSQL verification
+  remain separate follow-ups; there is no all-green test/lint claim.
+- Live deployed model identity, historical station data, hardware and external CSV
+  consumers requiring an exact column count were not inspected or certified.
+
+CONSTRAINTS
+- No live station DB/captures/cameras/printer/power or deployment. Mocked/disposable only.
+- Preserve UI, scan/model/printer behavior, API compatibility and Asia/Manila boundaries.
+
+EXACT RESUME
+- No implementation or test sessions remain. Do not repeat the loading audit or passing
+  checks without changed source/new evidence. VPD history and zero/missing behavior verified.
+- Check main status and remote head. If this final documentation commit is not yet on
+  origin/main, finish its already-authorized normal push; otherwise no VPD work remains.
+- Preserve all incoming camera/model/printer work; do not change baseline contracts to hide failures.

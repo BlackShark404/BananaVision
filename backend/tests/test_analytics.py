@@ -250,6 +250,86 @@ async def test_operator_namesakes_renames_and_role_scope(analytics_db):
         await analytics.get_summary(db, denied)
 
 
+@pytest.mark.asyncio
+async def test_operator_snapshot_names_do_not_split_totals_or_confidence(analytics_db):
+    database = analytics_db
+    admin = account(database, role="Admin")
+    owner = account(database, name="Current Name")
+    namesake = account(database, name="Current Name")
+    for snapshot, confidence in [("Old Name", 0), ("New Name", 60), (None, 90), ("Old Name", None)]:
+        scan_id = scan(database, owner, confidence=confidence)
+        database.session.execute(
+            update(Scan).where(Scan.id == scan_id).values(operator_name_snapshot=snapshot)
+        )
+    scan(database, namesake, confidence=100)
+
+    summary = await analytics.get_summary(database, admin)
+    operators = await analytics.get_operator_performance(database, admin)
+    assert operators.items == summary.operator_performance
+    assert operators.total_operators == 2
+    rows = {row.operator_id: row for row in operators.items}
+    own = rows[owner.operator_id]
+    assert own.name == "Current Name"
+    assert (own.total_scans, own.confidence_sample_count, own.avg_confidence) == (4, 3, 50)
+    assert rows[namesake.operator_id].total_scans == 1
+    scoped = await analytics.get_operator_performance(database, owner)
+    assert scoped.items == [own]
+    # Aggregating under the current name must not rewrite historical scan records.
+    snapshots = database.session.scalars(
+        select(Scan.operator_name_snapshot).where(Scan.operator_id == owner.operator_id)
+    ).all()
+    assert snapshots.count("Old Name") == 2 and "New Name" in snapshots and None in snapshots
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("date_range,days", [
+    ("today", 1), ("week", 7), ("month", 30), ("all", None),
+])
+async def test_operator_metrics_share_calendar_filters_and_original_confidence(
+    analytics_db, date_range, days,
+):
+    database = analytics_db
+    admin = account(database, role="Admin")
+    owner, other = account(database), account(database)
+    start = business_day_bounds(as_manila(NOW).date() - timedelta(days=(days or 90) - 1))[0]
+    for at, confidence in [(start - timedelta(microseconds=1), 30), (start, 0), (NOW, 90)]:
+        scan(database, owner, at=at, confidence=confidence)
+    saved = scan(database, owner, confidence=100)
+    database.session.execute(
+        update(Scan).where(Scan.id == saved).values(is_overridden=True, flagged=True)
+    )
+    database.add(
+        ScanOriginalAiResult, scan_id=saved, cultivar=CultivarEnum.LAKATAN,
+        ripeness=RipenessEnum.RIPE, confidence=60, finger_count=5,
+    )
+    # Exclude future, other-source, other-cultivar and other-status records.
+    scan(database, owner, at=NOW + timedelta(microseconds=1), confidence=100)
+    scan(database, owner, source="Farm B", confidence=100)
+    different = scan(database, owner, confidence=100)
+    database.session.execute(
+        update(ScanClassification)
+        .where(ScanClassification.scan_id == different).values(cultivar="Cardaba")
+    )
+    scan(database, owner, confidence=100, statuses=[(NOW, InventoryStatusEnum.SOLD)])
+    scan(database, other, confidence=80)
+    options = dict(date_range=date_range, source_key="text:Farm A",
+                   cultivar=CultivarEnum.LAKATAN, inventory_status=InventoryStatusEnum.IN_STOCK)
+
+    summary = await analytics.get_summary(database, admin, **options)
+    operators = await analytics.get_operator_performance(database, admin, **options)
+    assert operators.items == summary.operator_performance
+    assert operators.total_operators == 2
+    own = next(row for row in operators.items if row.operator_id == owner.operator_id)
+    expected_count, expected_confidence = (3, 50) if days else (4, 45)
+    assert (own.total_scans, own.confidence_sample_count) == (expected_count, expected_count)
+    assert own.avg_confidence == expected_confidence
+    assert sum(row.total_scans for row in operators.items) == summary.total_scans
+    scoped = await analytics.get_operator_performance(database, owner, **options)
+    assert scoped.items == [own]
+    empty = await analytics.get_operator_performance(database, owner, source_key="text:Absent")
+    assert empty.items == [] and empty.total_operators == 0
+
+
 def test_api_contract_validates_filters_and_serializes_manila_offsets(analytics_db):
     db = analytics_db  # noqa: F811 - pytest fixture injection
     app = FastAPI()
