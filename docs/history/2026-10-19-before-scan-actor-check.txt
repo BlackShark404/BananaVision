@@ -1,0 +1,67 @@
+CURRENT RESUME HERE (2026-10-19) - OPERATOR PERFORMANCE FIXES VERIFIED
+
+GIT STATE
+- main at 70afc3cc86784bd18b25293d82b42c31006f7250; local origin/main tracking ref matches.
+  Eleven task files modified/untracked: two production files, two test files, three knowledge
+  notes, one audit, two checkpoint archives and this checkpoint. Nothing staged or committed.
+- No commit/push/merge/deployment authorized or performed. Preserve all prior VPD/loading/
+  model/printer work. Remote was not fetched; this task does not require a Git synchronization.
+- Completed VPD checkpoint archived: docs/history/2026-10-18-before-operator-performance-audit.txt.
+
+DONE
+- Read checkpoint, repository guidance and workflow; scoped Graphify query, ICM recall,
+  Superpowers brainstorming/TDD and Context7 SQLAlchemy documentation.
+- Traced Analytics UI, API/projection/aggregates, role dependencies and scan write services.
+- Operators CAN flag their own scans through Kiosk/backend; other operators' scans are
+  forbidden. QC corrections/notes/provenance are Admin-only. Permissions stay unchanged.
+- Removed misleading Flag Rate/QC Overrides UI columns; retained API fields unchanged.
+  Total Scans, Avg Confidence, sample tooltip, sorting and styling preserved.
+- Confirmed historical-name grouping split (4 rows instead of 2 identities), then fixed
+  aggregation using stable operator ID/current account name without rewriting snapshots.
+- Targeted RED/GREEN tests completed. Desktop 1440px and mobile 390px screenshots reviewed;
+  existing table scroll container works without page-level horizontal overflow.
+- Previous in-progress checkpoint archived: docs/history/2026-10-19-before-operator-verification.txt.
+- Scoped Codex Security patch-risk review and JSON validation complete; no new blocker.
+  Exact four-file patch SHA256: 7aca3ac2a7c5c7529ea8988e94d7551977b0075df48a01bffcce2203a6e885df.
+  Review is advisory (human review), not Git authorization; source patch unchanged afterward.
+- Graphify AST update PASS: 3711 -> 3721 nodes, 11328 edges, 248 communities; no graph loss.
+  Optional SQL parser still unavailable (two SQL files omitted); no paid semantic extraction.
+- Frontend/Development Decisions/Testing knowledge notes updated. Corrected project-local
+  ICM memory saved (01M57ZJZP2P28NE1FXG5DJ9QEH). Scoped final diff reviewed.
+- Audit: docs/audits/2026-10-19-operator-performance.md. No new defects remain in task scope.
+
+IN PROGRESS
+- None. Authorized implementation, scoped verification and documentation are complete.
+
+REMAINING
+- No pending Operator Performance fixes. Existing repository lint/connectivity debt and
+  PostgreSQL/production-scale validation remain separate limits; no all-green repository claim.
+
+ACTUAL TEST RESULTS
+- RED: browser column regression failed as expected; backend identity regression failed
+  as expected (4 rows vs 2). GREEN: node --test tests/analytics.test.mjs 9 passed (28.44s);
+  isolated pytest backend/tests/test_analytics.py 15 passed (5.45s).
+- Final analytics pytest after test lint cleanup: 15 passed (2.79s).
+- Isolated pytest test_dashboard.py test_scan_records.py test_time_and_writes.py:
+  59 passed (12.62s). Total distinct relevant backend tests: 74 passed, no skips in these runs.
+- node --test --test-concurrency=1 tests/dashboard.test.mjs tests/scanrecords.test.mjs
+  tests/operationloading.test.mjs: 48 passed (54.02s). With Analytics: 57 browser tests passed.
+- npm run typecheck PASS; npm run build (tsc-b/Vite) PASS (15.15s Vite).
+- npm run lint FAIL 37 errors/5 warnings; configured Ruff FAIL 652 errors. Six new test
+  lint issues corrected. Changed-file diagnostics now match HEAD (no increases).
+- git diff --check PASS. Current logs: frontend/node_modules/.tmp/bv-operator-*.
+- Prior VPD source: backend 493 passed/38 PostgreSQL skips;
+  frontend 159 passed/2 pre-existing connectivity failures (per-hook/query auth contract
+  differs from shared-socket/message-auth test expectations). These are historical results.
+- Baseline frontend lint 37 errors/5 warnings; backend Ruff 652 errors. Do not claim clean lint.
+
+CONSTRAINTS
+- main only; no branch/worktree, commit/push/merge/deployment, permission expansion or
+  dependency/config changes. Preserve UI and Asia/Manila dates.
+- Never access live station database/captures/cameras/printer/power. Isolated fixtures only.
+
+EXACT RESUME
+- No sessions or task implementation work remain. Leave the eleven files uncommitted.
+- If asked to continue, inspect current Git state and this checkpoint before new work.
+  Do not rerun passing checks unless source changes or new evidence justify it.
+- Do not repeat completed loading/VPD investigations or unrelated passing tests.

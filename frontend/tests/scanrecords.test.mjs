@@ -82,6 +82,24 @@ test('historical direct link loads complete notes, stored camera and history wit
   assert.equal(state.imageHeaders?.authorization, 'Bearer admin-1')
 })
 
+test('history shows the recorded creation actor and does not invent a legacy status actor', async t => {
+  const record = scan()
+  record.operator_name = 'Renamed Operator'
+  record.history = [
+    { ...record.history[0], id: 'created', kind: 'created', actor_id: 'operator-1', actor_name: 'Recorded Operator' },
+    { ...record.history[0], id: 'legacy-status', actor_id: null, actor_name: null, legacy: true },
+  ]
+  const { page } = await setup(t, 200, { record })
+  const created = page.getByText('Scan created', { exact: true }).locator('..')
+  await created.waitFor()
+  assert.match(await created.innerText(), /Recorded Operator/)
+  assert.doesNotMatch(await created.innerText(), /Renamed Operator|Actor not recorded|Admin User/)
+  const legacy = page.getByText('Inventory status', { exact: true }).locator('..')
+  assert.match(await legacy.innerText(), /Actor not recorded/)
+  assert.match(await legacy.innerText(), /Historical record; additional change details were not recorded/)
+  assert.doesNotMatch(await legacy.innerText(), /Recorded Operator|Renamed Operator|Admin User/)
+})
+
 for (const screen of ['logs', 'detail']) {
   for (const [value, label] of [[1.555, '1.555 kPa'], [1.25, '1.250 kPa'], [0, '0.000 kPa'], [null, '—'], [undefined, '—']]) {
     test(`${screen} VPD preserves stored ${value} with consistent units and missing-data feedback`, async t => {

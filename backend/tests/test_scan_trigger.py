@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.api.v1 import scans
-from app.models import PrintJob, Scan
+from app.models import OperatorProfile, PrintJob, Scan, UserAccount
 from app.services import print_jobs, scan_service
 from app.services.scan_records import serialize_scan
 from tests.test_time_and_writes import application  # noqa: F401
@@ -117,6 +117,76 @@ def test_missing_requested_intake_does_not_create_unlinked_scan_or_label(scan_st
     with Session(app.engine) as db:
         assert db.scalar(select(func.count()).select_from(Scan)) == 1
         assert db.scalar(select(func.count()).select_from(PrintJob)) == 0
+
+
+@pytest.mark.parametrize("reader_role", ["Operator", "Admin"])
+def test_trigger_records_authenticated_actor_through_detail_and_history(scan_station, reader_role):
+    app, _ = scan_station
+    account = SimpleNamespace(
+        id=app.ids.operator, full_name="Recorded Operator", role=SimpleNamespace(name="Operator"),
+        operator_profile=SimpleNamespace(id=app.ids.profile),
+    )
+    app.app.dependency_overrides[get_current_user] = lambda: account
+    response = app.client.post("/api/v1/scans/trigger", json={
+        "intake_id": str(app.ids.intake), "operator_id": str(uuid4()),
+        "account_id": str(app.ids.admin), "operator_name": "Forged Operator",
+        "actor_id": str(app.ids.admin), "actor_name": "Forged Admin",
+    })
+    assert response.status_code == 200, response.text
+    scan_id = response.json()["id"]
+    assert response.json()["operator_name"] == "Recorded Operator"
+    with Session(app.engine) as db:
+        db.get(UserAccount, app.ids.operator).full_name = "Renamed Operator"
+        db.commit()
+    account.full_name = "Renamed Operator"
+
+    reader = account if reader_role == "Operator" else SimpleNamespace(
+        id=app.ids.admin, full_name="Admin User", role=SimpleNamespace(name="Admin"),
+    )
+    app.app.dependency_overrides[get_current_user] = lambda: reader
+    detail = app.client.get(f"/api/v1/scans/{scan_id}")
+    history = app.client.get(f"/api/v1/scans/{scan_id}/history")
+    assert detail.status_code == history.status_code == 200
+    assert detail.json()["history"] == history.json()
+    events = history.json()
+    assert len(events) == 1  # Initial status is represented by its creation event.
+    assert events[0]["kind"] == "created" and events[0]["legacy"] is False
+    assert events[0]["actor_id"] == str(app.ids.operator)
+    assert events[0]["actor_name"] == "Recorded Operator"
+    assert events[0]["new_values"]["inventory_status"] == "In Stock"
+    assert events[0]["timestamp"].endswith("+08:00")
+
+    # A real session switch attributes the next scan to the new account.
+    next_account, next_profile = uuid4(), uuid4()
+    with Session(app.engine) as db:
+        db.add(UserAccount(id=next_account, role_id=2, username="next-operator",
+                           full_name="Next Operator", password_hash="unused"))
+        db.flush()
+        db.add(OperatorProfile(id=next_profile, account_id=next_account))
+        db.commit()
+    app.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id=next_account, full_name="Next Operator", role=SimpleNamespace(name="Operator"),
+        operator_profile=SimpleNamespace(id=next_profile),
+    )
+    response = app.client.post("/api/v1/scans/trigger", json={"intake_id": str(app.ids.intake)})
+    assert response.status_code == 200, response.text
+    history = app.client.get(f"/api/v1/scans/{response.json()['id']}/history")
+    assert history.status_code == 200
+    assert history.json()[0]["actor_id"] == str(next_account)
+    assert history.json()[0]["actor_name"] == "Next Operator"
+
+
+def test_trigger_requires_an_operator_profile_before_scan_or_print(scan_station):
+    app, submit = scan_station
+    app.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id=app.ids.admin, full_name="Admin User", role=SimpleNamespace(name="Admin"),
+        operator_profile=None,
+    )
+    response = app.client.post("/api/v1/scans/trigger", json={"intake_id": str(app.ids.intake)})
+    assert response.status_code == 404, response.text
+    submit.assert_not_called()
+    with Session(app.engine) as db:
+        assert db.scalar(select(func.count()).select_from(Scan)) == 1
 
 
 @pytest.mark.parametrize("scenario", ["conflicting_pairs", "sparse_views", "missing_captures"])

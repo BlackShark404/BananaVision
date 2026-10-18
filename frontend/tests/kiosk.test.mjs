@@ -78,6 +78,27 @@ async function setup(t, { offline = false, empty = false, flagged = false, scanO
 
 const writesTo = (state, suffix) => state.writes.filter(item => item.path.endsWith(suffix))
 
+for (const [change, user] of [
+  ['account switch', { id: 'different-operator', username: 'other', fullName: 'Other Operator', role: 'Operator' }],
+  ['role change', { id: 'operator-1', username: 'fixture', fullName: 'Fixture Operator', role: 'Admin' }],
+  ['logout', null],
+]) {
+  test(`kiosk resets operator selection after ${change}`, async t => {
+    const { page, state } = await setup(t)
+    await page.getByRole('button', { name: 'Select Source', exact: false }).click()
+    await page.getByRole('button', { name: /Fixture Supplier/ }).click()
+    await page.getByRole('button', { name: 'Start Intake Session', exact: true }).click()
+    const scanButton = page.getByRole('button', { name: 'Scan Now', exact: true, includeHidden: true })
+    await scanButton.waitFor()
+    assert.equal(await scanButton.isEnabled(), true)
+    await page.evaluate(value => window.kioskAuthTest.setUser(value), user)
+    await page.getByRole('dialog').waitFor()
+    assert.equal(await scanButton.isDisabled(), true)
+    await page.getByText('No Operator', { exact: true }).waitFor()
+    assert.equal(writesTo(state, '/scans/trigger').length, 0)
+  })
+}
+
 test('kiosk offers real scans only and requires an intake before scanning', async t => {
   const { page, state } = await setup(t)
   assert.equal(state.writes.length, 0)

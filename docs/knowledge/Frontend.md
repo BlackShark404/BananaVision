@@ -46,6 +46,18 @@ model consumes VPD; legacy four-feature models and the rule fallback do not. Thi
 integration adds no calculation, backfill or model selection change. See the
 [VPD audit](../audits/2026-10-18-vpd-integration.md) and [[Testing and Validation]].
 
+## Scan History actor attribution
+
+Kiosk PIN login establishes the authenticated operator; scan requests do not supply
+an actor identity. The trigger route passes the authenticated account ID/name into
+the scan transaction, which saves a `created` event and links its initial status
+evidence. Scan Detail displays that stored actor snapshot, even after an account rename.
+
+`ScanProvider` and `InventoryProvider` reset their stores when account ID/role changes,
+remounting Kiosk and clearing its operator/intake selection. Old status rows without
+an audit event have no reliable actor evidence: keep **Actor not recorded**, rather
+than substituting the scan owner or current login. See [[Testing and Validation]].
+
 ## Key Components
 
 The Analytics Operator Performance table shows **Total Scans** and **Avg Confidence**,

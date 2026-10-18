@@ -165,6 +165,29 @@ See [[Development Decisions]] for the implemented conflict/count safeguards.
 
 ## Knowledge & Decision Links
 
+### Scan actor attribution verification (2026-10-19)
+
+- `test_scan_trigger.py` exercises the real trigger/persistence/detail/history path with
+  mocked hardware and SQLite: authenticated IDs/names, ignored forged actor fields,
+  immutable names after rename, a second operator's scan and missing-profile rejection.
+  Both Operator and Admin readers see the stored creation actor without a duplicate
+  unattributed initial-status event. Final file run: 11 passed.
+- `kiosk.test.mjs` verifies that account switches, same-account role changes and logout
+  clear Kiosk selection and disable scanning; final file run: 10 passed. Scan Records
+  browser coverage distinguishes saved creation actors from unknown legacy status actors.
+- Affected backend suites initially passed 60 tests; after splitting reader roles, the
+  final changed-file rerun makes 61 distinct passing cases with unchanged suites retained.
+  The four affected browser suites initially passed 61 tests; splitting the three session
+  cases makes 63 distinct passing cases across the original run and final Kiosk rerun.
+- Typecheck and production build passed. Frontend lint remains 37 errors/5 warnings;
+  backend Ruff remains 652 errors after fixing a new test closure warning. No runtime,
+  schema, permission, UI or historical data changes were necessary.
+- Scoped authorization/persistence review found no new boundary change: identity comes
+  from the server session, history reads retain ownership checks, and old actorless status
+  rows are not backfilled. This is a focused source/test review, not a repository-wide scan.
+  Existing full-suite connectivity failures and unavailable PostgreSQL coverage remain
+  separate historical limitations; no live station or hardware was used.
+
 ### Operator Performance verification (2026-10-19)
 
 - `backend/tests/test_analytics.py`: 15 passed. Covers historical name changes, namesakes,
