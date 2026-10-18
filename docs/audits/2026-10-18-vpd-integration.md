@@ -49,6 +49,36 @@ Context7's Pydantic documentation confirmed that an explicit nullable default
 supports omitted keys and normal serialization includes null. Existing Pydantic
 extra-field behavior also supports rollback with snapshots containing the added key.
 
+## Incoming main integration
+
+The user subsequently authorized committing, merging and pushing this work.
+VPD implementation commit `930eeaa` was integrated with incoming main `3fad216`,
+which contains camera-resolution negotiation, bounding-box and multi-view
+classification work. The only merge conflict was the progress checkpoint; the
+incoming checkpoint is preserved in
+[its archive](../history/2026-10-18-incoming-main-before-vpd-merge.txt).
+
+All incoming runtime files are preserved byte-for-byte. The source/test diff
+against incoming main exactly matches the previously tested and reviewed VPD
+patch. Because incoming commits affect the scan pipeline, the backend/frontend
+suites and static/build checks were rerun on the combined source. Final results
+are recorded in the current checkpoint; the original results below remain the
+pre-merge evidence. Merge `4e6ba42` is confirmed on remote main.
+
+| Final merged check | Result |
+|---|---|
+| Isolated backend | **493 passed, 38 PostgreSQL skips**, 157.03s. |
+| Frontend | **159 passed, 2 pre-existing connectivity failures**, 299.26s; all ten VPD browser cases pass. |
+| TypeScript / production build | **PASS**, Vite 38.98s. |
+| Configured lint | Frontend **37 errors/5 warnings**; backend **652 errors**. The one increase from 651 is an incoming `scan_service.py` E501; VPD adds no diagnostics. |
+| Graphify AST refresh | **PASS**, 3,711 nodes / 11,296 edges / 235 communities; no graph loss. Same optional SQL parser limitation. |
+| Final review | VPD source/test patch identity unchanged; incoming runtime files unchanged; no unresolved conflicts or new VPD defect. |
+
+Final logs use the `frontend/node_modules/.tmp/bv-vpd-merged-` prefix. The scoped
+Codex Security assessment was updated to base `3fad216` / merged head `4e6ba42`,
+with the same patch hash, and its JSON schema validation passed. The project-local
+ICM memory save succeeded on resume; the earlier usage-limit failure did not save it.
+
 ## Verification
 
 | Check | Observed result |

@@ -1,7 +1,10 @@
-CURRENT RESUME HERE (2026-10-18) - VPD VERIFIED; FINALIZATION AND GIT IN PROGRESS
+CURRENT RESUME HERE (2026-10-18) - VPD INTEGRATION VERIFIED; FINAL CHECKPOINT
 
 GIT STATE
-- On main, VPD commit 930eeaa. Merge of origin/main 3fad216 is in progress.
+- On main, VPD commit 930eeaa and merge 4e6ba42 include incoming main 3fad216.
+- Merge completed while tests ran; remote main 4e6ba42 confirmed with ls-remote.
+  Runtime diff still exactly matches the tested patch. This checkpoint accompanies the
+  documentation-only follow-up; the final chat records its published commit hash.
 - Only conflict was TASK_PROGRESS.txt; retained this current checkpoint and archived the
   incoming checkpoint. All incoming runtime/model/printer code preserved without edits.
 - Latest user explicitly authorized committing, necessary merge and pushing VPD to main
@@ -32,31 +35,37 @@ DONE
   harmonization and Kiosk ScanImage. No VPD source overlap; only checkpoint overlaps.
   Incoming checkpoint archived: docs/history/2026-10-18-incoming-main-before-vpd-merge.txt.
 
-ACTUAL TEST RESULTS (tested VPD patch before incoming merge)
-- Targeted backend: 94 passed, 2 PostgreSQL skips, 18.34s.
-- VPD browser: 10 passed, 13.44s (historical values/zero/null/omitted/current sensor isolation).
-- Full backend: 491 passed, 38 PostgreSQL skips, 133.46s. No disposable PG configured.
-- Full frontend: 159 passed, 2 pre-existing connectivity failures, 267.79s.
+ACTUAL TEST RESULTS (final merged source 4e6ba42)
+- Full isolated backend: 493 passed, 38 PostgreSQL skips, 157.03s. No disposable PG configured.
+- Full frontend: 159 passed, 2 pre-existing connectivity failures, 299.26s.
   Tests expect shared sockets/message auth; unchanged runtime uses per-hook/query auth.
-- TypeScript and tsc-b/Vite build PASS; Vite 31.14s.
-- Frontend lint FAIL: 37 errors/5 warnings. Backend Ruff FAIL: 651 errors.
-  No diagnostic increases in 3 changed frontend and 6 changed Python files vs base.
-- git diff --check PASS. Logs: frontend/node_modules/.tmp/bv-vpd-*.
+- All 10 VPD browser regressions pass in full merged run (zero/null/omitted/3dp/sensor isolation).
+- TypeScript and tsc-b/Vite build PASS; Vite 38.98s.
+- Frontend lint FAIL: 37 errors/5 warnings. Backend Ruff FAIL: 652 errors.
+  The sole increase from pre-merge 651 is incoming scan_service.py E501 (1 -> 2).
+  VPD adds no diagnostics in 3 changed frontend and 6 changed Python files vs base.
+- Prior targeted backend: 94 passed, 2 skips, 18.34s; VPD browser 10 passed, 13.44s.
+  Prior full backend 491 passed/38 skipped and frontend 159 passed/2 baseline failures.
+- Merged Graphify PASS: 3711 nodes, 11296 edges, 235 communities; no graph loss.
+- Scoped security review finalized against incoming 3fad216 and merge 4e6ba42; JSON validated.
+- git diff --check PASS. Logs: frontend/node_modules/.tmp/bv-vpd-merged-*.
 
 IN PROGRESS
-- Verify merged runtime, complete merge commit and push main after checks.
+- None in implementation or scoped verification. Final documentation publication is authorized.
 
-REMAINING
-- Run isolated full backend/frontend, type/build/lint against merged source because
-  incoming commits change the scan pipeline. Preserve incoming implementations.
-- Refresh Graphify for incoming code, finalize checkpoint, commit and push normally.
-- Baseline connectivity/lint debt and skipped PG verification remain separate follow-ups.
+REMAINING / LIMITS
+- No new VPD defects found. Existing connectivity/lint debt and PostgreSQL verification
+  remain separate follow-ups; there is no all-green test/lint claim.
+- Live deployed model identity, historical station data, hardware and external CSV
+  consumers requiring an exact column count were not inspected or certified.
 
 CONSTRAINTS
 - No live station DB/captures/cameras/printer/power or deployment. Mocked/disposable only.
 - Preserve UI, scan/model/printer behavior, API compatibility and Asia/Manila boundaries.
 
 EXACT RESUME
-- Run merged full isolated backend/frontend, type/build/lint and Graphify; record results.
-- Stage resolved checkpoint, complete merge commit, then push normally as authorized.
-- Do not repeat loading audit. Confirm final local/remote main hashes match after push.
+- No implementation or test sessions remain. Do not repeat the loading audit or passing
+  checks without changed source/new evidence. VPD history and zero/missing behavior verified.
+- Check main status and remote head. If this final documentation commit is not yet on
+  origin/main, finish its already-authorized normal push; otherwise no VPD work remains.
+- Preserve all incoming camera/model/printer work; do not change baseline contracts to hide failures.
