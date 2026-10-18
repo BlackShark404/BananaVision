@@ -1,3 +1,14 @@
+FOLLOW-UP (2026-10-18) - CAMERA RESOLUTION NEGOTIATION AND PER-DEVICE CONFIGURATION
+- Fixed camera initialization: removed flawed unconfigured mode probe that defaulted
+  OpenCV VideoCapture to 640x480; replaced with active candidate mode negotiation and
+  explicit per-camera resolution support (camera_resolutions).
+- Updated backend/.env to configure 2K (2560x1440) for Top (EMEET) and 1080p (1920x1080)
+  for Left, Right, Rear (Rapoo), with preview max bounds at 1920x1080.
+- CameraManager now verifies delivered frame dimensions match requested candidate modes
+  before accepting, continuing to next fallback if a mode is rejected by the driver.
+- Full backend suite: 484 passed, 38 skipped. Camera test suite: 21 passed.
+- No live station database, captures, physical cameras or deployment were used.
+
 CURRENT RESUME HERE (2026-10-17) - LOADING RECHECK VERIFIED; BASELINE FAILURES DOCUMENTED
 BRANCH main. User authorized commit, merge/pull resolution and push. No deployment.
 Loading commit cb3b88e and incoming f365b2f combined in merge 6dd3b1e (confirmed on remote).

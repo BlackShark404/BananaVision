@@ -193,16 +193,63 @@ class CameraManager:
         if not accepted:
             logger.warning("Camera %s did not accept control %s=%s", device_id, prop, value)
 
-    def _capture_modes(self) -> list[tuple[int, int]]:
+    def _parse_resolution_string(self, text: str) -> tuple[int, int] | None:
+        try:
+            parts = text.lower().replace(" ", "").split("x")
+            if len(parts) == 2:
+                w, h = int(parts[0]), int(parts[1])
+                if w > 0 and h > 0:
+                    return (w, h)
+        except Exception:
+            pass
+        return None
+
+    def _configured_mode_for_device(self, device_id: int) -> tuple[int, int] | None:
+        """Find explicit resolution configured for this device ID, index, label, or camera ID."""
+        if not settings.camera_resolutions:
+            return None
+        candidates = [
+            str(device_id),
+            self._get_label(device_id),
+            self._get_camera_id(device_id),
+        ]
+        if device_id in self._device_ids:
+            idx = self._device_ids.index(device_id)
+            candidates.append(str(idx))
+            if idx < len(settings.camera_labels):
+                candidates.append(settings.camera_labels[idx])
+        for key in candidates:
+            if key in settings.camera_resolutions:
+                res = self._parse_resolution_string(settings.camera_resolutions[key])
+                if res:
+                    return res
+        return None
+
+    def _capture_modes(self, device_id: int | None = None) -> list[tuple[int, int]]:
+        explicit = self._configured_mode_for_device(device_id) if device_id is not None else None
         requested = (settings.camera_resolution_w, settings.camera_resolution_h)
-        modes = [requested]
-        for fallback in [(1280, 720), (640, 480)]:
-            if (fallback not in modes and fallback[0] <= requested[0]
-                    and fallback[1] <= requested[1]):
+        modes: list[tuple[int, int]] = []
+        if explicit:
+            modes.append(explicit)
+        elif requested not in modes:
+            modes.append(requested)
+
+        max_w = explicit[0] if explicit else requested[0]
+        max_h = explicit[1] if explicit else requested[1]
+        for fallback in [(2560, 1440), (1920, 1080), (1280, 720), (640, 480)]:
+            if (fallback not in modes and fallback[0] <= max_w
+                    and fallback[1] <= max_h):
                 modes.append(fallback)
         return modes
 
-    def _try_mode(self, cap, device_id: int, backend: str, width: int, height: int):
+    def _try_mode(
+        self,
+        cap,
+        device_id: int,
+        backend: str,
+        width: int,
+        height: int,
+    ):
         # FPS/dimensions may rebuild DirectShow's graph and reset compression.
         if sys.platform == "win32":
             self._try_property(cap, device_id, cv2.CAP_PROP_FPS, settings.camera_fps)
@@ -270,21 +317,31 @@ class CameraManager:
                     logger.error("Camera %s failed to open with backend %s", dev_id, backend)
                     cap.release()
                     continue
+
                 frame = None
-                for width, height in self._capture_modes():
+                for width, height in self._capture_modes(dev_id):
                     frame = self._try_mode(cap, dev_id, backend, width, height)
                     if frame is not None:
                         actual = (frame.shape[1], frame.shape[0])
+                        if actual == (width, height):
+                            self._resolutions[dev_id] = actual
+                            logger.info("Camera %s native resolution %sx%s", dev_id, *actual)
+                            break
+                        logger.info(
+                            "Camera %s requested %sx%s but delivered %sx%s; trying fallback",
+                            dev_id, width, height, *actual,
+                        )
+                    else:
+                        logger.warning(
+                            "Camera %s cannot use %sx%s; trying fallback", dev_id, width, height,
+                        )
+                else:
+                    if frame is not None:
+                        actual = (frame.shape[1], frame.shape[0])
                         self._resolutions[dev_id] = actual
-                        if actual != (width, height):
-                            logger.warning(
-                                "Camera %s requested %sx%s but delivered %sx%s",
-                                dev_id, width, height, *actual,
-                            )
-                        logger.info("Camera %s usable resolution %sx%s", dev_id, *actual)
-                        break
-                    logger.warning("Camera %s cannot use %sx%s; trying fallback", dev_id,
-                                   width, height)
+                        logger.warning(
+                            "Camera %s using delivered resolution %sx%s", dev_id, *actual,
+                        )
 
                 if frame is not None:
                     self._cameras[dev_id] = cap

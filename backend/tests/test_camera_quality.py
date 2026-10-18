@@ -19,8 +19,10 @@ def real_frame(width=1280, height=720):
 
 
 class SyntheticCamera:
-    def __init__(self, max_width=1920, unsupported=()):
+    def __init__(self, max_width=1920, default_width=1920, default_height=1080, unsupported=()):
         self.max_width = max_width
+        self.default_width = default_width
+        self.default_height = default_height
         self.unsupported = unsupported
         self.properties = {}
         self.calls = []
@@ -37,8 +39,8 @@ class SyntheticCamera:
         return True
 
     def read(self):
-        width = int(self.properties[cv2.CAP_PROP_FRAME_WIDTH])
-        height = int(self.properties[cv2.CAP_PROP_FRAME_HEIGHT])
+        width = int(self.properties.get(cv2.CAP_PROP_FRAME_WIDTH, self.default_width))
+        height = int(self.properties.get(cv2.CAP_PROP_FRAME_HEIGHT, self.default_height))
         if width > self.max_width:
             return False, None
         return True, real_frame(width, height)
@@ -77,6 +79,37 @@ def test_auto_color_controls_do_not_force_unverified_focus(monkeypatch):
     assert manager.get_resolution(0) == (1280, 720)
 
 
+def test_per_camera_resolutions_support_mixed_emeet_2k_and_rapoo_1080p(monkeypatch):
+    cameras = {
+        0: SyntheticCamera(max_width=1920),  # Rapoo Full HD
+        1: SyntheticCamera(max_width=2560),  # EMEET 2K
+    }
+    monkeypatch.setattr(camera_module, "settings", Settings(
+        _env_file=None,
+        camera_resolution_w=2560,
+        camera_resolution_h=1440,
+        camera_resolutions={"Top": "2560x1440", "Left": "1920x1080"},
+    ))
+    monkeypatch.setattr(camera_module.sys, "platform", "win32")
+    monkeypatch.setattr(camera_module.cv2, "VideoCapture", lambda dev_id, *_: cameras[dev_id])
+    manager = camera_module.CameraManager()
+    result = manager.configure(["Top", "Left"], [1, 0])
+    assert result == {1: True, 0: True}
+    assert manager.get_resolution(1) == (2560, 1440)
+    assert manager.get_resolution(0) == (1920, 1080)
+
+
+def test_station_wide_2k_request_falls_back_to_1080p_for_standard_hd_cameras(monkeypatch):
+    handle = SyntheticCamera(max_width=1920)
+    manager, result = configure(
+        monkeypatch, handle, camera_resolution_w=2560, camera_resolution_h=1440,
+    )
+    assert result == {0: True}
+    assert manager.get_resolution(0) == (1920, 1080)
+    widths = [value for prop, value in handle.calls if prop == cv2.CAP_PROP_FRAME_WIDTH]
+    assert widths == [2560, 1920]
+
+
 def test_unsupported_optional_controls_keep_a_working_camera_online(monkeypatch):
     handle = SyntheticCamera(unsupported=(
         cv2.CAP_PROP_AUTO_WB, cv2.CAP_PROP_AUTO_EXPOSURE, cv2.CAP_PROP_AUTOFOCUS,
@@ -88,7 +121,7 @@ def test_unsupported_optional_controls_keep_a_working_camera_online(monkeypatch)
 
 
 def test_unusable_full_hd_falls_back_to_native_hd_and_reports_measured_size(monkeypatch):
-    handle = SyntheticCamera(max_width=1280)
+    handle = SyntheticCamera(max_width=1280, default_width=1920, default_height=1080)
     manager, result = configure(
         monkeypatch, handle, camera_resolution_w=1920, camera_resolution_h=1080,
     )
