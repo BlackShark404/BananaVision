@@ -1,0 +1,56 @@
+CURRENT RESUME HERE (2026-10-19) - TOP-CAMERA CULTIVAR ANCHOR & PERIPHERAL FILTER VERIFIED
+
+GIT STATE
+- main at a1f24f1 (Fix operator analytics aggregation), tracking origin/main.
+- Five files modified/untracked:
+  - backend/app/config.py: added top_camera_cultivar_anchor and yolo_peripheral_background_filter settings.
+  - backend/app/services/classification.py: added peripheral camera upper background & door-frame filter.
+  - backend/app/services/fusion_engine.py: added authoritative overhead Top-camera cultivar anchoring.
+  - backend/tests/test_classification_fusion.py: added 5 targeted regression tests (splits, strict majority, conflict, peripheral filter).
+  - docs/knowledge/Resolved Bugs.md: documented root cause, solution, and test coverage.
+- Changes remain unstaged/uncommitted. Branch exclusively main.
+- Prior checkpoint archived in docs/history/2026-10-19-before-top-camera-cultivar-anchor.txt.
+
+DONE
+- Investigated scan inaccuracies reported from physical kiosk tests:
+  1. False-positive non-banana detections: Left camera detected vertical door frame as Lakatan Overripe 76%.
+  2. Rear camera missed fingers / backlighting drop in confidence.
+  3. Cultivar confusion: 2-vs-2 camera split between Latundan and Lakatan causing Kiosk to display "Uncertain".
+  4. Discrepancy between UI ("Uncertain") and terminal/recent scans (showing Latundan / Lakatan).
+- Implemented peripheral camera background filtering in backend/app/services/classification.py:
+  - Suppressed detections on Left, Right, and Rear views that are either completely within the upper background (y2 < 0.22 * H) or slender vertical pillars ending in the upper/mid portion (h/w >= 2.2, y2 <= 0.55 * H, or touching top edge).
+- Implemented Top-Camera Cultivar Anchoring in backend/app/services/fusion_engine.py:
+  - Separated per-image cultivar conflict from benign duplicate finger boxes (len(unique_detections) < len(detections)) via ClassificationResult.cultivar_conflict.
+  - When the overhead Top camera has a confident, unconflicted cultivar detection (>= 50% confidence, >= 1 finger, not cultivar_conflict), it anchors the bunch cultivar.
+  - Peripheral split/tied camera disagreements are resolved by the Top anchor without triggering no_camera_majority or cultivar_conflict, enabling scan-level cultivar harmonization in scan_service.py and preventing Kiosk from falling back to "Uncertain".
+  - If a competing cultivar achieves a strict camera majority (> 50% of views), review is still preserved.
+- Added configuration flags top_camera_cultivar_anchor and yolo_peripheral_background_filter in backend/app/config.py.
+- Added 6 new regression tests in backend/tests/test_classification_fusion.py covering:
+  - Top camera anchor resolving 2-vs-2 Lakatan split (Top+Right vs Left+Rear).
+  - Top camera anchor resolving 2-vs-2 Latundan split (Top+Left vs Right+Rear).
+  - Strict majority (> 50%) review requirement preserved when 3 peripheral cameras oppose Top.
+  - Conflicted Top camera gracefully falling back to standard split safeguards.
+  - Top camera with duplicate finger boxes reliably anchoring cultivar without split conflict.
+  - Peripheral background filter suppressing both top-edge and mid-frame background door frames on side cameras.
+- Verified test suite:
+  - pytest test_classification_fusion.py: 61 passed (0.82s).
+  - pytest test_top_view_inference.py: 42 passed (2.03s).
+  - pytest test_scan_trigger.py test_scan_records.py test_time_and_writes.py test_detection_sensitivity.py: 76 passed (27.09s).
+  - Frontend npm.cmd run typecheck PASS (tsc --noEmit).
+  - Frontend npm.cmd run build PASS (tsc -b && vite build in 43.32s).
+  - git diff --check PASS (no whitespace errors).
+  - Ruff check: 0 new diagnostics on changed files.
+
+IN PROGRESS
+- None. Authorized implementation, test suite verification, and documentation are complete.
+
+REMAINING
+- Station backdrop recommendation: advise user to place a neutral matte board behind and to the sides of the inspection tray to physically eliminate outdoor daylight glare and room background reflections.
+
+CONSTRAINTS
+- main only; preserve UI layout, VPD, existing permissions, Manila time and scan paths.
+- No live database/captures/cameras/printer/power; isolated fixtures only.
+
+EXACT RESUME
+- All changes are implemented and verified in the working tree.
+- Leave changed files uncommitted until explicit commit authorization.

@@ -64,6 +64,7 @@ class ClassificationResult:
     detections: list[Detection] = field(default_factory=list)
     inference_time_ms: float = 0.0
     conflict_detected: bool = False
+    cultivar_conflict: bool = False
 
 
 # ── Class label parsing ─────────────────────────────────────────────────────
@@ -380,6 +381,30 @@ class BananaClassifier:
                         if y1 > 0.55 * img_h and (x2 - x1) > 2.0 * (y2 - y1) and conf < 0.60:
                             continue
 
+                    # Suppress upper background fixtures (door frames, window jambs, ceiling)
+                    # on peripheral side and rear cameras. Real banana fingers on the inspection
+                    # platter sit in the middle-to-lower portion of the frame.
+                    norm_cam = (camera_label or "").strip().casefold()
+                    if (
+                        getattr(settings, "yolo_peripheral_background_filter", True)
+                        and norm_cam in ("left", "right", "rear")
+                        and image is not None
+                    ):
+                        img_h = image.shape[0]
+                        det_h = y2 - y1
+                        det_w = x2 - x1
+                        # 1. Boxes entirely in the upper background (sky / ceiling):
+                        if y2 < 0.22 * img_h:
+                            continue
+                        # 2. Slender background pillars or door frames ending in the upper/mid area:
+                        if (
+                            det_w > 0 and (det_h / det_w) >= 2.2 and y2 <= 0.55 * img_h
+                        ) or (
+                            y1 < 0.08 * img_h and det_w > 0
+                            and (det_h / det_w) >= 2.5 and y2 < 0.65 * img_h
+                        ):
+                            continue
+
                     # Suppress same-class nested duplicate boxes or severe IoU duplicates.
                     if any(_is_same_class_sub_box(det, existing) for existing in detections):
                         continue
@@ -477,6 +502,16 @@ class BananaClassifier:
             or sum(winning_confs) < total_weight * VOTE_CONFLICT_THRESHOLD
             or duplicate_label_conflict or len(unique_detections) < len(detections)
         )
+        total_cultivar_weight = sum(sum(confs) for confs in cultivar_votes.values())
+        winning_cultivar_weight = sum(cultivar_votes.get(best_cultivar, []))
+        cultivar_conflict = (
+            best_cultivar is None
+            or (
+                total_cultivar_weight > 0
+                and winning_cultivar_weight < total_cultivar_weight * VOTE_CONFLICT_THRESHOLD
+            )
+            or duplicate_label_conflict
+        )
 
         return ClassificationResult(
             cultivar=best_cultivar,
@@ -486,6 +521,7 @@ class BananaClassifier:
             detections=detections,
             inference_time_ms=elapsed_ms,
             conflict_detected=conflict_detected,
+            cultivar_conflict=cultivar_conflict,
         )
 
     def _best_vote(self, votes: dict[str, list[float]]) -> str | None:

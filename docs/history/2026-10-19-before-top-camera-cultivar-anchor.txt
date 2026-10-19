@@ -1,0 +1,76 @@
+CURRENT RESUME HERE (2026-10-19) - SCAN ACTOR ATTRIBUTION VERIFIED
+
+GIT STATE
+- main at a1f24f1 (Fix operator analytics aggregation), initially clean, tracking origin/main.
+- Prior Operator Performance changes committed outside this task; preserve them.
+- Eight task files modified/untracked: four test/fixture files, two knowledge notes,
+  this checkpoint and the prior checkpoint archive. No production files changed.
+- Changes remain unstaged/uncommitted. No fetch, branch/worktree or Git writes performed.
+- No commit/push/merge/deployment authorized. Prior checkpoint archived in
+  docs/history/2026-10-19-before-scan-actor-check.txt.
+
+DONE
+- Read current checkpoint/status/guidance; focused Graphify and project ICM recall.
+- Used Superpowers systematic debugging to trace Kiosk PIN/session, trigger route,
+  scan pipeline, ScanEvent, history serialization and Scan Detail display.
+- New scans already use authenticated user ID/name, create an immutable created event
+  in the scan transaction and link initial status evidence to avoid duplicate unknown entries.
+- Legacy status rows have no actor evidence; preserve unknown instead of inventing attribution.
+- Verified ScanProvider/InventoryProvider key their stores by authenticated ID/role;
+  session changes remount Kiosk, clearing selection/intake and reopening the PIN chooser.
+  The initially suspected stale-selection bug was disproved. No runtime correction needed.
+- Added seven actor/session cases: three backend (both reader roles plus missing profile),
+  three Kiosk session-reset cases and one browser recorded/legacy actor case.
+- Verified authenticated ID/name, ignored forged actor inputs, immutable names after rename,
+  subsequent operator scans, actor display and legacy unknowns without owner substitution.
+- Scoped authorization/persistence review: server CurrentUser is authoritative; history
+  retains ownership/role checks and note privacy. No new boundary changes or findings.
+  This was a focused source/test review, not a repository-wide Codex Security scan.
+- Final scoped diff reviewed; UI, API, schema, model, printer and permissions unchanged.
+- Graphify AST update PASS: 3721 -> 3728 nodes, 11346 edges, 230 communities; no graph loss.
+  Two SQL files remain omitted by unavailable optional SQL parser; no paid extraction.
+- Frontend/Testing knowledge notes updated; project-local ICM memory saved:
+  01M58J4CZE4A3QM4GFXGRFZ7A5.
+
+IN PROGRESS
+- None. Authorized actor verification, tests, review and knowledge updates are complete.
+
+REMAINING
+- No pending actor-attribution fix. Existing lint debt, full-suite connectivity mismatch
+  and PostgreSQL verification remain separate limitations; no all-green repository claim.
+- Historical actorless status rows cannot be attributed without reliable evidence.
+
+TEST RESULTS
+- Initial Kiosk test timed out because the session change correctly reopened the modal,
+  making Scan Now inaccessible. Corrected test to assert the modal and underlying disabled button.
+  This was a test assumption error, not a reproduced runtime defect.
+- Existing lint baseline: frontend 37 errors/5 warnings; backend Ruff 652 errors.
+- Focused actor tests: 2 browser and 2 backend passed before test-case separation.
+- node --test --test-concurrency=1 tests/kiosk.test.mjs tests/kiosk-pin.test.mjs
+  tests/operationsloading.test.mjs tests/scanrecords.test.mjs: 61 passed, 0 failed (80.95s).
+- Isolated pytest test_scan_trigger.py test_scan_records.py test_time_and_writes.py:
+  60 passed, 0 skipped (9.81s). Mocked hardware/temporary SQLite only.
+- After test-case separation: node --test tests/kiosk.test.mjs: 10 passed (36.88s);
+  isolated pytest test_scan_trigger.py: 11 passed (5.33s). All final changed tests pass.
+  Combined with unchanged suites: 63 distinct frontend and 61 distinct backend cases pass.
+- npm run typecheck PASS; npm run build (tsc-b + Vite) PASS (11.46s Vite).
+- npm run lint FAIL: 37 errors/5 warnings (unchanged baseline).
+- Ruff initially could not access sandbox interpreter cache; approved offline execution
+  ran and reported 653 errors, including one new B023 in the actor test, now corrected.
+- Final uv tool run --offline --from ruff ruff check backend/app backend/tests
+  --output-format concise: FAIL 652 existing errors, no new changed-file diagnostics.
+- git diff --check PASS. Production diff is empty; final test-file cleanup only indented JS.
+- Logs: frontend/node_modules/.tmp/bv-actor-{frontend,backend,typecheck,build,*lint}.txt.
+- Full suite not repeated: prior 159 passed/2 connectivity failures concern shared-socket/
+  message-auth test expectations versus unchanged per-hook/query-auth runtime.
+  Prior backend 493 passed/38 PostgreSQL skips; no disposable PG configured this task.
+
+CONSTRAINTS
+- main only; preserve UI, VPD, existing permissions, Manila time and scan/model/printer paths.
+- No live database/captures/cameras/printer/power; isolated fixtures only.
+- No historical actor backfill from current owner or current login.
+
+EXACT RESUME
+- No running sessions or pending authorized task work. Leave the eight task files uncommitted.
+- On a future task, inspect Git status and this checkpoint first. Do not repeat completed
+  actor/loading/VPD/operator investigations or passing tests without changed evidence.

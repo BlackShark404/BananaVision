@@ -102,11 +102,14 @@ class FusionEngine:
         seen_cameras: set[str] = set()
         per_view_conflict = False
 
+        top_camera_result: ClassificationResult | None = None
         for camera_id, camera_label, result in results:
             # A repeated view must not count as independent camera evidence.
             if camera_id in seen_cameras:
                 continue
             seen_cameras.add(camera_id)
+            if (camera_label or "").strip().casefold() == "top" and top_camera_result is None:
+                top_camera_result = result
             cam_det = CameraDetection(
                 camera_id=camera_id,
                 camera_label=camera_label,
@@ -135,10 +138,34 @@ class FusionEngine:
             pair = (result.cultivar, result.ripeness)
             pair_confs.setdefault(pair, []).append(result.confidence)
             pair_cameras.setdefault(pair, set()).add(camera_id)
-            per_view_conflict = per_view_conflict or result.conflict_detected
+            view_has_cultivar_conflict = (
+                result.cultivar_conflict
+                if hasattr(result, "cultivar_conflict")
+                else result.conflict_detected
+            )
+            per_view_conflict = per_view_conflict or view_has_cultivar_conflict
 
-        # Keep cultivar consensus without borrowing ripeness from another variety.
-        best_cultivar = self._select_winner(cultivar_weights) or "Unknown"
+        # Check for authoritative Top view anchor:
+        # Top camera is mounted overhead looking directly down at the flat inspection
+        # platter without perspective foreshortening or cluttered room background.
+        settings = get_settings()
+        anchor_top = getattr(settings, "top_camera_cultivar_anchor", True)
+        top_anchor_eligible = (
+            anchor_top
+            and top_camera_result is not None
+            and top_camera_result.cultivar
+            and top_camera_result.cultivar != "Unknown"
+            and math.isfinite(top_camera_result.confidence)
+            and top_camera_result.confidence >= 50.0
+            and top_camera_result.finger_count >= 1
+            and not getattr(top_camera_result, "cultivar_conflict", False)
+        )
+
+        if top_anchor_eligible and top_camera_result is not None:
+            best_cultivar = top_camera_result.cultivar
+        else:
+            best_cultivar = self._select_winner(cultivar_weights) or "Unknown"
+
         ripeness_weights = {
             ripeness: sum(confs) / 100.0
             for (cultivar, ripeness), confs in pair_confs.items()
@@ -147,27 +174,49 @@ class FusionEngine:
         best_ripeness = self._select_winner(ripeness_weights) or "Unknown"
 
         # Check for conflicts
-        # A high score cannot turn a split of independent camera labels into
-        # cultivar agreement. Keep the weighted candidate and its raw score,
-        # but require review when it lacks a strict majority of valid views.
-        no_camera_majority = (
-            len(cultivar_view_counts) > 1
-            and cultivar_view_counts.get(best_cultivar, 0) * 2
-            <= sum(cultivar_view_counts.values())
+        total_valid_views = sum(cultivar_view_counts.values())
+        winning_views = cultivar_view_counts.get(best_cultivar, 0)
+
+        # When Top anchor is active:
+        # A split among peripheral cameras does not invalidate the overhead anchor,
+        # unless a competing cultivar has a strict camera majority (> 50% of valid views).
+        has_competing_majority = any(
+            count * 2 > total_valid_views
+            for cult, count in cultivar_view_counts.items()
+            if cult != best_cultivar
         )
-        cultivar_conflict = (
-            self._has_conflict(cultivar_weights, best_cultivar) or no_camera_majority
-        )
+        if top_anchor_eligible:
+            no_camera_majority = has_competing_majority
+            cultivar_conflict = has_competing_majority
+        else:
+            # A high score cannot turn a split of independent camera labels into
+            # cultivar agreement. Keep the weighted candidate and its raw score,
+            # but require review when it lacks a strict majority of valid views.
+            no_camera_majority = (
+                len(cultivar_view_counts) > 1
+                and winning_views * 2 <= total_valid_views
+            )
+            cultivar_conflict = (
+                self._has_conflict(cultivar_weights, best_cultivar) or no_camera_majority
+            )
+
         ripeness_conflict = self._has_conflict(ripeness_weights, best_ripeness)
         conflict_detected = cultivar_conflict or ripeness_conflict or per_view_conflict
 
         # Confidence describes the observed pair, not two unrelated marginal votes.
         winning_pair = (best_cultivar, best_ripeness)
         winning_confs = pair_confs.get(winning_pair, [])
-        pair_conflict = (
-            sum(winning_confs) / 100.0
-            < sum(cultivar_weights.values()) * self.CONFLICT_THRESHOLD
-        )
+        if top_anchor_eligible:
+            cultivar_total = cultivar_weights.get(best_cultivar, 0.0)
+            pair_conflict = (
+                cultivar_total > 0
+                and sum(winning_confs) / 100.0 < cultivar_total * self.CONFLICT_THRESHOLD
+            )
+        else:
+            pair_conflict = (
+                sum(winning_confs) / 100.0
+                < sum(cultivar_weights.values()) * self.CONFLICT_THRESHOLD
+            )
         conflict_detected = conflict_detected or pair_conflict
 
         final_confidence = (
