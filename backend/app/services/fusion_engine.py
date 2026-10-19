@@ -138,7 +138,12 @@ class FusionEngine:
             pair = (result.cultivar, result.ripeness)
             pair_confs.setdefault(pair, []).append(result.confidence)
             pair_cameras.setdefault(pair, set()).add(camera_id)
-            per_view_conflict = per_view_conflict or result.conflict_detected
+            view_has_cultivar_conflict = (
+                result.cultivar_conflict
+                if hasattr(result, "cultivar_conflict")
+                else result.conflict_detected
+            )
+            per_view_conflict = per_view_conflict or view_has_cultivar_conflict
 
         # Check for authoritative Top view anchor:
         # Top camera is mounted overhead looking directly down at the flat inspection
@@ -153,7 +158,7 @@ class FusionEngine:
             and math.isfinite(top_camera_result.confidence)
             and top_camera_result.confidence >= 50.0
             and top_camera_result.finger_count >= 1
-            and not top_camera_result.conflict_detected
+            and not getattr(top_camera_result, "cultivar_conflict", False)
         )
 
         if top_anchor_eligible and top_camera_result is not None:

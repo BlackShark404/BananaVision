@@ -608,6 +608,7 @@ def test_top_camera_minority_against_strict_majority_requires_review():
 def test_conflicted_top_camera_does_not_unilaterally_anchor():
     top = camera_result("Lakatan", "Ripe", 80)
     top.conflict_detected = True
+    top.cultivar_conflict = True
     right = camera_result("Lakatan", "Ripe", 78)
     left = camera_result("Latundan", "Ripe", 88)
     rear = camera_result("Latundan", "Ripe", 85)
@@ -619,9 +620,31 @@ def test_conflicted_top_camera_does_not_unilaterally_anchor():
         ("CAM-004", "Rear", rear),
     ], expected_camera_count=4)
 
-    # When Top is conflicted, standard split safeguards apply
+    # When Top has cultivar conflict, standard split safeguards apply
     assert fused.conflict_detected is True
     assert fused.auto_flagged is True
+
+
+def test_top_camera_with_duplicate_boxes_still_anchors():
+    # If Top has duplicate boxes (conflict_detected=True, cultivar_conflict=False),
+    # it still reliably anchors the cultivar because fingers agree on variety.
+    top = camera_result("Lakatan", "Ripe", 80)
+    top.conflict_detected = True
+    top.cultivar_conflict = False
+    right = camera_result("Lakatan", "Ripe", 78)
+    left = camera_result("Latundan", "Ripe", 88)
+    rear = camera_result("Latundan", "Ripe", 85)
+
+    fused = FusionEngine().fuse([
+        ("CAM-001", "Top", top),
+        ("CAM-002", "Left", left),
+        ("CAM-003", "Right", right),
+        ("CAM-004", "Rear", rear),
+    ], expected_camera_count=4)
+
+    assert fused.cultivar == "Lakatan"
+    assert fused.conflict_detected is False
+    assert fused.auto_flagged is False
 
 
 def test_peripheral_background_filter_suppresses_upper_door_frame():
@@ -645,19 +668,25 @@ def test_peripheral_background_filter_suppresses_upper_door_frame():
             conf=[0.90],
             cls=[0],
         ),
+        # 4. Background door frame starting below top edge (Image 3): x=650..740, y=150..480
+        SimpleNamespace(
+            xyxy=np.array([[650, 150, 740, 480]], dtype=float),
+            conf=[0.72],
+            cls=[0],
+        ),
     ]
     model_result = SimpleNamespace(boxes=boxes, names={0: "lakatan_ripe"})
     classifier = BananaClassifier()
     classifier._model = SimpleNamespace(predict=lambda *args, **kwargs: [model_result])
 
     frame = np.zeros((1000, 1000, 3), dtype=np.uint8)
-    left_result = classifier.predict(frame, confidence_threshold=0.50, camera_label="Left")
+    right_result = classifier.predict(frame, confidence_threshold=0.50, camera_label="Right")
 
-    # Only the real banana finger on the tray is retained; door frame and ceiling are filtered
-    assert left_result.finger_count == 1
-    assert len(left_result.detections) == 1
-    assert left_result.detections[0].y >= 400
+    # Only the real banana finger on the tray is retained; door frames and ceiling are filtered
+    assert right_result.finger_count == 1
+    assert len(right_result.detections) == 1
+    assert right_result.detections[0].y >= 400
 
     # On Top camera, upper frame detections are NOT suppressed
     top_result = classifier.predict(frame, confidence_threshold=0.50, camera_label="Top")
-    assert top_result.finger_count == 3
+    assert top_result.finger_count == 4
