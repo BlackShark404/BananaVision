@@ -1,75 +1,78 @@
-CURRENT RESUME HERE (2026-10-19) - ANALYTICS VERIFIED; MAIN MERGED AND PUSHED
+CURRENT RESUME HERE (2026-10-20) - MOCK/SEED COMPATIBILITY FINALIZED
 
 GIT STATE
-- main; Analytics commit 8792226 and incoming eddd5fa combined in merge 3fe95bc.
-- Merge 3fe95bc pushed successfully; local HEAD and remote main matched afterward.
-  This documentation-only completion checkpoint follows it; the final chat records its hash.
-- User explicitly authorized commit, pull/merge and push. No deployment or history rewrite.
-- Only conflict: TASK_PROGRESS.txt. Preserved Analytics checkpoint and archived incoming
-  camera/fusion checkpoint in docs/history/2026-10-19-incoming-main-before-analytics-merge.txt.
-- Incoming camera/classification/config/tests/docs preserved without edits.
-- Prior actor checkpoint: docs/history/2026-10-19-before-analytics-wording.txt.
+- main at 4e7bcb11f083fa7e184ffc2f336c2cdf87a9822b; initially clean and tracking origin/main.
+- Resume review: local origin/main is one commit ahead (8909dc1), adding only
+  docs/accuracy-improvement-roadmap.md. No fetch/pull/merge performed; remote live state
+  was not queried. This documentation-only incoming commit does not overlap the seed patch.
+- Fourteen task files modified/untracked, none staged. No commit/push/merge performed.
+- Runtime changes limited to backend/seed.py and setup/seed wrappers; two new test files,
+  README/knowledge/reference-SQL comments, audit, checkpoint and archive complete the scope.
+- Preserve all prior Analytics/operator/VPD/loading/scan/model/printer work.
+- Previous checkpoint: docs/history/2026-10-19-before-seed-audit.txt.
 
 DONE
-- Read progress/status/guidance; focused Graphify query and Analytics source/API/schema review.
-- Verified shared metric definitions against calculations, confidence sample eligibility,
-  inventory policy, Manila ranges, fixed 14-day trend and stable operator aggregation.
-- Confirmed readability issues: repeated filter clauses, unlabeled paragraphs, raw ISO dates,
-  duplicate accuracy warning, and trend caption mentioning only source despite other filters.
-- Selected bounded copy edit: shorter server definitions, labeled rows, readable Manila
-  dates and one accuracy explanation. Keep existing disclosure, styling and all calculations.
-- Implemented concise definitions (361 -> 209 words), labeled existing disclosure rows,
-  readable Manila period/update time and simpler Total Scans subtitle.
-- Removed duplicated accuracy paragraph and corrected trend caption to include all filters.
-- Verified confidence eligibility, stock-risk caveats and fixed trend remain accurate;
-  schema/API keys, computations and permissions are unchanged. No new boundary exposure.
-- Final scoped diff and git diff --check PASS; no unrelated changes.
-- Graphify AST update PASS: 3728 -> 3731 nodes, 11349 edges, 245 communities; no graph loss.
-  Two SQL files remain omitted by unavailable optional parser; no paid extraction.
-- Updated Frontend knowledge note and stored user plain-language preference in project ICM
-  (01M59DRNE97YFWGMB8Y6Y9WYYS). No new dependencies or configuration.
-- Fetched and pulled origin/main; resolved the sole checkpoint conflict by preserving this
-  status and archiving the incoming camera/fusion checkpoint. Both runtime changes preserved.
-- Merged backend checks: 194 passed in 14.91s. No new corrections needed.
-- Verified frontend and Analytics backend exactly match tested local commit 8792226;
-  incoming camera/config/fusion files exactly match eddd5fa. Scoped diff checks pass.
-- Merged Graphify AST update PASS: 3731 -> 3738 nodes, 11369 edges, 234 communities; no loss.
-  Same two SQL files omitted; no paid extraction.
+- Audited setup/seed entry points, generator, current ORM/versioned migrations, production
+  scan persistence, VPD/spoilage, API/CSV/analytics/inventory consumers and mock fixtures.
+- Generator now computes VPD with existing calc_vpd from stored-precision T/RH, copies intake
+  treatment, uses existing fallback spoilage rules, and records original-result/name snapshots.
+- Synthetic creation and sale history explicitly names Demo Seeder, with no human actor_id;
+  status evidence/revisions and Manila timestamps agree. Existing history is never invented.
+- Replaced destructive table reset with populated-table refusal before DDL; current schema
+  initialization and seed writes share one PostgreSQL transaction/advisory lock.
+- Confirmed rollback and concurrent attempts cannot leave a partial/duplicate seed dataset.
+- Fixed setup.bat DB prompt (disabled delayed expansion), special-character URL credentials,
+  dependency error handling; seed.bat/seed.sh now propagate failures instead of false success.
+- Existing .env files preserved. Setup wrappers explain empty development DB/bootstrap needs.
+- Preserved deliberately missing/legacy/contradictory VPD and actor test fixtures. No new
+  columns, API/schema contracts, UI changes, model files, dependencies or configuration edits.
+- Marked obsolete SQL references historical; actual SQL/migration behavior unchanged.
+- Updated backend README, Testing knowledge note, and audit with scope and limitations.
+- Scoped persistence/credential/history boundary review complete; Context7 confirmed externally
+  managed SQLAlchemy transaction semantics. No formal repository-wide security scan claimed.
+- Final Graphify AST refresh PASS: 3738 -> 3768 nodes, 11475 edges, 245 communities; no loss.
+  Same two SQL files omitted due to optional parser absence; no paid semantic extraction.
+- Verified project ICM memory saved: 01M5A1W4KD36EMMM1WQ9EC7DZH.
+- Final source/scoped diff review and git diff --check PASS.
+- 2026-10-20 resume: checked current guidance, checkpoint, audit, changed paths and saved
+  test logs. Approved work was already complete. Preserved all implementation changes;
+  only this checkpoint and the audit's resume note were updated. No repeated test runs.
 
 IN PROGRESS
-- None. Implementation, integration verification and requested Git synchronization complete.
-
-REMAINING
-- No pending metric-definition fixes. Existing repository lint/connectivity debt and
-  PostgreSQL coverage remain separate follow-ups; no all-green repository claim.
+- None. Authorized seed/mock compatibility work and scoped verification are complete.
 
 TEST RESULTS
-- Merged isolated pytest: test_analytics.py, test_classification_fusion.py,
-  test_top_view_inference.py, test_scan_trigger.py, test_scan_records.py,
-  test_time_and_writes.py, test_detection_sensitivity.py: 194 passed (14.91s), no skips.
-- Merged Ruff check backend/app backend/tests: FAIL 646 existing errors, unchanged from
-  verified local patch. Logs: frontend/node_modules/.tmp/bv-metric-merged-*.
-- Frontend source is unchanged by merge; retained passing browser/type/build checks below.
-- node --test tests/analytics.test.mjs: 9 passed (36.41s).
-- Isolated pytest backend/tests/test_analytics.py: 15 passed (3.83s), no skips.
-- npm run typecheck PASS; npm run build (tsc-b/Vite) PASS (15.91s Vite).
-- npm run lint FAIL 37 errors/5 warnings (baseline). Ruff FAIL 646 errors (6 fewer than baseline).
-- Analytics.tsx ESLint comparison with HEAD: unchanged 0 errors/1 existing hooks warning.
-- Mocked real-copy display checked at 1440px and 390px; screenshots reviewed, no horizontal
-  overflow or console errors. Manila date/time shown correctly in an LA browser; All Time works.
-- AST comparison confirms only definition strings changed in backend; all keys preserved.
-  Definition text reduced from 361 to 209 words (42% less). No calculation changes.
-- Logs/screenshots: frontend/node_modules/.tmp/bv-metric-*.
-- Baseline lint: frontend 37 errors/5 warnings; backend Ruff 652 errors.
-- Prior full-suite connectivity failures and unavailable PostgreSQL coverage remain separate.
+- Results below are the completed 2026-10-19 runs, confirmed from saved logs on resume.
+  2026-10-20: git diff --check PASS; nothing staged; no new source changes to retest.
+- Seed RED reproduced missing VPD/events and destructive reruns on disposable PostgreSQL.
+- Corrected wrapper harness against committed scripts: 5 failed/4 passed (1.76s), proving
+  DB prompt, dependency failure and seed wrapper false-success defects. Fixed wrappers:
+  9 passed (1.93s), including special-character credentials and Windows/Git Bash success/failure.
+- Full isolated backend: 558 passed, 0 skipped (146.83s), with disposable PostgreSQL 18.
+  Includes all nine new seed tests plus first four wrapper cases. Five later wrapper cases
+  are covered by the final nine-case wrapper run; the full suite was not needlessly repeated.
+- Frontend: 71 passed, 0 skipped (120.90s): Scan Records, Analytics, Dashboard, Kiosk and
+  Operations Loading through node --test --test-concurrency=1 with mocked APIs/Edge.
+- npm run typecheck PASS; npm run build (tsc-b/Vite) PASS, 15.39s Vite.
+- npm run lint FAIL with baseline 37 errors/5 warnings. Ruff backend/app backend/tests
+  FAIL with baseline 646 errors. Seeder and both changed test files: Ruff PASS, no diagnostics.
+- Wrapper test harness corrected for CALL, UTF-8 output and LF Bash input. No runtime changes
+  were made for these harness issues; final results above include the corrections.
+- Logs: frontend/node_modules/.tmp/bv-seed-*. All disposable PostgreSQL servers stopped.
 
-CONSTRAINTS
-- main only; preserve UI, API keys/types, metrics, permissions, Manila time and prior features.
-- No live station DB/captures/cameras/printer/power. Mocked/disposable fixtures only.
-- Do not add abstractions or tests that merely mirror changed copy.
+REMAINING / LIMITS
+- No pending fixes within this audit. Existing lint debt and two historical full-frontend
+  connectivity failures remain separate; this task ran affected frontend suites, not all.
+- Fresh dependency downloads/toolchain installation, native Linux/macOS, live station data
+  and hardware were not exercised. Scripts tested in disposable copies with fake installers;
+  generator and consumer APIs tested with real isolated PostgreSQL, not production.
+- Existing records are intentionally not backfilled. Seeding refuses nonempty databases;
+  configure BOOTSTRAP_ADMIN_PASSWORD and an empty development DB before invoking it.
 
 EXACT RESUME
-- No implementation or merge work remains. This documentation-only checkpoint is authorized
-  for normal commit/push; verify its remote equality before ending the turn.
-- Existing frontend source is identical to the already-tested Analytics patch; avoid
-  repeating unrelated audits/passing browser checks. No live station resources.
+- No running tasks or pending implementation. Leave the fourteen files uncommitted on main.
+- Local main is behind the local origin/main tracking ref by one documentation-only commit.
+  Git synchronization requires new authorization; it is not pending implementation work.
+- Read this checkpoint and Git status for future work. Do not repeat passing checks or old
+  audits unless source changes/new evidence requires it. No Git writes/deployment authorized.
+- Full report: docs/audits/2026-10-19-seed-compatibility.md.

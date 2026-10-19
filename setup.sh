@@ -97,7 +97,7 @@ echo -e "${GREEN}✔ Frontend dependencies installed.${NC}"
 
 # 5. Database Seeding
 echo -e "${YELLOW}⚙  Checking Database and Seeding...${NC}"
-echo -e "${CYAN}Note: Make sure your PostgreSQL server is running and the database 'bananavision' is created as per your backend/.env configuration.${NC}"
+echo -e "${CYAN}Use an EMPTY development database configured in backend/.env; existing data is never replaced. Seeding requires BOOTSTRAP_ADMIN_PASSWORD.${NC}"
 read -p "Do you want to seed the database now? (y/n): " seed_db
 if [[ "$seed_db" =~ ^[Yy]$ ]]; then
     echo -e "${YELLOW}⚙  Seeding database...${NC}"

@@ -21,8 +21,15 @@ if exist "%BACKEND_DIR%\venv\Scripts\activate.bat" (
 )
 
 :: Run the seeder
-cd /d "%BACKEND_DIR%"
+pushd "%BACKEND_DIR%"
+if errorlevel 1 exit /b 1
 python seed.py
+if errorlevel 1 (
+    popd
+    echo [ERROR] Seeding failed. Use an empty development database and check the error above.
+    exit /b 1
+)
+popd
 
 echo.
 echo [INFO] Seeding completed successfully.

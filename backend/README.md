@@ -127,7 +127,20 @@ On an empty database, startup requires `BOOTSTRAP_ADMIN_PASSWORD` in the backend
 
 Account creation and administrator resets generate unique temporary credentials. The authenticated administrator sees them once in a handoff dialog and shares them privately with the owner. They are not stored in browser storage or audit logs. Owners must replace them on first use; setup authorization expires after ten minutes and cannot access normal APIs or WebSockets. An expired setup requires signing in again.
 
-The destructive demo seed utility requires a non-production environment and the same bootstrap configuration. Its fixture operator is inactive with no usable PIN; an administrator must reset credentials and activate it for use.
+The demo seed utility (`python seed.py`, or the optional setup/seed wrappers) requires an
+**empty development database** and the same bootstrap configuration. It refuses existing
+data before changing the schema; it never resets tables or repairs historical records.
+Schema migrations and generated records commit together, with concurrent seed attempts
+serialized on PostgreSQL. Run it before starting the application for the first time;
+normal startup can create the administrator without adding demo scans.
+
+The 25 synthetic scans use stored two-decimal temperature/humidity readings and the existing
+`calc_vpd` function (kPa, three decimals), intake treatment, fallback spoilage estimates,
+original-result snapshots and linked history events. These are demo predictions, not model
+validation or training measurements. History explicitly names **Demo Seeder**, with no
+invented human actor. Existing nullable/legacy VPD and actor data remains unchanged.
+The fixture operator is inactive with no usable PIN; an administrator must reset credentials
+and activate it for use. Camera images/detections and print jobs are not fabricated or executed.
 
 Role and active-status changes revoke existing sessions. Promoting an operator clears their PIN while preserving the profile and scan-history links. Demotion requires an administrator to issue a new temporary PIN through **Reset PIN**; old PINs are never restored. PIN login, PIN setup/change and administrator PIN reset require the current Operator role. Account updates serialize the last-active-admin check inside the database transaction; a waiting request also rechecks its administrator's status, role and session version.
 

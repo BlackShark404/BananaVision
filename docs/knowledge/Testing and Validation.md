@@ -2,6 +2,20 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## Current demo-seed regression coverage
+
+`backend/tests/test_seed.py` runs only with an explicitly disposable
+`BANANAVISION_TEST_DATABASE_URL`, using a unique PostgreSQL schema per case. It verifies
+VPD from stored-precision readings, zero preservation, treatment/spoilage consistency,
+original snapshots, synthetic actor history, consumer APIs, rollback, concurrent seeding
+and refusal of existing data. The seeder no longer drops tables. Missing historical VPD
+and actor fixtures remain intentional and must not be backfilled.
+
+`test_setup_scripts.py` runs copied Windows/Git Bash scripts with fake installers/seeder,
+checks exit statuses and existing `.env` preservation, and never runs workspace setup.
+See [the seed audit](../audits/2026-10-19-seed-compatibility.md) and
+[backend setup guidance](../../backend/README.md) for scope and limitations.
+
 ## Testing Philosophy & Safety Rules
 
 As mandated by `AGENTS.md` and `docs/development-workflow.md`:

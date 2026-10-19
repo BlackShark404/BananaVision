@@ -11,6 +11,8 @@ echo "============================================================"
 echo "  BananaVision - Running Database Seeder"
 echo "============================================================"
 
+set -e
+
 # Activate virtual environment
 if [ -d "$BACKEND_DIR/venv" ]; then
     source "$BACKEND_DIR/venv/bin/activate"
