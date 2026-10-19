@@ -1,76 +1,62 @@
-CURRENT RESUME HERE (2026-10-19) - SCAN ACTOR ATTRIBUTION VERIFIED
+CURRENT RESUME HERE (2026-10-19) - ANALYTICS METRIC WORDING VERIFIED
 
 GIT STATE
-- main at a1f24f1 (Fix operator analytics aggregation), initially clean, tracking origin/main.
-- Prior Operator Performance changes committed outside this task; preserve them.
-- Eight task files modified/untracked: four test/fixture files, two knowledge notes,
-  this checkpoint and the prior checkpoint archive. No production files changed.
-- Changes remain unstaged/uncommitted. No fetch, branch/worktree or Git writes performed.
-- No commit/push/merge/deployment authorized. Prior checkpoint archived in
-  docs/history/2026-10-19-before-scan-actor-check.txt.
+- main at 69a5b61 (Verify scan actor attribution), initially clean and tracking origin/main.
+- Prior actor verification committed outside this task. Preserve all completed work.
+- User now explicitly authorizes commit, pull/merge and push on main. No deployment.
+  Prior checkpoint archived in
+  docs/history/2026-10-19-before-analytics-wording.txt.
+- Six task files modified/untracked: shared definition strings, Analytics presentation,
+  one existing browser assertion, Frontend knowledge note, checkpoint and archive.
+- Publication in progress; preserve incoming camera/fusion work. No branches/worktrees.
 
 DONE
-- Read current checkpoint/status/guidance; focused Graphify and project ICM recall.
-- Used Superpowers systematic debugging to trace Kiosk PIN/session, trigger route,
-  scan pipeline, ScanEvent, history serialization and Scan Detail display.
-- New scans already use authenticated user ID/name, create an immutable created event
-  in the scan transaction and link initial status evidence to avoid duplicate unknown entries.
-- Legacy status rows have no actor evidence; preserve unknown instead of inventing attribution.
-- Verified ScanProvider/InventoryProvider key their stores by authenticated ID/role;
-  session changes remount Kiosk, clearing selection/intake and reopening the PIN chooser.
-  The initially suspected stale-selection bug was disproved. No runtime correction needed.
-- Added seven actor/session cases: three backend (both reader roles plus missing profile),
-  three Kiosk session-reset cases and one browser recorded/legacy actor case.
-- Verified authenticated ID/name, ignored forged actor inputs, immutable names after rename,
-  subsequent operator scans, actor display and legacy unknowns without owner substitution.
-- Scoped authorization/persistence review: server CurrentUser is authoritative; history
-  retains ownership/role checks and note privacy. No new boundary changes or findings.
-  This was a focused source/test review, not a repository-wide Codex Security scan.
-- Final scoped diff reviewed; UI, API, schema, model, printer and permissions unchanged.
-- Graphify AST update PASS: 3721 -> 3728 nodes, 11346 edges, 230 communities; no graph loss.
-  Two SQL files remain omitted by unavailable optional SQL parser; no paid extraction.
-- Frontend/Testing knowledge notes updated; project-local ICM memory saved:
-  01M58J4CZE4A3QM4GFXGRFZ7A5.
+- Read progress/status/guidance; focused Graphify query and Analytics source/API/schema review.
+- Verified shared metric definitions against calculations, confidence sample eligibility,
+  inventory policy, Manila ranges, fixed 14-day trend and stable operator aggregation.
+- Confirmed readability issues: repeated filter clauses, unlabeled paragraphs, raw ISO dates,
+  duplicate accuracy warning, and trend caption mentioning only source despite other filters.
+- Selected bounded copy edit: shorter server definitions, labeled rows, readable Manila
+  dates and one accuracy explanation. Keep existing disclosure, styling and all calculations.
+- Implemented concise definitions (361 -> 209 words), labeled existing disclosure rows,
+  readable Manila period/update time and simpler Total Scans subtitle.
+- Removed duplicated accuracy paragraph and corrected trend caption to include all filters.
+- Verified confidence eligibility, stock-risk caveats and fixed trend remain accurate;
+  schema/API keys, computations and permissions are unchanged. No new boundary exposure.
+- Final scoped diff and git diff --check PASS; no unrelated changes.
+- Graphify AST update PASS: 3728 -> 3731 nodes, 11349 edges, 245 communities; no graph loss.
+  Two SQL files remain omitted by unavailable optional parser; no paid extraction.
+- Updated Frontend knowledge note and stored user plain-language preference in project ICM
+  (01M59DRNE97YFWGMB8Y6Y9WYYS). No new dependencies or configuration.
 
 IN PROGRESS
-- None. Authorized actor verification, tests, review and knowledge updates are complete.
+- Commit verified Analytics work, pull/merge incoming main, verify integration and push.
 
 REMAINING
-- No pending actor-attribution fix. Existing lint debt, full-suite connectivity mismatch
-  and PostgreSQL verification remain separate limitations; no all-green repository claim.
-- Historical actorless status rows cannot be attributed without reliable evidence.
+- No pending metric-definition fixes. Existing repository lint/connectivity debt and
+  PostgreSQL coverage remain separate follow-ups; no all-green repository claim.
 
 TEST RESULTS
-- Initial Kiosk test timed out because the session change correctly reopened the modal,
-  making Scan Now inaccessible. Corrected test to assert the modal and underlying disabled button.
-  This was a test assumption error, not a reproduced runtime defect.
-- Existing lint baseline: frontend 37 errors/5 warnings; backend Ruff 652 errors.
-- Focused actor tests: 2 browser and 2 backend passed before test-case separation.
-- node --test --test-concurrency=1 tests/kiosk.test.mjs tests/kiosk-pin.test.mjs
-  tests/operationsloading.test.mjs tests/scanrecords.test.mjs: 61 passed, 0 failed (80.95s).
-- Isolated pytest test_scan_trigger.py test_scan_records.py test_time_and_writes.py:
-  60 passed, 0 skipped (9.81s). Mocked hardware/temporary SQLite only.
-- After test-case separation: node --test tests/kiosk.test.mjs: 10 passed (36.88s);
-  isolated pytest test_scan_trigger.py: 11 passed (5.33s). All final changed tests pass.
-  Combined with unchanged suites: 63 distinct frontend and 61 distinct backend cases pass.
-- npm run typecheck PASS; npm run build (tsc-b + Vite) PASS (11.46s Vite).
-- npm run lint FAIL: 37 errors/5 warnings (unchanged baseline).
-- Ruff initially could not access sandbox interpreter cache; approved offline execution
-  ran and reported 653 errors, including one new B023 in the actor test, now corrected.
-- Final uv tool run --offline --from ruff ruff check backend/app backend/tests
-  --output-format concise: FAIL 652 existing errors, no new changed-file diagnostics.
-- git diff --check PASS. Production diff is empty; final test-file cleanup only indented JS.
-- Logs: frontend/node_modules/.tmp/bv-actor-{frontend,backend,typecheck,build,*lint}.txt.
-- Full suite not repeated: prior 159 passed/2 connectivity failures concern shared-socket/
-  message-auth test expectations versus unchanged per-hook/query-auth runtime.
-  Prior backend 493 passed/38 PostgreSQL skips; no disposable PG configured this task.
+- node --test tests/analytics.test.mjs: 9 passed (36.41s).
+- Isolated pytest backend/tests/test_analytics.py: 15 passed (3.83s), no skips.
+- npm run typecheck PASS; npm run build (tsc-b/Vite) PASS (15.91s Vite).
+- npm run lint FAIL 37 errors/5 warnings (baseline). Ruff FAIL 646 errors (6 fewer than baseline).
+- Analytics.tsx ESLint comparison with HEAD: unchanged 0 errors/1 existing hooks warning.
+- Mocked real-copy display checked at 1440px and 390px; screenshots reviewed, no horizontal
+  overflow or console errors. Manila date/time shown correctly in an LA browser; All Time works.
+- AST comparison confirms only definition strings changed in backend; all keys preserved.
+  Definition text reduced from 361 to 209 words (42% less). No calculation changes.
+- Logs/screenshots: frontend/node_modules/.tmp/bv-metric-*.
+- Baseline lint: frontend 37 errors/5 warnings; backend Ruff 652 errors.
+- Prior full-suite connectivity failures and unavailable PostgreSQL coverage remain separate.
 
 CONSTRAINTS
-- main only; preserve UI, VPD, existing permissions, Manila time and scan/model/printer paths.
-- No live database/captures/cameras/printer/power; isolated fixtures only.
-- No historical actor backfill from current owner or current login.
+- main only; preserve UI, API keys/types, metrics, permissions, Manila time and prior features.
+- No live station DB/captures/cameras/printer/power. Mocked/disposable fixtures only.
+- Do not add abstractions or tests that merely mirror changed copy.
 
 EXACT RESUME
-- No running sessions or pending authorized task work. Leave the eight task files uncommitted.
-- On a future task, inspect Git status and this checkpoint first. Do not repeat completed
-  actor/loading/VPD/operator investigations or passing tests without changed evidence.
+- Inspect incoming main, commit the six verified task files, pull/merge preserving both
+  checkpoints, run checks warranted by incoming changes, then push and compare remote HEAD.
+- Inspect this checkpoint and Git state before new work; do not repeat prior audits or passing
+  checks unless implementation changes or new evidence justifies it.

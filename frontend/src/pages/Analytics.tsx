@@ -78,6 +78,26 @@ const hourlyChartConfig = {
 
 type DateRange = AnalyticsRange
 
+const metricLabels: Record<string, string> = {
+  throughput: "Total Scans",
+  classifications: "Cultivar & Ripeness Charts",
+  model_confidence: "Avg Confidence",
+  low_confidence: "Low Confidence",
+  inventory_risk: "At-Risk Scans",
+  confidence_by_ripeness: "Confidence by Ripeness",
+  trend: "Scan Trend",
+  sources: "Scans by Source",
+  operators: "Operator Performance",
+  hourly: "Peak Scanning Hours",
+  human_verified_accuracy: "Verified Accuracy",
+}
+const manilaDate = new Intl.DateTimeFormat("en-PH", {
+  timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric",
+})
+const manilaTime = new Intl.DateTimeFormat("en-PH", {
+  timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit",
+})
+
 const CULTIVAR_COLORS: Record<string, string> = {
   [CultivarEnum.LAKATAN]: "#f59e0b",
   [CultivarEnum.LATUNDAN]: "#fbbf24",
@@ -214,7 +234,7 @@ function AnalyticsContent() {
           value={summary.total_scans}
           icon={TrendingUp}
           delay={50}
-          description="Throughput · Selected range"
+          description="Scans · Selected range"
           helpText={summary.metric_definitions.throughput}
         />
         <AppStatsCard
@@ -253,10 +273,10 @@ function AnalyticsContent() {
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer">Metric definitions</summary>
         <div className="space-y-2 mt-2">
-          <p>Business timezone: {summary.timezone}. Refreshed: {summary.generated_at}. Date window: {summary.range_start ?? "All history"} through {summary.range_end}.</p>
-          {Object.entries(summary.metric_definitions).map(([key, definition]) => <p key={key}>{definition}</p>)}
-          <p>{summary.incomplete_count} scans have incomplete classifications. {summary.risk_unknown_count} current-stock scans have no usable spoilage estimate.</p>
-          <p>Human-verified model accuracy: unavailable. No recorded ground-truth verification is available to calculate accuracy.</p>
+          <p>Metrics use your selected filters and date range. Scan Trend always uses the last 14 days.</p>
+          <p>Period: {summary.range_start ? manilaDate.format(new Date(summary.range_start)) : "All history"} – {manilaDate.format(new Date(summary.range_end))}. Updated: {manilaTime.format(new Date(summary.generated_at))} ({summary.timezone}).</p>
+          {Object.entries(summary.metric_definitions).map(([key, definition]) => <p key={key}><strong className="font-medium">{metricLabels[key] ?? key.replaceAll("_", " ")}: </strong>{definition}</p>)}
+          <p>Missing data: {summary.incomplete_count} incomplete classifications; {summary.risk_unknown_count} stock scans without a spoilage estimate.</p>
         </div>
       </details>
 
@@ -393,7 +413,7 @@ function AnalyticsContent() {
       <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-9">
         <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
           <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.trend}>Scan Trend (Last 14 Days)</CardTitle>
-          <p className="text-xs text-muted-foreground">Fixed period: {summary.trend_start} – {summary.trend_end}. Uses the selected source, independent of the date-range filter.</p>
+          <p className="text-xs text-muted-foreground">{summary.trend_start} – {summary.trend_end} · Uses source, cultivar and stock-status filters, regardless of the date range.</p>
         </CardHeader>
         <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
           <ChartContainer config={scanTrendChartConfig} className="h-[240px] sm:h-[280px] w-full">

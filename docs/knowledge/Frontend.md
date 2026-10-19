@@ -67,6 +67,12 @@ record state does not identify the actor performing a QC action. Rows use stable
 IDs and current account names; confidence zero and unavailable values remain distinct.
 See [[Development Decisions]] and [the operator audit](../audits/2026-10-19-operator-performance.md).
 
+Analytics help text comes from the API's shared metric definitions. The existing disclosure
+labels each metric, uses readable Manila dates, and explains confidence versus accuracy once
+per relevant definition. The fixed 14-day trend applies source/cultivar/stock-status filters;
+its date window remains independent of the selected KPI range. Wording changes do not alter
+metric calculations, eligibility rules or API keys.
+
 - **`AppDataTable`**: Structured table supporting skeleton placeholders, sortable headers, pagination, and multi-filter criteria.
 - **`AppStatsCard`**: KPI indicator cards with support for skeleton loading and stale data indicators.
 - **`useDashboardResource`**: Handles async data fetching with cancellation, request sequencing, and snapshot retention.

@@ -34,41 +34,47 @@ DateRange = Literal["today", "week", "month", "all"]
 
 METRIC_DEFINITIONS = {
     "throughput": (
-        "Every scan in the selected source, current cultivar, inventory status and "
-        "calendar-day range, including incomplete classifications. Today, Last 7 "
-        "Days and Last 30 Days include the current business day through the refresh "
-        "time; future-dated records are excluded."
+        "All scans matching your filters and date range, including incomplete results. "
+        "Date ranges include today up to the last update."
     ),
-    "classifications": "Current classifications with both a recognized cultivar and ripeness. Missing or unknown labels are excluded from every classification chart and its percentage denominator, but remain in total scans.",
-    "model_confidence": "Mean model confidence from complete, recognized AI classifications with a finite score from 0 to 100. Uses the saved original AI result when available; excludes human-overridden results without an original prediction. This is not measured accuracy.",
-    "low_confidence": "Model-confidence samples strictly below the configured threshold, divided by all valid model-confidence samples. Missing, incomplete and invalid predictions are excluded from both numerator and denominator.",
+    "classifications": (
+        "Scans with both a known cultivar and ripeness. "
+        "Incomplete results are excluded from these charts."
+    ),
+    "model_confidence": (
+        "Average AI confidence (0–100%), not measured accuracy. Uses original predictions; "
+        "incomplete or invalid results and edited results without a saved prediction are excluded."
+    ),
+    "low_confidence": (
+        "Percentage of valid AI predictions below the confidence threshold. "
+        "Uses the same predictions as Avg Confidence."
+    ),
     "inventory_risk": (
-        "Scans in the selected source/cultivar/status and date range whose latest "
-        "inventory status is In Stock and whose known intake is Active or whose "
-        "unlinked provenance is verified. Deleted-intake and ambiguous legacy stock "
-        "are excluded. Sold, Spoiled, For Processing and depleted intakes are "
-        "excluded. Remaining days equals the original estimate (range midpoint) "
-        "minus elapsed time since scanning; two days or less includes overdue stock. "
-        "Invalid estimates are reported as unknown risk."
+        "In-stock scans with 2 days or less left, including overdue stock. "
+        "Remaining time is the estimate minus time since scanning (midpoint for ranges). "
+        "Only active intakes or scans confirmed to have no intake count. "
+        "Unknown estimates are excluded."
     ),
-    "confidence_by_ripeness": "Valid model-confidence samples grouped by the AI prediction's ripeness, using the original prediction when saved. Each count is the denominator of its mean; it may differ from current classification counts after corrections.",
+    "confidence_by_ripeness": (
+        "Average AI confidence and number of valid predictions for each predicted ripeness. "
+        "May differ from charts that include manual corrections."
+    ),
     "trend": (
-        "All scans from the selected source/cultivar/status during the last 14 "
-        "business calendar days, including today through the refresh time. This "
-        "fixed window is independent of the selected date range."
+        "Daily scans for the last 14 days, including today. Uses source, cultivar and "
+        "stock-status filters, but ignores the date-range filter."
     ),
-    "sources": "Scan counts grouped by stable supplier identity when linked; otherwise by recorded source text. Filter choices include all sources with accessible scan history and do not shrink when filters change.",
+    "sources": (
+        "Scans grouped by supplier, or by the recorded source name when no supplier is linked."
+    ),
     "operators": (
-        "All scans in the selected source/cultivar/status and date range, grouped by "
-        "stable operator ID and displayed with the current account name. Mean "
-        "confidence uses the same valid model-confidence population as the "
-        "confidence KPI; it is model output, not operator accuracy."
+        "Scans and average AI confidence per operator. Renamed accounts keep their totals. "
+        "Confidence describes the AI, not operator accuracy."
     ),
-    "hourly": (
-        "Every scan in the selected source/cultivar/status and date range, grouped "
-        "by business-local hour."
+    "hourly": "Scans grouped by time of day in Asia/Manila.",
+    "human_verified_accuracy": (
+        "Unavailable: no independent verification results are recorded. "
+        "Flags and manual edits do not measure accuracy."
     ),
-    "human_verified_accuracy": "Unavailable: the system has no independently verified ground-truth labels or review-completion record. Flags and manual overrides alone cannot establish model accuracy.",
 }
 
 

@@ -74,7 +74,7 @@ test("empty and incomplete data have no fabricated confidence or accuracy", asyn
   await page.getByText(/No scans match this source/).waitFor()
   assert.equal(await page.getByText("No classified scans in this selection.", { exact: true }).count(), 3)
   await page.getByText("Metric definitions", { exact: true }).click()
-  await page.getByText(/Human-verified model accuracy: unavailable/).waitFor()
+  await page.getByText(`Verified Accuracy: ${definitions.human_verified_accuracy}`, { exact: true }).waitFor()
   assert.doesNotMatch(await page.locator("body").innerText(), /NaN|undefined|null%/)
 })
 
