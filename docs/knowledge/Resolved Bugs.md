@@ -68,3 +68,14 @@ Documented log of confirmed bug root causes, verified solutions, and test covera
   4. Adjusted flank cutoffs in [fusion_engine.py](file:///d:/KENT%20EDUCATION%20PROJECTS/BananaVision/backend/app/services/fusion_engine.py) ($0.42$ / $0.58$) and exposed `cultivar_conflict` on `FusedResult`.
 - **Verification**: 112 passed in targeted backend suite; full backend 484 passed, 38 skipped; `tsc -b && vite build` passed; `scanpages.test.mjs` 12/12 passed; verified clean 11-finger Lakatan detection and saucer removal on capture `10d7c3df` and across all 5 offline test placements.
 
+### 10. Overhead Top-Camera Cultivar Anchoring and Peripheral Background Filtering (2026-10-19)
+- **Issue**: Latundan and Lakatan bunches suffered from 2-vs-2 camera split deadlocks where noisy peripheral camera views (Left and Rear) disagreed with the clear overhead Top view, triggering `cultivar_conflict` and forcing Kiosk to display "Uncertain". Additionally, peripheral side cameras looking out into open backgrounds detected non-banana objects (e.g. vertical door jambs detected as `Lakatan Overripe - 76%`).
+- **Root Cause**:
+  1. Peripheral cameras looking out horizontally have open backgrounds with vertical wooden door frames and ceiling fixtures that mimic elongated brown/yellow banana fingers.
+  2. The fusion engine previously treated all cameras identically with symmetric majority voting. When Left and Rear cameras dissented due to background noise or severe backlighting, the 2-vs-2 tie resulted in `no_camera_majority` and `cultivar_conflict`, blocking scan-level cultivar harmonization and triggering the Kiosk "Uncertain" safeguard.
+- **Fix**:
+  1. Implemented peripheral camera background filtering in `classification.py`: suppressed detections on Left, Right, and Rear views that are either completely within the upper background ($y_2 < 0.22 \cdot H$) or slender vertical pillars touching the top edge ($y_1 < 0.08 \cdot H, h/w \ge 2.5, y_2 < 0.65 \cdot H$).
+  2. Implemented Top-Camera Cultivar Anchoring in `fusion_engine.py`: when the overhead Top camera has a confident, unconflicted detection ($\ge 50\%$ confidence, $\ge 1$ finger, `not conflict_detected`), it anchors the bunch cultivar. Peripheral split/tied camera disagreements are resolved by the Top anchor without triggering `no_camera_majority` or `cultivar_conflict`, unless a competing cultivar has a strict camera majority ($> 50\%$).
+  3. Added settings `top_camera_cultivar_anchor` and `yolo_peripheral_background_filter` in `config.py`.
+- **Verification**: 102 passed in targeted fusion & top-view tests; 76 passed in scan & write tests; clean frontend typecheck and production build (`tsc -b && vite build`).
+

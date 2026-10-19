@@ -380,6 +380,28 @@ class BananaClassifier:
                         if y1 > 0.55 * img_h and (x2 - x1) > 2.0 * (y2 - y1) and conf < 0.60:
                             continue
 
+                    # Suppress upper background fixtures (door frames, window jambs, ceiling)
+                    # on peripheral side and rear cameras. Real banana fingers on the inspection
+                    # platter sit in the middle-to-lower portion of the frame.
+                    norm_cam = (camera_label or "").strip().casefold()
+                    if (
+                        getattr(settings, "yolo_peripheral_background_filter", True)
+                        and norm_cam in ("left", "right", "rear")
+                        and image is not None
+                    ):
+                        img_h = image.shape[0]
+                        det_h = y2 - y1
+                        det_w = x2 - x1
+                        # 1. Boxes entirely in the upper background (sky / ceiling):
+                        if y2 < 0.22 * img_h:
+                            continue
+                        # 2. Slender background pillars or door frames touching top edge:
+                        if (
+                            y1 < 0.08 * img_h and det_w > 0
+                            and (det_h / det_w) >= 2.5 and y2 < 0.65 * img_h
+                        ):
+                            continue
+
                     # Suppress same-class nested duplicate boxes or severe IoU duplicates.
                     if any(_is_same_class_sub_box(det, existing) for existing in detections):
                         continue
