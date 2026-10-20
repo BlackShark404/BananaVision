@@ -79,22 +79,15 @@ echo [OK] Frontend dependencies installed.
 
 :: 5. Database Seeding
 echo [INFO] Checking Database and Seeding...
-echo Use an EMPTY development database configured in backend\.env. Existing data is never replaced.
-echo Seeding requires BOOTSTRAP_ADMIN_PASSWORD; normal app startup does not require demo records.
+echo [WARNING] Demo seeding deletes existing application database records, including accounts, scans and history.
+echo It recreates demo data with VPD and current Scan Logs fields. Use a development database only.
+echo Seeding requires BOOTSTRAP_ADMIN_PASSWORD. Choose N to keep your existing database.
 set "seed_db="
-set /p seed_db="Do you want to seed the database now? (y/n): "
+set /p seed_db="Reset the application database and seed demo data now? (y/N): "
 if /i "%seed_db%"=="y" (
     echo [INFO] Seeding database...
-    pushd "%BACKEND_DIR%"
-    call venv\Scripts\activate.bat
-    python seed.py
-    if errorlevel 1 (
-        popd
-        echo [ERROR] Database seeding failed. Check backend\.env and the error above.
-        exit /b 1
-    )
-    popd
-    echo [OK] Database seeded.
+    call :seed_database
+    if errorlevel 1 exit /b 1
 ) else (
     echo [INFO] Skipping database seeding.
 )
@@ -108,6 +101,19 @@ echo   dev.bat
 echo.
 
 endlocal
+exit /b 0
+
+:seed_database
+pushd "%BACKEND_DIR%"
+if errorlevel 1 exit /b 1
+python seed.py --reset-demo
+set "SEED_EXIT_CODE=%errorlevel%"
+popd
+if not "%SEED_EXIT_CODE%"=="0" (
+    echo [ERROR] Database seeding failed. Check backend\.env and the error above.
+    exit /b 1
+)
+echo [OK] Database seeded.
 exit /b 0
 
 :dependency_error

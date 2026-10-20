@@ -89,6 +89,8 @@ async def test_seed_environment_matches_stored_precision_and_current_scan_contra
             )  # Production does not persist these.
             assert scan.operator_name_snapshot == scan.operator.account.full_name
             assert scan.source_name_snapshot == scan.intake.supplier.name
+            assert scan.operator_name_snapshot.startswith("Demo ")
+            assert scan.source_name_snapshot.startswith("Demo ")
             assert scan.intake_origin_id == scan.intake_id and scan.intake_provenance == "linked"
             assert scan.intake.created_at <= scan.date_time <= scan.updated_at
             assert scan.intake.intake_date <= scan.date_time.date()
@@ -110,8 +112,11 @@ async def test_seed_environment_matches_stored_precision_and_current_scan_contra
             assert original.created_at == scan.date_time
 
 
-async def test_seed_history_and_consumer_apis_are_consistent(empty_seed_database):
+@pytest.mark.parametrize("reset_demo", [False, True])
+async def test_seed_history_and_consumer_apis_are_consistent(empty_seed_database, reset_demo):
     await seed.main()
+    if reset_demo:
+        await seed.main(reset_demo=True)
     async with empty_seed_database.sessions() as db:
         admin = await db.scalar(select(UserAccount).where(UserAccount.username == "seed_admin"))
         scans = (await db.scalars(select(Scan))).all()
@@ -141,7 +146,7 @@ async def test_seed_refuses_repeat_without_changing_existing_rows(empty_seed_dat
     await seed.main()
     async with empty_seed_database.sessions() as db:
         before = set(await db.scalars(select(Scan.id)))
-    with pytest.raises(RuntimeError, match="empty"):
+    with pytest.raises(seed.DatabaseNotEmptyError, match="empty"):
         await seed.main()
     async with empty_seed_database.sessions() as db:
         assert set(await db.scalars(select(Scan.id))) == before
@@ -151,7 +156,7 @@ async def test_seed_refuses_any_existing_data_before_schema_changes(empty_seed_d
     async with empty_seed_database.engine.begin() as connection:
         await connection.execute(text("CREATE TABLE user_evidence (message TEXT)"))
         await connection.execute(text("INSERT INTO user_evidence VALUES ('keep me')"))
-    with pytest.raises(RuntimeError, match="empty"):
+    with pytest.raises(seed.DatabaseNotEmptyError, match="empty"):
         await seed.main()
     async with empty_seed_database.engine.connect() as connection:
         assert await connection.scalar(text("SELECT message FROM user_evidence")) == "keep me"
@@ -172,6 +177,53 @@ async def test_seed_rolls_back_schema_and_rows_on_failure(empty_seed_database, m
         await seed.main()
     async with empty_seed_database.engine.connect() as connection:
         assert await connection.run_sync(lambda c: inspect(c).get_table_names()) == []
+
+
+async def test_explicit_reset_replaces_demo_records_and_reapplies_migrations(empty_seed_database):
+    await seed.main()
+    async with empty_seed_database.sessions() as db:
+        before = set(await db.scalars(select(Scan.id)))
+        revision = await db.scalar(text("SELECT version_num FROM alembic_version"))
+    async with empty_seed_database.engine.begin() as connection:
+        await connection.execute(text("CREATE TABLE user_evidence (message TEXT)"))
+        await connection.execute(text("INSERT INTO user_evidence VALUES ('keep me')"))
+    await seed.main(reset_demo=True)
+    async with empty_seed_database.sessions() as db:
+        after = set(await db.scalars(select(Scan.id)))
+        assert len(after) == 25 and before.isdisjoint(after)
+        assert await db.scalar(text("SELECT version_num FROM alembic_version")) == revision
+        assert await db.scalar(text("SELECT message FROM user_evidence")) == "keep me"
+        scans = (await db.scalars(select(Scan))).all()
+        assert all(s.classification.vpd is not None and s.original_ai_result for s in scans)
+
+
+async def test_failed_reset_restores_existing_records_and_schema(empty_seed_database, monkeypatch):
+    await seed.main()
+    async with empty_seed_database.sessions() as db:
+        scans_before = set(await db.scalars(select(Scan.id)))
+        users_before = set(await db.scalars(select(UserAccount.id)))
+        revision = await db.scalar(text("SELECT version_num FROM alembic_version"))
+    generate = seed.seed_data
+
+    async def fail(db):
+        await generate(db)
+        raise RuntimeError("reset fixture failure")
+
+    monkeypatch.setattr(seed, "seed_data", fail)
+    with pytest.raises(RuntimeError, match="reset fixture failure"):
+        await seed.main(reset_demo=True)
+    async with empty_seed_database.sessions() as db:
+        assert set(await db.scalars(select(Scan.id))) == scans_before
+        assert set(await db.scalars(select(UserAccount.id))) == users_before
+        assert await db.scalar(text("SELECT version_num FROM alembic_version")) == revision
+
+
+async def test_concurrent_explicit_resets_leave_one_complete_dataset(empty_seed_database):
+    await seed.main()
+    await asyncio.gather(seed.main(reset_demo=True), seed.main(reset_demo=True))
+    async with empty_seed_database.sessions() as db:
+        assert len((await db.scalars(select(Scan.id))).all()) == 25
+        assert len((await db.scalars(select(ScanEvent.id))).all()) == 35
 
 
 async def test_concurrent_seeds_create_only_one_dataset(empty_seed_database):
@@ -196,11 +248,13 @@ async def test_seed_keeps_zero_vpd(empty_seed_database, monkeypatch):
 
 
 @pytest.mark.parametrize("production,password", [(True, SecretStr("test")), (False, None)])
+@pytest.mark.parametrize("reset_demo", [False, True])
 async def test_seed_guards_environment_before_touching_database(
     empty_seed_database,
     monkeypatch,
     production,
     password,
+    reset_demo,
 ):
     monkeypatch.setattr(
         seed,
@@ -211,6 +265,39 @@ async def test_seed_guards_environment_before_touching_database(
         ),
     )
     with pytest.raises(RuntimeError, match="non-production"):
-        await seed.main()
+        await seed.main(reset_demo=reset_demo)
     async with empty_seed_database.engine.connect() as connection:
         assert await connection.run_sync(lambda c: inspect(c).get_table_names()) == []
+
+
+def test_seed_cli_reports_expected_refusal_without_traceback(monkeypatch, caplog):
+    async def refuse(**kwargs):
+        raise seed.DatabaseNotEmptyError("existing data was not changed")
+
+    monkeypatch.setattr(seed, "main", refuse)
+    assert seed.run_cli([]) == 20
+    assert "Demo seeding skipped" in caplog.text
+    assert "existing data was not changed" in caplog.text
+    assert "empty development database" in caplog.text
+    assert all(record.exc_info is None for record in caplog.records)
+
+
+def test_seed_cli_does_not_swallow_unexpected_failures(monkeypatch):
+    async def fail(**kwargs):
+        raise RuntimeError("unexpected fixture failure")
+
+    monkeypatch.setattr(seed, "main", fail)
+    with pytest.raises(RuntimeError, match="unexpected fixture failure"):
+        seed.run_cli([])
+
+
+@pytest.mark.parametrize("arguments,reset_demo", [([], False), (["--reset-demo"], True)])
+def test_seed_cli_reports_success_only_after_completion(monkeypatch, arguments, reset_demo):
+    completed = []
+
+    async def succeed(**kwargs):
+        completed.append(kwargs["reset_demo"])
+
+    monkeypatch.setattr(seed, "main", succeed)
+    assert seed.run_cli(arguments) == 0
+    assert completed == [reset_demo]

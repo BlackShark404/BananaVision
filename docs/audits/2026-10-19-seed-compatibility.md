@@ -2,6 +2,10 @@
 
 Base: `4e7bcb1`, branch `main`. All validation used disposable data and copied scripts.
 
+Current seeding behavior is described in the **Requested legacy setup flow** follow-up
+below. The initial empty-database-only setup policy and intermediate skip behavior are
+historical; the latest requested wrapper flow resets demo data after an explicit Yes.
+
 ## Findings and changes
 
 | Area | Confirmed issue | Result |
@@ -90,3 +94,76 @@ unstaged on `main` at `4e7bcb11f083fa7e184ffc2f336c2cdf87a9822b`.
 The local `origin/main` tracking ref is one commit ahead (`8909dc1`), adding only
 `docs/accuracy-improvement-roadmap.md`; it does not overlap this patch. No fetch, pull, merge,
 commit or push was performed during this resume. The verification limits above remain.
+
+## Follow-up — existing database during setup (2026-10-20)
+
+A reported traceback came from the intentional populated-database guard, not a connection
+failure. The guard remains in place before DDL. It now raises `DatabaseNotEmptyError`;
+the CLI reports preserved data and returns reserved exit code
+20 without a traceback. Optional setup handles that code as a skip and completes. Direct
+seeding remains nonzero and never claims new records were created. Other exceptions and
+script failures still fail, including ordinary Python exit code 2 for a missing script.
+
+The focused isolated PostgreSQL and Windows/Git Bash wrapper run passed **29 tests, no
+skips, in 11.63s**. Before implementation, six new CLI/setup expectations failed with
+19 passing tests. An additional two-case missing-script regression caught a collision
+with Python's exit code 2 during development; using the dedicated code 20 resolved it.
+The final run includes both cases, existing seed safeguards and consumer API regressions.
+Wrappers use copied scripts/fake installers; no live data, credentials or hardware were
+accessed. Prior frontend/type/build results remain applicable because frontend source,
+API contracts and dependencies are unchanged. Logs: `frontend/node_modules/.tmp/bv-seed-skip-*`.
+
+After correcting the new exception's Ruff naming diagnostic, the final seed/CLI suite
+passed **12 tests in 8.91s**; the 17 wrapper cases were unchanged. Changed Python files
+pass Ruff; configured backend Ruff remains at **646 existing errors**. Scoped diff and
+persistence/error-boundary review found no additional defect; `git diff --check` passes.
+Graphify refreshed to 3806 nodes / 11525 edges / 247 communities without graph loss;
+the existing optional SQL parser limitation remains. No Git write or deployment performed.
+
+## Requested legacy setup flow — 2026-10-20
+
+The user requested a process close to the original `setup.bat`, `start.bat` and `dev.bat`,
+with the additional Scan Logs data during seeding. Comparison against `e6110c9^` confirmed
+that the original seeder dropped and recreated application tables; the start/dev launchers
+were already unchanged and remain untouched.
+
+Setup retains environment setup, dependencies and optional seeding. Its prompt now explicitly
+states that Yes deletes existing application database records (accounts, scans and history)
+and creates fresh demo data. No/blank keeps the database. Seed wrappers use the same prompt.
+Only Yes supplies `--reset-demo`; plain `python seed.py` retains its non-destructive refusal.
+The reset recreates ORM tables and the migration marker, then applies current migrations
+and seeds within the existing transaction/advisory lock. No cascading fallback was restored.
+The generator still creates 25 scans with stored-precision VPD, treatment, original/name
+snapshots and synthetic history. No historical field backfill or real station reset occurred.
+
+RED: 41 failed / 14 passed before the new reset/confirmation contract existed. GREEN:
+**55 passed, no skips (26.83s)** across `test_seed.py` and `test_setup_scripts.py`, using
+disposable PostgreSQL 18 and copied Windows/Git Bash wrappers. Coverage includes fresh and
+reset consumer APIs, VPD, explicit/default behavior, failed-reset rollback, migration revision,
+unrelated-table preservation, production/bootstrap guards, Yes/No/blank and real failures.
+The temporary PostgreSQL server was stopped. Logs: `frontend/node_modules/.tmp/bv-seed-reset-*`.
+
+## Kiosk/Seed canonical persistence and propagation verification — 2026-10-20
+
+Canonical persistence logic was unified under `backend/app/services/scan_creation.py::create_scan_record`,
+shared by both `backend/seed.py` and `backend/app/services/scan_service.py`. The canonical creation builds
+the scan record, classification, initial status log (`In Stock`), original AI snapshot, and initial creation
+event within the caller's transaction, avoiding implicit relationship I/O.
+
+Distinct attribution is preserved:
+- Live Kiosk scans record the authenticated operator (`actor_name=operator_name`, `actor_id=account_id`).
+- Demo seed scans record `actor_name="Demo Seeder"` (`actor_id=None`) with explicit synthetic reason text.
+- Seeded accounts and suppliers carry mandatory `"Demo "` prefixes (`Demo Kiosk Operator`, `Demo Dole Foods`,
+  `Demo Del Monte`, `Demo Local Farm Coop`) preventing any confusion with real operator activity.
+
+Data propagation verified across the entire lifecycle:
+`Kiosk → Database → Scan Logs → Scan Detail → Dashboard → Inventory → Analytics → CSV Export → QR Tracking`
+with matching persisted values for cultivar, ripeness, confidence, source/intake, operator, timestamps,
+temperature, humidity, VPD (formatted to 3 decimal places in UI/CSV), treatment, spoilage estimates,
+inventory status, QR tracking, intake provenance, and immutable creation history snapshots.
+
+Scan Detail production build verified: the reported `TS2345` note type mismatch (`ScanNote[]` vs `ApiScanNote[]`)
+was resolved in `ScanDetail.tsx` via `acceptScan(saved)`. Both `npm run typecheck` and `npm run build`
+execute cleanly with zero errors. All 59 backend tests in `test_seed.py`, `test_setup_scripts.py`, and
+`test_seed_kiosk_contract.py` pass in 30.47s on disposable PostgreSQL 18. Frontend browser test suites
+`kiosk.test.mjs` (13 tests) and `scanrecords.test.mjs` (35 tests) pass with zero failures.

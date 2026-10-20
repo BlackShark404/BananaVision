@@ -82,7 +82,7 @@ async def load_authorized_scan(db, scan_id, user):
     return await authorize_scan(db, scan, user)
 
 
-def serialize_scan(scan, user):
+def serialize_scan(scan, user=None):
     classification = scan.classification
     latest = scan.status_logs[-1] if scan.status_logs else None
     return ScanResponse(
@@ -119,7 +119,7 @@ def serialize_scan(scan, user):
         if scan.original_ai_result
         else None,
         thumbnail_url=evidence_url(classification.thumbnail_url) if classification else None,
-        has_notes=is_admin(user) and bool(scan.notes),
+        has_notes=user is not None and is_admin(user) and bool(scan.notes),
         images=[
             ScanImageRef(camera_id=i.camera_id, file_path=evidence_url(i.file_path) or "")
             for i in scan.images

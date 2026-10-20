@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import base64
 import io
@@ -20,10 +21,8 @@ from app.models.admin_profile import AdminProfile
 from app.models.device import Device
 from app.models.intake import Intake
 from app.models.operator_profile import OperatorProfile
-from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
 from app.models.scan_history import ScanEvent
-from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.models.scan_status_log import ScanStatusLog
 from app.models.sensor_reading import SensorReading
 from app.models.supplier import Supplier
@@ -40,10 +39,17 @@ from app.schemas.enums import (
     TreatmentEnum,
 )
 from app.services.feature_engineering import calc_vpd
+from app.services.scan_creation import create_scan_record
 from app.services.spoilage import SpoilagePredictor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("seeder")
+# Plain invocation refuses existing data; ordinary Python invocation errors use 2.
+DATABASE_NOT_EMPTY_EXIT = 20
+
+
+class DatabaseNotEmptyError(RuntimeError):
+    """Expected refusal: demo data must never replace existing records."""
 
 
 def prepare_empty_database(connection):
@@ -52,9 +58,18 @@ def prepare_empty_database(connection):
         if name == "alembic_version":
             continue
         if connection.execute(select(1).select_from(table(name)).limit(1)).first():
-            raise RuntimeError(
+            raise DatabaseNotEmptyError(
                 "Demo seeding requires an empty database; existing data was not changed"
             )
+    Base.metadata.create_all(connection)
+    upgrade_connection(connection)
+
+
+def reset_demo_database(connection):
+    """Explicit demo reset; DDL and new records share the caller's transaction."""
+    Base.metadata.drop_all(connection)
+    # Reapply maintained migrations to recreated tables, including their constraints.
+    connection.execute(text("DROP TABLE IF EXISTS alembic_version"))
     Base.metadata.create_all(connection)
     upgrade_connection(connection)
 
@@ -96,7 +111,7 @@ async def seed_data(db):
     # 3. Operator User — pin_hash lives on OperatorProfile, NOT UserAccount
     operator_user = UserAccount(
         username="operator",
-        full_name="Kiosk Operator",
+        full_name="Demo Kiosk Operator",
         password_hash=hash_password(temporary_password()),
         requires_password_change=True,
         password_setup_reason="new_account",
@@ -156,19 +171,19 @@ async def seed_data(db):
 
     # 6. Suppliers
     s1 = Supplier(
-        name="Dole Foods",
+        name="Demo Dole Foods",
         contact_person="John Doe",
         contact_phone="555-0100",
         status=ActiveStatusEnum.ACTIVE,
     )
     s2 = Supplier(
-        name="Del Monte",
+        name="Demo Del Monte",
         contact_person="Jane Smith",
         contact_phone="555-0200",
         status=ActiveStatusEnum.ACTIVE,
     )
     s3 = Supplier(
-        name="Local Farm Coop",
+        name="Demo Local Farm Coop",
         contact_person="Bob Builder",
         contact_phone="555-0300",
         status=ActiveStatusEnum.INACTIVE,
@@ -232,18 +247,6 @@ async def seed_data(db):
             else now - timedelta(days=1, minutes=random.randint(1, 60))
         )
 
-        scan = Scan(
-            operator_id=operator_prof.id,
-            intake_id=i1.id if is_i1 else i2.id,
-            date_time=scan_time,
-            source_text=s1.name if is_i1 else s2.name,
-            operator_name_snapshot=operator_user.full_name,
-            source_name_snapshot=s1.name if is_i1 else s2.name,
-            updated_at=scan_time,
-        )
-        db.add(scan)
-        await db.flush()
-
         cultivar = random.choice(cultivars)
         ripeness = random.choice(ripeness_levels)
 
@@ -261,7 +264,6 @@ async def seed_data(db):
             treatment=treatment.value,
         )
         classification = ScanClassification(
-            scan_id=scan.id,
             cultivar=cultivar,
             ripeness=ripeness,
             confidence=round(random.uniform(85.0, 99.9), 2),
@@ -273,42 +275,12 @@ async def seed_data(db):
             spoilage_days=spoilage_days,
             finger_count=random.randint(5, 12),
         )
-        db.add(classification)
-
-        status_log = ScanStatusLog(
-            scan_id=scan.id, inventory_status=InventoryStatusEnum.IN_STOCK, updated_at=scan_time
-        )
-        db.add(status_log)
-        db.add(
-            ScanOriginalAiResult(
-                scan_id=scan.id,
-                cultivar=cultivar,
-                ripeness=ripeness,
-                confidence=classification.confidence,
-                finger_count=classification.finger_count,
-                spoilage_days=spoilage_days,
-                created_at=scan_time,
-            )
-        )
-        await db.flush()
-        db.add(
-            ScanEvent(
-                scan_id=scan.id,
-                revision=1,
-                kind="created",
-                timestamp=scan_time,
-                actor_name="Demo Seeder",
-                actor_id=None,
-                reason="Synthetic demo scan generated by seed.py; not a live scan.",
-                new_values={
-                    "inventory_status": "In Stock",
-                    "intake_provenance": "linked",
-                    "intake_origin_id": str(scan.intake_id),
-                    "operator": scan.operator_name_snapshot,
-                    "source": scan.source_name_snapshot,
-                },
-                evidence_id=f"status:{status_log.id}",
-            )
+        scan = await create_scan_record(
+            db, operator_id=operator_prof.id, operator_name=operator_user.full_name,
+            intake=i1 if is_i1 else i2, source_text=s1.name if is_i1 else s2.name,
+            date_time=scan_time, classification=classification,
+            actor_id=None, actor_name="Demo Seeder",
+            reason="Synthetic demo scan generated by seed.py; not a live scan.",
         )
         if not is_i1:
             sold_time = scan_time + timedelta(minutes=1)
@@ -339,7 +311,7 @@ async def seed_data(db):
     await db.flush()
 
 
-async def main():
+async def main(*, reset_demo=False):
     settings = get_settings()
     if settings.is_production or settings.bootstrap_admin_password is None:
         raise RuntimeError(
@@ -350,7 +322,11 @@ async def main():
             if connection.dialect.name == "postgresql":
                 # Share startup's schema lock; serialize concurrent seed attempts too.
                 await connection.execute(text("SELECT pg_advisory_xact_lock(786124903)"))
-            await connection.run_sync(prepare_empty_database)
+            if reset_demo:
+                logger.warning("Resetting application database records for demo seeding.")
+                await connection.run_sync(reset_demo_database)
+            else:
+                await connection.run_sync(prepare_empty_database)
             async with AsyncSession(bind=connection, expire_on_commit=False) as db:
                 await seed_data(db)
         logger.info("Database seeding completed successfully.")
@@ -358,5 +334,24 @@ async def main():
         await engine.dispose()
 
 
+def run_cli(argv=None):
+    parser = argparse.ArgumentParser(description="Create BananaVision demo data.")
+    parser.add_argument(
+        "--reset-demo", action="store_true",
+        help="Delete and recreate application tables before seeding. Development only.",
+    )
+    arguments = parser.parse_args(argv)
+    try:
+        asyncio.run(main(reset_demo=arguments.reset_demo))
+    except DatabaseNotEmptyError:
+        logger.warning(
+            "Demo seeding skipped: the database already contains records; "
+            "existing data was not changed. Use the current database normally, "
+            "or configure a separate empty development database for demo data."
+        )
+        return DATABASE_NOT_EMPTY_EXIT
+    return 0
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    raise SystemExit(run_cli())

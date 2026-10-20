@@ -12,8 +12,8 @@ const saved = {
   inventory_status: 'In Stock', images: [], detections: [],
 }
 
-async function setup(t, { offline = false, empty = false, flagged = false, scanOverrides = {} } = {}) {
-  const context = await runtime.browser.newContext({ viewport: { width: 1600, height: 1000 } })
+async function setup(t, { offline = false, empty = false, flagged = false, scanOverrides = {}, timezoneId } = {}) {
+  const context = await runtime.browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId })
   const page = await context.newPage()
   page.setDefaultTimeout(10000)
   page.setDefaultNavigationTimeout(45000)
@@ -77,6 +77,25 @@ async function setup(t, { offline = false, empty = false, flagged = false, scanO
 }
 
 const writesTo = (state, suffix) => state.writes.filter(item => item.path.endsWith(suffix))
+
+for (const vpd of [0, 1.2, null]) {
+  test(`stored kiosk result keeps Manila time and VPD ${vpd} without live-reading fallback`, async t => {
+    const { page } = await setup(t, { timezoneId: 'America/Los_Angeles', scanOverrides: {
+      temperature: 0, humidity: 100, vpd, confidence: 0,
+    } })
+    await page.getByRole('button', { name: 'Select Source', exact: false }).click()
+    await page.getByText('Fixture Supplier', { exact: true }).click()
+    await page.getByRole('button', { name: /Start.*Intake/i }).click()
+    await page.getByRole('button', { name: 'Scan Now', exact: true }).click()
+    const header = page.getByText('Scan Complete', { exact: true }).locator('..')
+    await header.waitFor()
+    assert.match(await header.textContent(), /3:00:00 PM/)
+    await page.getByText('0°C', { exact: true }).waitFor()
+    assert.match(await page.getByText('Confidence', { exact: true }).locator('..').textContent(), /0%/)
+    if (vpd === null) assert.equal(await page.getByText('VPD', { exact: true }).count(), 0)
+    else await page.getByText(`${vpd.toFixed(3)} kPa`, { exact: true }).waitFor()
+  })
+}
 
 for (const [change, user] of [
   ['account switch', { id: 'different-operator', username: 'other', fullName: 'Other Operator', role: 'Operator' }],

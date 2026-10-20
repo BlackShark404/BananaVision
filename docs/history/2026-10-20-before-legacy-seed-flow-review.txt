@@ -1,0 +1,57 @@
+CURRENT RESUME HERE (2026-10-20) - SETUP EXISTING-DATABASE HANDLING VERIFIED
+
+GIT STATE
+- main at e6110c9 (Harden demo seeding and setup scripts), initially clean/tracking origin/main.
+- Eleven task files modified/untracked, none staged. No commit/push/merge/deploy performed.
+- Source: backend/seed.py, setup.bat/setup.sh, seed.bat; two regression files plus docs.
+- Previous approved work committed outside this turn; preserved.
+- Prior checkpoint: docs/history/2026-10-20-before-seed-skip-fix.txt.
+
+DONE
+- Traced reported traceback to intentional populated-database refusal before DDL.
+- Added DatabaseNotEmptyError subtype and CLI warning/exit 20; guard/transaction unchanged.
+- Setup bat/sh skip optional demo data and finish when existing records are detected.
+- Direct seed retains nonzero exit 20/no false success. Unexpected exceptions still fail.
+- Added regressions for CLI outcomes, setup/direct skip, missing script and error propagation.
+- README, Testing note and seed audit explain current data preservation/separate demo DB.
+- Scoped persistence/error boundary review and final diff check pass; no new API/permissions,
+  frontend, schema, model, printer, timezone, credential or dependency changes.
+- Final Graphify: 3806 nodes, 11525 edges, 247 communities; no loss. Two SQL files still
+  omitted by unavailable optional parser. No paid extraction. Verified fix stored in project ICM.
+
+IN PROGRESS
+- None. Requested setup-error handling fix and scoped verification are complete.
+
+TEST RESULTS
+- RED: 6 failed/19 passed (12.80s) for new CLI/skip behavior.
+- Initial GREEN: 25 passed (13.32s). Follow-up missing-script RED: 2 failed; proved ordinary
+  Python exit 2 must not be used as the skip signal. Dedicated code 20 fixes this collision.
+- Final combined isolated runner: backend/venv/Scripts/python.exe -B
+  frontend/node_modules/.tmp/bv-seed-run-tests.py tests/test_seed.py tests/test_setup_scripts.py
+  => 29 passed, no skips (11.63s), disposable PostgreSQL 18 + copied Windows/Git Bash scripts.
+- After exception naming lint correction, same runner tests/test_seed.py => 12 passed,
+  no skips (8.91s). The 17 wrapper cases/code were unchanged; their passing results retained.
+- uv tool run --offline --from ruff ruff check backend/seed.py backend/tests/test_seed.py
+  backend/tests/test_setup_scripts.py => PASS. Configured backend/app backend/tests =>
+  FAIL, 646 existing errors. New N818 exception naming diagnostic corrected.
+- git diff --check PASS. No frontend/backend-app diff; prior browser/type/build results reused.
+- Sandbox initially blocked initdb/temp and Ruff cache access; reviewed escalations succeeded.
+  All temporary PostgreSQL servers stopped. No station resources or .env contents accessed.
+- Prior full baseline (not rerun): backend 558 passed, frontend 71 passed, typecheck/build pass;
+  frontend lint 37 errors/5 warnings, historical full-suite connectivity failures separate.
+- Logs: frontend/node_modules/.tmp/bv-seed-skip-*.
+
+REMAINING / LIMITS
+- No pending task implementation/tests. Existing lint debt remains outside this fix.
+- Real dependency installation, native Linux/macOS and live station resources not exercised.
+- Existing records intentionally unchanged. To use them, run dev.bat / ./dev.sh. New demo data
+  requires a separate empty development database; setup will not replace existing records.
+
+CONSTRAINTS
+- Main only; no commit/push/merge/deploy, live DB/hardware access, .env edits or data replacement.
+- Preserve populated-database safeguard; never backfill historical records.
+
+EXACT RESUME
+- Leave these eleven files uncommitted. Read current Git status/checkpoint before new work.
+- Do not repeat passing checks or completed audits absent source changes/new evidence.
+- Full report: docs/audits/2026-10-19-seed-compatibility.md (2026-10-20 follow-up).

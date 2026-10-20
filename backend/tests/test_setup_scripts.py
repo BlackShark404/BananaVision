@@ -33,6 +33,7 @@ def copied_setup(tmp_path):
     (backend / "seed.py").write_text(
         "import os, pathlib, sys\n"
         "pathlib.Path('seed-invoked').write_text('fixture')\n"
+        "pathlib.Path('seed-args').write_text(' '.join(sys.argv[1:]))\n"
         "sys.exit(int(os.environ.get('BV_TEST_SEED_EXIT', '0')))\n",
     )
     fake_bin = tmp_path / "commands"
@@ -139,9 +140,41 @@ def test_setup_stops_on_dependency_failure(copied_setup):
     assert "Setup Complete" not in result.stdout
 
 
+@pytest.mark.parametrize("name", ["setup.bat", "seed.bat"])
+def test_missing_seed_script_remains_an_error(copied_setup, name):
+    workspace, env = copied_setup
+    (workspace / "backend" / ".env").write_text("existing fixture config\n")
+    (workspace / "backend" / "seed.py").unlink()
+    result = run_script(workspace, env, name, "y\n")
+    assert result.returncode != 0
+    assert "[ERROR]" in result.stdout
+    assert "Demo seeding skipped" not in result.stdout
+    assert "Setup Complete" not in result.stdout
+
+
+@pytest.mark.parametrize("name", ["setup.bat", "seed.bat"])
+@pytest.mark.parametrize("answer", ["y\n", "n\n", "\n"])
+def test_seed_reset_requires_yes_and_preserves_environment(copied_setup, name, answer):
+    workspace, env = copied_setup
+    for folder in ("backend", "frontend"):
+        (workspace / folder / ".env").write_text("existing fixture config\n")
+    result = run_script(workspace, env, name, answer)
+    assert result.returncode == 0, result.stdout
+    assert "deletes existing" in result.stdout
+    assert "[ERROR]" not in result.stdout
+    invoked = workspace / "backend" / "seed-invoked"
+    assert invoked.exists() == (answer == "y\n")
+    if invoked.exists():
+        assert (workspace / "backend" / "seed-args").read_text() == "--reset-demo"
+    assert ("Setup Complete" in result.stdout) == (name == "setup.bat")
+    for folder in ("backend", "frontend"):
+        assert (workspace / folder / ".env").read_text() == "existing fixture config\n"
+
+
 @pytest.mark.parametrize("name", ["setup.sh", "seed.sh"])
-@pytest.mark.parametrize("seed_exit", [0, 7])
-def test_shell_entry_points_propagate_seed_result(copied_setup, name, seed_exit):
+@pytest.mark.parametrize("seed_exit", [0, 2, 7, 20])
+@pytest.mark.parametrize("answer", [b"y\n", b"n\n", b"\n"])
+def test_shell_entry_points_propagate_seed_result(copied_setup, name, seed_exit, answer):
     bash = Path("C:/Program Files/Git/bin/bash.exe")
     if not bash.exists():
         pytest.skip("Git Bash is unavailable")
@@ -152,21 +185,27 @@ def test_shell_entry_points_propagate_seed_result(copied_setup, name, seed_exit)
     activate = workspace / "backend" / "venv" / "bin" / "activate"
     activate.parent.mkdir()
     activate.write_text(
-        'python() { return "$BV_TEST_SEED_EXIT"; }\n'
-        'python3() { if [ "$1" = "seed.py" ]; then python; else return 0; fi; }\n'
+        'python() { printf "%s\\n" "$@" > seed-args; return "$BV_TEST_SEED_EXIT"; }\n'
+        'python3() { if [ "$1" = "seed.py" ]; then python "$@"; else return 0; fi; }\n'
         "pip() { return 0; }\n"
         "npm() { return 0; }\n",
     )
     env["BV_TEST_SEED_EXIT"] = str(seed_exit)
     answers = workspace / "shell-answers.txt"
-    answers.write_bytes(b"y\n")  # Avoid Windows text-mode conversion to CRLF for Bash read.
+    answers.write_bytes(answer)  # Avoid Windows text-mode conversion to CRLF for Bash read.
     with answers.open("rb") as stdin:
         result = subprocess.run(
             [str(bash), "./" + name], cwd=workspace, env=env, stdin=stdin,
             capture_output=True, text=True, encoding="utf-8", timeout=30,
         )
-    assert (result.returncode == 0) == (seed_exit == 0), result.stdout + result.stderr
-    if seed_exit:
+    expected = seed_exit if answer == b"y\n" else 0
+    assert result.returncode == expected, result.stdout + result.stderr
+    assert "deletes existing" in result.stdout
+    seed_args = workspace / "backend" / "seed-args"
+    assert seed_args.exists() == (answer == b"y\n")
+    if seed_args.exists():
+        assert seed_args.read_text().splitlines() == ["seed.py", "--reset-demo"]
+    if expected:
         assert "successfully" not in result.stdout and "Setup Complete" not in result.stdout
     for folder in ("backend", "frontend"):
         assert (workspace / folder / ".env").read_text() == "existing fixture config\n"

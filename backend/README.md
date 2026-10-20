@@ -127,18 +127,27 @@ On an empty database, startup requires `BOOTSTRAP_ADMIN_PASSWORD` in the backend
 
 Account creation and administrator resets generate unique temporary credentials. The authenticated administrator sees them once in a handoff dialog and shares them privately with the owner. They are not stored in browser storage or audit logs. Owners must replace them on first use; setup authorization expires after ten minutes and cannot access normal APIs or WebSockets. An expired setup requires signing in again.
 
-The demo seed utility (`python seed.py`, or the optional setup/seed wrappers) requires an
-**empty development database** and the same bootstrap configuration. It refuses existing
-data before changing the schema; it never resets tables or repairs historical records.
-Schema migrations and generated records commit together, with concurrent seed attempts
-serialized on PostgreSQL. Run it before starting the application for the first time;
-normal startup can create the administrator without adding demo scans.
+`setup.bat` / `setup.sh` retain the familiar environment, dependency installation and
+optional demo-seeding sequence. **Choosing Yes at the reset-and-seed prompt deletes existing
+application database records, including accounts, scans and history, and recreates the demo
+dataset.** Choosing No or pressing Enter keeps the database unchanged. `seed.bat` / `seed.sh`
+offer the same prompt. Use a development database and stop the application before resetting.
+
+The wrappers invoke `python seed.py --reset-demo` only after Yes. The command requires a
+non-production environment and `BOOTSTRAP_ADMIN_PASSWORD`. Reset, maintained migrations
+and generated records share one PostgreSQL transaction/advisory lock; failure rolls back
+the reset. Only ORM-managed application tables and the migration marker are recreated;
+there is no fallback that cascades into unrelated tables.
+
+Plain `python seed.py` requires an empty database and refuses existing records with a clear
+message and exit code 20. Configuration, connection and other failures still fail. `start.bat`
+and `dev.bat` retain their previous startup behavior and do not run this demo reset.
 
 The 25 synthetic scans use stored two-decimal temperature/humidity readings and the existing
 `calc_vpd` function (kPa, three decimals), intake treatment, fallback spoilage estimates,
 original-result snapshots and linked history events. These are demo predictions, not model
 validation or training measurements. History explicitly names **Demo Seeder**, with no
-invented human actor. Existing nullable/legacy VPD and actor data remains unchanged.
+invented human actor. This generates new demo records; it does not backfill historical fields.
 The fixture operator is inactive with no usable PIN; an administrator must reset credentials
 and activate it for use. Camera images/detections and print jobs are not fabricated or executed.
 

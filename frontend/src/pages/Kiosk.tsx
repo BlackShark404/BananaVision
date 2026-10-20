@@ -177,7 +177,7 @@ export default function Kiosk() {
   }
 
   // Count scans for today
-  const todayScansCount = scans.filter(s => new Date(s.dateTime).toDateString() === new Date().toDateString()).length
+  const todayScansCount = scans.filter(s => new Date(s.dateTime).toLocaleDateString("en-PH", { timeZone: "Asia/Manila" }) === new Date().toLocaleDateString("en-PH", { timeZone: "Asia/Manila" })).length
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden relative">
@@ -588,7 +588,7 @@ export default function Kiosk() {
                     </div>
                     <div>
                       <p className="text-sm font-bold">{lastResult.flagged || cultivarConflict ? "Scan Complete - Review Needed" : "Scan Complete"}</p>
-                      <p className="text-[10px] text-muted-foreground">{new Date(lastResult.dateTime).toLocaleTimeString()}</p>
+                      <p className="text-[10px] text-muted-foreground">{new Date(lastResult.dateTime).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila" })}</p>
                     </div>
                   </div>
                   <AppStatusBadge type="ripeness" status={lastResult.ripeness} size="lg" />
@@ -655,7 +655,7 @@ export default function Kiosk() {
                       <div key="vpd" className="bg-muted/50 rounded-xl p-3 text-center border border-border">
                         <p className="text-xl mx-auto mb-1">💨</p>
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider">VPD</p>
-                        <p className="text-lg font-bold">{lastResult.vpd} kPa</p>
+                        <p className="text-lg font-bold">{lastResult.vpd.toFixed(3)} kPa</p>
                       </div>
                     )
                   }
@@ -891,7 +891,7 @@ export default function Kiosk() {
                           <AppStatusBadge type="ripeness" status={scan.ripeness} size="sm" />
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(scan.dateTime).toLocaleTimeString()} · {scan.confidence === null ? "Unknown" : `${scan.confidence}%`} confidence
+                          {new Date(scan.dateTime).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila" })} · {scan.confidence === null ? "Unknown" : `${scan.confidence}%`} confidence
                         </p>
                       </div>
                       <div className="text-right shrink-0">

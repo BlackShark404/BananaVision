@@ -97,12 +97,19 @@ echo -e "${GREEN}✔ Frontend dependencies installed.${NC}"
 
 # 5. Database Seeding
 echo -e "${YELLOW}⚙  Checking Database and Seeding...${NC}"
-echo -e "${CYAN}Use an EMPTY development database configured in backend/.env; existing data is never replaced. Seeding requires BOOTSTRAP_ADMIN_PASSWORD.${NC}"
-read -p "Do you want to seed the database now? (y/n): " seed_db
+echo "[WARNING] Demo seeding deletes existing application database records, including accounts, scans and history."
+echo "It recreates demo data with VPD and current Scan Logs fields. Use a development database only."
+echo "Seeding requires BOOTSTRAP_ADMIN_PASSWORD. Choose N to keep your existing database."
+read -r -p "Reset the application database and seed demo data now? (y/N): " seed_db
 if [[ "$seed_db" =~ ^[Yy]$ ]]; then
     echo -e "${YELLOW}⚙  Seeding database...${NC}"
-    (cd "$BACKEND_DIR" && source venv/bin/activate && python3 seed.py)
-    echo -e "${GREEN}✔ Database seeded.${NC}"
+    if (cd "$BACKEND_DIR" && source venv/bin/activate && python3 seed.py --reset-demo); then
+        echo -e "${GREEN}✔ Database seeded.${NC}"
+    else
+        seed_exit=$?
+        echo "[ERROR] Database seeding failed. Check backend/.env and the error above."
+        exit "$seed_exit"
+    fi
 else
     echo -e "${YELLOW}ℹ Skipping database seeding.${NC}"
 fi

@@ -13,17 +13,15 @@ from app.config import get_settings
 from app.services.capture_cleanup import remove_scan_captures
 from app.services.runtime_operations import station_lock, coordinator, run_blocking
 from app.services.configuration import get_config
-from datetime import datetime
 from app.core.time import now_manila
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.scan import Scan
-from app.models.scan_history import ScanEvent
 from app.models.scan_classification import ScanClassification
-from app.models.scan_status_log import ScanStatusLog
-from app.models.scan_original_ai_result import ScanOriginalAiResult
+from app.services.scan_creation import create_scan_record
+from app.services.scan_records import serialize_scan
 from app.models.scan_detection import ScanDetection
 from app.models.scan_image import ScanImage
 from app.models.activity_log import ActivityLog
@@ -39,7 +37,6 @@ from app.models.intake import Intake
 from app.services.sensor_reader import sensor_reader
 from app.ws.manager import ws_manager
 from app.ws import events
-from app.schemas.enums import InventoryStatusEnum
 
 logger = logging.getLogger(__name__)
 
@@ -290,21 +287,6 @@ async def _execute_scan_pipeline(
         )
 
         # ── Step 7: Persist scan to DB ───────────────────────────────────
-        # New objects do not receive selectin eager loads. Initialize relationships
-        # read by response serialization so it cannot trigger implicit async DB I/O.
-        scan = Scan(
-            id=scan_id,
-            operator_id=operator_id,
-            intake_id=intake_id,
-            intake=intake_obj,
-            notes=[],
-            date_time=now_manila(),
-            flagged=fused.auto_flagged,
-            source_text=supplier_name,
-            operator_name_snapshot=operator_name,
-            source_name_snapshot=supplier_name or (intake_obj.source if intake_obj else None),
-        )
-
         classification = ScanClassification(
             scan_id=scan_id,
             cultivar=fused.cultivar,
@@ -321,28 +303,12 @@ async def _execute_scan_pipeline(
             treatment=intake_treatment,
         )
 
-        status_log = ScanStatusLog(
-            scan_id=scan_id,
-            inventory_status=InventoryStatusEnum.IN_STOCK,
+        scan = await create_scan_record(
+            db, scan_id=scan_id, operator_id=operator_id, operator_name=operator_name,
+            intake=intake_obj, source_text=supplier_name, date_time=now_manila(),
+            classification=classification, flagged=fused.auto_flagged,
+            actor_id=account_id, actor_name=operator_name,
         )
-
-        original_ai = ScanOriginalAiResult(
-            scan_id=scan_id,
-            cultivar=fused.cultivar,
-            ripeness=fused.ripeness,
-            confidence=fused.confidence,
-            finger_count=fused.finger_count,
-        )
-
-        original_ai.spoilage_days = spoilage_days
-        scan.classification = classification
-        scan.status_logs = [status_log]
-        scan.original_ai_result = original_ai
-
-        db.add(scan)
-        db.add(classification)
-        db.add(status_log)
-        db.add(original_ai)
 
         scan.detections = db_detections
         scan.images = db_images
@@ -389,63 +355,19 @@ async def _execute_scan_pipeline(
 
         await db.flush()
 
-        db.add(
-            ScanEvent(
-                scan_id=scan.id,
-                revision=scan.revision,
-                kind="created",
-                actor_id=account_id,
-                actor_name=operator_name,
-                timestamp=scan.date_time,
-                new_values={
-                    "inventory_status": "In Stock",
-                    "intake_provenance": scan.intake_provenance,
-                    "intake_origin_id": str(scan.intake_origin_id)
-                    if scan.intake_origin_id
-                    else None,
-                    "operator": operator_name,
-                    "source": scan.source_name_snapshot,
-                },
-                evidence_id=f"status:{status_log.id}",
-            )
-        )
         # Completion events must never advertise an uncommitted scan.
         await db.commit()
         committed = True
 
         # ── Step 8: Broadcast completed ──────────────────────────────────
         scan_result = {
-            "id": scan_id_str,
-            "revision": scan.revision,
+            **serialize_scan(scan).model_dump(mode="json"),
             "scan_id": scan_id_str,
-            "cultivar": fused.cultivar,
-            "ripeness": fused.ripeness,
-            "confidence": fused.confidence,
-            "finger_count": fused.finger_count,
-            "temperature": temperature,
-            "humidity": humidity,
-            "vpd": vpd,
-            "treatment": intake_treatment.value if intake_treatment else None,
-            "spoilage_days": spoilage_days,
             "operator": operator_name,
-            "operator_name": operator_name,
-            "supplier": supplier_name,
-            "source_text": supplier_name,
-            "intake_id": str(scan.intake_id) if scan.intake_id else None,
-            "inventory_status": status_log.inventory_status.value,
-            "status_updated_at": status_log.updated_at.isoformat(),
-            "thumbnail_url": evidence_url(classification.thumbnail_url),
-            "is_overridden": scan.is_overridden,
-            "updated_at": scan.updated_at.isoformat(),
-            "flagged": fused.auto_flagged,
+            "supplier": scan.source_text,
             "conflict_detected": fused.conflict_detected,
             "camera_count": fused.camera_count,
             "scanned_at": scan.date_time.isoformat(),
-            "date_time": scan.date_time.isoformat(),
-            "images": [
-                {"camera_id": img.camera_id, "file_path": evidence_url(img.file_path) or ""}
-                for img in db_images
-            ],
             "detections": [
                 {
                     "camera_id": det.camera_id,
