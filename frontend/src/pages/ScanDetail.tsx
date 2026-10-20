@@ -721,109 +721,128 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                 <Banana className="w-4 h-4 text-primary" /> Scan Details
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="space-y-1">
+            <CardContent className="space-y-5">
+              {/* Banana Metrics */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-4 rounded-xl bg-muted/40 space-y-1">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Hand className="w-3.5 h-3.5" /> Finger Count
                   </div>
                   <p className="text-2xl font-bold">{scan.fingerCount}</p>
                 </div>
-                <div className="space-y-1">
+                <div className="p-4 rounded-xl bg-muted/40 space-y-1">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <AlertTriangle className="w-3.5 h-3.5" /> Est. Spoilage
                   </div>
                   <p className="text-2xl font-bold">{scan.spoilageDays} <span className="text-sm font-normal text-muted-foreground">days</span></p>
                 </div>
-                {scan.temperature !== undefined && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span>🌡️</span> Temperature
+              </div>
+
+              <Separator />
+
+              {/* Environment */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Environment</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {scan.temperature !== undefined && (
+                    <div className="p-4 rounded-xl bg-muted/40 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span>🌡️</span> Temperature
+                      </div>
+                      <p className="text-2xl font-bold">{scan.temperature}<span className="text-sm font-normal text-muted-foreground">°C</span></p>
                     </div>
-                    <p className="text-2xl font-bold">{scan.temperature}°C</p>
-                  </div>
-                )}
-                {scan.humidity !== undefined && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span>💧</span> Humidity
+                  )}
+                  {scan.humidity !== undefined && (
+                    <div className="p-4 rounded-xl bg-muted/40 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span>💧</span> Humidity
+                      </div>
+                      <p className="text-2xl font-bold">{scan.humidity}<span className="text-sm font-normal text-muted-foreground">%</span></p>
                     </div>
-                    <p className="text-2xl font-bold">{scan.humidity}%</p>
+                  )}
+                  <div role="group" aria-label="Vapor pressure deficit" title="Vapor Pressure Deficit recorded for this scan" className="p-4 rounded-xl bg-muted/40 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span>💨</span> VPD
+                    </div>
+                    <p className="text-2xl font-bold">{scan.vpd != null && Number.isFinite(scan.vpd)
+                      ? <>{scan.vpd.toFixed(3)}<span className="text-sm font-normal text-muted-foreground"> kPa</span></>
+                      : <span aria-label="VPD unavailable">—</span>}</p>
                   </div>
-                )}
-                <div role="group" aria-label="Vapor pressure deficit" title="Vapor Pressure Deficit recorded for this scan" className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span>💨</span> VPD
-                  </div>
-                  <p className="text-2xl font-bold">{scan.vpd != null && Number.isFinite(scan.vpd)
-                    ? <>{scan.vpd.toFixed(3)}<span className="text-sm font-normal text-muted-foreground"> kPa</span></>
-                    : <span aria-label="VPD unavailable">—</span>}</p>
+                  {scan.treatment && (
+                    <div className="p-4 rounded-xl bg-muted/40 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span>{scan.treatment === "Ethephon" ? "🧪" : "🌿"}</span> Treatment
+                      </div>
+                      <p className="text-lg font-bold">{scan.treatment}</p>
+                    </div>
+                  )}
                 </div>
-                {scan.treatment && (
-                  <div className="space-y-1">
+              </div>
+
+              <Separator />
+
+              {/* Inventory & Logistics */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Inventory & Logistics</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-4 rounded-xl bg-muted/40 space-y-2">
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span>{scan.treatment === "Ethephon" ? "🧪" : "🌿"}</span> Treatment
+                      <Package className="w-3.5 h-3.5" /> Inventory Status
                     </div>
-                    <p className="text-lg font-bold">{scan.treatment}</p>
+                    <div className="flex items-center gap-1.5">
+                      <AppStatusBadge type="inventory" status={scan.inventoryStatus || "In Stock"} size="md" />
+                      {isAdmin && (() => {
+                        const currentStatus = scan.inventoryStatus || "In Stock"
+                        const allowed = VALID_TRANSITIONS[currentStatus] || []
+                        if (allowed.length === 0) return null
+                        return (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" disabled={statusPending}>
+                                <ChevronDown className="w-3.5 h-3.5" />
+                                <span className="sr-only">Update status</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48">
+                              <DropdownMenuLabel>Update Status</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              {STATUS_ACTIONS.map(({ status, icon: StatusIcon, color }) => {
+                                const isDisabled = !allowed.includes(status)
+                                return (
+                                  <DropdownMenuItem
+                                    key={status}
+                                    onClick={() => { if (!isDisabled) { setStatusAction(status); setStatusReason("") } }}
+                                    disabled={isDisabled}
+                                    className={isDisabled ? "opacity-40 cursor-not-allowed" : ""}
+                                  >
+                                    <StatusIcon className={`mr-2 h-4 w-4 ${isDisabled ? "text-muted-foreground" : color}`} />
+                                    <span>Mark {status}</span>
+                                  </DropdownMenuItem>
+                                )
+                              })}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )
+                      })()}
+                    </div>
                   </div>
-                )}
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Package className="w-3.5 h-3.5" /> Inventory Status
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <AppStatusBadge type="inventory" status={scan.inventoryStatus || "In Stock"} size="md" />
-                    {isAdmin && (() => {
-                      const currentStatus = scan.inventoryStatus || "In Stock"
-                      const allowed = VALID_TRANSITIONS[currentStatus] || []
-                      if (allowed.length === 0) return null
-                      return (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" disabled={statusPending}>
-                              <ChevronDown className="w-3.5 h-3.5" />
-                              <span className="sr-only">Update status</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-48">
-                            <DropdownMenuLabel>Update Status</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            {STATUS_ACTIONS.map(({ status, icon: StatusIcon, color }) => {
-                              const isDisabled = !allowed.includes(status)
-                              return (
-                                <DropdownMenuItem
-                                  key={status}
-                                  onClick={() => { if (!isDisabled) { setStatusAction(status); setStatusReason("") } }}
-                                  disabled={isDisabled}
-                                  className={isDisabled ? "opacity-40 cursor-not-allowed" : ""}
-                                >
-                                  <StatusIcon className={`mr-2 h-4 w-4 ${isDisabled ? "text-muted-foreground" : color}`} />
-                                  <span>Mark {status}</span>
-                                </DropdownMenuItem>
-                              )
-                            })}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )
-                    })()}
-                  </div>
+                  {scan.source && (
+                    <div className="p-4 rounded-xl bg-muted/40 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Package className="w-3.5 h-3.5" /> Source
+                      </div>
+                      <p className="font-semibold text-sm">{scan.source}</p>
+                    </div>
+                  )}
+                  {scan.intakeId && (
+                    <div className="p-4 rounded-xl bg-muted/40 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Layers className="w-3.5 h-3.5" /> Intake
+                      </div>
+                      <p className="font-semibold text-sm font-mono break-all">{scan.intakeId}</p>
+                    </div>
+                  )}
                 </div>
-                {scan.source && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Package className="w-3.5 h-3.5" /> Source
-                    </div>
-                    <p className="font-semibold text-sm">{scan.source}</p>
-                  </div>
-                )}
-                {scan.intakeId && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Layers className="w-3.5 h-3.5" /> Intake
-                    </div>
-                    <p className="font-semibold text-sm font-mono">{scan.intakeId}</p>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>
