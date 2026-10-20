@@ -210,7 +210,7 @@ export default function Login() {
             </Button>
           </form>
           <p className="text-center text-xs text-muted-foreground mt-6">
-            Temporary password for new or reset accounts is <span className="font-medium text-foreground">banana123</span>
+            Temporary credentials for new or reset accounts are provided by your administrator.
           </p>
         </CardContent>
       </Card>
