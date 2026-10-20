@@ -46,6 +46,29 @@ model consumes VPD; legacy four-feature models and the rule fallback do not. Thi
 integration adds no calculation, backfill or model selection change. See the
 [VPD audit](../audits/2026-10-18-vpd-integration.md) and [[Testing and Validation]].
 
+## Spoilage display and stock risk (2026-10-20)
+
+Scan Logs shows only the persisted spoilage range/scalar, matching Scan Details.
+The aged numeric estimate remains in API responses and CSV; it is no longer a second
+line in the table. Missing estimates show `Unknown`, and a scalar `1` shows `1 day`.
+
+The warning icon uses the server's at-risk decision, never a client parse of the
+range or a comparison against rounded display values. Without introducing new database
+or API response schema fields, row warnings consume the existing server-side at-risk
+snapshot filter (`attention: "at-risk"`) against the same frozen browse snapshot. The server
+uses the shared `dashboard._expiring` predicate across rows, KPI, filters and exports:
+eligible In Stock records with unrounded remaining days <= 2, including overdue stock.
+Sold, Spoiled, For Processing and unverifiable/depleted-intake stock are excluded. Browse
+snapshots freeze flags and counts together; Refresh captures new values.
+
+The existing predictor returns a scalar/range string in `spoilage_days`; a separate raw
+RFR float is not stored. The established numeric remaining estimate is the scalar or
+valid range midpoint minus elapsed days since the stored scan timestamp. The displayed
+range is the original estimate, not an aged range: `1-4` at capture is 2.5 days and is
+not at risk, while `3-6` after three days is 1.5 days and is at risk if stock eligible.
+No model calculations, historical predictions or Manila date rules changed.
+See [[Testing and Validation]] for boundary and seed/Kiosk parity coverage.
+
 ## Scan History actor attribution
 
 Kiosk PIN login establishes the authenticated operator; scan requests do not supply

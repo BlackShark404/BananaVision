@@ -40,15 +40,17 @@ import { generateQRCodeDataUrl } from "@/lib/qrcode"
 import { ScanLabelPrint } from "@/components/ScanLabelPrint"
 import type { Cultivar, Ripeness, InventoryStatus, ScanResult } from "@/types"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
+import { collectScanPages } from "@/lib/scanData"
 
 type LogScan = Omit<ScanResult, "cultivar" | "ripeness" | "confidence"> & {
   cultivar: string
   ripeness: string
   confidence: number | null
   remainingDays: number | null
+  atRisk: boolean
 }
 
-async function mapScan(row: ScanLogRow): Promise<LogScan> {
+async function mapScan(row: ScanLogRow, atRisk: boolean): Promise<LogScan> {
   const scan: LogScan = {
     id: row.id, revision: row.revision, dateTime: row.date_time, cultivar: row.cultivar ?? "Unknown", ripeness: row.ripeness ?? "Unknown",
     confidence: row.confidence, temperature: row.temperature ?? undefined, humidity: row.humidity ?? undefined,
@@ -57,6 +59,7 @@ async function mapScan(row: ScanLogRow): Promise<LogScan> {
     source: row.source_name, intakeId: row.intake_id ?? undefined, inventoryStatus: row.inventory_status as InventoryStatus,
     statusUpdatedAt: row.status_updated_at ?? undefined, flagged: row.flagged, isOverridden: row.is_overridden,
     thumbnailUrl: row.thumbnail_url ? getImageUrl(row.thumbnail_url) : undefined, remainingDays: row.remaining_days,
+    atRisk,
   }
   // A QR rendering failure must not hide the scan history.
   try { scan.qrCode = await generateQRCodeDataUrl(scan) } catch { /* Thumbnail fallback remains available. */ }
@@ -89,20 +92,45 @@ function LogsContent() {
   const inFlight = useRef(new Set<string>())
   const [statusAction, setStatusAction] = useState<{ scan: LogScan; status: InventoryStatus } | null>(null)
   const [statusReason, setStatusReason] = useState("")
-  const snapshot = useRef<{ key: string; id: string } | null>(null)
+  const snapshot = useRef<{ key: string; id: string; riskIds: Set<string> } | null>(null)
 
   const load = useCallback(async (signal: AbortSignal) => {
     const params = scanLogParams(new URLSearchParams(queryKey))
     const key = JSON.stringify({ ...params, page: undefined })
+    const parentKey = JSON.stringify({ ...params, attention: "all", page: undefined })
+    const cached = snapshot.current?.key === key
+      || (params.attention === "at-risk" && snapshot.current?.key === parentKey)
+      ? snapshot.current : null
     let result
+    let riskIds = cached?.riskIds
     try {
-      result = await api.scanLogs.list({ ...params, stable: true, snapshot_id: snapshot.current?.key === key ? snapshot.current.id : undefined }, signal)
+      result = await api.scanLogs.list({ ...params, stable: true, snapshot_id: cached?.id }, signal)
+      if (!riskIds) {
+        riskIds = new Set<string>()
+        // Reuse the server's stock policy and exact numeric threshold at the same
+        // snapshot time. No risk fields or formatted-range parsing in the API contract.
+        if (params.attention !== "at-risk" && result.at_risk_count > 0) {
+          if (!result.snapshot_id) throw new Error("Refresh to obtain a browse snapshot.")
+          const snapshotId = result.snapshot_id
+          const risk = await collectScanPages(async (page, page_size) => {
+            const subset = await api.scanLogs.list({
+              ...params, snapshot_id: snapshotId, attention: "at-risk",
+              stable: true, page, page_size,
+            }, signal)
+            if (subset.snapshot_id !== snapshotId) throw new Error("Browse snapshot changed. Please refresh.")
+            return subset
+          }, signal)
+          riskIds = new Set(risk.map(row => row.id))
+        }
+      }
     } catch (error) {
       if (!signal.aborted && typeof error === "object" && error !== null && "status" in error && [409, 410].includes(Number(error.status))) snapshot.current = null
       throw error
     }
-    if (!signal.aborted && result.snapshot_id) snapshot.current = { key, id: result.snapshot_id }
-    const rows = await Promise.all(result.items.map(mapScan))
+    if (!signal.aborted && result.snapshot_id) snapshot.current = { key, id: result.snapshot_id, riskIds }
+    const rows = await Promise.all(result.items.map(row => mapScan(
+      row, params.attention === "at-risk" || riskIds.has(row.id),
+    )))
     return { result, rows }
   }, [queryKey])
   const resource = useDashboardResource(load, { keepPreviousData: true })
@@ -328,7 +356,17 @@ const columns: ColumnDef<LogScan>[] = [
       header: "Est. Spoilage",
       sortable: true,
       sortKey: "spoilage_days",
-      cell: (scan) => <div className="text-sm"><span title="Estimate when scanned">{scan.spoilageDays} days</span>{scan.remainingDays !== null && <span className="block text-xs text-muted-foreground">{scan.remainingDays <= 0 ? "Estimated expiry reached" : `${scan.remainingDays.toFixed(1)} days left`}</span>}</div>,
+      cell: (scan) => (
+        <div className="text-sm">
+          <span
+            className={scan.atRisk ? "inline-flex items-center gap-1 text-orange-600" : undefined}
+            title={scan.atRisk ? "At risk: eligible stock with ≤2 days remaining, including overdue, at this snapshot. Range is the estimate when scanned." : "Estimate when scanned"}
+          >
+            {scan.atRisk && <AlertTriangle role="img" aria-label="At-risk scan" className="h-3.5 w-3.5 shrink-0" />}
+            {scan.spoilageDays === "Unknown" ? "Unknown" : `${scan.spoilageDays} ${scan.spoilageDays === "1" ? "day" : "days"}`}
+          </span>
+        </div>
+      ),
     },
     {
       header: "Est. Fingers",
@@ -463,7 +501,7 @@ const columns: ColumnDef<LogScan>[] = [
           iconColor="text-orange-600"
           iconBgColor="bg-orange-500/10"
           delay={150}
-          description="Spoiling in ≤2 days"
+          description="In stock: ≤2 days or overdue"
           onClick={() => setCardFilter(cardFilter === "at-risk" ? null : "at-risk")}
           active={cardFilter === "at-risk"}
         />

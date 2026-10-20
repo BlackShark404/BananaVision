@@ -112,6 +112,30 @@ async def test_seed_environment_matches_stored_precision_and_current_scan_contra
             assert original.created_at == scan.date_time
 
 
+async def test_seeder_loads_shared_predictor_before_generating_scans(empty_seed_database, monkeypatch):
+    predictor = SpoilagePredictor()
+    loaded = []
+
+    def load():
+        loaded.append(True)
+
+    def predict(*args, **kwargs):
+        assert loaded == [True]
+        assert kwargs["vpd"] == calc_vpd(args[2], args[3])
+        assert kwargs["treatment"] in ("Natural", "Ethephon")
+        return "2.00001"
+
+    monkeypatch.setattr(predictor, "load", load)
+    monkeypatch.setattr(predictor, "predict", predict)
+    monkeypatch.setattr(seed, "SpoilagePredictor", lambda: predictor)
+    await seed.main()
+    async with empty_seed_database.sessions() as db:
+        scans = (await db.scalars(select(Scan))).all()
+        assert len(scans) == 25
+        assert all(s.classification.spoilage_days == "2.00001" for s in scans)
+        assert all(s.original_ai_result.spoilage_days == "2.00001" for s in scans)
+
+
 @pytest.mark.parametrize("reset_demo", [False, True])
 async def test_seed_history_and_consumer_apis_are_consistent(empty_seed_database, reset_demo):
     await seed.main()

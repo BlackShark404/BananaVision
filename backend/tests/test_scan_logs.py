@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import update
 
@@ -49,6 +49,143 @@ async def csv_rows(db, user, query):
     contents = await scan_logs.export_scan_logs(db, user, query)
     text = "".join([chunk async for chunk in contents]).lstrip("\ufeff")
     return list(csv.DictReader(io.StringIO(text)))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stable", [False, True])
+async def test_risk_rows_counts_filters_and_export_share_unrounded_stock_rule(
+    logs_db, monkeypatch, stable,
+):
+    from app.services import auth_service
+    from app.services.inventory_policy import inventory_facts
+
+    operator = account(logs_db)
+    # The range is stored evidence, not a display string to classify in the browser.
+    cases = [
+        ("1.9999", 0, "In Stock", True),
+        ("2", 0, "In Stock", True),
+        ("2.00001", 0, "In Stock", False),  # Serialized remaining rounds to 2.
+        ("0", 0, "In Stock", True),
+        ("1", 2, "In Stock", True),  # Overdue stock remains at risk.
+        ("1-3", 0, "In Stock", True),
+        ("1-4", 0, "In Stock", False),  # Overlap alone is insufficient.
+        ("3-6", 3, "In Stock", True),  # Original range remains unchanged.
+        (None, 0, "In Stock", False),
+        ("Unknown", 0, "In Stock", False),
+        ("3-1", 0, "In Stock", False),
+        ("-1", 0, "In Stock", False),
+        ("1", 0, "Sold", False),
+        ("1", 0, "Spoiled", False),
+        ("1", 0, "For Processing", False),
+    ]
+    expected = {}
+    predictions = {}
+    for prediction, age, status, at_risk in cases:
+        at = NOW - timedelta(days=age)
+        identifier = scan(
+            logs_db, operator, prediction=prediction, at=at,
+            statuses=[(NOW, InventoryStatusEnum(status))],
+        )
+        expected[identifier] = at_risk
+        predictions[identifier] = prediction
+        facts = inventory_facts(SimpleNamespace(
+            intake_provenance="unlinked", intake_id=None, intake_origin_id=None,
+            classification=SimpleNamespace(spoilage_days=prediction), date_time=at,
+        ), status, NOW)
+        assert (
+            facts["inventory_eligible"] and facts["remaining_days"] is not None
+            and facts["remaining_days"] <= 2
+        ) is at_risk
+
+    for provenance, intake_status, at_risk in (
+        ("unverified", "Active", False), ("linked", "Depleted", False),
+        ("linked", "Active", True),
+    ):
+        intake_id = uuid4()
+        logs_db.add(Intake, id=intake_id, source="Farm A", intake_date=NOW.date(),
+                    status=intake_status)
+        identifier = scan(logs_db, operator, prediction="1", intake=intake_id)
+        logs_db.session.execute(update(Scan).where(Scan.id == identifier).values(
+            intake_provenance=provenance, intake_origin_id=intake_id,
+        ))
+        expected[identifier] = at_risk
+        predictions[identifier] = "1"
+
+    snapshots = {}
+
+    async def lock(_db, user):
+        return user
+
+    async def save(_db, _user, key, payload):
+        saved = SimpleNamespace(id=uuid4(), payload=payload, binding=key,
+                                expires_at=NOW + timedelta(minutes=10))
+        snapshots[saved.id] = saved
+        return saved
+
+    async def load(_db, _user, identifier, key):
+        saved = snapshots[identifier]
+        if key != saved.binding:
+            raise HTTPException(409, "Filters changed")
+        return saved
+
+    monkeypatch.setattr(auth_service, "lock_current_account", lock)
+    monkeypatch.setattr(scan_logs, "save_snapshot", save)
+    monkeypatch.setattr(scan_logs, "load_snapshot", load)
+    query = ScanLogQuery(stable=stable, page_size=100, sort="spoilage_days", direction="asc")
+    all_rows = await scan_logs.list_scan_logs(logs_db, operator, query)
+    assert all("at_risk" not in row.model_dump() and "_at_risk" not in row.model_dump()
+               for row in all_rows.items)
+    assert {row.id: row.spoilage_days for row in all_rows.items} == predictions
+    above = next(row for row in all_rows.items if row.spoilage_days == "2.00001")
+    assert above.remaining_days == 2
+    expected_ids = {identifier for identifier, risk in expected.items() if risk}
+    assert all_rows.at_risk_count == len(expected_ids)
+    summary = await dashboard.get_summary(logs_db, operator)
+    dashboard_rows = await dashboard.list_scans(logs_db, operator, view="expiring", page_size=100)
+    assert summary.expiring_stock_count == len(expected_ids)
+    assert {row.id for row in dashboard_rows.items} == expected_ids
+
+    risk_query = query.model_copy(update={
+        "attention": "at-risk", "page_size": 3, "snapshot_id": all_rows.snapshot_id,
+    })
+    first = await scan_logs.list_scan_logs(logs_db, operator, risk_query)
+    ids = {row.id for row in first.items}
+    for page in range(2, (first.total + 2) // 3 + 1):
+        part = await scan_logs.list_scan_logs(logs_db, operator, risk_query.model_copy(
+            update={"page": page, "snapshot_id": first.snapshot_id},
+        ))
+        assert part.total == part.at_risk_count == first.at_risk_count
+        assert all(row.id in expected_ids for row in part.items)
+        assert not ids.intersection(row.id for row in part.items)
+        ids.update(row.id for row in part.items)
+    assert ids == expected_ids
+    exported = await csv_rows(logs_db, operator, risk_query.model_copy(
+        update={"snapshot_id": first.snapshot_id},
+    ))
+    assert {row["Scan ID"] for row in exported} == {str(identifier) for identifier in ids}
+    assert all("Remaining Shelf Life (days)" in row for row in exported)
+    if stable:
+        monkeypatch.setattr(dashboard, "now_manila", lambda: NOW + timedelta(days=1))
+        frozen = await scan_logs.list_scan_logs(logs_db, operator, query.model_copy(
+            update={"snapshot_id": all_rows.snapshot_id},
+        ))
+        assert frozen.model_dump() == all_rows.model_dump()
+        refreshed = await scan_logs.list_scan_logs(logs_db, operator, query)
+        refreshed_risk = await scan_logs.list_scan_logs(logs_db, operator, query.model_copy(
+            update={"snapshot_id": refreshed.snapshot_id, "attention": "at-risk"},
+        ))
+        assert above.id in {row.id for row in refreshed_risk.items}
+        assert refreshed.at_risk_count == refreshed_risk.total
+        frozen_risk = await scan_logs.list_scan_logs(logs_db, operator, query.model_copy(
+            update={"snapshot_id": all_rows.snapshot_id, "attention": "at-risk"},
+        ))
+        assert {row.id for row in frozen_risk.items} == expected_ids
+        for change in ({"search": "another"}, {"cultivar": "Cardaba"}, {"direction": "desc"}):
+            with pytest.raises(HTTPException) as rejected:
+                await scan_logs.list_scan_logs(logs_db, operator, risk_query.model_copy(
+                    update=change,
+                ))
+            assert rejected.value.status_code == 409
 
 
 def test_vpd_logs_api_and_export_preserve_stored_values_and_scope(logs_db):

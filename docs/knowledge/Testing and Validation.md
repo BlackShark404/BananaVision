@@ -22,6 +22,29 @@ and failure propagation; CLI tests verify that unexpected exceptions are not swa
 See [the seed audit](../audits/2026-10-19-seed-compatibility.md) and
 [backend setup guidance](../../backend/README.md) for scope and limitations.
 
+## Spoilage display and at-risk consistency — 2026-10-20
+
+- `test_scan_logs.py` verifies raw boundaries (1.9999, 2, 2.00001), zero/overdue,
+  overlapping ranges, missing/invalid estimates, stock status/provenance, Dashboard
+  parity, sorted pagination, snapshot/refresh consistency and full CSV membership.
+  The value 2.00001 rounds to 2 in the API's display estimate but remains **not at risk**.
+- `test_seed_kiosk_contract.py` compares each generated/demo and mocked Kiosk record's
+  row flag with the canonical detail remaining estimate and stock eligibility.
+- Backend selected suites: 56 passed (17.04s); snapshot/predictor/legacy-snapshot
+  follow-up: 28 passed (6.43s), including one repeated legacy case after its assertion
+  was extended. Total distinct cases: **83**, no skips. Disposable PostgreSQL and
+  isolated SQLite only; model tests use disposable synthetic artifacts.
+- `node --test --test-concurrency=1 tests/scanrecords.test.mjs tests/dashboard.test.mjs
+  tests/analytics.test.mjs tests/scanpages.test.mjs`: **71 passed**, no failures/skips
+  (113.68s). New browser coverage verifies single-value cells, server-driven warning,
+  KPI filtering, page reset, sorting and refresh. Mocked screenshot reviewed.
+- `npm run typecheck` and `npm run build` passed (Vite 18.82s). Configured ESLint:
+  37 errors/5 warnings; Ruff: 645 errors. Changed-file diagnostic comparisons match
+  HEAD exactly (no new lint debt). Logs: ignored `frontend/node_modules/.tmp/bv-spoilage-*`.
+- Focused access/snapshot/export review: existing account/role/filter bindings,
+  expiry, CSV escaping and stock policy remain intact; new flag is derived read data.
+  No DB migration, hardware access, model change or historical backfill.
+
 ## Testing Philosophy & Safety Rules
 
 As mandated by `AGENTS.md` and `docs/development-workflow.md`:

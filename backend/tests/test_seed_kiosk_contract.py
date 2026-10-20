@@ -3,6 +3,7 @@
 import csv
 import io
 from datetime import timedelta
+from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID
 
@@ -20,15 +21,29 @@ from app.models import Scan, UserAccount
 from app.schemas.scan_logs import ScanLogQuery
 from app.services import analytics, dashboard, scan_logs, scan_records, scan_service
 from app.services.feature_engineering import calc_vpd
+from app.services import spoilage
 from tests.test_seed import empty_seed_database, pytestmark  # noqa: F401
 
 
 @pytest.mark.parametrize("readings,linked", [
-    ("seed", True), ("zero", True), ("missing", False),
+    ("seed", True), ("zero", True), ("missing", False), ("trained", True),
 ])
 async def test_seed_and_kiosk_records_agree_across_consumers(
     empty_seed_database, monkeypatch, readings, linked,  # noqa: F811 - imported pytest fixture
 ):
+    trained = None
+    if readings == "trained":
+        weights = Path(seed.__file__).parent / "app/ml/weights/spoilage_rfr.joblib"
+        if not weights.is_file():
+            pytest.skip("Local trained RFR artifact is unavailable")
+        monkeypatch.setattr(spoilage.settings, "rfr_model_path", str(weights))
+        trained = spoilage.SpoilagePredictor()
+        trained.load()
+        assert trained._model is not None
+        # Deterministic summation for exact cross-run comparisons in this test.
+        trained._model.n_jobs = 1
+        monkeypatch.setattr(trained, "load", lambda: None)
+        monkeypatch.setattr(seed, "SpoilagePredictor", lambda: trained)
     await seed.main()
     async with empty_seed_database.sessions() as db:
         demo = next(s for s in (await db.scalars(select(Scan))).all()
@@ -41,12 +56,12 @@ async def test_seed_and_kiosk_records_agree_across_consumers(
         now = demo.date_time
         result = SimpleNamespace(
             cultivar=c.cultivar.value, ripeness=c.ripeness.value,
-            confidence=float(c.confidence) if readings == "seed" else 0,
+            confidence=float(c.confidence) if readings in ("seed", "trained") else 0,
             finger_count=c.finger_count, detections=[], inference_time_ms=1,
             auto_flagged=False, conflict_detected=False, camera_count=1,
         )
-        temperature = float(c.temperature) if readings == "seed" else 0
-        humidity = float(c.humidity) if readings == "seed" else 100
+        temperature = float(c.temperature) if readings in ("seed", "trained") else 0
+        humidity = float(c.humidity) if readings in ("seed", "trained") else 100
         sensor = (None if readings == "missing" else
                   SimpleNamespace(temperature=temperature, humidity=humidity))
         expected_vpd = None if sensor is None else calc_vpd(temperature, humidity)
@@ -67,7 +82,7 @@ async def test_seed_and_kiosk_records_agree_across_consumers(
 
         def predict(**kwargs):
             predictions.append(kwargs)
-            return c.spoilage_days
+            return trained.predict(**kwargs) if trained else c.spoilage_days
 
         monkeypatch.setattr(scan_service, "get_config", config)
         monkeypatch.setattr(scan_service, "now_manila", lambda: now)
@@ -140,10 +155,24 @@ async def test_seed_and_kiosk_records_agree_across_consumers(
         assert live.date_time == live.status_logs[0].updated_at
         assert live.date_time == live.original_ai_result.created_at
         assert live.original_ai_result.spoilage_days == c.spoilage_days
-        if readings == "seed":
+        if readings in ("seed", "trained"):
             demo_data = scan_records.serialize_scan(demo, admin).model_dump(mode="json")
             for key in fields:
                 assert saved[key] == demo_data[key], key
+        if trained:
+            assert float(saved["spoilage_days"]) == saved["remaining_days"]
+            for stored in (await db.scalars(select(Scan))).all():
+                sc = stored.classification
+                inputs = {
+                    "cultivar_encoded": trained._cultivar_map[sc.cultivar.value],
+                    "ripeness_encoded": trained._ripeness_map[sc.ripeness.value],
+                    "treatment_encoded": trained._treatment_map[sc.treatment.value],
+                    "temperature": float(sc.temperature), "humidity": float(sc.humidity),
+                    "vpd": float(sc.vpd),
+                }
+                direct = trained._model.predict([[inputs[k] for k in trained._feature_columns]])[0]
+                assert float(sc.spoilage_days) == pytest.approx(direct)
+                assert stored.original_ai_result.spoilage_days == sc.spoilage_days
 
         # Consumers must read persisted values even after sensors/predictor/account change.
         monkeypatch.setattr(scan_service, "sensor_reader", SimpleNamespace(
@@ -164,6 +193,21 @@ async def test_seed_and_kiosk_records_agree_across_consumers(
         assert log.operator_name == saved["operator_name"]
         assert log.source_name == (expected_source or "Unknown")
         assert log.remaining_days == pytest.approx(saved["remaining_days"] - 1, abs=0.0001)
+        expected_risk = set()
+        for row in logs.items:
+            stored = await db.get(Scan, row.id)
+            serialized = scan_records.serialize_scan(stored, admin)
+            assert "at_risk" not in row.model_dump()
+            if (
+                serialized.inventory_eligible and serialized.remaining_days is not None
+                and serialized.remaining_days <= 2
+            ):
+                expected_risk.add(row.id)
+        assert logs.at_risk_count == len(expected_risk)
+        risk_rows = await scan_logs.list_scan_logs(
+            db, admin, ScanLogQuery(attention="at-risk", page_size=100),
+        )
+        assert {row.id for row in risk_rows.items} == expected_risk
         dash = await dashboard.list_scans(db, admin, view="all", page_size=100)
         dash_scan = next(row for row in dash.items if row.id == live.id)
         assert dash_scan.remaining_days == log.remaining_days

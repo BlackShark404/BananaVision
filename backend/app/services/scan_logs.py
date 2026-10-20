@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import csv
 import io
+from types import SimpleNamespace
 from uuid import UUID
 
+from fastapi import HTTPException
 from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,7 +21,6 @@ from app.schemas.scan_logs import (
     SourceOption,
 )
 from app.services import dashboard
-from app.services.inventory_policy import eligible_stock
 from app.services.scan_evidence import evidence_url
 from app.services.scan_snapshots import (
     MAX_ROWS,
@@ -122,12 +123,61 @@ async def _options(db: AsyncSession, scans) -> ScanLogOptions:
     )
 
 
+def _snapshot_key(query):
+    # Page size changes only the slice, never the authorized record set.
+    return binding("logs", query.model_dump(
+        mode="json", exclude={"page", "page_size", "snapshot_id", "stable", "limit"},
+    ))
+
+
+async def _snapshot(db, user, query):
+    """Allow only an at-risk subset of the same authorized, frozen result."""
+    try:
+        return await load_snapshot(db, user, query.snapshot_id, _snapshot_key(query))
+    except HTTPException as error:
+        if error.status_code != 409 or query.attention != "at-risk":
+            raise
+    for attention in ("all", "review", "success"):
+        try:
+            saved = await load_snapshot(
+                db, user, query.snapshot_id,
+                _snapshot_key(query.model_copy(update={"attention": attention})),
+            )
+        except HTTPException as error:
+            if error.status_code != 409:
+                raise
+            continue
+        # Private snapshot bookkeeping, never a DB column or API schema field.
+        # Older snapshots need refreshing rather than guessing from rounded values.
+        if any("_at_risk" not in row for row in saved.payload["items"]):
+            raise HTTPException(410, "Refresh to obtain an updated browse snapshot.")
+        rows = [row for row in saved.payload["items"] if row["_at_risk"]]
+        scores = [row["confidence"] for row in rows if row["confidence"] is not None]
+        meta = saved.payload["meta"]
+        return SimpleNamespace(id=saved.id, expires_at=saved.expires_at, payload={
+            "items": rows,
+            "meta": {
+                **meta,
+                "at_risk_count": len(rows),
+                "avg_confidence": dashboard._mean(sum(scores) / len(scores)) if scores else None,
+                "review_count": sum(
+                    row["flagged"] or (
+                        row["confidence"] is not None
+                        and row["confidence"] < meta["confidence_threshold"]
+                    ) for row in rows
+                ),
+                "flagged_count": sum(row["flagged"] for row in rows),
+            },
+        })
+    raise HTTPException(409, "Browse filters changed. Refresh to start a new snapshot.")
+
+
 async def list_scan_logs(
     db: AsyncSession, user: UserAccount, query: ScanLogQuery,
 ) -> ScanLogList:
-    key = binding("logs", query.model_dump(mode="json", exclude={"page", "snapshot_id", "stable", "limit"}))
+    key = _snapshot_key(query)
     if query.snapshot_id:
-        saved = await load_snapshot(db, user, query.snapshot_id, key)
+        saved = await _snapshot(db, user, query)
         return ScanLogList(**slice_snapshot(saved, query.page, query.page_size))
     if query.stable:
         from app.services.auth_service import lock_current_account
@@ -139,7 +189,7 @@ async def list_scan_logs(
     if query.stable:
         raw = (
             await db.execute(
-                select(scans, eligible_stock(scans).label("stock_eligible"))
+                select(scans, dashboard._expiring(scans).label("at_risk"))
                 .where(*conditions)
                 .order_by(*_ordering(scans, query))
                 .limit(MAX_ROWS + 1)
@@ -147,8 +197,8 @@ async def list_scan_logs(
         ).all()
         rows = [_row(row) for row in raw]
         scores = [row.confidence for row in rows if row.confidence is not None]
-        # The SQL projection supplies the same stock predicate used by metrics.
-        # Evaluate it in the capture query, not in a later count/row transaction.
+        # Capture the same unrounded stock/risk decision used by filters and metrics.
+        # Never reclassify from rounded remaining days or the displayed range.
         # No history/notes or credentials are included in browse payloads.
         saved = await save_snapshot(
             db,
@@ -156,7 +206,8 @@ async def list_scan_logs(
             key,
             {
                 "items": [
-                    {**row.model_dump(mode="json"), "username": source.username}
+                    {**row.model_dump(mode="json"), "username": source.username,
+                     "_at_risk": bool(source.at_risk)}
                     for row, source in zip(rows, raw, strict=True)
                 ],
                 "meta": {
@@ -165,12 +216,7 @@ async def list_scan_logs(
                     "avg_confidence": dashboard._mean(sum(scores) / len(scores))
                     if scores
                     else None,
-                    "at_risk_count": sum(
-                        bool(r.stock_eligible)
-                        and r.remaining_days is not None
-                        and r.remaining_days <= 2
-                        for r in raw
-                    ),
+                    "at_risk_count": sum(bool(row.at_risk) for row in raw),
                     "review_count": sum(
                         row.flagged or (row.confidence is not None and row.confidence < threshold)
                         for row in rows
@@ -191,7 +237,8 @@ async def list_scan_logs(
         ).select_from(scans).where(*conditions)
     )).one()
     rows = (await db.execute(
-        select(scans).where(*conditions).order_by(*_ordering(scans, query))
+        select(scans)
+        .where(*conditions).order_by(*_ordering(scans, query))
         .offset((query.page - 1) * query.page_size).limit(query.page_size)
     )).all()
     return ScanLogList(
@@ -218,15 +265,13 @@ async def export_scan_logs(db: AsyncSession, user: UserAccount, query: ScanLogQu
     scans = dashboard._scoped_projection(user, now)
     threshold = await dashboard._threshold(db)
     statement = (
-        select(scans).where(*_conditions(scans, query, threshold))
+        select(scans)
+        .where(*_conditions(scans, query, threshold))
         .order_by(*_ordering(scans, query)).execution_options(yield_per=200)
     )
     # Start the query before HTTP headers are sent, so initial DB failures propagate.
     if query.snapshot_id:
-        key = binding(
-            "logs", query.model_dump(mode="json", exclude={"page", "snapshot_id", "stable", "limit"})
-        )
-        saved = await load_snapshot(db, user, query.snapshot_id, key)
+        saved = await _snapshot(db, user, query)
 
         class SnapshotRows:
             async def partitions(self, size):

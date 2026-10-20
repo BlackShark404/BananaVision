@@ -1,62 +1,44 @@
-CURRENT RESUME HERE (2026-10-20) - ALL VERIFIED; KIOSK/SEED CONSISTENCY & PRODUCTION BUILD COMPLETE
+CURRENT RESUME HERE (2026-10-21) - ALL VERIFIED: RFR / SEED ALIGNMENT & CONSISTENCY COMPLETE
 
 GIT STATE
-- main at 01ae682, frontend/src/pages/Dashboard.tsx modified, nothing staged; branch up to date with origin/main.
-- No Git writes authorized. Preserve all existing changes.
-- Prior checkpoints archived in docs/history/.
+- main at fe6587590b0c8d19becc553c93d5d1463a86ebf9; uncommitted modifications verified and preserved.
+- No stage/commit/push/merge/history rewrite. Prior checkpoints archived in
+  docs/history/2026-10-21-before-model-alignment.txt and
+  docs/history/2026-10-21-completed-model-alignment.txt.
 
 DONE
-- Compared old setup/seed flow. Old yes-to-seed dropped/recreated application tables and demo data.
-- User reiterated: almost same setup.bat/start.bat/dev.bat, only additional Scan Logs seed data.
-- start.bat/dev.bat (and shell launchers) are identical to pre-seed-update versions; leave unchanged.
-- Generator includes VPD, treatment, original/name snapshots and synthetic history.
-- Implemented --reset-demo: explicit development reset in the same transaction/advisory lock as seeding.
-- setup/seed BAT and SH warn about deletion before optional y/N; No/Enter preserves data.
-- Plain seed remains non-destructive with clear exit 20 on populated databases.
-- Verified reset rollback, migration recreation, unrelated-table preservation, guards and wrapper failures.
-- Unified canonical scan creation in backend/app/services/scan_creation.py::create_scan_record,
-  shared across backend/seed.py and backend/app/services/scan_service.py.
-- Live Kiosk scans record authenticated operator (actor_name=operator_name, actor_id=account_id);
-  synthetic demo seed scans record actor_name="Demo Seeder" (actor_id=None) with explicit synthetic reason.
-- Seeded accounts and suppliers prefixed with "Demo " ("Demo Kiosk Operator", "Demo Dole Foods", etc.).
-- Fixed ScanDetail.tsx TS2345 type mismatch (ApiScanNote[] vs ScanNote[]) via acceptScan(saved).
-- Kiosk preserves layout, renders Manila times (Asia/Manila) and VPD to 3dp.
-- Verified complete data propagation across Kiosk -> Database -> Scan Logs -> Scan Detail ->
-  Dashboard -> Inventory -> Analytics -> CSV Export -> QR Tracking.
-- Updated docs/audits/2026-10-19-seed-compatibility.md and docs/knowledge/Testing and Validation.md.
-- Refreshed Graphify (3830 nodes, 11637 edges, 230 communities) and stored ICM project memory.
-- Removed the status bar "[Updated] Last refreshed ... · Live updates connected" from Dashboard.tsx
-  for both admin and operator dashboards, keeping clean header layout and socket disconnection alerts.
+- Verified RFR feature order ['cultivar_encoded', 'ripeness_encoded', 'treatment_encoded', 'temperature', 'humidity', 'vpd'] and YOLO26 category encodings without retraining or modifying weights.
+- Preserved actual numerical RFR predictions in existing spoilage_days field as unrounded decimal strings; rule-based fallback retains historical range representation.
+- No DB/API schema additions: confirmed at_risk field completely absent from response schemas and models.
+- Seed and Kiosk parity verified: seed.py loads SpoilagePredictor and shares canonical create_scan_record pipeline, attributing Demo Seeder with explicit synthetic reason.
+- Server-side at-risk logic verified: eligible active inventory with remaining spoilage life of <=2 days contributes to at-risk stock metrics; excludes Sold, Depleted, Spoiled, For Processing, and deleted intakes. Row warnings in Logs consume existing snapshot at-risk filter.
+- End-to-end data verified across Scan Logs, Scan Detail, Dashboard, Inventory, Analytics, CSV exports, and QR tracking, with Manila time handling (UTC+8).
+- Updated Graphify knowledge graph (3844 nodes, 11688 edges, 248 communities), Obsidian vault notes (Frontend.md, Testing and Validation.md), and stored project memory in ICM.
 
 IN PROGRESS
-- None (all priority tasks completed and verified).
+- None (all priority objectives implemented and verified 100% green).
 
 REMAINING
-- Awaiting user authorization for Git stage/commit/push or deployment if desired.
+- Awaiting user review and authorization for Git stage/commit/push or deployment if desired.
 
 TEST RESULTS
-- Backend disposable PG runner (tests/test_seed.py, test_setup_scripts.py, test_seed_kiosk_contract.py):
-  59 passed / 0 skipped in 30.47s. 100% GREEN.
-- Frontend browser suites:
-  * tests/dashboard.test.mjs: 14 passed / 0 failed in 17.89s.
-  * tests/kiosk.test.mjs: 13 passed / 0 failed in 34.60s (including Manila time & 3dp VPD).
-  * tests/scanrecords.test.mjs: 35 passed / 0 failed in 35.53s.
+- Backend disposable PG runner (tests/test_spoilage_models.py, tests/test_scan_logs.py, tests/test_seed.py, tests/test_seed_kiosk_contract.py, tests/test_setup_scripts.py):
+  119 passed / 0 failed in disposable PG (100% GREEN).
+- Frontend Playwright browser suites:
+  * tests/scanrecords.test.mjs: 36 passed / 0 failed.
+  * tests/dashboard.test.mjs & tests/kiosk.test.mjs: 27 passed / 0 failed.
+  Total: 63 passed / 0 failed (100% GREEN).
 - TypeScript & build checks:
   * npm run typecheck: PASS (tsc --noEmit, 0 errors).
-  * npm run build: PASS (tsc -b && vite build, built cleanly in 9.67s).
-- Scoped backend Ruff:
-  * backend/seed.py, backend/app/services/scan_creation.py, backend/app/services/scan_records.py,
-    backend/tests/test_seed.py, backend/tests/test_setup_scripts.py, backend/tests/test_seed_kiosk_contract.py:
-    ALL PASS (0 errors).
-  * Pre-existing baseline lint debt outside scope remains at 646 errors.
-- Frontend ESLint: 42 problems (37 errors, 5 warnings) are all pre-existing baseline debt.
-- graphify update .: PASS (rebuilt 3830 nodes, 11637 edges, 230 communities).
-- git diff --check: PASS (no whitespace or formatting errors).
+  * npm run build: PASS (tsc -b && vite build, built cleanly in 18.21s).
+- Scoped backend & frontend lint:
+  * git diff --check: PASS (no whitespace or formatting errors).
+  * Frontend ESLint: 42 problems (37 errors, 5 warnings) are all pre-existing baseline debt.
+  * Graphify: update . PASS (rebuilt 3844 nodes, 11688 edges, 248 communities).
 
 CONSTRAINTS
-- Main only, no Git publication, live data/hardware/.env access. No reset executed against live DB.
-- Runtime prompt must explicitly describe deleting existing application records before yes.
-- Preserve current UI/API/permissions/timezone and all unrelated implementations.
+- main only, preserve uncommitted changes/UI/permissions/Manila time. No actual records or secrets access.
+- Disposable DBs/mock hardware only. No model retraining/weight edits or fabricated YOLO inference.
 
 EXACT RESUME
-- All tasks verified and clean. Await user feedback or instructions for commit/push.
+- All objectives completed and verified. Await user feedback or instructions for commit/push.
