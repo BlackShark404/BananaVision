@@ -1,7 +1,7 @@
 CURRENT RESUME HERE (2026-10-20) - ALL VERIFIED; KIOSK/SEED CONSISTENCY & PRODUCTION BUILD COMPLETE
 
 GIT STATE
-- main at e6110c9, 15 task files modified/untracked, nothing staged; tracking origin/main is one ahead.
+- main at 01ae682, frontend/src/pages/Dashboard.tsx modified, nothing staged; branch up to date with origin/main.
 - No Git writes authorized. Preserve all existing changes.
 - Prior checkpoints archived in docs/history/.
 
@@ -25,6 +25,8 @@ DONE
   Dashboard -> Inventory -> Analytics -> CSV Export -> QR Tracking.
 - Updated docs/audits/2026-10-19-seed-compatibility.md and docs/knowledge/Testing and Validation.md.
 - Refreshed Graphify (3830 nodes, 11637 edges, 230 communities) and stored ICM project memory.
+- Removed the status bar "[Updated] Last refreshed ... · Live updates connected" from Dashboard.tsx
+  for both admin and operator dashboards, keeping clean header layout and socket disconnection alerts.
 
 IN PROGRESS
 - None (all priority tasks completed and verified).
@@ -36,11 +38,12 @@ TEST RESULTS
 - Backend disposable PG runner (tests/test_seed.py, test_setup_scripts.py, test_seed_kiosk_contract.py):
   59 passed / 0 skipped in 30.47s. 100% GREEN.
 - Frontend browser suites:
+  * tests/dashboard.test.mjs: 14 passed / 0 failed in 17.89s.
   * tests/kiosk.test.mjs: 13 passed / 0 failed in 34.60s (including Manila time & 3dp VPD).
   * tests/scanrecords.test.mjs: 35 passed / 0 failed in 35.53s.
 - TypeScript & build checks:
   * npm run typecheck: PASS (tsc --noEmit, 0 errors).
-  * npm run build: PASS (tsc -b && vite build, built in 15.05s).
+  * npm run build: PASS (tsc -b && vite build, built cleanly in 9.67s).
 - Scoped backend Ruff:
   * backend/seed.py, backend/app/services/scan_creation.py, backend/app/services/scan_records.py,
     backend/tests/test_seed.py, backend/tests/test_setup_scripts.py, backend/tests/test_seed_kiosk_contract.py:

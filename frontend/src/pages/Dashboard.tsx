@@ -118,7 +118,6 @@ function DashboardContent() {
     setParams(next, { replace: true })
   }, [groupView, params, selectedBusinessDate, setParams])
   const previousDay = !!summary && summary.business_date !== manilaDate(now)
-  const staleMetrics = !!summary && (!!metrics.error || previousDay || (metrics.receivedAt !== null && now - metrics.receivedAt > 90_000))
   const staleCameras = !!cameras.data && (!!cameras.error || (cameras.receivedAt !== null && now - cameras.receivedAt > 90_000))
   const activeSourcesList = summary?.sources ?? []
   const recentScans = summary?.recent_scans ?? []
@@ -164,19 +163,6 @@ function DashboardContent() {
         </Button>}
       />
 
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" role="status" aria-live="polite">
-        <Badge variant={staleMetrics || metrics.error ? "destructive" : "secondary"}>
-          {staleMetrics ? "Stale Data" : !summary ? metrics.loading ? "Loading" : "Unavailable" : "Updated"}
-        </Badge>
-        <span>{summary ? `Last refreshed ${manilaTime.format(new Date(summary.generated_at))}` : "No successful refresh yet"}</span>
-        <span aria-hidden="true">·</span>
-        <span>{connectionStatus === "connected" ? "Live updates connected" : connectionStatus === "connecting" ? "Connecting live updates…" : "Live updates disconnected"}</span>
-        {connectionStatus !== "connected" && (
-          <Button variant="ghost" size="sm" onClick={reconnectWs} className="h-auto p-0 text-xs font-normal underline hover:text-foreground text-muted-foreground">
-            Reconnect
-          </Button>
-        )}
-      </div>
       {metrics.error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
         <strong>{summary ? "Dashboard refresh failed." : "Dashboard unavailable."}</strong> {metrics.error}
         {summary && " Showing the last successful snapshot."}
@@ -185,7 +171,7 @@ function DashboardContent() {
       {previousDay && <p className="text-xs text-amber-700">Showing {summary.business_date} while today's totals refresh.</p>}
       {connectionStatus !== "connected" && (
         <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-          <span>Live changes may be delayed. Checking for updates every 30 seconds and on reconnection.</span>
+          <span>Live updates disconnected. Changes may be delayed. Checking for updates every 30 seconds and on reconnection.</span>
           <Button variant="link" size="sm" onClick={reconnectWs} className="h-auto p-0 text-xs underline">
             Reconnect live stream
           </Button>
