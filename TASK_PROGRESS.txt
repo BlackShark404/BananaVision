@@ -1,48 +1,39 @@
-CURRENT RESUME HERE (2026-10-20) - QUALITY CONTROL CAMERA EVIDENCE FIX VERIFIED
+CURRENT RESUME HERE (2026-10-20) - SCAN DETAIL IMAGE DIALOG VERIFIED
 
 GIT STATE
-- main at fe65875; checkout was clean before this task.
-- Changes remain unstaged and uncommitted. No Git publication authorized.
-- Previous checkpoint archived in docs/history/2026-10-20-before-quality-control-camera-fix.txt.
+- main at 871e869; checkout was clean at task start (prior QualityControl fix already present).
+- Current changes remain unstaged and uncommitted. No Git publication authorized.
+- Prior checkpoint archived in docs/history/2026-10-20-before-scan-image-dialog.txt.
 
 DONE
-- QualityControl camera tiles now use recorded image/detection camera IDs and saved position labels.
-- Joined each image and its bounding boxes by camera_id, independent of current station config.
-- Reused ScanDetail's BoundingBoxOverlay, including image scaling, class labels and confidence.
-- Removed repeated thumbnail fallback, simulated detection boxes and their inaccurate legend.
-- Missing/unavailable images stay unavailable; absent detections never create boxes.
-- Same-revision detail responses enrich the modal with detections while preserving edit drafts/baselines.
-- Added four browser regressions and updated docs/knowledge/Frontend.md.
-- Backend schema/API/service and ScanContext mapper were traced; no backend changes needed.
+- Clicking ScanDetail's main image opens the existing Radix dialog at a larger responsive size.
+- The dialog shows the selected camera ID/position and original image aspect ratio.
+- Reuses BoundingBoxOverlay with the same saved detections and Boxes visibility setting.
+- Existing camera thumbnails and page layout retained. Boxes toggle does not open the dialog.
+- Keyboard Enter opens; Escape/Close dismiss; focus returns to the image trigger.
+- A missing image has no enlarge action. Dialog height is bounded with scrolling for tall images.
+- Added desktop (1280px), mobile (390px) and missing-image browser regressions.
+- No API, schema, persistence or shared renderer change was required.
 
 VERIFICATION
-- Frontend: PLAYWRIGHT_MODULE=<installed Playwright>/index.mjs node --test --test-concurrency=1
-  tests/scanrecords.test.mjs tests/scanpages.test.mjs tests/scanwrites.test.mjs
-  tests/persistence.test.mjs tests/adminloading.test.mjs
-  PASS: 78 tests, 0 failed, 0 skipped (65.14s).
-- The four new regressions failed against original code before the fix.
-- Regression geometry checks include real pixel coordinates, stroke bounds and non-4:3 source images.
-- Backend: tests/test_scan_records.py and tests/test_scan_evidence.py
-  PASS: 16 tests (6.78s), from temporary cwd with isolated in-memory SQLite fixtures.
+- PLAYWRIGHT_MODULE=<installed Playwright>/index.mjs node --test tests/scanrecords.test.mjs:
+  42 passed, 0 failed, 0 skipped (40.88s), including existing QualityControl and write recovery tests.
 - npm run typecheck: PASS.
 - npm run build: PASS (tsc -b + Vite).
-- npm run lint: existing 42 problems (37 errors, 5 warnings); diagnostic messages/rules match
-  the pre-change baseline exactly. No new lint diagnostics.
-- Backend Ruff attempted but unavailable in backend/venv; no backend files modified.
-- git diff --check: PASS; scoped source diff reviewed.
+- npm run lint: unchanged baseline of 42 problems (37 errors, 5 warnings); no new diagnostics.
+- git diff --check: PASS; source and test diffs reviewed.
+- Backend tests not repeated for this frontend-only interaction; no backend changes.
+- All browser APIs/images mocked; no live station DB, captures, cameras or OS power accessed.
 
 KNOWLEDGE / LIMITATIONS
-- Graphify CLI, graphify-out/graph.json and recorded interpreter are absent in this checkout.
-  Query/update commands could not run; no tool installation or graph recreation attempted.
-- No ICM tools are connected in this session; no project memory recalled or written.
-- Relevant Obsidian note updated directly as Markdown.
-- Browser tests use mocked API/image fixtures; no live station DB, captures, cameras or OS power used.
-- Live station/browser verification was not performed.
+- graphify update . attempted; CLI and graph remain unavailable in this checkout.
+- No ICM connection available. No integration changes or installations made.
+- Minor UI interaction does not require a separate architecture note or persistent memory.
+- Live station/browser verification not performed.
 
 CONSTRAINTS
 - Existing main only; no staging, committing, pushing, deployment or discarding without authorization.
-- Preserve current UI layout, correction recovery, timezone behavior and unrelated changes.
+- Preserve prior QualityControl fix, current UI, correction behavior and unrelated user changes.
 
 EXACT NEXT STEP
-- User can review Quality Control's camera grid. No further implementation pending for this bug.
-- If knowledge tools become available, refresh Graphify and evaluate storing the verified fix in project ICM.
+- User can click the main ScanDetail image to review the enlarged dialog. No implementation pending.

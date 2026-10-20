@@ -408,6 +408,55 @@ function cameraEvidence() {
   return { record, listRecord, imageFixtures }
 }
 
+for (const width of [1280, 390]) {
+  test(`ScanDetail enlarges the selected image in a keyboard-accessible dialog at ${width}px`, async t => {
+    const evidence = cameraEvidence()
+    const { page, state } = await setup(t, 200, evidence)
+    await page.setViewportSize({ width, height: 900 })
+    await page.getByRole('button', { name: 'Left RECORDED-1', exact: true }).click()
+    const trigger = page.getByRole('button', { name: 'Enlarge Left camera image', exact: true })
+    await trigger.focus()
+    await page.keyboard.press('Enter')
+    const dialog = page.getByRole('dialog', { name: 'Left camera image' })
+    await dialog.waitFor()
+    const image = dialog.getByRole('img', { name: 'Left', exact: true })
+    await image.waitFor()
+    const svg = dialog.locator('svg[preserveAspectRatio]')
+    await svg.waitFor()
+    await page.clock.runFor(250)
+    assert.equal(await image.evaluate(async img => (await fetch(img.src)).text()),
+      evidence.imageFixtures[`/captures/${id}/Left.svg`])
+    assert.equal(await svg.getAttribute('viewBox'), '0 0 800 600')
+    assert.equal(await svg.locator('g > rect').first().getAttribute('x'), '350')
+    const bounds = await dialog.boundingBox()
+    assert(bounds.x >= 0 && bounds.x + bounds.width <= width + 1)
+    assert(bounds.y >= 0 && bounds.y + bounds.height <= 901)
+    const imageBounds = await image.boundingBox()
+    assert(Math.abs(imageBounds.width / imageBounds.height - 800 / 600) < 0.01)
+    if (width === 1280) assert(imageBounds.width > 800)
+    await page.keyboard.press('Escape')
+    await dialog.waitFor({ state: 'hidden' })
+    await page.clock.runFor(250)
+    assert.equal(await trigger.evaluate(button => document.activeElement === button), true)
+    // The independent Boxes control never opens the dialog.
+    await page.getByTitle('Hide bounding boxes', { exact: true }).click()
+    assert.equal(await page.getByRole('dialog').count(), 0)
+    await trigger.click()
+    await dialog.getByRole('img', { name: 'Left', exact: true }).waitFor()
+    assert.equal(await dialog.locator('svg[preserveAspectRatio]').count(), 0)
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+    await dialog.waitFor({ state: 'hidden' })
+    assert.equal(state.writes.length, 0)
+  })
+}
+
+test('ScanDetail has no enlarge action when the selected camera has no image', async t => {
+  const record = { ...scan(), images: [] }
+  const { page } = await setup(t, 200, { record })
+  await page.getByText('No image available', { exact: true }).waitFor()
+  assert.equal(await page.getByRole('button', { name: /Enlarge .* camera image/ }).count(), 0)
+})
+
 test('QC hydrates same-revision camera positions and real boxes using ScanDetail geometry', async t => {
   const evidence = cameraEvidence()
   const { page, state } = await setup(t, 200, { screen: 'quality', ...evidence })
