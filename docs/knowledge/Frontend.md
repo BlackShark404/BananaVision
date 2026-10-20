@@ -48,9 +48,18 @@ integration adds no calculation, backfill or model selection change. See the
 
 ## Spoilage display and stock risk (2026-10-20)
 
-Scan Logs shows only the persisted spoilage range/scalar, matching Scan Details.
-The aged numeric estimate remains in API responses and CSV; it is no longer a second
-line in the table. Missing estimates show `Unknown`, and a scalar `1` shows `1 day`.
+Kiosk, Scan Logs, Scan Details, public QR tracking and Quality Control use
+`lib/spoilageDisplay.ts` for display only. New scalar predictions use whole-day bounds:
+`3.487` becomes `3–4 days`, `0.9938` becomes `1 day`, and zero stays `0 days`.
+Historical ranges retain their endpoints, with an en dash and consistent units.
+Missing/invalid estimates show `Unknown`. These readable bounds are not RFR confidence
+intervals. Scan Logs has only one spoilage value; Inventory formats its aged remaining
+life with the same helper and retains `Overdue` for negative remaining life.
+
+Raw `spoilage_days` stays intact in API responses, provider state, correction drafts,
+history and CSV. Read-only correction inputs and change previews format their labels
+without replacing draft values. Dashboard/Analytics show aggregate counts and link to
+Scan Logs; they do not render a separate per-scan spoilage estimate.
 
 The warning icon uses the server's at-risk decision, never a client parse of the
 range or a comparison against rounded display values. Without introducing new database
@@ -61,10 +70,12 @@ eligible In Stock records with unrounded remaining days <= 2, including overdue 
 Sold, Spoiled, For Processing and unverifiable/depleted-intake stock are excluded. Browse
 snapshots freeze flags and counts together; Refresh captures new values.
 
-The existing predictor returns a scalar/range string in `spoilage_days`; a separate raw
-RFR float is not stored. The established numeric remaining estimate is the scalar or
-valid range midpoint minus elapsed days since the stored scan timestamp. The displayed
-range is the original estimate, not an aged range: `1-4` at capture is 2.5 days and is
+The predictor stores the unrounded RFR mean as a decimal string in the existing
+`spoilage_days` field; fallback/historical records can contain ranges. No separate raw
+prediction field is needed. The numeric remaining estimate is the scalar or valid
+historical range midpoint minus elapsed days since the stored scan timestamp. Labels
+in Kiosk/Logs/Details describe the estimate at capture, not an aged range:
+`1-4` at capture is 2.5 days and is
 not at risk, while `3-6` after three days is 1.5 days and is at risk if stock eligible.
 No model calculations, historical predictions or Manila date rules changed.
 See [[Testing and Validation]] for boundary and seed/Kiosk parity coverage.

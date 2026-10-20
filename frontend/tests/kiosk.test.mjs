@@ -78,6 +78,21 @@ async function setup(t, { offline = false, empty = false, flagged = false, scanO
 
 const writesTo = (state, suffix) => state.writes.filter(item => item.path.endsWith(suffix))
 
+for (const [raw, displayed] of [['0.9938128387987426', '1 day'], ['3.487', '3–4 days'], ['1-2', '1–2 days']]) {
+  test(`kiosk formats stored ${raw} consistently in result and recent scans`, async t => {
+    const { page, state } = await setup(t, { scanOverrides: { spoilage_days: raw } })
+    await page.getByRole('button', { name: 'Select Source', exact: false }).click()
+    await page.getByText('Fixture Supplier', { exact: true }).click()
+    await page.getByRole('button', { name: /Start.*Intake/i }).click()
+    await page.getByRole('button', { name: 'Scan Now', exact: true }).click()
+    await page.getByText('Scan Complete', { exact: true }).waitFor()
+    const metric = page.getByText('Est. Spoilage', { exact: true }).locator('..')
+    assert.match(await metric.innerText(), new RegExp(displayed))
+    assert.equal(state.scans[0].spoilage_days, raw)
+    assert.equal(await page.getByText(displayed, { exact: true }).count(), 2)
+  })
+}
+
 for (const vpd of [0, 1.2, null]) {
   test(`stored kiosk result keeps Manila time and VPD ${vpd} without live-reading fallback`, async t => {
     const { page } = await setup(t, { timezoneId: 'America/Los_Angeles', scanOverrides: {
@@ -208,7 +223,7 @@ for (const mode of ['ai', 'cultivar_override', 'count_override']) {
     const spoilage = page.getByText('Est. Spoilage', { exact: true }).locator('..')
     assert.match(await cultivar.textContent(), corrected ? /Lakatan/ : /Uncertain/)
     assert.match(await confidence.textContent(), corrected ? /77\.9%/ : /—/)
-    assert.match(await spoilage.textContent(), corrected ? /3-5.*days/ : /—/)
+    assert.match(await spoilage.textContent(), corrected ? /3–5.*days/ : /—/)
     assert.equal(await page.getByText(/Cameras disagree/).count(), corrected ? 0 : 1)
     if (!corrected) {
       assert.match(await page.getByRole('status').filter({ hasText: /Cameras disagree/ }).textContent(), /Top \+ Right: Lakatan; Left \+ Rear: Latundan/)

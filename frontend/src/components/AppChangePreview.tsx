@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge"
+import { formatSpoilageDays } from "@/lib/spoilageDisplay"
 
 interface AppChangePreviewProps {
   originalData: {
@@ -50,7 +51,7 @@ export function AppChangePreview({ originalData, editData, className = "", badge
         )}
         {hasSpoilageChange && (
           <Badge variant="outline" className={badgeClassName}>
-            Spoilage: {safeOriginalSpoilage === null ? "Not recorded" : `${safeOriginalSpoilage}d`} → {safeEditSpoilage === null ? "Not recorded" : `${safeEditSpoilage}d`}
+            Spoilage: {safeOriginalSpoilage === null ? "Not recorded" : formatSpoilageDays(safeOriginalSpoilage)} → {safeEditSpoilage === null ? "Not recorded" : formatSpoilageDays(safeEditSpoilage)}
           </Badge>
         )}
         {hasFingerChange && (

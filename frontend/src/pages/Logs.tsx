@@ -41,6 +41,7 @@ import { ScanLabelPrint } from "@/components/ScanLabelPrint"
 import type { Cultivar, Ripeness, InventoryStatus, ScanResult } from "@/types"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import { collectScanPages } from "@/lib/scanData"
+import { formatSpoilageDays } from "@/lib/spoilageDisplay"
 
 type LogScan = Omit<ScanResult, "cultivar" | "ripeness" | "confidence"> & {
   cultivar: string
@@ -363,7 +364,7 @@ const columns: ColumnDef<LogScan>[] = [
             title={scan.atRisk ? "At risk: eligible stock with ≤2 days remaining, including overdue, at this snapshot. Range is the estimate when scanned." : "Estimate when scanned"}
           >
             {scan.atRisk && <AlertTriangle role="img" aria-label="At-risk scan" className="h-3.5 w-3.5 shrink-0" />}
-            {scan.spoilageDays === "Unknown" ? "Unknown" : `${scan.spoilageDays} ${scan.spoilageDays === "1" ? "day" : "days"}`}
+            {formatSpoilageDays(scan.spoilageDays)}
           </span>
         </div>
       ),

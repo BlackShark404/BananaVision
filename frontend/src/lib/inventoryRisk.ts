@@ -1,4 +1,5 @@
 import type { ScanResult } from "@/types"
+import { formatSpoilageDays } from "@/lib/spoilageDisplay"
 
 /** Age the server's remaining-life value by elapsed time, never parse a prediction locally. */
 export function remainingStockDays(scan: ScanResult, now: number): number | null {
@@ -8,7 +9,7 @@ export function remainingStockDays(scan: ScanResult, now: number): number | null
 }
 
 export function shelfLifeLabel(days: number | null): string {
-  if (days === null) return "Unknown"
+  if (days === null || !Number.isFinite(days)) return "Unknown"
   if (days < 0) return "Overdue"
-  return `${days.toFixed(1)}d left`
+  return `${formatSpoilageDays(days)} left`
 }

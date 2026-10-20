@@ -1,41 +1,35 @@
-CURRENT RESUME HERE (2026-10-21) - ALL VERIFIED: RFR / SEED ALIGNMENT & CONSISTENCY COMPLETE
+CURRENT RESUME HERE (2026-10-21) - SPOILAGE DISPLAY FORMATTING IN PROGRESS
 
 GIT STATE
-- main merged with origin/main (41badf7).
-- Prior checkpoints archived in docs/history/.
+- main at 0465a7a; clean when this formatting task began. No Git writes authorized or performed.
+- Prior checkpoint archived: docs/history/2026-10-21-before-spoilage-formatting.txt.
 
 DONE
-- QualityControl camera evidence and ScanDetail image dialog enlargement verified and integrated.
-- Verified RFR feature order ['cultivar_encoded', 'ripeness_encoded', 'treatment_encoded', 'temperature', 'humidity', 'vpd'] and YOLO26 category encodings without retraining or modifying weights.
-- Preserved actual numerical RFR predictions in existing spoilage_days field as unrounded decimal strings; rule-based fallback retains historical range representation.
-- No DB/API schema additions: confirmed at_risk field completely absent from response schemas and models.
-- Seed and Kiosk parity verified: seed.py loads SpoilagePredictor and shares canonical create_scan_record pipeline, attributing Demo Seeder with explicit synthetic reason.
-- Server-side at-risk logic verified: eligible active inventory with remaining spoilage life of <=2 days contributes to at-risk stock metrics; excludes Sold, Depleted, Spoiled, For Processing, and deleted intakes. Row warnings in Logs consume existing snapshot at-risk filter.
-- End-to-end data verified across Scan Logs, Scan Detail, Dashboard, Inventory, Analytics, CSV exports, and QR tracking, with Manila time handling (UTC+8).
-- Updated Graphify knowledge graph (3844 nodes, 11688 edges, 248 communities), Obsidian vault notes (Frontend.md, Testing and Validation.md), and stored project memory in ICM.
+- Existing numerical RFR/seed/Kiosk/risk implementation preserved; no schema additions.
+- Root cause: UI interpolates spoilage_days directly, previously supplied as a range.
+- Shared display formatter: numeric whole-day bounds, singular/plural, historical ranges,
+  zero and missing handling. Raw stored predictions and backend <=2 policy unchanged.
+- Connected Kiosk/recent scans, Logs, Details/history, QR tracking, QC/previews and Inventory.
+- Unedited correction drafts retain raw values even though their inputs show readable bounds.
+- Graphify focused query and project ICM recall completed; prior implementation verified in source.
 
 IN PROGRESS
-- None (all priority objectives implemented and verified 100% green).
+- Mock browser verification and numeric-preservation checks.
 
 REMAINING
-- Pushing merged commits to GitHub.
+- Finish targeted/full affected frontend suites, configured lint/build, scoped review.
+- Update graph and verified documentation/memory, then final checkpoint.
+- Backend runtime/schema unchanged; reuse prior 119 passing backend checks unless new evidence warrants rerun.
 
 TEST RESULTS
-- Backend disposable PG runner (tests/test_spoilage_models.py, tests/test_scan_logs.py, tests/test_seed.py, tests/test_seed_kiosk_contract.py, tests/test_setup_scripts.py):
-  119 passed / 0 failed in disposable PG (100% GREEN).
-- Frontend Playwright browser suites:
-  * tests/scanrecords.test.mjs, tests/dashboard.test.mjs, tests/kiosk.test.mjs: ALL PASSED (100% GREEN).
-- TypeScript & build checks:
-  * npm run typecheck: PASS (tsc --noEmit, 0 errors).
-  * npm run build: PASS (tsc -b && vite build).
-- Scoped backend & frontend lint:
-  * git diff --check: PASS (no whitespace or formatting errors).
-  * Frontend ESLint: 42 problems (37 errors, 5 warnings) are all pre-existing baseline debt.
-  * Graphify: update . PASS (rebuilt 3844 nodes, 11688 edges, 248 communities).
+- RED browser reproduction: 4 failures confirmed raw decimals and inconsistent range dash.
+- node --test tests/spoilageDisplay.test.mjs: 29 passed, 0 failed.
+- npm run typecheck: PASS. Targeted browser run pending.
+- Logs under frontend/node_modules/.tmp/bv-spoilage-format-*.
 
 CONSTRAINTS
-- main only, preserve uncommitted changes/UI/permissions/Manila time. No actual records or secrets access.
-- Disposable DBs/mock hardware only. No model retraining/weight edits or fabricated YOLO inference.
+- main only; preserve UI/Manila time/model weights/real records; no new schema attributes.
+- Isolated mocks/disposable DBs only. No commit/push/deploy/history rewrite.
 
 EXACT RESUME
-- All objectives completed and verified. Ready to push to GitHub.
+- Read targeted browser output, fix actual failures, finish consumer coverage and relevant verification.

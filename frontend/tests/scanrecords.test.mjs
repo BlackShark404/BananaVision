@@ -80,7 +80,7 @@ async function setup(t, status = 200, options = {}) {
   return { page, state }
 }
 
-test('Logs show only the stored range and use server risk flags through filtering, sort, page and refresh', async t => {
+test('Logs show only the readable range and use risk snapshot membership through filtering, sort, page and refresh', async t => {
   const records = [
     { ...scan(), id, spoilage_days: '3-6', remaining_days: 1.5, at_risk: true },
     { ...scan(), id: id.replace(/1$/, '2'), spoilage_days: '2.00001', remaining_days: 2, at_risk: false },
@@ -94,7 +94,7 @@ test('Logs show only the stored range and use server risk flags through filterin
     if (!params.snapshot_id && params.attention !== 'at-risk') snapshotId = `snapshot-${queries.length}`
     const selected = params.attention === 'at-risk' ? records.filter(row => row.at_risk) : records
     return {
-      items: selected.map(row => ({ ...row, source_name: 'Stored source' })),
+      items: selected.map(({ at_risk: _fixtureRisk, ...row }) => ({ ...row, source_name: 'Stored source' })),
       total: params.attention === 'at-risk' ? 1 : 24, page: Number(params.page), page_size: Number(params.page_size || 10),
       at_risk_count: 1, avg_confidence: 92, review_count: 0, flagged_count: 0,
       generated_at: scan().date_time, snapshot_id: params.snapshot_id || snapshotId,
@@ -103,7 +103,8 @@ test('Logs show only the stored range and use server risk flags through filterin
   }
   const { page } = await setup(t, 200, { screen: 'logs', logResponse })
   const table = page.getByRole('table')
-  await table.getByText('3-6 days', { exact: true }).waitFor()
+  await table.getByText('3–6 days', { exact: true }).waitFor()
+  await table.getByText('2–3 days', { exact: true }).waitFor()
   assert.equal(await table.getByText(/days left|Estimated expiry reached/).count(), 0)
   assert.equal(await table.getByRole('img', { name: 'At-risk scan', exact: true }).count(), 1)
   assert.equal(await table.getByText('Unknown days', { exact: true }).count(), 0)
@@ -122,8 +123,49 @@ test('Logs show only the stored range and use server risk flags through filterin
   await until(() => queries.length > before)
   assert.equal(queries.at(-1).snapshot_id, undefined)
   assert.equal(queries.at(-1).attention, 'at-risk')
-  await table.getByText('3-6 days', { exact: true }).waitFor()
+  await table.getByText('3–6 days', { exact: true }).waitFor()
   assert.equal(await table.getByRole('img', { name: 'At-risk scan', exact: true }).count(), 1)
+})
+
+test('decimal spoilage displays a readable range in Logs and Details without changing stored values', async t => {
+  const raw = '4.861489519142744'
+  const record = { ...scan(), spoilage_days: raw,
+    history: [{ ...scan().history[0], kind: 'correction', previous_values: { spoilage_days: '3.487' }, new_values: { spoilage_days: raw } }] }
+  const { page, state } = await setup(t, 200, { record })
+  const metric = page.getByText('Est. Spoilage', { exact: true }).locator('..')
+  await metric.waitFor()
+  assert.match(await metric.innerText(), /4–5 days/)
+  await page.getByText('spoilage days: 3–4 days → 4–5 days', { exact: true }).waitFor()
+  assert.doesNotMatch(await page.locator('main').innerText(), /4\.861489519142744/)
+  await page.getByRole('button', { name: 'Edit', exact: true }).first().click()
+  assert.equal(await page.locator('#edit-spoilage').inputValue(), '4–5')
+  await page.locator('#edit-fingers').fill('9')
+  await page.getByLabel('Reason for change').fill('Count verified')
+  await page.getByRole('button', { name: 'Save Changes', exact: true }).click()
+  await until(() => state.writes.length === 1)
+  assert.equal(state.writes[0].spoilage_days, undefined)
+  assert.equal(state.record.spoilage_days, raw)
+  await page.getByRole('link', { name: 'Test logs link' }).click()
+  await page.getByRole('table').getByText('4–5 days', { exact: true }).waitFor()
+  assert.doesNotMatch(await page.getByRole('table').innerText(), /4\.861489519142744/)
+})
+
+test('QC formats numeric predictions and preserves their precision when correcting another field', async t => {
+  const raw = '0.9938128387987426'
+  const { page, state } = await setup(t, 200, { screen: 'quality', record: { ...scan(), spoilage_days: raw } })
+  await page.locator('tbody tr').first().click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByText('1 day', { exact: true }).waitFor()
+  assert.doesNotMatch(await dialog.innerText(), /0\.9938128387987426/)
+  await dialog.getByRole('button', { name: 'Edit Data', exact: true }).click()
+  assert.equal(await page.locator('#spoilageDays').inputValue(), '1')
+  assert.equal(await page.locator('#spoilageDays').getAttribute('readonly'), '')
+  await page.locator('#fingers').fill('9')
+  await page.getByLabel('Reason for change', { exact: true }).fill('Count verified')
+  await page.getByRole('button', { name: 'Save Changes', exact: true }).click()
+  await until(() => state.writes.length === 1)
+  assert.equal(state.writes[0].spoilage_days, undefined)
+  assert.equal(state.record.spoilage_days, raw)
 })
 
 test('historical direct link loads complete notes, stored camera and history with unavailable evidence', async t => {
@@ -277,8 +319,8 @@ test('older bulk receipt cannot replace a newer accepted scan; unknown/range evi
   await page.clock.runFor(100)
   const record = JSON.parse(await page.getByTestId('scans-state').textContent())[0]
   assert.equal(record.revision, 3); assert.equal(record.inventoryStatus, 'Spoiled')
-  assert.match(await page.getByTestId('unknown-preview').textContent(), /Not recorded.*3d/)
-  assert.match(await page.getByTestId('range-preview').textContent(), /4-6d.*3d/)
+  assert.match(await page.getByTestId('unknown-preview').textContent(), /Not recorded.*3 days/)
+  assert.match(await page.getByTestId('range-preview').textContent(), /4–6 days.*3 days/)
 })
 
 

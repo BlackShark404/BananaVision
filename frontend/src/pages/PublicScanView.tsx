@@ -3,6 +3,7 @@ import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import { api, BASE_URL } from "@/lib/api"
+import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -205,7 +206,7 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
                 <p className="text-xl mx-auto mb-1">⏳</p>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Spoilage</p>
                 <p className="text-xl font-bold">
-                  {scan.spoilage_days ?? "—"} <span className="text-xs text-muted-foreground font-normal">days</span>
+                  {formatSpoilageDays(scan.spoilage_days, false)} <span className="text-xs text-muted-foreground font-normal">{spoilageDayUnit(scan.spoilage_days)}</span>
                 </p>
               </div>
               <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
