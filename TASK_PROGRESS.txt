@@ -1,39 +1,23 @@
-CURRENT RESUME HERE (2026-10-20) - SCAN DETAIL IMAGE DIALOG VERIFIED
+CURRENT RESUME HERE (2026-10-20) - LOGIN TEMPORARY CREDENTIAL MESSAGING UPDATED
 
 GIT STATE
-- main at 871e869; checkout was clean at task start (prior QualityControl fix already present).
-- Current changes remain unstaged and uncommitted. No Git publication authorized.
-- Prior checkpoint archived in docs/history/2026-10-20-before-scan-image-dialog.txt.
+- main at 710c6d8.
+- Untracked files preserved: frontend/tests/layout.fixture.tsx, frontend/tests/layout.test.mjs.
+- Prior checkpoint archived in docs/history/2026-10-20-before-temporary-password-login-update.txt.
 
 DONE
-- Clicking ScanDetail's main image opens the existing Radix dialog at a larger responsive size.
-- The dialog shows the selected camera ID/position and original image aspect ratio.
-- Reuses BoundingBoxOverlay with the same saved detections and Boxes visibility setting.
-- Existing camera thumbnails and page layout retained. Boxes toggle does not open the dialog.
-- Keyboard Enter opens; Escape/Close dismiss; focus returns to the image trigger.
-- A missing image has no enlarge action. Dialog height is bounded with scrolling for tall images.
-- Added desktop (1280px), mobile (390px) and missing-image browser regressions.
-- No API, schema, persistence or shared renderer change was required.
+- Updated Login page (frontend/src/pages/Login.tsx) footer notice from "Temporary password for new or reset accounts is banana123" to "Temporary credentials for new or reset accounts are provided by your administrator.", matching UserManagement's unique temporary credential generation and secure administrator handoff.
+- Synchronized workflow documentation in docs/bananavision-docs/docs/workflows/REVISED_PROGRAM_WORKFLOWS.md to replace obsolete static credentials (banana123 / 1234) with unique temporary credential generation and administrator handoff.
 
 VERIFICATION
-- PLAYWRIGHT_MODULE=<installed Playwright>/index.mjs node --test tests/scanrecords.test.mjs:
-  42 passed, 0 failed, 0 skipped (40.88s), including existing QualityControl and write recovery tests.
-- npm run typecheck: PASS.
-- npm run build: PASS (tsc -b + Vite).
-- npm run lint: unchanged baseline of 42 problems (37 errors, 5 warnings); no new diagnostics.
-- git diff --check: PASS; source and test diffs reviewed.
-- Backend tests not repeated for this frontend-only interaction; no backend changes.
-- All browser APIs/images mocked; no live station DB, captures, cameras or OS power accessed.
-
-KNOWLEDGE / LIMITATIONS
-- graphify update . attempted; CLI and graph remain unavailable in this checkout.
-- No ICM connection available. No integration changes or installations made.
-- Minor UI interaction does not require a separate architecture note or persistent memory.
-- Live station/browser verification not performed.
+- npm run typecheck: PASS (tsc --noEmit clean).
+- npm run build: PASS (tsc -b + Vite production bundle clean).
+- npm run lint: PASS on Login.tsx (unchanged baseline of 42 problems across unrelated files).
+- Git diff / commit verified: scoped strictly to Login.tsx and REVISED_PROGRAM_WORKFLOWS.md.
 
 CONSTRAINTS
-- Existing main only; no staging, committing, pushing, deployment or discarding without authorization.
-- Preserve prior QualityControl fix, current UI, correction behavior and unrelated user changes.
+- main branch only; do not stage or discard untracked files without authorization.
+- Preserve existing authentication architecture and credential security handoff.
 
 EXACT NEXT STEP
-- User can click the main ScanDetail image to review the enlarged dialog. No implementation pending.
+- Inform user of verified updates. No pending implementation.
