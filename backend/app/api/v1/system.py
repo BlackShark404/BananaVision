@@ -53,10 +53,10 @@ def _get_cpu_name() -> str:
     return platform.processor() or "Unknown"
 
 
-def _get_cpu_temp(cpu_percent: float | None = None) -> float:
-    """Return CPU temperature in °C. Will fallback to a simulated value if hardware sensors are inaccessible."""
+def _get_cpu_temp() -> float | None:
+    """Return CPU temperature in °C, or None when no hardware sensor is accessible."""
     system = platform.system()
-    
+
     # 1. psutil (Linux, FreeBSD)
     try:
         if hasattr(psutil, "sensors_temperatures"):
@@ -79,18 +79,38 @@ def _get_cpu_temp(cpu_percent: float | None = None) -> float:
         except Exception:
             pass
 
-    # 3. Windows fallback
+    # 3. Windows fallback via PowerShell CIM (wmic.exe is removed on Windows 11 24H2+ images).
+    # MSAcpi thermal zone reports centi-Kelvin; the performance-counter thermal zone may
+    # report Kelvin or centi-Kelvin depending on the system, so both scales are normalized.
     if system == "Windows":
         try:
             import subprocess
-            out = subprocess.check_output(
-                ["wmic", "/namespace:\\\\root\\wmi", "PATH", "MSAcpi_ThermalZoneTemperature", "get", "CurrentTemperature"],
-                text=True, timeout=2
+            script = (
+                "$zone = Get-CimInstance -Namespace root/wmi "
+                "-ClassName MSAcpi_ThermalZoneTemperature "
+                "-ErrorAction SilentlyContinue | Select-Object -First 1;"
+                "if ($zone -and $zone.CurrentTemperature -gt 2730 "
+                "-and $zone.CurrentTemperature -lt 3930)"
+                "{ [math]::Round($zone.CurrentTemperature / 10.0 - 273.15, 1) } "
+                "else {"
+                "$tz = Get-CimInstance -ClassName "
+                "Win32_PerfFormattedData_Counters_ThermalZoneInformation "
+                "-ErrorAction SilentlyContinue | Select-Object -First 1;"
+                "if ($tz) {"
+                "$t = [double]$tz.Temperature;"
+                "if ($t -ge 500) { $t = $t / 10.0 };"
+                "if ($t -gt 273.05 -and $t -lt 393.15) { [math]::Round($t - 273.15, 1) }"
+                "}"
+                "}"
             )
-            for line in out.splitlines():
-                line = line.strip()
-                if line and line.isdigit():
-                    return round((float(line) / 10.0) - 273.15, 1)
+            out = subprocess.check_output(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+                text=True, timeout=4,
+            )
+            value = out.strip()
+            if not value:
+                raise ValueError("no thermal zone data reported")
+            return round(float(value.replace(",", ".")), 1)
         except Exception:
             pass
 
@@ -104,11 +124,7 @@ def _get_cpu_temp(cpu_percent: float | None = None) -> float:
         except Exception:
             pass
 
-    # 5. Simulated fallback for demonstration when hardware sensors fail
-    import random
-    base_temp = 40.0
-    load_temp = (cpu_percent or 10.0) * 0.4  # Max +40C at 100%
-    return round(base_temp + load_temp + random.uniform(-2.0, 2.0), 1)
+    return None
 
 
 @router.get("/metrics")
@@ -131,8 +147,8 @@ async def system_metrics(user: CurrentUser):
     boot_time = psutil.boot_time()
     uptime_seconds = time.time() - boot_time
 
-    # Temperature (with cross-platform fallbacks)
-    cpu_temp = _get_cpu_temp(cpu_percent)
+    # Temperature (with cross-platform fallbacks; None when unavailable)
+    cpu_temp = _get_cpu_temp()
 
     return {
         "cpu_name": _get_cpu_name(),

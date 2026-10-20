@@ -1,0 +1,31 @@
+CURRENT RESUME HERE (2026-10-21) - SIMULATED CPU TEMPERATURE MOCK REMOVED
+
+GIT STATE
+- main at 710c6d8; no commits made this session.
+- Modified: backend/app/api/v1/system.py. New: backend/tests/test_system_metrics.py.
+- Untracked files preserved: frontend/tests/layout.fixture.tsx, frontend/tests/layout.test.mjs.
+- Prior checkpoint archived in docs/history/2026-10-21-before-cpu-temp-mock-removal.txt.
+
+DONE
+- Removed the randomized simulated CPU temperature fallback in _get_cpu_temp (backend/app/api/v1/system.py). /system/metrics now returns cpu_temp: null when no hardware sensor is accessible. DeviceStatus.tsx and lib/api.ts already type cpu_temp as number | null and render null as "N/A"; no frontend change needed.
+- Added backend/tests/test_system_metrics.py regression tests: no-sensor case returns None instead of a simulated value, psutil sensor reading is preferred and rounded, macOS osx-cpu-temp helper fallback is parsed.
+
+VERIFICATION
+- Targeted: backend/tests/test_system_metrics.py → 3 passed (pytest via backend/venv/bin/python, fresh temp working directory).
+- Full backend suite: 506 passed, 97 skipped, 4 failed in 31.36s. PostgreSQL-specific tests skipped without BANANAVISION_TEST_DATABASE_URL. The 4 failures are pre-existing in test_assigned_fixes.py::test_power_command_outcomes_are_checked: subprocess.CREATE_NO_WINDOW is a Windows-only constant and those Windows-targeted tests cannot pass on the macOS dev host (files last touched 2026-10-16; unrelated to this change).
+- Ruff (temporary tool env ruff@0.14.3; ruff not installed in backend/venv): backend/tests/test_system_metrics.py clean. backend/app/api/v1/system.py carries pre-existing E501/UP015 findings on untouched lines 65/77/87/101 — existing debt, left alone.
+- py_compile on backend/app/api/v1/system.py: PASS.
+- Git diff reviewed: scoped to system.py plus the new test file only.
+
+CONSTRAINTS
+- main branch only; do not stage, commit, push, or discard untracked files without authorization.
+- Never test against the live station database, captures, physical cameras or OS power.
+
+PENDING CANDIDATES FROM 2026-10-21 MOCK SCAN
+- Server-side secure batch number generation (Kiosk.tsx line ~287 uses Math.random(); backend accepts any batch_number with no uniqueness).
+- Printer Task P03: QR tracking base URL configurable (qrcode.ts hardcodes window.location.origin).
+- Printer Task P04: DeliveryIntake batch label print CSS fix (300px popup image + button prints onto thermal roll).
+- ICM MCP unavailable this session (no servers configured); Obsidian docs unaffected (no note covers system metrics).
+
+EXACT NEXT STEP
+- Await user authorization to stage/commit the CPU-temp change, or pick the next candidate above.
