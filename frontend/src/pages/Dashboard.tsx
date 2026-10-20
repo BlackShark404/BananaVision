@@ -344,7 +344,7 @@ function DashboardContent() {
             </Button>
           </CardHeader>
           <CardContent className="p-0 flex-1">
-            {!summary ? <p className="p-8 text-center text-sm text-muted-foreground">{metrics.loading ? <span role="status" aria-label="Loading sources…" className="block space-y-4">{[0, 1, 2].map(row => <Skeleton key={row} className="h-10 w-full" />)}</span> : "Source data unavailable."}</p> : activeSourcesList.length === 0 ? (
+            {!summary ? <div className="p-8 text-center text-sm text-muted-foreground">{metrics.loading ? <span role="status" aria-label="Loading sources…" className="block space-y-4">{[0, 1, 2].map(row => <Skeleton key={row} className="h-10 w-full" />)}</span> : "Source data unavailable."}</div> : activeSourcesList.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
                 <Package className="w-8 h-8 mb-2 opacity-20" />
                 <p className="text-sm">No active sources</p>
