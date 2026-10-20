@@ -2,6 +2,26 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## Current demo-seed regression coverage
+
+`backend/tests/test_seed.py` runs only with an explicitly disposable
+`BANANAVISION_TEST_DATABASE_URL`, using a unique PostgreSQL schema per case. It verifies
+VPD from stored-precision readings, zero preservation, treatment/spoilage consistency,
+original snapshots, synthetic actor history, consumer APIs, rollback, concurrent seeding
+and default refusal of existing data. Explicit `--reset-demo` tests verify replacement of
+application records, reapplied migration revision, unrelated-table preservation and rollback
+to the previous records/schema on failure. Missing historical VPD and actor fixtures remain
+intentional and must not be backfilled.
+
+`test_setup_scripts.py` runs copied Windows/Git Bash scripts with fake installers/seeder,
+checks exit statuses and existing `.env` preservation, and never runs workspace setup.
+Setup/seed wrappers require Yes at an explicit deletion prompt before passing `--reset-demo`;
+No/blank answers never invoke the seeder. Plain Python invocation still refuses existing data
+with exit code 20. The wrapper tests verify confirmation, arguments, missing-script errors
+and failure propagation; CLI tests verify that unexpected exceptions are not swallowed.
+See [the seed audit](../audits/2026-10-19-seed-compatibility.md) and
+[backend setup guidance](../../backend/README.md) for scope and limitations.
+
 ## Testing Philosophy & Safety Rules
 
 As mandated by `AGENTS.md` and `docs/development-workflow.md`:
@@ -50,6 +70,7 @@ For tests requiring PostgreSQL-specific constraints, advisory locks or schema mi
 - Set `BANANAVISION_TEST_DATABASE_URL` to an isolated, disposable cluster.
 - Each test run generates and drops a unique schema.
 - Once tests conclude, the temporary cluster directory and port are stopped and removed.
+- Suites using this isolation include `test_seed.py`, `test_setup_scripts.py`, and `test_seed_kiosk_contract.py` (which verifies end-to-end data propagation across Kiosk, Database, Scan Logs, Scan Detail, Dashboard, Inventory, Analytics, CSV Export, and QR Tracking).
 
 ---
 

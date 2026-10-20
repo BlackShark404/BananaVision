@@ -20,6 +20,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { Separator } from "@/components/ui/separator"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import {
   ArrowLeft,
   Banana,
@@ -46,18 +55,39 @@ import {
   EyeOff,
   Box,
   Loader2,
+  DollarSign,
+  Settings,
+  ChevronDown,
+  ExternalLink,
 } from "lucide-react"
 import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
 import { generateQRCodeDataUrl, printQRTag } from "@/lib/qrcode"
-import { CULTIVARS, RIPENESS_LEVELS, type Cultivar, type Ripeness, type ScanResult, type ScanDetection, type BoundingBox } from "@/types"
+import { CULTIVARS, RIPENESS_LEVELS, type Cultivar, type Ripeness, type ScanResult, type ScanDetection, type BoundingBox, type InventoryStatus } from "@/types"
 import { AppChangePreview } from "@/components/AppChangePreview"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import BoundingBoxOverlay from "@/components/BoundingBoxOverlay"
-import { isScanConflict } from "@/lib/scanWrites"
+import { scanWrite, scanRevision, isScanConflict } from "@/lib/scanWrites"
 import { api } from "@/lib/api"
 
 const EMPTY_DETECTIONS: ScanDetection[] = []
+
+// Valid transitions: key = current status, value = allowed target statuses
+const VALID_TRANSITIONS: Record<string, InventoryStatus[]> = {
+  "In Stock": ["Sold", "For Processing", "Spoiled"],
+  "For Processing": ["Sold", "Spoiled"],
+  "Sold": [],
+  "Spoiled": [],
+}
+
+const TERMINAL_STATUSES: InventoryStatus[] = ["Sold", "Spoiled"]
+
+const STATUS_ACTIONS: { status: InventoryStatus; icon: typeof Box; color: string }[] = [
+  { status: "In Stock", icon: Box, color: "text-blue-500" },
+  { status: "For Processing", icon: Settings, color: "text-purple-500" },
+  { status: "Sold", icon: DollarSign, color: "text-emerald-500" },
+  { status: "Spoiled", icon: AlertTriangle, color: "text-red-500" },
+]
 
 export default function ScanDetail() {
   const { scanId } = useParams<{ scanId: string }>()
@@ -85,6 +115,9 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const [flagPending, setFlagPending] = useState(false)
   const [notePending, setNotePending] = useState(false)
   const [editPending, setEditPending] = useState(false)
+  const [statusAction, setStatusAction] = useState<InventoryStatus | null>(null)
+  const [statusReason, setStatusReason] = useState("")
+  const [statusPending, setStatusPending] = useState(false)
 
   const currentDetail = detail?.retry === retry ? detail : null
   const scan = currentDetail?.scan
@@ -138,6 +171,10 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
     const detection = scanDetections.find((d) => d.camera_id === cameraId)
     return detection?.bounding_boxes || []
   }
+
+  const activeCameraView = cameraViews[activeCamera]
+  const activeImageUrl = activeCameraView ? getCameraImageUrl(activeCameraView.id) : undefined
+  const activeBoxes = showBoxes && activeCameraView ? getCameraBoundingBoxes(activeCameraView.id) : []
 
   // Compute unique detection classes for legend
   const detectionLegend = useMemo(() => {
@@ -243,6 +280,34 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
     }
   }
 
+  const handleStatusUpdate = async () => {
+    if (!scan || !statusAction || !statusReason.trim() || statusPending) return
+    setStatusPending(true)
+    try {
+      const saved = await scanWrite(`${user?.id}:${scan.id}:status`, {
+        expected_revision: scanRevision(scan.revision), inventory_status: statusAction, reason: statusReason.trim(),
+      }, body => api.scans.updateStatus(scan.id, body))
+      const accepted = acceptScan(saved)
+      setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, ...accepted, images: previous.scan.images, detections: previous.scan.detections, qrCode: previous.scan.qrCode } } : previous)
+      toast.success(`Scan marked as ${statusAction}`)
+      setStatusAction(null)
+      setStatusReason("")
+      // Reload to get updated history
+      void api.scans.detail(scan.id).then(raw => {
+        const updated = acceptScan(raw)
+        setDetail(previous => previous?.scan && (previous.scan.revision ?? 0) <= (updated.revision ?? 0) ? { ...previous, scan: { ...updated, qrCode: previous.scan.qrCode } } : previous)
+      }).catch(() => {})
+    } catch (error) {
+      reportWriteError(error, () => {
+        setStatusAction(null)
+        setStatusReason("")
+        setRetry(value => value + 1)
+      })
+    } finally {
+      setStatusPending(false)
+    }
+  }
+
   if (!scan) {
     const loading = Boolean(scanId) && !currentDetail
     if (loading) return <DetailSkeleton />
@@ -311,30 +376,59 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
         </div>
       </div>
 
+      {/* Inventory Status Update Dialog */}
+      <Dialog open={!!statusAction} onOpenChange={open => { if (!open && !statusPending) { setStatusAction(null); setStatusReason("") } }}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Mark scan as {statusAction}?</DialogTitle>
+            <DialogDescription>
+              {TERMINAL_STATUSES.includes(statusAction as InventoryStatus)
+                ? "This is a terminal status and cannot be easily undone. This change will be recorded in the scan history."
+                : "This change will be recorded in the scan history."}
+            </DialogDescription>
+          </DialogHeader>
+          <Label htmlFor="scan-status-reason">Reason for change</Label>
+          <Textarea id="scan-status-reason" value={statusReason} onChange={event => setStatusReason(event.target.value)} disabled={statusPending} placeholder="Describe why you are changing the status..." />
+          <DialogFooter>
+            <Button variant="outline" disabled={statusPending} onClick={() => { setStatusAction(null); setStatusReason("") }}>Cancel</Button>
+            <Button disabled={!statusReason.trim() || statusPending} onClick={() => void handleStatusUpdate()}>
+              {statusPending && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin mr-2" />}
+              {statusPending ? "Saving…" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <InventoryProvenanceReview scan={scan} reason={provenanceReason} setReason={setProvenanceReason} onSaved={saved => setDetail(previous => previous ? { ...previous, scan: saved } : previous)} onConflict={() => setRetry(value => value + 1)} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* Left Column — Camera Views */}
         <Card className="rounded-2xl lg:col-span-1 lg:sticky lg:top-20">
           <CardContent className="p-4 sm:p-6">
             {/* Main Camera View */}
-            <AspectRatio ratio={4/3} className="rounded-xl overflow-hidden bg-muted/50 border-2 relative group">
-              {(() => {
-                const activeImageUrl = getCameraImageUrl(cameraViews[activeCamera]?.id)
-                const activeBoxes = showBoxes ? getCameraBoundingBoxes(cameraViews[activeCamera]?.id) : []
-                return activeImageUrl ? (
+            <Dialog>
+              <AspectRatio ratio={4/3} className="rounded-xl overflow-hidden bg-muted/50 border-2 relative group">
+                {activeImageUrl ? (
                   <>
-                    <BoundingBoxOverlay
-                      src={activeImageUrl}
-                      alt={cameraViews[activeCamera].label}
-                      boxes={activeBoxes}
-                      className="w-full h-full"
-                      showLabels={true}
-                      showConfidence={true}
-                    />
-                    <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-[10px] font-medium flex items-center gap-1">
+                    <DialogTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={`Enlarge ${cameraViews[activeCamera].label} camera image`}
+                        className="block w-full h-full cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                      >
+                        <BoundingBoxOverlay
+                          src={activeImageUrl}
+                          alt={cameraViews[activeCamera].label}
+                          boxes={activeBoxes}
+                          className="w-full h-full"
+                          showLabels={true}
+                          showConfidence={true}
+                        />
+                      </button>
+                    </DialogTrigger>
+                    <div className="pointer-events-none absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-[10px] font-medium flex items-center gap-1">
                       {cameraViews[activeCamera]?.id || "CAM"}
                     </div>
-                    <div className="absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-xs font-medium">
+                    <div className="pointer-events-none absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-xs font-medium">
                       {cameraViews[activeCamera]?.label || "View"}
                     </div>
                     <div className="absolute top-2 right-2 flex items-center gap-1.5">
@@ -355,9 +449,25 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     <Banana className="w-16 h-16 text-muted-foreground/30" />
                     <span className="text-sm text-muted-foreground/50">No image available</span>
                   </div>
-                )
-              })()}
-            </AspectRatio>
+                )}
+              </AspectRatio>
+              <DialogContent className="rounded-2xl sm:max-w-5xl max-h-[90dvh] overflow-y-auto">
+                <DialogHeader className="pr-8">
+                  <DialogTitle>{cameraViews[activeCamera]?.label} camera image</DialogTitle>
+                  <DialogDescription>{cameraViews[activeCamera]?.id} · Enlarged scan image</DialogDescription>
+                </DialogHeader>
+                {activeImageUrl && (
+                  <BoundingBoxOverlay
+                    src={activeImageUrl}
+                    alt={cameraViews[activeCamera].label}
+                    boxes={activeBoxes}
+                    className="w-full rounded-xl bg-muted/50"
+                    showLabels={true}
+                    showConfidence={true}
+                  />
+                )}
+              </DialogContent>
+            </Dialog>
 
             {/* Camera Thumbnails */}
             <div className="grid grid-cols-4 gap-2 mt-3">
@@ -639,74 +749,138 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                 <Banana className="w-4 h-4 text-primary" /> Scan Details
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="space-y-1">
+            <CardContent className="space-y-5">
+              {/* Banana Metrics */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-4 rounded-xl bg-muted/40 space-y-1">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Hand className="w-3.5 h-3.5" /> Finger Count
                   </div>
                   <p className="text-2xl font-bold">{scan.fingerCount}</p>
                 </div>
-                <div className="space-y-1">
+                <div className="p-4 rounded-xl bg-muted/40 space-y-1">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <AlertTriangle className="w-3.5 h-3.5" /> Est. Spoilage
                   </div>
                   <p className="text-2xl font-bold">{scan.spoilageDays} <span className="text-sm font-normal text-muted-foreground">days</span></p>
                 </div>
-                {scan.temperature !== undefined && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span>🌡️</span> Temperature
+              </div>
+
+              <Separator />
+
+              {/* Environment */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Environment</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {scan.temperature !== undefined && (
+                    <div className="p-4 rounded-xl bg-muted/40 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span>🌡️</span> Temperature
+                      </div>
+                      <p className="text-2xl font-bold">{scan.temperature}<span className="text-sm font-normal text-muted-foreground">°C</span></p>
                     </div>
-                    <p className="text-2xl font-bold">{scan.temperature}°C</p>
-                  </div>
-                )}
-                {scan.humidity !== undefined && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span>💧</span> Humidity
+                  )}
+                  {scan.humidity !== undefined && (
+                    <div className="p-4 rounded-xl bg-muted/40 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span>💧</span> Humidity
+                      </div>
+                      <p className="text-2xl font-bold">{scan.humidity}<span className="text-sm font-normal text-muted-foreground">%</span></p>
                     </div>
-                    <p className="text-2xl font-bold">{scan.humidity}%</p>
+                  )}
+                  <div role="group" aria-label="Vapor pressure deficit" title="Vapor Pressure Deficit recorded for this scan" className="p-4 rounded-xl bg-muted/40 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span>💨</span> VPD
+                    </div>
+                    <p className="text-2xl font-bold">{scan.vpd != null && Number.isFinite(scan.vpd)
+                      ? <>{scan.vpd.toFixed(3)}<span className="text-sm font-normal text-muted-foreground"> kPa</span></>
+                      : <span aria-label="VPD unavailable">—</span>}</p>
                   </div>
-                )}
-                <div role="group" aria-label="Vapor pressure deficit" title="Vapor Pressure Deficit recorded for this scan" className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span>💨</span> VPD
-                  </div>
-                  <p className="text-2xl font-bold">{scan.vpd != null && Number.isFinite(scan.vpd)
-                    ? <>{scan.vpd.toFixed(3)}<span className="text-sm font-normal text-muted-foreground"> kPa</span></>
-                    : <span aria-label="VPD unavailable">—</span>}</p>
+                  {scan.treatment && (
+                    <div className="p-4 rounded-xl bg-muted/40 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span>{scan.treatment === "Ethephon" ? "🧪" : "🌿"}</span> Treatment
+                      </div>
+                      <p className="text-lg font-bold">{scan.treatment}</p>
+                    </div>
+                  )}
                 </div>
-                {scan.treatment && (
-                  <div className="space-y-1">
+              </div>
+
+              <Separator />
+
+              {/* Inventory & Logistics */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Inventory & Logistics</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-4 rounded-xl bg-muted/40 space-y-2">
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span>{scan.treatment === "Ethephon" ? "🧪" : "🌿"}</span> Treatment
+                      <Package className="w-3.5 h-3.5" /> Inventory Status
                     </div>
-                    <p className="text-lg font-bold">{scan.treatment}</p>
+                    <div className="flex items-center gap-1.5">
+                      <AppStatusBadge type="inventory" status={scan.inventoryStatus || "In Stock"} size="md" />
+                      {isAdmin && (() => {
+                        const currentStatus = scan.inventoryStatus || "In Stock"
+                        const allowed = VALID_TRANSITIONS[currentStatus] || []
+                        if (allowed.length === 0) return null
+                        return (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" disabled={statusPending}>
+                                <ChevronDown className="w-3.5 h-3.5" />
+                                <span className="sr-only">Update status</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48">
+                              <DropdownMenuLabel>Update Status</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              {STATUS_ACTIONS.map(({ status, icon: StatusIcon, color }) => {
+                                const isDisabled = !allowed.includes(status)
+                                return (
+                                  <DropdownMenuItem
+                                    key={status}
+                                    onClick={() => { if (!isDisabled) { setStatusAction(status); setStatusReason("") } }}
+                                    disabled={isDisabled}
+                                    className={isDisabled ? "opacity-40 cursor-not-allowed" : ""}
+                                  >
+                                    <StatusIcon className={`mr-2 h-4 w-4 ${isDisabled ? "text-muted-foreground" : color}`} />
+                                    <span>Mark {status}</span>
+                                  </DropdownMenuItem>
+                                )
+                              })}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )
+                      })()}
+                    </div>
                   </div>
-                )}
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Package className="w-3.5 h-3.5" /> Inventory Status
-                  </div>
-                  <AppStatusBadge type="inventory" status={scan.inventoryStatus || "In Stock"} size="md" />
+                  {scan.source && (
+                    <div
+                      className="p-4 rounded-xl bg-muted/40 space-y-1 hover:bg-muted/60 transition-colors cursor-pointer group"
+                      onClick={() => navigate(`/logs?source=${encodeURIComponent(scan.source!)}`)}
+                      title="View all scans from this source"
+                    >
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Source</span>
+                        <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                      <p className="font-semibold text-sm group-hover:text-primary transition-colors">{scan.source}</p>
+                    </div>
+                  )}
+                  {scan.intakeId && (
+                    <div
+                      className="p-4 rounded-xl bg-muted/40 space-y-1 hover:bg-muted/60 transition-colors cursor-pointer group"
+                      onClick={() => navigate(`/logs?intake=${encodeURIComponent(scan.intakeId!)}`)}
+                      title="View all scans for this delivery intake"
+                    >
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5" /> Intake</span>
+                        <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                      <p className="font-semibold text-sm font-mono break-all group-hover:text-primary transition-colors">{scan.intakeId}</p>
+                    </div>
+                  )}
                 </div>
-                {scan.source && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Package className="w-3.5 h-3.5" /> Source
-                    </div>
-                    <p className="font-semibold text-sm">{scan.source}</p>
-                  </div>
-                )}
-                {scan.intakeId && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Layers className="w-3.5 h-3.5" /> Intake
-                    </div>
-                    <p className="font-semibold text-sm font-mono">{scan.intakeId}</p>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>

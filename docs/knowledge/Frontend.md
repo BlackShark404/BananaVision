@@ -46,6 +46,21 @@ model consumes VPD; legacy four-feature models and the rule fallback do not. Thi
 integration adds no calculation, backfill or model selection change. See the
 [VPD audit](../audits/2026-10-18-vpd-integration.md) and [[Testing and Validation]].
 
+## Quality Control camera evidence
+
+Quality Control uses the scan's recorded image/detection camera IDs and saved position
+labels, independent of the station's current camera configuration. Each tile joins its
+image and detection by `camera_id`; a missing image never falls back to another camera
+or the scan thumbnail. It reuses Scan Detail's `BoundingBoxOverlay` for saved pixel
+coordinates, class labels, confidence, and image scaling.
+
+The modal accepts full detail responses at the same revision as its list row because
+list responses omit detections. This refresh preserves the correction draft and its
+baseline revision. The 2026-10-20 fix removed repeated thumbnails and simulated boxes.
+`tests/scanrecords.test.mjs` covers distinct camera images, reordered detections,
+same-revision enrichment, non-4:3 box alignment, missing/unavailable images, and absent
+detections/evidence. See [[Testing and Validation]] for the isolated browser workflow.
+
 ## Scan History actor attribution
 
 Kiosk PIN login establishes the authenticated operator; scan requests do not supply

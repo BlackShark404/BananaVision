@@ -4,7 +4,10 @@
 -- Adds chemical feature engineering columns to scan_classification
 -- and batch lifecycle / treatment fields to delivery_intake.
 --
--- Run this against an existing BananaVision database to upgrade.
+-- Historical manual script: includes a calculated historical-data backfill below.
+-- Do not use it for current setup or seeding. The maintained migration is
+-- backend/migrations/versions/0002_feature_engineering.py, which preserves missing
+-- historical VPD as NULL. Use python -m app.core.migrations for current upgrades.
 -- ============================================================
 
 -- ── 1. Add treatment enum type ──────────────────────────────────────────────

@@ -1,75 +1,39 @@
-CURRENT RESUME HERE (2026-10-19) - ANALYTICS VERIFIED; MAIN MERGED AND PUSHED
+CURRENT RESUME HERE (2026-10-20) - SCAN DETAIL IMAGE DIALOG VERIFIED
 
 GIT STATE
-- main; Analytics commit 8792226 and incoming eddd5fa combined in merge 3fe95bc.
-- Merge 3fe95bc pushed successfully; local HEAD and remote main matched afterward.
-  This documentation-only completion checkpoint follows it; the final chat records its hash.
-- User explicitly authorized commit, pull/merge and push. No deployment or history rewrite.
-- Only conflict: TASK_PROGRESS.txt. Preserved Analytics checkpoint and archived incoming
-  camera/fusion checkpoint in docs/history/2026-10-19-incoming-main-before-analytics-merge.txt.
-- Incoming camera/classification/config/tests/docs preserved without edits.
-- Prior actor checkpoint: docs/history/2026-10-19-before-analytics-wording.txt.
+- main at 871e869; checkout was clean at task start (prior QualityControl fix already present).
+- Current changes remain unstaged and uncommitted. No Git publication authorized.
+- Prior checkpoint archived in docs/history/2026-10-20-before-scan-image-dialog.txt.
 
 DONE
-- Read progress/status/guidance; focused Graphify query and Analytics source/API/schema review.
-- Verified shared metric definitions against calculations, confidence sample eligibility,
-  inventory policy, Manila ranges, fixed 14-day trend and stable operator aggregation.
-- Confirmed readability issues: repeated filter clauses, unlabeled paragraphs, raw ISO dates,
-  duplicate accuracy warning, and trend caption mentioning only source despite other filters.
-- Selected bounded copy edit: shorter server definitions, labeled rows, readable Manila
-  dates and one accuracy explanation. Keep existing disclosure, styling and all calculations.
-- Implemented concise definitions (361 -> 209 words), labeled existing disclosure rows,
-  readable Manila period/update time and simpler Total Scans subtitle.
-- Removed duplicated accuracy paragraph and corrected trend caption to include all filters.
-- Verified confidence eligibility, stock-risk caveats and fixed trend remain accurate;
-  schema/API keys, computations and permissions are unchanged. No new boundary exposure.
-- Final scoped diff and git diff --check PASS; no unrelated changes.
-- Graphify AST update PASS: 3728 -> 3731 nodes, 11349 edges, 245 communities; no graph loss.
-  Two SQL files remain omitted by unavailable optional parser; no paid extraction.
-- Updated Frontend knowledge note and stored user plain-language preference in project ICM
-  (01M59DRNE97YFWGMB8Y6Y9WYYS). No new dependencies or configuration.
-- Fetched and pulled origin/main; resolved the sole checkpoint conflict by preserving this
-  status and archiving the incoming camera/fusion checkpoint. Both runtime changes preserved.
-- Merged backend checks: 194 passed in 14.91s. No new corrections needed.
-- Verified frontend and Analytics backend exactly match tested local commit 8792226;
-  incoming camera/config/fusion files exactly match eddd5fa. Scoped diff checks pass.
-- Merged Graphify AST update PASS: 3731 -> 3738 nodes, 11369 edges, 234 communities; no loss.
-  Same two SQL files omitted; no paid extraction.
+- Clicking ScanDetail's main image opens the existing Radix dialog at a larger responsive size.
+- The dialog shows the selected camera ID/position and original image aspect ratio.
+- Reuses BoundingBoxOverlay with the same saved detections and Boxes visibility setting.
+- Existing camera thumbnails and page layout retained. Boxes toggle does not open the dialog.
+- Keyboard Enter opens; Escape/Close dismiss; focus returns to the image trigger.
+- A missing image has no enlarge action. Dialog height is bounded with scrolling for tall images.
+- Added desktop (1280px), mobile (390px) and missing-image browser regressions.
+- No API, schema, persistence or shared renderer change was required.
 
-IN PROGRESS
-- None. Implementation, integration verification and requested Git synchronization complete.
+VERIFICATION
+- PLAYWRIGHT_MODULE=<installed Playwright>/index.mjs node --test tests/scanrecords.test.mjs:
+  42 passed, 0 failed, 0 skipped (40.88s), including existing QualityControl and write recovery tests.
+- npm run typecheck: PASS.
+- npm run build: PASS (tsc -b + Vite).
+- npm run lint: unchanged baseline of 42 problems (37 errors, 5 warnings); no new diagnostics.
+- git diff --check: PASS; source and test diffs reviewed.
+- Backend tests not repeated for this frontend-only interaction; no backend changes.
+- All browser APIs/images mocked; no live station DB, captures, cameras or OS power accessed.
 
-REMAINING
-- No pending metric-definition fixes. Existing repository lint/connectivity debt and
-  PostgreSQL coverage remain separate follow-ups; no all-green repository claim.
-
-TEST RESULTS
-- Merged isolated pytest: test_analytics.py, test_classification_fusion.py,
-  test_top_view_inference.py, test_scan_trigger.py, test_scan_records.py,
-  test_time_and_writes.py, test_detection_sensitivity.py: 194 passed (14.91s), no skips.
-- Merged Ruff check backend/app backend/tests: FAIL 646 existing errors, unchanged from
-  verified local patch. Logs: frontend/node_modules/.tmp/bv-metric-merged-*.
-- Frontend source is unchanged by merge; retained passing browser/type/build checks below.
-- node --test tests/analytics.test.mjs: 9 passed (36.41s).
-- Isolated pytest backend/tests/test_analytics.py: 15 passed (3.83s), no skips.
-- npm run typecheck PASS; npm run build (tsc-b/Vite) PASS (15.91s Vite).
-- npm run lint FAIL 37 errors/5 warnings (baseline). Ruff FAIL 646 errors (6 fewer than baseline).
-- Analytics.tsx ESLint comparison with HEAD: unchanged 0 errors/1 existing hooks warning.
-- Mocked real-copy display checked at 1440px and 390px; screenshots reviewed, no horizontal
-  overflow or console errors. Manila date/time shown correctly in an LA browser; All Time works.
-- AST comparison confirms only definition strings changed in backend; all keys preserved.
-  Definition text reduced from 361 to 209 words (42% less). No calculation changes.
-- Logs/screenshots: frontend/node_modules/.tmp/bv-metric-*.
-- Baseline lint: frontend 37 errors/5 warnings; backend Ruff 652 errors.
-- Prior full-suite connectivity failures and unavailable PostgreSQL coverage remain separate.
+KNOWLEDGE / LIMITATIONS
+- graphify update . attempted; CLI and graph remain unavailable in this checkout.
+- No ICM connection available. No integration changes or installations made.
+- Minor UI interaction does not require a separate architecture note or persistent memory.
+- Live station/browser verification not performed.
 
 CONSTRAINTS
-- main only; preserve UI, API keys/types, metrics, permissions, Manila time and prior features.
-- No live station DB/captures/cameras/printer/power. Mocked/disposable fixtures only.
-- Do not add abstractions or tests that merely mirror changed copy.
+- Existing main only; no staging, committing, pushing, deployment or discarding without authorization.
+- Preserve prior QualityControl fix, current UI, correction behavior and unrelated user changes.
 
-EXACT RESUME
-- No implementation or merge work remains. This documentation-only checkpoint is authorized
-  for normal commit/push; verify its remote equality before ending the turn.
-- Existing frontend source is identical to the already-tested Analytics patch; avoid
-  repeating unrelated audits/passing browser checks. No live station resources.
+EXACT NEXT STEP
+- User can click the main ScanDetail image to review the enlarged dialog. No implementation pending.

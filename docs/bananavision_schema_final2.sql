@@ -1,9 +1,9 @@
 -- ============================================================
--- bananavision database schema (final / aligned)
+-- Historical BananaVision schema reference (not the current bootstrap schema)
 -- ============================================================
--- this schema represents the final alignment between the
--- designed data dictionary, the backend orm models, and the
--- frontend typescript types.
+-- Retained for reference; later ORM fields and versioned migrations supersede it.
+-- Initialize/upgrade with backend: python -m app.core.migrations.
+-- For synthetic data in an empty development database, use backend/seed.py.
 --
 -- conventions:
 --   • snake_case for all identifiers

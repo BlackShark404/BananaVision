@@ -1,0 +1,43 @@
+CURRENT RESUME HERE (2026-10-20) - LEGACY SETUP FLOW COMPARED; DATA BEHAVIOR CHOICE PENDING
+
+GIT STATE
+- main at e6110c9; eleven earlier task files remain modified/untracked, unstaged.
+- This review adds one checkpoint archive. No runtime changes made during this review.
+- No commit/push/merge/deploy or live database access performed.
+- Verified skip-fix checkpoint archived in docs/history/2026-10-20-before-legacy-seed-flow-review.txt.
+
+DONE
+- Compared setup.bat and backend/seed.py at e6110c9^ (before VPD seed updates) with current files.
+- Old and current setup use the same environment -> dependencies -> optional seeding sequence.
+- Old seed.py clear_database dropped all application tables (CASCADE fallback), recreated them,
+  then made accounts, devices, suppliers, intakes and 25 scans. Old yes-to-seed erased data.
+- Current generator already adds stored-precision VPD, treatment, original AI/name snapshots
+  and synthetic Demo Seeder history. Current protection refuses existing records before DDL.
+- User now requests a process similar to the old setup with additional Scan Logs data.
+- Asked whether yes-to-seed should append demo scans preserving existing data, or restore
+  reset/reseed deletion. This is an unresolved data-behavior requirement, not routine approval.
+
+IN PROGRESS
+- Awaiting the user's required choice about existing records. Do not infer deletion permission.
+
+REMAINING
+- Implement the selected behavior with only necessary generator/wrapper changes.
+- Use regression tests and disposable databases; keep current API/UI/timezone/model/printer work.
+- Update relevant documentation/knowledge/checkpoint and scoped final diff after verification.
+
+TEST RESULTS
+- No tests rerun for this read-only history comparison.
+- Prior skip fix: 29 passed (11.63s); final seed/CLI 12 passed (8.91s) after exception naming fix;
+  unchanged wrapper17 retained. Scoped Ruff PASS; backend configured Ruff 646 existing errors.
+- Prior frontend71/typecheck/build results remain valid for unchanged frontend.
+- Prior logs: frontend/node_modules/.tmp/bv-seed-skip-*.
+
+CONSTRAINTS
+- Main only; no Git publication, live station data/hardware, .env reads/edits or history backfill.
+- Do not execute a destructive seed/reset on the user's database.
+- Preserve all pending work until the selected replacement is implemented and verified.
+
+EXACT RESUME
+- Obtain the answer to the pending existing-data behavior question, then implement that choice.
+- Do not repeat the completed old-script comparison. Source references: e6110c9^:setup.bat,
+  e6110c9^:backend/seed.py, current backend/seed.py and setup/seed wrappers.

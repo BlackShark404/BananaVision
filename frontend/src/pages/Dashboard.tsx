@@ -118,7 +118,6 @@ function DashboardContent() {
     setParams(next, { replace: true })
   }, [groupView, params, selectedBusinessDate, setParams])
   const previousDay = !!summary && summary.business_date !== manilaDate(now)
-  const staleMetrics = !!summary && (!!metrics.error || previousDay || (metrics.receivedAt !== null && now - metrics.receivedAt > 90_000))
   const staleCameras = !!cameras.data && (!!cameras.error || (cameras.receivedAt !== null && now - cameras.receivedAt > 90_000))
   const activeSourcesList = summary?.sources ?? []
   const recentScans = summary?.recent_scans ?? []
@@ -164,19 +163,6 @@ function DashboardContent() {
         </Button>}
       />
 
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" role="status" aria-live="polite">
-        <Badge variant={staleMetrics || metrics.error ? "destructive" : "secondary"}>
-          {staleMetrics ? "Stale Data" : !summary ? metrics.loading ? "Loading" : "Unavailable" : "Updated"}
-        </Badge>
-        <span>{summary ? `Last refreshed ${manilaTime.format(new Date(summary.generated_at))}` : "No successful refresh yet"}</span>
-        <span aria-hidden="true">·</span>
-        <span>{connectionStatus === "connected" ? "Live updates connected" : connectionStatus === "connecting" ? "Connecting live updates…" : "Live updates disconnected"}</span>
-        {connectionStatus !== "connected" && (
-          <Button variant="ghost" size="sm" onClick={reconnectWs} className="h-auto p-0 text-xs font-normal underline hover:text-foreground text-muted-foreground">
-            Reconnect
-          </Button>
-        )}
-      </div>
       {metrics.error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
         <strong>{summary ? "Dashboard refresh failed." : "Dashboard unavailable."}</strong> {metrics.error}
         {summary && " Showing the last successful snapshot."}
@@ -185,7 +171,7 @@ function DashboardContent() {
       {previousDay && <p className="text-xs text-amber-700">Showing {summary.business_date} while today's totals refresh.</p>}
       {connectionStatus !== "connected" && (
         <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-          <span>Live changes may be delayed. Checking for updates every 30 seconds and on reconnection.</span>
+          <span>Live updates disconnected. Changes may be delayed. Checking for updates every 30 seconds and on reconnection.</span>
           <Button variant="link" size="sm" onClick={reconnectWs} className="h-auto p-0 text-xs underline">
             Reconnect live stream
           </Button>
@@ -344,7 +330,7 @@ function DashboardContent() {
             </Button>
           </CardHeader>
           <CardContent className="p-0 flex-1">
-            {!summary ? <p className="p-8 text-center text-sm text-muted-foreground">{metrics.loading ? <span role="status" aria-label="Loading sources…" className="block space-y-4">{[0, 1, 2].map(row => <Skeleton key={row} className="h-10 w-full" />)}</span> : "Source data unavailable."}</p> : activeSourcesList.length === 0 ? (
+            {!summary ? <div className="p-8 text-center text-sm text-muted-foreground">{metrics.loading ? <span role="status" aria-label="Loading sources…" className="block space-y-4">{[0, 1, 2].map(row => <Skeleton key={row} className="h-10 w-full" />)}</span> : "Source data unavailable."}</div> : activeSourcesList.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
                 <Package className="w-8 h-8 mb-2 opacity-20" />
                 <p className="text-sm">No active sources</p>

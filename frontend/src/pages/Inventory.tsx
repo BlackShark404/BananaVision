@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { useScans } from "@/context/ScanContext"
 import { useInventory } from "@/context/InventoryContext"
 import { remainingStockDays, shelfLifeLabel } from "@/lib/inventoryRisk"
@@ -10,10 +11,11 @@ import { ContentSkeleton } from "@/components/LoadingState"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { Progress } from "@/components/ui/progress"
-import { Package, AlertTriangle, TrendingDown, CheckCircle, Clock, Banana } from "lucide-react"
+import { Package, AlertTriangle, TrendingDown, CheckCircle, Clock, Banana, ExternalLink } from "lucide-react"
 import { InventoryStatusEnum, RipenessEnum, CultivarEnum } from "@/types"
 
 export default function Inventory() {
+  const navigate = useNavigate()
   const { scans, scansReady, scansLoading, scansError, refreshScans } = useScans()
   const { intakesReady, intakesLoading, intakesError, intakesStale, refreshIntakes } = useInventory()
   const [sourceFilter, setSourceFilter] = useState<string>("all")
@@ -201,6 +203,8 @@ export default function Inventory() {
           icon={Package}
           delay={50}
           description="In stock"
+          onClick={() => navigate("/logs?status=In+Stock")}
+          helpText="View all in-stock hands in Scan Logs"
         />
         <AppStatsCard
           title="Total Fingers"
@@ -210,6 +214,8 @@ export default function Inventory() {
           iconBgColor="bg-yellow-500/10"
           delay={100}
           description="Estimated count"
+          onClick={() => navigate("/logs?status=In+Stock")}
+          helpText="View all in-stock bananas in Scan Logs"
         />
         <AppStatsCard
           title="Spoiling Soon"
@@ -219,6 +225,8 @@ export default function Inventory() {
           iconBgColor="bg-red-500/10"
           delay={150}
           description="≤2 days left"
+          onClick={() => navigate("/logs?attention=at-risk")}
+          helpText="View scans with high spoilage risk"
         />
         <AppStatsCard
           title="Sold"
@@ -228,6 +236,8 @@ export default function Inventory() {
           iconBgColor="bg-emerald-500/10"
           delay={200}
           description="All time"
+          onClick={() => navigate("/logs?status=Sold")}
+          helpText="View sold banana logs"
         />
       </div>
 
@@ -236,11 +246,17 @@ export default function Inventory() {
         <CardContent className="p-4 sm:p-6">
           <h3 className="text-base font-semibold mb-4">Stock by Ripeness</h3>
           <div className="space-y-4">
-            <div>
+            <div
+              className="p-2 -mx-2 rounded-lg hover:bg-muted/40 transition-colors cursor-pointer group/ripeness"
+              onClick={() => navigate(`/logs?status=In+Stock&ripeness=${encodeURIComponent(RipenessEnum.UNRIPE)}`)}
+            >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                  <span className="text-sm font-medium">Unripe</span>
+                  <span className="text-sm font-medium group-hover/ripeness:text-primary transition-colors flex items-center gap-1.5">
+                    Unripe
+                    <ExternalLink className="w-3 h-3 opacity-0 group-hover/ripeness:opacity-100 transition-opacity text-muted-foreground" />
+                  </span>
                 </div>
                 <span className="text-sm font-bold">{inventory.unripe.length} hands</span>
               </div>
@@ -250,11 +266,17 @@ export default function Inventory() {
               </p>
             </div>
 
-            <div>
+            <div
+              className="p-2 -mx-2 rounded-lg hover:bg-muted/40 transition-colors cursor-pointer group/ripeness"
+              onClick={() => navigate(`/logs?status=In+Stock&ripeness=${encodeURIComponent(RipenessEnum.SEMI_RIPE)}`)}
+            >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-violet-500" />
-                  <span className="text-sm font-medium">Semi Ripe</span>
+                  <span className="text-sm font-medium group-hover/ripeness:text-primary transition-colors flex items-center gap-1.5">
+                    Semi Ripe
+                    <ExternalLink className="w-3 h-3 opacity-0 group-hover/ripeness:opacity-100 transition-opacity text-muted-foreground" />
+                  </span>
                 </div>
                 <span className="text-sm font-bold">{inventory.semiRipe.length} hands</span>
               </div>
@@ -264,11 +286,17 @@ export default function Inventory() {
               </p>
             </div>
 
-            <div>
+            <div
+              className="p-2 -mx-2 rounded-lg hover:bg-muted/40 transition-colors cursor-pointer group/ripeness"
+              onClick={() => navigate(`/logs?status=In+Stock&ripeness=${encodeURIComponent(RipenessEnum.RIPE)}`)}
+            >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                  <span className="text-sm font-medium">Ripe</span>
+                  <span className="text-sm font-medium group-hover/ripeness:text-primary transition-colors flex items-center gap-1.5">
+                    Ripe
+                    <ExternalLink className="w-3 h-3 opacity-0 group-hover/ripeness:opacity-100 transition-opacity text-muted-foreground" />
+                  </span>
                 </div>
                 <span className="text-sm font-bold">{inventory.ripe.length} hands</span>
               </div>
@@ -278,11 +306,17 @@ export default function Inventory() {
               </p>
             </div>
 
-            <div>
+            <div
+              className="p-2 -mx-2 rounded-lg hover:bg-muted/40 transition-colors cursor-pointer group/ripeness"
+              onClick={() => navigate(`/logs?status=In+Stock&ripeness=${encodeURIComponent(RipenessEnum.OVERRIPE)}`)}
+            >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-red-500" />
-                  <span className="text-sm font-medium">Overripe</span>
+                  <span className="text-sm font-medium group-hover/ripeness:text-primary transition-colors flex items-center gap-1.5">
+                    Overripe
+                    <ExternalLink className="w-3 h-3 opacity-0 group-hover/ripeness:opacity-100 transition-opacity text-muted-foreground" />
+                  </span>
                 </div>
                 <span className="text-sm font-bold">{inventory.overripe.length} hands</span>
               </div>
@@ -302,13 +336,20 @@ export default function Inventory() {
             <h3 className="text-base font-semibold mb-4">Stock by Cultivar</h3>
             <div className="space-y-3">
               {Object.entries(inventory.byCultivar).map(([cultivar, count]) => (
-                <div key={cultivar} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                <div
+                  key={cultivar}
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer group/cultivar"
+                  onClick={() => navigate(`/logs?status=In+Stock&cultivar=${encodeURIComponent(cultivar)}`)}
+                >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                       <Banana className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium text-sm">{cultivar}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-medium text-sm group-hover/cultivar:text-primary transition-colors">{cultivar}</p>
+                        <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover/cultivar:opacity-100 transition-opacity" />
+                      </div>
                       <p className="text-xs text-muted-foreground">{count} hands in stock</p>
                     </div>
                   </div>
@@ -347,11 +388,15 @@ export default function Inventory() {
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {inventory.spoilingSoon.map((group) => (
-                  <div key={group.id} className="p-3 rounded-lg bg-muted/30 border hover:bg-muted/50 transition-colors">
+                  <div key={group.id} className="p-3 rounded-lg bg-muted/30 border hover:bg-muted/50 transition-colors cursor-pointer group/alert" onClick={() => {
+                    const intakeId = group.intakeId !== "unknown" ? group.intakeId : undefined
+                    if (intakeId) navigate(`/logs?intake=${encodeURIComponent(intakeId)}`)
+                    else navigate(`/logs?status=In+Stock&cultivar=${encodeURIComponent(group.cultivar)}&ripeness=${encodeURIComponent(group.ripeness)}`)
+                  }}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="font-semibold text-sm">{group.source} — {group.cultivar}</p>
+                          <p className="font-semibold text-sm group-hover/alert:text-primary transition-colors">{group.source} — {group.cultivar}</p>
                           <Badge variant="outline" className={`text-[10px] ${group.ripeness === RipenessEnum.SEMI_RIPE
                               ? "bg-violet-50 text-violet-700 border-violet-200"
                               : group.ripeness === RipenessEnum.OVERRIPE
@@ -360,6 +405,7 @@ export default function Inventory() {
                             }`}>
                             {group.ripeness}
                           </Badge>
+                          <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover/alert:opacity-100 transition-opacity ml-auto shrink-0" />
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {group.count} hands ({group.fingers} fingers)
@@ -404,12 +450,26 @@ export default function Inventory() {
           </p>
           <div className="space-y-2">
             {inventory.fifoList.map((intake, idx) => (
-              <div key={intake.intakeId} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+              <div
+                key={intake.intakeId}
+                className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer group/fifo"
+                onClick={() => {
+                  if (intake.intakeId.startsWith("unlinked:")) {
+                    const scanId = intake.intakeId.replace("unlinked:", "")
+                    navigate(`/scans/${scanId}`)
+                  } else {
+                    navigate(`/logs?intake=${encodeURIComponent(intake.intakeId)}`)
+                  }
+                }}
+              >
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
                   #{idx + 1}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm">{intake.source}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-medium text-sm group-hover/fifo:text-primary transition-colors">{intake.source}</p>
+                    <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover/fifo:opacity-100 transition-opacity shrink-0" />
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     Scanned: {intake.date.toLocaleDateString("en-US", { timeZone: "Asia/Manila" })} • {intake.hands} hands ({intake.fingers} fingers)
                   </p>

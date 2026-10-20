@@ -28,6 +28,9 @@ async function setup(t, status = 200, options = {}) {
   const state = { record: scan(), writes: [], requests: [], imageHeaders: null, ...options }
   await page.route('**/captures/**', async route => {
     state.imageHeaders = route.request().headers()
+    const image = state.imageFixtures?.[new URL(route.request().url()).pathname]
+    if (image) return route.fulfill({ contentType: 'image/svg+xml', body: image,
+      headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' } })
     await route.fulfill({ status: 404, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' } })
   })
   await page.route('**/api/v1/**', async route => {
@@ -380,6 +383,157 @@ test('QC detail refresh supplies the latest revision for a new note and displays
   await until(() => state.writes.length === 1)
   assert.equal(state.writes[0].expected_revision, 2)
   await page.getByText('Verified current record', { exact: true }).waitFor()
+})
+
+function cameraEvidence() {
+  const record = scan()
+  const positions = ['Top', 'Left', 'Right', 'Rear']
+  record.images = positions.map((position, index) => ({
+    camera_id: `RECORDED-${index}`, file_path: `/captures/${id}/${position}.svg`,
+  }))
+  // Deliberately different order: images and detections must be joined by camera ID.
+  record.thumbnail_url = record.images[0].file_path
+  record.detections = positions.map((position, index) => ({
+    camera_id: `RECORDED-${index}`, camera_label: position, confidence: 81 + index,
+    bounding_boxes: [{ x: 300 + index * 50, y: 120, w: 80, h: 160, cls: 'lakatan_ripe', conf: 0.81 + index / 100 }],
+  })).reverse()
+  const imageFixtures = Object.fromEntries(record.images.map((image, index) => [
+    image.file_path,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${index === 0 ? 1200 : 800}" height="600"><rect width="100%" height="100%" fill="${['red', 'green', 'blue', 'yellow'][index]}"/></svg>`,
+  ]))
+  const listRecord = { ...record }
+  delete listRecord.detections
+  delete listRecord.notes
+  delete listRecord.history
+  return { record, listRecord, imageFixtures }
+}
+
+for (const width of [1280, 390]) {
+  test(`ScanDetail enlarges the selected image in a keyboard-accessible dialog at ${width}px`, async t => {
+    const evidence = cameraEvidence()
+    const { page, state } = await setup(t, 200, evidence)
+    await page.setViewportSize({ width, height: 900 })
+    await page.getByRole('button', { name: 'Left RECORDED-1', exact: true }).click()
+    const trigger = page.getByRole('button', { name: 'Enlarge Left camera image', exact: true })
+    await trigger.focus()
+    await page.keyboard.press('Enter')
+    const dialog = page.getByRole('dialog', { name: 'Left camera image' })
+    await dialog.waitFor()
+    const image = dialog.getByRole('img', { name: 'Left', exact: true })
+    await image.waitFor()
+    const svg = dialog.locator('svg[preserveAspectRatio]')
+    await svg.waitFor()
+    await page.clock.runFor(250)
+    assert.equal(await image.evaluate(async img => (await fetch(img.src)).text()),
+      evidence.imageFixtures[`/captures/${id}/Left.svg`])
+    assert.equal(await svg.getAttribute('viewBox'), '0 0 800 600')
+    assert.equal(await svg.locator('g > rect').first().getAttribute('x'), '350')
+    const bounds = await dialog.boundingBox()
+    assert(bounds.x >= 0 && bounds.x + bounds.width <= width + 1)
+    assert(bounds.y >= 0 && bounds.y + bounds.height <= 901)
+    const imageBounds = await image.boundingBox()
+    assert(Math.abs(imageBounds.width / imageBounds.height - 800 / 600) < 0.01)
+    if (width === 1280) assert(imageBounds.width > 800)
+    await page.keyboard.press('Escape')
+    await dialog.waitFor({ state: 'hidden' })
+    await page.clock.runFor(250)
+    assert.equal(await trigger.evaluate(button => document.activeElement === button), true)
+    // The independent Boxes control never opens the dialog.
+    await page.getByTitle('Hide bounding boxes', { exact: true }).click()
+    assert.equal(await page.getByRole('dialog').count(), 0)
+    await trigger.click()
+    await dialog.getByRole('img', { name: 'Left', exact: true }).waitFor()
+    assert.equal(await dialog.locator('svg[preserveAspectRatio]').count(), 0)
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+    await dialog.waitFor({ state: 'hidden' })
+    assert.equal(state.writes.length, 0)
+  })
+}
+
+test('ScanDetail has no enlarge action when the selected camera has no image', async t => {
+  const record = { ...scan(), images: [] }
+  const { page } = await setup(t, 200, { record })
+  await page.getByText('No image available', { exact: true }).waitFor()
+  assert.equal(await page.getByRole('button', { name: /Enlarge .* camera image/ }).count(), 0)
+})
+
+test('QC hydrates same-revision camera positions and real boxes using ScanDetail geometry', async t => {
+  const evidence = cameraEvidence()
+  const { page, state } = await setup(t, 200, { screen: 'quality', ...evidence })
+  await page.locator('tbody tr').first().click()
+  const dialog = page.getByRole('dialog')
+  for (const [index, position] of ['Top', 'Left', 'Right', 'Rear'].entries()) {
+    const image = dialog.getByRole('img', { name: position, exact: true })
+    await image.waitFor()
+    const overlay = image.locator('..')
+    const svg = overlay.locator('svg[preserveAspectRatio]')
+    await svg.waitFor()
+    await page.clock.runFor(250)
+    assert.equal(await image.evaluate(async img => {
+      const response = await fetch(img.src)
+      return response.text()
+    }), evidence.imageFixtures[evidence.record.images[index].file_path])
+    assert.equal(await svg.getAttribute('viewBox'), `0 0 ${index === 0 ? 1200 : 800} 600`)
+    assert.equal(await svg.getAttribute('preserveAspectRatio'), 'xMidYMid slice')
+    const box = svg.locator('g > rect').first()
+    assert.deepEqual(await box.evaluate(el => ['x', 'y', 'width', 'height'].map(name => Number(el.getAttribute(name)))),
+      [300 + index * 50, 120, 80, 160])
+    assert.equal(await svg.locator('text').textContent(), `Lakatan Ripe · ${81 + index}%`)
+    assert.equal(await image.evaluate(img => getComputedStyle(img).objectFit), 'cover')
+    // The box and image share the same viewport even when the source is not 4:3.
+    const imageBounds = await image.boundingBox()
+    const boxBounds = await box.boundingBox()
+    const scale = Math.max(imageBounds.width / (index === 0 ? 1200 : 800), imageBounds.height / 600)
+    const strokeWidth = Number(await box.getAttribute('stroke-width'))
+    assert(Math.abs(boxBounds.x - (imageBounds.x + (imageBounds.width - (index === 0 ? 1200 : 800) * scale) / 2 + (300 + index * 50 - strokeWidth / 2) * scale)) < 1)
+    assert(Math.abs(boxBounds.y - (imageBounds.y + (imageBounds.height - 600 * scale) / 2 + (120 - strokeWidth / 2) * scale)) < 1)
+    assert(Math.abs(boxBounds.width - (80 + strokeWidth) * scale) < 1)
+    assert(Math.abs(boxBounds.height - (160 + strokeWidth) * scale) < 1)
+  }
+  assert.equal(await dialog.locator('img').count(), 4)
+  assert.doesNotMatch(await dialog.innerText(), /NEW-CAMERA|Main Detection|Finger Detection/)
+  assert.equal(state.imageHeaders.authorization, 'Bearer admin-1')
+  assert.equal(state.requests.filter(request => request.path === `/api/v1/scans/${id}`).length, 1)
+})
+
+test('QC missing or unavailable camera images never reuse the thumbnail or draw boxes', async t => {
+  const evidence = cameraEvidence()
+  evidence.record.images = evidence.record.images.filter(image => image.camera_id !== 'RECORDED-1')
+  evidence.listRecord.images = evidence.record.images
+  delete evidence.imageFixtures[`/captures/${id}/Rear.svg`]
+  const { page } = await setup(t, 200, { screen: 'quality', ...evidence })
+  await page.locator('tbody tr').first().click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByText('Left', { exact: true }).waitFor()
+  const missing = dialog.getByText('Left', { exact: true }).locator('..')
+  await missing.getByText('No image available', { exact: true }).waitFor()
+  assert.equal(await missing.locator('img, svg[preserveAspectRatio]').count(), 0)
+  const unavailable = dialog.getByText('Rear', { exact: true }).locator('..')
+  await unavailable.getByText('Image unavailable', { exact: true }).waitFor()
+  assert.equal(await unavailable.locator('img, svg[preserveAspectRatio]').count(), 0)
+  await until(async () => await dialog.locator('svg[preserveAspectRatio]').count() === 2)
+})
+
+test('QC images without detections do not invent boxes or positions', async t => {
+  const evidence = cameraEvidence()
+  evidence.record.detections = []
+  const { page } = await setup(t, 200, { screen: 'quality', ...evidence })
+  await page.locator('tbody tr').first().click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByText('Recorded review note', { exact: true }).waitFor()
+  await until(async () => await dialog.locator('img').count() === 4)
+  assert.equal(await dialog.locator('svg[preserveAspectRatio]').count(), 0)
+  for (let index = 0; index < 4; index++) await dialog.getByText(`RECORDED-${index}`, { exact: true }).waitFor()
+})
+
+test('QC scan without camera evidence shows an empty state instead of configured camera tiles', async t => {
+  const record = { ...scan(), images: [], detections: [] }
+  const { page } = await setup(t, 200, { screen: 'quality', record })
+  await page.locator('tbody tr').first().click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByText('No camera evidence recorded', { exact: true }).waitFor()
+  assert.equal(await dialog.locator('img, svg[preserveAspectRatio]').count(), 0)
+  assert.doesNotMatch(await dialog.innerText(), /NEW-CAMERA/)
 })
 
 test('QC late detail preserves correction draft and requires explicit revision reload', async t => {

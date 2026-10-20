@@ -2,6 +2,7 @@ import { scanRetryAction } from "@/lib/scanWriteFeedback"
 import { api } from "@/lib/api"
 import { isScanConflict, UncertainScanWrite } from "@/lib/scanWrites"
 import { ScanImage } from "@/components/ScanImage"
+import BoundingBoxOverlay from "@/components/BoundingBoxOverlay"
 import { useState, useMemo, useEffect } from "react"
 import { useScans } from "@/context/ScanContext"
 import { useAdmin } from "@/context/AdminContext"
@@ -56,15 +57,30 @@ export default function QualityControl() {
   const [writeFailure, setWriteFailure] = useState<{ message: string; action?: { label: string; onClick: () => Promise<void> } } | null>(null)
   const [recoveringWrite, setRecoveringWrite] = useState(false)
 
-  // Detail/notes reads may be newer than the frozen list row used to open the modal.
-  // Refresh the displayed record/revision, preserving the user's correction draft and baseline.
+  // Detail reads also enrich list rows with camera detections at the same revision.
+  // Refresh the displayed record, preserving the user's correction draft and baseline.
   useEffect(() => {
     setSelectedScan(previous => {
       if (!previous) return previous
       const current = scans.find(scan => scan.id === previous.id)
-      return current && (current.revision ?? 0) > (previous.revision ?? 0) ? current : previous
+      return current && (current.revision ?? 0) >= (previous.revision ?? 0) ? current : previous
     })
   }, [scans])
+
+  const recordedCameraIds = [...new Set([
+    ...(selectedScan?.images ?? []).map(image => image.camera_id),
+    ...(selectedScan?.detections ?? []).map(detection => detection.camera_id),
+  ])]
+  const cameraViews = recordedCameraIds.map(id => {
+    const detection = selectedScan?.detections?.find(item => item.camera_id === id)
+    return {
+      id,
+      label: detection?.camera_label || id,
+      imageUrl: selectedScan?.images?.find(image => image.camera_id === id)?.file_path,
+      boxes: detection?.bounding_boxes ?? [],
+      confidence: detection?.confidence,
+    }
+  })
 
   const activeSources = useMemo(() => {
     return Array.from(new Set(scans.map(s => s.source).filter(Boolean)))
@@ -606,90 +622,40 @@ export default function QualityControl() {
               <div>
                 <Label className="text-sm font-semibold mb-3 block">Camera Views with Detection Boxes</Label>
                 <div className="grid grid-cols-2 gap-3">
-                  {config.cameraIds.split(",").map(s => s.trim()).filter(Boolean).map((camId, idx) => (
-                    <div key={camId}>
+                  {cameraViews.map(camera => (
+                    <div key={camera.id}>
                       <AspectRatio ratio={4/3} className="rounded-lg overflow-hidden bg-muted/50 border-2 relative group">
-                        {selectedScan.thumbnailUrl ? (
+                        {camera.imageUrl ? (
                           <>
-                            <ScanImage src={selectedScan.thumbnailUrl} alt={`${camId} view`} className="w-full h-full object-cover" />
-                            {/* Bounding Box Overlay - simulated detection boxes */}
-                            <div className="absolute inset-0 pointer-events-none">
-                              {/* Main detection box */}
-                              <div 
-                                className="absolute border-2 border-primary rounded-sm"
-                                style={{
-                                  left: '15%',
-                                  top: '20%',
-                                  width: '70%',
-                                  height: '60%',
-                                }}
-                              >
-                                {/* Label */}
-                                <div className="absolute -top-6 left-0 bg-primary text-primary-foreground px-2 py-0.5 rounded text-[10px] font-semibold">
-                                  {selectedScan.cultivar} {selectedScan.confidence === null ? "—" : `${selectedScan.confidence}%`}
-                                </div>
-                              </div>
-                              
-                              {/* Additional detection boxes for fingers (if applicable) */}
-                              {idx === 0 && selectedScan.fingerCount > 5 && (
-                                <>
-                                  <div 
-                                    className="absolute border border-emerald-500 rounded-sm"
-                                    style={{
-                                      left: '20%',
-                                      top: '25%',
-                                      width: '15%',
-                                      height: '40%',
-                                    }}
-                                  />
-                                  <div 
-                                    className="absolute border border-emerald-500 rounded-sm"
-                                    style={{
-                                      left: '38%',
-                                      top: '22%',
-                                      width: '15%',
-                                      height: '45%',
-                                    }}
-                                  />
-                                  <div 
-                                    className="absolute border border-emerald-500 rounded-sm"
-                                    style={{
-                                      left: '56%',
-                                      top: '24%',
-                                      width: '15%',
-                                      height: '42%',
-                                    }}
-                                  />
-                                </>
-                              )}
-                            </div>
-                            {/* Confidence indicator */}
+                            <BoundingBoxOverlay
+                              src={camera.imageUrl}
+                              alt={camera.label}
+                              boxes={camera.boxes}
+                              className="w-full h-full"
+                              showLabels={true}
+                              showConfidence={true}
+                            />
                             <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-[10px] font-medium">
-                              {selectedScan.confidence === null ? "—" : `${selectedScan.confidence}%`}
+                              {camera.confidence == null ? "—" : `${camera.confidence}%`}
                             </div>
                           </>
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                             <Banana className="w-12 h-12 text-muted-foreground/40" />
-                            <span className="text-xs text-muted-foreground font-medium">{camId}</span>
+                            <span className="text-xs text-muted-foreground font-medium">No image available</span>
                           </div>
                         )}
                       </AspectRatio>
-                      <p className="text-xs text-muted-foreground mt-1 text-center">{camId}</p>
+                      <p className="text-xs text-muted-foreground mt-1 text-center">{camera.label}</p>
                     </div>
                   ))}
                 </div>
                 <div className="mt-3 p-3 bg-muted/30 rounded-lg">
-                  <div className="flex items-center gap-4 text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-primary rounded-sm" />
-                      <span className="text-muted-foreground">Main Detection</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border border-emerald-500 rounded-sm" />
-                      <span className="text-muted-foreground">Finger Detection</span>
-                    </div>
-                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {cameraViews.length === 0
+                      ? "No camera evidence recorded"
+                      : "Boxes show the recorded detections for each camera, with class and confidence labels."}
+                  </p>
                 </div>
               </div>
 
