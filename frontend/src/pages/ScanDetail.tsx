@@ -58,6 +58,7 @@ import {
   DollarSign,
   Settings,
   ChevronDown,
+  ExternalLink,
 } from "lucide-react"
 import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
@@ -282,7 +283,8 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
       const saved = await scanWrite(`${user?.id}:${scan.id}:status`, {
         expected_revision: scanRevision(scan.revision), inventory_status: statusAction, reason: statusReason.trim(),
       }, body => api.scans.updateStatus(scan.id, body))
-      setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, ...saved, images: previous.scan.images, detections: previous.scan.detections, qrCode: previous.scan.qrCode } } : previous)
+      const accepted = acceptScan(saved)
+      setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, ...accepted, images: previous.scan.images, detections: previous.scan.detections, qrCode: previous.scan.qrCode } } : previous)
       toast.success(`Scan marked as ${statusAction}`)
       setStatusAction(null)
       setStatusReason("")
@@ -827,19 +829,29 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     </div>
                   </div>
                   {scan.source && (
-                    <div className="p-4 rounded-xl bg-muted/40 space-y-1">
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Package className="w-3.5 h-3.5" /> Source
+                    <div
+                      className="p-4 rounded-xl bg-muted/40 space-y-1 hover:bg-muted/60 transition-colors cursor-pointer group"
+                      onClick={() => navigate(`/logs?source=${encodeURIComponent(scan.source!)}`)}
+                      title="View all scans from this source"
+                    >
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Source</span>
+                        <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                      <p className="font-semibold text-sm">{scan.source}</p>
+                      <p className="font-semibold text-sm group-hover:text-primary transition-colors">{scan.source}</p>
                     </div>
                   )}
                   {scan.intakeId && (
-                    <div className="p-4 rounded-xl bg-muted/40 space-y-1">
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Layers className="w-3.5 h-3.5" /> Intake
+                    <div
+                      className="p-4 rounded-xl bg-muted/40 space-y-1 hover:bg-muted/60 transition-colors cursor-pointer group"
+                      onClick={() => navigate(`/logs?intake=${encodeURIComponent(scan.intakeId!)}`)}
+                      title="View all scans for this delivery intake"
+                    >
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5" /> Intake</span>
+                        <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                      <p className="font-semibold text-sm font-mono break-all">{scan.intakeId}</p>
+                      <p className="font-semibold text-sm font-mono break-all group-hover:text-primary transition-colors">{scan.intakeId}</p>
                     </div>
                   )}
                 </div>
