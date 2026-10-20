@@ -20,6 +20,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { Separator } from "@/components/ui/separator"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import {
   ArrowLeft,
   Banana,
@@ -46,18 +55,38 @@ import {
   EyeOff,
   Box,
   Loader2,
+  DollarSign,
+  Settings,
+  ChevronDown,
 } from "lucide-react"
 import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
 import { generateQRCodeDataUrl, printQRTag } from "@/lib/qrcode"
-import { CULTIVARS, RIPENESS_LEVELS, type Cultivar, type Ripeness, type ScanResult, type ScanDetection, type BoundingBox } from "@/types"
+import { CULTIVARS, RIPENESS_LEVELS, type Cultivar, type Ripeness, type ScanResult, type ScanDetection, type BoundingBox, type InventoryStatus } from "@/types"
 import { AppChangePreview } from "@/components/AppChangePreview"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import BoundingBoxOverlay from "@/components/BoundingBoxOverlay"
-import { isScanConflict } from "@/lib/scanWrites"
+import { scanWrite, scanRevision, isScanConflict } from "@/lib/scanWrites"
 import { api } from "@/lib/api"
 
 const EMPTY_DETECTIONS: ScanDetection[] = []
+
+// Valid transitions: key = current status, value = allowed target statuses
+const VALID_TRANSITIONS: Record<string, InventoryStatus[]> = {
+  "In Stock": ["Sold", "For Processing", "Spoiled"],
+  "For Processing": ["Sold", "Spoiled"],
+  "Sold": [],
+  "Spoiled": [],
+}
+
+const TERMINAL_STATUSES: InventoryStatus[] = ["Sold", "Spoiled"]
+
+const STATUS_ACTIONS: { status: InventoryStatus; icon: typeof Box; color: string }[] = [
+  { status: "In Stock", icon: Box, color: "text-blue-500" },
+  { status: "For Processing", icon: Settings, color: "text-purple-500" },
+  { status: "Sold", icon: DollarSign, color: "text-emerald-500" },
+  { status: "Spoiled", icon: AlertTriangle, color: "text-red-500" },
+]
 
 export default function ScanDetail() {
   const { scanId } = useParams<{ scanId: string }>()
@@ -85,6 +114,9 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const [flagPending, setFlagPending] = useState(false)
   const [notePending, setNotePending] = useState(false)
   const [editPending, setEditPending] = useState(false)
+  const [statusAction, setStatusAction] = useState<InventoryStatus | null>(null)
+  const [statusReason, setStatusReason] = useState("")
+  const [statusPending, setStatusPending] = useState(false)
 
   const currentDetail = detail?.retry === retry ? detail : null
   const scan = currentDetail?.scan
@@ -243,6 +275,33 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
     }
   }
 
+  const handleStatusUpdate = async () => {
+    if (!scan || !statusAction || !statusReason.trim() || statusPending) return
+    setStatusPending(true)
+    try {
+      const saved = await scanWrite(`${user?.id}:${scan.id}:status`, {
+        expected_revision: scanRevision(scan.revision), inventory_status: statusAction, reason: statusReason.trim(),
+      }, body => api.scans.updateStatus(scan.id, body))
+      setDetail(previous => previous?.scan ? { ...previous, scan: { ...previous.scan, ...saved, images: previous.scan.images, detections: previous.scan.detections, qrCode: previous.scan.qrCode } } : previous)
+      toast.success(`Scan marked as ${statusAction}`)
+      setStatusAction(null)
+      setStatusReason("")
+      // Reload to get updated history
+      void api.scans.detail(scan.id).then(raw => {
+        const updated = acceptScan(raw)
+        setDetail(previous => previous?.scan && (previous.scan.revision ?? 0) <= (updated.revision ?? 0) ? { ...previous, scan: { ...updated, qrCode: previous.scan.qrCode } } : previous)
+      }).catch(() => {})
+    } catch (error) {
+      reportWriteError(error, () => {
+        setStatusAction(null)
+        setStatusReason("")
+        setRetry(value => value + 1)
+      })
+    } finally {
+      setStatusPending(false)
+    }
+  }
+
   if (!scan) {
     const loading = Boolean(scanId) && !currentDetail
     if (loading) return <DetailSkeleton />
@@ -310,6 +369,29 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
           )}
         </div>
       </div>
+
+      {/* Inventory Status Update Dialog */}
+      <Dialog open={!!statusAction} onOpenChange={open => { if (!open && !statusPending) { setStatusAction(null); setStatusReason("") } }}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Mark scan as {statusAction}?</DialogTitle>
+            <DialogDescription>
+              {TERMINAL_STATUSES.includes(statusAction as InventoryStatus)
+                ? "This is a terminal status and cannot be easily undone. This change will be recorded in the scan history."
+                : "This change will be recorded in the scan history."}
+            </DialogDescription>
+          </DialogHeader>
+          <Label htmlFor="scan-status-reason">Reason for change</Label>
+          <Textarea id="scan-status-reason" value={statusReason} onChange={event => setStatusReason(event.target.value)} disabled={statusPending} placeholder="Describe why you are changing the status..." />
+          <DialogFooter>
+            <Button variant="outline" disabled={statusPending} onClick={() => { setStatusAction(null); setStatusReason("") }}>Cancel</Button>
+            <Button disabled={!statusReason.trim() || statusPending} onClick={() => void handleStatusUpdate()}>
+              {statusPending && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin mr-2" />}
+              {statusPending ? "Saving…" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <InventoryProvenanceReview scan={scan} reason={provenanceReason} setReason={setProvenanceReason} onSaved={saved => setDetail(previous => previous ? { ...previous, scan: saved } : previous)} onConflict={() => setRetry(value => value + 1)} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -689,7 +771,42 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Package className="w-3.5 h-3.5" /> Inventory Status
                   </div>
-                  <AppStatusBadge type="inventory" status={scan.inventoryStatus || "In Stock"} size="md" />
+                  <div className="flex items-center gap-1.5">
+                    <AppStatusBadge type="inventory" status={scan.inventoryStatus || "In Stock"} size="md" />
+                    {isAdmin && (() => {
+                      const currentStatus = scan.inventoryStatus || "In Stock"
+                      const allowed = VALID_TRANSITIONS[currentStatus] || []
+                      if (allowed.length === 0) return null
+                      return (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" disabled={statusPending}>
+                              <ChevronDown className="w-3.5 h-3.5" />
+                              <span className="sr-only">Update status</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-48">
+                            <DropdownMenuLabel>Update Status</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {STATUS_ACTIONS.map(({ status, icon: StatusIcon, color }) => {
+                              const isDisabled = !allowed.includes(status)
+                              return (
+                                <DropdownMenuItem
+                                  key={status}
+                                  onClick={() => { if (!isDisabled) { setStatusAction(status); setStatusReason("") } }}
+                                  disabled={isDisabled}
+                                  className={isDisabled ? "opacity-40 cursor-not-allowed" : ""}
+                                >
+                                  <StatusIcon className={`mr-2 h-4 w-4 ${isDisabled ? "text-muted-foreground" : color}`} />
+                                  <span>Mark {status}</span>
+                                </DropdownMenuItem>
+                              )
+                            })}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )
+                    })()}
+                  </div>
                 </div>
                 {scan.source && (
                   <div className="space-y-1">
