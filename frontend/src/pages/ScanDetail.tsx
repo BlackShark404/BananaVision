@@ -20,7 +20,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { Separator } from "@/components/ui/separator"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -171,6 +171,10 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
     const detection = scanDetections.find((d) => d.camera_id === cameraId)
     return detection?.bounding_boxes || []
   }
+
+  const activeCameraView = cameraViews[activeCamera]
+  const activeImageUrl = activeCameraView ? getCameraImageUrl(activeCameraView.id) : undefined
+  const activeBoxes = showBoxes && activeCameraView ? getCameraBoundingBoxes(activeCameraView.id) : []
 
   // Compute unique detection classes for legend
   const detectionLegend = useMemo(() => {
@@ -401,24 +405,30 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
         <Card className="rounded-2xl lg:col-span-1 lg:sticky lg:top-20">
           <CardContent className="p-4 sm:p-6">
             {/* Main Camera View */}
-            <AspectRatio ratio={4/3} className="rounded-xl overflow-hidden bg-muted/50 border-2 relative group">
-              {(() => {
-                const activeImageUrl = getCameraImageUrl(cameraViews[activeCamera]?.id)
-                const activeBoxes = showBoxes ? getCameraBoundingBoxes(cameraViews[activeCamera]?.id) : []
-                return activeImageUrl ? (
+            <Dialog>
+              <AspectRatio ratio={4/3} className="rounded-xl overflow-hidden bg-muted/50 border-2 relative group">
+                {activeImageUrl ? (
                   <>
-                    <BoundingBoxOverlay
-                      src={activeImageUrl}
-                      alt={cameraViews[activeCamera].label}
-                      boxes={activeBoxes}
-                      className="w-full h-full"
-                      showLabels={true}
-                      showConfidence={true}
-                    />
-                    <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-[10px] font-medium flex items-center gap-1">
+                    <DialogTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={`Enlarge ${cameraViews[activeCamera].label} camera image`}
+                        className="block w-full h-full cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                      >
+                        <BoundingBoxOverlay
+                          src={activeImageUrl}
+                          alt={cameraViews[activeCamera].label}
+                          boxes={activeBoxes}
+                          className="w-full h-full"
+                          showLabels={true}
+                          showConfidence={true}
+                        />
+                      </button>
+                    </DialogTrigger>
+                    <div className="pointer-events-none absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-[10px] font-medium flex items-center gap-1">
                       {cameraViews[activeCamera]?.id || "CAM"}
                     </div>
-                    <div className="absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-xs font-medium">
+                    <div className="pointer-events-none absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded-md text-xs font-medium">
                       {cameraViews[activeCamera]?.label || "View"}
                     </div>
                     <div className="absolute top-2 right-2 flex items-center gap-1.5">
@@ -439,9 +449,25 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     <Banana className="w-16 h-16 text-muted-foreground/30" />
                     <span className="text-sm text-muted-foreground/50">No image available</span>
                   </div>
-                )
-              })()}
-            </AspectRatio>
+                )}
+              </AspectRatio>
+              <DialogContent className="rounded-2xl sm:max-w-5xl max-h-[90dvh] overflow-y-auto">
+                <DialogHeader className="pr-8">
+                  <DialogTitle>{cameraViews[activeCamera]?.label} camera image</DialogTitle>
+                  <DialogDescription>{cameraViews[activeCamera]?.id} · Enlarged scan image</DialogDescription>
+                </DialogHeader>
+                {activeImageUrl && (
+                  <BoundingBoxOverlay
+                    src={activeImageUrl}
+                    alt={cameraViews[activeCamera].label}
+                    boxes={activeBoxes}
+                    className="w-full rounded-xl bg-muted/50"
+                    showLabels={true}
+                    showConfidence={true}
+                  />
+                )}
+              </DialogContent>
+            </Dialog>
 
             {/* Camera Thumbnails */}
             <div className="grid grid-cols-4 gap-2 mt-3">

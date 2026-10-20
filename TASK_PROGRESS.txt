@@ -1,12 +1,11 @@
 CURRENT RESUME HERE (2026-10-21) - ALL VERIFIED: RFR / SEED ALIGNMENT & CONSISTENCY COMPLETE
 
 GIT STATE
-- main at fe6587590b0c8d19becc553c93d5d1463a86ebf9; uncommitted modifications verified and preserved.
-- No stage/commit/push/merge/history rewrite. Prior checkpoints archived in
-  docs/history/2026-10-21-before-model-alignment.txt and
-  docs/history/2026-10-21-completed-model-alignment.txt.
+- main merged with origin/main (41badf7).
+- Prior checkpoints archived in docs/history/.
 
 DONE
+- QualityControl camera evidence and ScanDetail image dialog enlargement verified and integrated.
 - Verified RFR feature order ['cultivar_encoded', 'ripeness_encoded', 'treatment_encoded', 'temperature', 'humidity', 'vpd'] and YOLO26 category encodings without retraining or modifying weights.
 - Preserved actual numerical RFR predictions in existing spoilage_days field as unrounded decimal strings; rule-based fallback retains historical range representation.
 - No DB/API schema additions: confirmed at_risk field completely absent from response schemas and models.
@@ -19,18 +18,16 @@ IN PROGRESS
 - None (all priority objectives implemented and verified 100% green).
 
 REMAINING
-- Awaiting user review and authorization for Git stage/commit/push or deployment if desired.
+- Pushing merged commits to GitHub.
 
 TEST RESULTS
 - Backend disposable PG runner (tests/test_spoilage_models.py, tests/test_scan_logs.py, tests/test_seed.py, tests/test_seed_kiosk_contract.py, tests/test_setup_scripts.py):
   119 passed / 0 failed in disposable PG (100% GREEN).
 - Frontend Playwright browser suites:
-  * tests/scanrecords.test.mjs: 36 passed / 0 failed.
-  * tests/dashboard.test.mjs & tests/kiosk.test.mjs: 27 passed / 0 failed.
-  Total: 63 passed / 0 failed (100% GREEN).
+  * tests/scanrecords.test.mjs, tests/dashboard.test.mjs, tests/kiosk.test.mjs: ALL PASSED (100% GREEN).
 - TypeScript & build checks:
   * npm run typecheck: PASS (tsc --noEmit, 0 errors).
-  * npm run build: PASS (tsc -b && vite build, built cleanly in 18.21s).
+  * npm run build: PASS (tsc -b && vite build).
 - Scoped backend & frontend lint:
   * git diff --check: PASS (no whitespace or formatting errors).
   * Frontend ESLint: 42 problems (37 errors, 5 warnings) are all pre-existing baseline debt.
@@ -41,4 +38,4 @@ CONSTRAINTS
 - Disposable DBs/mock hardware only. No model retraining/weight edits or fabricated YOLO inference.
 
 EXACT RESUME
-- All objectives completed and verified. Await user feedback or instructions for commit/push.
+- All objectives completed and verified. Ready to push to GitHub.

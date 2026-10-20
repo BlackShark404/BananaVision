@@ -30,50 +30,50 @@ export default function Login() {
     inFlight.current = true
     try {
 
-    if (isChangingPassword) {
-      if (newPassword !== confirmPassword) {
-        toast.error("Passwords do not match", { description: "Please ensure both password fields match." })
+      if (isChangingPassword) {
+        if (newPassword !== confirmPassword) {
+          toast.error("Passwords do not match", { description: "Please ensure both password fields match." })
+          return
+        }
+        if (newPassword.length < 6) {
+          toast.error("Password too weak", { description: "Password must be at least 6 characters long." })
+          return
+        }
+        setLoading(true)
+        const ok = await setupPasswordAndLogin(username, newPassword)
+        if (ok) {
+          toast.success("Welcome back!", { description: "Your password was updated successfully." })
+          navigate("/dashboard")
+        } else {
+          toast.error("Failed to update password")
+        }
+        setLoading(false)
         return
       }
-      if (newPassword.length < 6) {
-        toast.error("Password too weak", { description: "Password must be at least 6 characters long." })
-        return
-      }
-      setLoading(true)
-      const ok = await setupPasswordAndLogin(username, newPassword)
-      if (ok) {
-        toast.success("Welcome back!", { description: "Your password was updated successfully." })
-        navigate("/dashboard")
-      } else {
-        toast.error("Failed to update password")
-      }
-      setLoading(false)
-      return
-    }
 
-    setLoading(true)
-    const result = await login(username, password)
-    if (result === "requires_password_change" || result === "requires_password_change_new_account" || result === "requires_password_change_reset") {
-      if (result === "requires_password_change_new_account") {
-        setPasswordChangePrompt("Welcome! Your account was newly created. Please set a new secure password to continue.")
-      } else if (result === "requires_password_change_reset") {
-        setPasswordChangePrompt("Welcome back! Because your password was recently reset, please set a new secure password to continue.")
-      } else {
-        setPasswordChangePrompt("Welcome back! Please set a new secure password to continue.")
+      setLoading(true)
+      const result = await login(username, password)
+      if (result === "requires_password_change" || result === "requires_password_change_new_account" || result === "requires_password_change_reset") {
+        if (result === "requires_password_change_new_account") {
+          setPasswordChangePrompt("Welcome! Your account was newly created. Please set a new secure password to continue.")
+        } else if (result === "requires_password_change_reset") {
+          setPasswordChangePrompt("Welcome back! Because your password was recently reset, please set a new secure password to continue.")
+        } else {
+          setPasswordChangePrompt("Welcome back! Please set a new secure password to continue.")
+        }
+        setIsChangingPassword(true)
+        setLoading(false)
+        return
       }
-      setIsChangingPassword(true)
+      if (result === "success") {
+        toast.success("Welcome back!", { description: "Logged in successfully" })
+        navigate("/dashboard")
+      } else if (result === "inactive") {
+        toast.error("Account Inactive", { description: "Your account is inactive. Please contact an administrator." })
+      } else {
+        toast.error("Login failed", { description: "Check your username and password, or contact an administrator." })
+      }
       setLoading(false)
-      return
-    }
-    if (result === "success") {
-      toast.success("Welcome back!", { description: "Logged in successfully" })
-      navigate("/dashboard")
-    } else if (result === "inactive") {
-      toast.error("Account Inactive", { description: "Your account is inactive. Please contact an administrator." })
-    } else {
-      toast.error("Login failed", { description: "Check your username and password, or contact an administrator." })
-    }
-    setLoading(false)
     } catch { toast.error("Sign in unavailable", { description: "Please try again." }) }
     finally { inFlight.current = false; setLoading(false) }
   }
@@ -193,7 +193,7 @@ export default function Login() {
                 </div>
               </div>
             )}
-            
+
             <Button
               type="submit"
               className="w-full h-11 text-[15px] font-semibold shadow-md"
@@ -209,9 +209,7 @@ export default function Login() {
               )}
             </Button>
           </form>
-          <p className="text-center text-xs text-muted-foreground mt-6">
-            Temporary password for new or reset accounts is <span className="font-medium text-foreground">banana123</span>
-          </p>
+
         </CardContent>
       </Card>
     </div>
