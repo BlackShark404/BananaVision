@@ -4,7 +4,7 @@ import tailwindcss from "@tailwindcss/vite"
 import { pathToFileURL, fileURLToPath } from "node:url"
 import path from "node:path"
 
-export async function startBrowser({ fixture = "dashboard.fixture.tsx", auth = "dashboard.auth.tsx", port } = {}) {
+export async function startBrowser({ fixture = "dashboard.fixture.tsx", auth = "dashboard.auth.tsx", port, showScrollbars = false } = {}) {
   const modulePath = process.env.PLAYWRIGHT_MODULE
   let playwright
   try {
@@ -39,6 +39,7 @@ export async function startBrowser({ fixture = "dashboard.fixture.tsx", auth = "
   let browser
   try {
     browser = await playwright.chromium.launch({ headless: true,
+      ignoreDefaultArgs: showScrollbars ? ["--hide-scrollbars"] : undefined,
       ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : { channel: process.env.PLAYWRIGHT_CHANNEL || "chrome" }),
     })
   } catch (error) { await server.close(); throw error }

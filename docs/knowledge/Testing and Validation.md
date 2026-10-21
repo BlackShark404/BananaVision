@@ -294,3 +294,22 @@ See [[Development Decisions]] for the implemented conflict/count safeguards.
 - Kiosk browser: 17/17 passed, including estimated 13, review feedback and unchanged per-camera evidence. Typecheck and production build passed.
 - Frontend lint retains 36 errors / 5 warnings; backend Ruff reports 640 findings. Comparison against HEAD confirms no new diagnostics in affected backend files; the modified browser test passes scoped ESLint.
 - No station camera test, PostgreSQL run, detector retraining or physical-count accuracy validation performed. The user reports approximately 15 fingers; the fix prevents cross-view additions and does not claim to recover hidden fingers. See [[Development Decisions]].
+
+
+## System Configuration layout verification (2026-10-21)
+
+- `tests/maintenance.test.mjs`: 20 passing mocked browser cases, including camera mapping,
+  revision conflicts, cross-tab save/discard, immediate-cleanup draft preservation, global
+  reset, restore dialog confirmation/dismissal guards, backup persistence and power recovery.
+- `tests/layout.test.mjs`: 9 passing cases in the full run. SystemConfig covers all four
+  tabs, independent app scrolling, a reachable save bar and bounded restore dialog at
+  1280×650, 1024×600 and 390×700. The final three-case recheck also verifies the replacement
+  button remains reachable after mock archive validation expands the dialog.
+- Optional `SYSTEMCONFIG_SCREENSHOT_DIR` writes local QA screenshots; screenshot animations
+  are disabled to avoid capturing a faded-out dialog under the fixture's paused clock.
+- Full frontend run: 233 passed / 2 failed. Existing, unchanged connectivity tests fail on
+  the StrictMode shared-socket count (6 versus 1) and disconnect/retry socket-count timeout.
+  The first failure reproduces independently; no SystemConfig component participates in it.
+- Typecheck and production build pass. Lint exactly matches the prior 41 findings
+  (36 errors, 5 warnings). No live hardware/database/maintenance testing was performed;
+  backend tests were not rerun for this frontend-only change. See [[Frontend]].

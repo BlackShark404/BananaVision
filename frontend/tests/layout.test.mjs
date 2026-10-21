@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
+import { mkdir } from 'node:fs/promises'
 import { before, after, test } from 'node:test'
 import { startBrowser, installEnvironment } from './dashboard.browser.mjs'
 
 let runtime
-before(async () => { runtime = await startBrowser({ fixture: 'layout.fixture.tsx', port: 5220 }) })
+before(async () => { runtime = await startBrowser({ fixture: 'layout.fixture.tsx', port: 5220, showScrollbars: true }) })
 after(async () => { await runtime?.close() })
 
 for (const screen of ['logs', 'activity']) {
@@ -78,4 +79,97 @@ for (const screen of ['logs', 'activity']) {
       assert.deepEqual(errors, [])
     })
   }
+}
+
+
+for (const [width, height] of [[1280, 650], [1024, 600], [390, 700]]) {
+  test(`configuration sections, save bar and restore dialog fit at ${width}x${height}`, async t => {
+    const context = await runtime.browser.newContext({ viewport: { width, height } })
+    t.after(() => context.close())
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    await installEnvironment(page)
+    await page.route('**/api/v1/**', async route => {
+      const url = new URL(route.request().url())
+      const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' }
+      const reply = json => route.fulfill({ headers, json })
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ headers, status: 204 })
+      if (url.pathname === '/api/v1/config') return reply({
+        camera_ids: 'TOP, LEFT, RIGHT, REAR', camera_device_ids: [0, 1, 2, 3], confidence_threshold: 85,
+        detection_confidence_threshold: 40, data_retention_enabled: true, revision: 1,
+        application_status: 'applied', retention_days: 14,
+      })
+      if (url.pathname === '/api/v1/config/maintenance') return reply({ state: 'ready', active_operations: 0 })
+      if (url.pathname === '/api/v1/config/restores/validate') return reply({ validation_id: 'fixture', token: 'fixture-only', manifest: {}, expires_at: '2099-01-01T00:00:00Z' })
+      if (url.pathname === '/api/v1/cameras/discovery') return reply({
+        backend: 'fixture', error: null, devices: ['TOP', 'LEFT', 'RIGHT', 'REAR'].map((id, index) => ({
+          device_id: index, name: 'EMEET SmartCam C100 2K USB Camera With A Long Device Name',
+          device_uid: `fixture-device-${index}`, configured_camera_id: id, online: true,
+        })),
+      })
+      if (['/api/v1/scans', '/api/v1/users', '/api/v1/notifications', '/api/v1/activity'].includes(url.pathname)) return reply({ items: [], total: 0 })
+      return reply([])
+    })
+    await page.goto(`${runtime.url}/dashboard/config`)
+    await page.getByRole('button', { name: 'Rename camera 1: TOP' }).waitFor()
+    await page.getByRole('combobox', { name: 'Detected device for camera 1' }).waitFor()
+    const main = page.locator('main')
+    // Exercise classic scrollbars even on hosts that default to overlay scrollbars.
+    await page.addStyleTag({ content: 'main { scrollbar-width: auto; } main::-webkit-scrollbar { width: 16px; }' })
+    const originalPanel = await page.getByRole('tabpanel', { name: 'Cameras', exact: true }).boundingBox()
+    const originalTabs = await page.getByRole('tablist', { name: 'Configuration sections' }).boundingBox()
+    assert(await main.evaluate(el => el.scrollHeight > el.clientHeight), 'Camera fixture must require scrolling')
+    assert(await main.evaluate(el => el.offsetWidth > el.clientWidth), 'Fixture must reserve a classic scrollbar')
+    const capture = async name => {
+      if (!process.env.SYSTEMCONFIG_SCREENSHOT_DIR) return
+      await mkdir(process.env.SYSTEMCONFIG_SCREENSHOT_DIR, { recursive: true })
+      await page.screenshot({ animations: 'disabled', path: `${process.env.SYSTEMCONFIG_SCREENSHOT_DIR}/${name}-${width}.png` })
+    }
+    const bounds = async () => {
+      const dimensions = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight }))
+      assert(dimensions.width <= width + 1, JSON.stringify(dimensions))
+      assert(dimensions.height <= height + 1, JSON.stringify(dimensions))
+      assert(await main.evaluate(el => el.scrollWidth <= el.clientWidth + 1))
+    }
+    for (const section of ['Cameras', 'Detection', 'Data & Backups', 'Power', 'Cameras']) {
+      await page.getByRole('tab', { name: section, exact: true }).click()
+      assert.equal(await page.getByRole('tab', { name: section, exact: true }).getAttribute('aria-selected'), 'true')
+      await main.evaluate(el => { el.scrollTop = 0 })
+      await page.clock.runFor(200)
+      await bounds()
+      const panel = await page.getByRole('tabpanel', { name: section, exact: true }).boundingBox()
+      const tabs = await page.getByRole('tablist', { name: 'Configuration sections' }).boundingBox()
+      assert(Math.abs(panel.width - originalPanel.width) < 1, `${section} panel width shifted: ${originalPanel.width} → ${panel.width}`)
+      assert(Math.abs(panel.x - originalPanel.x) < 1, `${section} panel moved horizontally`)
+      // Mobile tabs can scroll horizontally to reveal the selected section.
+      assert(Math.abs(tabs.width - originalTabs.width) < 1, `${section} tab bar width shifted`)
+      await capture(section.toLowerCase().replace(/[^a-z]+/g, '-'))
+    }
+    await page.getByRole('tab', { name: 'Detection', exact: true }).click()
+    await page.getByRole('slider').press('ArrowLeft')
+    await page.getByRole('tab', { name: 'Cameras', exact: true }).click()
+    await main.evaluate(el => { el.scrollTop = el.scrollHeight })
+    const bar = await page.getByRole('region', { name: 'Unsaved configuration changes' }).boundingBox()
+    assert(bar.y >= 0 && bar.y + bar.height <= height + 1, JSON.stringify(bar))
+    await bounds()
+    await capture('unsaved')
+    await page.getByRole('button', { name: 'Discard', exact: true }).click()
+    await page.getByRole('tab', { name: 'Data & Backups', exact: true }).click()
+    await page.getByRole('button', { name: 'Restore from Backup' }).click()
+    const dialog = await page.getByRole('dialog', { name: 'Restore Station Data' }).boundingBox()
+    assert(dialog.x >= 0 && dialog.x + dialog.width <= width + 1, JSON.stringify(dialog))
+    assert(dialog.y >= 0 && dialog.y + dialog.height <= height + 1, JSON.stringify(dialog))
+    await capture('restore')
+    await page.getByLabel('Backup archive').setInputFiles({ name: 'fixture.zip', mimeType: 'application/zip', buffer: Buffer.from('mock archive') })
+    await page.getByRole('button', { name: 'Validate Backup', exact: true }).click()
+    await page.getByLabel('Administrator password').waitFor()
+    await page.getByRole('button', { name: 'Replace Station Data', exact: true }).scrollIntoViewIfNeeded()
+    const confirmation = await page.getByRole('dialog', { name: 'Restore Station Data' }).boundingBox()
+    assert(confirmation.y >= 0 && confirmation.y + confirmation.height <= height + 1, JSON.stringify(confirmation))
+    const replace = await page.getByRole('button', { name: 'Replace Station Data', exact: true }).boundingBox()
+    assert(replace.y >= confirmation.y && replace.y + replace.height <= confirmation.y + confirmation.height, JSON.stringify(replace))
+    await capture('restore-confirm')
+    assert.deepEqual(errors, [])
+  })
 }

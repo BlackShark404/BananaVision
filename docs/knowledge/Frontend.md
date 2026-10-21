@@ -128,3 +128,31 @@ metric calculations, eligibility rules or API keys.
 - **`ScanContext` / `InventoryContext` / `AdminContext`**: State management with authoritative server timestamps (Asia/Manila).
 
 See [[Testing and Validation]] and [the loading recheck](../audits/2026-10-17-loading-recheck.md) for verified scope and remaining limitations.
+
+
+## System Configuration layout (2026-10-21)
+
+System Configuration uses horizontal Cameras, Detection, Data & Backups, and Power
+sections within the existing app shell. Camera names, device selections, and observed
+status share one row per slot; manual indices and discovery identifiers remain available
+in advanced disclosures. The shared device picker uses compact labels only on this page.
+Model information and saved revision details are secondary disclosures; camera application
+errors and retry actions remain visible.
+
+One sticky save bar applies pending changes across tabs. Automatic capture cleanup still
+saves immediately and preserves unrelated camera/threshold drafts. The global Reset All
+Settings action describes its scope and creates a reviewable draft; it retains saved
+physical mappings and requires Save. API field names, revision conflict handling, and
+backend operations are unchanged.
+
+Restore opens a guided dialog with archive selection, validation, then administrator
+password and explicit REPLACE confirmation. Pending archive work prevents dismissal;
+closing clears password/confirmation. Data & Backups remains mounted across tab switches
+so operation IDs, backup downloads, and status checks remain available. Existing power
+confirmation and recovery flows remain intact; unavailable/busy station status no longer
+uses the ready-state green styling.
+
+`tests/maintenance.test.mjs` covers these interactions with mocked APIs, including
+single save controls, immediate-cleanup draft preservation, reset/discard, pending-dialog
+guards, validation invalidation after file changes, and backup results across tabs.
+See [[Testing and Validation]].

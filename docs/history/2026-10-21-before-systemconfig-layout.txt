@@ -1,0 +1,79 @@
+CURRENT RESUME HERE (2026-10-21) - SPOILAGE FORMATTING COMPLETE; MAIN SYNCHRONIZED
+
+GIT STATUS
+- Resumed on main at a58dccf (formatting committed outside this agent's work).
+- User authorized commit/fetch/integration/push on 2026-10-21. Fetched origin/main at f3630e9;
+  nine incoming commits include calendar, Kiosk count/modal and pagination changes.
+- Prior checkpoint archived: docs/history/2026-10-21-before-spoilage-formatting.txt.
+- Interrupted formatting checkpoint: docs/history/2026-10-21-before-formatting-final-verification.txt.
+- Verification docs committed as ae98aa1; integration committed as d41cb7b and pushed.
+  Confirmed local HEAD, origin/main and GitHub refs/heads/main all equal
+  d41cb7b06d2996cb941e4a2ca9b8d7eab6bb440f after push; clean working tree.
+  This follow-up checkpoint is documentation only. No force push or history rewrite.
+- Merge of origin/main f3630e9 preserved both sides;
+  only checkpoint conflict, resolved with incoming state archived in
+  docs/history/2026-10-21-before-formatting-sync-incoming.txt. No application conflicts.
+
+DONE
+- Existing numerical RFR/seed/Kiosk/risk implementation preserved; no schema additions.
+- Root cause: UI interpolates spoilage_days directly, previously supplied as a range.
+- Shared display formatter: numeric whole-day bounds, singular/plural, historical ranges,
+  zero and missing handling. Raw stored predictions and backend <=2 policy unchanged.
+- Connected Kiosk/recent scans, Logs, Details/history, QR tracking, QC/previews and Inventory.
+- Unedited correction drafts retain raw values even though their inputs show readable bounds.
+- Graphify focused query and project ICM recall completed; prior implementation verified in source.
+- All 109 distinct affected frontend cases verified across full run and focused assertion repairs.
+- TypeScript/build pass; changed-source lint diagnostics match the pre-formatting baseline.
+- Graphify final update PASS: 3853 nodes, 11742 edges, 246 communities; no graph loss.
+- Frontend and Testing knowledge notes document the implementation and actual results.
+- Project ICM save succeeded: 01M5EFJ3SH23FB4TYQ0MGXZ79F.
+- Incoming application source matches origin/main exactly; all remote contributions preserved.
+- Graphify refreshed after integration: 3877 nodes, 11831 edges, 259 communities; PASS.
+- Post-merge browser coverage: 82 passed, 0 failed/skipped (146.98s); ISO-day units: 3 passed.
+
+IN PROGRESS
+- None. Application verification and integration push completed.
+
+SECURITY REVIEW
+- Codex Security scan 3ca86d46-6b2b-4208-a47d-8dc41a825460 completed and sealed.
+- Range 0465a7a..a58dccf: eight runtime files and supporting tests/docs reviewed; zero findings.
+- Independent architecture review confirmed raw draft/persistence, public QR, authorization
+  and numeric risk boundaries preserved. This is a scoped diff review, not a full security audit.
+- Daybreak access unavailable; source review completed with available tools.
+
+REMAINING
+- No remaining implementation, browser-verification or scoped-security findings.
+- Formatter backend unchanged; prior 119 passing backend checks retained. Incoming backend code
+  preserved exactly; upstream finger-count checkpoint records 171 passing tests, not rerun here.
+
+TEST RESULTS
+- RED browser reproduction: 4 failures confirmed raw decimals and inconsistent range dash.
+- node --test tests/spoilageDisplay.test.mjs: 29 passed, 0 failed.
+- Targeted initial browser cases: 5 passed, 0 failed (13.23s).
+- Affected run: 107 passed/2 assertion failures, 0 skipped (136.90s), 109 distinct cases.
+  Corrected preview assertion (3 days, previously 3d): PASS on focused rerun.
+  Inventory assertion initially included the fixture raw-state probe; scope to rendered main:
+  PASS on final focused rerun (2.76s). No product code fixes required by these assertions.
+- Covers formatter, scanrecords, kiosk, persistence and public-scan suites; 29 unit/80 browser.
+- npm run typecheck PASS; npm run build PASS (Vite 31.53s).
+- npm run lint: 37 errors/5 warnings, all baseline; changed-file comparison unchanged,
+  new formatter and public fixture: zero errors/warnings. No lint autofixes.
+- Logs under frontend/node_modules/.tmp/bv-spoilage-format-*.
+- Earlier ICM usage-limit failure resolved by successful final save.
+- Post-integration typecheck PASS; build PASS (Vite 31.43s); lint 36 errors/5 warnings,
+  matching the incoming main baseline. Source matches origin/main, with no new diagnostics.
+- First integration run: 3 ISO-day unit cases passed; 82 browser cases failed at suite setup
+  because sandboxed Edge could not initialize its temporary profile. Approved rerun outside
+  sandbox: 82 passed/0 failed/0 skipped (146.98s), no application changes.
+- Rechecked Scan Records, Kiosk, Dashboard and layout after incoming code changes. Prior
+  formatter/persistence/public-QR results retained; no unnecessary reruns of unchanged suites.
+- Post-merge logs: frontend/node_modules/.tmp/bv-spoilage-sync-*.
+
+CONSTRAINTS
+- main only; preserve UI/Manila time/model weights/real records; no new schema attributes.
+- Isolated mocks/disposable DBs only. Commit/integrate/push authorized; no deployment/history rewrite.
+
+EXACT RESUME HERE
+- Formatting task complete. Read current Git status before any new work; no pending fix.
+- Preserve completed formatter and incoming changes. Do not repeat these audits/tests without
+  source changes or new evidence. Live hardware/production data were deliberately not exercised.

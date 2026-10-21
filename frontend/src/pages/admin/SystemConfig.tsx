@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { NumberField } from "@/components/ui/number-field"
 import type { MaintenanceStatus } from "@/types/api"
 import { api } from "@/lib/api"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, Edit2, AlertTriangle, Undo2 } from "lucide-react"
+import { Loader2, Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, Edit2, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
 import {
   Alert,
@@ -229,7 +229,7 @@ export default function SystemConfig() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto w-full min-w-0">
       <div className="mb-2">
         <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
           <Settings className="w-6 h-6 sm:w-7 sm:h-7" /> System Configuration
@@ -242,7 +242,18 @@ export default function SystemConfig() {
         <AlertDescription>Your draft is preserved. Reload saved settings before making changes.</AlertDescription>
         <Button variant="outline" disabled={saving || reloading} onClick={async () => { if (reloadFlight.current) return; reloadFlight.current = true; setReloading(true); try { await reloadConfig() } finally { reloadFlight.current = false; setReloading(false) } }}>{reloading && <Loader2 className="w-4 h-4 animate-spin" />}{configConflict ? "Reload saved settings" : "Retry configuration"}</Button>
       </Alert>}
-      {configReady && <p className="text-xs text-muted-foreground">Saved revision {config.revision} · Cameras {config.applicationStatus}. {config.applicationError} Threshold applies to the next scan. Deployment model changes require a backend restart.</p>}
+      <details className="text-xs text-muted-foreground">
+        <summary className="cursor-pointer w-fit rounded focus-visible:outline-ring">Configuration details</summary>
+        <div className="mt-3 space-y-3">
+          {configReady && <p>Saved revision {config.revision} · Cameras {config.applicationStatus}. Threshold applies to the next scan. Deployment model changes require a backend restart.</p>}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <p>Reset camera names, review threshold (85%), and automatic cleanup (enabled). Device assignments stay at their saved values. Review and save to apply.</p>
+            <Button variant="outline" size="sm" disabled={saving || disabled} onClick={handleReset} className="shrink-0 self-start">
+              <RefreshCw className="w-4 h-4 mr-2" /> Reset All Settings
+            </Button>
+          </div>
+        </div>
+      </details>
       {configReady && config.applicationStatus !== "applied" && config.applicationError && (
         <Alert variant="destructive" role="alert">
           <AlertTriangle className="h-4 w-4" />
@@ -257,173 +268,118 @@ export default function SystemConfig() {
         catch (error) { toast.error(error instanceof Error ? error.message : "Camera application failed") }
         finally { configFlight.current = false; setSaving(false) }
       }}>{saving && <Loader2 className="w-4 h-4 animate-spin" />}Retry Applying Cameras</Button>}
-      {hasChanges && (
-        <div className="fixed bottom-4 sm:bottom-6 left-0 right-0 flex justify-center px-4 z-50 pointer-events-none">
-          <Alert className="bg-amber-500/10 text-amber-600 border-amber-500/30 w-full max-w-xl animate-in slide-in-from-bottom-5 fade-in duration-300 py-3 sm:py-4 px-4 sm:px-5 shadow-xl shadow-amber-500/10 backdrop-blur-md pointer-events-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 !pr-4 sm:!pr-5">
-            <div className="flex items-start gap-3 w-full sm:w-auto">
-              <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
-              <div className="flex flex-col gap-1">
-                <AlertTitle className="text-sm font-bold mb-0 leading-none">Unsaved Changes</AlertTitle>
-                <AlertDescription className="text-amber-600/90 text-xs font-medium leading-tight">
-                  You have pending configuration changes.
-                </AlertDescription>
-              </div>
-            </div>
-            <div className="flex gap-2 items-center shrink-0 w-full sm:w-auto mt-1 sm:mt-0">
-              <Button size="sm" variant="outline" onClick={handleUndo} disabled={saving || disabled} className="flex-1 sm:flex-none h-8 px-4 text-xs font-semibold bg-background/50 border-amber-500/40 hover:bg-amber-500/20 hover:text-amber-700 text-amber-700">
-                Discard
-              </Button>
-              <Button size="sm" onClick={handleSave} disabled={saving || disabled} className="flex-1 sm:flex-none h-8 px-4 text-xs font-semibold shadow-sm text-amber-50 bg-amber-600 hover:bg-amber-700 border-none">
-                {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : "Save Now"}
-              </Button>
-            </div>
-          </Alert>
+      {!configReady && !configError ? <div role="status" aria-label="Loading configuration" className="space-y-4"><Skeleton className="h-12 w-full" /><Skeleton className="h-72 w-full" /></div> : <Tabs defaultValue="scanner" className="w-full min-w-0 gap-4 sm:gap-6">
+        <div className="overflow-x-auto pb-1">
+          <TabsList aria-label="Configuration sections" className="w-full min-w-max !h-auto gap-1 p-1 rounded-xl">
+            <TabsTrigger value="scanner" className="px-3 sm:px-5 py-2.5 text-xs sm:text-sm rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground"><Camera className="w-4 h-4" /> Cameras</TabsTrigger>
+            <TabsTrigger value="ai" className="px-3 sm:px-5 py-2.5 text-xs sm:text-sm rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground"><Cpu className="w-4 h-4" /> Detection</TabsTrigger>
+            <TabsTrigger value="data" className="px-3 sm:px-5 py-2.5 text-xs sm:text-sm rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground"><Database className="w-4 h-4" /> Data &amp; Backups</TabsTrigger>
+            <TabsTrigger value="power" className="px-3 sm:px-5 py-2.5 text-xs sm:text-sm rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground"><Power className="w-4 h-4" /> Power</TabsTrigger>
+          </TabsList>
         </div>
-      )}
-
-      {!configReady && !configError ? <div role="status" aria-label="Loading configuration" className="flex flex-col md:flex-row gap-4 sm:gap-6"><Skeleton className="h-56 w-full md:w-60" /><div className="flex-1 space-y-4"><Skeleton className="h-12 w-2/3" /><Skeleton className="h-72 w-full" /></div></div> : <Tabs defaultValue="scanner" orientation="vertical" className="flex flex-col md:flex-row gap-4 sm:gap-6 w-full">
-        <TabsList className="flex !flex-row md:!flex-col h-auto justify-start items-stretch rounded-xl sm:rounded-2xl bg-muted/50 p-1.5 sm:p-2 shrink-0 !w-full md:!w-60 overflow-x-auto overflow-y-hidden snap-x gap-1 sm:gap-1.5 border border-muted/50 no-scrollbar">
-          <TabsTrigger value="scanner" className="justify-start px-4 py-2.5 sm:py-3 text-left rounded-lg sm:rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap snap-start shrink-0 !w-auto md:!w-full">
-            <Camera className="w-4 h-4 mr-2 shrink-0" /> Scanner Config
-          </TabsTrigger>
-          <TabsTrigger value="ai" className="justify-start px-4 py-2.5 sm:py-3 text-left rounded-lg sm:rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap snap-start shrink-0 !w-auto md:!w-full">
-            <Cpu className="w-4 h-4 mr-2 shrink-0" /> AI Settings
-          </TabsTrigger>
-          <TabsTrigger value="data" className="justify-start px-4 py-2.5 sm:py-3 text-left rounded-lg sm:rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap snap-start shrink-0 !w-auto md:!w-full">
-            <Database className="w-4 h-4 mr-2 shrink-0" /> Data Storage
-          </TabsTrigger>
-          <TabsTrigger value="power" className="justify-start px-4 py-2.5 sm:py-3 text-left rounded-lg sm:rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap snap-start shrink-0 !w-auto md:!w-full">
-            <Power className="w-4 h-4 mr-2 shrink-0" /> System Power
-          </TabsTrigger>
-        </TabsList>
-
-        <div className="flex-1 w-full min-w-0">
+        <div className="w-full min-w-0">
 
         <TabsContent value="scanner" className="m-0 border-0 outline-none">
           <Card className="rounded-xl sm:rounded-2xl">
             <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
-              <CardTitle className="text-base sm:text-lg">Hardware Integration</CardTitle>
-              <CardDescription className="text-xs sm:text-sm">Configure camera devices for banana scanning.</CardDescription>
+              <CardTitle className="text-base sm:text-lg">Scanner Cameras</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Assign a device to each camera, then save and verify its feed in calibration.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6 px-4 sm:px-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-sm">Active Camera IDs</Label>
-                  <div className="flex flex-wrap gap-2 mb-2 p-3 min-h-12 border rounded-xl bg-muted/20">
-                    {activeCameraIds.length === 0 && (
-                      <span className="text-sm text-muted-foreground italic flex items-center">No cameras configured</span>
-                    )}
-                    {activeCameraIds.map(id => (
-                      <Badge key={id} variant="secondary" className="px-2.5 py-1 text-xs sm:text-sm rounded-lg flex items-center gap-1.5 font-medium border bg-background group">
-                        {editingCameraId === id ? (
-                          <input 
-                            value={editCameraValue} 
-                            onChange={e => setEditCameraValue(e.target.value)} 
-                            onBlur={saveEditedCameraId}
-                            onKeyDown={e => e.key === "Enter" && saveEditedCameraId()}
-                            autoFocus
-                            className="bg-transparent border-b border-primary/50 outline-none w-20 px-1 text-center"
-                          />
-                        ) : (
-                          <>
-                            <span 
-                              onClick={() => startEditingCameraId(id)} 
-                              className="cursor-pointer hover:text-primary transition-colors"
-                              title="Click to edit"
-                            >
-                              {id}
-                            </span>
-                            <div className="flex items-center">
-                              <button 
-                                onClick={() => startEditingCameraId(id)}
-                                className="hover:bg-muted/80 rounded-full p-0.5 text-muted-foreground hover:text-foreground transition-colors mr-0.5"
-                                title="Edit"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </Badge>
-                    ))}
-                  </div>
+            <CardContent className="px-4 sm:px-6 space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">{activeCameraIds.length}/4 camera slots configured</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" disabled={disabled || saving || cameraDiscovery.loading} onClick={cameraDiscovery.refresh}>
+                    <RefreshCw className={`w-4 h-4 mr-2 ${cameraDiscovery.loading ? "animate-spin" : ""}`} />{cameraDiscovery.loading ? "Listing Devices..." : "Refresh Device List"}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={addCamera} disabled={disabled || saving || activeCameraIds.length >= 4}>Add Camera</Button>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Label className="text-sm">Detected camera devices</Label>
-                    <Button variant="outline" size="sm" disabled={disabled || saving || cameraDiscovery.loading} onClick={cameraDiscovery.refresh}>
-                      <RefreshCw className={`w-4 h-4 mr-2 ${cameraDiscovery.loading ? "animate-spin" : ""}`} />{cameraDiscovery.loading ? "Listing Devices..." : "Refresh Device List"}
-                    </Button>
-                  </div>
-                  {cameraDiscovery.error && <p role="alert" className="text-sm text-destructive">{cameraDiscovery.error} You can still enter device indices manually.</p>}
-                  {cameraDiscovery.discovery && !cameraDiscovery.error && <div className="space-y-1 text-xs text-muted-foreground">
-                    <p>Device list uses {cameraDiscovery.discovery.backend.toUpperCase()}. Detection confirms presence; previews confirm a usable feed.</p>
-                    {cameraDiscovery.discovery.devices.length === 0 && <p>No camera devices detected. Check the connections and refresh.</p>}
-                    {cameraDiscovery.discovery.devices.map(device => <p key={device.device_id}>
-                      Index {device.device_id} — {device.name}{device.device_uid ? ` · ${device.device_uid}` : ""}
-                      {device.configured_camera_id ? ` · ${device.configured_camera_id}: ${device.online ? "Online" : "Offline"}` : " · Not assigned"}
-                    </p>)}
-                  </div>}
-                  {activeCameraIds.map((id, index) => (
-                    <div key={index} className="flex flex-wrap items-center gap-3">
-                      <Label htmlFor={`camera-device-${index}`} className="text-sm">{id} device index</Label>
-                      <NumberField id={`camera-device-${index}`} aria-label={`Device index for camera ${index + 1}`} min={0} step={1}
-                        className="w-28" disabled={disabled || saving}
-                        value={Number.isNaN(localConfig.cameraDeviceIds?.[index]) ? "" : localConfig.cameraDeviceIds?.[index] ?? ""}
-                        onChange={val => {
-                          const devices = [...(localConfig.cameraDeviceIds ?? [])]
-                          devices[index] = val === "" ? Number.NaN : Number(val)
-                          setLocalConfig({ ...localConfig, cameraDeviceIds: devices })
-                        }} />
-                      <CameraDevicePicker discovery={cameraDiscovery.discovery} value={localConfig.cameraDeviceIds?.[index]}
-                        slot={index + 1} disabled={disabled || saving || cameraDiscovery.loading}
-                        onChange={deviceId => {
-                          const devices = [...(localConfig.cameraDeviceIds ?? [])]
-                          devices[index] = deviceId
-                          setLocalConfig({ ...localConfig, cameraDeviceIds: devices })
-                        }} />
+              </div>
+              {cameraDiscovery.error && <p role="alert" className="text-sm text-destructive">{cameraDiscovery.error} You can still enter device indices in Advanced device settings.</p>}
+              {activeCameraIds.length === 0 && <p className="text-sm text-muted-foreground">No cameras configured. Add a camera to get started.</p>}
+              <div className="divide-y">
+                {activeCameraIds.map((id, index) => {
+                  const deviceId = localConfig.cameraDeviceIds?.[index]
+                  const device = cameraDiscovery.discovery?.devices.find(item => item.device_id === deviceId)
+                  const savedIds = config.cameraIds.split(",").map(value => value.trim())
+                  const changed = id !== savedIds[index] || deviceId !== config.cameraDeviceIds?.[index]
+                  const status = changed ? "Pending save" : cameraDiscovery.loading ? "Checking devices" : cameraDiscovery.error || !cameraDiscovery.discovery ? "Status unavailable" : !device ? "Not detected" : device.configured_camera_id === id ? device.online ? "Online" : "Offline" : "Detected"
+                  return <div key={index} className="py-4 first:pt-0 last:pb-0 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Camera className="w-4 h-4 text-muted-foreground shrink-0" />
+                        {editingCameraId === id ? <Input
+                          aria-label={`Camera ${index + 1} name`} value={editCameraValue} disabled={disabled || saving}
+                          onChange={event => setEditCameraValue(event.target.value)} onBlur={saveEditedCameraId}
+                          onKeyDown={event => { if (event.key === "Enter") saveEditedCameraId(); if (event.key === "Escape") setEditingCameraId(null) }}
+                          autoFocus maxLength={50} className="w-40"
+                        /> : <button type="button" aria-label={`Rename camera ${index + 1}: ${id}`} disabled={disabled || saving}
+                          onClick={() => startEditingCameraId(id)} className="flex items-center gap-2 text-sm font-medium min-w-0 text-left rounded focus-visible:outline-ring disabled:opacity-50">
+                          <span className="truncate">{id}</span><Edit2 className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                        </button>}
+                        <Badge variant="secondary" className={`shrink-0 text-xs ${status === "Online" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : ""}`}>{status}</Badge>
+                      </div>
+                      <div className="min-w-0 w-full sm:w-80 shrink-0">
+                        <CameraDevicePicker compact discovery={cameraDiscovery.discovery} value={deviceId} slot={index + 1}
+                          disabled={disabled || saving || cameraDiscovery.loading}
+                          onChange={value => {
+                            const devices = [...(localConfig.cameraDeviceIds ?? [])]
+                            devices[index] = value
+                            setLocalConfig({ ...localConfig, cameraDeviceIds: devices })
+                          }} />
+                        {!cameraDiscovery.discovery?.devices.length && <p className="text-xs text-muted-foreground">{cameraDiscovery.loading ? "Loading device list…" : `Device index ${Number.isSafeInteger(deviceId) ? deviceId : "not set"} · Manual assignment below`}</p>}
+                      </div>
                     </div>
-                  ))}
-                  <Button variant="outline" onClick={addCamera} disabled={disabled || saving || activeCameraIds.length >= 4}>Add Camera</Button>
-                  <p className="text-xs text-muted-foreground">{activeCameraIds.length}/4 camera slots configured. Assign a different device index to each scanner camera, save, then verify the feeds in calibration. The laptop webcam may occupy one index.</p>
+                    <details className="text-xs text-muted-foreground">
+                      <summary className="cursor-pointer w-fit rounded focus-visible:outline-ring">Advanced device settings for camera {index + 1}</summary>
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        <Label htmlFor={`camera-device-${index}`} className="text-xs">Manual device index</Label>
+                        <NumberField id={`camera-device-${index}`} aria-label={`Device index for camera ${index + 1}`} min={0} step={1}
+                          className="w-28" disabled={disabled || saving}
+                          value={Number.isNaN(deviceId) ? "" : deviceId ?? ""}
+                          onChange={value => {
+                            const devices = [...(localConfig.cameraDeviceIds ?? [])]
+                            devices[index] = value === "" ? Number.NaN : Number(value)
+                            setLocalConfig({ ...localConfig, cameraDeviceIds: devices })
+                          }} />
+                        {device?.device_uid && <p className="w-full break-all">Device ID: {device.device_uid}</p>}
+                      </div>
+                    </details>
+                  </div>
+                })}
+              </div>
+              <details className="border-t pt-4 text-xs text-muted-foreground">
+                <summary className="cursor-pointer w-fit rounded focus-visible:outline-ring">Device discovery details</summary>
+                <div className="mt-3 space-y-2 break-words">
+                  <p>Assign a distinct index to each camera. The laptop webcam may occupy one index. Detection confirms presence; calibration confirms a usable feed.</p>
+                  {cameraDiscovery.discovery && <>
+                    <p>Discovery backend: {cameraDiscovery.discovery.backend.toUpperCase()}</p>
+                    {cameraDiscovery.discovery.devices.length === 0 && <p>No camera devices detected. Check the connections and refresh.</p>}
+                    {cameraDiscovery.discovery.devices.map(device => <p key={device.device_id} className="break-all">Index {device.device_id} — {device.name}{device.device_uid ? ` · ${device.device_uid}` : ""}{device.configured_camera_id ? ` · ${device.configured_camera_id}: ${device.online ? "Online" : "Offline"}` : " · Not assigned"}</p>)}
+                  </>}
                 </div>
-                <p className="text-xs text-muted-foreground">All configured online cameras participate in each scan.</p>
-                <div className="pt-2">
-                  <CameraCalibrationModal disabled={saving || disabled || hasChanges} />
-                </div>
+              </details>
+              <div className="border-t pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">{hasChanges ? "Save changes before opening calibration." : "All configured online cameras participate in each scan."}</p>
+                <CameraCalibrationModal disabled={saving || disabled || hasChanges} />
               </div>
             </CardContent>
-            <CardFooter className="bg-muted/30 border-t px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between gap-3 sm:gap-0 rounded-b-xl sm:rounded-b-2xl">
-              <Button variant="ghost" disabled={saving || disabled} onClick={handleReset} className="w-full sm:w-auto">
-                <RefreshCw className="w-4 h-4 mr-2" /> Reset Defaults
-              </Button>
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
-                {hasChanges && (
-                  <Button variant="outline" onClick={handleUndo} disabled={saving || disabled} className="w-full sm:w-auto text-muted-foreground hover:text-foreground">
-                    <Undo2 className="w-4 h-4 mr-2" /> Undo Changes
-                  </Button>
-                )}
-                <Button onClick={handleSave} disabled={saving || disabled || !hasChanges} className="w-full sm:w-auto">
-                  {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
-                </Button>
-              </div>
-            </CardFooter>
           </Card>
         </TabsContent>
 
         <TabsContent value="ai" className="m-0 border-0 outline-none">
           <Card className="rounded-xl sm:rounded-2xl">
             <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
-              <CardTitle className="text-base sm:text-lg">YOLO26 Detection Parameters</CardTitle>
-              <CardDescription className="text-xs sm:text-sm">Retain banana detections and set when scan results need review.</CardDescription>
+              <CardTitle className="text-base sm:text-lg">Detection Review</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Choose when scan results need a closer look.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 px-4 sm:px-6">
               <div className="space-y-4">
                 <div className="flex justify-between">
-                  <Label className="text-sm">Review Confidence Threshold</Label>
+                  <Label id="review-confidence-label" className="text-sm">Review Confidence Threshold</Label>
                   <span className="font-bold text-primary">{localConfig.confidenceThreshold}%</span>
                 </div>
-                <Slider 
+                <Slider aria-labelledby="review-confidence-label"
                   value={[localConfig.confidenceThreshold]} 
                   onValueChange={(v) => setLocalConfig({...localConfig, confidenceThreshold: v[0]})}
                   min={1}
@@ -434,56 +390,48 @@ export default function SystemConfig() {
                 />
                 <p className="text-xs text-muted-foreground">
                   Results below {localConfig.confidenceThreshold}% are flagged for review.
-                  Additional detection boxes keep their original confidence scores.
-                  {config.detectionConfidenceThreshold !== undefined && (
-                    <span className="block">Current YOLO detection cutoff: {config.detectionConfidenceThreshold}%</span>
-                  )}
+                  <span className="block mt-1">Applies to the next scan after saving.</span>
                 </p>
               </div>
+              <details className="border-t pt-4 text-xs text-muted-foreground">
+                <summary className="cursor-pointer w-fit rounded focus-visible:outline-ring">Model information</summary>
+                <div className="mt-3 space-y-2">
+                  <p>YOLO26 detections keep their original confidence scores. The current detection cutoff below reflects the saved configuration.</p>
+                  {config.detectionConfidenceThreshold !== undefined && <p>Current YOLO detection cutoff: {config.detectionConfidenceThreshold}%</p>}
+                  <p>Deployment model changes require a backend restart.</p>
+                </div>
+              </details>
             </CardContent>
-            <CardFooter className="bg-muted/30 border-t px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between gap-3 sm:gap-0 rounded-b-xl sm:rounded-b-2xl">
-              <Button variant="ghost" disabled={saving || disabled} onClick={handleReset} className="w-full sm:w-auto">
-                <RefreshCw className="w-4 h-4 mr-2" /> Reset Defaults
-              </Button>
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
-                {hasChanges && (
-                  <Button variant="outline" onClick={handleUndo} disabled={saving || disabled} className="w-full sm:w-auto text-muted-foreground hover:text-foreground">
-                    <Undo2 className="w-4 h-4 mr-2" /> Undo Changes
-                  </Button>
-                )}
-                <Button onClick={handleSave} disabled={saving || disabled || !hasChanges} className="w-full sm:w-auto">
-                  {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
-                </Button>
-              </div>
-            </CardFooter>
           </Card>
         </TabsContent>
 
-        <TabsContent value="data" className="m-0 border-0 outline-none">
+        <TabsContent value="data" forceMount className="m-0 border-0 outline-none data-[state=inactive]:hidden">
           <Card className="rounded-xl sm:rounded-2xl">
             <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
-              <CardTitle className="text-base sm:text-lg">Storage Management</CardTitle>
-              <CardDescription className="text-xs sm:text-sm">Protect station history and manage unreferenced captures.</CardDescription>
+              <CardTitle className="text-base sm:text-lg">Data &amp; Backups</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Manage capture cleanup, reports, and station recovery.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 px-4 sm:px-6 pb-4 sm:pb-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border">
+            <CardContent className="divide-y px-4 sm:px-6 pb-4 sm:pb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-5 first:pt-0 last:pb-0">
                 <div>
-                  <h4 className="font-medium text-sm sm:text-base">Data Retention</h4>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Clean unreferenced captures older than {config.retentionDays ?? "—"} days; retain scan records and referenced evidence</p>
+                  <h4 className="font-medium text-sm sm:text-base">Automatic Capture Cleanup</h4>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Clean unreferenced captures older than {config.retentionDays ?? "—"} days. Scan records and referenced evidence are retained.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Saves immediately · Applies on the next cleanup cycle.</p>
                 </div>
                 <Button 
+                  role="switch" aria-label="Automatic capture cleanup" aria-checked={localConfig.dataRetentionEnabled}
                   variant={localConfig.dataRetentionEnabled ? "default" : "outline"} 
                   onClick={toggleDataRetention} 
                   disabled={saving || disabled}
-                  className="w-full sm:w-auto"
+                  className="w-full sm:w-auto shrink-0"
                 >
                   {localConfig.dataRetentionEnabled ? "Enabled" : "Disabled"}
                 </Button>
               </div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-5 first:pt-0 last:pb-0">
                 <div>
                   <h4 className="font-medium text-sm sm:text-base">Export Scan Summaries</h4>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Download scan summaries as CSV. Accounts, settings, audit logs and images are excluded; this export cannot restore the database.</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Download a CSV report of scan summaries. This export cannot restore station data.</p>
                 </div>
                 <Button variant="outline" disabled={exporting} onClick={handleExportData} className="w-full sm:w-auto">
                   {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />} {exporting ? "Exporting…" : "Export CSV"}
@@ -497,22 +445,21 @@ export default function SystemConfig() {
         <TabsContent value="power" className="m-0 border-0 outline-none">
           <Card className="rounded-xl sm:rounded-2xl">
             <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
-              <CardTitle className="text-base sm:text-lg">Power Management</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Station Power</CardTitle>
               <CardDescription className="text-xs sm:text-sm">Control the mini PC power state.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 px-4 sm:px-6 pb-4 sm:pb-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border">
+            <CardContent className="divide-y px-4 sm:px-6 pb-4 sm:pb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-5 first:pt-0 last:pb-0">
                 <div>
                   <h4 className="font-medium text-sm sm:text-base">System Status</h4>
                   <p className="text-xs sm:text-sm text-muted-foreground">{powerMessage || maintenanceError || `Station ${maintenance?.state ?? "status loading"}`}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-sm font-medium text-emerald-600">{maintenance?.state ?? "Loading"}</span>
-                </div>
+                <Badge variant="secondary" role="status" className={maintenanceError ? "" : maintenance?.state === "ready" && !powerPending && !powerAccepted ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-amber-500/10 text-amber-700 dark:text-amber-400"}>
+                  {maintenanceError ? "Status unavailable" : powerPending ? "Request pending" : powerAccepted ? "Power pending" : maintenance?.state?.replaceAll("-", " ") ?? "Loading"}
+                </Badge>
               </div>
               
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-5 first:pt-0 last:pb-0">
                 <div>
                   <h4 className="font-medium text-sm sm:text-base">Restart System</h4>
                   <p className="text-xs sm:text-sm text-muted-foreground">Reboot the mini PC. Services resume if host autostart is configured.</p>
@@ -523,7 +470,7 @@ export default function SystemConfig() {
                 </Button>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-destructive/20 bg-destructive/5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-5">
                 <div>
                   <h4 className="font-medium text-destructive text-sm sm:text-base">Shutdown System</h4>
                   <p className="text-xs sm:text-sm text-muted-foreground">Power off the mini PC</p>
@@ -559,7 +506,7 @@ export default function SystemConfig() {
                   finally { powerFlight.current = false; setPowerPending(false) }
                 }}>{powerPending && <Loader2 className="w-4 h-4 animate-spin" />}Retry Restore Recovery</Button>
               </div>}
-              <div className="mt-4 p-3 rounded-lg bg-muted/50 border">
+              <div className="pt-4">
                 <p className="text-xs text-muted-foreground">
                   <strong>Note:</strong> After shutdown, you will need physical access to the mini PC to power it back on. 
                   Make sure all scans are complete before shutting down.
@@ -570,6 +517,20 @@ export default function SystemConfig() {
         </TabsContent>
         </div>
       </Tabs>}
+      {hasChanges && (
+        <div role="region" aria-label="Unsaved configuration changes" className="sticky bottom-0 z-20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border rounded-xl bg-background p-4 shadow-lg">
+          <div>
+            <p className="text-sm font-medium">Unsaved changes</p>
+            <p className="text-xs text-muted-foreground">Save applies pending edits across all settings tabs.</p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button variant="outline" onClick={handleUndo} disabled={saving || disabled} className="flex-1 sm:flex-none">Discard</Button>
+            <Button onClick={handleSave} disabled={saving || disabled} className="flex-1 sm:flex-none">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {saving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Shutdown Confirmation Dialog */}
       <AlertDialog open={showShutdownDialog} onOpenChange={open => { if (!powerPending) setShowShutdownDialog(open) }}>

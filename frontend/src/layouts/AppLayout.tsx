@@ -20,7 +20,7 @@ export default function AppLayout() {
       <AppSidebarHeader mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto [scrollbar-gutter:stable]">
         <AppHeader />
         <div className="lg:hidden h-15" />
         <div className="p-4 lg:p-6 xl:p-8 max-w-7xl mx-auto">
