@@ -1,12 +1,16 @@
-CURRENT RESUME HERE (2026-10-21) - FORMATTING / MERGED APPLICATION VERIFIED; PUSH PENDING
+CURRENT RESUME HERE (2026-10-21) - SPOILAGE FORMATTING COMPLETE; MAIN SYNCHRONIZED
 
 GIT STATUS
-- main at a58dccf (formatting committed outside this agent's work); clean on resume.
+- Resumed on main at a58dccf (formatting committed outside this agent's work).
 - User authorized commit/fetch/integration/push on 2026-10-21. Fetched origin/main at f3630e9;
   nine incoming commits include calendar, Kiosk count/modal and pagination changes.
 - Prior checkpoint archived: docs/history/2026-10-21-before-spoilage-formatting.txt.
 - Interrupted formatting checkpoint: docs/history/2026-10-21-before-formatting-final-verification.txt.
-- Verification docs committed as ae98aa1. Merge of origin/main f3630e9 in progress;
+- Verification docs committed as ae98aa1; integration committed as d41cb7b and pushed.
+  Confirmed local HEAD, origin/main and GitHub refs/heads/main all equal
+  d41cb7b06d2996cb941e4a2ca9b8d7eab6bb440f after push; clean working tree.
+  This follow-up checkpoint is documentation only. No force push or history rewrite.
+- Merge of origin/main f3630e9 preserved both sides;
   only checkpoint conflict, resolved with incoming state archived in
   docs/history/2026-10-21-before-formatting-sync-incoming.txt. No application conflicts.
 
@@ -28,7 +32,7 @@ DONE
 - Post-merge browser coverage: 82 passed, 0 failed/skipped (146.98s); ISO-day units: 3 passed.
 
 IN PROGRESS
-- Commit verified integration and push main, then confirm equal local/remote refs.
+- None. Application verification and integration push completed.
 
 SECURITY REVIEW
 - Codex Security scan 3ca86d46-6b2b-4208-a47d-8dc41a825460 completed and sealed.
@@ -38,7 +42,7 @@ SECURITY REVIEW
 - Daybreak access unavailable; source review completed with available tools.
 
 REMAINING
-- Only commit/push and final remote-ref verification; no remaining formatting or security defects.
+- No remaining implementation, browser-verification or scoped-security findings.
 - Formatter backend unchanged; prior 119 passing backend checks retained. Incoming backend code
   preserved exactly; upstream finger-count checkpoint records 171 passing tests, not rerun here.
 
@@ -70,5 +74,6 @@ CONSTRAINTS
 - Isolated mocks/disposable DBs only. Commit/integrate/push authorized; no deployment/history rewrite.
 
 EXACT RESUME HERE
-- Finish merge commit, push main without force, confirm HEAD = origin/main = remote main.
-- Do not repeat completed tests/security review; no schema/model/production changes pending.
+- Formatting task complete. Read current Git status before any new work; no pending fix.
+- Preserve completed formatter and incoming changes. Do not repeat these audits/tests without
+  source changes or new evidence. Live hardware/production data were deliberately not exercised.
