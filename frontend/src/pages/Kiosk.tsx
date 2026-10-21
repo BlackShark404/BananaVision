@@ -27,6 +27,8 @@ import {
   Package,
   Clock,
   Flag,
+  Eye,
+  EyeOff,
 } from "lucide-react"
 import { toast } from "sonner"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
@@ -711,20 +713,22 @@ export default function Kiosk() {
                     {/* Detection Lightbox Modal */}
                     <Dialog open={showDetectionModal} onOpenChange={setShowDetectionModal}>
                       <DialogContent className="sm:max-w-3xl max-h-[90dvh] flex flex-col gap-0 p-0 overflow-hidden">
-                        <DialogHeader className="p-4 pb-3 shrink-0 border-b">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Target className="w-4 h-4 text-primary" />
-                              <DialogTitle className="text-sm font-bold">YOLO Detection</DialogTitle>
-                              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 rounded-full">
+                        <DialogHeader className="p-4 pb-3 pr-14 shrink-0 border-b">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Target className="w-4 h-4 text-primary shrink-0" />
+                              <DialogTitle className="text-sm font-bold truncate">YOLO Detection</DialogTitle>
+                              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 rounded-full shrink-0">
                                 {lastResult.detections.reduce((acc: number, d: ScanDetection) => acc + (d.finger_count || d.bounding_boxes?.length || 0), 0)} boxes
                               </Badge>
                             </div>
                             <button
+                              type="button"
                               onClick={() => setShowKioskBoxes(!showKioskBoxes)}
-                              className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 px-2 py-1 rounded-md hover:bg-muted"
+                              className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 px-2.5 py-1 rounded-md hover:bg-muted border border-border/60 shrink-0"
                             >
-                              {showKioskBoxes ? "Hide" : "Show"} Boxes
+                              {showKioskBoxes ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                              <span>{showKioskBoxes ? "Hide" : "Show"} Boxes</span>
                             </button>
                           </div>
                           <DialogDescription className="sr-only">Detection bounding box viewer</DialogDescription>

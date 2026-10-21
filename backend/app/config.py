@@ -83,6 +83,7 @@ class Settings(BaseSettings):
     yolo_top_rotation_fallback: bool = True
     yolo_peripheral_background_filter: bool = True
     top_camera_cultivar_anchor: bool = True
+    # Legacy setting retained for compatibility; counts no longer add cross-view sightings.
     multi_camera_finger_fusion: bool = True
     rfr_model_path: str = "app/ml/weights/spoilage_rfr.joblib"
 

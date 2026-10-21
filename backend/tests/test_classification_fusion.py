@@ -340,15 +340,42 @@ def _make_det(x: float, y: float, w: float = 20.0, h: float = 80.0, conf: float 
     return Detection(x=x, y=y, w=w, h=h, cls="latundan_ripe", confidence=conf)
 
 
-def test_multi_camera_spatial_complementarity_recovers_nineteen_fingers():
-    """
-    Simulates the verified physical 19-finger bunch:
-      - Top: 10 fingers visible in the main outer tier
-      - Left: 13 detections total, 3 in outer left margin (rel_x <= 0.35)
-      - Right: 13 detections total, 3 in outer right margin (rel_x >= 0.65)
-      - Rear: 6 detections total, 3 in inner concavity underside (rel_y >= 0.55)
-    Total fused count must be 10 + 3 + 3 + 3 = 19 fingers.
-    """
+@pytest.mark.parametrize("legacy_fusion_enabled", [True, False])
+@pytest.mark.parametrize("labels", [
+    ["Top", "Left", "Right", "Rear"],
+    ["Rear", "Right", "Left", "Top"],
+    ["View A", "View B", "View C", "View D"],
+])
+def test_reported_four_view_counts_do_not_invent_unseen_fingers(
+    monkeypatch, legacy_fusion_enabled, labels,
+):
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "multi_camera_finger_fusion", legacy_fusion_enabled)
+    counts = [7, 9, 10, 13]
+    results = [
+        (f"CAM-{index}", label, ClassificationResult(
+            cultivar="Latundan", ripeness="Ripe", confidence=90,
+            finger_count=count,
+            detections=[_make_det(x=i * 30, y=0) for i in range(count)],
+        ))
+        for index, (label, count) in enumerate(zip(labels, counts, strict=True))
+    ]
+
+    fused = FusionEngine().fuse(results, expected_camera_count=4)
+
+    # The user reports about 15 physically present. Counts alone cannot recover
+    # hidden fingers; 13 is an observed estimate, not a verified physical total.
+    assert fused.finger_count == 13
+    assert fused.auto_flagged is True
+    assert fused.conflict_detected is False
+    assert fused.confidence == 90
+    assert [camera.finger_count for camera in fused.per_camera] == counts
+
+
+def test_peripheral_positions_cannot_establish_nineteen_unique_fingers():
+    # Synthetic peripheral positions cannot prove that side/rear detections
+    # represent fingers absent from the other cameras.
     # Top view: 10 fingers across the center (span x: 100 to 500)
     top_dets = [_make_det(x=100 + i * 40, y=200) for i in range(10)]
     top_res = ClassificationResult(
@@ -393,7 +420,8 @@ def test_multi_camera_spatial_complementarity_recovers_nineteen_fingers():
         ("CAM-004", "Rear", rear_res),
     ])
 
-    assert fused.finger_count == 19
+    assert fused.finger_count == 13
+    assert fused.auto_flagged is True
     assert fused.cultivar == "Latundan"
     assert fused.ripeness == "Ripe"
 
@@ -431,13 +459,7 @@ def test_multi_camera_finger_fusion_single_top_view():
     assert fused.finger_count == 10
 
 
-def test_multi_camera_cross_validation_stabilizes_under_detector_noise():
-    """
-    When Top camera detection drops from 10 to 9 fingers due to sensor/lighting
-    noise, and Rear also detects 9, the cross-validation trusts the agreed count
-    of 9 (no artificial +1 inflation). Total fused count:
-    9 (anchor) + 3 (left novel) + 3 (right novel) + 3 (rear concavity) = 18.
-    """
+def test_top_count_drop_does_not_change_the_largest_visible_estimate():
     # Top view only detects 9 fingers (1 finger dropped by confidence cutoff)
     top_dets = [_make_det(x=100 + i * 40, y=200) for i in range(9)]
     top_res = ClassificationResult(
@@ -464,11 +486,11 @@ def test_multi_camera_cross_validation_stabilizes_under_detector_noise():
         ("CAM-004", "Rear", rear_res),
     ])
 
-    # Fused count: 9 anchor + 9 novel (capped) = 18 (no phantom +1 inflation)
-    assert fused.finger_count == 18
+    assert fused.finger_count == 13
+    assert fused.auto_flagged is True
 
 
-def test_cross_view_count_additions_require_review_without_classification_conflict():
+def test_equal_camera_counts_do_not_double_count_the_same_fingers():
     # The same four physical fingers may appear in both views. Image position
     # alone cannot establish that the Rear boxes are additional fingers.
     dets = [_make_det(x=index * 30, y=0) for index in range(4)]
@@ -481,8 +503,8 @@ def test_cross_view_count_additions_require_review_without_classification_confli
         ("CAM-001", "Top", result), ("CAM-004", "Rear", result),
     ], expected_camera_count=2)
 
-    assert fused.finger_count == 8
-    assert fused.auto_flagged is True
+    assert fused.finger_count == 4
+    assert fused.auto_flagged is False
     assert fused.conflict_detected is False
     assert fused.confidence == 90
     assert [camera.finger_count for camera in fused.per_camera] == [4, 4]
@@ -503,14 +525,14 @@ def test_rear_anchor_does_not_add_its_own_peripheral_fingers_again():
     ], expected_camera_count=2)
 
     assert fused.finger_count == 10
-    assert fused.auto_flagged is False
+    assert fused.auto_flagged is True
     assert fused.conflict_detected is False
 
 
 @pytest.mark.parametrize(("view_type", "duplicate_index"), [
     ("left", 0), ("right", 3), ("rear", 3),
 ])
-def test_cross_class_identical_boxes_do_not_add_peripheral_fingers(
+def test_fusion_uses_unique_per_view_counts_not_raw_class_box_totals(
     view_type, duplicate_index,
 ):
     dets = [
@@ -524,15 +546,15 @@ def test_cross_class_identical_boxes_do_not_add_peripheral_fingers(
     raw_detections = [*dets, duplicate]
     result = ClassificationResult(finger_count=4, detections=raw_detections)
 
-    novel = FusionEngine()._extract_novel_peripheral(result, view_type)
+    fused = FusionEngine().fuse([("CAM-1", view_type, result)])
 
-    assert novel == 2
+    assert fused.finger_count == 4
     assert result.detections == raw_detections
     assert len(result.detections) == 5
 
 
 @pytest.mark.parametrize("view_type", ["left", "right", "rear"])
-def test_duplicate_labels_cannot_activate_peripheral_minimum_count(view_type):
+def test_duplicate_labels_cannot_increase_the_reported_view_count(view_type):
     dets = [_make_det(x=index * 50, y=index * 50) for index in range(3)]
     original = dets[0]
     dets.append(Detection(
@@ -540,7 +562,8 @@ def test_duplicate_labels_cannot_activate_peripheral_minimum_count(view_type):
     ))
     result = ClassificationResult(finger_count=3, detections=dets)
 
-    assert FusionEngine()._extract_novel_peripheral(result, view_type) == 0
+    fused = FusionEngine().fuse([("CAM-1", view_type, result)])
+    assert fused.finger_count == 3
 
 
 def test_top_camera_anchor_resolves_two_vs_two_cultivar_split():

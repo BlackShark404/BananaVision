@@ -73,6 +73,12 @@ See [the seed audit](../audits/2026-10-19-seed-compatibility.md) and
   Raw correction drafts, numeric risk calculations and public/authenticated boundaries
   were reviewed, including an independent architecture pass. This was not a full repository
   security audit; no live deployment or hardware was exercised.
+- After integrating incoming `main` through `f3630e9`, affected Scan Records, Kiosk,
+  Dashboard and layout browser suites passed 82/82 (146.98s); ISO-day units passed 3/3.
+  Sandboxed Edge initially failed at launch; approved isolated execution outside the
+  sandbox passed without source changes. Typecheck/build passed again (Vite 31.43s).
+  Lint matches the incoming baseline of 36 errors/5 warnings. Application source matches
+  incoming `main` exactly; both sides' checkpoint history and documentation are preserved.
 
 ## Testing Philosophy & Safety Rules
 
@@ -142,6 +148,7 @@ The frontend uses Node.js native test runner (`node --test`) driving headless Ch
 | `printing.test.mjs` | Label printing queues, GDI driver recovery, Windows spooler error handling |
 | `persistence.test.mjs` & `assigned.test.mjs` | One-time admin credential setup, role-based view scoping, session persistence |
 | `scanlogfilters.test.mjs` | Unit tests for query string builders (`buildScanLogsUrl`) and filter parsing (`scanLogParams`) |
+| `isoday.test.mjs` | Unit tests for the local calendar-day helpers (`parseIsoDay`, `formatIsoDay`) behind the Logs date filter `YYYY-MM-DD` values |
 | `adminloading.test.mjs`, `loading.test.mjs`, `operationsloading.test.mjs` | First-load vs refresh/empty/error states, delayed reads after writes, read deadlines, notification account scope, operator-list recovery and sensor freshness |
 
 ### Running Frontend Tests
@@ -279,3 +286,11 @@ See [[Development Decisions]] for the implemented conflict/count safeguards.
 - [[Resolved Bugs]] — Confirmed defect root causes and regression test references.
 - [[Home]] — Knowledge base index.
 - [2026-10-17 loading recheck](../audits/2026-10-17-loading-recheck.md) — current verification results, baseline failures and coverage limits.
+
+## Finger-count inflation regression (2026-10-21)
+
+- Synthetic Top/Left/Right/Rear counts 7/9/10/13 reproduced the previous fused 21. Regression cases now require an estimate of 13, review on positive-count disagreement, original per-camera counts, and unchanged classification confidence. Legacy fusion settings, camera labels, equal counts, duplicate boxes, and partial views are covered.
+- Backend: 171 passed across `test_classification_fusion.py`, `test_scan_trigger.py`, `test_top_view_inference.py`, `test_detection_sensitivity.py`, and `test_time_and_writes.py`. The trigger regression checks the API/detail response, committed SQLite record, original AI result, and completion event. Models, cameras, printing and events use fixtures/mocks; tests run from a fresh temporary directory without loading the station `.env`.
+- Kiosk browser: 17/17 passed, including estimated 13, review feedback and unchanged per-camera evidence. Typecheck and production build passed.
+- Frontend lint retains 36 errors / 5 warnings; backend Ruff reports 640 findings. Comparison against HEAD confirms no new diagnostics in affected backend files; the modified browser test passes scoped ESLint.
+- No station camera test, PostgreSQL run, detector retraining or physical-count accuracy validation performed. The user reports approximately 15 fingers; the fix prevents cross-view additions and does not claim to recover hidden fingers. See [[Development Decisions]].

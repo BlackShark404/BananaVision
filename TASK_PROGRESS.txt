@@ -1,4 +1,4 @@
-CURRENT RESUME HERE (2026-10-21) - FORMATTING / SECURITY VERIFIED; GIT INTEGRATION IN PROGRESS
+CURRENT RESUME HERE (2026-10-21) - FORMATTING / MERGED APPLICATION VERIFIED; PUSH PENDING
 
 GIT STATUS
 - main at a58dccf (formatting committed outside this agent's work); clean on resume.
@@ -6,6 +6,9 @@ GIT STATUS
   nine incoming commits include calendar, Kiosk count/modal and pagination changes.
 - Prior checkpoint archived: docs/history/2026-10-21-before-spoilage-formatting.txt.
 - Interrupted formatting checkpoint: docs/history/2026-10-21-before-formatting-final-verification.txt.
+- Verification docs committed as ae98aa1. Merge of origin/main f3630e9 in progress;
+  only checkpoint conflict, resolved with incoming state archived in
+  docs/history/2026-10-21-before-formatting-sync-incoming.txt. No application conflicts.
 
 DONE
 - Existing numerical RFR/seed/Kiosk/risk implementation preserved; no schema additions.
@@ -20,9 +23,12 @@ DONE
 - Graphify final update PASS: 3853 nodes, 11742 edges, 246 communities; no graph loss.
 - Frontend and Testing knowledge notes document the implementation and actual results.
 - Project ICM save succeeded: 01M5EFJ3SH23FB4TYQ0MGXZ79F.
+- Incoming application source matches origin/main exactly; all remote contributions preserved.
+- Graphify refreshed after integration: 3877 nodes, 11831 edges, 259 communities; PASS.
+- Post-merge browser coverage: 82 passed, 0 failed/skipped (146.98s); ISO-day units: 3 passed.
 
 IN PROGRESS
-- Safely integrate origin/main, verify changed interfaces, then push and confirm equal refs.
+- Commit verified integration and push main, then confirm equal local/remote refs.
 
 SECURITY REVIEW
 - Codex Security scan 3ca86d46-6b2b-4208-a47d-8dc41a825460 completed and sealed.
@@ -32,8 +38,9 @@ SECURITY REVIEW
 - Daybreak access unavailable; source review completed with available tools.
 
 REMAINING
-- Integrate incoming commits, run checks justified by their UI changes, finalize docs and push.
-- Backend runtime/schema unchanged; reuse prior 119 passing backend checks unless new evidence warrants rerun.
+- Only commit/push and final remote-ref verification; no remaining formatting or security defects.
+- Formatter backend unchanged; prior 119 passing backend checks retained. Incoming backend code
+  preserved exactly; upstream finger-count checkpoint records 171 passing tests, not rerun here.
 
 TEST RESULTS
 - RED browser reproduction: 4 failures confirmed raw decimals and inconsistent range dash.
@@ -49,11 +56,19 @@ TEST RESULTS
   new formatter and public fixture: zero errors/warnings. No lint autofixes.
 - Logs under frontend/node_modules/.tmp/bv-spoilage-format-*.
 - Earlier ICM usage-limit failure resolved by successful final save.
+- Post-integration typecheck PASS; build PASS (Vite 31.43s); lint 36 errors/5 warnings,
+  matching the incoming main baseline. Source matches origin/main, with no new diagnostics.
+- First integration run: 3 ISO-day unit cases passed; 82 browser cases failed at suite setup
+  because sandboxed Edge could not initialize its temporary profile. Approved rerun outside
+  sandbox: 82 passed/0 failed/0 skipped (146.98s), no application changes.
+- Rechecked Scan Records, Kiosk, Dashboard and layout after incoming code changes. Prior
+  formatter/persistence/public-QR results retained; no unnecessary reruns of unchanged suites.
+- Post-merge logs: frontend/node_modules/.tmp/bv-spoilage-sync-*.
 
 CONSTRAINTS
 - main only; preserve UI/Manila time/model weights/real records; no new schema attributes.
 - Isolated mocks/disposable DBs only. Commit/integrate/push authorized; no deployment/history rewrite.
 
 EXACT RESUME HERE
-- Commit task verification docs, integrate fetched origin/main, preserve incoming checkpoint in history.
-- Verify affected incoming changes without rerunning the completed security scan, then push main.
+- Finish merge commit, push main without force, confirm HEAD = origin/main = remote main.
+- Do not repeat completed tests/security review; no schema/model/production changes pending.

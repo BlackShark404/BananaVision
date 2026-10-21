@@ -23,7 +23,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
-import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, Wind, QrCode, X, Edit, Flag, Calendar, RefreshCw, Loader2 } from "lucide-react"
+import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, Wind, QrCode, X, Edit, Flag, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { getImageUrl } from "@/lib/utils"
 import { api } from "@/lib/api"
@@ -34,7 +34,7 @@ import { Label } from "@/components/ui/label"
 import { scanLogParams, VALID_PAGE_SIZES } from "@/lib/scanLogFilters"
 import { useDashboardResource } from "@/hooks/useDashboardResource"
 import type { ScanLogRow, ScanLogParams } from "@/types/scanLogs"
-import { Input } from "@/components/ui/input"
+import { AppDateFilter } from "@/components/AppDateFilter"
 import { Badge } from "@/components/ui/badge"
 import { generateQRCodeDataUrl } from "@/lib/qrcode"
 import { ScanLabelPrint } from "@/components/ScanLabelPrint"
@@ -462,11 +462,6 @@ const columns: ColumnDef<LogScan>[] = [
         }
       />
 
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" role="status" aria-live="polite">
-        <span>{resource.error ? response ? "Stale Data" : "Unavailable" : resource.loading ? "Loading…" : "Updated"}</span>
-        {response && <span>Snapshot {new Date(response.generated_at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila" })} · Asia/Manila</span>}
-        <Button variant="ghost" size="sm" onClick={() => void refreshSnapshot()} disabled={resource.loading}><RefreshCw className={`size-3.5 ${resource.loading ? "animate-spin" : ""}`} /> {resource.loading ? "Refreshing…" : "Refresh"}</Button>
-      </div>
       {resource.isPreviousData && <p role="status" className="text-sm text-muted-foreground">Showing results for the previous selection. {resource.loading ? "Updating records…" : "Retry to load the selected filters."}</p>}
       {resource.error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
         <strong>{response ? "Scan Logs refresh failed. Showing the last successful results." : "Scan Logs unavailable."}</strong> {resource.error}
@@ -579,9 +574,8 @@ const columns: ColumnDef<LogScan>[] = [
           </SelectContent>
         </Select>
         <div className="flex w-full sm:w-auto items-center gap-1">
-          <label htmlFor="scan-date" className="sr-only">Scan date</label>
-          <Input id="scan-date" type="date" value={dateFilter} onChange={event => updateFilters({ date: event.target.value })}
-            className="w-full sm:w-44 h-10" title="Filter by calendar date in Asia/Manila" />
+          <AppDateFilter value={dateFilter} onChange={value => updateFilters({ date: value || undefined })}
+            label="Scan date" title="Filter by calendar date in Asia/Manila" className="w-full sm:w-44" />
           {dateFilter && <Button type="button" variant="ghost" size="icon" aria-label="Clear scan date" title="All dates" onClick={() => updateFilters({ date: undefined })}><X className="size-4" /></Button>}
         </div>
       </AppTableFilters>

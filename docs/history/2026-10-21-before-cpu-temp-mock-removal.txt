@@ -1,0 +1,23 @@
+CURRENT RESUME HERE (2026-10-20) - LOGIN TEMPORARY CREDENTIAL MESSAGING UPDATED
+
+GIT STATE
+- main at 710c6d8.
+- Untracked files preserved: frontend/tests/layout.fixture.tsx, frontend/tests/layout.test.mjs.
+- Prior checkpoint archived in docs/history/2026-10-20-before-temporary-password-login-update.txt.
+
+DONE
+- Updated Login page (frontend/src/pages/Login.tsx) footer notice from "Temporary password for new or reset accounts is banana123" to "Temporary credentials for new or reset accounts are provided by your administrator.", matching UserManagement's unique temporary credential generation and secure administrator handoff.
+- Synchronized workflow documentation in docs/bananavision-docs/docs/workflows/REVISED_PROGRAM_WORKFLOWS.md to replace obsolete static credentials (banana123 / 1234) with unique temporary credential generation and administrator handoff.
+
+VERIFICATION
+- npm run typecheck: PASS (tsc --noEmit clean).
+- npm run build: PASS (tsc -b + Vite production bundle clean).
+- npm run lint: PASS on Login.tsx (unchanged baseline of 42 problems across unrelated files).
+- Git diff / commit verified: scoped strictly to Login.tsx and REVISED_PROGRAM_WORKFLOWS.md.
+
+CONSTRAINTS
+- main branch only; do not stage or discard untracked files without authorization.
+- Preserve existing authentication architecture and credential security handoff.
+
+EXACT NEXT STEP
+- Inform user of verified updates. No pending implementation.

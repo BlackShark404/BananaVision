@@ -35,8 +35,8 @@ Administrators log in with username/password and get access to the full admin da
 
 Key behavior:
 
-- New users are created with temporary password `banana123`; operators also receive PIN `1234`.
-- Password resets return to `banana123`; kiosk PIN resets return to `1234`.
+- New users are created with unique temporary credentials displayed once for handoff; operators also receive a temporary PIN.
+- Password resets issue a unique temporary password; kiosk PIN resets issue a unique temporary PIN.
 - Quality Control focuses on flagged or low-confidence scans, with scan review, edit, and notes support.
 - System Config covers camera IDs, confidence threshold, data retention, and restart/shutdown actions.
 
@@ -75,7 +75,7 @@ Output data includes:
 ## Accuracy Notes
 
 - Operator scan logs are not global; they are limited to the current operator.
-- The admin password reset default is `banana123`, while the kiosk PIN reset default is `1234`.
+- Temporary credentials for account creation and credential resets are generated uniquely and handed off securely by administrators.
 - `.gitignore` already ignores `node_modules`, `dist`, and related build outputs.
 
 _Document generated for BananaVision Capstone Project_  

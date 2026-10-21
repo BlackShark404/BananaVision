@@ -1,0 +1,46 @@
+CURRENT RESUME HERE (2026-10-21) - KIOSK FINGER-COUNT INFLATION FIXED
+
+REQUEST / VERIFIED ROOT CAUSE
+- User reported displayed 21, with Top 7 / Left 9 / Right 10 / Rear 13; physical bunch ~15.
+- Isolated regression reproduced 21 from Rear anchor 13 + four presumed peripheral fingers
+  on each side. Image position did not establish unique cross-view fingers.
+
+IMPLEMENTED
+- Fusion uses the largest reported count from unique camera IDs, without peripheral additions.
+  This example now returns estimated 13; it does not infer the unseen physical total of ~15.
+- Different positive per-camera counts trigger the existing review flag. Empty/missing-view,
+  classification conflict, and confidence checks retain their prior behavior.
+- Removed additive helper code; retained the legacy multi_camera_finger_fusion setting for
+  configuration compatibility with a comment documenting that it no longer adds counts.
+- No UI layout, API/schema, model weights, per-camera detection or historical-record changes.
+- Updated regression expectations for the replaced heuristic and added reported-count coverage,
+  API/detail/persistence/event coverage, and Kiosk estimated-count/review assertions.
+
+VERIFICATION
+- RED: six reported-count scenarios failed before the fix, including exact 21 vs expected 13.
+- Final isolated backend run: 171 passed (classification_fusion, scan_trigger,
+  top_view_inference, detection_sensitivity, time_and_writes). In-memory SQLite and synthetic
+  detections; fresh temporary cwd excludes station .env; hardware/model/print operations mocked.
+- Kiosk browser suite: 17/17 passed with mocked API/cameras. Uses existing Playwright module
+  via PLAYWRIGHT_MODULE; no packages or runtime configuration changed.
+- npm run typecheck / npm run build: passed.
+- npm run lint: existing 36 errors / 5 warnings. Changed browser test ESLint clean.
+- Ruff backend/app backend/tests: 640 findings. Scoped comparison against HEAD:
+  config 2 -> 2, fusion 1 -> 0, fusion tests 8 -> 8, trigger tests 0 -> 0; no new diagnostics.
+  Ruff ran from /tmp/bv-count-uv-cache, without changing production dependencies.
+- Logs: /tmp/bv-count-{red,backend,kiosk,typecheck,build,lint,ruff}.log.
+- Scoped diff reviewed; git diff --check passed.
+- No live station, camera, model-accuracy, or PostgreSQL verification; no deployment.
+
+KNOWLEDGE / GIT
+- Updated docs/knowledge/Development Decisions.md and Testing and Validation.md with the
+  verified policy, superseded heuristic, testing results and physical-count limitation.
+- No existing graphify-out/graph.json; no graph initialization performed. Project ICM MCP
+  tools unavailable this session; no memory write claimed.
+- Previous checkpoint archived: docs/history/2026-10-21-before-finger-count-fix.txt.
+- Existing main branch; no staging, commit, push, deployment or unrelated changes performed.
+
+EXACT NEXT STEP
+- Implementation and isolated verification complete. User can review the change.
+- Exact physical counting remains unverified: use confirmed counts/correction workflow for
+  occluded fingers. Do not claim the estimate recovers all ~15 fingers from these four counts.

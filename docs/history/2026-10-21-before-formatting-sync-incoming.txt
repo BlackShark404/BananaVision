@@ -1,0 +1,39 @@
+CURRENT RESUME HERE (2026-10-21) - LOGS / ACTIVITY DOCUMENT SCROLL FIX VERIFIED
+
+GIT STATE
+- Existing main at ad4d825; clean checkout at resumption. Earlier finger-count and ScanDetail
+  work already present; preserved without modification.
+- Changes are unstaged/uncommitted. No staging, commit, push or deployment authorized.
+- Previous checkpoint archived in docs/history/2026-10-21-before-page-scroll-fix.txt.
+
+ROOT CAUSE / FIX
+- PaginationEllipsis contained an absolutely positioned sr-only "More pages" label without
+  a local positioned ancestor. The label escaped the app scroll area and extended document
+  height to 1487px on a 650px-high Activity Log viewport, creating outer scrolling/blank space.
+- Added relative positioning to the ellipsis container. Existing layouts, typography, row
+  counts, sidebar, and main/table scrolling are preserved; no global overflow lock added.
+- Corrected the layout regression to require horizontal scrolling only when a table overflows.
+- Documented the verified reusable fix in docs/knowledge/Resolved Bugs.md.
+
+VERIFICATION
+- tests/layout.test.mjs: all 6 cases failed before the fix; all 6 pass afterward (9.81s).
+  Logs and Activity Log at 1280x650, 1024x600 and 390x700: document stays within viewport,
+  main content/table scroll independently, pagination remains reachable, sidebar stays fixed.
+- tests/scanrecords.test.mjs + tests/adminloading.test.mjs: 53 passed, 0 failed, 0 skipped (51.30s).
+- npm run typecheck: PASS.
+- npm run build: PASS (tsc -b + Vite).
+- npm run lint: 41 existing problems (36 errors / 5 warnings); diagnostics exactly match
+  the previous verified baseline /tmp/bv-count-lint.log. No new lint findings.
+- git diff --check: PASS; scoped source/test/doc diff reviewed.
+- Browser fixtures use mocked APIs; no live database, captures, cameras or OS power accessed.
+- Backend tests not rerun: this is a CSS-only UI fix with no backend/API changes.
+- Test logs: /tmp/bv-scroll-{red,green,regressions,lint}.log.
+
+KNOWLEDGE / LIMITATIONS
+- graphify update . attempted; executable and graph remain absent in this checkout.
+- No project ICM tools available; no memory recall/write claimed. No installation/config changes.
+- Obsidian resolved-bug note updated; no live station verification performed.
+
+EXACT NEXT STEP
+- User can refresh Logs / Activity Log and review scrolling on the MacBook screen.
+- No further implementation pending for this bug; no Git publication performed.

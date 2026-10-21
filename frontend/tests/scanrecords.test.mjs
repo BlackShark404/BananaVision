@@ -80,7 +80,7 @@ async function setup(t, status = 200, options = {}) {
   return { page, state }
 }
 
-test('Logs show only the readable range and use risk snapshot membership through filtering, sort, page and refresh', async t => {
+test('Logs show only the readable range and use risk snapshot membership through filtering, sort, page and automatic refresh', async t => {
   const records = [
     { ...scan(), id, spoilage_days: '3-6', remaining_days: 1.5, at_risk: true },
     { ...scan(), id: id.replace(/1$/, '2'), spoilage_days: '2.00001', remaining_days: 2, at_risk: false },
@@ -118,10 +118,13 @@ test('Logs show only the readable range and use risk snapshot membership through
   await table.getByRole('columnheader', { name: 'Est. Spoilage' }).click()
   await until(() => queries.at(-1).sort === 'spoilage_days')
   assert.equal(queries.at(-1).attention, 'at-risk')
+  await until(async () => await page.getByRole('button', { name: 'Export CSV' }).isEnabled())
+  assert.equal(await page.getByRole('button', { name: 'Refresh', exact: true }).count(), 0)
+  const retainedSnapshot = snapshotId
   const before = queries.length
-  await page.getByRole('button', { name: 'Refresh', exact: true }).click()
+  await page.clock.runFor(31_000)
   await until(() => queries.length > before)
-  assert.equal(queries.at(-1).snapshot_id, undefined)
+  assert.equal(queries.at(-1).snapshot_id, retainedSnapshot)
   assert.equal(queries.at(-1).attention, 'at-risk')
   await table.getByText('3–6 days', { exact: true }).waitFor()
   assert.equal(await table.getByRole('img', { name: 'At-risk scan', exact: true }).count(), 1)

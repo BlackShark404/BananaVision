@@ -188,12 +188,23 @@ test('normal scan can retry its existing offline print job and flag the persiste
 })
 
 test('a live scan requiring review makes the flag visible to the operator', async t => {
-  const { page, state } = await setup(t, { flagged: true })
+  const counts = [7, 9, 10, 13]
+  const detections = ['Top', 'Left', 'Right', 'Rear'].map((camera_label, index) => ({
+    camera_id: `CAM-00${index + 1}`, camera_label, detected_cultivar: 'Lakatan',
+    detected_ripeness: 'Ripe', confidence: 95, finger_count: counts[index],
+    bounding_boxes: [], inference_time_ms: 1,
+  }))
+  const { page, state } = await setup(t, { flagged: true,
+    scanOverrides: { finger_count: 13, detections },
+  })
   await page.getByRole('button', { name: 'Select Source', exact: false }).click()
   await page.getByText('Fixture Supplier', { exact: true }).click()
   await page.getByRole('button', { name: /Start.*Intake/i }).click()
   await page.getByRole('button', { name: 'Scan Now', exact: true }).click()
   await page.getByText('Scan Complete - Review Needed', { exact: true }).waitFor()
+  assert.equal(await page.getByText('Est. Fingers', { exact: true }).locator('..').locator('p').last().innerText(), '13')
+  await page.getByText('13 fingers', { exact: true }).waitFor()
+  assert.deepEqual(state.scans[0].detections.map(view => view.finger_count), counts)
   assert.equal(writesTo(state, '/trigger').length, 1)
 })
 
@@ -233,3 +244,48 @@ for (const mode of ['ai', 'cultivar_override', 'count_override']) {
     assert.equal(writesTo(state, '/trigger').length, 1)
   })
 }
+
+test('kiosk detection lightbox modal separates the Hide Boxes button from the close icon without overlap', async t => {
+  const images = [{ camera_id: 'CAM-001', file_path: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"></svg>' }]
+  const detections = [{
+    camera_id: 'CAM-001', camera_label: 'Top',
+    bounding_boxes: [{ x: 10, y: 10, w: 50, h: 50, cls: 'lakatan', conf: 0.9 }],
+    finger_count: 1,
+  }]
+  const { page } = await setup(t, { scanOverrides: { images, detections } })
+  await page.getByRole('button', { name: 'Select Source', exact: false }).click()
+  await page.getByText('Fixture Supplier', { exact: true }).click()
+  await page.getByRole('button', { name: /Start.*Intake/i }).click()
+  await page.getByRole('button', { name: 'Scan Now', exact: true }).click()
+  await page.getByText('Scan Complete', { exact: true }).waitFor()
+
+  const thumbnail = page.getByRole('button', { name: /CAM-001 detection/i })
+  await thumbnail.click()
+
+  const dialog = page.getByRole('dialog')
+  await dialog.waitFor({ state: 'visible' })
+
+  const hideBoxesBtn = dialog.getByRole('button', { name: /Hide.*Boxes/i })
+  const closeBtn = dialog.getByRole('button', { name: 'Close', exact: true })
+
+  await hideBoxesBtn.waitFor({ state: 'visible' })
+  await closeBtn.waitFor({ state: 'visible' })
+
+  const hideBoxesBox = await hideBoxesBtn.boundingBox()
+  const closeBox = await closeBtn.boundingBox()
+
+  assert.ok(hideBoxesBox, 'Hide Boxes button must have a bounding box')
+  assert.ok(closeBox, 'Close button must have a bounding box')
+
+  assert.ok(
+    hideBoxesBox.x + hideBoxesBox.width <= closeBox.x - 10,
+    `Hide Boxes right edge (${hideBoxesBox.x + hideBoxesBox.width}) must be at least 10px to the left of close icon (${closeBox.x})`
+  )
+
+  await hideBoxesBtn.click()
+  const showBoxesBtn = dialog.getByRole('button', { name: /Show.*Boxes/i })
+  await showBoxesBtn.waitFor({ state: 'visible' })
+
+  await closeBtn.click()
+  await dialog.waitFor({ state: 'hidden' })
+})
