@@ -2,6 +2,13 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-10-21: Extra document scrolling on Logs and Activity Log
+
+- **Issue**: On short screens, the whole application could scroll away, exposing blank space below the sidebar in addition to the main content scrollbar.
+- **Root cause**: `PaginationEllipsis` contained an absolutely positioned `sr-only` label without a positioned ancestor inside the scroll area. Its position below the table extended the document height (1,487px in a 650px viewport), despite the app shell's `overflow-hidden`.
+- **Fix**: Added `relative` to the ellipsis container so its hidden label stays inside the pagination control. No global overflow lock, page layout or row-count change was needed.
+- **Verification**: All six `tests/layout.test.mjs` cases failed before the fix and pass afterward, covering Logs and Activity Log at 1280×650, 1024×600 and 390×700. Tests confirm document bounds, independent main/table scrolling, reachable pagination and stationary desktop sidebar. See [[Frontend]] and [[Testing and Validation]].
+
 ## 2026-10-16: Loading States & Frontend Robustness Audit
 
 ### 1. Analytics KPI Refresh Failure Stale Values

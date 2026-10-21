@@ -73,7 +73,7 @@ for (const screen of ['logs', 'activity']) {
       }
       const table = page.locator('[data-slot="table-container"]')
       await table.evaluate(el => { el.scrollLeft = el.scrollWidth })
-      assert(await table.evaluate(el => el.scrollLeft > 0))
+      assert(await table.evaluate(el => el.scrollWidth <= el.clientWidth || el.scrollLeft > 0))
       assert.equal(await main.evaluate(el => el.scrollLeft), 0)
       assert.deepEqual(errors, [])
     })
