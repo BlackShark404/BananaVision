@@ -1,0 +1,27 @@
+CURRENT RESUME HERE (2026-10-21) - KIOSK DETECTION LIGHTBOX MODAL OVERLAP FIX
+
+SCOPE & ROOT CAUSE
+- In frontend/src/pages/Kiosk.tsx, the YOLO Detection Lightbox Modal DialogHeader lacked
+  sufficient right padding (used p-4) while the DialogContent close button rendered at
+  absolute top-2 right-2.
+- The "Hide Boxes" / "Show Boxes" button was pushed to the far right by justify-between,
+  causing a ~20px physical overlap directly underneath the close icon button.
+- Solution:
+  1. Updated DialogHeader to include pr-14 (56px right padding), ensuring a clean ~20px gap
+     between the Hide Boxes button and the close icon.
+  2. Styled the Hide/Show Boxes control with an Eye/EyeOff icon, subtle border, and
+     proper shrink-0 / min-w-0 layout to prevent squishing or accidental mis-clicks.
+  3. Added a regression test in frontend/tests/kiosk.test.mjs asserting bounding box separation
+     (at least 10px clear separation), toggle functionality, and modal close behavior.
+
+VERIFICATION
+- Browser regression tests: frontend/tests/kiosk.test.mjs passed 17/17 (including modal overlap test).
+- npm run typecheck: passed (0 errors).
+- npm run build: passed.
+- Scoped ESLint check: passed (0 new errors; pre-existing warnings in file unchanged).
+- Visual verification: Captured and inspected screenshot; confirmed clear layout, no overlap, and clean spacing.
+- git diff --check: clean (0 whitespace/formatting issues).
+
+CONSTRAINTS / NEXT STEP
+- Stay on main branch; no automated commit, push, or deployment without authorization.
+- Ready for user review or further instructions.

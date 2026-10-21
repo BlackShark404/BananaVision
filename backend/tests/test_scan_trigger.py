@@ -104,6 +104,65 @@ def test_trigger_returns_saved_four_camera_result_and_queues_one_label(scan_stat
         assert serialize_scan(saved, response_user).id == saved.id
 
 
+def test_four_camera_count_estimate_is_persisted_and_broadcast_without_additions(
+    scan_station, monkeypatch,
+):
+    from app.services.classification import ClassificationResult, Detection
+    from app.services.fusion_engine import FusionEngine
+
+    app, submit = scan_station
+    counts = [7, 9, 10, 13]
+    app.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id=app.ids.operator, full_name="Fixture Operator", role=SimpleNamespace(name="Operator"),
+        operator_profile=SimpleNamespace(id=app.ids.profile),
+    )
+    predictions = iter([
+        ClassificationResult(
+            cultivar="Lakatan", ripeness="Ripe", confidence=98, finger_count=count,
+            detections=[Detection(i * 30, 0, 20, 80, "lakatan_ripe", 0.98)
+                        for i in range(count)],
+        )
+        for count in counts
+    ])
+    monkeypatch.setattr(scan_service, "banana_classifier", SimpleNamespace(
+        predict=lambda _, **kwargs: next(predictions),
+    ))
+    monkeypatch.setattr(scan_service, "fusion_engine", FusionEngine())
+    completed = []
+
+    async def capture_event(_room, event, data, **_kwargs):
+        if event == "scan:completed":
+            completed.append(data)
+
+    monkeypatch.setattr(scan_service.ws_manager, "send_to_room", capture_event)
+    response = app.client.post("/api/v1/scans/trigger", json={
+        "intake_id": str(app.ids.intake),
+    })
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["finger_count"] == 13
+    assert data["flagged"] is True
+    assert completed and all(event["finger_count"] == 13 for event in completed)
+    assert all([view["finger_count"] for view in event["detections"]] == counts
+               for event in completed)
+    detail = app.client.get(f"/api/v1/scans/{data['id']}")
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["finger_count"] == 13
+    assert {view["camera_label"]: view["finger_count"]
+            for view in detail.json()["detections"]} == {
+        "Top": 7, "Left": 9, "Right": 10, "Rear": 13,
+    }
+    assert submit.call_count == 1
+    with Session(app.engine) as db:
+        saved = db.get(Scan, UUID(data["id"]))
+        assert saved.classification.finger_count == 13
+        assert saved.original_ai_result.finger_count == 13
+        assert saved.flagged is True
+        assert {view.camera_label: view.finger_count for view in saved.detections} == {
+            "Top": 7, "Left": 9, "Right": 10, "Rear": 13,
+        }
+
+
 def test_missing_requested_intake_does_not_create_unlinked_scan_or_label(scan_station):
     app, submit = scan_station
     app.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(

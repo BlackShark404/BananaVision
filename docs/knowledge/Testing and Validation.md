@@ -275,3 +275,11 @@ See [[Development Decisions]] for the implemented conflict/count safeguards.
 - [[Resolved Bugs]] — Confirmed defect root causes and regression test references.
 - [[Home]] — Knowledge base index.
 - [2026-10-17 loading recheck](../audits/2026-10-17-loading-recheck.md) — current verification results, baseline failures and coverage limits.
+
+## Finger-count inflation regression (2026-10-21)
+
+- Synthetic Top/Left/Right/Rear counts 7/9/10/13 reproduced the previous fused 21. Regression cases now require an estimate of 13, review on positive-count disagreement, original per-camera counts, and unchanged classification confidence. Legacy fusion settings, camera labels, equal counts, duplicate boxes, and partial views are covered.
+- Backend: 171 passed across `test_classification_fusion.py`, `test_scan_trigger.py`, `test_top_view_inference.py`, `test_detection_sensitivity.py`, and `test_time_and_writes.py`. The trigger regression checks the API/detail response, committed SQLite record, original AI result, and completion event. Models, cameras, printing and events use fixtures/mocks; tests run from a fresh temporary directory without loading the station `.env`.
+- Kiosk browser: 17/17 passed, including estimated 13, review feedback and unchanged per-camera evidence. Typecheck and production build passed.
+- Frontend lint retains 36 errors / 5 warnings; backend Ruff reports 640 findings. Comparison against HEAD confirms no new diagnostics in affected backend files; the modified browser test passes scoped ESLint.
+- No station camera test, PostgreSQL run, detector retraining or physical-count accuracy validation performed. The user reports approximately 15 fingers; the fix prevents cross-view additions and does not claim to recover hidden fingers. See [[Development Decisions]].

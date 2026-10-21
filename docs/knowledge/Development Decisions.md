@@ -2,6 +2,13 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-10-21: Conservative Finger Count Across Overlapping Views
+
+- Confirmed the old peripheral-addition heuristic can turn Top 7 / Left 9 / Right 10 / Rear 13 into 21: Rear supplies 13 and each side adds four presumed unseen fingers. The user reports about 15 physically present; the per-camera counts do not prove which detections are distinct across views.
+- `FusionEngine.fuse` now uses the maximum reported count from unique camera IDs, with no peripheral additions. The example returns an **estimated 13**, not a verified physical total. Differing positive camera counts set the existing review flag; empty/missing-camera and classification checks remain in place.
+- Removed the unsupported peripheral-count helpers. `multi_camera_finger_fusion` remains accepted for configuration compatibility but cannot enable additive counting. Per-camera detections, classifier behavior, model weights, schemas, corrections, and existing stored scans are unchanged.
+- This supersedes the spatial-complementarity count policy below. It fixes artificial inflation, not detector misses or occlusion; physical confirmation is still needed when the actual bunch has more fingers than any view detects. See [[Testing and Validation]] for the isolated regressions.
+
 ## 2026-10-17: Detection Box Cropping and Duplicate Suppression Resolution
 
 - In `classification.py`: Pass-1 nested duplicate box suppression was previously miscoded as `_box_containment == 1.0`, which prevented real-world floating-point bounding boxes from being deduplicated. Implemented `_is_same_class_sub_box(det, existing)` to cleanly suppress nested sub-boxes (substantially smaller area ratio <= 0.85 and containment >= 0.80) and near-identical same-class duplicates (IoU >= 0.80), while preserving distinct neighboring fingers of equal size.
@@ -102,9 +109,9 @@ Documented architectural, technical, and operational decisions in BananaVision.
 
 ## 2026-10-17: Multi-Camera Spatial Complementarity Finger Fusion
 
-### Heuristic Multi-Tier Count Estimate (Review Required)
+### Historical Heuristic Multi-Tier Count Estimate (Superseded 2026-10-21)
 
-The counting-integrity audit above supersedes any interpretation of this heuristic as verified cross-camera identity matching. The synthetic 19-finger example demonstrates arithmetic on an assumed arrangement; it does not validate a physical total.
+The 2026-10-21 conservative-count policy replaces this implementation. The earlier counting-integrity audit already superseded any interpretation of this heuristic as verified cross-camera identity matching. The synthetic 19-finger example demonstrates arithmetic on an assumed arrangement; it does not validate a physical total.
 - **Decision**: In `backend/app/services/fusion_engine.py`, replaced the naive `max(finger_counts)` bottleneck with a multi-camera spatial complementarity model (`_fuse_finger_counts` and `_extract_novel_peripheral`), enabled via `multi_camera_finger_fusion: bool = True` in `backend/app/config.py`:
   1. **Anchor View:** Takes the Top camera view count ($N_{\text{top}}$) as the primary cluster tier.
   2. **Lateral Outer Flanks:** Inspects Left ($rel_x \le 0.35$) and Right ($rel_x \ge 0.65$) camera detections to identify novel peripheral fingers extending beyond Top's 2D perspective.
