@@ -1,0 +1,34 @@
+CHECKPOINT (2026-10-21): RFR & YOLO MODEL ALIGNMENT, NUMERICAL SPOILAGE PRESERVATION, AND KIOSK/SEED RISK CONSISTENCY VERIFIED
+
+SUMMARY
+- Trained Random Forest Regressor (RFR) 6-feature order and encodings verified against YOLO26 classes:
+  ['cultivar_encoded', 'ripeness_encoded', 'treatment_encoded', 'temperature', 'humidity', 'vpd'].
+  No model weights modified or retrained.
+- Preserved actual numerical RFR predictions in the existing spoilage_days field as unrounded decimal strings.
+  Historical range strings and rule-based fallback preserved without regression.
+  No database or API schema additions introduced (at_risk was completely removed from API/DB schema).
+- Seed and Kiosk parity verified: seed.py loads SpoilagePredictor with configured weights and uses
+  canonical create_scan_record pipeline. Demo Seeder attribution with explicit synthetic reason preserved.
+- Server-side at-risk logic: eligible active inventory with remaining spoilage life of <=2 days (including overdue)
+  contributes to at-risk stock metrics. Excludes Sold, Depleted, Spoiled, For Processing, and deleted-intake stock;
+  includes valid active unlinked stock. Row warnings in Logs consume the existing snapshot at-risk filter.
+- Verified end-to-end data consistency across Scan Logs, Scan Detail, Dashboard, Inventory, Analytics, CSV exports,
+  and QR tracking, with Manila time handling (UTC+8).
+
+VERIFIED TEST RESULTS
+- Backend disposable PG runner (tests/test_spoilage_models.py, tests/test_scan_logs.py, tests/test_seed.py, tests/test_seed_kiosk_contract.py, tests/test_setup_scripts.py):
+  119 passed / 0 failed (100% GREEN).
+- Frontend browser suites (Playwright via Website Portfolio module):
+  * tests/scanrecords.test.mjs: 36 passed / 0 failed.
+  * tests/dashboard.test.mjs & tests/kiosk.test.mjs: 27 passed / 0 failed.
+  Total: 63 passed / 0 failed (100% GREEN).
+- Frontend TypeScript check:
+  * npm run typecheck: PASS (tsc --noEmit, 0 errors).
+- Frontend production build:
+  * npm run build: PASS (tsc -b && vite build, built cleanly in 18.21s).
+- Code formatting & git checks:
+  * git diff --check: PASS (no whitespace or formatting errors).
+- Knowledge management:
+  * Graphify: updated (3844 nodes, 11688 edges, 248 communities).
+  * Obsidian: updated docs/knowledge/Frontend.md and docs/knowledge/Testing and Validation.md.
+  * ICM: memory stored under topic 'decisions-bananavision'.

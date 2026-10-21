@@ -116,7 +116,7 @@ def test_plain_estimator_without_feature_metadata_keeps_legacy_support(monkeypat
     forbid_fallback(monkeypatch, predictor)
 
     assert not predictor.uses_enhanced_features
-    assert predictor.predict("Lakatan", "Ripe", 25, 65) == "8-10"
+    assert predictor.predict("Lakatan", "Ripe", 25, 65) == "9"
 
 
 def test_estimator_inference_failure_keeps_existing_rule_based_fallback(
@@ -178,4 +178,21 @@ def test_reload_missing_model_clears_previous_bundle_metadata(monkeypatch, tmp_p
 
     assert predictor._model is None
     assert not predictor.uses_enhanced_features
+    assert predictor.predict("Lakatan", "Ripe", 25, 65) == "2-4"
+
+
+@pytest.mark.parametrize("point", [0, 1, 1.9999, 2, 2.00001, 5.123456789012345, 0.0000001])
+def test_predict_returns_model_number_in_existing_spoilage_field(monkeypatch, tmp_path, point):
+    predictor = load_artifact(monkeypatch, tmp_path, RecordingRegressor())
+    monkeypatch.setattr(predictor._model, "predict", lambda _: np.array([point]))
+    result = predictor.predict("Lakatan", "Ripe", 25, 65)
+    assert float(result) == point
+    assert len(result) <= 20
+    assert "e" not in result.lower()  # Existing DB scalar parser accepts decimal notation.
+
+
+@pytest.mark.parametrize("point", [float("nan"), float("inf"), -1])
+def test_invalid_model_number_uses_existing_fallback(monkeypatch, tmp_path, point):
+    predictor = load_artifact(monkeypatch, tmp_path, RecordingRegressor())
+    monkeypatch.setattr(predictor._model, "predict", lambda _: np.array([point]))
     assert predictor.predict("Lakatan", "Ripe", 25, 65) == "2-4"

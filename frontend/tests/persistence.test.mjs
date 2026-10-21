@@ -171,6 +171,9 @@ test("inventory uses authoritative eligibility and aged remaining life including
   await page.getByText(/2 hands have unknown remaining shelf life/).waitFor()
   assert.equal(await page.getByText("All stock is fresh", { exact: true }).count(), 0)
   await page.getByText("Overdue", { exact: true }).first().waitFor()
+  await page.getByText("1–2 days left", { exact: true }).first().waitFor()
+  // Scope to the rendered product; the fixture's provider probe retains raw state.
+  assert.doesNotMatch(await page.locator('main').innerText(), /1\.25/)
 })
 
 test("late intake read cannot undo a confirmed bulk update", async t => {

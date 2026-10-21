@@ -22,6 +22,53 @@ and failure propagation; CLI tests verify that unexpected exceptions are not swa
 See [the seed audit](../audits/2026-10-19-seed-compatibility.md) and
 [backend setup guidance](../../backend/README.md) for scope and limitations.
 
+## Spoilage display and at-risk consistency — 2026-10-20
+
+- `test_scan_logs.py` verifies raw boundaries (1.9999, 2, 2.00001), zero/overdue,
+  overlapping ranges, missing/invalid estimates, stock status/provenance, Dashboard
+  parity, sorted pagination, snapshot/refresh consistency and full CSV membership.
+  The value 2.00001 rounds to 2 in the API's display estimate but remains **not at risk**.
+- `test_seed_kiosk_contract.py` compares each generated/demo and mocked Kiosk record's
+  risk-filter membership with the canonical detail remaining estimate and stock eligibility.
+- Backend selected suites: 56 passed (17.04s); snapshot/predictor/legacy-snapshot
+  follow-up: 28 passed (6.43s), including one repeated legacy case after its assertion
+  was extended. Total distinct cases: **83**, no skips. Disposable PostgreSQL and
+  isolated SQLite only; model tests use disposable synthetic artifacts.
+- `node --test --test-concurrency=1 tests/scanrecords.test.mjs tests/dashboard.test.mjs
+  tests/analytics.test.mjs tests/scanpages.test.mjs`: **71 passed**, no failures/skips
+  (113.68s). New browser coverage verifies single-value cells, server-driven warning,
+  KPI filtering, page reset, sorting and refresh. Mocked screenshot reviewed.
+- `npm run typecheck` and `npm run build` passed (Vite 18.82s). Configured ESLint:
+  37 errors/5 warnings; Ruff: 645 errors. Changed-file diagnostic comparisons match
+  HEAD exactly (no new lint debt). Logs: ignored `frontend/node_modules/.tmp/bv-spoilage-*`.
+- Focused access/snapshot/export review: existing account/role/filter bindings,
+  expiry, CSV escaping and stock policy remain intact. Current response schemas have
+  no `at_risk` field; warnings use membership in the existing snapshot risk filter.
+  No DB migration, hardware access, model change or historical backfill.
+
+## Numeric spoilage display formatting — 2026-10-21
+
+- Root cause: Kiosk and other consumers interpolated `spoilage_days` directly after
+  the predictor began preserving the full-precision model mean. Shared display-only
+  whole-day formatting now handles numeric predictions, historical ranges, units,
+  unknowns and zero. Sorting, risk predicates, API fields and saved values are unchanged.
+- New browser reproductions failed before the fix (4 cases). Final affected coverage:
+  **109 distinct cases passed**, including 29 formatter cases and 80 browser cases in
+  `scanrecords`, `kiosk`, `persistence` and `public-scan`. The main run was 107 passed/2
+  failed (136.90s); both failures were corrected assertions and passed focused reruns:
+  the preview now says `3 days`, and the Inventory check must exclude the fixture's
+  raw-state probe. No product change was needed for those assertion repairs.
+- Browser coverage checks readable Kiosk result/recent cards, Logs, Details/history,
+  QC, Inventory and unauthenticated QR tracking; unrelated corrections omit
+  `spoilage_days` from writes. Risk warnings use snapshot membership without an
+  `at_risk` response field and survive sorting, page changes, KPI filtering and refresh.
+- TypeScript and production build pass (Vite 31.53s). Configured ESLint still reports
+  37 errors/5 warnings; changed-file diagnostics match HEAD, and new TypeScript files
+  have no diagnostics. Logs: ignored `frontend/node_modules/.tmp/bv-spoilage-format-*`.
+- Backend/model/schema code was not changed. Prior checkpoint's 119 passing isolated
+  backend tests remain applicable; they were not repeated for this display-only fix.
+  No live data, physical hardware, model weights or historical predictions were changed.
+
 ## Testing Philosophy & Safety Rules
 
 As mandated by `AGENTS.md` and `docs/development-workflow.md`:

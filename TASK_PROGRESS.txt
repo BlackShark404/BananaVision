@@ -1,43 +1,41 @@
-RESUME HERE (2026-10-21) - DASHBOARD / SCAN LOGS REFRESH UI REMOVED
+CURRENT RESUME HERE (2026-10-21) - MERGE CONFLICT RESOLUTION
 
-CURRENT TASK
-- Removed Dashboard's header Refresh button, its exclusive refreshAll wrapper and unused icons.
-- Removed Scan Logs' Updated / Snapshot time / Asia/Manila status row and Refresh button,
-  plus its now-unused RefreshCw icon import.
-- Preserved the shared 30-second polling and focus/online/visibility refresh paths, Dashboard
-  WebSocket/reconnect/midnight updates, Scan Logs snapshot reuse/reset/export behavior,
-  write synchronization, loading states and error Retry controls.
-- No backend, API, service, schema, hook, configuration or styling changes for this task.
-- Preserved the existing uncommitted calendar work and all unrelated files.
+MERGE SCOPE
+- Existing main branch; merging a58dccf (incoming spoilage formatting/model work).
+- Conflicts were limited to this checkpoint and frontend/src/pages/Login.tsx.
+- Login: preserve incoming explicit removal of the temporary-credentials footer;
+  authentication, password setup and form behavior remain unchanged.
+- Preserve all automatically merged changes, including the local calendar and removed
+  Dashboard / Scan Logs Refresh controls, and incoming numerical spoilage formatting.
+- Both original checkpoints are archived verbatim:
+  docs/history/2026-10-21-merge-local-checkpoint.txt
+  docs/history/2026-10-21-merge-incoming-checkpoint.txt
 
-VERIFIED
-- Frontend command (existing Playwright module supplied through PLAYWRIGHT_MODULE):
-  node --test --test-concurrency=1 tests/dashboard.test.mjs tests/scanrecords.test.mjs
-    tests/scanlogfilters.test.mjs tests/scanpages.test.mjs tests/isoday.test.mjs
-  Result: 77/78 passed; one Scan Detail note-retry test timed out waiting for HTTP 409.
-  Focused rerun with --test-name-pattern='definitively rejected explicit retry': 1/1 passed.
-  All Dashboard and Scan Logs cases passed, including live updates, polling, Manila midnight,
-  snapshot pagination/export, filter reset, expiry retry and status-write synchronization.
-- Temporary mocked-browser probe: both removed Refresh buttons absent; Scan Logs Updated and
-  Snapshot labels absent; automatic polling works on both pages; Logs reuses its snapshot token;
-  no horizontal overflow at 1365px / 390px; no uncaught browser errors.
-- npm run typecheck: passed. npm run build: passed.
-- npm run lint: 36 errors, 5 warnings (existing debt). Scoped ESLint: Dashboard 2 errors,
-  Logs 5 errors, all present before this change; verified against HEAD. No new diagnostics.
-- git diff --check: passed; scoped source diff reviewed. No backend tests run for UI-only removal.
-- Initial sandbox test attempt could not bind localhost (EPERM); rerun with approved local
-  fixture-server / Chrome access. All browser APIs were mocked; no live station resources used.
+CARRIED-FORWARD STATUS
+- Local refresh UI removal was verified with mocked browser checks, typecheck and build;
+  77/78 regressions passed initially and the one timed-out test passed on focused rerun.
+- Incoming checkpoint recorded spoilage-formatting implementation and 29 unit tests passing,
+  but left broader verification and knowledge synchronization in progress. Do not treat
+  those historical pending steps as completed solely because the merge is resolved.
+- Incoming backend model/risk/schema behavior is preserved without changes in this task.
 
-GIT / CONSTRAINTS
-- Existing main branch only. No stage, commit, push, deploy or reset performed by this agent.
-- During verification, index staging and upstream status changed externally; preserved as found.
-  Inspect current status before resuming. Existing calendar and layout files remain preserved.
-- Never test against the live station database, captures, cameras or OS power.
-- No graphify-out/graph.json exists; no graph initialized or rebuilt for this minor UI removal.
-  No significant architecture/API changes requiring Obsidian or ICM updates.
+MERGE VERIFICATION
+- npm run typecheck and npm run build: passed.
+- Selected suites: assigned, dashboard, scanrecords, spoilageDisplay and isoday.
+  Initial result: 95/97 passed. Incoming risk test still clicked the removed Refresh button;
+  adapted it to automatic polling with retained snapshot assertion; focused rerun passed 1/1.
+  The Scan Detail late-notes race test failed once; unchanged focused rerun passed 1/1.
+- Configured npm run lint: existing 36 errors / 5 warnings. Scoped Login and modified test lint passed.
+- Diff review and conflict-marker checks passed; calendar, automatic updates and removed UI retained.
+- Verification logs: /tmp/bv-merge-{tests,polling,retry,typecheck,build,lint}.log.
+- No live station resources, database, captures, physical cameras or OS power used.
+- No backend runtime tests for this conflict-only resolution; backend files auto-merged unchanged.
 
-HISTORY / NEXT STEP
-- Previous calendar checkpoint archived in docs/history/2026-10-21-before-refresh-ui-removal.txt.
-  It retains calendar details and unrelated candidate work; these are not pending scope here.
-- Requested UI removal is implemented and verified; no further implementation step required.
-  Await the user's next task or explicit Git-write authorization. Inspect current index first.
+CONSTRAINTS / NEXT STEP
+- Stay on main; preserve unrelated staged changes. No commit, push, deployment or history rewrite.
+- No graphify-out/graph.json exists; no graph initialization needed for a removed footer/checkpoint.
+- Marked conflicts resolved with a scoped git add. Subsequent external index changes unstaged
+  the full merge; preserved that state. Git reports all conflicts fixed but still merging,
+  no unmerged entries, and changes remain unstaged/untracked in the working tree.
+- Next: inspect and stage the intended merged files before committing; no commit made here.
+  Retain incoming follow-up scope above.

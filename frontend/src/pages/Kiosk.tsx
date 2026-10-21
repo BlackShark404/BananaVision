@@ -1,6 +1,7 @@
 import { scanRetryAction } from "@/lib/scanWriteFeedback"
 import { ScanImage } from "@/components/ScanImage"
 import { cultivarCameraConflict } from "@/lib/scanData"
+import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
 import { useState, useEffect, useCallback } from "react"
 import KioskOperatorSwap from "@/components/KioskOperatorSwap"
 import { useAuth } from "@/context/AuthContext"
@@ -617,7 +618,7 @@ export default function Kiosk() {
                     <CalendarClock className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Spoilage</p>
                     <p className="text-lg font-bold">
-                      {cultivarConflict ? "—" : <>{lastResult.spoilageDays} <span className="text-xs text-muted-foreground">days</span></>}
+                      {cultivarConflict ? "—" : <>{formatSpoilageDays(lastResult.spoilageDays, false)} <span className="text-xs text-muted-foreground">{spoilageDayUnit(lastResult.spoilageDays)}</span></>}
                     </p>
                   </div>
                 </div>
@@ -896,7 +897,7 @@ export default function Kiosk() {
                       </div>
                       <div className="text-right shrink-0">
                         <div className="flex flex-col items-end">
-                          <p className="text-sm font-bold text-rose-500">{scan.spoilageDays} days</p>
+                          <p className="text-sm font-bold text-rose-500">{formatSpoilageDays(scan.spoilageDays)}</p>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">{scan.fingerCount} fingers</p>
                       </div>

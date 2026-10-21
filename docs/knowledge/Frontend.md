@@ -46,6 +46,40 @@ model consumes VPD; legacy four-feature models and the rule fallback do not. Thi
 integration adds no calculation, backfill or model selection change. See the
 [VPD audit](../audits/2026-10-18-vpd-integration.md) and [[Testing and Validation]].
 
+## Spoilage display and stock risk (2026-10-20)
+
+Kiosk, Scan Logs, Scan Details, public QR tracking and Quality Control use
+`lib/spoilageDisplay.ts` for display only. New scalar predictions use whole-day bounds:
+`3.487` becomes `3–4 days`, `0.9938` becomes `1 day`, and zero stays `0 days`.
+Historical ranges retain their endpoints, with an en dash and consistent units.
+Missing/invalid estimates show `Unknown`. These readable bounds are not RFR confidence
+intervals. Scan Logs has only one spoilage value; Inventory formats its aged remaining
+life with the same helper and retains `Overdue` for negative remaining life.
+
+Raw `spoilage_days` stays intact in API responses, provider state, correction drafts,
+history and CSV. Read-only correction inputs and change previews format their labels
+without replacing draft values. Dashboard/Analytics show aggregate counts and link to
+Scan Logs; they do not render a separate per-scan spoilage estimate.
+
+The warning icon uses the server's at-risk decision, never a client parse of the
+range or a comparison against rounded display values. Without introducing new database
+or API response schema fields, row warnings consume the existing server-side at-risk
+snapshot filter (`attention: "at-risk"`) against the same frozen browse snapshot. The server
+uses the shared `dashboard._expiring` predicate across rows, KPI, filters and exports:
+eligible In Stock records with unrounded remaining days <= 2, including overdue stock.
+Sold, Spoiled, For Processing and unverifiable/depleted-intake stock are excluded. Browse
+snapshots freeze flags and counts together; Refresh captures new values.
+
+The predictor stores the unrounded RFR mean as a decimal string in the existing
+`spoilage_days` field; fallback/historical records can contain ranges. No separate raw
+prediction field is needed. The numeric remaining estimate is the scalar or valid
+historical range midpoint minus elapsed days since the stored scan timestamp. Labels
+in Kiosk/Logs/Details describe the estimate at capture, not an aged range:
+`1-4` at capture is 2.5 days and is
+not at risk, while `3-6` after three days is 1.5 days and is at risk if stock eligible.
+No model calculations, historical predictions or Manila date rules changed.
+See [[Testing and Validation]] for boundary and seed/Kiosk parity coverage.
+
 ## Quality Control camera evidence
 
 Quality Control uses the scan's recorded image/detection camera IDs and saved position

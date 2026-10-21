@@ -30,6 +30,7 @@ import {
 import { Loader2, ShieldCheck, Flag, MessageSquare, Edit, AlertTriangle, CheckCircle, Banana, ChevronsLeft, ChevronsRight, Download, Filter, Thermometer, Droplets } from "lucide-react"
 import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
+import { formatSpoilageDays } from "@/lib/spoilageDisplay"
 import { CULTIVARS, RIPENESS_LEVELS, type ScanResult, type Cultivar, type Ripeness } from "@/types"
 import { AppChangePreview } from "@/components/AppChangePreview"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -703,7 +704,7 @@ export default function QualityControl() {
                         <Input
                           id="spoilageDays"
                           type="text"
-                          value={editData.spoilageDays}
+                          value={formatSpoilageDays(editData.spoilageDays, false)}
                           readOnly
                           className="bg-muted"
                           placeholder="e.g. 2-3"
@@ -763,7 +764,7 @@ export default function QualityControl() {
                     <Card className="bg-muted/50">
                       <CardContent className="p-4">
                         <Label className="text-xs text-muted-foreground">Est. Spoilage</Label>
-                        <p className="text-lg font-bold mt-1">{selectedScan.spoilageDays} days</p>
+                        <p className="text-lg font-bold mt-1">{formatSpoilageDays(selectedScan.spoilageDays)}</p>
                       </CardContent>
                     </Card>
                     <Card className="bg-muted/50">

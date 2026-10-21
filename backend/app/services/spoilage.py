@@ -12,12 +12,13 @@ continue to work while upgraded models benefit from richer inputs.
 from __future__ import annotations
 
 import logging
+import math
+from decimal import Decimal
 from pathlib import Path
 
 import numpy as np
 
 from app.config import get_settings
-from app.core.exceptions import ModelInferenceError
 from app.schemas.enums import CultivarEnum, RipenessEnum, TreatmentEnum
 from app.services.feature_engineering import calc_vpd
 
@@ -52,7 +53,8 @@ class SpoilagePredictor:
     ``model.n_features_in_``, so both legacy and enhanced models work
     without configuration changes.
 
-    Output: predicted days until spoilage (float → formatted as range string)
+    Output: model prediction as a decimal string in the existing spoilage_days
+    field. Rule-based fallback retains its historical range representation.
     """
 
     def __init__(self):
@@ -184,7 +186,7 @@ class SpoilagePredictor:
         automatically from temperature/humidity when not explicitly provided.
 
         Returns:
-            String like "3-5" or "2" representing estimated days.
+            Unrounded model estimate as a decimal string, or a fallback range.
         """
         temp = temperature if temperature is not None else 25.0
         hum = humidity if humidity is not None else 65.0
@@ -231,21 +233,16 @@ class SpoilagePredictor:
 
             prediction = float(self._model.predict(features)[0])
 
-            # Extract empirical tree quantiles (10th and 90th percentiles)
-            if hasattr(self._model, 'estimators_'):
-                tree_preds = np.array([tree.predict(features)[0] for tree in self._model.estimators_])
-                low = max(0, round(np.percentile(tree_preds, 10)))
-                high = round(np.percentile(tree_preds, 90))
-            else:
-                # Fallback if estimators are missing
-                pred_int = max(0, round(prediction))
-                margin = max(1, round(prediction * 0.15))
-                low = max(0, pred_int - margin)
-                high = pred_int + margin
-
-            if low == high:
-                return str(low)
-            return f"{low}-{high}"
+            if not math.isfinite(prediction) or prediction < 0:
+                raise ValueError("RFR returned an invalid shelf-life estimate")
+            # Preserve the model mean, not a rounded quantile midpoint. Decimal
+            # notation is compatible with existing SQL/Python risk parsers.
+            result = format(Decimal(str(prediction)), "f")
+            if "." in result:
+                result = result.rstrip("0").rstrip(".")
+            if len(result) > 20:
+                raise ValueError("RFR estimate exceeds spoilage_days storage capacity")
+            return result
 
         except Exception as exc:
             logger.error(f"RFR inference error: {exc}")
