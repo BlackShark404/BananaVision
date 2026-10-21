@@ -1,0 +1,35 @@
+CURRENT RESUME HERE (2026-10-21) - WINDOWS CPU TEMPERATURE PATH MODERNIZED
+
+GIT STATE
+- main at 710c6d8; no commits made this session.
+- Modified: backend/app/api/v1/system.py. New: backend/tests/test_system_metrics.py.
+- Untracked files preserved: frontend/tests/layout.fixture.tsx, frontend/tests/layout.test.mjs.
+- Prior checkpoints archived: docs/history/2026-10-21-before-cpu-temp-mock-removal.txt and
+  docs/history/2026-10-21-before-windows-cim-temp-fallback.txt.
+
+DONE
+- Removed the randomized simulated CPU temperature fallback in _get_cpu_temp (backend/app/api/v1/system.py). /system/metrics now returns cpu_temp: null when no hardware sensor is accessible. DeviceStatus.tsx and lib/api.ts already type cpu_temp as number | null and render null as "N/A"; no frontend change needed.
+- Replaced the deprecated wmic.exe Windows fallback with PowerShell Get-CimInstance (works on Windows 11 24H2+ where wmic is removed): queries root/wmi MSAcpi_ThermalZoneTemperature first (centi-Kelvin, sanity window 2730-3930), then Win32_PerfFormattedData_Counters_ThermalZoneInformation (normalizes Kelvin vs centi-Kelvin via the >=500 heuristic, sanity window 0-120 °C). Output parsed with comma-decimal tolerance; empty output -> None. Timeout 4s (PowerShell startup).
+- Added backend/tests/test_system_metrics.py (5 tests): no-sensor returns None instead of simulated value; psutil reading preferred/rounded; macOS osx-cpu-temp fallback parsed; Windows CIM read via powershell argv; Windows CIM empty output -> None.
+
+VERIFICATION
+- Targeted: backend/tests/test_system_metrics.py → 5 passed (pytest via backend/venv/bin/python, fresh temp working directory).
+- Full backend suite after the CIM change: 508 passed, 97 skipped, 4 failed in 32.78s. PostgreSQL-specific tests skipped without BANANAVISION_TEST_DATABASE_URL. The 4 failures remain the pre-existing test_assigned_fixes.py::test_power_command_outcomes_are_checked (subprocess.CREATE_NO_WINDOW is Windows-only; these Windows-targeted tests cannot pass on the macOS dev host; files last touched 2026-10-16, unrelated to this change).
+- Ruff (temporary tool env ruff@0.14.3; ruff not installed in backend/venv): new/edited code lint-clean. Remaining 3 findings in system.py are pre-existing untouched lines 65, 77, 121 (E501 ×2, UP015 ×1) — existing debt (was 4 before this change; the removed wmic block carried one).
+- Git diff reviewed: scoped to system.py plus the new test file only.
+- NOT verifiable from the macOS dev host: the real PowerShell/WMI query result on station hardware. Expect real temperature only where the OEM firmware exposes a thermal zone via WMI; otherwise the endpoint correctly reports null and DeviceStatus shows "N/A". Optional probe on the Windows station:
+  powershell -NoProfile -Command "Get-CimInstance -Namespace root/wmi -ClassName MSAcpi_ThermalZoneTemperature | Select-Object -First 1 -Property CurrentTemperature"
+  powershell -NoProfile -Command "Get-CimInstance -ClassName Win32_PerfFormattedData_Counters_ThermalZoneInformation | Select-Object -First 1"
+
+CONSTRAINTS
+- main branch only; do not stage, commit, push, or discard untracked files without authorization.
+- Never test against the live station database, captures, physical cameras or OS power.
+
+PENDING CANDIDATES FROM 2026-10-21 MOCK SCAN
+- Server-side secure batch number generation (Kiosk.tsx line ~287 uses Math.random(); backend accepts any batch_number with no uniqueness).
+- Printer Task P03: QR tracking base URL configurable (qrcode.ts hardcodes window.location.origin).
+- Printer Task P04: DeliveryIntake batch label print CSS fix (300px popup image + button prints onto thermal roll).
+- ICM MCP unavailable this session (no servers configured); Obsidian docs unaffected (no note covers system metrics).
+
+EXACT NEXT STEP
+- Await user authorization to stage/commit both system.py changes, or pick the next candidate above.

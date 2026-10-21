@@ -90,6 +90,7 @@ The frontend uses Node.js native test runner (`node --test`) driving headless Ch
 | `printing.test.mjs` | Label printing queues, GDI driver recovery, Windows spooler error handling |
 | `persistence.test.mjs` & `assigned.test.mjs` | One-time admin credential setup, role-based view scoping, session persistence |
 | `scanlogfilters.test.mjs` | Unit tests for query string builders (`buildScanLogsUrl`) and filter parsing (`scanLogParams`) |
+| `isoday.test.mjs` | Unit tests for the local calendar-day helpers (`parseIsoDay`, `formatIsoDay`) behind the Logs date filter `YYYY-MM-DD` values |
 | `adminloading.test.mjs`, `loading.test.mjs`, `operationsloading.test.mjs` | First-load vs refresh/empty/error states, delayed reads after writes, read deadlines, notification account scope, operator-list recovery and sensor freshness |
 
 ### Running Frontend Tests

@@ -1,25 +1,42 @@
-CURRENT RESUME HERE (2026-10-21) - WINDOWS CPU TEMPERATURE PATH MODERNIZED
+RESUME HERE (2026-10-21) - SHADCN CALENDAR INSTALLED, NATIVE DATE INPUT REPLACED
 
 GIT STATE
-- main at 710c6d8; no commits made this session.
-- Modified: backend/app/api/v1/system.py. New: backend/tests/test_system_metrics.py.
+- main; no commits made this session. Nothing staged (shadcn CLI staged its output; index was reset back to HEAD).
+- Unstaged: frontend/package.json, frontend/package-lock.json, frontend/src/pages/Logs.tsx.
+- New: frontend/src/components/ui/calendar.tsx (shadcn CLI), frontend/src/components/AppDateFilter.tsx,
+  frontend/src/lib/isoDay.ts, frontend/tests/isoday.test.mjs.
 - Untracked files preserved: frontend/tests/layout.fixture.tsx, frontend/tests/layout.test.mjs.
-- Prior checkpoints archived: docs/history/2026-10-21-before-cpu-temp-mock-removal.txt and
-  docs/history/2026-10-21-before-windows-cim-temp-fallback.txt.
+- Prior checkpoint archived: docs/history/2026-10-21-before-shadcn-calendar.txt (CPU temperature work).
 
-DONE
-- Removed the randomized simulated CPU temperature fallback in _get_cpu_temp (backend/app/api/v1/system.py). /system/metrics now returns cpu_temp: null when no hardware sensor is accessible. DeviceStatus.tsx and lib/api.ts already type cpu_temp as number | null and render null as "N/A"; no frontend change needed.
-- Replaced the deprecated wmic.exe Windows fallback with PowerShell Get-CimInstance (works on Windows 11 24H2+ where wmic is removed): queries root/wmi MSAcpi_ThermalZoneTemperature first (centi-Kelvin, sanity window 2730-3930), then Win32_PerfFormattedData_Counters_ThermalZoneInformation (normalizes Kelvin vs centi-Kelvin via the >=500 heuristic, sanity window 0-120 °C). Output parsed with comma-decimal tolerance; empty output -> None. Timeout 4s (PowerShell startup).
-- Added backend/tests/test_system_metrics.py (5 tests): no-sensor returns None instead of simulated value; psutil reading preferred/rounded; macOS osx-cpu-temp fallback parsed; Windows CIM read via powershell argv; Windows CIM empty output -> None.
+CHANGED
+- Installed the shadcn calendar component via `shadcn add calendar` (registry style radix-nova):
+  adds react-day-picker@10.0.2 and date-fns@4.4.0 to frontend/package.json. The CLI also
+  overwrote frontend/src/components/ui/button.tsx with registry updates (styling churn beyond the
+  requested scope); that file was restored to HEAD without losing calendar compatibility.
+- New AppDateFilter (frontend/src/components/AppDateFilter.tsx): Popover + Calendar single-day
+  picker replacing the native <input type="date"> in Logs.tsx. Trigger is an outline Button with a
+  CalendarIcon, accessible name "Scan date"/"Scan date: <MMM d, yyyy>", title kept as
+  "Filter by calendar date in Asia/Manila". Selecting a day closes the popover and updates
+  the URL `date` param; the existing Clear (X) button still clears it; invalid URL values show the
+  placeholder and remain untouched. Behavior parity with the old native input: the picker grid shows
+  the viewer's local calendar days and `date` stays a plain YYYY-MM-DD string.
+- New pure helpers (frontend/src/lib/isoDay.ts): parseIsoDay (strict YYYY-MM-DD validation incl.
+  overflow rejection such as 2026-02-30) and formatIsoDay (Intl en-CA local-date formatting, no UTC
+  shift). AppDateFilter keeps form values as strings; no business timestamps were touched.
 
 VERIFICATION
-- Targeted: backend/tests/test_system_metrics.py → 5 passed (pytest via backend/venv/bin/python, fresh temp working directory).
-- Full backend suite after the CIM change: 508 passed, 97 skipped, 4 failed in 32.78s. PostgreSQL-specific tests skipped without BANANAVISION_TEST_DATABASE_URL. The 4 failures remain the pre-existing test_assigned_fixes.py::test_power_command_outcomes_are_checked (subprocess.CREATE_NO_WINDOW is Windows-only; these Windows-targeted tests cannot pass on the macOS dev host; files last touched 2026-10-16, unrelated to this change).
-- Ruff (temporary tool env ruff@0.14.3; ruff not installed in backend/venv): new/edited code lint-clean. Remaining 3 findings in system.py are pre-existing untouched lines 65, 77, 121 (E501 ×2, UP015 ×1) — existing debt (was 4 before this change; the removed wmic block carried one).
-- Git diff reviewed: scoped to system.py plus the new test file only.
-- NOT verifiable from the macOS dev host: the real PowerShell/WMI query result on station hardware. Expect real temperature only where the OEM firmware exposes a thermal zone via WMI; otherwise the endpoint correctly reports null and DeviceStatus shows "N/A". Optional probe on the Windows station:
-  powershell -NoProfile -Command "Get-CimInstance -Namespace root/wmi -ClassName MSAcpi_ThermalZoneTemperature | Select-Object -First 1 -Property CurrentTemperature"
-  powershell -NoProfile -Command "Get-CimInstance -ClassName Win32_PerfFormattedData_Counters_ThermalZoneInformation | Select-Object -First 1"
+- New unit tests: frontend/tests/isoday.test.mjs -> 3 tests; `node --test tests/isoday.test.mjs
+  tests/scanlogfilters.test.mjs` -> 10 passed (roundtrip exactness, leap day, overflow rejects).
+- Browser: `node --test tests/scanrecords.test.mjs` (mounts the real Logs page, mocked API, real
+  Chrome) -> 42/42 passed. Required PLAYWRIGHT_MODULE=$HOME/Herd/valiants-realty-platform/node_modules/playwright/index.mjs
+  (machine has no local frontend playwright install; Chromium 1223 exists in ~/Library/Caches/ms-playwright).
+- One-off Playwright probe (temp dir, not committed): pick Oct 8 -> /logs?date=2026-10-08 with
+  America/Los_Angeles timezone (proves no UTC-shift drift); reopen -> month follows selection; change
+  to Nov 2 -> date=2026-11-02; Clear removes the param; ?date=2026-01-05 pre-selects January grid;
+  bogus ?date=not-a-date does not crash and leaves the param; popover closes after selection; no page errors.
+- `npm run typecheck` clean. `npm run build` clean. `npx eslint` on changed files: all 5 remaining
+  diagnostics are pre-existing unused imports in Logs.tsx (ChevronsLeft, ChevronsRight, ScanLogParams,
+  Cultivar, Ripeness; baseline had 6 including the removed unused `Calendar` icon) - no new regressions.
 
 CONSTRAINTS
 - main branch only; do not stage, commit, push, or discard untracked files without authorization.
@@ -29,7 +46,12 @@ PENDING CANDIDATES FROM 2026-10-21 MOCK SCAN
 - Server-side secure batch number generation (Kiosk.tsx line ~287 uses Math.random(); backend accepts any batch_number with no uniqueness).
 - Printer Task P03: QR tracking base URL configurable (qrcode.ts hardcodes window.location.origin).
 - Printer Task P04: DeliveryIntake batch label print CSS fix (300px popup image + button prints onto thermal roll).
-- ICM MCP unavailable this session (no servers configured); Obsidian docs unaffected (no note covers system metrics).
+- Backend batch from earlier session (system.py CPU temp modernization + tests) still awaits
+  staging/commit authorization; see docs/history/2026-10-21-before-shadcn-calendar.txt.
+- Graphify never initialized in this repo (no graphify-out/); nothing to refresh. ICM MCP has no
+  servers configured this session. Obsidian: test-suite table row added to docs/knowledge/Testing
+  and Validation.md; no note covers the Logs date filter itself.
 
 EXACT NEXT STEP
-- Await user authorization to stage/commit both system.py changes, or pick the next candidate above.
+- Await user authorization to stage/commit the calendar change set (and optionally the earlier
+  system.py change), or pick the next candidate above.

@@ -26,8 +26,6 @@ import {
   Activity,
   ArrowRight,
   LayoutDashboard,
-  RefreshCw,
-  Loader2,
   ClipboardCheck,
   Clock
 } from "lucide-react"
@@ -146,7 +144,6 @@ function DashboardContent() {
       direction: view === "confidence" ? "asc" : undefined,
     }))
   }
-  const refreshAll = () => { void refreshMetrics(); void refreshCameras() }
   const legacyTarget = legacyScanLogsUrl(params, selectedBusinessDate)
   if (legacyTarget) return <Navigate to={legacyTarget} replace />
 
@@ -157,10 +154,6 @@ function DashboardContent() {
         title={user?.role === "Operator" ? "My Dashboard" : "Admin Dashboard"}
         description={user?.role === "Operator" ? "Performance overview and recent scans" : "High-level overview of system operations and daily metrics"}
         icon={LayoutDashboard}
-        action={<Button variant="outline" className="gap-2" onClick={refreshAll} disabled={metrics.loading || cameras.loading}>
-          {metrics.loading || cameras.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          {metrics.loading || cameras.loading ? "Refreshing…" : "Refresh"}
-        </Button>}
       />
 
       {metrics.error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
