@@ -1,57 +1,43 @@
-RESUME HERE (2026-10-21) - SHADCN CALENDAR INSTALLED, NATIVE DATE INPUT REPLACED
+RESUME HERE (2026-10-21) - DASHBOARD / SCAN LOGS REFRESH UI REMOVED
 
-GIT STATE
-- main; no commits made this session. Nothing staged (shadcn CLI staged its output; index was reset back to HEAD).
-- Unstaged: frontend/package.json, frontend/package-lock.json, frontend/src/pages/Logs.tsx.
-- New: frontend/src/components/ui/calendar.tsx (shadcn CLI), frontend/src/components/AppDateFilter.tsx,
-  frontend/src/lib/isoDay.ts, frontend/tests/isoday.test.mjs.
-- Untracked files preserved: frontend/tests/layout.fixture.tsx, frontend/tests/layout.test.mjs.
-- Prior checkpoint archived: docs/history/2026-10-21-before-shadcn-calendar.txt (CPU temperature work).
+CURRENT TASK
+- Removed Dashboard's header Refresh button, its exclusive refreshAll wrapper and unused icons.
+- Removed Scan Logs' Updated / Snapshot time / Asia/Manila status row and Refresh button,
+  plus its now-unused RefreshCw icon import.
+- Preserved the shared 30-second polling and focus/online/visibility refresh paths, Dashboard
+  WebSocket/reconnect/midnight updates, Scan Logs snapshot reuse/reset/export behavior,
+  write synchronization, loading states and error Retry controls.
+- No backend, API, service, schema, hook, configuration or styling changes for this task.
+- Preserved the existing uncommitted calendar work and all unrelated files.
 
-CHANGED
-- Installed the shadcn calendar component via `shadcn add calendar` (registry style radix-nova):
-  adds react-day-picker@10.0.2 and date-fns@4.4.0 to frontend/package.json. The CLI also
-  overwrote frontend/src/components/ui/button.tsx with registry updates (styling churn beyond the
-  requested scope); that file was restored to HEAD without losing calendar compatibility.
-- New AppDateFilter (frontend/src/components/AppDateFilter.tsx): Popover + Calendar single-day
-  picker replacing the native <input type="date"> in Logs.tsx. Trigger is an outline Button with a
-  CalendarIcon, accessible name "Scan date"/"Scan date: <MMM d, yyyy>", title kept as
-  "Filter by calendar date in Asia/Manila". Selecting a day closes the popover and updates
-  the URL `date` param; the existing Clear (X) button still clears it; invalid URL values show the
-  placeholder and remain untouched. Behavior parity with the old native input: the picker grid shows
-  the viewer's local calendar days and `date` stays a plain YYYY-MM-DD string.
-- New pure helpers (frontend/src/lib/isoDay.ts): parseIsoDay (strict YYYY-MM-DD validation incl.
-  overflow rejection such as 2026-02-30) and formatIsoDay (Intl en-CA local-date formatting, no UTC
-  shift). AppDateFilter keeps form values as strings; no business timestamps were touched.
+VERIFIED
+- Frontend command (existing Playwright module supplied through PLAYWRIGHT_MODULE):
+  node --test --test-concurrency=1 tests/dashboard.test.mjs tests/scanrecords.test.mjs
+    tests/scanlogfilters.test.mjs tests/scanpages.test.mjs tests/isoday.test.mjs
+  Result: 77/78 passed; one Scan Detail note-retry test timed out waiting for HTTP 409.
+  Focused rerun with --test-name-pattern='definitively rejected explicit retry': 1/1 passed.
+  All Dashboard and Scan Logs cases passed, including live updates, polling, Manila midnight,
+  snapshot pagination/export, filter reset, expiry retry and status-write synchronization.
+- Temporary mocked-browser probe: both removed Refresh buttons absent; Scan Logs Updated and
+  Snapshot labels absent; automatic polling works on both pages; Logs reuses its snapshot token;
+  no horizontal overflow at 1365px / 390px; no uncaught browser errors.
+- npm run typecheck: passed. npm run build: passed.
+- npm run lint: 36 errors, 5 warnings (existing debt). Scoped ESLint: Dashboard 2 errors,
+  Logs 5 errors, all present before this change; verified against HEAD. No new diagnostics.
+- git diff --check: passed; scoped source diff reviewed. No backend tests run for UI-only removal.
+- Initial sandbox test attempt could not bind localhost (EPERM); rerun with approved local
+  fixture-server / Chrome access. All browser APIs were mocked; no live station resources used.
 
-VERIFICATION
-- New unit tests: frontend/tests/isoday.test.mjs -> 3 tests; `node --test tests/isoday.test.mjs
-  tests/scanlogfilters.test.mjs` -> 10 passed (roundtrip exactness, leap day, overflow rejects).
-- Browser: `node --test tests/scanrecords.test.mjs` (mounts the real Logs page, mocked API, real
-  Chrome) -> 42/42 passed. Required PLAYWRIGHT_MODULE=$HOME/Herd/valiants-realty-platform/node_modules/playwright/index.mjs
-  (machine has no local frontend playwright install; Chromium 1223 exists in ~/Library/Caches/ms-playwright).
-- One-off Playwright probe (temp dir, not committed): pick Oct 8 -> /logs?date=2026-10-08 with
-  America/Los_Angeles timezone (proves no UTC-shift drift); reopen -> month follows selection; change
-  to Nov 2 -> date=2026-11-02; Clear removes the param; ?date=2026-01-05 pre-selects January grid;
-  bogus ?date=not-a-date does not crash and leaves the param; popover closes after selection; no page errors.
-- `npm run typecheck` clean. `npm run build` clean. `npx eslint` on changed files: all 5 remaining
-  diagnostics are pre-existing unused imports in Logs.tsx (ChevronsLeft, ChevronsRight, ScanLogParams,
-  Cultivar, Ripeness; baseline had 6 including the removed unused `Calendar` icon) - no new regressions.
+GIT / CONSTRAINTS
+- Existing main branch only. No stage, commit, push, deploy or reset performed by this agent.
+- During verification, index staging and upstream status changed externally; preserved as found.
+  Inspect current status before resuming. Existing calendar and layout files remain preserved.
+- Never test against the live station database, captures, cameras or OS power.
+- No graphify-out/graph.json exists; no graph initialized or rebuilt for this minor UI removal.
+  No significant architecture/API changes requiring Obsidian or ICM updates.
 
-CONSTRAINTS
-- main branch only; do not stage, commit, push, or discard untracked files without authorization.
-- Never test against the live station database, captures, physical cameras or OS power.
-
-PENDING CANDIDATES FROM 2026-10-21 MOCK SCAN
-- Server-side secure batch number generation (Kiosk.tsx line ~287 uses Math.random(); backend accepts any batch_number with no uniqueness).
-- Printer Task P03: QR tracking base URL configurable (qrcode.ts hardcodes window.location.origin).
-- Printer Task P04: DeliveryIntake batch label print CSS fix (300px popup image + button prints onto thermal roll).
-- Backend batch from earlier session (system.py CPU temp modernization + tests) still awaits
-  staging/commit authorization; see docs/history/2026-10-21-before-shadcn-calendar.txt.
-- Graphify never initialized in this repo (no graphify-out/); nothing to refresh. ICM MCP has no
-  servers configured this session. Obsidian: test-suite table row added to docs/knowledge/Testing
-  and Validation.md; no note covers the Logs date filter itself.
-
-EXACT NEXT STEP
-- Await user authorization to stage/commit the calendar change set (and optionally the earlier
-  system.py change), or pick the next candidate above.
+HISTORY / NEXT STEP
+- Previous calendar checkpoint archived in docs/history/2026-10-21-before-refresh-ui-removal.txt.
+  It retains calendar details and unrelated candidate work; these are not pending scope here.
+- Requested UI removal is implemented and verified; no further implementation step required.
+  Await the user's next task or explicit Git-write authorization. Inspect current index first.
