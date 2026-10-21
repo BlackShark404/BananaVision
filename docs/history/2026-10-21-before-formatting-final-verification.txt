@@ -1,0 +1,35 @@
+CURRENT RESUME HERE (2026-10-21) - SPOILAGE DISPLAY FORMATTING IN PROGRESS
+
+GIT STATE
+- main at 0465a7a; clean when this formatting task began. No Git writes authorized or performed.
+- Prior checkpoint archived: docs/history/2026-10-21-before-spoilage-formatting.txt.
+
+DONE
+- Existing numerical RFR/seed/Kiosk/risk implementation preserved; no schema additions.
+- Root cause: UI interpolates spoilage_days directly, previously supplied as a range.
+- Shared display formatter: numeric whole-day bounds, singular/plural, historical ranges,
+  zero and missing handling. Raw stored predictions and backend <=2 policy unchanged.
+- Connected Kiosk/recent scans, Logs, Details/history, QR tracking, QC/previews and Inventory.
+- Unedited correction drafts retain raw values even though their inputs show readable bounds.
+- Graphify focused query and project ICM recall completed; prior implementation verified in source.
+
+IN PROGRESS
+- Mock browser verification and numeric-preservation checks.
+
+REMAINING
+- Finish targeted/full affected frontend suites, configured lint/build, scoped review.
+- Update graph and verified documentation/memory, then final checkpoint.
+- Backend runtime/schema unchanged; reuse prior 119 passing backend checks unless new evidence warrants rerun.
+
+TEST RESULTS
+- RED browser reproduction: 4 failures confirmed raw decimals and inconsistent range dash.
+- node --test tests/spoilageDisplay.test.mjs: 29 passed, 0 failed.
+- npm run typecheck: PASS. Targeted browser run pending.
+- Logs under frontend/node_modules/.tmp/bv-spoilage-format-*.
+
+CONSTRAINTS
+- main only; preserve UI/Manila time/model weights/real records; no new schema attributes.
+- Isolated mocks/disposable DBs only. No commit/push/deploy/history rewrite.
+
+EXACT RESUME
+- Read targeted browser output, fix actual failures, finish consumer coverage and relevant verification.
