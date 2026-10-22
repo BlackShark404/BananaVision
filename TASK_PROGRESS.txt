@@ -1,14 +1,16 @@
-CURRENT RESUME HERE (2026-10-22) - CAMERA SLOT NORMALIZATION IMPLEMENTED AND VERIFIED
+CURRENT RESUME HERE (2026-10-22) - CAMERA SLOT NORMALIZATION COMMITTED; REMOTE EXPORT AUDIT MERGED
 
 GIT / SCOPE
-- Existing main at 5dcbdda. All normalization work is uncommitted and unstaged; nothing was
-  committed, pushed, deployed or applied to live data.
-- Modified backend models, configuration/archive/restore services, camera/startup/scan code,
-  seed and affected tests/docs. Untracked files that belong to the task:
-  backend/migrations/versions/0009_camera_slots.py and
-  backend/app/services/archive_schema_v3.json.
+- Normalization is committed locally as 842ad38, with checkpoint follow-up 5d4ca1b, on top of
+  5dcbdda. Remote export-audit commit 3c4fdb0 was merged; its only conflict,
+  TASK_PROGRESS.txt, was resolved in this merge. Nothing was pushed, deployed or applied to
+  live data.
+- The merge includes the remote NULL-XLSX export fix, its regression test and export docs.
+  All task files are tracked; no untracked task files remain. Unrelated stashed work was left
+  untouched.
 - Prior export checkpoint archived as
-  docs/history/2026-10-22-before-camera-slot-normalization.txt.
+  docs/history/2026-10-22-before-camera-slot-normalization.txt; the remote audit checkpoint
+  is docs/history/2026-10-22-before-export-audit.txt.
 
 IMPLEMENTED
 - Saved camera mappings now live only in device.slot_index and device.device_index, one row
@@ -31,33 +33,37 @@ IMPLEMENTED
 - Configuration updates preserve slot UUIDs by position, adopt unassigned rows when safe,
   delete only colliding unassigned duplicates, and still reject invalid/stale revisions.
 
-VERIFICATION
-- Targeted configuration/archive/migration suites: 64 passed, 2 skipped.
-- Migration regression: the legacy SQLite fixture now asserts ix_device_camera_id is
-  unique after upgrade and that inserting a duplicate camera_id raises IntegrityError.
+VERIFICATION (post-merge)
+- Targeted export/scan-log/configuration/archive/migration suites: 97 passed, 2 skipped,
+  1 warning in 6.02s.
+- Migration regression: the legacy SQLite fixture asserts ix_device_camera_id is unique
+  after upgrade and that inserting a duplicate camera_id raises IntegrityError.
 - Full backend suite from a fresh temporary cwd (documented isolation, so the station
-  .env is not loaded): 540 passed, 99 skipped, 1 warning in 32.16s. The only 4 failures
+  .env is not loaded): 541 passed, 99 skipped, 1 warning in 39.95s. The only 4 failures
   are pre-existing macOS power-command tests referencing subprocess.CREATE_NO_WINDOW;
   power_control.py is unchanged and the failing test body is outside this task.
 - Running the same suite from backend/ loads APP_CORS_ORIGINS=["*"] from the station
-  .env and adds 7 unrelated CORS assertion failures; app/core/http.py and the tests are
+  .env and adds unrelated CORS assertion failures; app/core/http.py and the tests are
   unmodified. The isolated-cwd run above is the authoritative result.
-- Frontend `npm run build` (tsc -b + Vite): PASS in 3.34s. API responses were not changed.
-- Ad hoc `uvx ruff check backend`: 649 findings versus 657 at HEAD, predominantly existing
-  E501/I001/F401 debt; new migration/archive long lines were corrected.
-- git diff --check: PASS. No PostgreSQL URL was configured, so PostgreSQL-specific migration
-  cases skipped and 0009 was exercised only on isolated SQLite.
+- Frontend `npm run build` (tsc -b + Vite): PASS in 3.46s. No frontend source changed;
+  remote export changes are backend/docs only.
+- Ad hoc `uvx ruff check backend`: 649 findings, existing E501/I001/F401 debt; no new
+  findings on the changed migration/test lines. `git diff --check`: PASS.
+- No PostgreSQL URL was configured, so PostgreSQL-specific migration and seed cases skipped;
+  0009 and archive restore were exercised on isolated SQLite only.
 - No live station database, captures, physical cameras, OS power, restore or deployment was
   used.
 
 KNOWLEDGE
 - backend/README.md documents migration head 0009, archive v4 and v1/v2/v3 compatibility.
 - docs/knowledge/Development Decisions.md records the normalization/archive decisions.
-- docs/knowledge/Testing and Validation.md records the commands, counts and isolation limits.
+- docs/knowledge/Testing and Validation.md records post-merge commands, counts and limits;
+  remote entries document the NULL-XLSX export contract.
+- docs/knowledge/Frontend.md and docs/knowledge/Resolved Bugs.md retain the merged export
+  audit documentation.
 - Graphify and ICM were unavailable in this session; no graph update or ICM write is claimed.
 
 EXACT NEXT STEP
-- Review the unstaged diff and the untracked files (0009 migration, archive_schema_v3.json,
-  archived prior checkpoint). On explicit authorization, stage and commit them together.
-  Before any future deployment, rehearse 0009 and v1/v2/v3/v4 archive restore against a
-  disposable PostgreSQL copy; do not use the live station.
+- Review the merge commit and working tree. On explicit authorization, push main. Before any
+  future deployment, rehearse 0009 and v1/v2/v3/v4 archive restore against a disposable
+  PostgreSQL copy; do not use the live station.

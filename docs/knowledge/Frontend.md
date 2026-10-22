@@ -129,8 +129,10 @@ Client CSV helpers quote every field and neutralize only formula-like text (`=`,
 Client XLSX uses the same OpenXML styling and typing contract, keeps identifiers and
 leading-zero values as text, and writes numbers/booleans as native cells. Missing
 optional values export as blank cells rather than display dashes or fabricated zeros.
-Stored ISO timestamps are exported unchanged by client surfaces; backend exports emit
-Asia/Manila ISO timestamps. See [[Testing and Validation]].
+The server XLSX routes follow the same rule: NULL optional fields are blank, while
+`N/A` is emitted only when the classification or status block is absent, so CSV and
+XLSX agree for missing values. Stored ISO timestamps are exported unchanged by client
+surfaces; backend exports emit Asia/Manila ISO timestamps. See [[Testing and Validation]].
 
 ## Key Components
 

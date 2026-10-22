@@ -2,6 +2,13 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-10-22: NULL optional values in XLSX exports
+
+- **Issue**: Scan Logs XLSX wrote the literal text `None` for a NULL original shelf life. System Configuration XLSX wrote `None` for NULL cultivar/ripeness and `N/A` for a NULL confidence even when a classification record existed; CSV wrote blanks for the same values.
+- **Root Cause**: The XLSX row builders stringified optional values unconditionally (`str(value)`) and treated NULL confidence like an absent classification.
+- **Fix**: XLSX now emits blank cells for NULL optional fields. `N/A` remains reserved for a wholly absent classification/status block, matching CSV.
+- **Verification**: `backend/tests/test_exports.py::test_xlsx_null_optional_values_are_blank_like_csv` failed before the fix (`None`/`None`/`N/A`) and passes afterward. Full backend runs: 575 passed/62 skipped on SQLite and 637 passed/0 skipped on a disposable PostgreSQL cluster. See [[Testing and Validation]] and [[Frontend]].
+
 ## 2026-10-21: Extra document scrolling on Logs and Activity Log
 
 - **Issue**: On short screens, the whole application could scroll away, exposing blank space below the sidebar in addition to the main content scrollbar.
