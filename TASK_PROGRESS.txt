@@ -1,66 +1,43 @@
-CURRENT RESUME HERE (2026-10-22) - CAPSTONE DATA DICTIONARY DRAFT PREPARED
+CURRENT RESUME HERE (2026-10-22) - DETAILED CAPSTONE DATA DICTIONARY GENERATED
 
 GIT / SCOPE
-- HEAD is bbf535b; local main is in sync with origin/main. The schema-reference commits and
-  capstone addition were created and pushed outside this session in 10d95b8, 3ce14db,
-  3cd3627 and bbf535b; this session did not run git commit or git push.
-- The camera-slot normalization (842ad38) and merged remote export audit (eb9498c) remain
-  intact. The working-tree change is the capstone dictionary's formal default notation
-  revision.
-- This task changed documentation only. No backend/frontend runtime code, migrations or
-  database records were modified.
-- Schema-reference files now committed: docs/bananavision_schema_current.sql,
-  docs/schema_tables.md, docs/BANANAVISION_CONTEXT.md,
-  docs/bananavision_schema_final2.sql, docs/knowledge/Database.md,
-  docs/knowledge/Testing and Validation.md, backend/README.md and the archived checkpoint.
-- The capstone dictionary is committed in bbf535b; its current working-tree revision replaces
-  the informal `App:` prefix with formal application-default notation.
-- No live station database, captures, physical cameras, OS power, restore or deployment was
-  used. The schema was built in an isolated PostgreSQL 17.10 cluster and the cluster was
-  stopped and removed.
+- HEAD is 2e22d01; local main is in sync with origin/main. The concise capstone dictionary
+  and its formal default notation are committed. This session has not run git commit or
+  git push.
+- New untracked file: docs/capstone_data_dictionary_detailed.md. Modified:
+  docs/knowledge/Database.md and docs/knowledge/Testing and Validation.md. Archived the
+  previous checkpoint as docs/history/2026-10-22-before-detailed-data-dictionary.txt.
+- Documentation only. No backend/frontend runtime code, migrations, database records,
+  captures, physical cameras, OS power, restore or deployment was changed or used.
 
 IMPLEMENTED
-- docs/bananavision_schema_current.sql is the current application DDL at Alembic revision
-  0009_camera_slots. It contains 24 application tables, 7 PostgreSQL enum types, 18 foreign
-  keys, sequences, defaults, checks and indexes. The technical alembic_version table and
-  pg_dump \restrict/\unrestrict wrapper artifacts are excluded. The file is a reference, not
-  the station bootstrap path; python -m app.core.migrations remains authoritative.
-- docs/schema_tables.md is now a current 24-table data dictionary with enum labels, PK/FK
-  columns, nullability, database defaults, constraints, indexes, table purposes and an ERD
-  relationship/cardinality summary. UUID/timestamp defaults are explicitly described as
-  application-generated rather than database defaults.
-- docs/capstone_data_dictionary.md is a paper-ready 24-table dictionary in the existing
-  Column / Data Type / Null / Default / PK-or-FK format. Captions continue at Table 15 and
-  run through Table 38 in logical dependency order. It includes default and enum legends, a
-  change summary, per-table constraint notes and normalization notes. It corrects the stale
-  camera arrays and operator scan counters, documents the normalized device slot columns,
-  and uses the current enum, nullability and default definitions. Its Default column uses
-  `Application-generated (...)` for UUID/timestamp values and `Application default: ...` for
-  other backend-supplied defaults, rather than the informal `App:` shorthand.
-- docs/BANANAVISION_CONTEXT.md now points to the current DDL and companion dictionary; the
-  historical bananavision_schema_final2.sql is marked as superseded and points to the new
-  reference.
-- docs/knowledge/Database.md records the current schema links, normalized camera-slot and
-  timestamp conventions, and validation result. docs/knowledge/Testing and Validation.md
-  records the disposable-PostgreSQL verification.
+- docs/capstone_data_dictionary_detailed.md is a separate companion dictionary with columns
+  Column / Description / Data Type / Null / Default / Key / References / Constraints.
+  It keeps the capstone numbering Table 15 through Table 38 in dependency order.
+- The detailed dictionary contains 24 application tables, 196 columns, 7 PostgreSQL enum
+  types and 18 foreign-key references. The concise
+  docs/capstone_data_dictionary.md remains unchanged and canonical.
+- Types and defaults use the database-level vocabulary: UUID, SERIAL, NUMERIC,
+  DOUBLE PRECISION, TIMESTAMP WITH TIME ZONE and ACTIVESTATUSENUM-style enum names.
+  Application behavior is marked Application-generated or Application default.
+- The enum legend maps PostgreSQL enum names to model enum classes and shows database
+  labels separately from application values. FULL_NAME remains intact.
+- Includes per-column descriptions and constraints (PK, unique, checks, FK delete actions,
+  idempotency keys and intentional no-FK provenance fields), plus an 18-row ERD relationship
+  summary and normalization notes.
+- docs/knowledge/Database.md links the concise and detailed capstone dictionaries.
+  docs/knowledge/Testing and Validation.md records the detailed-dictionary validation.
 
 VERIFICATION
-- Cleaned DDL loaded into a fresh disposable PostgreSQL 17.10 database with
-  psql -v ON_ERROR_STOP=1: 24 tables, 7 enum types, 18 foreign keys and five
-  sequence-backed SERIAL columns.
-- Catalog checks confirmed device.slot_index/device_index exist, system_config camera arrays
-  and operator scan counters are absent, and alembic_version is absent.
-- The capstone dictionary was checked against docs/bananavision_schema_current.sql and the
-  SQLAlchemy metadata: 24/24 tables, 0 column/type/nullability mismatches, 18/18 foreign-key
-  relationships, 5 SERIAL primary-key rows and 0 default-notation mismatches.
-- git diff --check passed. No backend/frontend test suite was required or run because no
-  application code changed; the prior post-merge suite results remain the code baseline.
-- Graphify was not rebuilt and no ICM write was made; this was a documentation-only change.
-  The superseded checkpoint is archived as
-  docs/history/2026-10-22-before-schema-reference.txt.
+- Structural comparison against docs/capstone_data_dictionary.md: 24/24 tables,
+  196/196 columns and 0 type, nullability, default, key or reference mismatches.
+- Detailed dictionary checks: 7/7 enum types, 18/18 foreign-key references, and Table
+  numbering 15-38. Actual DDL checks cover device slot/device index ranges, canonical key,
+  maintenance singleton and label print job constraints.
+- No application tests were run because this is documentation-only. The temporary
+  generator was removed after generation.
+- Graphify was not rebuilt and no ICM write was made.
 
 EXACT NEXT STEP
-- Review the formal `Application-generated` / `Application default` wording in
-  docs/capstone_data_dictionary.md and the Table 15-38 numbering. Commit this revision only
-  with authorization; do not push without authorization. If requested next, generate a Mermaid
-  ERD from the relationship summary in docs/schema_tables.md. Do not deploy.
+- Review the detailed descriptions and constraints for paper wording. Then commit only with
+  explicit authorization; do not push without authorization. Do not deploy.

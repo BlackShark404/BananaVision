@@ -6,6 +6,9 @@
   `0009_camera_slots`, 24 application tables, 7 PostgreSQL enum types and 18 foreign keys.
 - [Data dictionary](../schema_tables.md) — table purposes, columns, nullability, database
   defaults, keys, constraints, indexes, enum labels and ERD cardinalities.
+- [Capstone data dictionary](../capstone_data_dictionary.md) — concise Table 15–38 format.
+- [Detailed capstone data dictionary](../capstone_data_dictionary_detailed.md) — same
+  tables with per-column descriptions, constraints and an ERD relationship summary.
 - [Historical pre-normalization SQL](../bananavision_schema_final2.sql) — retained for
   comparison only; it still contains camera arrays and operator scan counters.
 

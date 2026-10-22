@@ -12,6 +12,9 @@ Comprehensive guide to testing strategies, verification requirements, test runne
   types**, **18 foreign keys** and five sequence-backed `SERIAL` columns.
 - Verified the normalized `device.slot_index`/`device_index` columns and the absence of
   `system_config` camera arrays, operator scan counters and `alembic_version`.
+- Added `docs/capstone_data_dictionary_detailed.md` and compared it with the concise capstone
+  dictionary: 24/24 tables, 196/196 columns, 7/7 enum types, 18/18 foreign-key references and
+  no type, nullability, default, key or reference mismatches.
 - This was a documentation/schema-reference change only. No backend or frontend runtime
   code changed, so no application test suite was rerun. `git diff --check` passed.
 - No live station database, captures, physical cameras, OS power, restore or deployment was
