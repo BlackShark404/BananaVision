@@ -1,12 +1,13 @@
 -- ============================================================
 -- BananaVision current database schema reference
 -- ============================================================
--- Target: PostgreSQL application schema at Alembic revision 0009_camera_slots
--- Generated from an isolated PostgreSQL 17.10 database initialized through
--- backend/app/core/migrations.py (metadata create_all + versioned upgrades).
+-- Target: PostgreSQL application schema at Alembic revision 0010_notification_read_receipts
+-- Based on the schema produced by backend/app/core/migrations.py (metadata
+-- create_all + versioned upgrades) and validated by loading this reference
+-- into a disposable PostgreSQL 17.10 database.
 --
 -- Scope
---   * 24 application tables.
+--   * 25 application tables.
 --   * The technical alembic_version table is intentionally omitted.
 --   * Includes PostgreSQL enum types, columns, defaults, primary/unique/check/
 --     foreign-key constraints, sequences and indexes.
@@ -16,7 +17,7 @@
 -- database with:
 --   cd backend && python -m app.core.migrations
 --
--- Historical pre-normalization schema (camera arrays and scan counters):
+-- Historical pre-normalization schema (camera arrays, scan counters and shared read flag):
 --   docs/bananavision_schema_final2.sql
 --
 -- Notes
@@ -26,6 +27,8 @@
 --     device.device_index. system_config no longer stores camera arrays.
 --   * operator_profile no longer stores total_scans/flagged_scans; analytics
 --     derives those values from scan rows.
+--   * app_notification stores content once. app_notification_read stores each
+--     account's read state; a null app_notification.user_id is a broadcast.
 -- ============================================================
 
 --
@@ -169,9 +172,19 @@ CREATE TABLE public.app_notification (
     title character varying(200) NOT NULL,
     message text NOT NULL,
     "timestamp" timestamp with time zone NOT NULL,
-    is_read boolean NOT NULL,
     href character varying(200),
     user_id uuid
+);
+
+
+--
+-- Name: app_notification_read; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.app_notification_read (
+    notification_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    read_at timestamp with time zone NOT NULL
 );
 
 
@@ -695,6 +708,14 @@ ALTER TABLE ONLY public.app_notification
 
 
 --
+-- Name: app_notification_read app_notification_read_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.app_notification_read
+    ADD CONSTRAINT app_notification_read_pkey PRIMARY KEY (notification_id, user_id);
+
+
+--
 -- Name: delivery_intake delivery_intake_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -955,6 +976,13 @@ CREATE INDEX ix_app_notification_timestamp ON public.app_notification USING btre
 
 
 --
+-- Name: ix_app_notification_read_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_app_notification_read_user_id ON public.app_notification_read USING btree (user_id);
+
+
+--
 -- Name: ix_delivery_intake_intake_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1074,6 +1102,22 @@ ALTER TABLE ONLY public.admin_profile
 
 ALTER TABLE ONLY public.app_notification
     ADD CONSTRAINT app_notification_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: app_notification_read app_notification_read_notification_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.app_notification_read
+    ADD CONSTRAINT app_notification_read_notification_id_fkey FOREIGN KEY (notification_id) REFERENCES public.app_notification(id) ON DELETE CASCADE;
+
+
+--
+-- Name: app_notification_read app_notification_read_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.app_notification_read
+    ADD CONSTRAINT app_notification_read_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_account(id) ON DELETE CASCADE;
 
 
 --

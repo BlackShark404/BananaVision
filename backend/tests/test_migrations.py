@@ -41,7 +41,7 @@ def assert_upgraded(connection):
     }
     assert (
         connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        == "0009_camera_slots"
+        == "0010_notification_read_receipts"
     )
 
 
@@ -71,8 +71,74 @@ def test_current_schema_adopts_revision_without_duplicate_columns():
                 assert [column["name"] for column in inspect(connection).get_columns(table)] == columns
             assert (
                 connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                == "0009_camera_slots"
+                == "0010_notification_read_receipts"
             )
+    finally:
+        engine.dispose()
+
+
+def test_notification_read_receipt_migration_replaces_shared_flag():
+    engine = create_engine("sqlite://")
+    try:
+        with engine.begin() as connection:
+            connection.execute(text(
+                "CREATE TABLE user_account ("
+                "id CHAR(36) PRIMARY KEY, status VARCHAR(20) NOT NULL)"
+            ))
+            connection.execute(text(
+                "CREATE TABLE app_notification ("
+                "id CHAR(36) PRIMARY KEY, type VARCHAR(30) NOT NULL, "
+                "title VARCHAR(200) NOT NULL, message TEXT NOT NULL, "
+                "timestamp DATETIME NOT NULL, is_read BOOLEAN NOT NULL, "
+                "href VARCHAR(200), user_id CHAR(36))"
+            ))
+            connection.execute(text(
+                "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"
+            ))
+            connection.execute(text(
+                "INSERT INTO alembic_version VALUES ('0009_camera_slots')"
+            ))
+            connection.execute(text(
+                "INSERT INTO user_account VALUES "
+                "('00000000-0000-0000-0000-000000000001', 'ACTIVE'), "
+                "('00000000-0000-0000-0000-000000000002', 'ACTIVE'), "
+                "('00000000-0000-0000-0000-000000000003', 'INACTIVE')"
+            ))
+            connection.execute(text(
+                "INSERT INTO app_notification "
+                "(id, type, title, message, timestamp, is_read, href, user_id) VALUES "
+                "('00000000-0000-0000-0000-000000000010', 'scan', 'Private', "
+                "'Private read', '2025-01-01 00:00:00', 1, NULL, "
+                "'00000000-0000-0000-0000-000000000001'), "
+                "('00000000-0000-0000-0000-000000000011', 'scan', 'Broadcast', "
+                "'Broadcast read', '2025-01-01 00:00:00', 1, NULL, NULL), "
+                "('00000000-0000-0000-0000-000000000012', 'scan', 'Broadcast', "
+                "'Broadcast unread', '2025-01-01 00:00:00', 0, NULL, NULL)"
+            ))
+
+            upgrade_connection(connection)
+
+            assert (
+                connection.execute(text("SELECT version_num FROM alembic_version"))
+            ).scalar_one() == "0010_notification_read_receipts"
+            assert "is_read" not in {
+                column["name"]
+                for column in inspect(connection).get_columns("app_notification")
+            }
+            assert connection.execute(text(
+                "SELECT notification_id, user_id FROM app_notification_read "
+                "ORDER BY notification_id, user_id"
+            )).all() == [
+                ("00000000000000000000000000000010",
+                 "00000000000000000000000000000001"),
+                ("00000000000000000000000000000011",
+                 "00000000000000000000000000000001"),
+                ("00000000000000000000000000000011",
+                 "00000000000000000000000000000002"),
+            ]
+            assert connection.execute(text(
+                "SELECT COUNT(*) FROM app_notification_read WHERE read_at IS NULL"
+            )).scalar_one() == 0
     finally:
         engine.dispose()
 
@@ -203,7 +269,7 @@ def test_camera_slots_migration_normalizes_saved_arrays_and_counters():
             )).scalar_one() == 75
             assert connection.execute(text(
                 "SELECT version_num FROM alembic_version"
-            )).scalar_one() == "0009_camera_slots"
+            )).scalar_one() == "0010_notification_read_receipts"
             with pytest.raises(IntegrityError):
                 connection.execute(text(
                     "INSERT INTO device (id, camera_id, label, status, created_at, updated_at) "
@@ -239,7 +305,7 @@ async def test_postgresql_schema_startup_upgrade(legacy):
             async with engine.begin() as connection:
                 assert (
                     await connection.execute(text("SELECT version_num FROM alembic_version"))
-                ).scalar_one() == "0009_camera_slots"
+                ).scalar_one() == "0010_notification_read_receipts"
         async with engine.begin() as connection:
             await connection.run_sync(upgrade_connection)
             if legacy:

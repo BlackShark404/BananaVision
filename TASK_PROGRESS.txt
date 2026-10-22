@@ -1,43 +1,63 @@
-CURRENT RESUME HERE (2026-10-22) - DETAILED CAPSTONE DATA DICTIONARY GENERATED
+CURRENT RESUME HERE (2026-10-22) - PER-USER NOTIFICATION READ RECEIPTS
 
 GIT / SCOPE
-- HEAD is 2e22d01; local main is in sync with origin/main. The concise capstone dictionary
-  and its formal default notation are committed. This session has not run git commit or
-  git push.
-- New untracked file: docs/capstone_data_dictionary_detailed.md. Modified:
-  docs/knowledge/Database.md and docs/knowledge/Testing and Validation.md. Archived the
-  previous checkpoint as docs/history/2026-10-22-before-detailed-data-dictionary.txt.
-- Documentation only. No backend/frontend runtime code, migrations, database records,
-  captures, physical cameras, OS power, restore or deployment was changed or used.
+- HEAD is 2da9d5c; local main is in sync with origin/main. All changes in this session are
+  uncommitted and unpushed.
+- Working tree changes: normalized notification read-receipt model and migration, receipt-
+  based notification API, single broadcast scan notification, archive registry/adapters,
+  focused tests and synchronized documentation.
+- Superseded checkpoint archived as
+  docs/history/2026-10-22-before-notification-read-receipts.txt.
+- No live station database, captures, physical cameras, OS power, restore, deployment or
+  Git history operation was used. A disposable PostgreSQL 17.10 database was created only
+  to validate the reference DDL, then dropped. Production compatibility is not required;
+  the local development database may be recreated.
 
 IMPLEMENTED
-- docs/capstone_data_dictionary_detailed.md is a separate companion dictionary with columns
-  Column / Description / Data Type / Null / Default / Key / References / Constraints.
-  It keeps the capstone numbering Table 15 through Table 38 in dependency order.
-- The detailed dictionary contains 24 application tables, 196 columns, 7 PostgreSQL enum
-  types and 18 foreign-key references. The concise
-  docs/capstone_data_dictionary.md remains unchanged and canonical.
-- Types and defaults use the database-level vocabulary: UUID, SERIAL, NUMERIC,
-  DOUBLE PRECISION, TIMESTAMP WITH TIME ZONE and ACTIVESTATUSENUM-style enum names.
-  Application behavior is marked Application-generated or Application default.
-- The enum legend maps PostgreSQL enum names to model enum classes and shows database
-  labels separately from application values. FULL_NAME remains intact.
-- Includes per-column descriptions and constraints (PK, unique, checks, FK delete actions,
-  idempotency keys and intentional no-FK provenance fields), plus an 18-row ERD relationship
-  summary and normalization notes.
-- docs/knowledge/Database.md links the concise and detailed capstone dictionaries.
-  docs/knowledge/Testing and Validation.md records the detailed-dictionary validation.
+- `APP_NOTIFICATION` now stores content only. Nullable `USER_ID` is a broadcast; a non-null
+  `USER_ID` is a private notification. `IS_READ` was removed.
+- `APP_NOTIFICATION_READ` stores one receipt per account with composite primary key
+  `(NOTIFICATION_ID, USER_ID)` and `READ_AT`; both foreign keys cascade on delete.
+- Migration `0010_notification_read_receipts` creates the receipt table, backfills existing
+  private read flags for their owner and broadcast read flags for active accounts, then
+  drops `APP_NOTIFICATION.IS_READ`. Downgrade is blocked because receipts cannot be
+  reconstructed.
+- `backend/app/api/v1/notifications.py` derives the `read` boolean from the current
+  account's receipt. Single mark-read returns 404 for invisible notifications; read-all
+  inserts receipts only for the current account's visible notifications. The frontend
+  `read` contract is unchanged.
+- `scan_flagged` is one broadcast row (`USER_ID = NULL`); `scan_complete` remains private to
+  its operator. The superseded notification fan-out service was removed.
+- Archives include `app_notification_read` (22 archived application tables). v1/v2/v3
+  adapters drop the removed shared flag while retaining notification content. Archive
+  format remains v4 because this schema is pre-release; local v4 archives created before
+  revision 0010 must be recreated.
 
 VERIFICATION
-- Structural comparison against docs/capstone_data_dictionary.md: 24/24 tables,
-  196/196 columns and 0 type, nullability, default, key or reference mismatches.
-- Detailed dictionary checks: 7/7 enum types, 18/18 foreign-key references, and Table
-  numbering 15-38. Actual DDL checks cover device slot/device index ranges, canonical key,
-  maintenance singleton and label print job constraints.
-- No application tests were run because this is documentation-only. The temporary
-  generator was removed after generation.
-- Graphify was not rebuilt and no ICM write was made.
+- Targeted notification, migration and archive suites: 47 passed, 2 skipped.
+- Full backend suite from a fresh temporary working directory: 545 passed, 99 skipped,
+  4 failed. The four failures are the pre-existing macOS power-control tests referencing
+  `subprocess.CREATE_NO_WINDOW`; no notification, migration or archive test failed. No
+  disposable PostgreSQL test URL was configured, so PostgreSQL-specific cases skipped.
+- Ruff is clean on the new receipt model, migration, notification API and notification
+  tests. Touched legacy modules retain their pre-existing I001/E501/SIM117 diagnostics; no
+  new diagnostics were introduced.
+- Reference DDL loaded successfully into a disposable PostgreSQL 17.10 database:
+  25 application tables, 198 columns, 7 enum types, 20 foreign keys and five
+  sequence-backed `SERIAL` columns. The receipt primary key/foreign keys exist and
+  `app_notification.is_read` is absent. Concise/detailed dictionaries match at
+  25/25 tables, 198/198 columns, 7/7 enums and 20/20 foreign keys.
+- `git diff --check` passed and the scoped diff was reviewed; no unrelated source changes
+  were found.
+- No frontend source changed, so frontend tests, type-check and build were not rerun.
+- Graphify is unavailable here (no `graphify` command and no `graphify-out/graph.json`), so
+  no graph update was possible. ICM MCP resources are also unavailable; Obsidian notes were
+  updated directly.
+
+PENDING
+- Do not commit, push or deploy without explicit authorization.
+- Existing pre-release local v4 archives must be recreated after this schema change.
 
 EXACT NEXT STEP
-- Review the detailed descriptions and constraints for paper wording. Then commit only with
-  explicit authorization; do not push without authorization. Do not deploy.
+- Await explicit authorization. If given, stage only the reviewed notification, migration,
+  test and documentation files, then commit; do not push or deploy.

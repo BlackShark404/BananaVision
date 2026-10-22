@@ -7,42 +7,54 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter
-from sqlalchemy import select, update, desc
+from sqlalchemy import desc, exists, insert, select
 
-from app.api.deps import DbSession, CurrentUser
+from app.api.deps import CurrentUser, DbSession
 from app.core.exceptions import NotFoundException
+from app.core.time import now_manila
 from app.models.app_notification import AppNotification
-
+from app.models.app_notification_read import AppNotificationRead
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
+def _visible_to(user: CurrentUser):
+    return (
+        (AppNotification.user_id == user.id)
+        | (AppNotification.user_id.is_(None))
+    )
+
+
 @router.get("")
 async def list_notifications(db: DbSession, user: CurrentUser):
-    """List notifications for the current user."""
-    query = (
-        select(AppNotification)
-        .where(
-            (AppNotification.user_id == user.id) | (AppNotification.user_id.is_(None))
+    """List notifications for the current user with their read state."""
+    read_receipt = exists(
+        select(AppNotificationRead.notification_id).where(
+            AppNotificationRead.notification_id == AppNotification.id,
+            AppNotificationRead.user_id == user.id,
         )
+    )
+    query = (
+        select(AppNotification, read_receipt.label("read"))
+        .where(_visible_to(user))
         .order_by(desc(AppNotification.timestamp))
         .limit(50)
     )
     result = await db.execute(query)
-    notifications = result.scalars().all()
+    notifications = result.all()
 
     return {
         "items": [
             {
-                "id": str(n.id),
-                "type": n.type,
-                "title": n.title,
-                "message": n.message,
-                "timestamp": n.timestamp.isoformat(),
-                "read": n.is_read,
-                "href": n.href,
+                "id": str(notification.id),
+                "type": notification.type,
+                "title": notification.title,
+                "message": notification.message,
+                "timestamp": notification.timestamp.isoformat(),
+                "read": bool(is_read),
+                "href": notification.href,
             }
-            for n in notifications
+            for notification, is_read in notifications
         ],
         "total": len(notifications),
     }
@@ -52,26 +64,67 @@ async def list_notifications(db: DbSession, user: CurrentUser):
 async def mark_notification_read(
     notification_id: uuid.UUID, db: DbSession, user: CurrentUser
 ):
-    """Mark a single notification as read."""
-    result = await db.execute(
-        select(AppNotification).where(AppNotification.id == notification_id)
+    """Mark a notification visible to the current user as read."""
+    visible = await db.execute(
+        select(AppNotification.id).where(
+            AppNotification.id == notification_id,
+            _visible_to(user),
+        )
     )
-    notif = result.scalar_one_or_none()
-    if not notif:
+    if visible.scalar_one_or_none() is None:
         raise NotFoundException("Notification")
 
-    notif.is_read = True
+    existing = await db.execute(
+        select(AppNotificationRead.notification_id).where(
+            AppNotificationRead.notification_id == notification_id,
+            AppNotificationRead.user_id == user.id,
+        )
+    )
+    if existing.scalar_one_or_none() is None:
+        await db.execute(
+            insert(AppNotificationRead).values(
+                notification_id=notification_id,
+                user_id=user.id,
+                read_at=now_manila(),
+            )
+        )
     return {"message": "Marked as read"}
 
 
 @router.post("/read-all")
 async def mark_all_notifications_read(db: DbSession, user: CurrentUser):
-    """Mark all notifications as read for current user."""
-    await db.execute(
-        update(AppNotification)
-        .where(
-            (AppNotification.user_id == user.id) | (AppNotification.user_id.is_(None))
-        )
-        .values(is_read=True)
+    """Mark all visible notifications as read for the current user."""
+    visible_ids = (
+        await db.execute(select(AppNotification.id).where(_visible_to(user)))
+    ).scalars().all()
+    if not visible_ids:
+        return {"message": "All notifications marked as read"}
+
+    existing_ids = set(
+        (
+            await db.execute(
+                select(AppNotificationRead.notification_id).where(
+                    AppNotificationRead.user_id == user.id,
+                    AppNotificationRead.notification_id.in_(visible_ids),
+                )
+            )
+        ).scalars().all()
     )
+    missing_ids = [
+        notification_id
+        for notification_id in visible_ids
+        if notification_id not in existing_ids
+    ]
+    if missing_ids:
+        read_at = now_manila()
+        await db.execute(
+            insert(AppNotificationRead).values([
+                {
+                    "notification_id": notification_id,
+                    "user_id": user.id,
+                    "read_at": read_at,
+                }
+                for notification_id in missing_ids
+            ])
+        )
     return {"message": "All notifications marked as read"}

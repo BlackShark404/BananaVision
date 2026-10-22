@@ -4,21 +4,54 @@ Comprehensive guide to testing strategies, verification requirements, test runne
 
 ## Current schema reference — 2026-10-22
 
-- Generated `docs/bananavision_schema_current.sql` from an isolated PostgreSQL 17.10
-  database initialized through `backend/app/core/migrations.py` at Alembic revision
-  `0009_camera_slots`. The dump omits `alembic_version` and pg_dump wrapper artifacts.
-- Loaded the cleaned DDL into a fresh disposable PostgreSQL 17.10 database with
-  `psql -v ON_ERROR_STOP=1`. The loaded schema has **24 application tables**, **7 enum
-  types**, **18 foreign keys** and five sequence-backed `SERIAL` columns.
-- Verified the normalized `device.slot_index`/`device_index` columns and the absence of
-  `system_config` camera arrays, operator scan counters and `alembic_version`.
-- Added `docs/capstone_data_dictionary_detailed.md` and compared it with the concise capstone
-  dictionary: 24/24 tables, 196/196 columns, 7/7 enum types, 18/18 foreign-key references and
-  no type, nullability, default, key or reference mismatches.
-- This was a documentation/schema-reference change only. No backend or frontend runtime
-  code changed, so no application test suite was rerun. `git diff --check` passed.
+- Updated `docs/bananavision_schema_current.sql` to Alembic revision
+  `0010_notification_read_receipts`. The reference omits `alembic_version` and pg_dump
+  wrapper artifacts.
+- Loaded the DDL into a fresh disposable PostgreSQL 17.10 database with
+  `psql -v ON_ERROR_STOP=1`. The loaded schema has **25 application tables**, **198
+  columns**, **7 enum types**, **20 foreign keys** and five sequence-backed `SERIAL`
+  columns.
+- Verified the normalized `device.slot_index`/`device_index` columns, the notification
+  receipt composite primary key and foreign keys, the absence of
+  `app_notification.is_read`, the absence of `system_config` camera arrays, operator scan
+  counters and `alembic_version`.
+- Compared the concise and detailed capstone dictionaries: 25/25 tables, 198/198 columns,
+  7/7 enum types and 20/20 foreign-key references. Table, column, type, nullability, key and
+  reference fields match; default notation differs by design (`—` in the detailed version).
+- Backend regressions for the runtime and migration behavior are recorded in the
+  per-user notification section below. `git diff --check` passed.
 - No live station database, captures, physical cameras, OS power, restore or deployment was
   used. See [[Database]] for the current schema links.
+
+## Per-user notification read receipts — 2026-10-22
+
+- `backend/tests/test_notifications.py` verifies that a broadcast is stored once but its
+  `read` state is per account, that marking it read is idempotent, that private
+  notifications are visible only to their owner, that an unauthorized mark-read returns
+  404 without creating a receipt, and that read-all creates receipts only for the current
+  account's visible notifications.
+- `backend/tests/test_migrations.py` verifies the `0010_notification_read_receipts`
+  upgrade: private read flags become receipts for their owner, broadcast read flags become
+  receipts for active accounts, unread rows remain unread, `read_at` is populated and
+  `app_notification.is_read` is removed.
+- `backend/tests/test_backup_archive.py` includes the new receipt table in the 22 archived
+  application tables and verifies v4 round-trip behavior plus strict v1/v2/v3 adaptation.
+- Targeted notification, migration and archive suites: **47 passed, 2 skipped**.
+- Full backend suite from a fresh temporary working directory: **545 passed, 99 skipped,
+  4 failed** (32.28s). The four failures are the pre-existing macOS power-control cases
+  referencing `subprocess.CREATE_NO_WINDOW`; they are unrelated to notifications. Running
+  from `backend/` loads the local `.env` and adds known CORS assertion failures; the
+  fresh-cwd run is the isolated result. No disposable PostgreSQL URL was configured, so
+  PostgreSQL-specific cases skipped.
+- Ruff is clean on the new receipt model, migration, notification API and notification
+  tests. The touched legacy modules retain their pre-existing I001/E501/SIM117 diagnostics;
+  no new diagnostics were introduced.
+- The frontend `read` boolean contract is unchanged, so no frontend source, test,
+  type-check or build was rerun.
+- Archive format remains v4 because this schema is pre-release. Local v4 archives created
+  before this revision must be recreated.
+- No live station database, captures, physical cameras, OS power, restore or deployment was
+  used. See [[Resolved Bugs]] and [[Database]].
 
 ## CSV and XLSX exports — 2026-10-22
 

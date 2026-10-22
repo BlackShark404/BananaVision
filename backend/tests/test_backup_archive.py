@@ -93,7 +93,6 @@ def station(tmp_path):
             m.Device(camera_id="CAM-001", label="Top", slot_index=0, device_index=0),
             m.SystemConfig(updated_by_admin=admin.id),
             m.ActivityLog(user_id=user.id, action="LOGIN", details="Preserve audit"),
-            m.AppNotification(type="scan", title="Ready", message="Preserve notification", user_id=user.id),
             m.SensorReading(temperature=25.75, humidity=80.5),
             m.PrintJob(
                 prediction_id=scan_id, owner_id=user.id, quantity=1,
@@ -101,6 +100,15 @@ def station(tmp_path):
                 label_data={}, status="QUEUED",
             ),
         ])
+        notification = m.AppNotification(
+            type="scan", title="Ready", message="Preserve notification",
+            user_id=user.id,
+        )
+        db.add(notification)
+        db.flush()
+        db.add(m.AppNotificationRead(
+            notification_id=notification.id, user_id=user.id,
+        ))
         db.commit()
         yield db, root, scan_id, instant
     engine.dispose()
@@ -142,7 +150,7 @@ def test_complete_all_table_roundtrip_preserves_values_and_instants(archive_modu
     path = backup(archive_module, station, tmp_path)
     validated = archive_module.validate_archive(path, tmp_path / "staging")
     assert validated.manifest["version"] == 4
-    assert len(validated.manifest["tables"]) == 21
+    assert len(validated.manifest["tables"]) == 22
     assert all(t["count"] == 1 for t in validated.manifest["tables"].values())
     assert "maintenance_state" not in validated.manifest["tables"]
     assert "scan_label_print_job" not in validated.manifest["tables"]
@@ -194,6 +202,9 @@ def legacy_backup(archive_module, station, tmp_path, *, bad_null=False, version=
         if table == 'operator_profile':
             for row in rows:
                 row.update(total_scans=0, flagged_scans=0)
+        if table == 'app_notification':
+            for row in rows:
+                row.setdefault('is_read', False)
         if bad_null and table == 'scan_original_ai_result':
             rows[0]['confidence'] = None
         members[name] = b''.join(json.dumps(row).encode() + b'\n' for row in rows)

@@ -36,7 +36,8 @@ TABLE_NAMES = frozenset({
     "user_role", "user_account", "admin_profile", "operator_profile", "supplier",
     "delivery_intake", "scan", "scan_classification", "scan_status_log",
     "scan_original_ai_result", "scan_detection", "scan_image", "scan_note", "device",
-    "activity_log", "system_config", "app_notification", "sensor_reading",
+    "activity_log", "system_config", "app_notification",
+    "app_notification_read", "sensor_reading",
     "scan_event", "scan_mutation", "scan_tombstone",
 })
 LEGACY_SCHEMA = json.loads(
@@ -698,6 +699,9 @@ def _upgrade_to_current(manifest, root):
                 elif table.name == "operator_profile":
                     row = {key: value for key, value in row.items()
                            if key not in ("total_scans", "flagged_scans")}
+                elif table.name == "app_notification":
+                    row = {key: value for key, value in row.items()
+                           if key != "is_read"}
                 validated = _row(table, row)
                 encoded = _dump(_encode(validated)) + b"\n"
                 if len(encoded) > MAX_ROW_BYTES:

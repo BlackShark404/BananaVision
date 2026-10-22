@@ -1,11 +1,11 @@
 # BananaVision Database Tables
 
-Current application schema at Alembic revision `0009_camera_slots`, generated from an
-isolated PostgreSQL 17.10 database. The source DDL is
-[`bananavision_schema_current.sql`](bananavision_schema_current.sql); the technical
+Current application schema at Alembic revision `0010_notification_read_receipts`, based on the
+reference DDL in [`bananavision_schema_current.sql`](bananavision_schema_current.sql), which
+was loaded into an isolated PostgreSQL 17.10 database for validation. The technical
 `alembic_version` table is excluded from this dictionary.
 
-The schema contains **24 application tables**, 7 PostgreSQL enum types and 18 foreign-key
+The schema contains **25 application tables**, 7 PostgreSQL enum types and 20 foreign-key
 relationships. Table and column identifiers are shown in uppercase for readability; the
 actual PostgreSQL identifiers are lowercase snake_case.
 
@@ -58,7 +58,8 @@ uppercase even though the API returns title-case values. The table shows both fo
 | `SCAN_BROWSE_SNAPSHOT` | Short-lived browse authorization snapshot for scan browsing. |
 | `SCAN_LABEL_PRINT_JOB` | Queue and state for Windows label print jobs. |
 | `ACTIVITY_LOG` | Application audit trail for user and system actions. |
-| `APP_NOTIFICATION` | In-app notification records, optionally scoped to a user. |
+| `APP_NOTIFICATION` | In-app notification content, optionally scoped to a user. |
+| `APP_NOTIFICATION_READ` | Per-user read receipts for notifications, including broadcasts. |
 
 ## Table definitions
 
@@ -533,7 +534,7 @@ Application audit trail for user and system actions.
 
 ### `APP_NOTIFICATION`
 
-In-app notification records, optionally scoped to a user.
+In-app notification content, optionally scoped to a user.
 
 | Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
 | --- | --- | --- | --- | --- | --- |
@@ -542,7 +543,6 @@ In-app notification records, optionally scoped to a user.
 | `TITLE` | VARCHAR(200) | No |  |  |  |
 | `MESSAGE` | TEXT | No |  |  |  |
 | `TIMESTAMP` | TIMESTAMP WITH TIME ZONE | No |  |  |  |
-| `IS_READ` | BOOLEAN | No |  |  |  |
 | `HREF` | VARCHAR(200) | Yes |  |  |  |
 | `USER_ID` | UUID | Yes |  | FK | `USER_ACCOUNT.ID` |
 
@@ -550,6 +550,26 @@ In-app notification records, optionally scoped to a user.
 
 - Foreign key: `USER_ID` → `USER_ACCOUNT.ID` (`ON DELETE CASCADE`).
 - Index: `IX_APP_NOTIFICATION_TIMESTAMP` on `TIMESTAMP`.
+- A null `USER_ID` is a broadcast; read state is stored per account in
+  `APP_NOTIFICATION_READ`.
+
+### `APP_NOTIFICATION_READ`
+
+Per-user read receipts for notifications, including broadcasts.
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| `NOTIFICATION_ID` | UUID | No |  | PK, FK | `APP_NOTIFICATION.ID` |
+| `USER_ID` | UUID | No |  | PK, FK | `USER_ACCOUNT.ID` |
+| `READ_AT` | TIMESTAMP WITH TIME ZONE | No |  |  |  |
+
+**Keys, constraints and indexes**
+
+- Primary key: `(NOTIFICATION_ID, USER_ID)`.
+- Foreign key: `NOTIFICATION_ID` → `APP_NOTIFICATION.ID` (`ON DELETE CASCADE`).
+- Foreign key: `USER_ID` → `USER_ACCOUNT.ID` (`ON DELETE CASCADE`).
+- Index: `IX_APP_NOTIFICATION_READ_USER_ID` on `USER_ID`.
+- The composite primary key permits one receipt per account per notification.
 
 ## ERD relationship summary
 
@@ -559,6 +579,7 @@ may impose additional restrictions.
 | Parent | Child | Foreign key | Cardinality | ON DELETE |
 | --- | --- | --- | --- | --- |
 | `ADMIN_PROFILE` | `SYSTEM_CONFIG` | `UPDATED_BY_ADMIN` → `ID` | 1:N | `SET NULL` |
+| `APP_NOTIFICATION` | `APP_NOTIFICATION_READ` | `NOTIFICATION_ID` → `ID` | 1:N | `CASCADE` |
 | `DELIVERY_INTAKE` | `SCAN` | `INTAKE_ID` → `ID` | 1:N | `SET NULL` |
 | `OPERATOR_PROFILE` | `SCAN` | `OPERATOR_ID` → `ID` | 1:N | `RESTRICT` |
 | `SCAN` | `SCAN_CLASSIFICATION` | `SCAN_ID` → `ID` | 1:1 | `CASCADE` |
@@ -573,6 +594,7 @@ may impose additional restrictions.
 | `USER_ACCOUNT` | `ACTIVITY_LOG` | `USER_ID` → `ID` | 1:N | `SET NULL` |
 | `USER_ACCOUNT` | `ADMIN_PROFILE` | `ACCOUNT_ID` → `ID` | 1:1 | `CASCADE` |
 | `USER_ACCOUNT` | `APP_NOTIFICATION` | `USER_ID` → `ID` | 1:N | `CASCADE` |
+| `USER_ACCOUNT` | `APP_NOTIFICATION_READ` | `USER_ID` → `ID` | 1:N | `CASCADE` |
 | `USER_ACCOUNT` | `OPERATOR_PROFILE` | `ACCOUNT_ID` → `ID` | 1:1 | `CASCADE` |
 | `USER_ACCOUNT` | `SCAN_LABEL_PRINT_JOB` | `OWNER_ID` → `ID` | 1:N | `CASCADE` |
 | `USER_ROLE` | `USER_ACCOUNT` | `ROLE_ID` → `ID` | 1:N | `RESTRICT` |
@@ -590,6 +612,10 @@ may impose additional restrictions.
 - `maintenance_state` is a database-enforced singleton (`ID = 1`). `system_config` is an
   application-enforced revisioned singleton with an optional `CANONICAL_KEY = 1` marker
   and legacy-conflict flag.
+- `app_notification.user_id` is nullable for broadcast content visible to every account.
+  Read state is normalized into `app_notification_read`, whose composite primary key is
+  `(notification_id, user_id)`, so one account's receipt never changes another account's
+  view. Both receipt foreign keys cascade on delete.
 - `scan_event` is append-only revision history; `scan_mutation` stores idempotency receipts;
   `scan_tombstone` records deleted scans without a foreign key to the deleted row.
 - All timestamps are `TIMESTAMP WITH TIME ZONE`. Business date boundaries and display

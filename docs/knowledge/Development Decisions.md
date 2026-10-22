@@ -2,6 +2,15 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-10-22: Per-User Notification Read Receipts
+
+- Chose a normalized read-receipt table over application-level fan-out. `app_notification` stores notification content once; `app_notification_read` stores one `(notification_id, user_id)` row with `read_at` per account that has read it.
+- A nullable `app_notification.user_id` is a broadcast visible to every account. `scan_flagged` creates one broadcast row, while `scan_complete` remains private to the scanning operator. The API derives the existing `read` boolean from the current user's receipt, so the frontend contract is unchanged.
+- Single mark-read is scoped to a notification the current account can see, and read-all inserts receipts only for that account's visible notifications. Another account's private notification returns 404 and cannot be mutated.
+- Migration `0010_notification_read_receipts` creates the receipt table, preserves existing private read flags for their owner and broadcast read flags for active accounts, then drops `app_notification.is_read`. The downgrade is blocked because discarding receipts loses read history.
+- Archive format remains v4 because this schema is pre-release. Local v4 archives created before this revision must be recreated; v1/v2/v3 adapters drop the removed shared flag while retaining notification content.
+- See [[Resolved Bugs]] and [[Testing and Validation]] for the verified behavior and tests.
+
 ## 2026-10-22: Normalized Camera Slots and Derived Counter Removal
 
 - Saved camera configuration now lives on `device.slot_index` and `device.device_index` instead of repeated `system_config.camera_ids` and `system_config.camera_device_ids`. Slot ownership and physical indices are unique, validated ranges; unassigned operational device rows may keep both columns null.

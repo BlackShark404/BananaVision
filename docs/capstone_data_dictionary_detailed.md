@@ -1,8 +1,8 @@
 # BananaVision Data Dictionary (Detailed)
 
-Current application schema at Alembic revision `0009_camera_slots`, derived from
+Current application schema at Alembic revision `0010_notification_read_receipts`, derived from
 `docs/bananavision_schema_current.sql` and checked against the SQLAlchemy models. The
-schema contains **24 application tables**, 7 PostgreSQL enum types and 18 foreign-key
+schema contains **25 application tables**, 7 PostgreSQL enum types and 20 foreign-key
 relationships. The technical `alembic_version` table is excluded.
 
 This companion version adds **Description** and **Constraints** columns and separates
@@ -63,7 +63,8 @@ its database labels are the same as its application values.
 | `SCAN_BROWSE_SNAPSHOT` | Bounded, expiring browse-result snapshot bound to an account, session, and filter set. |
 | `SCAN_LABEL_PRINT_JOB` | Queue and state for Windows label print jobs. |
 | `ACTIVITY_LOG` | Application audit trail for user and system actions. |
-| `APP_NOTIFICATION` | In-app notification records, optionally scoped to a user. |
+| `APP_NOTIFICATION` | In-app notification content, optionally scoped to a user. |
+| `APP_NOTIFICATION_READ` | Per-user read receipts for notifications, including broadcasts. |
 
 ### Table 15: USER_ROLE Table
 
@@ -462,7 +463,7 @@ its database labels are the same as its application values.
 
 ### Table 38: APP_NOTIFICATION Table
 
-**Purpose:** In-app notification records, optionally scoped to a user.
+**Purpose:** In-app notification content, optionally scoped to a user.
 
 | Column | Description | Data Type | Null | Default | Key | References | Constraints |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -471,11 +472,22 @@ its database labels are the same as its application values.
 | TITLE | Short notification title. | VARCHAR(200) | No | — | — | — | — |
 | MESSAGE | Notification body text. | TEXT | No | — | — | — | — |
 | TIMESTAMP | Timestamp when the notification was created (Asia/Manila). | TIMESTAMP WITH TIME ZONE | No | Application-generated (Asia/Manila timestamp) | — | — | — |
-| IS_READ | Whether the notification has been read. | BOOLEAN | No | Application default: false | — | — | — |
 | HREF | Optional in-app link associated with the notification. | VARCHAR(200) | Yes | — | — | — | — |
-| USER_ID | User who receives the notification; null for global notifications. | UUID | Yes | — | FK | USER_ACCOUNT(ID) | FK ON DELETE CASCADE |
+| USER_ID | User who receives the notification; null for a broadcast visible to every account. | UUID | Yes | — | FK | USER_ACCOUNT(ID) | FK ON DELETE CASCADE |
 
-**Notes:** Deleting a user cascades to their notifications.
+**Notes:** A null `USER_ID` is a broadcast; read state is stored separately per account. Deleting a user cascades to their private notifications.
+
+### Table 39: APP_NOTIFICATION_READ Table
+
+**Purpose:** Per-user read receipts for notifications, including broadcasts.
+
+| Column | Description | Data Type | Null | Default | Key | References | Constraints |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| NOTIFICATION_ID | Notification that the account has read. | UUID | No | — | PK, FK | APP_NOTIFICATION(ID) | PRIMARY KEY; FK ON DELETE CASCADE |
+| USER_ID | Account that owns the read receipt. | UUID | No | — | PK, FK | USER_ACCOUNT(ID) | PRIMARY KEY; FK ON DELETE CASCADE |
+| READ_AT | Timestamp when the account marked the notification read (Asia/Manila). | TIMESTAMP WITH TIME ZONE | No | Application-generated (Asia/Manila timestamp) | — | — | — |
+
+**Notes:** The composite primary key `(NOTIFICATION_ID, USER_ID)` permits one receipt per account per notification. Deleting the notification or account cascades to the receipt. The notification list derives its `read` value from this table.
 
 ## ERD relationship summary
 
@@ -485,6 +497,7 @@ application may impose additional restrictions.
 | Parent | Child | Foreign key | Cardinality | ON DELETE |
 | --- | --- | --- | --- | --- |
 | `ADMIN_PROFILE` | `SYSTEM_CONFIG` | `UPDATED_BY_ADMIN` -> `ID` | 1:N | `SET NULL` |
+| `APP_NOTIFICATION` | `APP_NOTIFICATION_READ` | `NOTIFICATION_ID` -> `ID` | 1:N | `CASCADE` |
 | `DELIVERY_INTAKE` | `SCAN` | `INTAKE_ID` -> `ID` | 1:N | `SET NULL` |
 | `OPERATOR_PROFILE` | `SCAN` | `OPERATOR_ID` -> `ID` | 1:N | `RESTRICT` |
 | `SCAN` | `SCAN_CLASSIFICATION` | `SCAN_ID` -> `ID` | 1:1 | `CASCADE` |
@@ -499,6 +512,7 @@ application may impose additional restrictions.
 | `USER_ACCOUNT` | `ACTIVITY_LOG` | `USER_ID` -> `ID` | 1:N | `SET NULL` |
 | `USER_ACCOUNT` | `ADMIN_PROFILE` | `ACCOUNT_ID` -> `ID` | 1:1 | `CASCADE` |
 | `USER_ACCOUNT` | `APP_NOTIFICATION` | `USER_ID` -> `ID` | 1:N | `CASCADE` |
+| `USER_ACCOUNT` | `APP_NOTIFICATION_READ` | `USER_ID` -> `ID` | 1:N | `CASCADE` |
 | `USER_ACCOUNT` | `OPERATOR_PROFILE` | `ACCOUNT_ID` -> `ID` | 1:1 | `CASCADE` |
 | `USER_ACCOUNT` | `SCAN_LABEL_PRINT_JOB` | `OWNER_ID` -> `ID` | 1:N | `CASCADE` |
 | `USER_ROLE` | `USER_ACCOUNT` | `ROLE_ID` -> `ID` | 1:N | `RESTRICT` |
@@ -509,6 +523,8 @@ application may impose additional restrictions.
 - Operator scan totals are derived from `SCAN`; they are not stored in `OPERATOR_PROFILE`.
 - `SCAN_CLASSIFICATION` and `SCAN_ORIGINAL_AI_RESULT` are 1:1 detail tables keyed by a
   unique `SCAN_ID`.
+- Notification content is stored once in `APP_NOTIFICATION`; per-account read state is
+  normalized into `APP_NOTIFICATION_READ` rather than a shared flag on the notification.
 - Historical snapshots, audit JSON and engineered features are intentional controlled
   denormalization for auditability and reproducibility.
 

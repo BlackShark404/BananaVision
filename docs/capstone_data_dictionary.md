@@ -1,8 +1,8 @@
 # BananaVision Data Dictionary
 
-Current application schema at Alembic revision `0009_camera_slots`, generated from
-`docs/bananavision_schema_current.sql`. The schema contains **24 application tables**,
-7 PostgreSQL enum types and 18 foreign-key relationships. The technical `alembic_version`
+Current application schema at Alembic revision `0010_notification_read_receipts`, based on
+`docs/bananavision_schema_current.sql`. The schema contains **25 application tables**,
+7 PostgreSQL enum types and 20 foreign-key relationships. The technical `alembic_version`
 table is excluded.
 
 This capstone-format version continues the numbering from the previous draft starting at
@@ -41,7 +41,8 @@ business boundaries.
 - Removed `SYSTEM_CONFIG.CAMERA_IDS`; saved camera slots now live in `DEVICE.SLOT_INDEX` and `DEVICE.DEVICE_INDEX`.
 - Added `USER_ACCOUNT.TOKEN_VERSION`, `SYSTEM_CONFIG.CANONICAL_KEY`, `REVISION`, `LEGACY_CONFLICT`, and the provenance/revision fields on `SCAN`.
 - Added `MAINTENANCE_STATE`, `SCAN_EVENT`, `SCAN_MUTATION`, `SCAN_TOMBSTONE`, `SCAN_BROWSE_SNAPSHOT` and `SCAN_LABEL_PRINT_JOB`.
-- Corrected nullability and types to match the actual PostgreSQL schema (for example, enum columns, `SCAN_DETECTION.FINGER_COUNT`, `SCAN_ORIGINAL_AI_RESULT.CREATED_AT` and `APP_NOTIFICATION.IS_READ`).
+- Replaced `APP_NOTIFICATION.IS_READ` with `APP_NOTIFICATION_READ`, a per-user receipt table keyed by `(NOTIFICATION_ID, USER_ID)`.
+- Corrected nullability and types to match the actual PostgreSQL schema (for example, enum columns, `SCAN_DETECTION.FINGER_COUNT`, `SCAN_ORIGINAL_AI_RESULT.CREATED_AT` and the nullable broadcast `APP_NOTIFICATION.USER_ID`).
 
 ### Table 15: USER_ROLE Table
 
@@ -401,16 +402,28 @@ business boundaries.
 | TITLE | VARCHAR(200) | No |  |  |  |
 | MESSAGE | TEXT | No |  |  |  |
 | TIMESTAMP | TIMESTAMP WITH TIME ZONE | No | Application-generated (Asia/Manila timestamp) |  |  |
-| IS_READ | BOOLEAN | No | Application default: false |  |  |
 | HREF | VARCHAR(200) | Yes |  |  |  |
 | USER_ID | UUID | Yes |  | FK | USER_ACCOUNT(ID) |
 
-**Notes:** Deleting a user cascades to their notifications.
+**Notes:** `USER_ID` is `NULL` for a broadcast notification visible to every account. Deleting a user cascades to their private notifications.
+
+### Table 39: APP_NOTIFICATION_READ Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| NOTIFICATION_ID | UUID | No |  | PK, FK | APP_NOTIFICATION(ID) |
+| USER_ID | UUID | No |  | PK, FK | USER_ACCOUNT(ID) |
+| READ_AT | TIMESTAMP WITH TIME ZONE | No | Application-generated (Asia/Manila timestamp) |  |  |
+
+**Notes:** The composite primary key `(NOTIFICATION_ID, USER_ID)` allows one read receipt per account per notification. Deleting the notification or the user cascades to the receipt. `READ_AT` records when that account marked the notification read.
 
 ## Normalization notes
 
 - Core entities are relationally normalized: repeating camera configuration was moved into
   one `DEVICE` row per saved slot, and operator scan totals are derived rather than stored.
+- `APP_NOTIFICATION` stores notification content once. A nullable `USER_ID` represents a
+  broadcast; each account's read state is a separate `APP_NOTIFICATION_READ` row, so one
+  user's read receipt never changes another user's view.
 - `SCAN_CLASSIFICATION` and `SCAN_ORIGINAL_AI_RESULT` are 1:1 detail tables keyed by a unique
   `SCAN_ID`; they separate current classification from the immutable original AI output.
 - Historical snapshots (`OPERATOR_NAME_SNAPSHOT`, `SOURCE_NAME_SNAPSHOT`), audit JSON

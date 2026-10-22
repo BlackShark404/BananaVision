@@ -350,7 +350,7 @@ async def _execute_scan_pipeline(
                     f"{fused.confidence}% confidence — flagged for review"
                 ),
                 href=f"/scans/{scan_id_str}",
-                user_id=None,  # Visible to all users (admins)
+                user_id=None,  # Broadcast; read state is per user.
             ))
 
         await db.flush()

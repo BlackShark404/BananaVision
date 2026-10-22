@@ -2,6 +2,14 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-10-22: Shared broadcast notification read state
+
+- **Issue**: A flagged-scan notification was stored once with `USER_ID = NULL`, so its single `IS_READ` value was shared by every account. Marking it read for one user marked it read for everyone. The single mark-read endpoint also looked up notifications by ID only, allowing a user to mark another user's private notification read.
+- **Root Cause**: `scan_service` created one global `scan_flagged` row, while `APP_NOTIFICATION` stored only one read flag. The single mark-read route lacked recipient scoping.
+- **Fix**: Notification content remains in `APP_NOTIFICATION`; per-user read state now lives in `APP_NOTIFICATION_READ`, keyed by `(NOTIFICATION_ID, USER_ID)` with `READ_AT`. A null `USER_ID` is a broadcast, and `scan_flagged` creates one such row; `scan_complete` remains private to its operator. The list derives `read` from the current account's receipt. Single mark-read returns 404 for invisible notifications and inserts only the current account's receipt; read-all does the same for all visible notifications. Migration `0010_notification_read_receipts` creates the table, preserves existing private read flags for their owner and broadcast read flags for active accounts, then drops `IS_READ`. The downgrade is blocked because receipts cannot be reconstructed. The frontend `read` field is unchanged.
+- **Verification**: `backend/tests/test_notifications.py` covers per-user broadcast read state, idempotent mark-read, private visibility, unauthorized mark-read returning 404 without mutation, and read-all isolation. `backend/tests/test_migrations.py` verifies the receipt backfill and `IS_READ` removal. Targeted notification, migration and archive suites: **47 passed, 2 skipped**. Full backend from a fresh temporary cwd: **545 passed, 99 skipped, 4 pre-existing macOS power-control failures**. See [[Testing and Validation]].
+- **Archive note**: Archive format remains v4 because the schema is pre-release. Local v4 archives created before this revision must be recreated; v1/v2/v3 adapters drop the removed shared flag while retaining notification content.
+
 ## 2026-10-22: NULL optional values in XLSX exports
 
 - **Issue**: Scan Logs XLSX wrote the literal text `None` for a NULL original shelf life. System Configuration XLSX wrote `None` for NULL cultivar/ripeness and `N/A` for a NULL confidence even when a classification record existed; CSV wrote blanks for the same values.
