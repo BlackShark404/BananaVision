@@ -6,20 +6,26 @@ Comprehensive guide to testing strategies, verification requirements, test runne
 
 - `backend/tests/test_exports.py` covers 206-row exports beyond pagination, account scope,
   snapshot parity, empty workbooks, exact identifiers/whitespace, DECIMAL confidence,
-  formula-like text, wrapping/width contracts and invalid formats. `test_scan_logs.py`
-  retains CSV round-trip and numeric-prefix coverage.
-- Full backend suite: **574 passed, 62 skipped, 1 warning** (123.20s) on isolated SQLite.
-  No disposable PostgreSQL URL was configured, so PostgreSQL-specific cases skipped.
-- Frontend browser regressions (`clientexports`, `scanrecords`, `persistence`):
-  **69 passed**, 0 failed/skipped (113.70s). They export complete filtered/sorted datasets
-  from a non-first page, inspect CSV bytes/quoting and XLSX cells with ExcelJS, and verify
-  that exports are disabled when required data is unavailable.
-- `npm run build` (`tsc -b` + Vite) passed (7.09s). Configured lint reports the baseline
-  **41 problems (36 errors, 5 warnings)**; changed files add no diagnostics. Ruff on changed
-  backend files leaves only pre-existing E501/F811/I001 findings; `xlsx.py` and
-  `test_exports.py` are clean.
-- `git diff --check` passed. The root `npm run typecheck` is effectively a no-op because
-  `tsconfig.json` has `files: []`; the build's `tsc -b` is the real type check.
+  formula-like text, wrapping/width contracts, invalid formats, and NULL optional values.
+  The NULL regression requires CSV and XLSX to leave missing cultivar, ripeness, confidence
+  and shelf-life cells blank; `N/A` remains only when the whole classification/status block
+  is absent. `test_scan_logs.py` retains CSV round-trip and numeric-prefix coverage.
+- Backend full suites after the audit fix: **575 passed, 62 skipped** (75.72s) on isolated
+  SQLite, and **637 passed, 0 skipped** (142.80s) on a disposable PostgreSQL 18.6 cluster
+  (`127.0.0.1:55439`). The cluster and its temp data directory were stopped and removed.
+  Export route tests still use SQLite fixtures; PostgreSQL coverage includes seed CSV export
+  and the surrounding queries, not a PostgreSQL-backed XLSX route.
+- Frontend full tracked suite: **241 passed / 3 failed / 0 skipped** (298.42s, 244 tests).
+  The two known connectivity failures remain (`connectivity.test.mjs` lines 34 and 45).
+  The third was a pre-existing Analytics clock race (`analytics.test.mjs` line 38); that
+  file passes **9/9** in isolation (25.14s), and no export code participates. All
+  export-related browser cases passed in the full run, including the 9 `clientexports` cases.
+- `npm run build` (`tsc -b` + Vite) passed (16.34s). Configured lint reports the baseline
+  **41 problems (36 errors, 5 warnings)**; Ruff on changed backend files reports only five
+  pre-existing E501 findings and no new diagnostics. `py_compile` and `git diff --check` pass.
+- The untracked `frontend/tests/probe-quality-debug.test.mjs` is a temporary diagnostic with
+  no assertions, is not referenced by tracked code, and was excluded from the suite. It is
+  safe to remove with user approval.
 - No live station database, captures, physical cameras, OS power or deployment was used.
 
 ## Current demo-seed regression coverage

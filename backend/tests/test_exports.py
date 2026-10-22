@@ -242,6 +242,54 @@ def test_xlsx_preserves_whitespace_precision_ranges_and_config_values(export_app
         assert row["E2"] == ("92.12", "n")
 
 
+def test_xlsx_null_optional_values_are_blank_like_csv(export_app, logs_db):
+    admin = account(logs_db, role="Admin")
+    owner = account(logs_db)
+    identifier = scan(logs_db, owner, confidence=90, prediction="5-7")
+    logs_db.session.execute(update(ScanClassification).where(
+        ScanClassification.scan_id == identifier,
+    ).values(cultivar=None, ripeness=None, confidence=None, spoilage_days=None))
+    export_app.dependency_overrides[get_current_user] = lambda: owner
+    with TestClient(export_app) as client:
+        csv_result = client.get("/api/v1/scan-logs/export")
+        assert csv_result.status_code == 200
+        csv_row = next(csv.DictReader(
+            io.StringIO(csv_result.text.lstrip("\ufeff")),
+        ))
+        assert csv_row["Cultivar"] == ""
+        assert csv_row["Ripeness"] == ""
+        assert csv_row["Confidence (%)"] == ""
+        assert csv_row["Original Shelf Life (days)"] == ""
+
+        xlsx_result = client.get(
+            "/api/v1/scan-logs/export", params={"format": "xlsx"},
+        )
+        assert xlsx_result.status_code == 200, xlsx_result.text
+        _, rows = workbook_rows(xlsx_result.content)
+        for reference in ("F2", "G2", "H2", "K2"):
+            assert rows[1][reference][0] is None, (reference, rows[1][reference])
+
+        export_app.dependency_overrides[get_current_user] = lambda: admin
+        config_csv = client.get("/api/v1/config/export")
+        assert config_csv.status_code == 200
+        config_csv_row = list(csv.reader(io.StringIO(config_csv.text)))[1]
+        assert config_csv_row[2:5] == ["", "", ""]
+
+        config_xlsx = client.get(
+            "/api/v1/config/export", params={"format": "xlsx"},
+        )
+        assert config_xlsx.status_code == 200, config_xlsx.text
+        _, config_rows = workbook_rows(config_xlsx.content)
+        config_row = next(
+            row for row in config_rows[1:]
+            if row.get("A2") and row["A2"][0] == str(identifier)
+        )
+        for reference in ("C2", "D2", "E2"):
+            assert config_row[reference][0] is None, (
+                reference, config_row[reference],
+            )
+
+
 def test_number_text_keeps_exact_integer_and_decimal_values():
     huge = 10 ** 400
     assert number_text(huge) == str(huge)

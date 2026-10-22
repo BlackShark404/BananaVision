@@ -82,9 +82,23 @@ async def export_database(
             ripeness = scan.classification.ripeness if scan.classification else "N/A"
             confidence = scan.classification.confidence if scan.classification else "N/A"
             status = scan.status_logs[-1].inventory_status if scan.status_logs else "N/A"
+            cultivar_text = (
+                str(getattr(cultivar, "value", cultivar))
+                if cultivar is not None else None
+            )
+            ripeness_text = (
+                str(getattr(ripeness, "value", ripeness))
+                if ripeness is not None else None
+            )
+            status_text = (
+                str(getattr(status, "value", status))
+                if status is not None else None
+            )
 
-            if confidence == "N/A" or confidence is None:
+            if confidence == "N/A":
                 conf_cell = ("N/A", "inlineStr")
+            elif confidence is None:
+                conf_cell = None
             else:
                 try:
                     float(confidence)
@@ -94,10 +108,10 @@ async def export_database(
             xlsx_rows.append([
                 (str(scan.id), "inlineStr"),
                 (scan.date_time.isoformat(), "inlineStr"),
-                (str(getattr(cultivar, "value", cultivar)), "inlineStr"),
-                (str(getattr(ripeness, "value", ripeness)), "inlineStr"),
+                (cultivar_text, "inlineStr") if cultivar_text is not None else None,
+                (ripeness_text, "inlineStr") if ripeness_text is not None else None,
                 conf_cell,
-                (str(getattr(status, "value", status)), "inlineStr"),
+                (status_text, "inlineStr") if status_text is not None else None,
             ])
         xlsx_bytes = build_xlsx(headers, xlsx_rows, sheet_name="sheet1")
         return Response(

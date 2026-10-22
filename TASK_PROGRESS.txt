@@ -1,60 +1,58 @@
-CURRENT RESUME HERE (2026-10-22) - CSV/XLSX EXPORTS IMPLEMENTED AND VERIFIED
+CURRENT RESUME HERE (2026-10-22) - EXPORT AUDIT COMPLETE, NULL-XLSX FIX VERIFIED
 
 GIT / SCOPE
-- Existing main; task started at e45af37. Feature work committed as 808d3ff and pushed;
-  origin/main had not advanced, so no integration commit was needed. This checkpoint-only
-  follow-up is documentation and is pushed with the same delivery. After that push, local
-  main and origin/main are synchronized. No branches/worktrees, force push, history rewrite,
-  deployment or live operations. Working tree is clean apart from the untracked probe.
-- Prior system-config checkpoint archived as
-  docs/history/2026-10-22-before-export-improvements.txt.
-- Task files include backend/frontend export code and tests, two knowledge notes, package
-  metadata and the prior-checkpoint archive. Untracked frontend/tests/probe-quality-debug.test.mjs
-  is a temporary probe and must never be staged.
+- Existing main. Audit started at 5dcbdda (local main, origin/main and fetched remote main
+  matched). Feature commit 808d3ff delivered the export implementation. The audit fix,
+  knowledge update and this checkpoint are the HEAD commit containing this file.
+- No branches/worktrees, force push, history rewrite, deployment or live operations.
+  The only untracked file remains frontend/tests/probe-quality-debug.test.mjs, which is a
+  temporary diagnostic and was deliberately excluded from the tracked frontend suite.
+- Prior checkpoint archived as docs/history/2026-10-22-before-export-audit.txt.
 
-IMPLEMENTED
-- Dependency-free backend/app/core/xlsx.py builds OpenXML workbooks with typed cells,
-  inlineStr text (no formulas/hyperlinks), preserved whitespace, wrapped headers/data,
-  estimated row heights and column widths clamped to 12-81.
-- Scan Logs exports every authorized/filtered/sorted row for format=csv|xlsx, ignoring
-  page/limit while preserving snapshot and account scope. The snapshot binding excludes
-  `format` so one frozen snapshot serves both downloads. CSV keeps its BOM, column order,
-  all existing values and three-decimal VPD.
-- System Configuration CSV/XLSX summaries share backend headers; XLSX emits numeric
-  confidence and text IDs. Empty exports retain headers.
-- Frontend `ExportDropdown` is used by Scan Logs, System Configuration, Activity Log,
-  Delivery Intakes and Quality Control. Client pages export the complete filtered dataset
-  after local sorting via `AppDataTable.onSortedData`, not only the visible page.
-- Client CSV/XLSX helpers preserve identifiers/leading zeros and exact decimal strings,
-  emit blank cells for missing optional values, and neutralize only formula-like text;
-  negative numeric strings such as "-1" remain numeric.
-- Restored the `camera_manager` import in config.py (marked noqa) because configuration
-  tests monkeypatch it through that module; cleanup had briefly broken 8 fixtures.
-- Moved test-only `exceljs` 4.4.0 to frontend devDependencies.
+AUDIT RESULT
+- Reviewed Scan Logs and System Configuration server exports plus all five client export
+  surfaces: complete filtered/sorted membership, snapshot/account authorization, CSV BOM
+  and column compatibility, formula-injection handling, XLSX OpenXML validity, typed cells,
+  whitespace/precision, blank missing values and empty exports. No other defect found.
+- Genuine defect fixed: NULL optional values rendered as literal text in XLSX while CSV
+  wrote blanks. Scan Logs wrote "None" for a NULL original shelf life. System Configuration
+  wrote "None" for NULL cultivar/ripeness and "N/A" for a NULL confidence even when the
+  classification existed. XLSX now emits blank cells for NULL fields; "N/A" remains only
+  when the whole classification/status block is absent.
+- Regression test added: backend/tests/test_exports.py::test_xlsx_null_optional_values_are_blank_like_csv
+  asserts CSV/XLSX parity for NULL cultivar, ripeness, confidence and spoilage values.
+  It failed before the fix (K2 "None", C2 "None", E2 "N/A") and passes now.
+- Untracked probe: temporary, no assertions, never tracked, no references outside this
+  checkpoint and itself. Safe to remove with explicit user approval; do not stage it.
 
-VERIFICATION (final run)
-- Full backend suite: 574 passed, 62 skipped, 1 warning in 123.20s. Isolated SQLite only;
-  no PostgreSQL URL configured, so PostgreSQL-specific cases skipped.
-- Frontend export/browser regressions (clientexports, scanrecords, persistence):
-  69 passed, 0 failed/skipped in 113.70s.
-- npm run build (tsc -b + Vite): PASS, 7.09s. Root npm run typecheck is a no-op because
-  tsconfig.json has files: []; the build is the real type check.
-- npm run lint: 41 problems (36 errors, 5 warnings), exactly the existing baseline; no new
-  diagnostics from this task. Removed one now-unused eslint-disable directive.
-- Ruff on changed backend files: new xlsx.py and test_exports.py clean; remaining findings
-  are pre-existing E501/F811/I001 lines.
-- Full frontend suite was not rerun; the affected export/records/persistence suites cover
-  every changed surface. Unrelated existing connectivity failures remain separate work.
-- git diff --check: PASS. No live station database, captures, physical cameras or OS power.
+VERIFICATION (post-fix)
+- Backend isolated SQLite full suite: 575 passed, 62 skipped, 1 warning in 75.72s.
+- Backend disposable PostgreSQL 18.6 full suite (127.0.0.1:55439, database
+  bananavision_export_audit, unique schemas): 637 passed, 0 skipped, 55 warnings in
+  142.80s. The cluster was stopped with pg_ctl and its temp directory removed; port 55439
+  is closed. Never connected to the running postgresql-x64-18 service or station data.
+- Export route tests use SQLite fixtures even in the PostgreSQL run. PostgreSQL coverage
+  includes seed CSV export and the surrounding query paths, not a PostgreSQL-backed XLSX
+  route; the XLSX builder itself is database-dialect independent.
+- Frontend full tracked suite: 244 tests, 241 passed, 3 failed, 0 skipped in 298.42s.
+  Failures: known connectivity.test.mjs:34 (6 sockets vs 1) and connectivity.test.mjs:45
+  (30s socket wait timeout); one pre-existing Analytics clock race at analytics.test.mjs:38
+  ("Cannot fast-forward to the past"). analytics.test.mjs passes 9/9 in isolation (25.14s);
+  the same-instant clock install/pause dates from 0c832761 and is not export-related.
+- Frontend export-related cases passed in the full run, including all 9 clientexports cases.
+- npm run build (tsc -b + Vite): PASS, 16.34s. npm run lint: baseline 41 problems
+  (36 errors, 5 warnings), no new diagnostics. uvx --offline ruff on changed backend files:
+  five pre-existing E501 findings, none on changed lines. py_compile and git diff --check pass.
+- No production database, captures, physical cameras, OS power, deployment or secrets used.
 
 KNOWLEDGE
-- docs/knowledge/Frontend.md documents the export contract and security/precision choices.
-- docs/knowledge/Testing and Validation.md records the commands, counts and isolation limits.
-- Graphify refreshed locally for the final export change set (3960 nodes, 12102 edges,
-  234 communities); graphify-out/ is gitignored, so no graph files are committed.
-- Project ICM memory stored: 01M5HAM0SAV8DHHZXZFBJ77D0G.
+- docs/knowledge/Frontend.md records server/client blank-cell parity and the N/A boundary.
+- docs/knowledge/Testing and Validation.md records the regression, both full backend runs,
+  frontend baseline failures/flake and the remaining PostgreSQL/XLSX coverage limit.
+- Graphify refresh is requested after the backend change set. Project ICM memory should
+  record the verified NULL-XLSX contract.
 
 EXACT NEXT STEP
-- Export task complete; no pending implementation. Verify `git rev-parse HEAD origin/main`
-  matches if resuming. Leave the untracked frontend/tests/probe-quality-debug.test.mjs
-  unstaged; delete it only with user approval.
+- Export task fully verified. If resuming, confirm `git rev-parse HEAD origin/main` matches.
+  Optionally delete the approved temporary probe; optionally harden the Analytics test clock
+  setup separately (out of scope for this export audit). No pending export implementation.

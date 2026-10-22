@@ -372,7 +372,7 @@ async def export_scan_logs_xlsx(db: AsyncSession, user: UserAccount, query: Scan
                     (number_text(row.confidence), "n") if row.confidence is not None else None,
                     (row.inventory_status, "inlineStr"),
                     ("1" if row.flagged else "0", "b"),
-                    (str(row.spoilage_days), "inlineStr"),
+                    (row.spoilage_days, "inlineStr") if row.spoilage_days is not None else None,
                     (str(row.remaining_days), "n") if row.remaining_days is not None else None,
                     (number_text(row.finger_count), "n") if row.finger_count is not None else None,
                     (number_text(row.temperature), "n") if row.temperature is not None else None,
