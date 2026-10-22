@@ -57,6 +57,7 @@ KNOWLEDGE
 - Graphify and ICM were unavailable in this session; no graph update or ICM write is claimed.
 
 EXACT NEXT STEP
-- Review the unstaged diff and the two untracked task files. On explicit authorization, stage
-  and commit them together. Before any future deployment, rehearse 0009 and v1/v2/v3/v4
-  archive restore against a disposable PostgreSQL copy; do not use the live station.
+- Review the unstaged diff and the untracked files (0009 migration, archive_schema_v3.json,
+  archived prior checkpoint). On explicit authorization, stage and commit them together.
+  Before any future deployment, rehearse 0009 and v1/v2/v3/v4 archive restore against a
+  disposable PostgreSQL copy; do not use the live station.
