@@ -41,9 +41,8 @@ Comprehensive guide to testing strategies, verification requirements, test runne
 - `npm run build` (`tsc -b` + Vite) passed (16.34s). Configured lint reports the baseline
   **41 problems (36 errors, 5 warnings)**; Ruff on changed backend files reports only five
   pre-existing E501 findings and no new diagnostics. `py_compile` and `git diff --check` pass.
-- The untracked `frontend/tests/probe-quality-debug.test.mjs` is a temporary diagnostic with
-  no assertions, is not referenced by tracked code, and was excluded from the suite. It is
-  safe to remove with user approval.
+- The temporary `frontend/tests/probe-quality-debug.test.mjs` diagnostic was removed after
+  approval. It was never tracked, had no assertions and was not referenced by the suite.
 - No live station database, captures, physical cameras, OS power or deployment was used.
 
 ## Normalized camera slots and archive v4 — 2026-10-22
