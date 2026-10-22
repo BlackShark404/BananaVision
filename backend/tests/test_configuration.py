@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 import numpy as np
 import pytest
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.api.v1 import config as config_api
@@ -37,8 +37,11 @@ def test_revision_is_required():
 @pytest.fixture
 def configured(application, monkeypatch):
     with Session(application.engine) as db:
-        config = db.scalar(select(SystemConfig))
-        config.camera_ids = 'LEFT, RIGHT'
+        db.execute(delete(Device))
+        db.add_all([
+            Device(camera_id='LEFT', label='Left', slot_index=0, device_index=0),
+            Device(camera_id='RIGHT', label='Right', slot_index=1, device_index=1),
+        ])
         db.commit()
     monkeypatch.setattr(config_api.camera_manager, '_device_ids', [0, 1])
     from app.config import get_settings
@@ -69,23 +72,38 @@ def test_failed_persistence_does_not_publish_camera_names(configured, monkeypatc
     assert response.status_code == 500
     assert changed == []
     with Session(configured.engine) as db:
-        assert db.scalar(select(SystemConfig)).camera_ids == 'LEFT, RIGHT'
+        assert [(d.camera_id, d.slot_index) for d in db.scalars(
+            select(Device).where(Device.slot_index.is_not(None)).order_by(Device.slot_index)
+        )] == [('LEFT', 0), ('RIGHT', 1)]
 
 
 @pytest.mark.asyncio
-async def test_latest_valid_legacy_selected_without_deleting_history(configured):
+async def test_latest_legacy_configuration_selected_without_deleting_history(configured):
     from app.services import configuration
     with Session(configured.engine) as db:
-        db.add(SystemConfig(camera_ids='ONE, TWO', confidence_threshold=72))
-        db.add(SystemConfig(camera_ids='', confidence_threshold=12))
+        db.add(SystemConfig(confidence_threshold=72))
         db.commit()
     async with SessionAdapter(configured.engine, configured.state) as db:
         result = await configuration.get_config(db)
-        assert result.camera_ids == 'ONE, TWO'
+        assert result.confidence_threshold == 72
+        assert [slot.camera_id for slot in result.camera_slots] == ['LEFT', 'RIGHT']
         assert result.legacy_conflict is True
         await db.commit()
     with Session(configured.engine) as db:
-        assert len(db.scalars(select(SystemConfig)).all()) == 3
+        assert len(db.scalars(select(SystemConfig)).all()) == 2
+
+
+@pytest.mark.asyncio
+async def test_invalid_legacy_configuration_is_not_promoted(configured):
+    from app.services import configuration
+    with Session(configured.engine) as db:
+        db.add(SystemConfig(confidence_threshold=0, data_retention_enabled=True))
+        db.commit()
+    async with SessionAdapter(configured.engine, configured.state) as db:
+        result = await configuration.get_config(db)
+        assert result.confidence_threshold == 85
+        assert result.legacy_conflict is True
+        await db.commit()
 
 
 def test_classifier_receives_explicit_saved_threshold():
@@ -149,7 +167,9 @@ def test_slot_count_mismatch_does_not_save(configured):
     result = configured.client.patch('/api/v1/config', json={'expected_revision': revision, 'camera_ids': 'ONLY'})
     assert result.status_code == 422
     with Session(configured.engine) as db:
-        assert db.scalar(select(SystemConfig)).camera_ids == 'LEFT, RIGHT'
+        assert [(d.camera_id, d.slot_index) for d in db.scalars(
+            select(Device).where(Device.slot_index.is_not(None)).order_by(Device.slot_index)
+        )] == [('LEFT', 0), ('RIGHT', 1)]
 
 
 def test_saved_mapping_reports_partial_hardware_failure_without_env_write(configured, monkeypatch, tmp_path):
@@ -181,15 +201,38 @@ def test_saved_mapping_reports_partial_hardware_failure_without_env_write(config
     assert manager.online_cameras == [2]
     assert not (tmp_path / '.env').exists()
     with Session(configured.engine) as db:
-        assert db.scalar(select(SystemConfig)).camera_device_ids == [2, 0]
+        assert [(d.camera_id, d.device_index) for d in db.scalars(
+            select(Device).where(Device.slot_index.is_not(None)).order_by(Device.slot_index)
+        )] == [('LEFT', 2), ('RIGHT', 0)]
+
+
+def test_rename_drops_only_colliding_unassigned_device(configured, monkeypatch):
+    from app.services import configuration
+    with Session(configured.engine) as db:
+        db.add_all([
+            Device(camera_id='TOP', label='Unassigned top'),
+            Device(camera_id='SPARE', label='Unassigned spare'),
+        ])
+        db.commit()
+    monkeypatch.setattr(configuration, 'apply_camera_config', AsyncMock())
+    revision = configured.client.get('/api/v1/config').json()['revision']
+    result = configured.client.patch('/api/v1/config', json={
+        'expected_revision': revision, 'camera_ids': 'TOP, RIGHT',
+    })
+    assert result.status_code == 200, result.text
+    with Session(configured.engine) as db:
+        rows = db.scalars(select(Device)).all()
+        assert {d.camera_id: d.slot_index for d in rows} == {
+            'TOP': 0, 'RIGHT': 1, 'SPARE': None,
+        }
+        assert all(not d.camera_id.startswith('pending-') for d in rows)
 
 
 def test_logical_rename_preserves_slot_uuid(configured, monkeypatch):
     from app.services import configuration
     with Session(configured.engine) as db:
-        left, right = Device(camera_id='LEFT', label='Left'), Device(camera_id='RIGHT', label='Right')
-        db.add_all([left, right])
-        db.commit()
+        left = db.scalar(select(Device).where(Device.slot_index == 0))
+        right = db.scalar(select(Device).where(Device.slot_index == 1))
         left_id, right_id = left.id, right.id
     monkeypatch.setattr(configuration, 'apply_camera_config', AsyncMock())
     revision = configured.client.get('/api/v1/config').json()['revision']
@@ -219,7 +262,6 @@ def test_expand_two_slots_to_four_persists_and_lists_every_camera(configured, mo
     assert [camera['device_id'] for camera in listed] == [1, 2, 3, 4]
     assert [camera['camera_id'] for camera in listed] == ['LEFT', 'RIGHT', 'TOP', 'REAR']
     with Session(configured.engine) as db:
-        assert db.scalar(select(SystemConfig)).camera_device_ids == [1, 2, 3, 4]
-        assert {device.camera_id for device in db.scalars(select(Device))} == {
-            'LEFT', 'RIGHT', 'TOP', 'REAR',
-        }
+        assert [(d.camera_id, d.slot_index, d.device_index) for d in db.scalars(
+            select(Device).where(Device.slot_index.is_not(None)).order_by(Device.slot_index)
+        )] == [('LEFT', 0, 1), ('RIGHT', 1, 2), ('TOP', 2, 3), ('REAR', 3, 4)]

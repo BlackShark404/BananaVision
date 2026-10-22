@@ -2,6 +2,15 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-10-22: Normalized Camera Slots and Derived Counter Removal
+
+- Saved camera configuration now lives on `device.slot_index` and `device.device_index` instead of repeated `system_config.camera_ids` and `system_config.camera_device_ids`. Slot ownership and physical indices are unique, validated ranges; unassigned operational device rows may keep both columns null.
+- `system_config` remains the singleton revision/arbitration row for confidence threshold and retention. The API still exposes `camera_ids` as a comma-separated string and `camera_device_ids` as an ordered list, derived from normalized slots, so the frontend contract is unchanged.
+- `operator_profile.total_scans` and `flagged_scans` were removed because analytics already derives those totals from scan rows. Existing counts were not authoritative history and are not backfilled.
+- Migration `0009_camera_slots` maps the newest valid legacy camera array into slot rows, preserves existing device UUIDs and statuses, and drops the repeated/counter columns. Automatic downgrade is blocked because it would discard operator-chosen mappings.
+- Archive format v4 stores the normalized schema. Strict v1/v2/v3 adapters validate the old recorded schema, convert saved camera arrays into slots, remove the dropped fields, and keep the original archive hash authoritative. Restore validation now requires one contiguous 1–4 slot set before accepting a backup.
+- See [[Testing and Validation]] for the isolated migration and archive regressions.
+
 ## 2026-10-21: Conservative Finger Count Across Overlapping Views
 
 - Confirmed the old peripheral-addition heuristic can turn Top 7 / Left 9 / Right 10 / Rear 13 into 21: Rear supplies 13 and each side adds four presumed unseen fingers. The user reports about 15 physically present; the per-camera counts do not prove which detections are distinct across views.

@@ -22,6 +22,39 @@ Comprehensive guide to testing strategies, verification requirements, test runne
   `tsconfig.json` has `files: []`; the build's `tsc -b` is the real type check.
 - No live station database, captures, physical cameras, OS power or deployment was used.
 
+## Normalized camera slots and archive v4 — 2026-10-22
+
+- `test_migrations.py` upgrades a legacy SQLite schema and verifies saved camera
+  arrays become contiguous `device.slot_index`/`device_index` values, existing device
+  identity/status is retained, unique indexes and range checks exist, and the dropped
+  configuration/operator columns are gone. It also verifies the legacy inline
+  `device.camera_id UNIQUE` is promoted to a named unique index before batch table
+  recreation, so a duplicate camera name still raises `IntegrityError` after migration.
+- `test_configuration.py` covers slot initialization and validation, legacy scalar-row
+  selection, invalid-row rejection, rename/remap/expansion behavior, UUID preservation,
+  failed-commit rollback, and cleanup of an unassigned row that collides with a reused
+  camera name. The API still returns the existing comma-separated `camera_ids` and
+  ordered `camera_device_ids` contract.
+- `test_backup_archive.py` verifies v4 round trips plus strict v1/v2/v3 upgrades,
+  including legacy camera arrays becoming slots, dropped fields disappearing, and
+  invalid recorded legacy types being rejected before restore.
+- Targeted configuration/archive/migration suites: **64 passed, 2 skipped**.
+- Full backend suite from a fresh temporary cwd (documented isolation, so the station
+  `.env` is not loaded): **540 passed, 99 skipped, 1 warning** (32.16s); the only 4
+  failures are pre-existing macOS power-command tests that reference
+  `subprocess.CREATE_NO_WINDOW` while `power_control.py` is unchanged. Running from
+  `backend/` instead loads the station `.env` (`APP_CORS_ORIGINS=["*"]`) and adds 7
+  unrelated CORS assertion failures; the CORS middleware and tests are unmodified.
+  No disposable PostgreSQL URL was configured, so PostgreSQL-specific migration cases
+  skipped; `0009_camera_slots` was exercised on isolated SQLite only.
+- `npm run build` (`tsc -b` + Vite) passed in 3.34s. The API contract is unchanged, so no
+  frontend source edits were required.
+- Ad hoc `uvx ruff check backend` reports **649 findings versus 657 at HEAD**,
+  predominantly existing E501/I001/F401 debt; new migration/archive long lines were
+  corrected. No claim is made that every new line is lint-clean beyond the reviewed scope.
+- `git diff --check` passed. No live station database, captures, physical cameras, OS
+  power, restore, deployment or Git history operation was used.
+
 ## Current demo-seed regression coverage
 
 `backend/tests/test_seed.py` runs only with an explicitly disposable

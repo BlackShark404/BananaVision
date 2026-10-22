@@ -90,7 +90,7 @@ def station(tmp_path):
             m.ScanDetection(scan_id=scan_id, camera_id="CAM-001", camera_label="Top",
                 bounding_boxes=[{"xyxy": [1, 2, 3, 4], "confidence": 0.9125, "extra": None}]),
             m.ScanNote(scan_id=scan_id, text="Preserve note", author_name="Admin"),
-            m.Device(camera_id="CAM-001", label="Top"),
+            m.Device(camera_id="CAM-001", label="Top", slot_index=0, device_index=0),
             m.SystemConfig(updated_by_admin=admin.id),
             m.ActivityLog(user_id=user.id, action="LOGIN", details="Preserve audit"),
             m.AppNotification(type="scan", title="Ready", message="Preserve notification", user_id=user.id),
@@ -141,7 +141,7 @@ def rewrite(path, *, edit_manifest=None, edit_row=None, extra=None, omit=None):
 def test_complete_all_table_roundtrip_preserves_values_and_instants(archive_module, station, tmp_path):
     path = backup(archive_module, station, tmp_path)
     validated = archive_module.validate_archive(path, tmp_path / "staging")
-    assert validated.manifest["version"] == 3
+    assert validated.manifest["version"] == 4
     assert len(validated.manifest["tables"]) == 21
     assert all(t["count"] == 1 for t in validated.manifest["tables"].values())
     assert "maintenance_state" not in validated.manifest["tables"]
@@ -170,7 +170,8 @@ def test_complete_all_table_roundtrip_preserves_values_and_instants(archive_modu
     engine.dispose()
 
 
-def legacy_backup(archive_module, station, tmp_path, *, bad_null=False, version=1):
+def legacy_backup(archive_module, station, tmp_path, *, bad_null=False, version=1,
+                  camera_ids='CAM-001', camera_device_ids=(0,)):
     path = backup(archive_module, station, tmp_path)
     with zipfile.ZipFile(path) as source:
         members = {name: source.read(name) for name in source.namelist()}
@@ -187,6 +188,12 @@ def legacy_backup(archive_module, station, tmp_path, *, bad_null=False, version=
             continue
         rows = [{key: value for key, value in json.loads(line).items() if key in legacy[table]}
                 for line in members[name].splitlines()]
+        if table == 'system_config':
+            for row in rows:
+                row.update(camera_ids=camera_ids, camera_device_ids=list(camera_device_ids))
+        if table == 'operator_profile':
+            for row in rows:
+                row.update(total_scans=0, flagged_scans=0)
         if bad_null and table == 'scan_original_ai_result':
             rows[0]['confidence'] = None
         members[name] = b''.join(json.dumps(row).encode() + b'\n' for row in rows)
@@ -214,7 +221,33 @@ def test_v1_backup_upgrades_without_inventing_history(archive_module, station, t
         assert not restored.scalars(select(m.ScanEvent)).all()
         assert not restored.scalars(select(m.ScanMutation)).all()
         assert not restored.scalars(select(m.ScanTombstone)).all()
+        device = restored.scalar(select(m.Device))
+        assert (device.camera_id, device.slot_index, device.device_index) == ('CAM-001', 0, 0)
     engine.dispose()
+
+
+@pytest.mark.parametrize('version', [1, 2, 3])
+def test_legacy_camera_arrays_become_normalized_device_slots(
+    archive_module, station, tmp_path, version,
+):
+    path = legacy_backup(archive_module, station, tmp_path, version=version,
+                         camera_ids='CAM-002, CAM-001', camera_device_ids=[3, 1])
+    validated = archive_module.validate_archive(path, tmp_path / 'camera-slots')
+    devices = {row['camera_id']: row for row in validated.iter_rows('device')}
+    assert (devices['CAM-002']['slot_index'], devices['CAM-002']['device_index']) == (0, 3)
+    assert (devices['CAM-001']['slot_index'], devices['CAM-001']['device_index']) == (1, 1)
+    assert all('camera_ids' not in row and 'camera_device_ids' not in row
+               for row in validated.iter_rows('system_config'))
+    assert all('total_scans' not in row and 'flagged_scans' not in row
+               for row in validated.iter_rows('operator_profile'))
+
+
+def test_v3_backup_still_validates_recorded_camera_columns(
+    archive_module, station, tmp_path,
+):
+    path = legacy_backup(archive_module, station, tmp_path, version=3, camera_ids=123)
+    with pytest.raises(archive_module.ArchiveError):
+        archive_module.validate_archive(path, tmp_path / 'invalid-v3')
 
 
 def test_v1_backup_still_enforces_legacy_required_values(archive_module, station, tmp_path):
@@ -346,7 +379,7 @@ def test_archive_rejects_unusable_administrator_bcrypt_cost(station, archive_mod
     {'intake_provenance': 'unverified', 'intake_origin_id': None},
     {'intake_provenance': 'linked', 'intake_origin_id': str(uuid4())},
 ])
-def test_v3_archive_rejects_inconsistent_provenance(archive_module, station, tmp_path, values):
+def test_current_archive_rejects_inconsistent_provenance(archive_module, station, tmp_path, values):
     path = backup(archive_module, station, tmp_path)
     rewrite(path, edit_row=('scan', lambda rows: rows[0].update(values)))
     with pytest.raises(archive_module.ArchiveError):

@@ -23,7 +23,7 @@ from app.core import database
 from app.core.db_types import ManilaDateTime
 from app.core.time import MANILA, as_manila, business_day_bounds, input_manila, now_manila
 from app.models import (
-    ActivityLog, AdminProfile, Intake, OperatorProfile, Scan, ScanClassification,
+    ActivityLog, AdminProfile, Device, Intake, OperatorProfile, Scan, ScanClassification,
     ScanNote, ScanStatusLog, Supplier, SystemConfig, UserAccount, UserRole,
 )
 from app.schemas.enums import (
@@ -114,7 +114,11 @@ def application(monkeypatch):
                                ripeness=RipenessEnum.RIPE, confidence=90, spoilage_days="3", finger_count=5),
             ScanStatusLog(scan_id=ids.scan, inventory_status=InventoryStatusEnum.IN_STOCK,
                           updated_at=historical),
-            SystemConfig(confidence_threshold=85, camera_ids="CAM-001, CAM-002, CAM-003, CAM-004", data_retention_enabled=True),
+            SystemConfig(confidence_threshold=85, data_retention_enabled=True),
+            Device(camera_id="CAM-001", label="Camera 1", slot_index=0, device_index=0),
+            Device(camera_id="CAM-002", label="Camera 2", slot_index=1, device_index=1),
+            Device(camera_id="CAM-003", label="Camera 3", slot_index=2, device_index=2),
+            Device(camera_id="CAM-004", label="Camera 4", slot_index=3, device_index=3),
         ])
         db.commit()
 

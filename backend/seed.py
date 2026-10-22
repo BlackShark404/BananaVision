@@ -130,36 +130,19 @@ async def seed_data(db):
     db.add(operator_prof)
     await db.flush()
 
-    # 4. Devices (Cameras)
-    cam1 = Device(
-        camera_id="CAM-001",
-        label="Top Camera",
-        status=DeviceStatusEnum.ONLINE,
-        resolution="1920x1080",
-        last_seen=now,
-    )
-    cam2 = Device(
-        camera_id="CAM-002",
-        label="Left Camera",
-        status=DeviceStatusEnum.OFFLINE,
-        resolution="1920x1080",
-        last_seen=now - timedelta(days=1),
-    )
-    cam3 = Device(
-        camera_id="CAM-003",
-        label="Right Camera",
-        status=DeviceStatusEnum.ONLINE,
-        resolution="1920x1080",
-        last_seen=now,
-    )
-    cam4 = Device(
-        camera_id="CAM-004",
-        label="Rear Camera",
-        status=DeviceStatusEnum.ONLINE,
-        resolution="1920x1080",
-        last_seen=now,
-    )
-    db.add_all([cam1, cam2, cam3, cam4])
+    # 4. Devices (Cameras) — one row per saved camera slot.
+    camera_labels = ("Top Camera", "Left Camera", "Right Camera", "Rear Camera")
+    for index, device_index in enumerate(get_settings().camera_device_ids):
+        online = index != 1
+        db.add(Device(
+            camera_id=f"CAM-{index + 1:03}",
+            slot_index=index,
+            device_index=device_index,
+            label=camera_labels[index],
+            status=DeviceStatusEnum.ONLINE if online else DeviceStatusEnum.OFFLINE,
+            resolution="1920x1080",
+            last_seen=now if online else now - timedelta(days=1),
+        ))
 
     # 5. Sensor Readings
     for i in range(10):

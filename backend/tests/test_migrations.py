@@ -4,11 +4,14 @@ import asyncio
 from uuid import uuid4
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.core import database
-from app.core.migrations import initialize_schema, upgrade_connection
+from app.core.migrations import BACKEND_ROOT, initialize_schema, upgrade_connection
 from tests.test_time_and_writes import sqlite_jsonb  # noqa: F401 -- SQLite JSONB compiler
 
 
@@ -38,7 +41,7 @@ def assert_upgraded(connection):
     }
     assert (
         connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        == "0008_windows_label_jobs"
+        == "0009_camera_slots"
     )
 
 
@@ -68,7 +71,7 @@ def test_current_schema_adopts_revision_without_duplicate_columns():
                 assert [column["name"] for column in inspect(connection).get_columns(table)] == columns
             assert (
                 connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                == "0008_windows_label_jobs"
+                == "0009_camera_slots"
             )
     finally:
         engine.dispose()
@@ -128,6 +131,89 @@ def test_provenance_migration_quarantines_legacy_null_without_changing_stock():
     engine.dispose()
 
 
+def test_camera_slots_migration_normalizes_saved_arrays_and_counters():
+    engine = create_engine("sqlite://")
+    try:
+        with engine.begin() as connection:
+            connection.execute(text(
+                "CREATE TABLE user_account (id UUID PRIMARY KEY, "
+                "username VARCHAR(50), password_hash VARCHAR(255))"
+            ))
+            connection.execute(text("CREATE TABLE delivery_intake (id INTEGER PRIMARY KEY, source VARCHAR(100))"))
+            connection.execute(text("CREATE TABLE scan_classification (id INTEGER PRIMARY KEY, confidence NUMERIC(5,2))"))
+            connection.execute(text(
+                "CREATE TABLE system_config (id INTEGER PRIMARY KEY, "
+                "camera_ids VARCHAR(255), camera_device_ids JSON, canonical_key INTEGER, "
+                "revision INTEGER NOT NULL DEFAULT 1, legacy_conflict BOOLEAN NOT NULL DEFAULT 0, "
+                "confidence_threshold INTEGER NOT NULL DEFAULT 85, "
+                "data_retention_enabled BOOLEAN NOT NULL DEFAULT 1, updated_at DATETIME, "
+                "updated_by_admin UUID)"
+            ))
+            connection.execute(text(
+                "CREATE TABLE device (id CHAR(32) PRIMARY KEY, camera_id VARCHAR(50) UNIQUE NOT NULL, "
+                "label VARCHAR(100) NOT NULL, status VARCHAR(20) NOT NULL, resolution VARCHAR(20), "
+                "last_seen DATETIME, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)"
+            ))
+            connection.execute(text(
+                "CREATE TABLE operator_profile (id UUID PRIMARY KEY, account_id UUID, "
+                "pin_hash VARCHAR(255), requires_pin_change BOOLEAN, pin_setup_reason VARCHAR(50), "
+                "total_scans INTEGER NOT NULL DEFAULT 0, flagged_scans INTEGER NOT NULL DEFAULT 0, "
+                "created_at DATETIME, updated_at DATETIME)"
+            ))
+            config = Config(str(BACKEND_ROOT / "alembic.ini"))
+            config.attributes["connection"] = connection
+            command.upgrade(config, "0008_windows_label_jobs")
+            device_id, profile_id = uuid4(), uuid4()
+            connection.execute(text(
+                "INSERT INTO device VALUES (:id, 'CAM-001', 'Left scanner', 'Online', '640x480', "
+                "NULL, '2025-01-01 00:00:00', '2025-01-01 00:00:00')"
+            ), {"id": str(device_id)})
+            connection.execute(text(
+                "INSERT INTO system_config (id, camera_ids, camera_device_ids, canonical_key, "
+                "confidence_threshold, data_retention_enabled, updated_at) VALUES "
+                "(1, 'CAM-002, CAM-001', '[3, 1]', 1, 75, 1, '2025-01-02 00:00:00')"
+            ))
+            connection.execute(text(
+                "INSERT INTO operator_profile (id, total_scans, flagged_scans, created_at, updated_at) "
+                "VALUES (:id, 12, 3, '2025-01-01 00:00:00', '2025-01-01 00:00:00')"
+            ), {"id": str(profile_id)})
+            upgrade_connection(connection)
+
+            config_columns = {c["name"] for c in inspect(connection).get_columns("system_config")}
+            operator_columns = {c["name"] for c in inspect(connection).get_columns("operator_profile")}
+            assert "camera_ids" not in config_columns and "camera_device_ids" not in config_columns
+            assert "total_scans" not in operator_columns and "flagged_scans" not in operator_columns
+            rows = connection.execute(text(
+                "SELECT camera_id, slot_index, device_index, label, status FROM device "
+                "ORDER BY slot_index"
+            )).all()
+            assert rows == [("CAM-002", 0, 3, "Scanner 1", "Offline"),
+                            ("CAM-001", 1, 1, "Left scanner", "Online")]
+            indexes = {index["name"]: index for index in inspect(connection).get_indexes("device")}
+            assert indexes["ix_device_camera_id"]["unique"]
+            assert indexes["uq_device_slot_index"]["unique"]
+            assert indexes["uq_device_device_index"]["unique"]
+            checks = {
+                check["name"] for check in inspect(connection).get_check_constraints("device")
+            }
+            assert {"ck_device_slot_index_range",
+                    "ck_device_device_index_nonnegative"} <= checks
+            assert connection.execute(text(
+                "SELECT confidence_threshold FROM system_config"
+            )).scalar_one() == 75
+            assert connection.execute(text(
+                "SELECT version_num FROM alembic_version"
+            )).scalar_one() == "0009_camera_slots"
+            with pytest.raises(IntegrityError):
+                connection.execute(text(
+                    "INSERT INTO device (id, camera_id, label, status, created_at, updated_at) "
+                    "VALUES ('duplicate', 'CAM-001', 'Duplicate', 'Offline', "
+                    "'2025-01-01 00:00:00', '2025-01-01 00:00:00')"
+                ))
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.asyncio
 @pytest.mark.skipif(not os.environ.get("BANANAVISION_TEST_DATABASE_URL"), reason="Optional isolated PostgreSQL instance")
 @pytest.mark.parametrize("legacy", [False, True])
@@ -153,7 +239,7 @@ async def test_postgresql_schema_startup_upgrade(legacy):
             async with engine.begin() as connection:
                 assert (
                     await connection.execute(text("SELECT version_num FROM alembic_version"))
-                ).scalar_one() == "0008_windows_label_jobs"
+                ).scalar_one() == "0009_camera_slots"
         async with engine.begin() as connection:
             await connection.run_sync(upgrade_connection)
             if legacy:

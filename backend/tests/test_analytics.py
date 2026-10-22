@@ -141,7 +141,7 @@ async def test_calendar_ranges_and_fixed_trend_have_explicit_different_populatio
 async def test_confidence_excludes_missing_invalid_and_unrecoverable_overrides(analytics_db):
     db = analytics_db
     user = account(db)
-    db.add(SystemConfig, confidence_threshold=75, camera_ids="", data_retention_enabled=False)
+    db.add(SystemConfig, confidence_threshold=75, data_retention_enabled=False)
     scan(db, user, confidence=None)
     scan(db, user, confidence=0)
     scan(db, user, confidence=75)

@@ -1,60 +1,62 @@
-CURRENT RESUME HERE (2026-10-22) - CSV/XLSX EXPORTS IMPLEMENTED AND VERIFIED
+CURRENT RESUME HERE (2026-10-22) - CAMERA SLOT NORMALIZATION IMPLEMENTED AND VERIFIED
 
 GIT / SCOPE
-- Existing main; task started at e45af37. Feature work committed as 808d3ff and pushed;
-  origin/main had not advanced, so no integration commit was needed. This checkpoint-only
-  follow-up is documentation and is pushed with the same delivery. After that push, local
-  main and origin/main are synchronized. No branches/worktrees, force push, history rewrite,
-  deployment or live operations. Working tree is clean apart from the untracked probe.
-- Prior system-config checkpoint archived as
-  docs/history/2026-10-22-before-export-improvements.txt.
-- Task files include backend/frontend export code and tests, two knowledge notes, package
-  metadata and the prior-checkpoint archive. Untracked frontend/tests/probe-quality-debug.test.mjs
-  is a temporary probe and must never be staged.
+- Existing main at 5dcbdda. All normalization work is uncommitted and unstaged; nothing was
+  committed, pushed, deployed or applied to live data.
+- Modified backend models, configuration/archive/restore services, camera/startup/scan code,
+  seed and affected tests/docs. Untracked files that belong to the task:
+  backend/migrations/versions/0009_camera_slots.py and
+  backend/app/services/archive_schema_v3.json.
+- Prior export checkpoint archived as
+  docs/history/2026-10-22-before-camera-slot-normalization.txt.
 
 IMPLEMENTED
-- Dependency-free backend/app/core/xlsx.py builds OpenXML workbooks with typed cells,
-  inlineStr text (no formulas/hyperlinks), preserved whitespace, wrapped headers/data,
-  estimated row heights and column widths clamped to 12-81.
-- Scan Logs exports every authorized/filtered/sorted row for format=csv|xlsx, ignoring
-  page/limit while preserving snapshot and account scope. The snapshot binding excludes
-  `format` so one frozen snapshot serves both downloads. CSV keeps its BOM, column order,
-  all existing values and three-decimal VPD.
-- System Configuration CSV/XLSX summaries share backend headers; XLSX emits numeric
-  confidence and text IDs. Empty exports retain headers.
-- Frontend `ExportDropdown` is used by Scan Logs, System Configuration, Activity Log,
-  Delivery Intakes and Quality Control. Client pages export the complete filtered dataset
-  after local sorting via `AppDataTable.onSortedData`, not only the visible page.
-- Client CSV/XLSX helpers preserve identifiers/leading zeros and exact decimal strings,
-  emit blank cells for missing optional values, and neutralize only formula-like text;
-  negative numeric strings such as "-1" remain numeric.
-- Restored the `camera_manager` import in config.py (marked noqa) because configuration
-  tests monkeypatch it through that module; cleanup had briefly broken 8 fixtures.
-- Moved test-only `exceljs` 4.4.0 to frontend devDependencies.
+- Saved camera mappings now live only in device.slot_index and device.device_index, one row
+  per saved slot, with contiguous 0..n-1 slots, unique camera names/physical indices and
+  range checks. Nullable values are reserved for unassigned operational rows.
+- system_config no longer repeats camera_ids/camera_device_ids; only the singleton revision,
+  confidence threshold, retention flag and legacy arbitration/history remain.
+- operator_profile.total_scans/flagged_scans were removed; analytics already derives those
+  totals from scan rows.
+- The API contract is unchanged: camera_ids remains a comma-separated string and
+  camera_device_ids remains an ordered list, both derived from normalized slots.
+- Migration 0009 maps the newest valid legacy camera array into device slots, preserves
+  existing device UUIDs/statuses, adds unique/range checks, drops the repeated/counter
+  columns, and blocks downgrade because saved mappings/history would be discarded.
+  It promotes a legacy SQLite inline camera_id UNIQUE to the named ix_device_camera_id
+  index before batch table recreation, so duplicate camera names stay rejected.
+- Archive format is v4. Strict v1/v2/v3 adapters validate their recorded schema, convert
+  camera arrays into slots, remove dropped fields, retain the original archive hash, and
+  require one contiguous 1-4 slot set before restore preview accepts a backup.
+- Configuration updates preserve slot UUIDs by position, adopt unassigned rows when safe,
+  delete only colliding unassigned duplicates, and still reject invalid/stale revisions.
 
-VERIFICATION (final run)
-- Full backend suite: 574 passed, 62 skipped, 1 warning in 123.20s. Isolated SQLite only;
-  no PostgreSQL URL configured, so PostgreSQL-specific cases skipped.
-- Frontend export/browser regressions (clientexports, scanrecords, persistence):
-  69 passed, 0 failed/skipped in 113.70s.
-- npm run build (tsc -b + Vite): PASS, 7.09s. Root npm run typecheck is a no-op because
-  tsconfig.json has files: []; the build is the real type check.
-- npm run lint: 41 problems (36 errors, 5 warnings), exactly the existing baseline; no new
-  diagnostics from this task. Removed one now-unused eslint-disable directive.
-- Ruff on changed backend files: new xlsx.py and test_exports.py clean; remaining findings
-  are pre-existing E501/F811/I001 lines.
-- Full frontend suite was not rerun; the affected export/records/persistence suites cover
-  every changed surface. Unrelated existing connectivity failures remain separate work.
-- git diff --check: PASS. No live station database, captures, physical cameras or OS power.
+VERIFICATION
+- Targeted configuration/archive/migration suites: 64 passed, 2 skipped.
+- Migration regression: the legacy SQLite fixture now asserts ix_device_camera_id is
+  unique after upgrade and that inserting a duplicate camera_id raises IntegrityError.
+- Full backend suite from a fresh temporary cwd (documented isolation, so the station
+  .env is not loaded): 540 passed, 99 skipped, 1 warning in 32.16s. The only 4 failures
+  are pre-existing macOS power-command tests referencing subprocess.CREATE_NO_WINDOW;
+  power_control.py is unchanged and the failing test body is outside this task.
+- Running the same suite from backend/ loads APP_CORS_ORIGINS=["*"] from the station
+  .env and adds 7 unrelated CORS assertion failures; app/core/http.py and the tests are
+  unmodified. The isolated-cwd run above is the authoritative result.
+- Frontend `npm run build` (tsc -b + Vite): PASS in 3.34s. API responses were not changed.
+- Ad hoc `uvx ruff check backend`: 649 findings versus 657 at HEAD, predominantly existing
+  E501/I001/F401 debt; new migration/archive long lines were corrected.
+- git diff --check: PASS. No PostgreSQL URL was configured, so PostgreSQL-specific migration
+  cases skipped and 0009 was exercised only on isolated SQLite.
+- No live station database, captures, physical cameras, OS power, restore or deployment was
+  used.
 
 KNOWLEDGE
-- docs/knowledge/Frontend.md documents the export contract and security/precision choices.
+- backend/README.md documents migration head 0009, archive v4 and v1/v2/v3 compatibility.
+- docs/knowledge/Development Decisions.md records the normalization/archive decisions.
 - docs/knowledge/Testing and Validation.md records the commands, counts and isolation limits.
-- Graphify refreshed locally for the final export change set (3960 nodes, 12102 edges,
-  234 communities); graphify-out/ is gitignored, so no graph files are committed.
-- Project ICM memory stored: 01M5HAM0SAV8DHHZXZFBJ77D0G.
+- Graphify and ICM were unavailable in this session; no graph update or ICM write is claimed.
 
 EXACT NEXT STEP
-- Export task complete; no pending implementation. Verify `git rev-parse HEAD origin/main`
-  matches if resuming. Leave the untracked frontend/tests/probe-quality-debug.test.mjs
-  unstaged; delete it only with user approval.
+- Review the unstaged diff and the two untracked task files. On explicit authorization, stage
+  and commit them together. Before any future deployment, rehearse 0009 and v1/v2/v3/v4
+  archive restore against a disposable PostgreSQL copy; do not use the live station.

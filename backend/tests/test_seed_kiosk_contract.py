@@ -72,7 +72,10 @@ async def test_seed_and_kiosk_records_agree_across_consumers(
             return [capture]
 
         async def config(_db):
-            return SimpleNamespace(confidence_threshold=85, camera_device_ids=[0])
+            return SimpleNamespace(
+                confidence_threshold=85,
+                camera_slots=[SimpleNamespace(slot_index=0)],
+            )
 
         completed, predictions = [], []
 

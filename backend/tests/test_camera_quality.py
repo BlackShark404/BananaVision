@@ -215,7 +215,8 @@ async def test_startup_reports_measured_resolution_without_requested_dimensions(
         add=devices.append, commit=AsyncMock(),
     )
     monkeypatch.setattr(startup, "camera_manager", SimpleNamespace(
-        _get_camera_id=lambda _: "CAM-001", get_resolution=lambda _: (640, 480),
+        _get_camera_id=lambda _: "CAM-001", _device_ids=[0],
+        get_resolution=lambda _: (640, 480),
     ))
     monkeypatch.setattr(startup, "settings", SimpleNamespace(camera_labels=["Top"]))
     await startup._register_cameras(db, {0: True})

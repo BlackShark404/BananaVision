@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Scan, ActivityLog, SystemConfig, Device
+from app.models import Scan, ActivityLog, Device
 from tests.test_time_and_writes import application, SessionAdapter  # noqa: F401
 
 
@@ -16,7 +16,6 @@ async def test_retention_preserves_all_persisted_history(application, monkeypatc
     monkeypatch.setattr(data_retention, 'async_session_factory', lambda: SessionAdapter(application.engine, application.state))
     monkeypatch.setattr(data_retention, 'settings', SimpleNamespace(capture_path=tmp_path, max_captures_retention_days=1))
     with Session(application.engine) as db:
-        db.scalar(select(SystemConfig)).camera_ids = 'CAM-001, CAM-002, CAM-003, CAM-004'
         before_scans = set(db.scalars(select(Scan.id)))
         before_logs = set(db.scalars(select(ActivityLog.id)))
         db.commit()

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.api.v1 import cameras
-from app.models import SystemConfig
+from app.models import Device
 from app.services import camera_discovery
 from tests.test_time_and_writes import application  # noqa: F401
 
@@ -57,8 +57,12 @@ def test_non_windows_does_not_guess_indices(monkeypatch):
 def test_discovery_includes_unassigned_device_and_actual_saved_health(application, monkeypatch):  # noqa: F811
     application.app.include_router(cameras.router, prefix='/api/v1')
     with Session(application.engine) as db:
-        saved = db.scalar(select(SystemConfig))
-        saved.camera_device_ids = [0, 1, 3, 4]
+        devices = db.scalars(select(Device).order_by(Device.slot_index)).all()
+        for device in devices:
+            device.device_index = None
+        db.flush()
+        for device, device_index in zip(devices, [0, 1, 3, 4], strict=True):
+            device.device_index = device_index
         db.commit()
     inventory = {'backend': 'dshow', 'error': None, 'devices': [
         {'device_id': index, 'name': f'Device {index}', 'device_uid': str(index)}

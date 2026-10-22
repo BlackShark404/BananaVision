@@ -45,6 +45,9 @@ LEGACY_SCHEMA = json.loads(
 V2_SCHEMA = json.loads(
     Path(__file__).with_name("archive_schema_v2.json").read_text(encoding="utf-8")
 )
+V3_SCHEMA = json.loads(
+    Path(__file__).with_name("archive_schema_v3.json").read_text(encoding="utf-8")
+)
 MAX_ARCHIVE_BYTES = 4 * 1024**3
 MAX_EXPANDED_BYTES = 8 * 1024**3
 MAX_FILE_BYTES = 256 * 1024**2
@@ -67,9 +70,39 @@ def application_tables():
     return [table for table in Base.metadata.sorted_tables if table.name in TABLE_NAMES]
 
 
+def _type_from_spec(spec):
+    """Build a validation-only type for a schema recorded by an older release."""
+    kind = spec["kind"]
+    if kind == "enum":
+        return SAEnum(*spec["values"], name="legacy_archive_enum")
+    if kind == "timestamp":
+        return ManilaDateTime()
+    if kind == "array":
+        return ARRAY(_type_from_spec(spec["item"]), dimensions=spec["dimensions"])
+    if kind == "boolean":
+        return Boolean()
+    if kind == "integer":
+        return Integer()
+    if kind == "float":
+        return Float()
+    if kind == "decimal":
+        return Numeric(spec["precision"], spec["scale"])
+    if kind == "uuid":
+        return Uuid()
+    if kind == "date":
+        return Date()
+    if kind == "json":
+        return JSON()
+    if kind == "string":
+        return String(spec["length"])
+    raise ArchiveError("Unsupported legacy archive column type")
+
+
 def _type_spec(kind):
     if isinstance(kind, SAEnum):
-        return {"kind": "enum", "values": [e.value for e in kind.enum_class]}
+        if kind.enum_class is not None:
+            return {"kind": "enum", "values": [e.value for e in kind.enum_class]}
+        return {"kind": "enum", "values": list(kind.enums)}
     if isinstance(kind, (ManilaDateTime, DateTime)):
         return {"kind": "timestamp"}
     if isinstance(kind, ARRAY):
@@ -144,7 +177,12 @@ def _typed(value, kind):
         if label == "enum":
             if not isinstance(value, str):
                 raise ValueError()
-            return kind.enum_class(value)
+            enum_class = getattr(kind, "enum_class", None)
+            if enum_class is not None:
+                return enum_class(value)
+            if value not in getattr(kind, "enums", ()):
+                raise ValueError()
+            return value
         if label == "timestamp":
             if not isinstance(value, str):
                 raise ValueError()
@@ -337,7 +375,7 @@ async def create_archive(db, capture_root: Path, destination: Path) -> dict:
     partial = owned / "archive.zip"
     try:
         _space(owned, RESERVE_BYTES)
-        manifest = {"format": "bananavision-station", "version": 3,
+        manifest = {"format": "bananavision-station", "version": 4,
                     "application_version": "0.1.0", "created_at": now_manila().isoformat(),
                     "schema": schema_description(), "tables": {}, "files": {},
                     "prerequisites": {"database": "PostgreSQL", "timezone": "Asia/Manila",
@@ -509,45 +547,168 @@ def _check_constraints(validated):
         (validated.staging_root / "constraints.sqlite").unlink(missing_ok=True)
 
 
-def _upgrade_legacy_staging(manifest, root):
-    """Adapt strictly validated v1/v2 rows; keep source version for the preview.
+def _validate_spec_row(row, spec):
+    """Validate a legacy row against its recorded schema, accepting dropped columns."""
+    if not isinstance(row, dict) or set(row) != set(spec):
+        raise ArchiveError("Unexpected legacy table columns")
+    result = {}
+    for name, column in spec.items():
+        value = row[name]
+        if value is None:
+            if not column["nullable"]:
+                raise ArchiveError("Null in required legacy column")
+            result[name] = None
+        else:
+            result[name] = _encode(_typed(value, _type_from_spec(column)))
+    return result
 
-    The original archive hash remains authoritative. Only private staged rows and
-    their descriptors change, so restore/compensation verify exactly what is inserted.
-    No actors, old classifications or events can be inferred from present-day data.
-    """
+
+def _upgrade_to_v3(manifest, root):
+    """Validate and adapt v1/v2/v3 rows to the last schema with camera arrays."""
+    version = manifest["version"]
+    source_schema = {1: LEGACY_SCHEMA, 2: V2_SCHEMA, 3: V3_SCHEMA}[version]
     defaults = {
         "scan": {"revision": 1, "operator_name_snapshot": None, "source_name_snapshot": None},
         "scan_original_ai_result": {"spoilage_days": None},
-    } if manifest["version"] == 1 else {}
-    legacy_schema = LEGACY_SCHEMA if manifest["version"] == 1 else V2_SCHEMA
+    } if version == 1 else {}
     for table in application_tables():
         path = root / "tables" / f"{table.name}.jsonl"
-        if table.name not in legacy_schema:
+        if table.name not in source_schema:
             path.write_bytes(b"")
-            manifest["tables"][table.name] = _descriptor(0, hashlib.sha256(b"").hexdigest(), 0)
             continue
-        replacement = path.with_suffix(".upgraded")
+        replacement = path.with_suffix(".v3")
+        count = 0
+        spec = source_schema[table.name]
+        with path.open("rb") as source, replacement.open("xb") as target:
+            while line := source.readline(MAX_ROW_BYTES + 1):
+                if len(line) > MAX_ROW_BYTES or not line.endswith(b"\n"):
+                    raise ArchiveError("Row size/framing limit exceeded")
+                row = _validate_spec_row(_load(line), spec)
+                row.update(defaults.get(table.name, {}))
+                if version < 3 and table.name == "scan":
+                    row.update(
+                        intake_origin_id=row["intake_id"],
+                        intake_provenance="linked" if row["intake_id"] else "unverified",
+                    )
+                encoded = _dump(row) + b"\n"
+                if len(encoded) > MAX_ROW_BYTES:
+                    raise ArchiveError("Upgraded row size limit exceeded")
+                target.write(encoded)
+                count += 1
+            target.flush()
+            os.fsync(target.fileno())
+        if count != manifest["tables"][table.name]["count"]:
+            raise ArchiveError("Table count mismatch")
+        os.replace(replacement, path)
+
+
+def _legacy_camera_mapping(rows):
+    """Choose the mapping a v3 restore would have selected."""
+    candidates = []
+    for row in rows:
+        names = [part.strip() for part in str(row.get("camera_ids") or "").split(",")]
+        device_ids = row.get("camera_device_ids")
+        if (not 1 <= len(names) <= 4 or len(names) != len(set(names))
+                or any(not name or len(name) > 50 or "," in name for name in names)
+                or not isinstance(device_ids, list) or len(device_ids) != len(names)
+                or any(type(value) is not int or value < 0 for value in device_ids)
+                or len(device_ids) != len(set(device_ids))):
+            continue
+        candidates.append((row, names, list(device_ids)))
+    if not candidates:
+        return None
+    canonical = [candidate for candidate in candidates if candidate[0].get("canonical_key") == 1]
+    chosen = (canonical or sorted(
+        candidates, key=lambda candidate: (candidate[0].get("updated_at") or "",
+                                           candidate[0].get("id") or 0),
+    )[-1])
+    if len(candidates) > 1 and any(
+        (names, device_ids) != (chosen[1], chosen[2])
+        for _, names, device_ids in candidates if _ is not chosen[0]
+    ):
+        chosen[0]["legacy_conflict"] = True
+    return chosen[1], chosen[2]
+
+
+def _upgrade_to_current(manifest, root):
+    """Move v3 staging rows to the normalized current schema.
+
+    Camera arrays become device rows. Derived operator counters disappear.
+    Existing device UUIDs, statuses and unassigned rows are retained.
+    """
+    config_path = root / "tables" / "system_config.jsonl"
+    config_rows = []
+    if config_path.exists():
+        with config_path.open("rb") as source:
+            while line := source.readline(MAX_ROW_BYTES + 1):
+                if len(line) > MAX_ROW_BYTES or not line.endswith(b"\n"):
+                    raise ArchiveError("Row size/framing limit exceeded")
+                config_rows.append(_load(line))
+    mapping = _legacy_camera_mapping(config_rows)
+
+    device_path = root / "tables" / "device.jsonl"
+    device_rows = []
+    if device_path.exists():
+        with device_path.open("rb") as source:
+            while line := source.readline(MAX_ROW_BYTES + 1):
+                if len(line) > MAX_ROW_BYTES or not line.endswith(b"\n"):
+                    raise ArchiveError("Row size/framing limit exceeded")
+                row = _load(line)
+                row.update(slot_index=None, device_index=None)
+                device_rows.append(row)
+    if mapping is not None:
+        names, device_ids = mapping
+        by_name = {row["camera_id"]: row for row in device_rows}
+        timestamp = ((config_rows[0].get("updated_at") if config_rows else None)
+                     or now_manila().isoformat())
+        for index, (name, device_index) in enumerate(zip(names, device_ids, strict=True)):
+            row = by_name.get(name)
+            if row is None:
+                row = {
+                    "id": str(__import__("uuid").uuid4()),
+                    "camera_id": name,
+                    "label": f"Scanner {index + 1}",
+                    "status": "Offline",
+                    "resolution": None,
+                    "last_seen": None,
+                    "created_at": timestamp,
+                    "updated_at": timestamp,
+                }
+                device_rows.append(row)
+                by_name[name] = row
+            row["slot_index"] = index
+            row["device_index"] = device_index
+
+    device_overrides = {row["id"]: row for row in device_rows}
+
+    for table in application_tables():
+        path = root / "tables" / f"{table.name}.jsonl"
+        replacement = path.with_suffix(".current")
         count, size, digest = 0, 0, hashlib.sha256()
-        spec = legacy_schema[table.name]
         with path.open("rb") as source, replacement.open("xb") as target:
             while line := source.readline(MAX_ROW_BYTES + 1):
                 if len(line) > MAX_ROW_BYTES or not line.endswith(b"\n"):
                     raise ArchiveError("Row size/framing limit exceeded")
                 row = _load(line)
-                if not isinstance(row, dict) or set(row) != set(spec):
-                    raise ArchiveError("Unexpected legacy table columns")
-                for name, column in spec.items():
-                    if row[name] is None and not column["nullable"]:
-                        raise ArchiveError("Null in required legacy column")
-                    if row[name] is not None:
-                        _typed(row[name], table.c[name].type)
-                row.update(defaults.get(table.name, {}))
-                if table.name == "scan":
-                    row.update(intake_origin_id=row["intake_id"],
-                               intake_provenance="linked" if row["intake_id"] else "unverified")
-                _row(table, row)
-                encoded = _dump(row) + b"\n"
+                if table.name == "system_config":
+                    row = {key: value for key, value in row.items()
+                           if key not in ("camera_ids", "camera_device_ids")}
+                elif table.name == "device":
+                    row = device_overrides.pop(row["id"])
+                elif table.name == "operator_profile":
+                    row = {key: value for key, value in row.items()
+                           if key not in ("total_scans", "flagged_scans")}
+                validated = _row(table, row)
+                encoded = _dump(_encode(validated)) + b"\n"
+                if len(encoded) > MAX_ROW_BYTES:
+                    raise ArchiveError("Upgraded row size limit exceeded")
+                target.write(encoded)
+                digest.update(encoded)
+                count += 1
+                size += len(encoded)
+            for row in device_overrides.values() if table.name == "device" else ():
+                validated = _row(table, row)
+                encoded = _dump(_encode(validated)) + b"\n"
                 if len(encoded) > MAX_ROW_BYTES:
                     raise ArchiveError("Upgraded row size limit exceeded")
                 target.write(encoded)
@@ -556,10 +717,22 @@ def _upgrade_legacy_staging(manifest, root):
                 size += len(encoded)
             target.flush()
             os.fsync(target.fileno())
-        if count != manifest["tables"][table.name]["count"]:
-            raise ArchiveError("Table count mismatch")
         os.replace(replacement, path)
         manifest["tables"][table.name] = _descriptor(size, digest.hexdigest(), count)
+        with path.open("rb") as check:
+            if count != sum(1 for _ in check):
+                raise ArchiveError("Table count mismatch")
+
+
+def _upgrade_staging(manifest, root):
+    """Strictly adapt v1/v2/v3 archives to the current normalized schema.
+
+    The original archive hash remains authoritative. Only private staged rows and
+    their descriptors change, so restore/compensation verify exactly what is inserted.
+    No actors, old classifications or events can be inferred from present-day data.
+    """
+    _upgrade_to_v3(manifest, root)
+    _upgrade_to_current(manifest, root)
 
 
 def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
@@ -598,10 +771,10 @@ def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
             if (
                 manifest["format"] != "bananavision-station"
                 or type(manifest["version"]) is not int
-                or manifest["version"] not in (1, 2, 3)
+                or manifest["version"] not in (1, 2, 3, 4)
             ):
                 raise ArchiveError("Unsupported archive version")
-            expected_schema = {1: LEGACY_SCHEMA, 2: V2_SCHEMA}.get(
+            expected_schema = {1: LEGACY_SCHEMA, 2: V2_SCHEMA, 3: V3_SCHEMA}.get(
                 manifest["version"], schema_description()
             )
             if manifest["application_version"] != "0.1.0" or manifest["schema"] != expected_schema:
@@ -642,8 +815,8 @@ def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
                 path = evidence_root.joinpath(*name.split("/"))
                 _copy_member(source, f"evidence/{name}", path, descriptor)
                 evidence[name] = path
-        if manifest["version"] in (1, 2):
-            _upgrade_legacy_staging(manifest, owned)
+        if manifest["version"] < 4:
+            _upgrade_staging(manifest, owned)
         validated = ValidatedBackup(manifest, owned, evidence_root, evidence, _hash_file(archive))
         _check_constraints(validated)
         return validated

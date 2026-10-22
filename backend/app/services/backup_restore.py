@@ -223,13 +223,13 @@ class MaintenanceService:
         await self.check_database(validated)
         # Saved configuration must be semantically applicable, not just SQL-valid.
         from app.services.configuration import _validated_values
-        from app.config import get_settings
         configs = list(validated.iter_rows('system_config'))
         if not configs:
             raise archive.ArchiveError('Backup is missing saved configuration')
         canonical = [row for row in configs if row['canonical_key'] == 1]
         candidates = canonical or configs
-        if not any(self._valid_config(row, _validated_values, get_settings) for row in candidates):
+        slots = [row for row in validated.iter_rows('device') if row['slot_index'] is not None]
+        if not any(self._valid_config(row, slots, _validated_values) for row in candidates):
             raise archive.ArchiveError('Backup has no valid configuration')
         async with self.sessions() as db:
             state = await state_store.get_state(db)
@@ -246,12 +246,20 @@ class MaintenanceService:
                 'manifest': self.summary(validated.manifest)}
 
     @staticmethod
-    def _valid_config(row, validate, settings):
+    def _valid_config(row, slots, validate):
         try:
-            validate(row['camera_ids'], row['camera_device_ids'] or settings().camera_device_ids,
+            if type(row.get('revision')) is not int or row['revision'] < 1:
+                return False
+            ordered = sorted(slots, key=lambda slot: slot['slot_index'])
+            if not 1 <= len(ordered) <= 4:
+                return False
+            if [slot['slot_index'] for slot in ordered] != list(range(len(ordered))):
+                return False
+            validate(', '.join(slot['camera_id'] for slot in ordered),
+                     [slot['device_index'] for slot in ordered],
                      row['confidence_threshold'], row['data_retention_enabled'])
-            return row['revision'] >= 1
-        except ValueError:
+            return True
+        except (KeyError, TypeError, ValueError):
             return False
 
     async def _replace(self, validated, marker):

@@ -197,7 +197,7 @@ async def test_no_activity_and_missing_confidence_differ_from_zero(db):
 @pytest.mark.asyncio
 async def test_review_count_matches_drilldown_and_stored_threshold(db):
     operator = account(db)
-    db.add(SystemConfig, confidence_threshold=75, camera_ids="", data_retention_enabled=False)
+    db.add(SystemConfig, confidence_threshold=75, data_retention_enabled=False)
     expected = {
         scan(db, operator, at=NOW - timedelta(days=20), confidence=74),
         scan(db, operator, confidence=95, flagged=True),

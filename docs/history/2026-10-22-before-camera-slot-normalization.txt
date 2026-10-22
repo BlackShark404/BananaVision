@@ -1,0 +1,60 @@
+CURRENT RESUME HERE (2026-10-22) - CSV/XLSX EXPORTS IMPLEMENTED AND VERIFIED
+
+GIT / SCOPE
+- Existing main; task started at e45af37. Feature work committed as 808d3ff and pushed;
+  origin/main had not advanced, so no integration commit was needed. This checkpoint-only
+  follow-up is documentation and is pushed with the same delivery. After that push, local
+  main and origin/main are synchronized. No branches/worktrees, force push, history rewrite,
+  deployment or live operations. Working tree is clean apart from the untracked probe.
+- Prior system-config checkpoint archived as
+  docs/history/2026-10-22-before-export-improvements.txt.
+- Task files include backend/frontend export code and tests, two knowledge notes, package
+  metadata and the prior-checkpoint archive. Untracked frontend/tests/probe-quality-debug.test.mjs
+  is a temporary probe and must never be staged.
+
+IMPLEMENTED
+- Dependency-free backend/app/core/xlsx.py builds OpenXML workbooks with typed cells,
+  inlineStr text (no formulas/hyperlinks), preserved whitespace, wrapped headers/data,
+  estimated row heights and column widths clamped to 12-81.
+- Scan Logs exports every authorized/filtered/sorted row for format=csv|xlsx, ignoring
+  page/limit while preserving snapshot and account scope. The snapshot binding excludes
+  `format` so one frozen snapshot serves both downloads. CSV keeps its BOM, column order,
+  all existing values and three-decimal VPD.
+- System Configuration CSV/XLSX summaries share backend headers; XLSX emits numeric
+  confidence and text IDs. Empty exports retain headers.
+- Frontend `ExportDropdown` is used by Scan Logs, System Configuration, Activity Log,
+  Delivery Intakes and Quality Control. Client pages export the complete filtered dataset
+  after local sorting via `AppDataTable.onSortedData`, not only the visible page.
+- Client CSV/XLSX helpers preserve identifiers/leading zeros and exact decimal strings,
+  emit blank cells for missing optional values, and neutralize only formula-like text;
+  negative numeric strings such as "-1" remain numeric.
+- Restored the `camera_manager` import in config.py (marked noqa) because configuration
+  tests monkeypatch it through that module; cleanup had briefly broken 8 fixtures.
+- Moved test-only `exceljs` 4.4.0 to frontend devDependencies.
+
+VERIFICATION (final run)
+- Full backend suite: 574 passed, 62 skipped, 1 warning in 123.20s. Isolated SQLite only;
+  no PostgreSQL URL configured, so PostgreSQL-specific cases skipped.
+- Frontend export/browser regressions (clientexports, scanrecords, persistence):
+  69 passed, 0 failed/skipped in 113.70s.
+- npm run build (tsc -b + Vite): PASS, 7.09s. Root npm run typecheck is a no-op because
+  tsconfig.json has files: []; the build is the real type check.
+- npm run lint: 41 problems (36 errors, 5 warnings), exactly the existing baseline; no new
+  diagnostics from this task. Removed one now-unused eslint-disable directive.
+- Ruff on changed backend files: new xlsx.py and test_exports.py clean; remaining findings
+  are pre-existing E501/F811/I001 lines.
+- Full frontend suite was not rerun; the affected export/records/persistence suites cover
+  every changed surface. Unrelated existing connectivity failures remain separate work.
+- git diff --check: PASS. No live station database, captures, physical cameras or OS power.
+
+KNOWLEDGE
+- docs/knowledge/Frontend.md documents the export contract and security/precision choices.
+- docs/knowledge/Testing and Validation.md records the commands, counts and isolation limits.
+- Graphify refreshed locally for the final export change set (3960 nodes, 12102 edges,
+  234 communities); graphify-out/ is gitignored, so no graph files are committed.
+- Project ICM memory stored: 01M5HAM0SAV8DHHZXZFBJ77D0G.
+
+EXACT NEXT STEP
+- Export task complete; no pending implementation. Verify `git rev-parse HEAD origin/main`
+  matches if resuming. Leave the untracked frontend/tests/probe-quality-debug.test.mjs
+  unstaged; delete it only with user approval.

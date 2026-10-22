@@ -101,7 +101,7 @@ async def _execute_scan_pipeline(
         confidence_threshold = min(
             review_confidence_threshold, get_settings().yolo_confidence_threshold,
         )
-        expected_camera_count = len(config.camera_device_ids)
+        expected_camera_count = len(config.camera_slots)
         # ── Step 2: Capture from all cameras ─────────────────────────────
         await send_scan_event(events.SCAN_CAPTURING, {
             "scan_id": scan_id_str,

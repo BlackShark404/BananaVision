@@ -8,7 +8,7 @@ from datetime import datetime
 from app.core.time import now_manila
 import uuid
 
-from sqlalchemy import Text, Integer, ForeignKey, Boolean, JSON, CheckConstraint
+from sqlalchemy import Integer, ForeignKey, Boolean, CheckConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,9 +23,7 @@ class SystemConfig(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     canonical_key: Mapped[int | None] = mapped_column(Integer, nullable=True, unique=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default='1')
-    camera_device_ids: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
     legacy_conflict: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default='false')
-    camera_ids: Mapped[str] = mapped_column(Text, nullable=False, default="CAM-001, CAM-002, CAM-003, CAM-004")
     confidence_threshold: Mapped[int] = mapped_column(Integer, nullable=False, default=85)
     data_retention_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     updated_at: Mapped[datetime] = mapped_column(ManilaDateTime(),

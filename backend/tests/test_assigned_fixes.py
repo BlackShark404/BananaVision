@@ -140,17 +140,21 @@ def test_camera_remap_requires_revision_without_mutating_environment(secured, tm
 
 def test_camera_rename_preserves_device_identity_and_commits_runtime(secured, monkeypatch):
     with Session(secured.app.engine) as db:
-        cfg = db.scalar(select(SystemConfig))
-        cfg.camera_ids = "LEFT, RIGHT"
-        left = Device(camera_id="LEFT", label="Left", status="Online", resolution="640x480")
-        right = Device(camera_id="RIGHT", label="Right", status="Offline", resolution=None)
-        db.add_all([left, right])
+        devices = db.scalars(select(Device).order_by(Device.slot_index)).all()
+        devices[0].camera_id, devices[0].label = "LEFT", "Left"
+        devices[0].status, devices[0].resolution = "Online", "640x480"
+        devices[1].camera_id, devices[1].label = "RIGHT", "Right"
+        for device in devices[2:]:
+            db.delete(device)
         db.commit()
-        left_id, right_id = left.id, right.id
+        left_id, right_id = devices[0].id, devices[1].id
     changed = []
     from app.services import configuration
     monkeypatch.setattr(configuration.get_settings(), 'camera_device_ids', [0, 1])
-    monkeypatch.setattr(configuration, 'apply_camera_config', AsyncMock(side_effect=lambda cfg: changed.append(cfg.camera_ids.split(', '))))
+    monkeypatch.setattr(configuration, 'apply_camera_config', AsyncMock(
+        side_effect=lambda cfg: changed.append(
+            [slot.camera_id for slot in configuration.ordered_camera_slots(cfg.camera_slots)]
+        )))
     response = secured.client.patch("/api/v1/config", headers=secured.headers, json={"camera_ids": "RIGHT, LEFT", "expected_revision": 1})
     assert response.status_code == 200, response.text
     with Session(secured.app.engine) as db:
@@ -221,7 +225,7 @@ async def test_failed_scan_removes_partial_captures(tmp_path, monkeypatch):
         capture_path=tmp_path, yolo_confidence_threshold=0.50,
     ))
     monkeypatch.setattr(scan_service, "get_config", AsyncMock(return_value=SimpleNamespace(
-        confidence_threshold=85, camera_device_ids=[0],
+        confidence_threshold=85, camera_slots=[SimpleNamespace(slot_index=0)],
     )))
     async def capture_all():
         return [SimpleNamespace(frame=None)]

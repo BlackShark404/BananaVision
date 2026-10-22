@@ -285,6 +285,8 @@ async def start_background_tasks(*, allow_blocked=False):
                             else:
                                 db.add(Device(
                                     camera_id=camera_id,
+                                    slot_index=idx,
+                                    device_index=dev_id,
                                     label=label,
                                     status=new_status,
                                     last_seen=now if is_online else None,
@@ -371,13 +373,21 @@ async def _register_cameras(db: AsyncSession, results: dict[int, bool]):
         existing = await db.execute(select(Device).where(Device.camera_id == camera_id))
         device = existing.scalar_one_or_none()
 
+        slot_index = (camera_manager._device_ids.index(dev_id)
+                      if dev_id in camera_manager._device_ids else idx)
         if device:
             device.status = DeviceStatusEnum.ONLINE if success else DeviceStatusEnum.OFFLINE
             device.resolution = resolution
             device.last_seen = now_manila() if success else device.last_seen
+            if device.slot_index is None:
+                device.slot_index = slot_index
+            if device.device_index is None:
+                device.device_index = dev_id
         else:
             db.add(Device(
                 camera_id=camera_id,
+                slot_index=slot_index,
+                device_index=dev_id,
                 label=label,
                 status=DeviceStatusEnum.ONLINE if success else DeviceStatusEnum.OFFLINE,
                 resolution=resolution,

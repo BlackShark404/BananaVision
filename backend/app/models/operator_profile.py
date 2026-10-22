@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from app.core.time import now_manila
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String
+from sqlalchemy import Boolean, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -28,8 +28,6 @@ class OperatorProfile(Base):
     )
     pin_setup_reason: Mapped[str | None] = mapped_column(String(50), nullable=True
     )
-    total_scans: Mapped[int] = mapped_column(Integer, default=0)
-    flagged_scans: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(ManilaDateTime(), default=now_manila
     )
     updated_at: Mapped[datetime] = mapped_column(ManilaDateTime(),

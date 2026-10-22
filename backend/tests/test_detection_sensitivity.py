@@ -50,7 +50,6 @@ def configure_thresholds(app, monkeypatch, review_threshold, detection_threshold
     with Session(app.engine) as db:
         saved = db.scalar(select(SystemConfig))
         saved.canonical_key = 1
-        saved.camera_device_ids = [0, 1, 2, 3]
         saved.confidence_threshold = review_threshold
         db.commit()
     return settings

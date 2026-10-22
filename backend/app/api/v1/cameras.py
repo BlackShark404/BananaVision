@@ -35,8 +35,7 @@ async def discover_cameras(db: DbSession, admin: AdminUser):
     config = await configuration.get_config(db)
     async with coordinator.operation():
         discovered = await run_blocking(discover_camera_devices)
-    saved = dict(zip(config.camera_device_ids,
-                     (name.strip() for name in config.camera_ids.split(',')), strict=True))
+    saved = {slot.device_index: slot.camera_id for slot in config.camera_slots}
     applied = dict(zip(camera_manager._device_ids, camera_manager._logical_ids, strict=False))
     online = set(camera_manager.online_cameras)
     for device in discovered['devices']:
@@ -55,12 +54,12 @@ async def list_cameras(db: DbSession):
     No auth required — used by the kiosk to map cameras to preview streams.
     """
     config = await configuration.get_config(db)
-    names = [name.strip() for name in config.camera_ids.split(',')]
     applied = dict(zip(camera_manager._device_ids, camera_manager._logical_ids))
-    return [{"device_id": device_id, "camera_id": names[index],
+    return [{"device_id": slot.device_index, "camera_id": slot.camera_id,
              "label": settings.camera_labels[index] if index < len(settings.camera_labels) else f"Scanner {index + 1}",
-             "online": device_id in camera_manager.online_cameras and applied.get(device_id) == names[index]}
-            for index, device_id in enumerate(config.camera_device_ids)]
+             "online": slot.device_index in camera_manager.online_cameras
+             and applied.get(slot.device_index) == slot.camera_id}
+            for index, slot in enumerate(configuration.ordered_camera_slots(config.camera_slots))]
 
 async def generate_frames(camera_index: int, fps: int = 15):
     """
