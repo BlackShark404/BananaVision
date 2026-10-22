@@ -6,24 +6,23 @@ from __future__ import annotations
 
 import csv
 import io
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import DbSession, AdminUser, CurrentUser
-from app.models.device import Device
-from app.models.scan import Scan
-from app.models.admin_profile import AdminProfile
-from app.models.activity_log import ActivityLog
-from app.models.system_config import SystemConfig
+from app.api.deps import AdminUser, CurrentUser, DbSession
 from app.core.http import get_client_ip
-from app.services.camera_manager import camera_manager
-from app.services import configuration
-from app.services.runtime_operations import station_lock
+from app.core.xlsx import build_xlsx, number_text
+from app.models.activity_log import ActivityLog
+from app.models.admin_profile import AdminProfile
+from app.models.scan import Scan
 from app.schemas.common import SystemConfigResponse, SystemConfigUpdate
-
+from app.services import configuration
+from app.services.camera_manager import camera_manager  # noqa: F401 - tests patch via this module
+from app.services.runtime_operations import station_lock
 
 router = APIRouter(prefix="/config", tags=["Config"])
 
@@ -58,8 +57,12 @@ async def _update_config(body, db, admin, request):
 
 
 @router.get("/export")
-async def export_database(db: DbSession, admin: AdminUser):
-    """Export scan summaries to CSV. This file cannot restore the database."""
+async def export_database(
+    db: DbSession,
+    admin: AdminUser,
+    format: Annotated[Literal["csv", "xlsx"], Query()] = "csv",
+):
+    """Export scan summaries to CSV or XLSX. This file cannot restore the database."""
     result = await db.execute(
         select(Scan)
         .options(selectinload(Scan.classification), selectinload(Scan.status_logs))
@@ -67,9 +70,47 @@ async def export_database(db: DbSession, admin: AdminUser):
     )
     scans = result.scalars().all()
 
+    headers = [
+        "Scan ID", "Date Time (UTC+08:00)", "Cultivar", "Ripeness",
+        "Confidence", "Inventory Status",
+    ]
+
+    if format == "xlsx":
+        xlsx_rows = []
+        for scan in scans:
+            cultivar = scan.classification.cultivar if scan.classification else "N/A"
+            ripeness = scan.classification.ripeness if scan.classification else "N/A"
+            confidence = scan.classification.confidence if scan.classification else "N/A"
+            status = scan.status_logs[-1].inventory_status if scan.status_logs else "N/A"
+
+            if confidence == "N/A" or confidence is None:
+                conf_cell = ("N/A", "inlineStr")
+            else:
+                try:
+                    float(confidence)
+                    conf_cell = (number_text(confidence), "n")
+                except (ValueError, TypeError):
+                    conf_cell = (str(confidence), "inlineStr")
+            xlsx_rows.append([
+                (str(scan.id), "inlineStr"),
+                (scan.date_time.isoformat(), "inlineStr"),
+                (str(getattr(cultivar, "value", cultivar)), "inlineStr"),
+                (str(getattr(ripeness, "value", ripeness)), "inlineStr"),
+                conf_cell,
+                (str(getattr(status, "value", status)), "inlineStr"),
+            ])
+        xlsx_bytes = build_xlsx(headers, xlsx_rows, sheet_name="sheet1")
+        return Response(
+            content=xlsx_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": (
+                'attachment; filename="bananavision_inventory_export.xlsx"'
+            )},
+        )
+
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Scan ID", "Date Time (UTC+08:00)", "Cultivar", "Ripeness", "Confidence", "Inventory Status"])
+    writer.writerow(headers)
 
     for scan in scans:
         cultivar = scan.classification.cultivar if scan.classification else "N/A"

@@ -510,11 +510,22 @@ async def test_csv_round_trip_special_characters_and_formula_prefixes(logs_db):
     for identifier, value in zip(ids, values, strict=True):
         # Source labels have always been trimmed by the shared SQL projection.
         normalized = value.strip()
-        expected = "'" + normalized if normalized.startswith(('=', '+', '-', '@')) else normalized
+        try:
+            float(normalized)
+            numeric = True
+        except ValueError:
+            numeric = False
+        dangerous = normalized.startswith(('=', '+', '@')) or (
+            normalized.startswith('-') and not numeric
+        )
+        expected = "'" + normalized if dangerous else normalized
         assert rows[str(identifier)]['Source'] == expected
         if value.lstrip().startswith(('=', '+', '-', '@')):
+            # Leading control characters are still escaped even before a number.
             assert scan_logs._safe_cell(value) == "'" + value
     assert scan_logs._safe_cell(-1.5) == -1.5
+    assert scan_logs._safe_cell("-1") == "-1"
+    assert scan_logs._safe_cell("-cmd") == "'-cmd"
 
 @pytest.mark.asyncio
 async def test_success_drilldown_matches_dashboard_numerator_and_full_export(logs_db):

@@ -1,52 +1,54 @@
-CURRENT RESUME HERE (2026-10-21) - SYSTEM CONFIGURATION LAYOUT IMPLEMENTED
+CURRENT RESUME HERE (2026-10-22) - CSV/XLSX EXPORTS IMPLEMENTED AND VERIFIED
 
 GIT / SCOPE
-- Existing main, final HEAD 6db5b27; external fast-forward preserved. Checkout was clean
-  at task start. This task made no Git writes; changes remain unstaged/uncommitted.
-- User approved the proposed SystemConfig redesign and requested implementation.
-- Latest on-disk checkpoint archived in docs/history/2026-10-21-before-systemconfig-layout.txt.
-- No branch/worktree changes, staging, commit, push, deployment or live operations.
+- Existing main; task started at e45af37, equal to the fetched origin/main. User authorized
+  commit, origin integration and push. No branches/worktrees, force push, history rewrite,
+  deployment or live operations.
+- Prior system-config checkpoint archived as
+  docs/history/2026-10-22-before-export-improvements.txt.
+- Task files include backend/frontend export code and tests, two knowledge notes, package
+  metadata and the prior-checkpoint archive. Untracked frontend/tests/probe-quality-debug.test.mjs
+  is a temporary probe and must never be staged.
 
 IMPLEMENTED
-- Horizontal Cameras / Detection / Data & Backups / Power tabs within the existing shell.
-- One camera row per slot with rename, device selection and observed status. Manual indices,
-  device identifiers, model information and revision/reset details use disclosures.
-- One sticky save/discard bar for all draft settings; cleanup explicitly saves immediately.
-- Reset All Settings describes its existing global scope and remains a reviewable draft.
-- Simpler data/power rows and accurate unavailable/pending station-status colors.
-- Guided restore dialog preserves archive validation, password/REPLACE confirmation,
-  single-flight guards, status checks and busy dismissal protection; close clears credentials.
-- Data tab remains mounted so backup results and operation tracking survive tab changes.
-- API/schema/backend behavior and existing confirmations remain unchanged.
+- Dependency-free backend/app/core/xlsx.py builds OpenXML workbooks with typed cells,
+  inlineStr text (no formulas/hyperlinks), preserved whitespace, wrapped headers/data,
+  estimated row heights and column widths clamped to 12-81.
+- Scan Logs exports every authorized/filtered/sorted row for format=csv|xlsx, ignoring
+  page/limit while preserving snapshot and account scope. The snapshot binding excludes
+  `format` so one frozen snapshot serves both downloads. CSV keeps its BOM, column order,
+  all existing values and three-decimal VPD.
+- System Configuration CSV/XLSX summaries share backend headers; XLSX emits numeric
+  confidence and text IDs. Empty exports retain headers.
+- Frontend `ExportDropdown` is used by Scan Logs, System Configuration, Activity Log,
+  Delivery Intakes and Quality Control. Client pages export the complete filtered dataset
+  after local sorting via `AppDataTable.onSortedData`, not only the visible page.
+- Client CSV/XLSX helpers preserve identifiers/leading zeros and exact decimal strings,
+  emit blank cells for missing optional values, and neutralize only formula-like text;
+  negative numeric strings such as "-1" remain numeric.
+- Restored the `camera_manager` import in config.py (marked noqa) because configuration
+  tests monkeypatch it through that module; cleanup had briefly broken 8 fixtures.
+- Moved test-only `exceljs` 4.4.0 to frontend devDependencies.
 
-VERIFICATION
-- Targeted maintenance browser suite: 20 passed, 0 failed (22.64s).
-- Full frontend suite: 233 passed, 2 failed, 0 skipped (233.82s).
-  Existing failures in untouched tests/connectivity.test.mjs:
-  * line 34: StrictMode/shared socket expectation fails, 6 sockets instead of 1.
-  * line 45: disconnect/retry test times out waiting for exactly 2 sockets.
-  First failure independently reproduced (2.10s); implementation and fixtures match HEAD.
-  These files do not import the changed configuration components; no connectivity edits made.
-- Full run includes all 9 layout cases (6 existing Logs/Activity + 3 SystemConfig), passing.
-- Final configuration layout recheck after active-tab styling and expanded restore coverage:
-  3 passed (5.82s), at 1280x650, 1024x600, 390x700. Checks document/main overflow,
-  save-bar bounds, dialog bounds and reachable replacement action after mock validation.
-- Inspected fixture screenshots for camera/data/detection/power, dirty save bar and restore
-  dialog including mobile confirmation. Screenshots: /tmp/bv-systemconfig-screens/.
-- npm run typecheck: PASS. npm run build (tsc -b + Vite): PASS.
-- npm run lint: 41 existing findings (36 errors, 5 warnings), exact baseline match.
-- git diff --check: PASS. Scoped source/test/docs diff reviewed.
-- Backend tests not rerun: frontend-only layout/interaction work, no API/schema/backend edits.
-- No live station database, captures, physical cameras, restore or OS power accessed.
-- Logs: /tmp/bv-systemconfig-{targeted,regressions,connectivity,layout-final,build-final,lint-final}.log.
+VERIFICATION (final run)
+- Full backend suite: 574 passed, 62 skipped, 1 warning in 123.20s. Isolated SQLite only;
+  no PostgreSQL URL configured, so PostgreSQL-specific cases skipped.
+- Frontend export/browser regressions (clientexports, scanrecords, persistence):
+  69 passed, 0 failed/skipped in 113.70s.
+- npm run build (tsc -b + Vite): PASS, 7.09s. Root npm run typecheck is a no-op because
+  tsconfig.json has files: []; the build is the real type check.
+- npm run lint: 41 problems (36 errors, 5 warnings), exactly the existing baseline; no new
+  diagnostics from this task. Removed one now-unused eslint-disable directive.
+- Ruff on changed backend files: new xlsx.py and test_exports.py clean; remaining findings
+  are pre-existing E501/F811/I001 lines.
+- git diff --check: PASS. No live station database, captures, physical cameras or OS power.
 
-KNOWLEDGE / LIMITATIONS
-- Updated docs/knowledge/Frontend.md and Testing and Validation.md.
-- Graphify update unavailable: executable and graph absent; no installation/config change.
-- Project ICM tools unavailable; no recall or memory write claimed.
-- Full frontend suite is not green due to the two existing connectivity failures above.
+KNOWLEDGE
+- docs/knowledge/Frontend.md documents the export contract and security/precision choices.
+- docs/knowledge/Testing and Validation.md records the commands, counts and isolation limits.
+- Graphify refreshed locally for the final export change set (3960 nodes, 12102 edges,
+  234 communities); graphify-out/ is gitignored, so no graph files are committed.
 
 EXACT NEXT STEP
-- Refresh System Configuration to review the implemented layout.
-- No further SystemConfig implementation pending; unrelated connectivity failures remain
-  separate work. No publication or live maintenance operation is authorized.
+- Stage every task file except the debug probe, commit on main, fetch/integrate origin/main,
+  rerun affected checks if incoming code changes, push, and confirm local/remote sync.

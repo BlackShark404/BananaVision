@@ -50,6 +50,7 @@ export interface AppDataTableProps<T> {
   className?: string
   rowClassName?: (row: T, index: number) => string
   loading?: boolean
+  onSortedData?: (sorted: T[]) => void
 }
 
 export function AppDataTable<T>({
@@ -63,6 +64,7 @@ export function AppDataTable<T>({
   rowClassName,
   serverState,
   loading = false,
+  onSortedData,
 }: AppDataTableProps<T>) {
   const [localPage, setLocalPage] = useState(1)
   const [localSort, setSortConfig] = useState<{ columnIdx: number, direction: 'asc' | 'desc' } | null>(null)
@@ -124,6 +126,13 @@ export function AppDataTable<T>({
       return 0
     })
   }, [data, sortConfig, columns, serverState])
+
+  // Notify observers of the sorted rows. The callback must only write to a ref
+  // or trigger navigation, never setState during export, so a new sorted array
+  // identity cannot loop back into a render via setState.
+  useEffect(() => {
+    onSortedData?.(sortedData)
+  }, [sortedData, onSortedData])
 
   const paginatedData = pagination && !serverState ? sortedData.slice((page - 1) * pageSize, page * pageSize) : sortedData
 

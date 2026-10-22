@@ -22,7 +22,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Download, Edit2, AlertTriangle } from "lucide-react"
+import { Loader2, Settings, Save, RefreshCw, Cpu, Database, Camera, Power, Edit2, AlertTriangle } from "lucide-react"
+import { ExportDropdown } from "@/components/ExportDropdown"
 import { toast } from "sonner"
 import {
   Alert,
@@ -179,12 +180,12 @@ export default function SystemConfig() {
     toast.info("Settings reset to defaults")
   }
 
-  const handleExportData = async () => {
+  const handleExportData = async (format: "csv" | "xlsx") => {
     if (exportFlight.current) return
     exportFlight.current = true; setExporting(true)
     try {
-      await api.config.export()
-      toast.success("Scan summaries exported", { description: "CSV download started" })
+      await api.config.export(format)
+      toast.success("Scan summaries exported", { description: `${format.toUpperCase()} download started` })
     } catch {
       toast.error("Export Failed", { description: "Could not export scan summaries" })
     } finally { exportFlight.current = false; setExporting(false) }
@@ -431,11 +432,14 @@ export default function SystemConfig() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-5 first:pt-0 last:pb-0">
                 <div>
                   <h4 className="font-medium text-sm sm:text-base">Export Scan Summaries</h4>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Download a CSV report of scan summaries. This export cannot restore station data.</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Download a CSV or XLSX report of scan summaries. This export cannot restore station data.</p>
                 </div>
-                <Button variant="outline" disabled={exporting} onClick={handleExportData} className="w-full sm:w-auto">
-                  {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />} {exporting ? "Exporting…" : "Export CSV"}
-                </Button>
+                <ExportDropdown
+                  onExportCsv={() => void handleExportData("csv")}
+                  onExportXlsx={() => void handleExportData("xlsx")}
+                  disabled={exporting}
+                  exporting={exporting}
+                />
               </div>
               <StationBackupControls disabled={disabled || saving} onBusy={setArchiveBusy} />
             </CardContent>

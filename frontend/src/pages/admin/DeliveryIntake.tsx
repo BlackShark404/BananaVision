@@ -1,6 +1,6 @@
 import { scanRetryAction } from "@/lib/scanWriteFeedback"
 import { isScanConflict } from "@/lib/scanWrites"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { useScans } from "@/context/ScanContext"
 import { useInventory } from "@/context/InventoryContext"
@@ -21,6 +21,8 @@ import { AppDataTable, type ColumnDef } from "@/components/AppDataTable"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppTableFilters } from "@/components/AppTableFilters"
+import { ExportDropdown } from "@/components/ExportDropdown"
+import { downloadCsv, downloadXlsx } from "@/lib/exportUtils"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -34,7 +36,6 @@ import {
   Loader2,
   Package, 
   Filter, 
-  Download, 
   Activity, 
   ArchiveRestore, 
   CheckCircle, 
@@ -117,32 +118,42 @@ export default function DeliveryIntake() {
     return { activeIntakes, depletedIntakes }
   }, [intakes])
 
-  const exportToCSV = () => {
-    const headers = ["Intake ID", "Source", "Date", "Total Scans", "Status"]
-    const rows = filtered.map(intake => [
+  const sortedIntakesRef = useRef(filtered)
+  const [exporting, setExporting] = useState(false)
+
+  const handleExportCsv = () => {
+    if (dataUnavailable) return
+    const filename = `intakes-${new Date().toISOString().split('T')[0]}.csv`
+    const rows = sortedIntakesRef.current.map(intake => [
       intake.id,
       intake.source || "Unknown",
       intake.date,
-      intake.scanCount.toString(),
+      (intake.scanCount || 0).toString(),
       intake.status
     ])
+    downloadCsv(filename, ["Intake ID", "Source", "Date", "Total Scans", "Status"], rows)
+    toast.success("Export successful", { description: `${rows.length} intakes exported to CSV` })
+  }
 
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
-    ].join("\n")
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", `intakes-${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    
-    toast.success("Export successful", { description: `${filtered.length} intakes exported to CSV` })
+  const handleExportXlsx = async () => {
+    if (dataUnavailable) return
+    setExporting(true)
+    try {
+      const filename = `intakes-${new Date().toISOString().split('T')[0]}.xlsx`
+      const rows = sortedIntakesRef.current.map(intake => [
+        intake.id,
+        intake.source || "Unknown",
+        intake.date,
+        intake.scanCount || 0,
+        intake.status
+      ])
+      await downloadXlsx(filename, "Delivery Intakes", ["Intake ID", "Source", "Date", "Total Scans", "Status"], rows)
+      toast.success("Export successful", { description: `${rows.length} intakes exported to Excel` })
+    } catch (e) {
+      toast.error("Export failed", { description: e instanceof Error ? e.message : "Please try again" })
+    } finally {
+      setExporting(false)
+    }
   }
 
   const handleBulkUpdate = async (intake: { id: string; inventoryStatus: InventoryStatus; scanCount: number }, status: InventoryStatus) => {
@@ -354,10 +365,12 @@ export default function DeliveryIntake() {
         description="Monitor automated, scan-driven implicit delivery intakes"
         icon={Package}
         action={
-          <Button variant="outline" className="gap-2 w-full sm:w-auto" disabled={dataUnavailable} onClick={exportToCSV}>
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Export CSV</span>
-          </Button>
+          <ExportDropdown
+            onExportCsv={handleExportCsv}
+            onExportXlsx={handleExportXlsx}
+            disabled={dataUnavailable}
+            exporting={exporting}
+          />
         }
       />
 
@@ -436,6 +449,7 @@ export default function DeliveryIntake() {
         rowKey={(intake) => intake.id}
         onRowClick={(intake) => navigate(`/logs?intake=${intake.id}`)}
         pagination={{ pageSize: PAGE_SIZE }}
+        onSortedData={(rows) => { sortedIntakesRef.current = rows }}
         emptyState={{
           icon: Package,
           title: intakesError && !intakesReady ? "Intakes unavailable" : "No intakes found",

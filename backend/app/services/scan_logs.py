@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.xlsx import build_xlsx, number_text
 from app.models.user_account import UserAccount
 from app.schemas.scan_logs import (
     OperatorOption,
@@ -29,6 +30,14 @@ from app.services.scan_snapshots import (
     save_snapshot,
     slice_snapshot,
 )
+
+EXPORT_HEADERS = [
+    "Scan ID", "Scanned At (UTC+08:00)", "Operator", "Operator Username", "Source",
+    "Cultivar", "Ripeness", "Confidence (%)", "Inventory Status", "Flagged",
+    "Original Shelf Life (days)", "Remaining Shelf Life (days)", "Finger Count",
+    "Temperature (C)", "Humidity (%)", "Intake ID", "Overridden",
+    "Status Updated At (UTC+08:00)", "VPD (kPa)",
+]
 
 
 def _conditions(scans, query: ScanLogQuery, threshold: float):
@@ -126,7 +135,7 @@ async def _options(db: AsyncSession, scans) -> ScanLogOptions:
 def _snapshot_key(query):
     # Page size changes only the slice, never the authorized record set.
     return binding("logs", query.model_dump(
-        mode="json", exclude={"page", "page_size", "snapshot_id", "stable", "limit"},
+        mode="json", exclude={"page", "page_size", "snapshot_id", "stable", "limit", "format"},
     ))
 
 
@@ -252,9 +261,18 @@ async def list_scan_logs(
 
 
 def _safe_cell(value):
-    if isinstance(value, str) and (
-        value.startswith(("\t", "\r", "\n")) or value.lstrip().startswith(("=", "+", "-", "@"))
-    ):
+    """Protect CSV consumers from formulas without altering numeric strings."""
+    if not isinstance(value, str):
+        return value
+    stripped = value.lstrip()
+    dangerous = bool(stripped) and stripped[0] in "=+-@"
+    if dangerous and stripped[0] == "-":
+        try:
+            float(stripped)
+            dangerous = False
+        except ValueError:
+            pass
+    if value.startswith(("\t", "\r", "\n")) or dangerous:
         return "'" + value
     return value
 
@@ -288,13 +306,7 @@ async def export_scan_logs(db: AsyncSession, user: UserAccount, query: ScanLogQu
     async def contents():
         output = io.StringIO(newline="")
         writer = csv.writer(output)
-        writer.writerow([
-            "Scan ID", "Scanned At (UTC+08:00)", "Operator", "Operator Username", "Source",
-            "Cultivar", "Ripeness", "Confidence (%)", "Inventory Status", "Flagged",
-            "Original Shelf Life (days)", "Remaining Shelf Life (days)", "Finger Count",
-            "Temperature (C)", "Humidity (%)", "Intake ID", "Overridden", "Status Updated At (UTC+08:00)",
-            "VPD (kPa)",
-        ])
+        writer.writerow(EXPORT_HEADERS)
         try:
             yield "\ufeff" + output.getvalue()
             async for batch in result.partitions(200):
@@ -317,3 +329,62 @@ async def export_scan_logs(db: AsyncSession, user: UserAccount, query: ScanLogQu
             await result.close()
 
     return contents()
+
+
+async def export_scan_logs_xlsx(db: AsyncSession, user: UserAccount, query: ScanLogQuery) -> bytes:
+    now = dashboard.now_manila()
+    scans = dashboard._scoped_projection(user, now)
+    threshold = await dashboard._threshold(db)
+    statement = (
+        select(scans)
+        .where(*_conditions(scans, query, threshold))
+        .order_by(*_ordering(scans, query)).execution_options(yield_per=200)
+    )
+    if query.snapshot_id:
+        saved = await _snapshot(db, user, query)
+
+        class SnapshotRows:
+            async def partitions(self, size):
+                for start in range(0, len(saved.payload["items"]), size):
+                    yield saved.payload["items"][start:start + size]
+
+            async def close(self):
+                pass
+
+        result = SnapshotRows()
+    else:
+        result = await db.stream(statement)
+
+    xlsx_rows = []
+    try:
+        async for batch in result.partitions(200):
+            for raw in batch:
+                row = ScanLogRow.model_validate(raw) if query.snapshot_id else _row(raw)
+                username = raw["username"] if query.snapshot_id else raw.username
+                xlsx_rows.append([
+                    (str(row.id), "inlineStr"),
+                    (row.date_time.isoformat(), "inlineStr"),
+                    (row.operator_name, "inlineStr"),
+                    (username, "inlineStr"),
+                    (row.source_name or "", "inlineStr"),
+                    (row.cultivar, "inlineStr"),
+                    (row.ripeness, "inlineStr"),
+                    (number_text(row.confidence), "n") if row.confidence is not None else None,
+                    (row.inventory_status, "inlineStr"),
+                    ("1" if row.flagged else "0", "b"),
+                    (str(row.spoilage_days), "inlineStr"),
+                    (str(row.remaining_days), "n") if row.remaining_days is not None else None,
+                    (number_text(row.finger_count), "n") if row.finger_count is not None else None,
+                    (number_text(row.temperature), "n") if row.temperature is not None else None,
+                    (number_text(row.humidity), "n") if row.humidity is not None else None,
+                    (str(row.intake_id), "inlineStr") if row.intake_id else None,
+                    ("1" if row.is_overridden else "0", "b"),
+                    (
+                        row.status_updated_at.isoformat(), "inlineStr",
+                    ) if row.status_updated_at else None,
+                    (number_text(row.vpd), "n") if row.vpd is not None else None,
+                ])
+    finally:
+        await result.close()
+
+    return build_xlsx(EXPORT_HEADERS, xlsx_rows, sheet_name="sheet1")

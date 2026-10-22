@@ -1,15 +1,16 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
 import { useAdmin } from "@/context/AdminContext"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppDataTable, type ColumnDef } from "@/components/AppDataTable"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppTableFilters } from "@/components/AppTableFilters"
-import { ScrollText, Filter, Download, Activity, UserCheck, AlertCircle, ChevronsLeft, ChevronsRight } from "lucide-react"
+import { ExportDropdown } from "@/components/ExportDropdown"
+import { downloadCsv, downloadXlsx } from "@/lib/exportUtils"
+import { ScrollText, Filter, Activity, UserCheck, AlertCircle, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { toast } from "sonner"
 
 const actionTypeColors: Record<string, string> = {
@@ -54,7 +55,6 @@ export default function ActivityLog() {
   const stats = useMemo(() => {
     const last24h = activityLogs.filter(log => {
       const logTime = new Date(log.timestamp).getTime()
-      // eslint-disable-next-line react-hooks/purity
       const now = Date.now()
       return now - logTime < 24 * 60 * 60 * 1000
     }).length
@@ -67,32 +67,46 @@ export default function ActivityLog() {
     return { last24h, uniqueUsers, criticalActions }
   }, [activityLogs])
 
-  const exportToCSV = () => {
+  const sortedLogsRef = useRef(filtered)
+  const [exporting, setExporting] = useState(false)
+
+  const handleExportCsv = () => {
+    if (activityLoading || !!activityError || !activityReady) return
+    const logs = sortedLogsRef.current
+    const filename = `activity-log-${new Date().toISOString().split('T')[0]}.csv`
     const headers = ["Timestamp", "User", "Action", "Details", "IP Address"]
-    const rows = filtered.map(log => [
-      new Date(log.timestamp).toLocaleString(),
+    const rows = logs.map(log => [
+      log.timestamp,
       log.user,
       log.action,
       log.details,
-      log.ipAddress || "N/A"
+      log.ipAddress || ""
     ])
+    downloadCsv(filename, headers, rows)
+    toast.success("Export successful", { description: `${logs.length} activities exported to CSV` })
+  }
 
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-    ].join("\n")
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", `activity-log-${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    
-    toast.success("Export successful", { description: `${filtered.length} activities exported to CSV` })
+  const handleExportXlsx = async () => {
+    if (activityLoading || !!activityError || !activityReady) return
+    setExporting(true)
+    try {
+      const logs = sortedLogsRef.current
+      const filename = `activity-log-${new Date().toISOString().split('T')[0]}.xlsx`
+      const headers = ["Timestamp", "User", "Action", "Details", "IP Address"]
+      const rows = logs.map(log => [
+        log.timestamp,
+        log.user,
+        log.action,
+        log.details,
+        log.ipAddress || ""
+      ])
+      await downloadXlsx(filename, "Activity Log", headers, rows)
+      toast.success("Export successful", { description: `${logs.length} activities exported to Excel` })
+    } catch (e) {
+      toast.error("Export failed", { description: e instanceof Error ? e.message : "Please try again" })
+    } finally {
+      setExporting(false)
+    }
   }
 
   const formatAction = (action: string) => {
@@ -156,10 +170,12 @@ export default function ActivityLog() {
         description="System activity and audit trail"
         icon={ScrollText}
         action={
-          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={exportToCSV} disabled={activityLoading || !!activityError || !activityReady}>
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Export CSV</span>
-          </Button>
+          <ExportDropdown
+            onExportCsv={handleExportCsv}
+            onExportXlsx={handleExportXlsx}
+            disabled={activityLoading || !!activityError || !activityReady}
+            exporting={exporting}
+          />
         }
       />
 
@@ -246,6 +262,7 @@ export default function ActivityLog() {
         columns={columns}
         rowKey={(log) => log.id}
         pagination={{ pageSize: PAGE_SIZE }}
+        onSortedData={(rows) => { sortedLogsRef.current = rows }}
         emptyState={{
           icon: Activity,
           title: activityError && !activityReady ? "Data unavailable" : "No activities found",

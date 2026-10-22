@@ -2,6 +2,26 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## CSV and XLSX exports — 2026-10-22
+
+- `backend/tests/test_exports.py` covers 206-row exports beyond pagination, account scope,
+  snapshot parity, empty workbooks, exact identifiers/whitespace, DECIMAL confidence,
+  formula-like text, wrapping/width contracts and invalid formats. `test_scan_logs.py`
+  retains CSV round-trip and numeric-prefix coverage.
+- Full backend suite: **574 passed, 62 skipped, 1 warning** (123.20s) on isolated SQLite.
+  No disposable PostgreSQL URL was configured, so PostgreSQL-specific cases skipped.
+- Frontend browser regressions (`clientexports`, `scanrecords`, `persistence`):
+  **69 passed**, 0 failed/skipped (113.70s). They export complete filtered/sorted datasets
+  from a non-first page, inspect CSV bytes/quoting and XLSX cells with ExcelJS, and verify
+  that exports are disabled when required data is unavailable.
+- `npm run build` (`tsc -b` + Vite) passed (7.09s). Configured lint reports the baseline
+  **41 problems (36 errors, 5 warnings)**; changed files add no diagnostics. Ruff on changed
+  backend files leaves only pre-existing E501/F811/I001 findings; `xlsx.py` and
+  `test_exports.py` are clean.
+- `git diff --check` passed. The root `npm run typecheck` is effectively a no-op because
+  `tsconfig.json` has `files: []`; the build's `tsc -b` is the real type check.
+- No live station database, captures, physical cameras, OS power or deployment was used.
+
 ## Current demo-seed regression coverage
 
 `backend/tests/test_seed.py` runs only with an explicitly disposable

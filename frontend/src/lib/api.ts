@@ -302,6 +302,8 @@ export const api = {
       const query = new URLSearchParams()
       for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== "") query.set(key, String(value))
       const token = getToken()
+      const format = params.format || "csv"
+      query.set("format", format)
       const response = await fetch(`${BASE_URL}/api/v1/scan-logs/export?${query}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}, signal, cache: "no-store",
       })
@@ -309,7 +311,7 @@ export const api = {
       const url = URL.createObjectURL(await response.blob())
       const link = document.createElement("a")
       link.href = url
-      link.download = `banana-scans-${params.business_date || "filtered"}.csv`
+      link.download = `banana-scans-${params.business_date || "filtered"}.${format}`
       link.click()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
     },
@@ -333,9 +335,9 @@ export const api = {
   config: {
     get: (signal?: AbortSignal) => get<ApiConfig>("/api/v1/config", undefined, signal),
     update: (data: ApiConfigUpdate) => patch<ApiConfig>("/api/v1/config", data),
-    export: async () => {
+    export: async (format: "csv" | "xlsx" = "csv") => {
       const token = getToken()
-      const res = await fetch(`${BASE_URL}/api/v1/config/export`, {
+      const res = await fetch(`${BASE_URL}/api/v1/config/export?format=${format}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       })
       if (!res.ok) throw new Error("Export failed")
@@ -343,7 +345,7 @@ export const api = {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = "bananavision_inventory_export.csv"
+      a.download = `bananavision_inventory_export.${format}`
       a.click()
       window.URL.revokeObjectURL(url)
     },

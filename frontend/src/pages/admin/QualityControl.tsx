@@ -3,7 +3,7 @@ import { api } from "@/lib/api"
 import { isScanConflict, UncertainScanWrite } from "@/lib/scanWrites"
 import { ScanImage } from "@/components/ScanImage"
 import BoundingBoxOverlay from "@/components/BoundingBoxOverlay"
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { useScans } from "@/context/ScanContext"
 import { useAdmin } from "@/context/AdminContext"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -16,6 +16,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { AppDataTable, type ColumnDef } from "@/components/AppDataTable"
 import { AppStatsCard } from "@/components/AppStatsCard"
+import { ExportDropdown } from "@/components/ExportDropdown"
+import { downloadCsv, downloadXlsx } from "@/lib/exportUtils"
 import { Input } from "@/components/ui/input"
 import { NumberField } from "@/components/ui/number-field"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
@@ -27,7 +29,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Loader2, ShieldCheck, Flag, MessageSquare, Edit, AlertTriangle, CheckCircle, Banana, ChevronsLeft, ChevronsRight, Download, Filter, Thermometer, Droplets } from "lucide-react"
+import { Loader2, ShieldCheck, Flag, MessageSquare, Edit, AlertTriangle, CheckCircle, Banana, ChevronsLeft, ChevronsRight, Filter, Thermometer, Droplets } from "lucide-react"
 import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
 import { formatSpoilageDays } from "@/lib/spoilageDisplay"
@@ -249,44 +251,66 @@ export default function QualityControl() {
     return sourceNames.size
   }, [scans, config.confidenceThreshold])
 
-  const exportToCSV = () => {
-    if (scansLoading || scansError) {
+  const sortedScansRef = useRef(filteredScans)
+  const [exporting, setExporting] = useState(false)
+
+  const handleExportCsv = () => {
+    if (scansLoading || Boolean(scansError)) {
       toast.error("Wait for the complete scan history to load before exporting.")
       return
     }
+    const filename = `quality-control-${new Date().toISOString().split('T')[0]}.csv`
     const headers = ["Scan ID", "Date/Time", "Operator", "Cultivar", "Ripeness", "Confidence (%)", "Temperature (°C)", "Humidity (%)", "Spoilage (days)", "Fingers", "Source", "Flagged", "Status"]
-    const rows = filteredScans.map(scan => [
+    const rows = sortedScansRef.current.map(scan => [
       scan.id,
       scan.dateTime,
       scan.operator,
       scan.cultivar,
       scan.ripeness,
-      scan.confidence,
-      scan.temperature || "—",
-      scan.humidity || "—",
-      scan.spoilageDays,
-      scan.fingerCount,
-      scan.source || "—",
+      scan.confidence !== null && scan.confidence !== undefined ? String(scan.confidence) : "",
+      scan.temperature !== null && scan.temperature !== undefined ? String(scan.temperature) : "",
+      scan.humidity !== null && scan.humidity !== undefined ? String(scan.humidity) : "",
+      scan.spoilageDays !== null && scan.spoilageDays !== undefined ? String(scan.spoilageDays) : "",
+      scan.fingerCount !== null && scan.fingerCount !== undefined ? String(scan.fingerCount) : "",
+      scan.source || "",
       scan.flagged ? "Yes" : "No",
       scan.flagged ? "Flagged" : scan.confidence !== null && scan.confidence < config.confidenceThreshold ? "Review" : "Verified"
     ])
+    downloadCsv(filename, headers, rows)
+    toast.success("Export successful", { description: `${rows.length} scans exported to CSV` })
+  }
 
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
-    ].join("\n")
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", `quality-control-${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-
-    toast.success("Export successful", { description: `${filteredScans.length} scans exported to CSV` })
+  const handleExportXlsx = async () => {
+    if (scansLoading || Boolean(scansError)) {
+      toast.error("Wait for the complete scan history to load before exporting.")
+      return
+    }
+    setExporting(true)
+    try {
+      const filename = `quality-control-${new Date().toISOString().split('T')[0]}.xlsx`
+      const headers = ["Scan ID", "Date/Time", "Operator", "Cultivar", "Ripeness", "Confidence (%)", "Temperature (°C)", "Humidity (%)", "Spoilage (days)", "Fingers", "Source", "Flagged", "Status"]
+      const rows = sortedScansRef.current.map(scan => [
+        scan.id,
+        scan.dateTime,
+        scan.operator,
+        scan.cultivar,
+        scan.ripeness,
+        scan.confidence !== null && scan.confidence !== undefined ? Number(scan.confidence) : null,
+        scan.temperature !== null && scan.temperature !== undefined ? Number(scan.temperature) : null,
+        scan.humidity !== null && scan.humidity !== undefined ? Number(scan.humidity) : null,
+        scan.spoilageDays !== null && scan.spoilageDays !== undefined ? String(scan.spoilageDays) : "",
+        scan.fingerCount !== null && scan.fingerCount !== undefined ? Number(scan.fingerCount) : null,
+        scan.source || null,
+        scan.flagged ? "Yes" : "No",
+        scan.flagged ? "Flagged" : scan.confidence !== null && scan.confidence < config.confidenceThreshold ? "Review" : "Verified"
+      ])
+      await downloadXlsx(filename, "Quality Control", headers, rows)
+      toast.success("Export successful", { description: `${rows.length} scans exported to Excel` })
+    } catch (e) {
+      toast.error("Export failed", { description: e instanceof Error ? e.message : "Please try again" })
+    } finally {
+      setExporting(false)
+    }
   }
 
   const columns: ColumnDef<ScanResult>[] = [
@@ -444,10 +468,12 @@ export default function QualityControl() {
         description="Review and manage scan quality"
         icon={ShieldCheck}
         action={
-          <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={exportToCSV} disabled={scansLoading || Boolean(scansError)}>
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Export CSV</span>
-          </Button>
+          <ExportDropdown
+            onExportCsv={handleExportCsv}
+            onExportXlsx={handleExportXlsx}
+            disabled={scansLoading || Boolean(scansError)}
+            exporting={exporting}
+          />
         }
       />
 
@@ -539,6 +565,7 @@ export default function QualityControl() {
         rowKey={(scan) => scan.id}
         onRowClick={(scan) => openScanDetails(scan)}
         pagination={{ pageSize: PAGE_SIZE }}
+        onSortedData={(rows) => { sortedScansRef.current = rows }}
         emptyState={{
           icon: ShieldCheck,
           title: scansError && !scansReady ? "Scan history unavailable" : "No scans to review",

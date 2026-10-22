@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppTableFilters } from "@/components/AppTableFilters"
+import { ExportDropdown } from "@/components/ExportDropdown"
 import { CULTIVARS, RIPENESS_LEVELS } from "@/types"
 import { 
   DropdownMenu, 
@@ -23,7 +24,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
-import { ScrollText, Filter, Download, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, Wind, QrCode, X, Edit, Flag, Loader2 } from "lucide-react"
+import { ScrollText, Filter, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, Wind, QrCode, X, Edit, Flag, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { getImageUrl } from "@/lib/utils"
 import { api } from "@/lib/api"
@@ -234,12 +235,12 @@ function LogsContent() {
     )
   }
 
-  const exportToCSV = async () => {
+  const exportLogs = async (format: "csv" | "xlsx") => {
     if (resource.isPreviousData || resource.loading) return
     setExporting(true)
     try {
-      await api.scanLogs.export({ ...requestParams, snapshot_id: response?.snapshot_id }, AbortSignal.timeout(300_000))
-      toast.success("Exported all matching scan records")
+      await api.scanLogs.export({ ...requestParams, snapshot_id: response?.snapshot_id, format }, AbortSignal.timeout(300_000))
+      toast.success(`Exported all matching scan records to ${format.toUpperCase()}`)
     } catch (error) { toast.error(error instanceof Error ? error.message : "Export failed. Check connection or narrow date range.") }
     finally { setExporting(false) }
   }
@@ -454,10 +455,12 @@ const columns: ColumnDef<LogScan>[] = [
                 Clear Intake Filter
               </Button>
             )}
-            <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={exportToCSV} disabled={exporting || resource.loading || resource.isPreviousData}>
-              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              <span className="hidden sm:inline">{exporting ? "Exporting…" : "Export CSV"}</span>
-            </Button>
+            <ExportDropdown
+              onExportCsv={() => void exportLogs("csv")}
+              onExportXlsx={() => void exportLogs("xlsx")}
+              disabled={exporting || resource.loading || resource.isPreviousData}
+              exporting={exporting}
+            />
           </div>
         }
       />

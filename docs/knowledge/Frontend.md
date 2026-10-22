@@ -107,6 +107,31 @@ remounting Kiosk and clearing its operator/intake selection. Old status rows wit
 an audit event have no reliable actor evidence: keep **Actor not recorded**, rather
 than substituting the scan owner or current login. See [[Testing and Validation]].
 
+## CSV and XLSX exports (2026-10-22)
+
+All five export surfaces offer CSV and XLSX through the shared `ExportDropdown`.
+Scan Logs uses the server export route; System Configuration uses the admin config
+export route. Activity Log, Delivery Intakes and Quality Control export the complete
+filtered dataset after local sorting, not only the visible page. `AppDataTable` reports
+its sorted rows through `onSortedData`; the pages keep that result in a ref so exports
+do not re-render or mutate table state.
+
+Server Scan Logs exports ignore `page`/`limit` and retain account scope, filters,
+sort order and snapshot consistency. The snapshot binding intentionally excludes the
+file format, so the same frozen snapshot can be exported as CSV or XLSX. CSV keeps its
+existing column order, BOM, all-field quoting and three-decimal VPD contract. XLSX
+adds typed cells, inline strings (no formulas or hyperlinks), preserved whitespace,
+wrapped headers/data, estimated row heights, and column widths clamped to 12–81.
+Empty exports still include headers.
+
+Client CSV helpers quote every field and neutralize only formula-like text (`=`, `+`,
+`@`, or non-numeric `-` prefixes); negative numeric strings such as `-1` stay numeric.
+Client XLSX uses the same OpenXML styling and typing contract, keeps identifiers and
+leading-zero values as text, and writes numbers/booleans as native cells. Missing
+optional values export as blank cells rather than display dashes or fabricated zeros.
+Stored ISO timestamps are exported unchanged by client surfaces; backend exports emit
+Asia/Manila ISO timestamps. See [[Testing and Validation]].
+
 ## Key Components
 
 The Analytics Operator Performance table shows **Total Scans** and **Avg Confidence**,

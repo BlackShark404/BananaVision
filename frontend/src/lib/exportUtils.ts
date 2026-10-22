@@ -1,0 +1,335 @@
+/**
+ * CSV/XLSX export helpers shared by the client-side exports (scan quality,
+ * activity logs, delivery intakes, system configuration).
+ *
+ * ExcelJS's Node stream-based writer never resolves inside the browser, so the
+ * XLSX workbook is assembled directly from OpenXML parts, mirroring the proven
+ * backend/app/core/xlsx.py templates: text wrapping, auto-calculated column
+ * widths, dynamic row heights, typed cells and inlineStr escaping that keeps
+ * user-authored "=" / "+" / "@" text from being interpreted as formulas.
+ */
+
+const NS_SPREADSHEET = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+
+/**
+ * Escapes a cell value for RFC 4180 CSV output. Every field is quoted, matching
+ * the previous client exports, so delimiters, quotes, newlines and surrounding
+ * spaces round-trip exactly. Formula-like text is prefixed with an apostrophe
+ * before quoting so spreadsheet applications cannot execute it.
+ */
+export function formatCsvCell(value: unknown): string {
+  let str = value === null || value === undefined ? "" : String(value)
+  const stripped = str.replace(/^[\s\uFEFF]+/, "")
+  const dangerous = /^[=+@]/.test(stripped) ||
+    (stripped.startsWith("-") && !Number.isFinite(Number(stripped)))
+  if (/^[\t\r\n]/.test(str) || dangerous) str = `'${str}`
+  return `"${str.replace(/"/g, '""')}"`
+}
+
+/**
+ * Downloads data as a UTF-8 encoded CSV file with BOM.
+ */
+export function downloadCsv(filename: string, headers: string[], rows: (string | number | boolean | null | undefined)[][]): void {
+  const headerLine = headers.map(formatCsvCell).join(",")
+  const rowLines = rows.map(row => row.map(formatCsvCell).join(","))
+  const csvContent = "\uFEFF" + [headerLine, ...rowLines].join("\n")
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.setAttribute("download", filename.endsWith(".csv") ? filename : `${filename}.csv`)
+  link.style.visibility = "hidden"
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+// ── In-browser XLSX builder ──────────────────────────────────────────────────
+
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256)
+  for (let n = 0; n < 256; n++) {
+    let c = n
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    table[n] = c >>> 0
+  }
+  return table
+})()
+
+function crc32(bytes: Uint8Array): number {
+  let crc = 0xffffffff
+  for (let i = 0; i < bytes.length; i++) crc = CRC_TABLE[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8)
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+const encoder = new TextEncoder()
+
+interface ZipEntry { name: string, data: string }
+
+/** Builds a valid ZIP archive with stored (uncompressed) UTF-8 entries. */
+function buildZip(entries: ZipEntry[]): Uint8Array {
+  const u16 = (value: number): Uint8Array => new Uint8Array([value & 0xff, (value >>> 8) & 0xff])
+  const u32 = (value: number): Uint8Array => new Uint8Array([
+    value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff,
+  ])
+
+  const parts: Uint8Array[] = []
+  const centralParts: Uint8Array[] = []
+  let offset = 0
+  for (const { name, data } of entries) {
+    const nameBytes = encoder.encode(name)
+    const dataBytes = encoder.encode(data)
+    const crc = crc32(dataBytes)
+    const local = [
+      u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(0), u16(0),
+      u32(crc), u32(dataBytes.length), u32(dataBytes.length),
+      u16(nameBytes.length), u16(0), nameBytes,
+    ]
+    const headerLength = local.reduce((size, part) => size + part.length, 0)
+    const central = [
+      u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0), u16(0), u16(0),
+      u32(crc), u32(dataBytes.length), u32(dataBytes.length),
+      u16(nameBytes.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), nameBytes,
+    ]
+    parts.push(...local, dataBytes)
+    centralParts.push(...central)
+    offset += headerLength + dataBytes.length
+  }
+
+  const centralSize = centralParts.reduce((size, part) => size + part.length, 0)
+  const eocd = [
+    u32(0x06054b50), u16(0), u16(0),
+    u16(entries.length), u16(entries.length),
+    u32(centralSize), u32(offset), u16(0),
+  ]
+
+  const total = parts.reduce((size, part) => size + part.length, 0) +
+    centralSize + eocd.reduce((size, part) => size + part.length, 0)
+  const archive = new Uint8Array(total)
+  let cursor = 0
+  for (const part of [...parts, ...centralParts, ...eocd]) {
+    archive.set(part, cursor)
+    cursor += part.length
+  }
+  return archive
+}
+
+/** Applies the Excel sheet-name rules: 31 characters, no reserved characters. */
+function safeSheetName(name: string): string {
+  const cleaned = name.replace(/[:\\/?*[\]]/g, " ").trim() || "Sheet1"
+  return cleaned.slice(0, 31)
+}
+
+function colLetter(colIndex: number): string {
+  let index = colIndex
+  let result = ""
+  while (index > 0) {
+    const remainder = (index - 1) % 26
+    result = String.fromCharCode(65 + remainder) + result
+    index = Math.floor((index - 1) / 26)
+  }
+  return result
+}
+
+// Control characters invalid in XML 1.0 except tab, CR, LF.
+// eslint-disable-next-line no-control-regex
+const INVALID_XML_CHARS = /[\x00-\x08\x0b\x0c\x0e-\x1f]/g
+
+function escapeXml(value: string): string {
+  return value
+    .replace(INVALID_XML_CHARS, "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;")
+}
+
+/** Approximate visible cell width, counting wide CJK characters as two. */
+function displayWidth(value: string): number {
+  let width = 0
+  for (const char of value) {
+    const code = char.codePointAt(0) ?? 0
+    const wide =
+      (code >= 0x1100 && code <= 0x115f) ||
+      (code >= 0x2e80 && code <= 0xa4cf) ||
+      (code >= 0xac00 && code <= 0xd7a3) ||
+      (code >= 0xf900 && code <= 0xfaff) ||
+      (code >= 0xfe10 && code <= 0xfe19) ||
+      (code >= 0xfe30 && code <= 0xfe6f) ||
+      (code >= 0xff00 && code <= 0xff60) ||
+      (code >= 0xffe0 && code <= 0xffe6) ||
+      (code >= 0x1f300 && code <= 0x1faff)
+    width += wide ? 2 : 1
+  }
+  return width
+}
+
+/** Estimate how many wrapped lines a value occupies in a column. */
+function wrappedLineCount(value: string, columnWidth: number): number {
+  const available = Math.max(1, Math.floor(columnWidth) - 2)
+  return value.split("\n").reduce(
+    (lines, line) => lines + Math.max(1, Math.ceil(displayWidth(line) / available)),
+    0,
+  )
+}
+
+type XlsxCell =
+  | { value: string, type: "s" }
+  | { value: number | string, type: "n" }
+  | { value: string, type: "b" }
+  | null
+
+function cellOf(raw: string | number | boolean | null | undefined): XlsxCell {
+  if (raw === null || raw === undefined) return null
+  if (typeof raw === "string") return { value: raw, type: "s" }
+  if (typeof raw === "boolean") return { value: raw ? "1" : "0", type: "b" }
+  if (!Number.isFinite(raw)) return { value: `${raw}`, type: "s" }
+  return { value: raw.toString(), type: "n" }
+}
+
+function renderCell(cell: XlsxCell, ref: string, style: number): string {
+  if (!cell) return `<c r="${ref}" s="${style}"/>`
+  if (cell.type === "s") {
+    return `<c r="${ref}" t="inlineStr" s="${style}"><is><t xml:space="preserve">${escapeXml(cell.value)}</t></is></c>`
+  }
+  return `<c r="${ref}" t="${cell.type}" s="${style}"><v>${escapeXml(String(cell.value))}</v></c>`
+}
+
+/**
+ * Generates an OpenXML SpreadsheetML workbook with the styling contract shared
+ * with the backend exports: white data style with top-aligned wrapping (cellXfs
+ * index 1) from which Excel derives implicit column widths and dynamic row
+ * heights, bold wrapped headers (index 2), typed number/boolean/string cells.
+ */
+export function buildXlsxXml(headers: string[], rows: (string | number | boolean | null | undefined)[][]): string {
+  const numCols = headers.length
+
+  const columnWidths: number[] = []
+  for (let c = 0; c < numCols; c++) {
+    let maxWidth = displayWidth(headers[c])
+    for (const row of rows) {
+      const raw = row[c]
+      if (raw === null || raw === undefined) continue
+      for (const line of `${raw}`.split("\n")) {
+        maxWidth = Math.max(maxWidth, displayWidth(line))
+      }
+    }
+    columnWidths.push(Math.min(81, Math.max(12, maxWidth + 3)))
+  }
+  const colsXml = columnWidths.map((width, i) =>
+    `<col min="${i + 1}" max="${i + 1}" width="${width.toFixed(1)}" customWidth="1"/>`).join("")
+
+  let headerLines = 1
+  const headerCells = headers
+    .map((header, i) => {
+      headerLines = Math.max(headerLines, wrappedLineCount(header, columnWidths[i]))
+      return renderCell(cellOf(header), `${colLetter(i + 1)}1`, 2)
+    })
+    .join("")
+  const headerHeight = Math.min(409, Math.max(24, headerLines * 18))
+  const rowXmls = [`<row r="1" ht="${headerHeight.toFixed(1)}" customHeight="1">${headerCells}</row>`]
+
+  for (let r = 0; r < rows.length; r++) {
+    const ref = r + 2
+    let visualLines = 1
+    const cells = headers.map((_, c) => {
+      const cell = cellOf(rows[r][c])
+      if (cell) visualLines = Math.max(visualLines, wrappedLineCount(String(cell.value), columnWidths[c]))
+      return renderCell(cell, `${colLetter(c + 1)}${ref}`, 1)
+    }).join("")
+    const height = Math.min(409, Math.max(16, visualLines * 18))
+    rowXmls.push(`<row r="${ref}" ht="${height.toFixed(1)}" customHeight="1">${cells}</row>`)
+  }
+
+  return (
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
+    `<worksheet xmlns="${NS_SPREADSHEET}">` +
+    `<cols>${colsXml}</cols>` +
+    `<sheetData>${rowXmls.join("")}</sheetData>` +
+    `</worksheet>`
+  )
+}
+
+/** Packages the OpenXML parts into a downloadable .xlsx blob. */
+function buildXlsx(name: string, sheetXml: string): Blob {
+  const sheetName = safeSheetName(name)
+  const files: [string, string][] = [
+    ["[Content_Types].xml", (
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      '</Types>'
+    )],
+    ["_rels/.rels", (
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+      '</Relationships>'
+    )],
+    ["xl/workbook.xml", (
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+      `<sheets><sheet name="${escapeXml(sheetName)}" sheetId="1" r:id="rId1"/></sheets>` +
+      '</workbook>'
+    )],
+    ["xl/_rels/workbook.xml.rels", (
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+      '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+      '</Relationships>'
+    )],
+    ["xl/styles.xml", (
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' +
+      '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
+      '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+      '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+      '<cellXfs count="3">' +
+      '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+      '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>' +
+      '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>' +
+      '</cellXfs>' +
+      '</styleSheet>'
+    )],
+    ["xl/worksheets/sheet1.xml", sheetXml],
+  ]
+  const archive = buildZip(files.map(([name, data]) => ({ name, data })))
+  return new Blob([new Uint8Array(archive)], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  })
+}
+
+function triggerDownload(filename: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.setAttribute("download", filename)
+  link.style.visibility = "hidden"
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/**
+ * Downloads data as a styled XLSX spreadsheet with auto-fitted columns and text wrapping.
+ */
+export async function downloadXlsx(
+  filename: string,
+  sheetName: string,
+  headers: string[],
+  rows: (string | number | boolean | null | undefined)[][],
+): Promise<void> {
+  const sheetXml = buildXlsxXml(headers, rows)
+  const blob = buildXlsx(sheetName, sheetXml)
+  triggerDownload(filename.endsWith(".xlsx") ? filename : `${filename}.xlsx`, blob)
+}

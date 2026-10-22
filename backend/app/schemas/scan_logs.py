@@ -12,6 +12,7 @@ from app.schemas.enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
 
 
 class ScanLogQuery(BaseModel):
+    format: Literal["csv", "xlsx"] = "csv"
     stable: bool = False
     snapshot_id: UUID | None = None
     business_date: date | None = None
