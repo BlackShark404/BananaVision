@@ -157,6 +157,8 @@ Role and active-status changes revoke existing sessions. Promoting an operator c
 
 From `backend/`, run `python -m app.core.migrations` with the deployment environment configured. This initializes missing tables and applies the versioned revisions in `migrations/versions/`. Startup runs the same upgrade before reading users or seeding accounts, and fails if an upgrade cannot complete. PostgreSQL uses a transaction advisory lock so simultaneous starts serialize schema changes.
 
+For a current ERD/data-dictionary view, see [the schema reference](../docs/bananavision_schema_current.sql) and [the table dictionary](../docs/schema_tables.md). They describe the application schema at head `0009_camera_slots`; they are documentation references, not an upgrade path.
+
 - `0001_session_revocation` adds a non-null `user_account.token_version` with default `1` to older schemas, preserving account credentials and existing rows.
 - `0002_feature_engineering` adds missing batch lifecycle/treatment and engineered-feature columns from the earlier manual SQL migration. Already-present columns are retained. Historical engineered values remain unchanged; the schema upgrade does not recompute model features.
 - `0003_system_configuration` adds canonical configuration, revision checks, applied state, and stable physical camera mappings.

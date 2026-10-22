@@ -2,6 +2,21 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## Current schema reference — 2026-10-22
+
+- Generated `docs/bananavision_schema_current.sql` from an isolated PostgreSQL 17.10
+  database initialized through `backend/app/core/migrations.py` at Alembic revision
+  `0009_camera_slots`. The dump omits `alembic_version` and pg_dump wrapper artifacts.
+- Loaded the cleaned DDL into a fresh disposable PostgreSQL 17.10 database with
+  `psql -v ON_ERROR_STOP=1`. The loaded schema has **24 application tables**, **7 enum
+  types**, **18 foreign keys** and five sequence-backed `SERIAL` columns.
+- Verified the normalized `device.slot_index`/`device_index` columns and the absence of
+  `system_config` camera arrays, operator scan counters and `alembic_version`.
+- This was a documentation/schema-reference change only. No backend or frontend runtime
+  code changed, so no application test suite was rerun. `git diff --check` passed.
+- No live station database, captures, physical cameras, OS power, restore or deployment was
+  used. See [[Database]] for the current schema links.
+
 ## CSV and XLSX exports — 2026-10-22
 
 - `backend/tests/test_exports.py` covers 206-row exports beyond pagination, account scope,
