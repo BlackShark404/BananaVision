@@ -1,14 +1,17 @@
 CURRENT RESUME HERE (2026-10-22) - CURRENT SCHEMA REFERENCE AND DATA DICTIONARY PREPARED
 
 GIT / SCOPE
-- HEAD is 154ee7d; local main is in sync with origin/main. The camera-slot normalization
-  (842ad38) and merged remote export audit (eb9498c) remain intact.
+- HEAD is 3ce14db; local main is in sync with origin/main. The schema-reference files were
+  committed and pushed outside this session in 10d95b8 and 3ce14db; this session did not run
+  git commit or git push.
+- The camera-slot normalization (842ad38) and merged remote export audit (eb9498c) remain
+  intact. The only working-tree change is this corrected checkpoint.
 - This task changed documentation only. No backend/frontend runtime code, migrations or
   database records were modified.
-- Working tree: new docs/bananavision_schema_current.sql, new docs/knowledge/Database.md and
-  docs/history/2026-10-22-before-schema-reference.txt; modified docs/schema_tables.md,
-  docs/BANANAVISION_CONTEXT.md, docs/bananavision_schema_final2.sql and
-  docs/knowledge/Testing and Validation.md. Nothing was staged, committed or pushed.
+- Schema-reference files now committed: docs/bananavision_schema_current.sql,
+  docs/schema_tables.md, docs/BANANAVISION_CONTEXT.md,
+  docs/bananavision_schema_final2.sql, docs/knowledge/Database.md,
+  docs/knowledge/Testing and Validation.md, backend/README.md and the archived checkpoint.
 - No live station database, captures, physical cameras, OS power, restore or deployment was
   used. The schema was built in an isolated PostgreSQL 17.10 cluster and the cluster was
   stopped and removed.
@@ -43,7 +46,7 @@ VERIFICATION
   docs/history/2026-10-22-before-schema-reference.txt.
 
 EXACT NEXT STEP
-- Review the scoped documentation diff, including the new SQL and Database note. On explicit
-  authorization, stage and commit the schema-reference docs. If requested next, generate a
-  Mermaid ERD from the relationship summary in docs/schema_tables.md. Do not push or deploy
-  without authorization.
+- The schema-reference files are already committed and pushed (10d95b8, 3ce14db). If
+  requested next, generate a Mermaid ERD from the relationship summary in
+  docs/schema_tables.md. This checkpoint correction is intentionally uncommitted; include it
+  with the next authorized docs commit. Do not deploy.
