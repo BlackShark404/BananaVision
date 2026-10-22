@@ -1,9 +1,11 @@
 CURRENT RESUME HERE (2026-10-22) - CSV/XLSX EXPORTS IMPLEMENTED AND VERIFIED
 
 GIT / SCOPE
-- Existing main; task started at e45af37, equal to the fetched origin/main. User authorized
-  commit, origin integration and push. No branches/worktrees, force push, history rewrite,
-  deployment or live operations.
+- Existing main; task started at e45af37. Feature work committed as 808d3ff and pushed;
+  origin/main had not advanced, so no integration commit was needed. This checkpoint-only
+  follow-up is documentation and is pushed with the same delivery. After that push, local
+  main and origin/main are synchronized. No branches/worktrees, force push, history rewrite,
+  deployment or live operations. Working tree is clean apart from the untracked probe.
 - Prior system-config checkpoint archived as
   docs/history/2026-10-22-before-export-improvements.txt.
 - Task files include backend/frontend export code and tests, two knowledge notes, package
@@ -41,6 +43,8 @@ VERIFICATION (final run)
   diagnostics from this task. Removed one now-unused eslint-disable directive.
 - Ruff on changed backend files: new xlsx.py and test_exports.py clean; remaining findings
   are pre-existing E501/F811/I001 lines.
+- Full frontend suite was not rerun; the affected export/records/persistence suites cover
+  every changed surface. Unrelated existing connectivity failures remain separate work.
 - git diff --check: PASS. No live station database, captures, physical cameras or OS power.
 
 KNOWLEDGE
@@ -48,7 +52,9 @@ KNOWLEDGE
 - docs/knowledge/Testing and Validation.md records the commands, counts and isolation limits.
 - Graphify refreshed locally for the final export change set (3960 nodes, 12102 edges,
   234 communities); graphify-out/ is gitignored, so no graph files are committed.
+- Project ICM memory stored: 01M5HAM0SAV8DHHZXZFBJ77D0G.
 
 EXACT NEXT STEP
-- Stage every task file except the debug probe, commit on main, fetch/integrate origin/main,
-  rerun affected checks if incoming code changes, push, and confirm local/remote sync.
+- Export task complete; no pending implementation. Verify `git rev-parse HEAD origin/main`
+  matches if resuming. Leave the untracked frontend/tests/probe-quality-debug.test.mjs
+  unstaged; delete it only with user approval.
