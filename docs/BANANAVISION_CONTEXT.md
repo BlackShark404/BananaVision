@@ -227,7 +227,7 @@ user_account 1--many app_notification
 
 Important scan data includes cultivar, ripeness, confidence, temperature, humidity, spoilage days, finger count, thumbnail, engineered features, treatment, current inventory status history, original AI output, notes, and per-camera evidence.
 
-The canonical SQL documentation in `docs/schema_tables.md` describes the database naming and constraints in detail. It uses table names such as `USER_ACCOUNT`, `SCAN`, `SCAN_CLASSIFICATION`, `DELIVERY_INTAKE`, and `APP_NOTIFICATION`; verify the actual ORM/database naming when applying SQL manually.
+The current schema DDL is `docs/bananavision_schema_current.sql`, generated at Alembic revision `0009_camera_slots`. The companion data dictionary in `docs/schema_tables.md` lists all 24 application tables, enum types, keys, constraints and indexes. Actual PostgreSQL identifiers are lowercase snake_case; the dictionary uppercases them for ERD readability. `docs/bananavision_schema_final2.sql` is retained as the historical pre-normalization reference only.
 
 ## 9. Migration: `docs/migrations/001_feature_engineering.sql`
 

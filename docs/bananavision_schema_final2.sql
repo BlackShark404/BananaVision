@@ -1,7 +1,8 @@
 -- ============================================================
 -- Historical BananaVision schema reference (not the current bootstrap schema)
 -- ============================================================
--- Retained for reference; later ORM fields and versioned migrations supersede it.
+-- Retained for historical reference only; later ORM fields and versioned migrations supersede it.
+-- Current schema reference: docs/bananavision_schema_current.sql (Alembic 0009_camera_slots).
 -- Initialize/upgrade with backend: python -m app.core.migrations.
 -- For synthetic data in an empty development database, use backend/seed.py.
 --
