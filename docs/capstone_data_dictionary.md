@@ -1,0 +1,417 @@
+# BananaVision Data Dictionary
+
+Current application schema at Alembic revision `0009_camera_slots`, generated from
+`docs/bananavision_schema_current.sql`. The schema contains **24 application tables**,
+7 PostgreSQL enum types and 18 foreign-key relationships. The technical `alembic_version`
+table is excluded.
+
+This capstone-format version continues the numbering from the previous draft starting at
+**Table 15**. Tables are in logical dependency order; renumber the captions if your paper's
+preceding sequence differs.
+
+## Default notation
+
+- `Auto-increment` — backed by a PostgreSQL sequence (`SERIAL`).
+- `App: ...` — supplied by the application/ORM, not by a database default.
+- Plain value — database server default.
+- Blank — no default; the service or caller supplies the value.
+
+UUID primary keys use `App: uuid4()`. Business timestamps use `App: now_manila()` and are
+stored as `TIMESTAMP WITH TIME ZONE`; the backend uses Asia/Manila business boundaries.
+
+## Enum types
+
+| PostgreSQL enum | Database labels | Application values |
+| --- | --- | --- |
+| `ACTIVESTATUSENUM` | `ACTIVE`, `INACTIVE` | Active, Inactive |
+| `CULTIVARENUM` | `LAKATAN`, `LATUNDAN`, `CARDABA` | Lakatan, Latundan, Cardaba |
+| `DEVICESTATUSENUM` | `ONLINE`, `OFFLINE` | Online, Offline |
+| `INTAKESTATUSENUM` | `ACTIVE`, `DEPLETED` | Active, Depleted |
+| `INVENTORYSTATUSENUM` | `IN_STOCK`, `SOLD`, `FOR_PROCESSING`, `SPOILED` | In Stock, Sold, For Processing, Spoiled |
+| `RIPENESSENUM` | `UNRIPE`, `SEMI_RIPE`, `RIPE`, `OVERRIPE` | Unripe, Semi Ripe, Ripe, Overripe |
+| `TREATMENTENUM` | `Natural`, `Ethephon` | Natural, Ethephon |
+
+## Changes from the previous dictionary
+
+- Removed `OPERATOR_PROFILE.TOTAL_SCANS` and `FLAGGED_SCANS`; analytics derives both from `SCAN`.
+- Removed `SYSTEM_CONFIG.CAMERA_IDS`; saved camera slots now live in `DEVICE.SLOT_INDEX` and `DEVICE.DEVICE_INDEX`.
+- Added `USER_ACCOUNT.TOKEN_VERSION`, `SYSTEM_CONFIG.CANONICAL_KEY`, `REVISION`, `LEGACY_CONFLICT`, and the provenance/revision fields on `SCAN`.
+- Added `MAINTENANCE_STATE`, `SCAN_EVENT`, `SCAN_MUTATION`, `SCAN_TOMBSTONE`, `SCAN_BROWSE_SNAPSHOT` and `SCAN_LABEL_PRINT_JOB`.
+- Corrected nullability and types to match the actual PostgreSQL schema (for example, enum columns, `SCAN_DETECTION.FINGER_COUNT`, `SCAN_ORIGINAL_AI_RESULT.CREATED_AT` and `APP_NOTIFICATION.IS_READ`).
+
+### Table 15: USER_ROLE Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | SERIAL | No | Auto-increment | PK |  |
+| NAME | VARCHAR(30) | No |  |  |  |
+| DESCRIPTION | VARCHAR(255) | Yes |  |  |  |
+
+**Notes:** `NAME` is unique.
+
+### Table 16: USER_ACCOUNT Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | UUID | No | App: uuid4() | PK |  |
+| USERNAME | VARCHAR(50) | No |  |  |  |
+| FULL_NAME | VARCHAR(100) | No |  |  |  |
+| STATUS | ACTIVESTATUSENUM | No | App: Active |  |  |
+| AVATAR_URL | TEXT | Yes |  |  |  |
+| PASSWORD_HASH | VARCHAR(255) | No |  |  |  |
+| REQUIRES_PASSWORD_CHANGE | BOOLEAN | No | App: false |  |  |
+| PASSWORD_SETUP_REASON | VARCHAR(50) | Yes |  |  |  |
+| LAST_ACTIVE | TIMESTAMP WITH TIME ZONE | Yes |  |  |  |
+| CREATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| UPDATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| TOKEN_VERSION | INTEGER | No | 1 |  |  |
+| ROLE_ID | INTEGER | No |  | FK | USER_ROLE(ID) |
+
+**Notes:** `USERNAME` is unique. `STATUS` uses `ACTIVESTATUSENUM`. Deleting a referenced role is restricted.
+
+### Table 17: ADMIN_PROFILE Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | UUID | No | App: uuid4() | PK |  |
+| CREATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| UPDATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| ACCOUNT_ID | UUID | No |  | FK (Unique) | USER_ACCOUNT(ID) |
+
+**Notes:** `ACCOUNT_ID` is unique; each account has at most one admin profile. Deleting the account cascades to this row.
+
+### Table 18: OPERATOR_PROFILE Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | UUID | No | App: uuid4() | PK |  |
+| PIN_HASH | VARCHAR(255) | Yes |  |  |  |
+| REQUIRES_PIN_CHANGE | BOOLEAN | No | App: false |  |  |
+| PIN_SETUP_REASON | VARCHAR(50) | Yes |  |  |  |
+| CREATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| UPDATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| ACCOUNT_ID | UUID | No |  | FK (Unique) | USER_ACCOUNT(ID) |
+
+**Notes:** `ACCOUNT_ID` is unique; each account has at most one operator profile. Deleting the account cascades to this row. Scan totals are derived from `SCAN`; they are not stored here.
+
+### Table 19: DEVICE Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | UUID | No | App: uuid4() | PK |  |
+| CAMERA_ID | VARCHAR(50) | No |  |  |  |
+| SLOT_INDEX | INTEGER | Yes |  |  |  |
+| DEVICE_INDEX | INTEGER | Yes |  |  |  |
+| LABEL | VARCHAR(100) | No |  |  |  |
+| STATUS | DEVICESTATUSENUM | No | App: Offline |  |  |
+| RESOLUTION | VARCHAR(20) | Yes | App: '1920x1080' |  |  |
+| LAST_SEEN | TIMESTAMP WITH TIME ZONE | Yes |  |  |  |
+| CREATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| UPDATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+
+**Notes:** `CAMERA_ID`, `SLOT_INDEX` and `DEVICE_INDEX` are unique. `SLOT_INDEX` is limited to 0–3; `DEVICE_INDEX` must be non-negative. Both index columns are nullable.
+
+### Table 20: SYSTEM_CONFIG Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | SERIAL | No | Auto-increment | PK |  |
+| CANONICAL_KEY | INTEGER | Yes |  |  |  |
+| REVISION | INTEGER | No | 1 |  |  |
+| LEGACY_CONFLICT | BOOLEAN | No | false |  |  |
+| CONFIDENCE_THRESHOLD | INTEGER | No | App: 85 |  |  |
+| DATA_RETENTION_ENABLED | BOOLEAN | No | App: true |  |  |
+| UPDATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| UPDATED_BY_ADMIN | UUID | Yes |  | FK | ADMIN_PROFILE(ID) |
+
+**Notes:** `CANONICAL_KEY` is unique and must be `NULL` or `1`. Camera mappings are stored in `DEVICE`, not here. Deleting the referenced administrator sets `UPDATED_BY_ADMIN` to `NULL`.
+
+### Table 21: MAINTENANCE_STATE Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | INTEGER | No | App: 1 | PK |  |
+| AUTH_GENERATION | VARCHAR(64) | No | App: 'initial' |  |  |
+| RESTORE_MARKER | VARCHAR(64) | Yes |  |  |  |
+| POWER | JSON | Yes |  |  |  |
+| RETENTION | JSON | Yes |  |  |  |
+| OPERATIONS | JSON | No | App: {} |  |  |
+| UPDATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+
+**Notes:** Singleton row: `ID` must be `1`.
+
+### Table 22: SENSOR_READING Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | UUID | No | App: uuid4() | PK |  |
+| TEMPERATURE | DOUBLE PRECISION | No |  |  |  |
+| HUMIDITY | DOUBLE PRECISION | No |  |  |  |
+| RECORDED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| SOURCE | VARCHAR(50) | No | App: 'DHT22' |  |  |
+
+**Notes:** `SOURCE` is required; the application default is `DHT22`.
+
+### Table 23: SUPPLIER Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | UUID | No | App: uuid4() | PK |  |
+| NAME | VARCHAR(100) | No |  |  |  |
+| CONTACT_PERSON | VARCHAR(100) | Yes |  |  |  |
+| CONTACT_PHONE | VARCHAR(20) | Yes |  |  |  |
+| STATUS | ACTIVESTATUSENUM | No | App: Active |  |  |
+| DATE_ADDED | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| UPDATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+
+**Notes:** `NAME` is unique. `STATUS` uses `ACTIVESTATUSENUM`.
+
+### Table 24: DELIVERY_INTAKE Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | UUID | No | App: uuid4() | PK |  |
+| SOURCE | VARCHAR(100) | No |  |  |  |
+| BATCH_NUMBER | VARCHAR(50) | Yes |  |  |  |
+| QR_CODE | TEXT | Yes |  |  |  |
+| INTAKE_DATE | DATE | No |  |  |  |
+| STATUS | INTAKESTATUSENUM | No | App: Active |  |  |
+| TREATMENT | TREATMENTENUM | Yes | App: Natural |  |  |
+| HARVESTED_AT | TIMESTAMP WITH TIME ZONE | Yes |  |  |  |
+| TREATED_AT | TIMESTAMP WITH TIME ZONE | Yes |  |  |  |
+| SPOILED_AT | TIMESTAMP WITH TIME ZONE | Yes |  |  |  |
+| CREATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| UPDATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| SUPPLIER_ID | UUID | Yes |  | FK | SUPPLIER(ID) |
+
+**Notes:** `STATUS` uses `INTAKESTATUSENUM`; `TREATMENT` uses `TREATMENTENUM`. Deleting a referenced supplier is restricted.
+
+### Table 25: SCAN Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | UUID | No | App: uuid4() | PK |  |
+| DATE_TIME | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| FLAGGED | BOOLEAN | No | App: false |  |  |
+| IS_OVERRIDDEN | BOOLEAN | No | App: false |  |  |
+| INTAKE_ORIGIN_ID | UUID | Yes | App: INTAKE_ID |  |  |
+| INTAKE_PROVENANCE | VARCHAR(20) | No | 'unverified' |  |  |
+| SOURCE_TEXT | VARCHAR(100) | Yes |  |  |  |
+| REVISION | INTEGER | No | 1 |  |  |
+| OPERATOR_NAME_SNAPSHOT | VARCHAR(100) | Yes |  |  |  |
+| SOURCE_NAME_SNAPSHOT | VARCHAR(100) | Yes |  |  |  |
+| UPDATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| OPERATOR_ID | UUID | No |  | FK | OPERATOR_PROFILE(ID) |
+| INTAKE_ID | UUID | Yes |  | FK | DELIVERY_INTAKE(ID) |
+
+**Notes:** `OPERATOR_ID` is required. Deleting an intake sets `INTAKE_ID` to `NULL`; deleting an operator is restricted. `INTAKE_ORIGIN_ID` is populated from `INTAKE_ID` and intentionally has no foreign key so provenance survives intake deletion. `INTAKE_PROVENANCE` has a database fallback of `'unverified'`; new application rows normally write `linked` or `unlinked`.
+
+### Table 26: SCAN_CLASSIFICATION Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | SERIAL | No | Auto-increment | PK |  |
+| CULTIVAR | CULTIVARENUM | Yes |  |  |  |
+| RIPENESS | RIPENESSENUM | Yes |  |  |  |
+| CONFIDENCE | NUMERIC(5,2) | Yes |  |  |  |
+| TEMPERATURE | NUMERIC(5,2) | Yes |  |  |  |
+| HUMIDITY | NUMERIC(5,2) | Yes |  |  |  |
+| SPOILAGE_DAYS | VARCHAR(20) | Yes |  |  |  |
+| FINGER_COUNT | INTEGER | No |  |  |  |
+| THUMBNAIL_URL | VARCHAR(500) | Yes |  |  |  |
+| DEW_POINT | NUMERIC(6,3) | Yes |  |  |  |
+| VPD | NUMERIC(6,3) | Yes |  |  |  |
+| HEAT_INDEX | NUMERIC(5,2) | Yes |  |  |  |
+| TREATMENT | TREATMENTENUM | Yes |  |  |  |
+| SCAN_ID | UUID | No |  | FK (Unique) | SCAN(ID) |
+
+**Notes:** `SCAN_ID` is unique: one classification row per scan. Deleting the scan cascades to this row. `CULTIVAR`, `RIPENESS` and `TREATMENT` use their respective enum types.
+
+### Table 27: SCAN_STATUS_LOG Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | SERIAL | No | Auto-increment | PK |  |
+| INVENTORY_STATUS | INVENTORYSTATUSENUM | No |  |  |  |
+| UPDATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| SCAN_ID | UUID | No |  | FK | SCAN(ID) |
+
+**Notes:** `INVENTORY_STATUS` uses `INVENTORYSTATUSENUM`. Deleting the scan cascades to these rows.
+
+### Table 28: SCAN_ORIGINAL_AI_RESULT Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | SERIAL | No | Auto-increment | PK |  |
+| CULTIVAR | CULTIVARENUM | Yes |  |  |  |
+| RIPENESS | RIPENESSENUM | Yes |  |  |  |
+| CONFIDENCE | NUMERIC(5,2) | Yes |  |  |  |
+| SPOILAGE_DAYS | VARCHAR(50) | Yes |  |  |  |
+| FINGER_COUNT | INTEGER | No |  |  |  |
+| CREATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| SCAN_ID | UUID | No |  | FK (Unique) | SCAN(ID) |
+
+**Notes:** `SCAN_ID` is unique: one original result per scan. `SPOILAGE_DAYS` remains nullable. Deleting the scan cascades to this row.
+
+### Table 29: SCAN_DETECTION Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | UUID | No | App: uuid4() | PK |  |
+| CAMERA_ID | VARCHAR(20) | No |  |  |  |
+| CAMERA_LABEL | VARCHAR(30) | No |  |  |  |
+| DETECTED_CULTIVAR | VARCHAR(20) | Yes |  |  |  |
+| DETECTED_RIPENESS | VARCHAR(20) | Yes |  |  |  |
+| CONFIDENCE | NUMERIC(5,2) | Yes |  |  |  |
+| FINGER_COUNT | INTEGER | No | App: 0 |  |  |
+| BOUNDING_BOXES | JSONB | Yes |  |  |  |
+| INFERENCE_TIME_MS | NUMERIC(8,2) | Yes |  |  |  |
+| CAPTURED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| SCAN_ID | UUID | No |  | FK | SCAN(ID) |
+
+**Notes:** Deleting the scan cascades to these rows.
+
+### Table 30: SCAN_IMAGE Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | UUID | No | App: uuid4() | PK |  |
+| CAMERA_ID | VARCHAR(20) | No |  |  |  |
+| FILE_PATH | VARCHAR(500) | No |  |  |  |
+| WIDTH | INTEGER | Yes |  |  |  |
+| HEIGHT | INTEGER | Yes |  |  |  |
+| FILE_SIZE_BYTES | INTEGER | Yes |  |  |  |
+| CAPTURED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| SCAN_ID | UUID | No |  | FK | SCAN(ID) |
+
+**Notes:** Deleting the scan cascades to these rows.
+
+### Table 31: SCAN_NOTE Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | UUID | No | App: uuid4() | PK |  |
+| TEXT | TEXT | No |  |  |  |
+| AUTHOR_NAME | VARCHAR(100) | No |  |  |  |
+| TIMESTAMP | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| SCAN_ID | UUID | No |  | FK | SCAN(ID) |
+
+**Notes:** Deleting the scan cascades to these rows.
+
+### Table 32: SCAN_EVENT Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | UUID | No | App: uuid4() | PK |  |
+| REVISION | INTEGER | No |  |  |  |
+| KIND | VARCHAR(30) | No |  |  |  |
+| TIMESTAMP | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| ACTOR_ID | UUID | Yes |  |  |  |
+| ACTOR_NAME | VARCHAR(100) | Yes |  |  |  |
+| REASON | TEXT | Yes |  |  |  |
+| PREVIOUS_VALUES | JSON | Yes |  |  |  |
+| NEW_VALUES | JSON | No |  |  |  |
+| EVIDENCE_ID | VARCHAR(100) | Yes |  |  |  |
+| SCAN_ID | UUID | No |  | FK | SCAN(ID) |
+
+**Notes:** `(SCAN_ID, REVISION)` is unique. Deleting the scan cascades to its history rows.
+
+### Table 33: SCAN_MUTATION Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| REQUEST_ID | UUID | No |  | PK |  |
+| ACTOR_ID | UUID | No |  |  |  |
+| FINGERPRINT | VARCHAR(64) | No |  |  |  |
+| RESPONSE | JSON | No |  |  |  |
+| CREATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+
+**Notes:** Primary key is the caller-supplied idempotency request ID. No foreign key is enforced for the actor ID.
+
+### Table 34: SCAN_TOMBSTONE Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| SCAN_ID | UUID | No |  | PK |  |
+| OWNER_ACCOUNT_ID | UUID | Yes |  |  |  |
+| DELETED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+
+**Notes:** Primary key is the deleted scan ID. No foreign key is enforced because the scan row is gone.
+
+### Table 35: SCAN_BROWSE_SNAPSHOT Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | UUID | No | App: uuid4() | PK |  |
+| OWNER_ID | UUID | No |  |  |  |
+| ROLE | VARCHAR(20) | No |  |  |  |
+| TOKEN_VERSION | INTEGER | No |  |  |  |
+| GENERATION | VARCHAR(64) | No |  |  |  |
+| BINDING | VARCHAR(64) | No |  |  |  |
+| EXPIRES_AT | TIMESTAMP WITH TIME ZONE | No |  |  |  |
+| PAYLOAD | JSON | No |  |  |  |
+
+**Notes:** Stores an expiring browse authorization snapshot. `OWNER_ID` intentionally has no foreign key.
+
+### Table 36: SCAN_LABEL_PRINT_JOB Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | UUID | No | App: uuid4() | PK |  |
+| CLAIMED | BOOLEAN | No | App: false |  |  |
+| QUANTITY | INTEGER | No |  |  |  |
+| PRINTER_NAME | VARCHAR(260) | No |  |  |  |
+| LABEL_DATA | JSON | No |  |  |  |
+| WIDTH_MM | DOUBLE PRECISION | No |  |  |  |
+| HEIGHT_MM | DOUBLE PRECISION | No |  |  |  |
+| STATUS | VARCHAR(12) | No | App: 'QUEUED' |  |  |
+| WINDOWS_JOB_ID | INTEGER | Yes |  |  |  |
+| ERROR_MESSAGE | TEXT | Yes |  |  |  |
+| ATTEMPT_COUNT | INTEGER | No | App: 0 |  |  |
+| CREATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| UPDATED_AT | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| PREDICTION_ID | UUID | No |  | FK | SCAN(ID) |
+| OWNER_ID | UUID | No |  | FK | USER_ACCOUNT(ID) |
+
+**Notes:** `QUANTITY` must be 1–10. `STATUS` must be `QUEUED`, `SUBMITTED` or `FAILED`. Deleting the scan or owner cascades to the job.
+
+### Table 37: ACTIVITY_LOG Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | UUID | No | App: uuid4() | PK |  |
+| TIMESTAMP | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| ACTION | VARCHAR(50) | No |  |  |  |
+| DETAILS | TEXT | Yes |  |  |  |
+| IP_ADDRESS | VARCHAR(45) | Yes |  |  |  |
+| USER_ID | UUID | Yes |  | FK | USER_ACCOUNT(ID) |
+
+**Notes:** Deleting a user sets `USER_ID` to `NULL`.
+
+### Table 38: APP_NOTIFICATION Table
+
+| Column | Data Type | Null | Default | PK or FK | FK Referenced Table |
+| --- | --- | --- | --- | --- | --- |
+| ID | UUID | No | App: uuid4() | PK |  |
+| TYPE | VARCHAR(30) | No |  |  |  |
+| TITLE | VARCHAR(200) | No |  |  |  |
+| MESSAGE | TEXT | No |  |  |  |
+| TIMESTAMP | TIMESTAMP WITH TIME ZONE | No | App: now_manila() |  |  |
+| IS_READ | BOOLEAN | No | App: false |  |  |
+| HREF | VARCHAR(200) | Yes |  |  |  |
+| USER_ID | UUID | Yes |  | FK | USER_ACCOUNT(ID) |
+
+**Notes:** Deleting a user cascades to their notifications.
+
+## Normalization notes
+
+- Core entities are relationally normalized: repeating camera configuration was moved into
+  one `DEVICE` row per saved slot, and operator scan totals are derived rather than stored.
+- `SCAN_CLASSIFICATION` and `SCAN_ORIGINAL_AI_RESULT` are 1:1 detail tables keyed by a unique
+  `SCAN_ID`; they separate current classification from the immutable original AI output.
+- Historical snapshots (`OPERATOR_NAME_SNAPSHOT`, `SOURCE_NAME_SNAPSHOT`), audit JSON
+  (`SCAN_EVENT`), and engineered features (`DEW_POINT`, `VPD`, `HEAT_INDEX`) are intentional
+  controlled denormalization for auditability, historical accuracy and reproducibility.
+
+For the technical companion with explicit constraint names, indexes and referential actions,
+see `docs/schema_tables.md`. The source DDL is `docs/bananavision_schema_current.sql`.
