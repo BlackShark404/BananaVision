@@ -9,6 +9,7 @@ from app.services.scan_evidence import evidence_url
 import logging
 import uuid
 import asyncio
+from fastapi import HTTPException
 from app.config import get_settings
 from app.services.capture_cleanup import remove_scan_captures
 from app.services.runtime_operations import station_lock, coordinator, run_blocking
@@ -26,7 +27,8 @@ from app.models.scan_detection import ScanDetection
 from app.models.scan_image import ScanImage
 from app.models.activity_log import ActivityLog
 from app.models.app_notification import AppNotification
-from app.core.exceptions import ModelInferenceError, NotFoundException
+from app.core.exceptions import ConflictException, ModelInferenceError, NotFoundException
+from app.schemas.enums import IntakeStatusEnum
 from app.services.camera_manager import camera_manager
 from app.services.classification import banana_classifier, _parse_class_label
 from app.services.banana_detector import banana_pre_detector
@@ -274,6 +276,10 @@ async def _execute_scan_pipeline(
             intake_obj = intake_result.scalar_one_or_none()
             if intake_obj is None:
                 raise NotFoundException("Intake")
+            if intake_obj.status != IntakeStatusEnum.ACTIVE:
+                raise ConflictException(
+                    "This intake is no longer active. Select an active intake before scanning."
+                )
             if intake_obj.treatment:
                 intake_treatment = intake_obj.treatment
 
@@ -416,6 +422,8 @@ async def _execute_scan_pipeline(
         # showing internal model names to the operator.
         if isinstance(exc, ModelInferenceError):
             user_error = exc.message
+        elif isinstance(exc, HTTPException):
+            user_error = str(exc.detail)
         else:
             user_error = "Something went wrong during the scan. Please try again."
 

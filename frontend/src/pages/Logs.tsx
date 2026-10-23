@@ -43,6 +43,7 @@ import type { Cultivar, Ripeness, InventoryStatus, ScanResult } from "@/types"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import { collectScanPages } from "@/lib/scanData"
 import { formatSpoilageDays } from "@/lib/spoilageDisplay"
+import { SCAN_CHANGED_EVENT } from "@/lib/liveEvents"
 
 type LogScan = Omit<ScanResult, "cultivar" | "ripeness" | "confidence"> & {
   cultivar: string
@@ -107,6 +108,15 @@ function LogsContent() {
     let riskIds = cached?.riskIds
     try {
       result = await api.scanLogs.list({ ...params, stable: true, snapshot_id: cached?.id }, signal)
+    } catch (error) {
+      const status = typeof error === "object" && error !== null && "status" in error ? Number(error.status) : 0
+      if (!signal.aborted && [409, 410].includes(status)) snapshot.current = null
+      // An expired or superseded snapshot should not surface as a failed poll.
+      if (!cached || signal.aborted || ![409, 410].includes(status)) throw error
+      riskIds = undefined
+      result = await api.scanLogs.list({ ...params, stable: true }, signal)
+    }
+    try {
       if (!riskIds) {
         riskIds = new Set<string>()
         // Reuse the server's stock policy and exact numeric threshold at the same
@@ -140,6 +150,23 @@ function LogsContent() {
   const refreshSnapshot = useCallback(() => { snapshot.current = null; return refreshResource() }, [refreshResource])
   const latestRefresh = useRef(refreshSnapshot)
   useEffect(() => { latestRefresh.current = refreshSnapshot }, [refreshSnapshot])
+  const scanRefreshTimer = useRef<number | null>(null)
+  useEffect(() => {
+    const onScanChanged = () => {
+      snapshot.current = null
+      if (document.hidden) return
+      if (scanRefreshTimer.current) window.clearTimeout(scanRefreshTimer.current)
+      scanRefreshTimer.current = window.setTimeout(() => {
+        scanRefreshTimer.current = null
+        void latestRefresh.current()
+      }, 200)
+    }
+    window.addEventListener(SCAN_CHANGED_EVENT, onScanChanged)
+    return () => {
+      window.removeEventListener(SCAN_CHANGED_EVENT, onScanChanged)
+      if (scanRefreshTimer.current) window.clearTimeout(scanRefreshTimer.current)
+    }
+  }, [])
   const response = resource.data?.result
   const filtered = resource.data?.rows ?? []
   const stats = { avgConfidence: response?.avg_confidence, spoilingSoon: response?.at_risk_count, reviewCount: response?.review_count ?? 0 }
@@ -168,22 +195,6 @@ function LogsContent() {
     attention: value ?? undefined,
     ...(value === null && (cardFilter === "review" || statusFilter === "Flagged") ? { status: undefined } : {}),
   })
-
-  const syncedReviewStatus = useRef(false)
-  useEffect(() => {
-    if (!syncedReviewStatus.current) {
-      syncedReviewStatus.current = true
-      if (searchParams.get("attention") === "review" && !searchParams.has("status")) {
-        setSearchParams(previous => {
-          const next = new URLSearchParams(previous)
-          if (next.get("attention") === "review" && !next.has("status")) {
-            next.set("status", "Flagged")
-          }
-          return next
-        }, { replace: true })
-      }
-    }
-  }, [searchParams, setSearchParams])
 
   // A deletion/status change can shrink the final page while this view is open.
   useEffect(() => {
@@ -511,7 +522,7 @@ const columns: ColumnDef<LogScan>[] = [
         searchQuery={search}
         onSearchChange={(value) => { setSearch(value) }}
         searchPlaceholder="Search by cultivar, operator, or ID..."
-        hasActiveFilters={search !== "" || cultivarFilter !== "all" || ripenessFilter !== "all" || sourceFilter !== "all" || operatorFilter !== "all" || statusFilter !== "all" || intakeFilter !== "all" || cardFilter !== null || dateFilter !== ""}
+        hasActiveFilters={search !== "" || cultivarFilter !== "all" || ripenessFilter !== "all" || sourceFilter !== "all" || operatorFilter !== "all" || statusFilter !== "all" || intakeFilter !== "all" || cardFilter !== null || dateFilter !== "" || requestParams.stock_eligible}
         onClearFilters={clearAllFilters}
       >
         <Select value={cultivarFilter} onValueChange={(v) => { setCultivarFilter(v) }}>
@@ -599,6 +610,12 @@ const columns: ColumnDef<LogScan>[] = [
         <Badge variant="secondary">Auto-approved scans</Badge>
         <span className="text-xs text-muted-foreground">Unflagged scans meeting the configured confidence threshold. This is not measured accuracy.</span>
         <Button variant="ghost" size="sm" onClick={() => setCardFilter(null)}>Clear success filter</Button>
+      </div>}
+
+      {requestParams.stock_eligible && <div className="flex flex-wrap items-center gap-2 text-sm">
+        <Badge variant="secondary">Eligible stock only</Badge>
+        <span className="text-xs text-muted-foreground">In-stock scans linked to an active intake or valid unlinked provenance.</span>
+        <Button variant="ghost" size="sm" onClick={() => updateFilters({ stock: undefined })}>Clear stock filter</Button>
       </div>}
 
       {/* Table */}

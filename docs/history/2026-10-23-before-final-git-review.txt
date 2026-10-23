@@ -1,0 +1,53 @@
+CURRENT RESUME HERE (2026-10-23) - LIVE-DATA/PERSISTENCE AUDIT COMPLETE; FINAL REVIEW
+
+GIT / SCOPE
+- HEAD is 2da9d5c on main. All audit changes are uncommitted in the working tree;
+  nothing is staged, committed or pushed.
+- Untracked: docs/history/2026-10-23-before-live-data-audit.txt and
+  frontend/src/lib/liveEvents.ts. Graphify output was refreshed after the code changes.
+- No live station database, captures, physical cameras, OS power, restore, deployment or
+  Git history operation was used.
+
+IMPLEMENTED
+- Backend: reject scans for Depleted intakes under an intake row lock (409); cap
+  source_text at 100; grouped intake counts with noload(Intake.scans); derive bulk intake
+  status from final scan states; stock_eligible scan-log filtering; notification read
+  ownership; lazy="raise" for OperatorProfile.scans and UserAccount.activity_logs.
+- Frontend: dedupe/merge scan completions in ScanContext; invalidate Logs snapshots on live
+  scan changes and retry expired 409/410 once without the token; stock-eligible Inventory
+  links/banner; notification refresh after scan changes; restore newest Active intake on
+  Kiosk load; immediate throttled Dashboard resume refresh; in-place Scan Detail refresh
+  that pauses and aborts during edits and preserves the open record on failed reads; Manila
+  Activity Log time; accurate Delivery Intake toast and Kiosk/QC labels.
+- Regression coverage added for depleted-intake rejection, source_text length, notification
+  ownership, bulk-intake reactivation prevention, Kiosk intake restore, Logs snapshot expiry,
+  dashboard date-preserving links, in-place Scan Detail refresh, and PostgreSQL seed
+  precision/contract behavior.
+- Documentation updated: docs/knowledge/Development Decisions.md, Frontend.md,
+  Resolved Bugs.md, and Testing and Validation.md. Previous checkpoint archived under
+  docs/history/.
+
+VERIFIED
+- Isolated SQLite backend: 586 passed, 62 skipped (117.02s).
+- Disposable PostgreSQL 18.6 backend: 648 passed (236.89s, port 55446); cluster stopped and
+  removed. Seed contract subset: 24 passed (44.96s).
+- Full tracked frontend browser suite: 246 tests, 243 passed (about 414s). Failures are the
+  two existing connectivity.test.mjs socket-isolation cases at lines 34 and 45 plus one
+  intermittent kiosk operator-reset timing case; the kiosk file passes 18/18 and scanrecords
+  passes 46/46 (including the new in-place refresh case) in isolation.
+- npm run typecheck and npm run build passed after the final Scan Detail edit. Configured
+  lint remains at the baseline 41 problems (36 errors, 5 warnings). git diff --check passed.
+- Graphify updated: 4089 nodes, 12337 edges, 245 communities. ICM stored the verified audit
+  decision (01M5KDV8QH01YWXDZYK1NNKH0C).
+
+KNOWN LIMITS / CONSTRAINTS
+- Broadcast notifications (user_id IS NULL) share one is_read flag; per-user read receipts
+  remain deferred.
+- Status/flag edits from another client are not broadcast; Logs can show them until the
+  snapshot refreshes or expires.
+- Sensor staleness, QR label formats, camera-apply ordering and intake-status PATCH
+  last-write-wins were intentionally left unchanged.
+
+EXACT NEXT STEP
+- Review the scoped working-tree diff and documentation. Do not commit or push without
+  explicit authorization; do not deploy. No further implementation is pending for this audit.

@@ -4,8 +4,12 @@ export interface ScanLogNavigation {
   date?: string
   operator_id?: string
   source_key?: string
+  source?: string
   attention?: "at-risk" | "review" | "success"
   status?: string
+  cultivar?: string
+  ripeness?: string
+  stock?: "eligible"
   sort?: ScanLogParams["sort"]
   direction?: ScanLogParams["direction"]
   page?: number
@@ -37,6 +41,7 @@ export function scanLogParams(params: URLSearchParams): ScanLogParams {
     cultivar: params.get("cultivar") || undefined,
     ripeness: params.get("ripeness") || undefined,
     inventory_status: status && status !== "Flagged" ? status : undefined,
+    stock_eligible: params.get("stock") === "eligible",
     flagged_only: status === "Flagged" && attention !== "review",
     attention: attention === "at-risk" || attention === "review" || attention === "success" ? attention : "all",
     search: params.get("search") || undefined,

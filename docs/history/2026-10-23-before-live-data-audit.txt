@@ -1,0 +1,43 @@
+CURRENT RESUME HERE (2026-10-22) - DETAILED CAPSTONE DATA DICTIONARY GENERATED
+
+GIT / SCOPE
+- HEAD is 2e22d01; local main is in sync with origin/main. The concise capstone dictionary
+  and its formal default notation are committed. This session has not run git commit or
+  git push.
+- New untracked file: docs/capstone_data_dictionary_detailed.md. Modified:
+  docs/knowledge/Database.md and docs/knowledge/Testing and Validation.md. Archived the
+  previous checkpoint as docs/history/2026-10-22-before-detailed-data-dictionary.txt.
+- Documentation only. No backend/frontend runtime code, migrations, database records,
+  captures, physical cameras, OS power, restore or deployment was changed or used.
+
+IMPLEMENTED
+- docs/capstone_data_dictionary_detailed.md is a separate companion dictionary with columns
+  Column / Description / Data Type / Null / Default / Key / References / Constraints.
+  It keeps the capstone numbering Table 15 through Table 38 in dependency order.
+- The detailed dictionary contains 24 application tables, 196 columns, 7 PostgreSQL enum
+  types and 18 foreign-key references. The concise
+  docs/capstone_data_dictionary.md remains unchanged and canonical.
+- Types and defaults use the database-level vocabulary: UUID, SERIAL, NUMERIC,
+  DOUBLE PRECISION, TIMESTAMP WITH TIME ZONE and ACTIVESTATUSENUM-style enum names.
+  Application behavior is marked Application-generated or Application default.
+- The enum legend maps PostgreSQL enum names to model enum classes and shows database
+  labels separately from application values. FULL_NAME remains intact.
+- Includes per-column descriptions and constraints (PK, unique, checks, FK delete actions,
+  idempotency keys and intentional no-FK provenance fields), plus an 18-row ERD relationship
+  summary and normalization notes.
+- docs/knowledge/Database.md links the concise and detailed capstone dictionaries.
+  docs/knowledge/Testing and Validation.md records the detailed-dictionary validation.
+
+VERIFICATION
+- Structural comparison against docs/capstone_data_dictionary.md: 24/24 tables,
+  196/196 columns and 0 type, nullability, default, key or reference mismatches.
+- Detailed dictionary checks: 7/7 enum types, 18/18 foreign-key references, and Table
+  numbering 15-38. Actual DDL checks cover device slot/device index ranges, canonical key,
+  maintenance singleton and label print job constraints.
+- No application tests were run because this is documentation-only. The temporary
+  generator was removed after generation.
+- Graphify was not rebuilt and no ICM write was made.
+
+EXACT NEXT STEP
+- Review the detailed descriptions and constraints for paper wording. Then commit only with
+  explicit authorization; do not push without authorization. Do not deploy.

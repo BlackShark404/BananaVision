@@ -817,7 +817,7 @@ export default function Kiosk() {
                       if (lastResult && lastResult.id !== scanAction?.id) {
                         setScanAction({ id: lastResult.id, action: 'accepted' })
                         toast.success("Scan accepted", {
-                          description: "Result saved to intake.",
+                          description: "Result recorded. No further action is needed.",
                         })
                       }
                     }}

@@ -12,7 +12,7 @@ const saved = {
   inventory_status: 'In Stock', images: [], detections: [],
 }
 
-async function setup(t, { offline = false, empty = false, flagged = false, scanOverrides = {}, timezoneId } = {}) {
+async function setup(t, { offline = false, empty = false, flagged = false, scanOverrides = {}, timezoneId, intakes = [] } = {}) {
   const context = await runtime.browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId })
   const page = await context.newPage()
   page.setDefaultTimeout(10000)
@@ -61,6 +61,7 @@ async function setup(t, { offline = false, empty = false, flagged = false, scanO
     }
     if (path.includes('/print-jobs/')) return reply(state.jobs.get(path.split('/').at(-1)))
     if (path === '/api/v1/auth/operators') return reply([{ id: 'operator-1', username: 'fixture', full_name: 'Fixture Operator', role: 'Operator', status: 'Active' }])
+    if (path === '/api/v1/intakes') return reply(intakes)
     if (path === '/api/v1/scans') return reply({ items: state.scans, total: state.scans.length, page: 1, page_size: 100 })
     if (path === '/api/v1/cameras') return reply([{ device_id: 1, camera_id: 'CAM-001', label: 'Top', online: true }])
     if (path === '/api/v1/config') return reply({ camera_ids: '', confidence_threshold: 85, revision: 1 })
@@ -123,7 +124,7 @@ for (const [change, user] of [
     await page.getByRole('button', { name: /Fixture Supplier/ }).click()
     await page.getByRole('button', { name: 'Start Intake Session', exact: true }).click()
     const scanButton = page.getByRole('button', { name: 'Scan Now', exact: true, includeHidden: true })
-    await scanButton.waitFor()
+    await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent.trim() === 'Scan Now' && !button.disabled))
     assert.equal(await scanButton.isEnabled(), true)
     await page.evaluate(value => window.kioskAuthTest.setUser(value), user)
     await page.getByRole('dialog').waitFor()
@@ -146,6 +147,16 @@ test('kiosk offers real scans only and requires an intake before scanning', asyn
   assert.equal(await empty.page.getByRole('button', { name: 'Scan Now', exact: true }).isDisabled(), true)
   assert.equal(writesTo(state, '/kiosk-demo').length, 0)
   assert.equal(empty.state.writes.length, 0)
+})
+
+test('kiosk resumes the open active intake instead of creating a duplicate', async t => {
+  const { page, state } = await setup(t, { intakes: [{
+    id: 'restored-intake', supplier_id: 'supplier-1', supplier_name: 'Fixture Supplier',
+    batch_number: 'BCH-OPEN', status: 'Active', intake_date: '2026-10-14', scan_count: 0,
+  }] })
+  await page.getByText(/Fixture Supplier \(BCH-OPEN\)/).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Scan Now', exact: true }).isEnabled(), true)
+  assert.equal(state.writes.length, 0)
 })
 
 test('normal kiosk scans its intake once, polls the existing print job and accepts the result', async t => {

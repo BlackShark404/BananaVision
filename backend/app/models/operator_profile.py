@@ -37,4 +37,4 @@ class OperatorProfile(Base):
 
     # Relationships
     account = relationship("UserAccount", back_populates="operator_profile", lazy="selectin")
-    scans = relationship("Scan", back_populates="operator", lazy="selectin")
+    scans = relationship("Scan", back_populates="operator", lazy="raise")

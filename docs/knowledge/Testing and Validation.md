@@ -2,6 +2,53 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## Final integration verification — 2026-10-24
+
+- Full isolated PostgreSQL 18.6 suite: **658 passed, 0 failed, 0 skipped** (173.87s). Focused notification/scan-log/write suites: **72 passed** (17.30s). After test-only import/fixture-name lint cleanup, all **7 notification tests passed** again (5.67s), including four simultaneous single/read-all combinations. Disposable clusters used loopback port 55447 were stopped after each run, and their generated cluster directories were removed after verification. No station environment or hardware was used.
+- Full frontend command `node --test --test-concurrency=1 tests/*.test.mjs`: **248 tests, 231 passed, 17 failed, 0 skipped** (354.82s). Edge closed during Scan Records after 31 cases; all 17 errors were closed-browser/context errors. The file-only rerun reproduced that browser closure. A fresh-browser tail selection passed **18/18** (30.13s), covering every affected case, and the adjacent CSV-export/zero-count selection passed **3/3** (7.71s). Therefore all **248 distinct cases have passing evidence across partitions**, but a single uninterrupted Edge run remains an environment/harness limitation. No assertions were removed or relaxed to mask it.
+- The updated connectivity file passes **5/5**, including late-callback rejection, reconnect and authentication lifecycle. Kiosk passes **18/18** in the full run. New expired-risk and ordinary-completion notification regressions pass **2/2**.
+- TypeScript and production build pass (`npm run typecheck`, `npm run build`; build 24.32s). Existing bundle-size warning remains. Frontend ESLint: **36 errors, 5 warnings**, with diagnostic signatures matching HEAD. Configured backend Ruff: **620 baseline findings**; changed files have **67 versus 68 at HEAD**, no new findings, one existing long-line finding removed. Three introduced test-only Ruff findings were corrected and checked.
+- Backend warnings: one Pydantic enum fixture warning, two scikit-learn artifact/runtime version warnings and 52 feature-name warnings. No model artifact or prediction logic was changed.
+- Codex Security scan `9a6cf9e9-3384-47d0-a86f-7f980d354778` completed: **0 reportable findings**, all **28 inventoried source files** covered. Daybreak entitlement unavailable; supported scoped source review plus isolated regressions used. Scan identity remains the original working-tree target at `2da9d5c`; incoming receipt integration and final corrective edits received supplemental review.
+- Graphify AST update: **4128 nodes, 12475 edges, 252 communities**, without graph loss. SQL extraction was unavailable (`tree_sitter_sql` missing); SQL/migration behavior was covered by source review and PostgreSQL tests. No paid semantic extraction was enabled.
+- Pre-0010 v4 archives require recreation under the incoming pre-release policy. Cross-client status/flag edits still are not broadcast to Logs; refresh/expiry remains their recovery boundary. Historical results below describe earlier checkpoints, not the final integrated tree.
+
+## Live-data and persistence audit — 2026-10-23
+
+- Audited initial loading, refresh/resume, cache and snapshot invalidation, pagination,
+  CRUD persistence, false-success prevention, lost updates and concurrent writes across the
+  frontend, API, services, models and PostgreSQL behavior. Fixes and remaining boundaries are
+  recorded in [[Resolved Bugs]] and [[Development Decisions]].
+- Backend regressions cover Depleted-intake rejection under row locking, oversized
+  `source_text`, notification ownership, bulk-intake status derivation, Kiosk intake restore,
+  Logs snapshot-expiry recovery, dashboard date-preserving links and PostgreSQL seed
+  precision. Seed tests use unique schemas and an explicitly disposable database.
+- Final isolated SQLite suite: **586 passed, 62 skipped** (117.02s).
+- Final disposable PostgreSQL 18.6 suite after the seed-fixture corrections: **648 passed**
+  (236.89s, `127.0.0.1:55446`). The seed contract subset passed **24/24** (44.96s). The
+  cluster and its temp data directory were stopped and removed.
+- Browser coverage for the changed paths passed in focused runs: **70 passed** across
+  `kiosk`, `scanrecords` and `scanlogfilters`, followed by the affected Dashboard and
+  Analytics reruns. After the final Scan Detail edit, `scanrecords` passed **46/46**,
+  including the new in-place refresh case. Full tracked suite runs finished **246 tests,
+  243 passed** (about 414s) with the two pre-existing `connectivity.test.mjs`
+  socket-isolation failures at lines 34 and 45 plus one intermittent
+  `kiosk resets operator selection after ...` timing failure; the Kiosk file passes
+  **18/18** in isolation and the flake is unrelated to the audited paths. All
+  audit-related browser cases passed.
+- `npm run typecheck` and `npm run build` passed. Configured frontend lint remains at the
+  **41-problem baseline (36 errors, 5 warnings)**, with no count regression. Backend Ruff
+  output remains dominated by pre-existing debt; reviewed changed lines add no >100-column
+  violation. `git diff --check` passes.
+- The PostgreSQL seed test fixture now supplies `camera_device_ids=[0, 1, 2, 3]`, loads the
+  real configured spoilage model before recomputing predictions, and compares full-precision
+  model output with a numeric tolerance when storage formatting differs. This corrected
+  stale test assumptions; production seed/model behavior was not changed.
+- Known boundary: cross-client status/flag edits are not broadcast to Logs. Incoming
+  revision 0010 replaces the former shared broadcast read flag with per-user receipts. Sensor staleness, QR label formats, camera-apply ordering
+  and intake-status PATCH last-write-wins remain unchanged. No live station database,
+  captures, physical cameras, OS power, restore or deployment was used.
+
 ## Current schema reference — 2026-10-22
 
 - Updated `docs/bananavision_schema_current.sql` to Alembic revision

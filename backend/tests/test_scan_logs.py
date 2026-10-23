@@ -53,6 +53,77 @@ async def csv_rows(db, user, query):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("stable", [False, True])
+async def test_stock_eligible_filters_list_export_and_snapshot_binding(
+    logs_db, monkeypatch, stable,
+):
+    from app.services import auth_service
+
+    own, other = account(logs_db), account(logs_db)
+    expected = {scan(logs_db, own)}  # Explicitly unlinked stock is eligible.
+    scan(logs_db, other)  # Eligibility must not broaden account scope.
+    scan(logs_db, own, statuses=[(NOW, InventoryStatusEnum.SOLD)])
+    for status, provenance, matching_origin in (
+        ("Active", "linked", True),
+        ("Depleted", "linked", True),
+        ("Active", "unverified", True),
+        ("Active", "linked", False),
+    ):
+        intake_id = uuid4()
+        logs_db.add(Intake, id=intake_id, source="Farm A", intake_date=NOW.date(),
+                    status=status)
+        identifier = scan(logs_db, own, intake=intake_id)
+        logs_db.session.execute(update(Scan).where(Scan.id == identifier).values(
+            intake_provenance=provenance,
+            intake_origin_id=intake_id if matching_origin else uuid4(),
+        ))
+        if status == "Active" and provenance == "linked" and matching_origin:
+            expected.add(identifier)
+
+    snapshots = {}
+
+    async def lock(_db, user):
+        return user
+
+    async def save(_db, _user, key, payload):
+        saved = SimpleNamespace(id=uuid4(), payload=payload, binding=key,
+                                expires_at=NOW + timedelta(minutes=10))
+        snapshots[saved.id] = saved
+        return saved
+
+    async def load(_db, _user, identifier, key):
+        saved = snapshots[identifier]
+        if key != saved.binding:
+            raise HTTPException(409, "Filters changed")
+        return saved
+
+    monkeypatch.setattr(auth_service, "lock_current_account", lock)
+    monkeypatch.setattr(scan_logs, "save_snapshot", save)
+    monkeypatch.setattr(scan_logs, "load_snapshot", load)
+    query = ScanLogQuery(stock_eligible=True, stable=stable, page_size=100)
+    result = await scan_logs.list_scan_logs(logs_db, own, query)
+    assert result.total == len(expected)
+    assert {row.id for row in result.items} == expected
+    export_query = query.model_copy(update={"snapshot_id": result.snapshot_id})
+    exported = await csv_rows(logs_db, own, export_query)
+    assert {row["Scan ID"] for row in exported} == {str(identifier) for identifier in expected}
+    if stable:
+        # The frozen result keeps its eligibility decision until refreshed.
+        logs_db.session.execute(update(Intake).values(status="Depleted"))
+        frozen = await scan_logs.list_scan_logs(logs_db, own, export_query)
+        assert {row.id for row in frozen.items} == expected
+        refreshed = await scan_logs.list_scan_logs(logs_db, own, query)
+        assert refreshed.total == 1
+        changed = export_query.model_copy(update={"stock_eligible": False})
+        with pytest.raises(HTTPException) as rejected_list:
+            await scan_logs.list_scan_logs(logs_db, own, changed)
+        assert rejected_list.value.status_code == 409
+        with pytest.raises(HTTPException) as rejected_export:
+            await csv_rows(logs_db, own, changed)
+        assert rejected_export.value.status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stable", [False, True])
 async def test_risk_rows_counts_filters_and_export_share_unrounded_stock_rule(
     logs_db, monkeypatch, stable,
 ):

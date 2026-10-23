@@ -7,7 +7,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter
-from sqlalchemy import desc, exists, insert, select
+from sqlalchemy import desc, exists, literal, select
 
 from app.api.deps import CurrentUser, DbSession
 from app.core.exceptions import NotFoundException
@@ -16,6 +16,29 @@ from app.models.app_notification import AppNotification
 from app.models.app_notification_read import AppNotificationRead
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
+
+
+async def _record_reads(db, user, notification_id=None):
+    # Resolve duplicate deliveries in the database, including overlapping
+    # single/read-all requests. SELECT-before-INSERT cannot ensure idempotence.
+    if db.get_bind().dialect.name == "postgresql":
+        from sqlalchemy.dialects.postgresql import insert
+    else:
+        from sqlalchemy.dialects.sqlite import insert
+    visible = select(
+        AppNotification.id,
+        literal(user.id, type_=AppNotificationRead.user_id.type),
+        literal(now_manila(), type_=AppNotificationRead.read_at.type),
+    ).where(_visible_to(user)).order_by(AppNotification.id)
+    if notification_id is not None:
+        visible = visible.where(AppNotification.id == notification_id)
+    await db.execute(
+        insert(AppNotificationRead).from_select(
+            ["notification_id", "user_id", "read_at"], visible,
+        ).on_conflict_do_nothing(
+            index_elements=[AppNotificationRead.notification_id, AppNotificationRead.user_id],
+        )
+    )
 
 
 def _visible_to(user: CurrentUser):
@@ -74,57 +97,12 @@ async def mark_notification_read(
     if visible.scalar_one_or_none() is None:
         raise NotFoundException("Notification")
 
-    existing = await db.execute(
-        select(AppNotificationRead.notification_id).where(
-            AppNotificationRead.notification_id == notification_id,
-            AppNotificationRead.user_id == user.id,
-        )
-    )
-    if existing.scalar_one_or_none() is None:
-        await db.execute(
-            insert(AppNotificationRead).values(
-                notification_id=notification_id,
-                user_id=user.id,
-                read_at=now_manila(),
-            )
-        )
+    await _record_reads(db, user, notification_id)
     return {"message": "Marked as read"}
 
 
 @router.post("/read-all")
 async def mark_all_notifications_read(db: DbSession, user: CurrentUser):
     """Mark all visible notifications as read for the current user."""
-    visible_ids = (
-        await db.execute(select(AppNotification.id).where(_visible_to(user)))
-    ).scalars().all()
-    if not visible_ids:
-        return {"message": "All notifications marked as read"}
-
-    existing_ids = set(
-        (
-            await db.execute(
-                select(AppNotificationRead.notification_id).where(
-                    AppNotificationRead.user_id == user.id,
-                    AppNotificationRead.notification_id.in_(visible_ids),
-                )
-            )
-        ).scalars().all()
-    )
-    missing_ids = [
-        notification_id
-        for notification_id in visible_ids
-        if notification_id not in existing_ids
-    ]
-    if missing_ids:
-        read_at = now_manila()
-        await db.execute(
-            insert(AppNotificationRead).values([
-                {
-                    "notification_id": notification_id,
-                    "user_id": user.id,
-                    "read_at": read_at,
-                }
-                for notification_id in missing_ids
-            ])
-        )
+    await _record_reads(db, user)
     return {"message": "All notifications marked as read"}

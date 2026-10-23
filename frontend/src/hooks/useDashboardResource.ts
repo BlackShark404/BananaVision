@@ -78,8 +78,15 @@ export function useDashboardResource<T>(
     mounted.current = true
     void refresh()
     const interval = window.setInterval(() => void refresh(), 30_000)
+    let lastResumeAt = 0
     const onResume = () => {
-      if (!document.hidden) void refresh()
+      if (document.hidden) return
+      // Focus and visibilitychange usually fire together; keep the first refresh
+      // immediate and skip only the near-simultaneous duplicate.
+      const now = Date.now()
+      if (now - lastResumeAt < 150) return
+      lastResumeAt = now
+      void refresh()
     }
     window.addEventListener("focus", onResume)
     window.addEventListener("online", onResume)

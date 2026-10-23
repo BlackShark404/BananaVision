@@ -32,6 +32,17 @@ The UI distinguishes between initial loads, continuous/hardware actions, and bac
    - Scan count and print quantity editors retain the existing `NumberField` appearance with `clampOnBlur={false}` for explicit validation. Unchanged stored zero counts are omitted from unrelated corrections; invalid edited counts remain visible and cannot be saved. Printing rejects invalid quantities instead of silently changing them on blur and submitting a different number of labels.
    - Lazy routes inside the application shell use a content skeleton; the centered spinner is reserved for initial application/page initialization.
 
+## Live-data synchronization (2026-10-23)
+
+- Final integration: an expired snapshot retry discards old at-risk membership; accepted scan completions invalidate notifications once after ID deduplication across rooms and HTTP delivery. WebSocket open/message callbacks require current socket ownership, invalidated before cleanup/reconnect closes the previous socket. Authentication remains unchanged. See [[Resolved Bugs]] and [[Testing and Validation]] for regression evidence and the long-run Edge limitation.
+- Coarse browser events in `lib/liveEvents.ts` connect the existing providers without adding another WebSocket: `SCAN_CHANGED_EVENT` refreshes scan consumers, and `NOTIFICATIONS_CHANGED_EVENT` refreshes the notification badge/list.
+- `ScanProvider` merges newer revisions, preserves fields omitted by partial responses, and deduplicates a completed scan that arrives from the Kiosk room, dashboard room and HTTP response. Later print fields still merge through `acceptScan`. A bounded set prevents the dedupe memory from growing indefinitely.
+- `useDashboardResource` coalesces focus, visibility and online events into one refresh. Logs invalidates its browse snapshot on scan changes and retries an expired/superseded snapshot once without it, so a 10-minute snapshot expiry does not become a failed poll or a full-snapshot polling loop.
+- Scan Detail refreshes in place on focus/visibility and every 30 seconds while visible, merging the latest record without replacing the open page with a loading skeleton. It aborts and pauses while an edit, status dialog, flag, or note is pending, and a failed background read preserves the current record.
+- Kiosk restores the newest server-reported Active intake after remount/reload. Inventory stock, cultivar and ripeness links preserve the selected source, In Stock state and eligible-stock predicate; intake-linked spoilage rows intentionally open that intake's full log. Dashboard source links preserve the selected Asia/Manila business date.
+- Activity Log renders stored timestamps in `Asia/Manila`, matching the rest of the business-date UI. Delivery Intake feedback reports the persisted changed-scan count and resulting intake status instead of claiming every scan changed.
+- Known boundary: a status change accepted by another client is not broadcast as a scan event, so Logs can show that row until its snapshot is refreshed or expires. Incoming revision 0010 now isolates broadcast notification read receipts per account.
+
 ## Recorded environmental measurements
 
 Scan Logs and Scan Details display the scan's stored `vpd`, never a value calculated

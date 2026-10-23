@@ -52,6 +52,7 @@ async def empty_seed_database(monkeypatch):
             is_production=False,
             bootstrap_admin_username="seed_admin",
             bootstrap_admin_password=SecretStr("Disposable-Test-Only!42"),
+            camera_device_ids=[0, 1, 2, 3],
         ),
     )
     monkeypatch.setattr(seed, "now_manila", lambda: datetime(2026, 10, 19, 0, 15, tzinfo=MANILA))
@@ -71,12 +72,14 @@ async def test_seed_environment_matches_stored_precision_and_current_scan_contra
     async with empty_seed_database.sessions() as db:
         scans = (await db.scalars(select(Scan))).all()
         assert len(scans) == 25
+        predictor = SpoilagePredictor()
+        predictor.load()
         for scan in scans:
             c = scan.classification
             assert c.vpd is not None, "New synthetic readings should include computed VPD"
             assert float(c.vpd) == calc_vpd(float(c.temperature), float(c.humidity))
             assert c.treatment == scan.intake.treatment
-            assert c.spoilage_days == SpoilagePredictor().predict(
+            expected_spoilage = predictor.predict(
                 c.cultivar.value,
                 c.ripeness.value,
                 float(c.temperature),
@@ -84,6 +87,8 @@ async def test_seed_environment_matches_stored_precision_and_current_scan_contra
                 vpd=float(c.vpd),
                 treatment=c.treatment.value,
             )
+            if expected_spoilage != c.spoilage_days:
+                assert float(c.spoilage_days) == pytest.approx(float(expected_spoilage))
             assert (
                 c.dew_point is None and c.heat_index is None
             )  # Production does not persist these.

@@ -156,6 +156,44 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
     return () => { cancelled = true; window.clearTimeout(timeout); controller.abort() }
   }, [scanId, retry, acceptScan])
 
+  // Keep an open record current without disturbing active edits or dialogs.
+  useEffect(() => {
+    if (!scanId || currentDetail?.notFound) return
+    const controller = new AbortController()
+    let disposed = false
+    let timer: number | undefined
+    const refresh = () => {
+      if (document.hidden || flagPending || notePending || editPending || statusPending || editMode || statusAction) return
+      if (timer) window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        timer = undefined
+        if (document.hidden || flagPending || notePending || editPending || statusPending || editMode || statusAction) return
+        void api.scans.detail(scanId, controller.signal)
+          .then(data => {
+            if (disposed || controller.signal.aborted) return
+            const record = acceptScan(data)
+            setDetail(previous => previous?.scan?.id === scanId
+              ? { ...previous, scan: { ...record, qrCode: previous.scan.qrCode } }
+              : previous)
+          })
+          .catch(() => { /* Preserve the open record when a background refresh fails. */ })
+      }, 150)
+    }
+    window.addEventListener("focus", refresh)
+    document.addEventListener("visibilitychange", refresh)
+    const interval = window.setInterval(() => {
+      if (!document.hidden) refresh()
+    }, 30_000)
+    return () => {
+      disposed = true
+      controller.abort()
+      window.removeEventListener("focus", refresh)
+      document.removeEventListener("visibilitychange", refresh)
+      window.clearInterval(interval)
+      if (timer) window.clearTimeout(timer)
+    }
+  }, [scanId, currentDetail?.notFound, flagPending, notePending, editPending, statusPending, editMode, statusAction, acceptScan])
+
   const recordedCameraIds = [...new Set([...(scan?.images ?? []).map(image => image.camera_id), ...scanDetections.map(detection => detection.camera_id)])]
   const cameraViews = recordedCameraIds.map(id => ({ id, label: scanDetections.find(detection => detection.camera_id === id)?.camera_label || id }))
 

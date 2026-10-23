@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { useScans } from "@/context/ScanContext"
 import { useInventory } from "@/context/InventoryContext"
 import { remainingStockDays, shelfLifeLabel } from "@/lib/inventoryRisk"
+import { buildScanLogsUrl } from "@/lib/scanLogFilters"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
@@ -19,6 +20,8 @@ export default function Inventory() {
   const { scans, scansReady, scansLoading, scansError, refreshScans } = useScans()
   const { intakesReady, intakesLoading, intakesError, intakesStale, refreshIntakes } = useInventory()
   const [sourceFilter, setSourceFilter] = useState<string>("all")
+  const scanLogsLink = (filters: Parameters<typeof buildScanLogsUrl>[0]) =>
+    buildScanLogsUrl({ ...(sourceFilter !== "all" ? { source: sourceFilter } : {}), ...filters })
   const [asOf, setAsOf] = useState(Date.now)
   useEffect(() => {
     const timer = window.setInterval(() => setAsOf(Date.now()), 60_000)
@@ -203,7 +206,7 @@ export default function Inventory() {
           icon={Package}
           delay={50}
           description="In stock"
-          onClick={() => navigate("/logs?status=In+Stock")}
+          onClick={() => navigate(scanLogsLink({ status: "In Stock", stock: "eligible" }))}
           helpText="View all in-stock hands in Scan Logs"
         />
         <AppStatsCard
@@ -214,7 +217,7 @@ export default function Inventory() {
           iconBgColor="bg-yellow-500/10"
           delay={100}
           description="Estimated count"
-          onClick={() => navigate("/logs?status=In+Stock")}
+          onClick={() => navigate(scanLogsLink({ status: "In Stock", stock: "eligible" }))}
           helpText="View all in-stock bananas in Scan Logs"
         />
         <AppStatsCard
@@ -225,7 +228,7 @@ export default function Inventory() {
           iconBgColor="bg-red-500/10"
           delay={150}
           description="≤2 days left"
-          onClick={() => navigate("/logs?attention=at-risk")}
+          onClick={() => navigate(scanLogsLink({ attention: "at-risk", stock: "eligible" }))}
           helpText="View scans with high spoilage risk"
         />
         <AppStatsCard
@@ -236,7 +239,7 @@ export default function Inventory() {
           iconBgColor="bg-emerald-500/10"
           delay={200}
           description="All time"
-          onClick={() => navigate("/logs?status=Sold")}
+          onClick={() => navigate(scanLogsLink({ status: "Sold" }))}
           helpText="View sold banana logs"
         />
       </div>
@@ -248,7 +251,7 @@ export default function Inventory() {
           <div className="space-y-4">
             <div
               className="p-2 -mx-2 rounded-lg hover:bg-muted/40 transition-colors cursor-pointer group/ripeness"
-              onClick={() => navigate(`/logs?status=In+Stock&ripeness=${encodeURIComponent(RipenessEnum.UNRIPE)}`)}
+              onClick={() => navigate(scanLogsLink({ status: "In Stock", ripeness: RipenessEnum.UNRIPE, stock: "eligible" }))}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -268,7 +271,7 @@ export default function Inventory() {
 
             <div
               className="p-2 -mx-2 rounded-lg hover:bg-muted/40 transition-colors cursor-pointer group/ripeness"
-              onClick={() => navigate(`/logs?status=In+Stock&ripeness=${encodeURIComponent(RipenessEnum.SEMI_RIPE)}`)}
+              onClick={() => navigate(scanLogsLink({ status: "In Stock", ripeness: RipenessEnum.SEMI_RIPE, stock: "eligible" }))}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -288,7 +291,7 @@ export default function Inventory() {
 
             <div
               className="p-2 -mx-2 rounded-lg hover:bg-muted/40 transition-colors cursor-pointer group/ripeness"
-              onClick={() => navigate(`/logs?status=In+Stock&ripeness=${encodeURIComponent(RipenessEnum.RIPE)}`)}
+              onClick={() => navigate(scanLogsLink({ status: "In Stock", ripeness: RipenessEnum.RIPE, stock: "eligible" }))}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -308,7 +311,7 @@ export default function Inventory() {
 
             <div
               className="p-2 -mx-2 rounded-lg hover:bg-muted/40 transition-colors cursor-pointer group/ripeness"
-              onClick={() => navigate(`/logs?status=In+Stock&ripeness=${encodeURIComponent(RipenessEnum.OVERRIPE)}`)}
+              onClick={() => navigate(scanLogsLink({ status: "In Stock", ripeness: RipenessEnum.OVERRIPE, stock: "eligible" }))}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -339,7 +342,7 @@ export default function Inventory() {
                 <div
                   key={cultivar}
                   className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer group/cultivar"
-                  onClick={() => navigate(`/logs?status=In+Stock&cultivar=${encodeURIComponent(cultivar)}`)}
+                  onClick={() => navigate(scanLogsLink({ status: "In Stock", cultivar, stock: "eligible" }))}
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -391,7 +394,7 @@ export default function Inventory() {
                   <div key={group.id} className="p-3 rounded-lg bg-muted/30 border hover:bg-muted/50 transition-colors cursor-pointer group/alert" onClick={() => {
                     const intakeId = group.intakeId !== "unknown" ? group.intakeId : undefined
                     if (intakeId) navigate(`/logs?intake=${encodeURIComponent(intakeId)}`)
-                    else navigate(`/logs?status=In+Stock&cultivar=${encodeURIComponent(group.cultivar)}&ripeness=${encodeURIComponent(group.ripeness)}`)
+                    else navigate(scanLogsLink({ status: "In Stock", cultivar: group.cultivar, ripeness: group.ripeness, stock: "eligible" }))
                   }}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">

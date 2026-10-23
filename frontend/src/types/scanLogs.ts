@@ -24,6 +24,7 @@ export interface ScanLogParams {
   cultivar?: string
   ripeness?: string
   inventory_status?: string
+  stock_eligible?: boolean
   flagged_only?: boolean
   attention?: "all" | "at-risk" | "review" | "success"
   search?: string

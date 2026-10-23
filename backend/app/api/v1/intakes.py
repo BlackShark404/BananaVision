@@ -13,6 +13,7 @@ from app.core.time import now_manila
 
 from fastapi import APIRouter, Request
 from sqlalchemy import select, func, desc
+from sqlalchemy.orm import noload, selectinload
 
 from app.api.deps import DbSession, CurrentUser, AdminUser
 from app.core.exceptions import NotFoundException, ConflictException, ForbiddenException
@@ -119,19 +120,21 @@ async def create_intake(body: IntakeCreate, db: DbSession, user: CurrentUser, re
 async def list_intakes(db: DbSession, user: CurrentUser):
     """Shared registry; counts include only the caller's authorized scans."""
     scope = scan_scope(user)
-    result = await db.execute(
-        select(Intake).order_by(desc(Intake.intake_date))
+    counts = (
+        select(Scan.intake_id, func.count().label("scan_count"))
+        .where(scope, Scan.intake_id.is_not(None))
+        .group_by(Scan.intake_id)
+        .subquery()
     )
-    intakes = result.scalars().all()
+    rows = (await db.execute(
+        select(Intake, func.coalesce(counts.c.scan_count, 0))
+        .outerjoin(counts, counts.c.intake_id == Intake.id)
+        .options(noload(Intake.scans), selectinload(Intake.supplier))
+        .order_by(desc(Intake.intake_date), desc(Intake.created_at))
+    )).all()
 
-    responses = []
-    for intake in intakes:
-        scan_count_result = await db.execute(
-            select(func.count()).where(Scan.intake_id == intake.id, scope)
-        )
-        scan_count = scan_count_result.scalar() or 0
-
-        responses.append(IntakeResponse(
+    return [
+        IntakeResponse(
             id=intake.id,
             supplier_id=intake.supplier_id,
             supplier_name=intake.supplier.name if intake.supplier else None,
@@ -146,9 +149,9 @@ async def list_intakes(db: DbSession, user: CurrentUser):
             spoiled_at=intake.spoiled_at,
             scan_count=scan_count,
             created_at=intake.created_at,
-        ))
-
-    return responses
+        )
+        for intake, scan_count in rows
+    ]
 
 
 @router.patch("/{intake_id}/status")
@@ -219,7 +222,19 @@ async def bulk_update_intake_inventory(
                 client_ip=get_client_ip(request),
             )
             updated_ids.append(str(scan.id))
-    intake.status = IntakeStatusEnum.ACTIVE if body.inventory_status == InventoryStatusEnum.IN_STOCK else IntakeStatusEnum.DEPLETED
+    final_in_stock = (
+        body.inventory_status == InventoryStatusEnum.IN_STOCK
+        if not scans
+        else any(
+            (
+                scan.status_logs[-1].inventory_status
+                if scan.status_logs
+                else InventoryStatusEnum.IN_STOCK
+            ) == InventoryStatusEnum.IN_STOCK
+            for scan in scans
+        )
+    )
+    intake.status = IntakeStatusEnum.ACTIVE if final_in_stock else IntakeStatusEnum.DEPLETED
     db.add(
         ActivityLog(
             user_id=admin.id,

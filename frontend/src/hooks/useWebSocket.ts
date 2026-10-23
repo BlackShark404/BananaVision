@@ -58,12 +58,14 @@ export function useWebSocket({ rooms = [], onEvent, enabled = true }: UseWebSock
     wsRef.current = ws
 
     ws.onopen = () => {
+      if (wsRef.current !== ws) return
       setStatus("connected")
       reconnectAttempt.current = 0
       console.log("[WS] Connected", rooms)
     }
 
     ws.onmessage = (e) => {
+      if (wsRef.current !== ws) return
       try {
         const msg: WsEvent = JSON.parse(e.data)
         setLastEvent(msg)
@@ -106,8 +108,9 @@ export function useWebSocket({ rooms = [], onEvent, enabled = true }: UseWebSock
     }
     reconnectAttempt.current = 0
     if (wsRef.current) {
-      wsRef.current.close(1000)
+      const previous = wsRef.current
       wsRef.current = null
+      previous.close(1000)
     }
     connect()
   }, [connect])
@@ -118,9 +121,14 @@ export function useWebSocket({ rooms = [], onEvent, enabled = true }: UseWebSock
 
     return () => {
       // Cleanup
-      if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
+      if (reconnectTimer.current) {
+        clearTimeout(reconnectTimer.current)
+        reconnectTimer.current = null
+      }
       if (wsRef.current) {
-        wsRef.current.close(1000) // Clean close — no reconnect
+        const previous = wsRef.current
+        wsRef.current = null
+        previous.close(1000) // Invalidate ownership before asynchronous close callbacks.
       }
     }
   }, [connect])

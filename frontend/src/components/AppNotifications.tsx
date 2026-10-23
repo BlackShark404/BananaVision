@@ -25,6 +25,7 @@ import {
   Check,
   Loader2,
 } from "lucide-react"
+import { NOTIFICATIONS_CHANGED_EVENT } from "@/lib/liveEvents"
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -129,6 +130,23 @@ function NotificationList() {
   useEffect(() => {
     if (open) void fetchNotifications()
   }, [open, fetchNotifications])
+
+  // Refresh after a completed scan or a broadcast notification event.
+  useEffect(() => {
+    let timer: number | undefined
+    const refresh = () => {
+      if (timer) window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        timer = undefined
+        void fetchNotifications()
+      }, 250)
+    }
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh)
+    return () => {
+      if (timer) window.clearTimeout(timer)
+      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh)
+    }
+  }, [fetchNotifications])
 
   const filteredNotifications = useMemo(() => {
     const OPERATOR_TYPES: NotificationType[] = ["scan_complete", "scan_flagged"]

@@ -2,6 +2,23 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-10-24: Notification integration and socket ownership
+
+- Keep revision 0010's per-user receipts and existing private/broadcast visibility. Single and read-all operations insert visible receipts using ordered `INSERT ... SELECT ... ON CONFLICT DO NOTHING`, so concurrent requests retain one receipt and its original `read_at` without a check/insert race.
+- Scan completion invalidates notifications after scan-ID deduplication for both WebSocket and HTTP delivery. Expired Logs snapshots also discard cached risk membership before fetching the replacement snapshot.
+- Each WebSocket hook owns its connection. Cleanup/reconnect invalidates ownership before closing; late open/message callbacks from the previous socket cannot update the current session. The existing authenticated query-token protocol is unchanged.
+- Incoming archive v4 remains the approved pre-release format: v4 archives created before revision 0010 must be recreated. Migration/archive tests use disposable databases; no station migration or restore was performed.
+
+## 2026-10-23: Live-data synchronization and stock eligibility
+
+- Scan Logs keeps its immutable browse snapshot for pagination and export consistency. New scan completions and accepted status/flag corrections invalidate the snapshot and trigger a debounced refresh; an expired or superseded `409`/`410` snapshot is retried once without the snapshot instead of surfacing a failed poll. No continuous full-snapshot polling was added.
+- `ScanProvider` remains the source of truth for scan records on the client. A completed scan can arrive from both the Kiosk and dashboard WebSocket rooms plus the HTTP response, so completions are deduplicated by scan ID while allowing later HTTP `print_job`/`print_error` fields to merge into the stored record.
+- Inventory stock, cultivar and ripeness links now pass the selected source, `In Stock` status and `stock=eligible` to Scan Logs. Intake-linked spoilage rows retain their full intake scope. The backend applies the existing `eligible_stock` predicate through a new `stock_eligible` query flag so stock-link totals match the Inventory counts without duplicating stock policy in the UI.
+- A Kiosk reload restores the newest active intake from the server rather than creating another intake. The backend also rejects new scans against a Depleted intake under the existing row lock, and bulk intake updates derive `Active`/`Depleted` from the resulting scan states instead of the requested bulk status.
+- Notification single-read requires the notification to belong to the caller or be a broadcast. Integration with revision 0010 retains the incoming per-user read receipts; broadcast read state is now isolated by account.
+- Authentication no longer eager-loads an operator's entire scan graph or an account's activity history. Those relationships are `lazy="raise"`; endpoints that need scans must load them explicitly.
+- No QR label format, sensor-staleness behavior, camera-apply ordering or Asia/Manila date-boundary behavior was changed. The configuration save-before-camera-apply behavior remains a known product decision.
+
 ## 2026-10-22: Per-User Notification Read Receipts
 
 - Chose a normalized read-receipt table over application-level fan-out. `app_notification` stores notification content once; `app_notification_read` stores one `(notification_id, user_id)` row with `read_at` per account that has read it.

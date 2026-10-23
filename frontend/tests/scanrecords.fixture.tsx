@@ -18,6 +18,8 @@ function NoteProbe() {
     <button onClick={() => scans.acceptScan({ id, revision: 3, inventory_status: 'Spoiled', date_time: '2024-05-05T08:10:00+08:00', cultivar: null, ripeness: null, confidence: null, spoilage_days: null, finger_count: 0 })}>Test newer scan</button>
     <button onClick={() => scans.updateScansForIntake([id], 'Sold', '2024-05-05T08:10:00+08:00', { [id]: 2 })}>Test older bulk</button>
     <output data-testid="scans-state" hidden>{JSON.stringify(scans.scans)}</output>
+    <button onClick={() => scans.startScan('Fixture')}>Test start scan</button>
+    <output data-testid="last-result" hidden>{JSON.stringify(scans.scanState.lastResult)}</output>
     <div data-testid="unknown-preview"><AppChangePreview originalData={{}} editData={{ spoilageDays: '3' }} /></div>
     <div data-testid="range-preview"><AppChangePreview originalData={{ spoilageDays: '4-6' }} editData={{ spoilageDays: '3' }} /></div>
     <output data-testid="notes-state" hidden>{JSON.stringify(scans.getScanNotes(id))}</output></>

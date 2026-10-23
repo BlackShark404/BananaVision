@@ -8,6 +8,8 @@ import { useLocation } from "react-router-dom"
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
+type BulkInventoryResponse = Awaited<ReturnType<typeof api.intakes.bulkInventory>>
+
 interface InventoryContextType {
   intakes: DailyIntake[]
   intakesReady: boolean
@@ -18,7 +20,7 @@ interface InventoryContextType {
   activeIntake: DailyIntake | null
   setActiveIntake: (intake: DailyIntake | null) => void
   startIntake: (supplierId: string, batchNumber: string, treatment?: string) => Promise<DailyIntake>
-  bulkUpdateIntakeInventory: (intakeId: string, status: InventoryStatus, reason: string, revisions: Record<string, number>) => Promise<void>
+  bulkUpdateIntakeInventory: (intakeId: string, status: InventoryStatus, reason: string, revisions: Record<string, number>) => Promise<BulkInventoryResponse>
   suppliersLoading: boolean
   suppliersReady: boolean
   suppliersError: string | null
@@ -123,7 +125,17 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
         try {
           const result = await api.intakes.list()
           if (mySeq !== loadSeq.current) return
-          setIntakes(result.map(mapApiIntake))
+          const loaded = result.map(mapApiIntake)
+          setIntakes(loaded)
+          setActiveIntake(current => {
+            if (current) {
+              const refreshed = loaded.find(intake => intake.id === current.id)
+              if (!refreshed) return current
+              return refreshed.status === "Active" ? refreshed : null
+            }
+            // A reload must resume the open batch instead of forcing a duplicate intake.
+            return loaded.find(intake => intake.status === "Active") ?? null
+          })
           hasIntakeSnapshot.current = true
           setIntakesReady(true)
           setIntakesError(null)
@@ -171,7 +183,7 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
   }, [acceptWrite])
 
   const bulkUpdateIntakeInventory = useCallback(async (intakeId: string, status: InventoryStatus, reason: string, revisions: Record<string, number>) => {
-    await scanWrite(`${user?.id}:${intakeId}:bulk`, { inventory_status: status, reason, expected_revisions: revisions }, async body => {
+    return scanWrite(`${user?.id}:${intakeId}:bulk`, { inventory_status: status, reason, expected_revisions: revisions }, async body => {
       const result = await api.intakes.bulkInventory(intakeId, body)
       acceptWrite()
       setIntakes((prev) => prev.map((i) => (i.id === intakeId ? { ...i, status: result.intake_status } : i)))

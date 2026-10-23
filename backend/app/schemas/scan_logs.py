@@ -23,6 +23,7 @@ class ScanLogQuery(BaseModel):
     cultivar: CultivarEnum | None = None
     ripeness: RipenessEnum | None = None
     inventory_status: InventoryStatusEnum | None = None
+    stock_eligible: bool = False
     flagged_only: bool = False
     attention: Literal["all", "at-risk", "review", "success"] = "all"
     search: str | None = Field(None, max_length=200)

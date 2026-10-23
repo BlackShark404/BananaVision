@@ -318,7 +318,7 @@ function DashboardContent() {
               <CardTitle className="text-base sm:text-lg">Today's Sources</CardTitle>
               <CardDescription className="text-xs">Suppliers &amp; Sources with Activity</CardDescription>
             </div>
-            <Button variant="ghost" size="icon" aria-label="Open Today's Sources in Scan Logs" onClick={() => navigate("/logs")} className="h-8 w-8 text-muted-foreground hover:text-primary">
+            <Button variant="ghost" size="icon" aria-label="Open Today's Sources in Scan Logs" onClick={() => navigate(buildScanLogsUrl({ date: selectedBusinessDate }))} className="h-8 w-8 text-muted-foreground hover:text-primary">
               <ArrowRight className="w-4 h-4" />
             </Button>
           </CardHeader>
@@ -331,7 +331,7 @@ function DashboardContent() {
             ) : (
               <div className="divide-y overflow-y-auto" style={{ maxHeight: "400px" }}>
                 {activeSourcesList.map((sourceItem) => (
-                  <Link key={sourceItem.key} to={buildScanLogsUrl({ source_key: sourceItem.key })} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors focus-visible:outline-2 focus-visible:outline-primary">
+                  <Link key={sourceItem.key} to={buildScanLogsUrl({ source_key: sourceItem.key, date: selectedBusinessDate })} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors focus-visible:outline-2 focus-visible:outline-primary">
                     <div className="min-w-0 pr-4">
                       <p className="text-sm font-semibold truncate text-foreground/90">{sourceItem.name}</p>
                     </div>

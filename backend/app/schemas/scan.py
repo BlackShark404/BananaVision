@@ -17,7 +17,7 @@ from .printing import PrintJobResponse
 # ── Requests ─────────────────────────────────────────────────────────────────
 
 class ScanTriggerRequest(BaseModel):
-    source_text: str | None = None
+    source_text: str | None = Field(default=None, max_length=100)
     intake_id: uuid.UUID | None = None
 
 

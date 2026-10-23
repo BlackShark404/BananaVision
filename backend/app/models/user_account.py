@@ -68,4 +68,4 @@ class UserAccount(Base):
     operator_profile = relationship(
         "OperatorProfile", back_populates="account", uselist=False, lazy="selectin", cascade="all, delete-orphan"
     )
-    activity_logs = relationship("ActivityLog", back_populates="user", lazy="selectin")
+    activity_logs = relationship("ActivityLog", back_populates="user", lazy="raise")

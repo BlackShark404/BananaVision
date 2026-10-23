@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { useLocation } from "react-router-dom"
 import type { ScanResult, ScanNote, InventoryStatus } from "@/types"
 import { collectScanPages, mapApiScan, mapApiScanNote, type ApiScan } from "@/lib/scanData"
+import { notifyNotificationsChanged, notifyScanChanged } from "@/lib/liveEvents"
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -75,11 +76,13 @@ function ScanStore({ children }: { children: React.ReactNode }) {
   const mounted = useRef(true)
   const knownScans = useRef(new Map<string, ScanResult>())
   const noteRequests = useRef(new Map<string, number>())
+  const completedScans = useRef(new Set<string>())
 
   const acceptScan = useCallback((raw: ApiScan) => {
     const incoming = mapApiScan(raw, getImageUrl)
     const known = knownScans.current.get(incoming.id)
-    if ((known?.revision ?? 0) > (incoming.revision ?? 0)) return known!
+    const previousRevision = known?.revision ?? 0
+    if (previousRevision > (incoming.revision ?? 0)) return known!
     const saved = { ...known, ...incoming,
       printJob: raw.print_job == null ? known?.printJob : incoming.printJob,
       printError: raw.print_error == null ? known?.printError : incoming.printError,
@@ -96,6 +99,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
       setScanNotes(previous => [...previous.filter(note => note.scanId !== saved.id), ...saved.notes!])
       setNotesState(previous => ({ ...previous, [saved.id]: { loading: false, error: null, ready: true } }))
     }
+    if (previousRevision > 0 && (saved.revision ?? 0) > previousRevision) notifyScanChanged()
     return saved
   }, [])
 
@@ -128,11 +132,28 @@ function ScanStore({ children }: { children: React.ReactNode }) {
 
   const acceptCompletedScan = useCallback(async (result: ApiScan) => {
     const scanResult = acceptScan(result)
+    // The same completion can arrive from both the kiosk and dashboard rooms,
+    // plus the HTTP response. Merge happens in acceptScan; only the first copy
+    // may prepend, render a QR, or refresh history.
+    if (completedScans.current.has(scanResult.id)) return
+    if (completedScans.current.size >= 100) {
+      const oldest = completedScans.current.values().next().value
+      if (oldest) completedScans.current.delete(oldest)
+    }
+    completedScans.current.add(scanResult.id)
     if (!scanResult.thumbnailUrl) scanResult.thumbnailUrl = getBananaImageUrl(scanResult.cultivar, scanResult.ripeness)
     try { scanResult.qrCode = await generateQRCodeDataUrl(scanResult) } catch { /* The persisted result is still usable without a QR preview. */ }
     if (!mounted.current) return
-    setScans(prev => [scanResult, ...prev.filter(scan => scan.id !== scanResult.id)])
-    setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: scanResult })
+    const latest = knownScans.current.get(scanResult.id) ?? scanResult
+    if (scanResult.qrCode) {
+      const withQr = { ...latest, qrCode: scanResult.qrCode }
+      knownScans.current.set(scanResult.id, withQr)
+    }
+    const saved = knownScans.current.get(scanResult.id) ?? latest
+    setScans(prev => [saved, ...prev.filter(scan => scan.id !== saved.id)])
+    setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: saved })
+    notifyScanChanged()
+    notifyNotificationsChanged()
     void refreshScans()
   }, [refreshScans, acceptScan])
 
@@ -176,6 +197,10 @@ function ScanStore({ children }: { children: React.ReactNode }) {
       case "scan:failed":
         setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: null })
         toast.error(data?.error || "Scan failed. Please try again.")
+        break
+
+      case "notification":
+        notifyNotificationsChanged()
         break
 
       case "sensor:update":
@@ -287,6 +312,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
     }
     setScans(previous => previous.map(scan => knownScans.current.get(scan.id) ?? scan))
     setScanState(previous => previous.lastResult ? { ...previous, lastResult: knownScans.current.get(previous.lastResult.id) ?? previous.lastResult } : previous)
+    notifyScanChanged()
     void refreshScans()
   }, [refreshScans])
 

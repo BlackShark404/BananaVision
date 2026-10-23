@@ -22,6 +22,7 @@ from app.schemas.scan_logs import (
     SourceOption,
 )
 from app.services import dashboard
+from app.services.inventory_policy import eligible_stock
 from app.services.scan_evidence import evidence_url
 from app.services.scan_snapshots import (
     MAX_ROWS,
@@ -58,6 +59,8 @@ def _conditions(scans, query: ScanLogQuery, threshold: float):
         value = getattr(query, name)
         if value is not None:
             conditions.append(getattr(scans.c, name) == value)
+    if query.stock_eligible:
+        conditions.append(eligible_stock(scans))
     if query.flagged_only and query.attention != "review":
         conditions.append(scans.c.flagged.is_(True))
     if query.attention == "at-risk":

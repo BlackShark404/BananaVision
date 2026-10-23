@@ -18,13 +18,26 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_current_user
-from app.api.v1 import activity, config, intakes, quality, scans, suppliers, users
+from app.api.v1 import activity, config, intakes, notifications, quality, scans, suppliers, users
 from app.core import database
 from app.core.db_types import ManilaDateTime
 from app.core.time import MANILA, as_manila, business_day_bounds, input_manila, now_manila
 from app.models import (
-    ActivityLog, AdminProfile, Device, Intake, OperatorProfile, Scan, ScanClassification,
-    ScanNote, ScanStatusLog, Supplier, SystemConfig, UserAccount, UserRole,
+    ActivityLog,
+    AdminProfile,
+    AppNotification,
+    AppNotificationRead,
+    Device,
+    Intake,
+    OperatorProfile,
+    Scan,
+    ScanClassification,
+    ScanNote,
+    ScanStatusLog,
+    Supplier,
+    SystemConfig,
+    UserAccount,
+    UserRole,
 )
 from app.schemas.enums import (
     ActiveStatusEnum, CultivarEnum, IntakeStatusEnum, InventoryStatusEnum, RipenessEnum,
@@ -124,7 +137,7 @@ def application(monkeypatch):
 
     app = FastAPI()
     for router in (scans.router, suppliers.router, users.router, intakes.router,
-                   config.router, activity.router, quality.router):
+                   config.router, activity.router, quality.router, notifications.router):
         app.include_router(router, prefix="/api/v1")
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
         id=ids.admin, token_version=1, full_name="Admin User", role=SimpleNamespace(name="Admin"),
@@ -441,3 +454,48 @@ async def test_camera_monitor_retries_persistence_failure_before_announcing_stat
         await tasks[-1]
     assert calls["commit"] == 2
     assert events == ["commit:failed", "commit:saved", "ws:devices", "ws:dashboard"]
+
+
+def test_notification_read_is_scoped_to_owner(application):
+    app = application
+    personal = uuid4()
+    broadcast = uuid4()
+    with Session(app.engine) as db:
+        db.add_all([
+            AppNotification(id=personal, type="scan_complete", title="Owner only",
+                            message="Private", user_id=app.ids.operator),
+            AppNotification(id=broadcast, type="scan_flagged", title="Broadcast",
+                            message="Everyone", user_id=None),
+        ])
+        db.commit()
+
+    denied = app.client.patch(f"/api/v1/notifications/{personal}/read")
+    assert denied.status_code == 404, denied.text
+    allowed = app.client.patch(f"/api/v1/notifications/{broadcast}/read")
+    assert allowed.status_code == 200, allowed.text
+    with Session(app.engine) as db:
+        assert db.get(AppNotificationRead, (personal, app.ids.admin)) is None
+        assert db.get(AppNotificationRead, (broadcast, app.ids.admin)) is not None
+        assert db.get(AppNotificationRead, (broadcast, app.ids.operator)) is None
+
+
+def test_bulk_inventory_does_not_reactivate_intake_without_stock(application):
+    app = application
+    with Session(app.engine) as db:
+        status_log = db.scalar(select(ScanStatusLog).where(ScanStatusLog.scan_id == app.ids.scan))
+        status_log.inventory_status = InventoryStatusEnum.SOLD
+        db.get(Intake, app.ids.intake).status = IntakeStatusEnum.DEPLETED
+        db.commit()
+        revision = db.get(Scan, app.ids.scan).revision
+
+    response = app.client.patch(f"/api/v1/intakes/{app.ids.intake}/bulk-inventory", json={
+        "inventory_status": "In Stock",
+        "request_id": str(uuid4()),
+        "expected_revisions": {str(app.ids.scan): revision},
+        "reason": "Reopen intake",
+    })
+    assert response.status_code == 200, response.text
+    assert response.json()["updated_count"] == 0
+    assert response.json()["intake_status"] == "Depleted"
+    with Session(app.engine) as db:
+        assert db.get(Intake, app.ids.intake).status == IntakeStatusEnum.DEPLETED

@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.api.v1 import scans
-from app.models import OperatorProfile, PrintJob, Scan, UserAccount
+from app.models import Intake, OperatorProfile, PrintJob, Scan, UserAccount
+from app.schemas.enums import IntakeStatusEnum
 from app.services import print_jobs, scan_service
 from app.services.scan_records import serialize_scan
 from tests.test_time_and_writes import application  # noqa: F401
@@ -176,6 +177,43 @@ def test_missing_requested_intake_does_not_create_unlinked_scan_or_label(scan_st
     with Session(app.engine) as db:
         assert db.scalar(select(func.count()).select_from(Scan)) == 1
         assert db.scalar(select(func.count()).select_from(PrintJob)) == 0
+
+
+def test_depleted_intake_does_not_accept_new_scans(scan_station):
+    app, submit = scan_station
+    app.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id=app.ids.operator, full_name="Fixture Operator",
+        role=SimpleNamespace(name="Operator"),
+        operator_profile=SimpleNamespace(id=app.ids.profile),
+    )
+    with Session(app.engine) as db:
+        intake = db.get(Intake, app.ids.intake)
+        intake.status = IntakeStatusEnum.DEPLETED
+        db.commit()
+
+    response = app.client.post("/api/v1/scans/trigger", json={"intake_id": str(app.ids.intake)})
+    assert response.status_code == 409, response.text
+    assert "no longer active" in response.json()["detail"]
+    submit.assert_not_called()
+    with Session(app.engine) as db:
+        assert db.scalar(select(func.count()).select_from(Scan)) == 1
+        assert db.scalar(select(func.count()).select_from(PrintJob)) == 0
+
+
+def test_trigger_rejects_source_text_longer_than_database_column(scan_station):
+    app, submit = scan_station
+    app.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id=app.ids.operator, full_name="Fixture Operator",
+        role=SimpleNamespace(name="Operator"),
+        operator_profile=SimpleNamespace(id=app.ids.profile),
+    )
+    response = app.client.post("/api/v1/scans/trigger", json={
+        "intake_id": str(app.ids.intake), "source_text": "x" * 101,
+    })
+    assert response.status_code == 422, response.text
+    submit.assert_not_called()
+    with Session(app.engine) as db:
+        assert db.scalar(select(func.count()).select_from(Scan)) == 1
 
 
 @pytest.mark.parametrize("reader_role", ["Operator", "Admin"])

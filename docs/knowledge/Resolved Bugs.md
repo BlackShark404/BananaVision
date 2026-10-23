@@ -2,6 +2,35 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-10-24: Final integration corrections
+
+- **Expired risk membership:** Logs could reuse at-risk IDs from an expired snapshot after retrying with a new one. The retry clears the old membership, keeping the replacement rows, indicators and snapshot counts aligned.
+- **Ordinary completion refresh:** Notification invalidation previously depended on the initiating HTTP response. Accepted, deduplicated WebSocket completions now refresh notifications in other authenticated sessions as well.
+- **Concurrent read receipts:** Simultaneous single/read-all requests could both attempt the same composite key. Conflict-safe database insertion preserves incoming per-user ownership and the first read timestamp; four overlapping request combinations are tested against PostgreSQL.
+- **Late socket callbacks:** A closed hook could still deliver open/message callbacks after cleanup. Socket ownership checks now reject them. Connectivity tests assert the actual per-hook/query-token protocol, excluding Vite's development socket, rather than an obsolete shared/auth-first-message assumption.
+- **Kiosk test readiness:** The operator-reset test now waits for the asynchronous intake selection to enable Scan Now before asserting readiness; the product workflow is unchanged.
+- **Verification:** PostgreSQL 658 passed; final notification-only rerun 7 passed. All 248 frontend cases passed across the full run and fresh-browser partitions. The full Edge run recorded 231 passes/17 browser-closure errors; the affected tail passed 18/18 in a fresh browser. See [[Testing and Validation]] for exact limitations and lint baselines.
+
+## 2026-10-23: Live-data, persistence and refresh audit
+
+- **Issues**:
+  - A scan could be saved against an intake that had just been marked `Depleted`.
+  - A completed scan could be processed more than once because the Kiosk/Dashboard WebSocket rooms and the HTTP response all delivered it; later HTTP fields then raced the stored record.
+  - Scan Logs treated an expired browse snapshot as a terminal refresh failure, did not invalidate the snapshot for live scan changes, and used a different stock population from Inventory.
+  - A personal notification could be marked read by an account that did not own it.
+  - Reloading the Kiosk did not restore the open `Active` intake, so another intake could be created.
+  - Bulk inventory status could set an intake back to `Active` even when every resulting scan was sold or spoiled.
+  - Activity Log showed the raw timestamp, the Delivery Intake toast claimed complete success for partially skipped scans, and the Kiosk Accept copy implied the scan had not already been saved.
+- **Root causes and fixes**:
+  - `trigger_scan` now locks and rechecks the intake status before persisting; inactive intakes return `409` and propagate their message instead of a generic pipeline error. `source_text` is capped at 100 characters in the request schema to match storage.
+  - Intake list counts use a grouped subquery with `noload(Intake.scans)`; bulk inventory derives the resulting intake state from the final scan statuses (including the empty-intake case).
+  - `ScanProvider` deduplicates completion IDs, merges newer HTTP `print_job`/`print_error` revisions, and emits a coarse scan-changed event. Logs invalidates its snapshot on that event, refreshes on resume, and retries an expired/superseded snapshot once without the token. A `stock_eligible` filter keeps Logs, Inventory and stock links on the same eligibility rule.
+  - Notification single-read updates require the notification owner or a visible broadcast; incoming revision 0010 isolates broadcast read state per account.
+  - The Kiosk restores the newest active intake on load. Dashboard resume refresh is immediate but timestamp-throttled, and Scan Detail refreshes in place on focus/visibility/30 seconds while aborting and pausing during edits; failed background reads keep the current record instead of replacing it with a skeleton.
+  - Activity Log formats in Asia/Manila, Delivery Intake reports the actual skipped/recorded outcome, and Kiosk/QC labels now describe the persisted state. `OperatorProfile.scans` and `UserAccount.activity_logs` use `lazy="raise"` to prevent implicit full-history loads on auth reads.
+- **Verification**: Isolated SQLite **586 passed, 62 skipped** (117.02s); disposable PostgreSQL 18.6 **648 passed** (236.89s, port 55446, stopped and removed). Seed contract suite **24 passed** (44.96s). Full tracked browser suite runs: **246 tests, 243 passed** (about 414s), with the two existing `connectivity.test.mjs` socket-isolation failures at lines 34 and 45 plus one intermittent unrelated `kiosk resets operator selection after ...` timing failure; the Kiosk file passes **18/18** in isolation and `scanrecords` passes **46/46** including the new in-place refresh case. `npm run typecheck` and `npm run build` passed; configured lint remains at the **41-problem baseline (36 errors, 5 warnings)**. `git diff --check` passed.
+- **Remaining boundary**: The former shared broadcast read flag was superseded by incoming revision 0010 per-user receipts. Status/flag edits made by another client are not broadcast; Logs can show them until its snapshot refresh/expiry. Sensor staleness, QR label formats, camera-apply ordering and intake-status PATCH last-write-wins were left unchanged. No live station database, captures, physical cameras, OS power, restore or deployment was used.
+
 ## 2026-10-22: Shared broadcast notification read state
 
 - **Issue**: A flagged-scan notification was stored once with `USER_ID = NULL`, so its single `IS_READ` value was shared by every account. Marking it read for one user marked it read for everyone. The single mark-read endpoint also looked up notifications by ID only, allowing a user to mark another user's private notification read.

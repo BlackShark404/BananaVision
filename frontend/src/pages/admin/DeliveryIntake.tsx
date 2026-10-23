@@ -172,8 +172,12 @@ export default function DeliveryIntake() {
     if (!confirmAction || !reason.trim() || saving || dataUnavailable) return
     setSaving(true)
     try {
-      await bulkUpdateIntakeInventory(confirmAction.intakeId, confirmAction.status, reason.trim(), confirmAction.revisions)
-      toast.success(`Intake and scans marked as ${confirmAction.status}`)
+      const result = await bulkUpdateIntakeInventory(confirmAction.intakeId, confirmAction.status, reason.trim(), confirmAction.revisions)
+      const changed = result.updated_count
+      const unchanged = Math.max(0, confirmAction.scanCount - changed)
+      toast.success(changed === 0 ? "No scans needed a status change" : `${changed} scan${changed === 1 ? "" : "s"} updated`, {
+        description: `Intake is now ${result.intake_status}${unchanged > 0 ? `; ${unchanged} scan${unchanged === 1 ? "" : "s"} left unchanged` : ""}.`,
+      })
       setConfirmAction(null)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update intake", {

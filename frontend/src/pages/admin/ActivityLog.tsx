@@ -120,9 +120,9 @@ export default function ActivityLog() {
       sortKey: "timestamp",
       cell: (log) => (
         <div className="text-sm">
-          {new Date(log.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+          {new Date(log.timestamp).toLocaleDateString("en-US", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" })}
           <br />
-          <span className="text-xs text-muted-foreground">{new Date(log.timestamp).toLocaleTimeString()}</span>
+          <span className="text-xs text-muted-foreground">{new Date(log.timestamp).toLocaleTimeString(undefined, { timeZone: "Asia/Manila" })}</span>
         </div>
       ),
     },

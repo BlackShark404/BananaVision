@@ -184,7 +184,8 @@ test("Recent Scans and Today's Sources retain their logs destinations", async t 
   await page.goto(`${runtime.url}/dashboard`)
   await expectValue(card(page), "12")
   await page.getByRole("button", { name: "Open Today's Sources in Scan Logs" }).click()
-  await page.waitForURL("**/logs")
+  await page.waitForURL("**/logs?**")
+  assert.equal(new URL(page.url()).searchParams.get("date"), "2026-10-02")
 })
 
 test("zero cameras and failed preview are explicit and use the physical device ID", async t => {

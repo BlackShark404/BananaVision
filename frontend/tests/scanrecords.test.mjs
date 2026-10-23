@@ -66,6 +66,7 @@ async function setup(t, status = 200, options = {}) {
     if (url.pathname === '/api/v1/config') return reply({ camera_ids: 'NEW-CAMERA', confidence_threshold: 85, revision: 1 })
     if (url.pathname === '/api/v1/activity') return reply({ items: [], page: 1, page_size: 100, total: 0 })
     if (url.pathname === '/api/v1/users') return reply({ items: [], total: 0 })
+    if (url.pathname === '/api/v1/scans/trigger' && state.triggerResponse) return reply(await state.triggerResponse())
     if (method === 'GET') return reply([])
     state.writes.push({ ...request.postDataJSON(), path: url.pathname })
     if (state.writeStatus) return reply({ detail: 'This retry was rejected. Review your access and input.' }, state.writeStatus)
@@ -401,7 +402,7 @@ test('provenance conflict preserves review evidence and retries with the refresh
   assert.equal(state.writes[1].reason, 'Verified against original register')
 })
 
-test('Logs retains a snapshot across pages and export, resets on filters and retries expiry', async t => {
+test('Logs retains a snapshot across pages and export, resets on filters and recovers from expiry', async t => {
   const { page, state } = await setup(t, 200, { screen: 'logs' })
   await page.locator('tbody tr').first().waitFor()
   await page.getByLabel('Go to next page').click()
@@ -415,11 +416,56 @@ test('Logs retains a snapshot across pages and export, resets on filters and ret
   assert.equal(state.requests.find(r => r.query.search === 'New cohort').query.snapshot_id, undefined)
   state.expire = true
   await page.getByLabel('Go to next page').click()
-  await page.getByRole('alert').filter({ hasText: 'Browse snapshot expired. Refresh.' }).waitFor()
-  state.expire = false; state.snapshotToken = 'snapshot-three'
-  await page.getByRole('button', { name: 'Retry', exact: true }).click()
-  await page.locator('tbody').getByText('New cohort', { exact: true }).waitFor()
-  assert.equal(state.requests.filter(r => r.path === '/api/v1/scan-logs').at(-1).query.snapshot_id, undefined)
+  await until(() => state.requests.some(r => r.query.page === '2' && !r.query.snapshot_id))
+  assert.equal(await page.getByRole('alert').filter({ hasText: 'Browse snapshot expired. Refresh.' }).count(), 0)
+  state.expire = false
+})
+
+test('expired Logs snapshots rebuild risk membership for fresh rows and filters', async t => {
+  const { page, state } = await setup(t, 200, { screen: 'logs' })
+  await page.locator('tbody tr').first().waitFor()
+  assert.equal(await page.getByRole('img', { name: 'At-risk scan', exact: true }).count(), 0)
+  state.expire = true
+  state.atRiskCount = 1
+  state.snapshotToken = 'fresh-risk-snapshot'
+  state.expire = false
+  let expiredOnce = false
+  await page.route('**/api/v1/scan-logs?*', async route => {
+    const url = new URL(route.request().url())
+    if (!expiredOnce && url.searchParams.get('snapshot_id') === 'snapshot-one') {
+      expiredOnce = true
+      return route.fulfill({ status: 410, json: { detail: 'Expired' }, headers: { 'access-control-allow-origin': '*' } })
+    }
+    return route.fallback()
+  })
+  await page.getByLabel('Go to next page').click()
+  await page.getByRole('img', { name: 'At-risk scan', exact: true }).waitFor()
+  assert.ok(state.requests.some(r => r.query.attention === 'at-risk' && r.query.snapshot_id === 'fresh-risk-snapshot'))
+  state.expire = false
+  await page.getByText('At-Risk Scans', { exact: true }).click()
+  await until(() => state.requests.at(-1).query.attention === 'at-risk')
+  await page.getByRole('img', { name: 'At-risk scan', exact: true }).waitFor()
+})
+
+test('ordinary websocket completion refreshes notifications once across duplicate rooms and HTTP', async t => {
+  const { page, state } = await setup(t, 200)
+  await page.getByText('Original source', { exact: true }).waitFor()
+  await page.evaluate(() => {
+    window.scanNotificationEvents = 0
+    window.addEventListener('bananavision:notifications-changed', () => window.scanNotificationEvents++)
+  })
+  let release
+  state.triggerResponse = () => new Promise(resolve => { release = resolve })
+  await page.getByRole('button', { name: 'Test start scan', exact: true }).click()
+  await until(() => Boolean(release))
+  await page.evaluate(record => {
+    window.dashboardSocket.emit('scan:completed', record)
+    window.dashboardSocket.emit('scan:completed', record)
+  }, state.record)
+  await until(async () => await page.evaluate(() => window.scanNotificationEvents) === 1)
+  release({ ...state.record, revision: 2, source_text: 'HTTP enriched source' })
+  await until(async () => JSON.parse(await page.getByTestId('last-result').textContent())?.source === 'HTTP enriched source')
+  assert.equal(await page.evaluate(() => window.scanNotificationEvents), 1)
 })
 
 test('an oversized snapshot still permits a complete filtered CSV export', async t => {
@@ -544,6 +590,21 @@ for (const width of [1280, 390]) {
     assert.equal(state.writes.length, 0)
   })
 }
+
+test('ScanDetail refreshes in place and keeps the record visible while the read is pending', async t => {
+  let release
+  const { page, state } = await setup(t, 200)
+  await page.getByText('Original source', { exact: true }).waitFor()
+  state.holdReadOnce = () => new Promise(resolve => { release = resolve })
+  state.record = { ...state.record, revision: 2, source_text: 'Focused source' }
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await page.clock.runFor(200)
+  await until(() => state.requests.filter(r => r.path === `/api/v1/scans/${id}` && r.method === 'GET').length === 2)
+  await page.getByText('Original source', { exact: true }).waitFor()
+  assert.equal(await page.getByRole('status', { name: 'Loading scan.' }).count(), 0)
+  release()
+  await page.getByText('Focused source', { exact: true }).waitFor()
+})
 
 test('ScanDetail has no enlarge action when the selected camera has no image', async t => {
   const record = { ...scan(), images: [] }
