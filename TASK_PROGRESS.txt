@@ -1,4 +1,4 @@
-CURRENT RESUME HERE (2026-10-24) - INDEPENDENT RE-VERIFICATION COMPLETE; COMMIT/PUSH AWAITING AUTHORIZATION
+CURRENT RESUME HERE (2026-10-24) - LIVE SCAN LOG NOTICES COMMITTED AND PUSHED
 
 DONE
 - Added GET /api/v1/scan-logs/pending, which requires an existing browse snapshot and returns an
@@ -28,8 +28,8 @@ DONE
   request retaining the frozen page. Focused totals below include these four cases.
 
 IN PROGRESS
-- None in implementation or verification. Git commit/push has not been performed; explicit
-  authorization is required.
+- None. The implementation, tests, documentation and progress record were committed as 385e863
+  and pushed to origin/main; the working tree is clean.
 
 TEST RESULTS
 - Independent backend re-verification (SQLite contracts, fresh temporary working directory):
@@ -59,13 +59,12 @@ TEST RESULTS
   Disposable PostgreSQL clusters created during the attempt were stopped and removed.
 
 GIT STATUS
-- Branch main; HEAD 9554cbb. 15 modified paths plus the untracked archived progress record.
-  No commits or pushes in this task.
-- Safety stash stash@{0} retained and untouched.
+- Branch main. Feature commit 385e863 and this status-only progress update are pushed to
+  origin/main; local HEAD, origin/main and git ls-remote refs/heads/main matched after each push.
+- Working tree clean. Safety stash stash@{0} retained and untouched.
 - No branches, worktrees, resets, force-push or history rewrite.
 
 REMAINING
-- Review the final scoped diff, then obtain authorization to commit and push the verified change.
 - PostgreSQL-specific and physical Kiosk/hardware behavior were not independently re-verified in
   this session. Multi-session/cross-client concurrency is covered by scoped tests and code review,
   not by a live multi-client run.
@@ -76,7 +75,7 @@ REMAINING
   current scoped change set.
 
 EXACT RESUME HERE
-- Confirm main/HEAD and the 16-path change set, then ask for commit/push authorization. If
-  authorized, commit the implementation, documentation, tests and this progress record, push
-  normally to origin/main, and verify HEAD, origin/main and git ls-remote refs/heads/main match.
+- No pending implementation work. Feature commit 385e863 is on origin/main; this status-only
+  update follows it. Verify refs only if continuing later.
+- PostgreSQL-specific and physical Kiosk/hardware verification remain the open gaps noted above.
 - Do not restart the implementation or rerun passing suites without a new change or failure.
