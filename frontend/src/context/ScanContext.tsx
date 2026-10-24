@@ -10,7 +10,7 @@ import { toast } from "sonner"
 import { useLocation } from "react-router-dom"
 import type { ScanResult, ScanNote, InventoryStatus } from "@/types"
 import { collectScanPages, mapApiScan, mapApiScanNote, type ApiScan } from "@/lib/scanData"
-import { notifyNotificationsChanged, notifyScanChanged } from "@/lib/liveEvents"
+import { notifyLiveResumed, notifyNotificationsChanged, notifyScanChanged, notifyScansAdded } from "@/lib/liveEvents"
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -152,7 +152,9 @@ function ScanStore({ children }: { children: React.ReactNode }) {
     const saved = knownScans.current.get(scanResult.id) ?? latest
     setScans(prev => [saved, ...prev.filter(scan => scan.id !== saved.id)])
     setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: saved })
-    notifyScanChanged()
+    // A completion adds a row; edits use notifyScanChanged so frozen page 2+
+    // snapshots are never replaced unless the user asks for the latest scans.
+    notifyScansAdded()
     notifyNotificationsChanged()
     void refreshScans()
   }, [refreshScans, acceptScan])
@@ -213,9 +215,18 @@ function ScanStore({ children }: { children: React.ReactNode }) {
     }
   }, [acceptCompletedScan, updateDeviceFromWs])
 
+  const handleWsReconnect = useCallback(() => {
+    // Events may have been missed while the socket was down. Resync history,
+    // notifications and any open snapshot views instead of assuming silence.
+    notifyLiveResumed()
+    notifyNotificationsChanged()
+    void refreshScans()
+  }, [refreshScans])
+
   useWebSocket({
     rooms: ["kiosk", "dashboard", "devices"],
     onEvent: handleWsEvent,
+    onReconnect: handleWsReconnect,
     enabled: !!user,
   })
 

@@ -1,0 +1,60 @@
+CURRENT RESUME HERE (2026-10-24) - AUDIT COMPLETE; VERIFIED IMPLEMENTATION PUSHED
+
+DONE
+- Recovered and reviewed all 43 intended paths: 39 modified, 4 added, none deleted.
+- Integrated incoming ad5c1b1/72ed817 via fast-forward; restored all safety-stash paths.
+  Conflicts resolved preserving per-user receipts, archive/migration and local live-data fixes.
+- Fixed expired snapshot risk membership and ordinary scan completion notification refresh.
+- Fixed simultaneous single/read-all receipt insertion with conflict-safe SQL; ownership retained.
+- Guarded late WebSocket callbacks without changing authentication; corrected obsolete connectivity
+  test assumptions and asynchronous Kiosk readiness assertion.
+- Retained original intake/stock/refresh, exports, print, model and Manila timezone behavior.
+- Completed scoped security review and refreshed Graphify/documentation.
+
+IN PROGRESS
+- None. Implementation verification and authorized Git synchronization completed.
+
+TEST RESULTS
+- Full disposable PostgreSQL: 658 passed, 0 failed/skipped (173.87s); focused 72 passed (17.30s).
+- Final notification test-only lint cleanup rerun: 7 passed (5.67s), including 4 concurrency cases.
+- Full frontend: 248 cases, 231 passed/17 browser-closure errors/0 skipped (354.82s).
+  Edge closed in Scan Records after 31 cases; file-only rerun reproduced the closure.
+  Fresh-browser tail: 18 passed (30.13s), covering all 17 affected cases; adjacent export/zero-count
+  check: 3 passed (7.71s). All 248 distinct cases pass across partitions, not one monolithic run.
+- Connectivity 5/5, Kiosk 18/18; new snapshot/completion regressions 2/2.
+- Typecheck/build PASS (build 24.32s). Existing bundle-size warning remains.
+- Frontend lint: 36 errors/5 warnings, matching HEAD diagnostic baseline; no new findings.
+- Backend Ruff: 620 findings; changed files 67 vs 68 at HEAD, no new findings.
+  Corrected 3 introduced test-only diagnostics. Existing Pydantic/sklearn warnings remain.
+- Logs: frontend/node_modules/.tmp/review-*.log and review-*-final.json (ignored).
+- Disposable PostgreSQL instances stopped and generated cluster directories removed; no live station .env, database, hardware or deployment used.
+
+SECURITY / KNOWLEDGE
+- Codex Security 9a6cf9e9-3384-47d0-a86f-7f980d354778: completed, 0 reportable findings,
+  28/28 inventoried source paths reviewed. Daybreak unavailable; supported scoped review used.
+  Original scan identity at 2da9d5c; incoming/final corrections received supplemental review.
+- Graphify: 4128 nodes/12475 edges/252 communities; no graph loss. SQL extractor missing;
+  SQL/migrations verified through source review and disposable PostgreSQL, no installation needed.
+- Relevant Obsidian notes updated; verified ICM outcome stored as 01M5MR1W29KJFEW1YCYJY3RB8P.
+- Pre-0010 v4 archives require recreation under the incoming pre-release policy.
+- Cross-client status/flag edits still wait for Logs refresh/expiry; no new broadcast protocol added.
+
+GIT STATUS
+- Implementation commit f0574768a78496ca1fccb823fa5174c292f086b4:
+  fix: synchronize scan state and notification receipts safely
+- Normal push succeeded; HEAD, origin/main and git ls-remote refs/heads/main all matched
+  f0574768a78496ca1fccb823fa5174c292f086b4 afterward; working tree clean, no conflicts.
+- This documentation-only completion record follows that implementation commit; its final revision
+  is identified by main/HEAD and checked against origin/main after its normal push.
+- Safety stash retained; all 38 stash paths accounted for within the 43 reviewed paths.
+- No branches, worktrees, force-push, reset, history rewrite or production changes.
+
+REMAINING
+- No implementation or regression cases pending. Known limitations are recorded above; the
+  uninterrupted Edge run and baseline lint debt are not represented as passing checks.
+- Safety stash intentionally retained as a recovery copy; no production migration/deployment requested.
+
+EXACT RESUME HERE
+- Task complete. Do not restart the audit or rerun verified suites without a new change/failure.
+  Final delivery check: main/HEAD, origin/main and GitHub refs/heads/main must match, and
+  git status --porcelain must be empty. Preserve the documented archive recreation requirement.

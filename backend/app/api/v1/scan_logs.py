@@ -1,11 +1,16 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 
 from app.api.deps import CurrentUser, DbSession, StreamDbSession
-from app.schemas.scan_logs import ScanLogList, ScanLogQuery
-from app.services.scan_logs import export_scan_logs, export_scan_logs_xlsx, list_scan_logs
+from app.schemas.scan_logs import ScanLogList, ScanLogPending, ScanLogQuery
+from app.services.scan_logs import (
+    export_scan_logs,
+    export_scan_logs_xlsx,
+    list_scan_logs,
+    pending_scan_count,
+)
 
 router = APIRouter(prefix="/scan-logs", tags=["Scan Logs"])
 
@@ -14,6 +19,16 @@ router = APIRouter(prefix="/scan-logs", tags=["Scan Logs"])
 async def scan_logs(db: DbSession, user: CurrentUser, query: Annotated[ScanLogQuery, Query()]):
     """No business_date means all history. All supplied filters intersect account scope."""
     return await list_scan_logs(db, user, query)
+
+
+@router.get("/pending", response_model=ScanLogPending)
+async def scan_logs_pending(
+    db: DbSession, user: CurrentUser, query: Annotated[ScanLogQuery, Query()],
+):
+    """Count committed scans newer than this snapshot without changing its page."""
+    if query.snapshot_id is None:
+        raise HTTPException(422, "A browse snapshot is required for live scan counts.")
+    return await pending_scan_count(db, user, query)
 
 
 @router.get("/export")

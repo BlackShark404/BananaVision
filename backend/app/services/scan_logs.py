@@ -4,19 +4,22 @@ from __future__ import annotations
 
 import csv
 import io
+from datetime import datetime
 from types import SimpleNamespace
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import String, cast, func, or_, select
+from sqlalchemy import String, and_, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import as_manila
 from app.core.xlsx import build_xlsx, number_text
 from app.models.user_account import UserAccount
 from app.schemas.scan_logs import (
     OperatorOption,
     ScanLogList,
     ScanLogOptions,
+    ScanLogPending,
     ScanLogQuery,
     ScanLogRow,
     SourceOption,
@@ -184,6 +187,67 @@ async def _snapshot(db, user, query):
     raise HTTPException(409, "Browse filters changed. Refresh to start a new snapshot.")
 
 
+def _snapshot_watermark(snapshot) -> tuple[datetime, str | None]:
+    """Return the newest row included in the frozen filtered result.
+
+    Older snapshots only carry ``generated_at``; they remain readable and fall
+    back to that boundary until their short lifetime installs a new snapshot.
+    """
+    meta = snapshot.payload.get("meta", {})
+    marker = meta.get("watermark") or {}
+    raw = marker.get("date_time") or meta.get("generated_at")
+    if not raw:
+        raise HTTPException(409, "Refresh to start a new browse snapshot.")
+    return as_manila(datetime.fromisoformat(raw)), marker.get("id")
+
+
+async def _new_scan_count(
+    db: AsyncSession, user: UserAccount, snapshot, query: ScanLogQuery,
+) -> int:
+    """Count only committed scans newer than this snapshot's watermark.
+
+    The query reuses the exact account scope and filter predicates that built
+    the snapshot. Therefore scans outside the operator scope, tied to another
+    filter, or not matching the selected attention card never raise the notice.
+    """
+    meta = snapshot.payload.get("meta", {})
+    scans = dashboard._scoped_projection(user, dashboard.now_manila())
+    threshold = (
+        float(meta["confidence_threshold"])
+        if meta.get("confidence_threshold") is not None
+        else await dashboard._threshold(db)
+    )
+    since, watermark_id = _snapshot_watermark(snapshot)
+    boundary = scans.c.date_time > since
+    if watermark_id:
+        # A same-instant tie is ordered by UUID value, matching the
+        # deterministic ID tiebreak used by the snapshot query. Compare the
+        # native UUID type: casting to text differs between PostgreSQL (dashed)
+        # and SQLite (32 hex characters).
+        boundary = or_(
+            boundary,
+            and_(scans.c.date_time == since, scans.c.id > UUID(watermark_id)),
+        )
+    total = await db.scalar(
+        select(func.count()).select_from(scans)
+        .where(*_conditions(scans, query, threshold), boundary)
+    )
+    return int(total or 0)
+
+
+async def pending_scan_count(
+    db: AsyncSession, user: UserAccount, query: ScanLogQuery,
+) -> ScanLogPending:
+    """Authoritative count for the live update prompt; the snapshot stays frozen."""
+    saved = await _snapshot(db, user, query)
+    meta = saved.payload.get("meta", {})
+    return ScanLogPending(
+        snapshot_id=saved.id,
+        new_count=await _new_scan_count(db, user, saved, query),
+        generated_at=meta.get("generated_at") or dashboard.now_manila(),
+    )
+
+
 async def list_scan_logs(
     db: AsyncSession, user: UserAccount, query: ScanLogQuery,
 ) -> ScanLogList:
@@ -209,6 +273,9 @@ async def list_scan_logs(
         ).all()
         rows = [_row(row) for row in raw]
         scores = [row.confidence for row in rows if row.confidence is not None]
+        watermark_row = max(
+            raw, key=lambda row: (as_manila(row.date_time), row.id.int), default=None
+        )
         # Capture the same unrounded stock/risk decision used by filters and metrics.
         # Never reclassify from rounded remaining days or the displayed range.
         # No history/notes or credentials are included in browse payloads.
@@ -224,6 +291,13 @@ async def list_scan_logs(
                 ],
                 "meta": {
                     "generated_at": now.isoformat(),
+                    # New-scan detection starts after the newest frozen row,
+                    # never before the query, so a concurrent commit cannot be
+                    # both displayed in this snapshot and announced as new.
+                    **({"watermark": {
+                        "date_time": as_manila(watermark_row.date_time).isoformat(),
+                        "id": str(watermark_row.id),
+                    }} if watermark_row else {}),
                     "confidence_threshold": threshold,
                     "avg_confidence": dashboard._mean(sum(scores) / len(scores))
                     if scores

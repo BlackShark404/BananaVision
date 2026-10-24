@@ -6,7 +6,7 @@
 
 import { getToken, clearAuth } from "@/lib/auth"
 import type { DashboardScanPage, DashboardScanParams, DashboardSummary } from "@/types/dashboard"
-import type { ScanLogPage, ScanLogParams } from "@/types/scanLogs"
+import type { ScanLogPage, ScanLogParams, ScanLogPending } from "@/types/scanLogs"
 import type { ApiScan, ApiScanNote, RecordPage } from "@/lib/scanData"
 import type { LabelPreview, PrintJob } from "@/types/printing"
 import type { CameraDiscovery } from "@/types/cameras"
@@ -298,6 +298,7 @@ export const api = {
 
   scanLogs: {
     list: (params: ScanLogParams, signal?: AbortSignal) => get<ScanLogPage>("/api/v1/scan-logs", { ...params }, signal),
+    pending: (params: ScanLogParams, signal?: AbortSignal) => get<ScanLogPending>("/api/v1/scan-logs/pending", { ...params }, signal),
     export: async (params: ScanLogParams, signal?: AbortSignal) => {
       const query = new URLSearchParams()
       for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== "") query.set(key, String(value))

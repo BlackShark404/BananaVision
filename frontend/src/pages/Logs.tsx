@@ -24,7 +24,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
-import { ScrollText, Filter, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, Wind, QrCode, X, Edit, Flag, Loader2 } from "lucide-react"
+import { ScrollText, Filter, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, Wind, QrCode, X, Edit, Flag, Loader2, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { getImageUrl } from "@/lib/utils"
 import { api } from "@/lib/api"
@@ -43,7 +43,7 @@ import type { Cultivar, Ripeness, InventoryStatus, ScanResult } from "@/types"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import { collectScanPages } from "@/lib/scanData"
 import { formatSpoilageDays } from "@/lib/spoilageDisplay"
-import { SCAN_CHANGED_EVENT } from "@/lib/liveEvents"
+import { LIVE_RESUMED_EVENT, SCAN_CHANGED_EVENT, SCANS_ADDED_EVENT } from "@/lib/liveEvents"
 
 type LogScan = Omit<ScanResult, "cultivar" | "ripeness" | "confidence"> & {
   cultivar: string
@@ -67,6 +67,17 @@ async function mapScan(row: ScanLogRow, atRisk: boolean): Promise<LogScan> {
   // A QR rendering failure must not hide the scan history.
   try { scan.qrCode = await generateQRCodeDataUrl(scan) } catch { /* Thumbnail fallback remains available. */ }
   return scan
+}
+
+/** Replacing rows while a control is focused would interrupt an active edit. */
+function isEditingTarget() {
+  const target = document.activeElement
+  return target instanceof HTMLElement
+    && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+}
+
+function newScanNotice(count: number) {
+  return `${count} new Kiosk ${count === 1 ? "scan" : "scans"} available.`
 }
 
 export default function Logs() {
@@ -96,6 +107,11 @@ function LogsContent() {
   const [statusAction, setStatusAction] = useState<{ scan: LogScan; status: InventoryStatus } | null>(null)
   const [statusReason, setStatusReason] = useState("")
   const snapshot = useRef<{ key: string; id: string; riskIds: Set<string> } | null>(null)
+  const [newScanCount, setNewScanCount] = useState(0)
+  const [newScanDismissed, setNewScanDismissed] = useState(false)
+  const pendingRequest = useRef<AbortController | null>(null)
+  // Read at check time so a notice never replaces rows during an active edit.
+  const pendingUi = useRef({ page: 1, blocked: false, loading: false })
 
   const load = useCallback(async (signal: AbortSignal) => {
     const params = scanLogParams(new URLSearchParams(queryKey))
@@ -147,7 +163,14 @@ function LogsContent() {
   }, [queryKey])
   const resource = useDashboardResource(load, { keepPreviousData: true })
   const refreshResource = resource.refresh
-  const refreshSnapshot = useCallback(() => { snapshot.current = null; return refreshResource() }, [refreshResource])
+  const refreshSnapshot = useCallback(() => {
+    pendingRequest.current?.abort()
+    pendingRequest.current = null
+    snapshot.current = null
+    setNewScanCount(0)
+    setNewScanDismissed(false)
+    return refreshResource()
+  }, [refreshResource])
   const latestRefresh = useRef(refreshSnapshot)
   useEffect(() => { latestRefresh.current = refreshSnapshot }, [refreshSnapshot])
   const scanRefreshTimer = useRef<number | null>(null)
@@ -173,6 +196,80 @@ function LogsContent() {
   const operators = response?.options.operators ?? []
   const sources = response?.options.sources ?? []
 
+  useEffect(() => {
+    pendingUi.current = {
+      page: response?.page ?? requestParams.page,
+      blocked: resource.isPreviousData || resource.loading || exporting || !!statusAction
+        || !!qrModalScan || pendingScans.size > 0 || isEditingTarget()
+        || !!document.querySelector('[role="menu"], [role="listbox"]'),
+      loading: resource.loading || resource.isPreviousData,
+    }
+  })
+
+  const checkPendingScans = useCallback(async () => {
+    const current = snapshot.current
+    if (!current || pendingUi.current.loading) return
+    const params = scanLogParams(new URLSearchParams(queryKey))
+    const key = JSON.stringify({ ...params, page: undefined })
+    const parentKey = JSON.stringify({ ...params, attention: "all", page: undefined })
+    // A query change owns a different snapshot; never count against a stale one.
+    if (current.key !== key && !(params.attention === "at-risk" && current.key === parentKey)) return
+    pendingRequest.current?.abort()
+    const controller = new AbortController()
+    pendingRequest.current = controller
+    try {
+      const pending = await api.scanLogs.pending(
+        { ...params, stable: true, snapshot_id: current.id }, controller.signal,
+      )
+      if (controller.signal.aborted || snapshot.current?.id !== current.id) return
+      if (pending.new_count <= 0) {
+        setNewScanCount(0)
+        setNewScanDismissed(false)
+        return
+      }
+      // Page 1 may show the latest rows only when no control is mid-edit.
+      // Page 2+ and blocked page 1 keep the frozen rows and offer the notice.
+      const blockedNow = pendingUi.current.blocked || isEditingTarget()
+        || !!document.querySelector('[role="menu"], [role="listbox"]')
+      if (pendingUi.current.page === 1 && !blockedNow && !pendingUi.current.loading
+        && !document.hidden) {
+        setNewScanCount(0)
+        setNewScanDismissed(false)
+        snapshot.current = null
+        await refreshResource()
+        return
+      }
+      setNewScanCount(pending.new_count)
+    } catch {
+      // The notice is advisory; the next poll, event or reconnect retries.
+    } finally {
+      if (pendingRequest.current === controller) pendingRequest.current = null
+    }
+  }, [queryKey, refreshResource])
+  const latestCheckPending = useRef(checkPendingScans)
+  useEffect(() => { latestCheckPending.current = checkPendingScans }, [checkPendingScans])
+  useEffect(() => {
+    const onNewScans = () => { void latestCheckPending.current() }
+    window.addEventListener(SCANS_ADDED_EVENT, onNewScans)
+    window.addEventListener(LIVE_RESUMED_EVENT, onNewScans)
+    return () => {
+      window.removeEventListener(SCANS_ADDED_EVENT, onNewScans)
+      window.removeEventListener(LIVE_RESUMED_EVENT, onNewScans)
+      pendingRequest.current?.abort()
+    }
+  }, [])
+  // Polling keeps the frozen rows but still notices scans committed without
+  // a delivered event (for example while another client was disconnected).
+  useEffect(() => {
+    if (!resource.receivedAt || resource.isPreviousData || !response?.snapshot_id) return
+    void latestCheckPending.current()
+  }, [resource.receivedAt, resource.isPreviousData, response?.snapshot_id])
+  // A fresh snapshot already contains every committed scan it was built from.
+  useEffect(() => {
+    setNewScanCount(0)
+    setNewScanDismissed(false)
+  }, [response?.snapshot_id])
+
   const updateFilters = (changes: Record<string, string | undefined>, replace = false) => {
     setSearchParams(previous => {
       const next = new URLSearchParams(previous)
@@ -195,6 +292,17 @@ function LogsContent() {
     attention: value ?? undefined,
     ...(value === null && (cardFilter === "review" || statusFilter === "Flagged") ? { status: undefined } : {}),
   })
+
+  const viewLatestScans = () => {
+    pendingRequest.current?.abort()
+    pendingRequest.current = null
+    snapshot.current = null
+    setNewScanCount(0)
+    setNewScanDismissed(false)
+    // Keep every applicable filter and sort, but a new snapshot starts at page 1.
+    if (requestParams.page !== 1) updateFilters({ page: undefined })
+    else void refreshResource()
+  }
 
   // A deletion/status change can shrink the final page while this view is open.
   useEffect(() => {
@@ -481,6 +589,26 @@ const columns: ColumnDef<LogScan>[] = [
         <strong>{response ? "Scan Logs refresh failed. Showing the last successful results." : "Scan Logs unavailable."}</strong> {resource.error}
         <Button variant="link" size="sm" onClick={() => void refreshSnapshot()}>Retry</Button>
       </div>}
+
+      {newScanCount > 0 && !newScanDismissed && (
+        <div role="status" aria-live="polite" className="flex flex-col gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-2">
+            <RefreshCw aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+            <p><strong>{newScanNotice(newScanCount)}</strong> Would you like to refresh Scan Logs?</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 sm:ml-4">
+            <Button size="sm" onClick={viewLatestScans}>View Latest Scans</Button>
+            <Button size="sm" variant="ghost" onClick={() => setNewScanDismissed(true)}>Later</Button>
+          </div>
+        </div>
+      )}
+      {newScanCount > 0 && newScanDismissed && (
+        <div role="status" className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <RefreshCw aria-hidden="true" className="size-3.5" />
+          <span>{newScanNotice(newScanCount)}</span>
+          <Button variant="link" size="sm" className="h-auto p-0" onClick={viewLatestScans}>Show latest scans</Button>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-3">

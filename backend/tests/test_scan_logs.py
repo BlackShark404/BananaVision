@@ -676,4 +676,47 @@ async def test_export_scan_logs_with_limit_alias(logs_db):
     assert float(rows[0]["Confidence (%)"]) == 88.0
 
 
+@pytest.mark.asyncio
+async def test_pending_count_tracks_only_new_matching_scoped_scans(logs_db, monkeypatch):
+    from app.services import auth_service
 
+    session = logs_db
+    own, other = account(session), account(session)
+    original = scan(session, own, at=NOW - timedelta(minutes=5), source="Farm A")
+    scan(session, own, at=NOW - timedelta(minutes=4), source="Farm B")
+    snapshots = {}
+
+    async def lock(_db, user):
+        return user
+
+    async def save(_db, _user, key, payload):
+        saved = SimpleNamespace(id=uuid4(), payload=payload, binding=key,
+                                expires_at=NOW + timedelta(minutes=10))
+        snapshots[saved.id] = saved
+        return saved
+
+    async def load(_db, _user, identifier, key):
+        saved = snapshots[identifier]
+        if key != saved.binding:
+            raise HTTPException(409, "Filters changed")
+        return saved
+
+    monkeypatch.setattr(auth_service, "lock_current_account", lock)
+    monkeypatch.setattr(scan_logs, "save_snapshot", save)
+    monkeypatch.setattr(scan_logs, "load_snapshot", load)
+    query = ScanLogQuery(stable=True, source_key="text:Farm A", page_size=1)
+    first = await scan_logs.list_scan_logs(session, own, query)
+    frozen_query = query.model_copy(update={"snapshot_id": first.snapshot_id})
+    assert (await scan_logs.pending_scan_count(session, own, frozen_query)).new_count == 0
+
+    matching = scan(session, own, at=NOW + timedelta(seconds=1), source="Farm A")
+    scan(session, other, at=NOW + timedelta(seconds=1), source="Farm A")
+    scan(session, own, at=NOW + timedelta(seconds=1), source="Farm B")
+    pending = await scan_logs.pending_scan_count(session, own, frozen_query)
+    assert pending.snapshot_id == first.snapshot_id
+    assert pending.new_count == 1
+    # Repeated checks are absolute, never additive, so reconnects cannot double-count.
+    assert (await scan_logs.pending_scan_count(session, own, frozen_query)).new_count == 1
+    frozen = await scan_logs.list_scan_logs(session, own, frozen_query)
+    assert frozen.total == 1 and [row.id for row in frozen.items] == [original]
+    assert matching not in {row.id for row in frozen.items}

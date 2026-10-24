@@ -82,3 +82,11 @@ class ScanLogList(BaseModel):
     generated_at: Timestamp
     confidence_threshold: float
     options: ScanLogOptions
+
+
+class ScanLogPending(BaseModel):
+    """Live count of committed scans newer than an immutable browse snapshot."""
+
+    snapshot_id: UUID
+    new_count: int
+    generated_at: Timestamp

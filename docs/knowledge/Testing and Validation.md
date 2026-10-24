@@ -13,6 +13,16 @@ Comprehensive guide to testing strategies, verification requirements, test runne
 - Graphify AST update: **4128 nodes, 12475 edges, 252 communities**, without graph loss. SQL extraction was unavailable (`tree_sitter_sql` missing); SQL/migration behavior was covered by source review and PostgreSQL tests. No paid semantic extraction was enabled.
 - Pre-0010 v4 archives require recreation under the incoming pre-release policy. Cross-client status/flag edits still are not broadcast to Logs; refresh/expiry remains their recovery boundary. Historical results below describe earlier checkpoints, not the final integrated tree.
 
+## Live Scan Logs pagination verification — 2026-10-24
+
+- Prior implementation run, full isolated PostgreSQL 18.6: **660 passed, 0 failed, 0 skipped** (216.46s, `127.0.0.1:55440`, `Asia/Manila`). This remains the implementation-time record; the independent re-verification below could not reproduce it because PostgreSQL 18 client backends terminate on this host with `0xC0000142` (followed by shared-memory error 487).
+- Independent backend re-verification (SQLite contracts, fresh temporary working directory): full suite **596 passed, 66 skipped** (115.94s); focused `test_scan_logs.py` + `test_scan_snapshots.py` **37 passed** (5.66s). The focused total includes two added cases proving Admin/Operator pending scoping and pending **409** (changed filters) / **410** (expired or unknown snapshot) behavior. PostgreSQL-specific tests remain skipped and were not re-verified in this session.
+- Frontend `tests/scanrecords.test.mjs`: **54 passed, 0 failed** (96.47s), including the two final regressions for hidden-tab deferral and a failed pending-count request retaining the frozen page. The full frontend suite before those additions was **252 passed, 0 failed, 0 skipped** (340.60s); both new cases then passed in the focused file.
+- `npm run typecheck` and `npm run build` pass (build 15.00s); the existing >500 kB chunk warning remains. Frontend ESLint is unchanged at the **41-problem baseline (36 errors, 5 warnings)**; every diagnostic in a changed file also exists at HEAD.
+- Backend Ruff on the five changed files reports **23 findings versus 25 at HEAD**, with no new findings; the change set resolves two pre-existing import-order diagnostics. Repository-wide Ruff with the backend configuration reports 645 findings; the five changed files introduce none.
+- `git diff --check` passes. No live station database, captures, physical cameras or deployment was used. Disposable PostgreSQL clusters created during the attempt were stopped and removed.
+- Known boundary unchanged: cross-client status/flag edits are not broadcast to Logs and still recover through refresh or snapshot expiry.
+
 ## Live-data and persistence audit — 2026-10-23
 
 - Audited initial loading, refresh/resume, cache and snapshot invalidation, pagination,

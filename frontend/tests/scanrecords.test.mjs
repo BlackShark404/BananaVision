@@ -47,6 +47,12 @@ async function setup(t, status = 200, options = {}) {
       return reply(code === 200 ? snapshot : { detail: 'Unavailable' }, code)
     }
     if (url.pathname === '/api/v1/scan-logs/export') return route.fulfill({ status: 200, body: 'id,name\n1,Frozen\n', headers: { ...headers, 'content-type': 'text/csv' } })
+    if (url.pathname === '/api/v1/scan-logs/pending') {
+      if (state.pendingStatus) return reply({ detail: 'Live scan count unavailable' }, state.pendingStatus)
+      if (state.pendingResponse) return reply(state.pendingResponse(Object.fromEntries(url.searchParams)))
+      return reply({ snapshot_id: url.searchParams.get('snapshot_id'), new_count: state.pendingCount ?? 0,
+        generated_at: state.record.date_time })
+    }
     if (url.pathname === '/api/v1/scan-logs') {
       if (state.logResponse) return reply(state.logResponse(Object.fromEntries(url.searchParams)))
       if (state.logStatus) return reply({ detail: 'Too many records for a browse snapshot. Narrow filters or export.' }, state.logStatus)
@@ -421,6 +427,136 @@ test('Logs retains a snapshot across pages and export, resets on filters and rec
   state.expire = false
 })
 
+test('Logs page 2 offers new Kiosk scans without replacing its frozen snapshot', async t => {
+  const { page, state } = await setup(t, 200, { screen: 'logs' })
+  await page.locator('tbody tr').first().waitFor()
+  await page.getByPlaceholder(/search by cultivar/i).fill('Filtered')
+  await page.locator('tbody').getByText('Filtered', { exact: true }).waitFor()
+  await page.getByRole('columnheader', { name: 'Est. Spoilage' }).click()
+  await until(() => state.requests.some(r => r.path === '/api/v1/scan-logs' && r.query.sort === 'spoilage_days'))
+  await page.getByText(/Showing results for the previous selection/).waitFor({ state: 'detached' })
+  await page.getByLabel('Go to next page').click()
+  await until(() => state.requests.some(r => r.path === '/api/v1/scan-logs' && r.query.page === '2' && r.query.snapshot_id === 'snapshot-one'))
+  state.snapshotToken = 'snapshot-two'
+  state.pendingResponse = params => ({ snapshot_id: params.snapshot_id,
+    new_count: params.snapshot_id === 'snapshot-one' ? 2 : 0, generated_at: state.record.date_time })
+  const listCount = state.requests.filter(r => r.path === '/api/v1/scan-logs').length
+  await page.evaluate(() => window.dispatchEvent(new Event('bananavision:scans-added')))
+  await page.getByText(/2 new Kiosk scans available/).waitFor()
+  assert.equal(state.requests.filter(r => r.path === '/api/v1/scan-logs').length, listCount)
+  assert.equal(state.requests.at(-1).path, '/api/v1/scan-logs/pending')
+  await page.getByRole('button', { name: 'Later', exact: true }).click()
+  await page.getByText('2 new Kiosk scans available.', { exact: true }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'View Latest Scans', exact: true }).count(), 0)
+  assert.equal(await page.getByLabel('Go to next page').isVisible(), true)
+  assert.equal(state.requests.filter(r => r.path === '/api/v1/scan-logs').length, listCount)
+  await page.getByRole('button', { name: 'Show latest scans', exact: true }).click()
+  await until(() => state.requests.some(r => r.path === '/api/v1/scan-logs' && r.query.page === '1' && !r.query.snapshot_id))
+  const latest = state.requests.filter(r => r.path === '/api/v1/scan-logs' && r.query.page === '1' && !r.query.snapshot_id).at(-1)
+  assert.equal(latest.query.search, 'Filtered')
+  assert.equal(latest.query.sort, 'spoilage_days')
+  assert.equal(await page.getByText(/new Kiosk scans available/).count(), 0)
+})
+
+test('Logs page 1 automatically shows new Kiosk scans and preserves filters', async t => {
+  const { page, state } = await setup(t, 200, { screen: 'logs' })
+  await page.locator('tbody tr').first().waitFor()
+  await page.getByPlaceholder(/search by cultivar/i).fill('Filtered')
+  await page.locator('tbody').getByText('Filtered', { exact: true }).waitFor()
+  await page.getByRole('columnheader', { name: 'Est. Spoilage' }).click()
+  await until(() => state.requests.some(r => r.path === '/api/v1/scan-logs' && r.query.sort === 'spoilage_days'))
+  await page.getByText(/Showing results for the previous selection/).waitFor({ state: 'detached' })
+  state.snapshotToken = 'snapshot-two'
+  state.pendingResponse = params => ({ snapshot_id: params.snapshot_id,
+    new_count: params.snapshot_id === 'snapshot-one' ? 1 : 0, generated_at: state.record.date_time })
+  const before = state.requests.length
+  await page.evaluate(() => window.dispatchEvent(new Event('bananavision:scans-added')))
+  await until(() => state.requests.slice(before).some(r => r.path === '/api/v1/scan-logs' && r.query.page === '1' && !r.query.snapshot_id))
+  const fresh = state.requests.slice(before).filter(r => r.path === '/api/v1/scan-logs').at(-1)
+  assert.equal(fresh.query.search, 'Filtered')
+  assert.equal(fresh.query.sort, 'spoilage_days')
+  assert.equal(fresh.query.snapshot_id, undefined)
+  assert.equal(await page.getByRole('button', { name: 'Later', exact: true }).count(), 0)
+  assert.equal(await page.getByText(/new Kiosk scans available/).count(), 0)
+})
+
+test('Logs page 1 defers new Kiosk scans while the search field is active', async t => {
+  const { page, state } = await setup(t, 200, { screen: 'logs' })
+  await page.locator('tbody tr').first().waitFor()
+  const search = page.getByPlaceholder(/search by cultivar/i)
+  await search.fill('Filtered')
+  await page.locator('tbody').getByText('Filtered', { exact: true }).waitFor()
+  await search.click()
+  state.snapshotToken = 'snapshot-two'
+  state.pendingResponse = params => ({ snapshot_id: params.snapshot_id,
+    new_count: params.snapshot_id === 'snapshot-one' ? 1 : 0, generated_at: state.record.date_time })
+  const listCount = state.requests.filter(r => r.path === '/api/v1/scan-logs').length
+  await page.evaluate(() => window.dispatchEvent(new Event('bananavision:scans-added')))
+  await page.getByText(/1 new Kiosk scan available/).waitFor()
+  assert.equal(state.requests.filter(r => r.path === '/api/v1/scan-logs').length, listCount)
+  await page.getByRole('button', { name: 'View Latest Scans', exact: true }).click()
+  await until(() => state.requests.some(r => r.path === '/api/v1/scan-logs' && r.query.search === 'Filtered' && !r.query.snapshot_id && r.query.page === '1'))
+})
+
+test('Logs page 1 defers auto-refresh while the tab is hidden', async t => {
+  const { page, state } = await setup(t, 200, { screen: 'logs' })
+  await page.locator('tbody tr').first().waitFor()
+  state.snapshotToken = 'snapshot-two'
+  state.pendingResponse = params => ({ snapshot_id: params.snapshot_id,
+    new_count: params.snapshot_id === 'snapshot-one' ? 1 : 0, generated_at: state.record.date_time })
+  const listCount = state.requests.filter(r => r.path === '/api/v1/scan-logs').length
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })
+    window.dispatchEvent(new Event('bananavision:scans-added'))
+  })
+  await page.getByText(/1 new Kiosk scan available/).waitFor()
+  assert.equal(state.requests.filter(r => r.path === '/api/v1/scan-logs').length, listCount)
+  assert.equal(await page.getByLabel('Go to next page').isVisible(), true)
+  // Returning to a safe page 1 lets the resume refresh open the fresh snapshot.
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  await until(() => state.requests.some(r => r.path === '/api/v1/scan-logs' && !r.query.snapshot_id && r.query.page === '1'))
+  await page.getByText(/new Kiosk scans available/).waitFor({ state: 'detached' })
+})
+
+test('Logs keeps its frozen page when the live count request fails', async t => {
+  const { page, state } = await setup(t, 200, { screen: 'logs' })
+  await page.locator('tbody tr').first().waitFor()
+  await page.getByLabel('Go to next page').click()
+  await until(() => state.requests.some(r => r.path === '/api/v1/scan-logs' && r.query.page === '2' && r.query.snapshot_id === 'snapshot-one'))
+  state.pendingStatus = 500
+  const before = state.requests.length
+  await page.evaluate(() => window.dispatchEvent(new Event('bananavision:scans-added')))
+  await until(() => state.requests.slice(before).some(r => r.path === '/api/v1/scan-logs/pending'))
+  await page.waitForTimeout(100)
+  assert.equal(await page.getByText(/new Kiosk scans available/).count(), 0)
+  assert.equal(await page.getByRole('alert').count(), 0)
+  assert.equal(await page.getByLabel('Go to next page').isVisible(), true)
+  assert.equal(state.requests.slice(before).filter(r => r.path === '/api/v1/scan-logs').length, 0)
+  // A later successful check still offers the latest scans.
+  state.pendingStatus = undefined
+  state.pendingCount = 2
+  await page.evaluate(() => window.dispatchEvent(new Event('bananavision:scans-added')))
+  await page.getByText(/2 new Kiosk scans available/).waitFor()
+})
+
+test('Logs rechecks new Kiosk scans after the websocket resumes', async t => {
+  const { page, state } = await setup(t, 200, { screen: 'logs' })
+  await page.locator('tbody tr').first().waitFor()
+  await page.getByLabel('Go to next page').click()
+  await until(() => state.requests.some(r => r.path === '/api/v1/scan-logs' && r.query.page === '2' && r.query.snapshot_id === 'snapshot-one'))
+  state.pendingCount = 3
+  const before = state.requests.length
+  await page.evaluate(() => window.dashboardSocket.disconnect())
+  await page.clock.runFor(1500)
+  await until(() => state.requests.slice(before).some(r => r.path === '/api/v1/scan-logs/pending'))
+  await page.getByText(/3 new Kiosk scans available/).waitFor()
+  assert.ok(state.requests.slice(before).some(r => r.path === '/api/v1/scans'))
+  assert.equal(await page.getByLabel('Go to next page').isVisible(), true)
+})
+
 test('expired Logs snapshots rebuild risk membership for fresh rows and filters', async t => {
   const { page, state } = await setup(t, 200, { screen: 'logs' })
   await page.locator('tbody tr').first().waitFor()
@@ -442,8 +578,9 @@ test('expired Logs snapshots rebuild risk membership for fresh rows and filters'
   await page.getByRole('img', { name: 'At-risk scan', exact: true }).waitFor()
   assert.ok(state.requests.some(r => r.query.attention === 'at-risk' && r.query.snapshot_id === 'fresh-risk-snapshot'))
   state.expire = false
+  const riskLists = state.requests.filter(r => r.path === '/api/v1/scan-logs' && r.query.attention === 'at-risk').length
   await page.getByText('At-Risk Scans', { exact: true }).click()
-  await until(() => state.requests.at(-1).query.attention === 'at-risk')
+  await until(() => state.requests.filter(r => r.path === '/api/v1/scan-logs' && r.query.attention === 'at-risk').length > riskLists)
   await page.getByRole('img', { name: 'At-risk scan', exact: true }).waitFor()
 })
 

@@ -52,3 +52,10 @@ export interface ScanLogPage {
     operators: { operator_id: string; name: string; username: string }[]
   }
 }
+
+/** Live count relative to an immutable browse snapshot. */
+export interface ScanLogPending {
+  snapshot_id: string
+  new_count: number
+  generated_at: string
+}

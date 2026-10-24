@@ -28,22 +28,30 @@ interface UseWebSocketOptions {
   rooms?: string[]
   /** Callback for each received event */
   onEvent?: (event: string, data: any) => void
+  /** Called after an existing connection reopens, so clients can resync. */
+  onReconnect?: () => void
   /** Whether to enable the connection (defaults to true) */
   enabled?: boolean
 }
 
-export function useWebSocket({ rooms = [], onEvent, enabled = true }: UseWebSocketOptions) {
+export function useWebSocket({ rooms = [], onEvent, onReconnect, enabled = true }: UseWebSocketOptions) {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected")
   const [lastEvent, setLastEvent] = useState<WsEvent | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectAttempt = useRef(0)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onEventRef = useRef(onEvent)
+  const onReconnectRef = useRef(onReconnect)
+  const hasConnected = useRef(false)
 
-  // Keep callback ref up to date without re-triggering effect
+  // Keep callback refs up to date without re-triggering the connection effect.
   useEffect(() => {
     onEventRef.current = onEvent
   }, [onEvent])
+
+  useEffect(() => {
+    onReconnectRef.current = onReconnect
+  }, [onReconnect])
 
   const connect = useCallback(() => {
     const token = getToken()
@@ -59,9 +67,14 @@ export function useWebSocket({ rooms = [], onEvent, enabled = true }: UseWebSock
 
     ws.onopen = () => {
       if (wsRef.current !== ws) return
+      const resumed = hasConnected.current
+      hasConnected.current = true
       setStatus("connected")
       reconnectAttempt.current = 0
       console.log("[WS] Connected", rooms)
+      // The first connection uses initial fetches; only a resume can have
+      // missed events while no socket was open.
+      if (resumed) onReconnectRef.current?.()
     }
 
     ws.onmessage = (e) => {
@@ -121,6 +134,7 @@ export function useWebSocket({ rooms = [], onEvent, enabled = true }: UseWebSock
 
     return () => {
       // Cleanup
+      hasConnected.current = false
       if (reconnectTimer.current) {
         clearTimeout(reconnectTimer.current)
         reconnectTimer.current = null
