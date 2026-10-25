@@ -1,1 +1,522 @@
-<mxfile host="1s33vg2i1sp25rb10so6iughmnh9d6ckjtkto9d4cjep49jmebmk" modified="2026-09-13T14:11:02.908Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.137.0 Chrome/148.0.7778.280 Electron/42.10.0 Safari/537.36" version="12.2.4" etag="gVcTHlft8v9_VZYgnSX0" pages="1"><diagram name="Figure 14: IoT Hardware, AI Fusion &amp; Persistence Workflow" id="iot-workflow">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</diagram></mxfile>
+<mxfile host="65bd71144e">
+    <diagram name="Figure 12D: IoT Program Workflow — Hardware · Pipeline · Intelligence" id="iot-workflow">
+        <mxGraphModel dx="2400" dy="1800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1600" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+
+                <!-- ══════════════════════════════════════════════════════ -->
+                <!-- LAYER 1: HARDWARE / PHYSICAL DEVICES (Top Row)        -->
+                <!-- ══════════════════════════════════════════════════════ -->
+
+                <!-- Arduino DHT22 Sensor -->
+                <mxCell id="arduino" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5f5e3;strokeColor=#16a34a;strokeWidth=3;fontSize=9;fontStyle=1;" value="🔌&lt;br&gt;Arduino&lt;br&gt;DHT22 Sensor&lt;br&gt;(Pin 4 · 9600 baud)" vertex="1">
+                    <mxGeometry height="110" width="110" x="60" y="60" as="geometry"/>
+                </mxCell>
+
+                <!-- USB Serial Connection -->
+                <mxCell id="serial_conn" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#16a34a;strokeWidth=1;fontSize=8;" value="📡&lt;br&gt;USB Serial&lt;br&gt;/dev/ttyUSB0&lt;br&gt;TEMP:xx,HUM:xx" vertex="1">
+                    <mxGeometry height="90" width="90" x="230" y="70" as="geometry"/>
+                </mxCell>
+
+                <!-- Camera Array -->
+                <mxCell id="camera_array" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=3;fontSize=9;fontStyle=1;" value="📷&lt;br&gt;4-Camera&lt;br&gt;USB Array&lt;br&gt;(Top·Left·Right·Rear)" vertex="1">
+                    <mxGeometry height="110" width="110" x="520" y="60" as="geometry"/>
+                </mxCell>
+
+                <!-- OpenCV Capture -->
+                <mxCell id="opencv_cap" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1;fontSize=8;" value="🎬&lt;br&gt;OpenCV&lt;br&gt;VideoCapture&lt;br&gt;(MJPG · 1280×720)" vertex="1">
+                    <mxGeometry height="90" width="90" x="700" y="70" as="geometry"/>
+                </mxCell>
+
+                <!-- ══════════════════════════════════════════════════════ -->
+                <!-- LAYER 2: BACKEND SERVICES (Middle Row)                -->
+                <!-- ══════════════════════════════════════════════════════ -->
+
+                <!-- Sensor Reader Service -->
+                <mxCell id="sensor_reader" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=8;fontStyle=1;" value="🌡️&lt;br&gt;SensorReader&lt;br&gt;(Background Polling&lt;br&gt;every 5s)" vertex="1">
+                    <mxGeometry height="100" width="100" x="120" y="260" as="geometry"/>
+                </mxCell>
+
+                <!-- Sensor Data Persist -->
+                <mxCell id="sensor_persist" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#f59e0b;strokeWidth=1;fontSize=7;" value="💾&lt;br&gt;SensorReading&lt;br&gt;DB Table&lt;br&gt;(temp · humidity&lt;br&gt;· recorded_at)" vertex="1">
+                    <mxGeometry height="80" width="80" x="20" y="410" as="geometry"/>
+                </mxCell>
+
+                <!-- Sensor WS Broadcast -->
+                <mxCell id="sensor_broadcast" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=1;fontSize=7;" value="📢&lt;br&gt;sensor:update&lt;br&gt;WebSocket&lt;br&gt;(Kiosk + Dashboard)" vertex="1">
+                    <mxGeometry height="80" width="80" x="140" y="430" as="geometry"/>
+                </mxCell>
+
+                <!-- Camera Manager Service -->
+                <mxCell id="camera_mgr" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=8;fontStyle=1;" value="📷&lt;br&gt;CameraManager&lt;br&gt;(Boot Init · Keep&lt;br&gt;Handles Open)" vertex="1">
+                    <mxGeometry height="100" width="100" x="550" y="260" as="geometry"/>
+                </mxCell>
+
+                <!-- Camera Health Monitor -->
+                <mxCell id="health_monitor" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#f59e0b;strokeWidth=1;fontSize=7;" value="🩺&lt;br&gt;Health Monitor&lt;br&gt;(Every 10s&lt;br&gt;Probe + Validate)" vertex="1">
+                    <mxGeometry height="80" width="80" x="710" y="260" as="geometry"/>
+                </mxCell>
+
+                <!-- Frame Validation -->
+                <mxCell id="frame_valid" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#f59e0b;strokeWidth=1;fontSize=7;" value="✅&lt;br&gt;Frame Validation&lt;br&gt;(Mean &gt; 15&lt;br&gt;StdDev &gt; 8&lt;br&gt;3 Consecutive)" vertex="1">
+                    <mxGeometry height="80" width="80" x="850" y="260" as="geometry"/>
+                </mxCell>
+
+                <!-- Device Status DB -->
+                <mxCell id="device_db" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1;fontSize=7;" value="💾&lt;br&gt;Device Table&lt;br&gt;(camera_id · status&lt;br&gt;· resolution&lt;br&gt;· last_seen)" vertex="1">
+                    <mxGeometry height="80" width="80" x="710" y="390" as="geometry"/>
+                </mxCell>
+
+                <!-- Device WS Broadcast -->
+                <mxCell id="device_broadcast" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=1;fontSize=7;" value="📢&lt;br&gt;device:status&lt;br&gt;WebSocket&lt;br&gt;(Devices + Dashboard)" vertex="1">
+                    <mxGeometry height="80" width="80" x="850" y="390" as="geometry"/>
+                </mxCell>
+
+                <!-- ══════════════════════════════════════════════════════ -->
+                <!-- LAYER 3: SCAN PIPELINE (Center)                       -->
+                <!-- ══════════════════════════════════════════════════════ -->
+
+                <!-- Scan Trigger -->
+                <mxCell id="scan_trigger" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#66FF66;strokeColor=#16a34a;strokeWidth=3;fontSize=9;fontStyle=1;" value="▶️&lt;br&gt;Scan Trigger&lt;br&gt;(Kiosk / API)" vertex="1">
+                    <mxGeometry height="100" width="100" x="350" y="430" as="geometry"/>
+                </mxCell>
+
+                <!-- Step 1: WS scan:started -->
+                <mxCell id="step1_started" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=7;fontStyle=1;" value="①&lt;br&gt;scan:started&lt;br&gt;WebSocket&lt;br&gt;Broadcast" vertex="1">
+                    <mxGeometry height="80" width="80" x="520" y="440" as="geometry"/>
+                </mxCell>
+
+                <!-- Step 2: Multi-Camera Capture -->
+                <mxCell id="step2_capture" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=2;fontSize=7;fontStyle=1;" value="②&lt;br&gt;Multi-Camera&lt;br&gt;Capture&lt;br&gt;(Parallel → Sequential&lt;br&gt;Fallback)" vertex="1">
+                    <mxGeometry height="100" width="100" x="350" y="570" as="geometry"/>
+                </mxCell>
+
+                <!-- Save JPEG -->
+                <mxCell id="save_jpeg" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1;fontSize=7;" value="📁&lt;br&gt;Save JPEGs&lt;br&gt;captures/{scan_id}/&lt;br&gt;camera_N.jpg" vertex="1">
+                    <mxGeometry height="80" width="80" x="210" y="590" as="geometry"/>
+                </mxCell>
+
+                <!-- WS scan:captured -->
+                <mxCell id="ws_captured" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=1;fontSize=7;" value="📢&lt;br&gt;scan:captured&lt;br&gt;Per-Camera&lt;br&gt;Status" vertex="1">
+                    <mxGeometry height="70" width="70" x="220" y="700" as="geometry"/>
+                </mxCell>
+
+                <!-- Step 3: Banana Pre-Detection -->
+                <mxCell id="step3_predetect" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;fontSize=7;fontStyle=1;" value="③&lt;br&gt;Banana&lt;br&gt;Pre-Detection&lt;br&gt;(COCO YOLOv26n&lt;br&gt;Class 46)" vertex="1">
+                    <mxGeometry height="100" width="100" x="510" y="600" as="geometry"/>
+                </mxCell>
+
+                <!-- No Banana Gate -->
+                <mxCell id="no_banana" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fecaca;strokeColor=#ef4444;strokeWidth=1;fontSize=7;" value="🚫&lt;br&gt;No Banana?&lt;br&gt;→ Abort Scan&lt;br&gt;(scan:failed)" vertex="1">
+                    <mxGeometry height="70" width="70" x="510" y="730" as="geometry"/>
+                </mxCell>
+
+                <!-- Step 4: YOLO Classification -->
+                <mxCell id="step4_classify" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;fontSize=8;fontStyle=1;" value="④&lt;br&gt;YOLO Cultivar/&lt;br&gt;Ripeness&lt;br&gt;Classification&lt;br&gt;(Per Camera)" vertex="1">
+                    <mxGeometry height="110" width="110" x="690" y="570" as="geometry"/>
+                </mxCell>
+
+                <!-- Cultivar/Ripeness Labels -->
+                <mxCell id="class_labels" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#ec4899;strokeWidth=1;fontSize=6;" value="🏷️&lt;br&gt;Lakatan · Latundan&lt;br&gt;· Cardaba&lt;br&gt;×&lt;br&gt;Unripe · Semi Ripe&lt;br&gt;· Ripe · Overripe" vertex="1">
+                    <mxGeometry height="90" width="90" x="840" y="540" as="geometry"/>
+                </mxCell>
+
+                <!-- Bounding Box NMS -->
+                <mxCell id="bbox_nms" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#ec4899;strokeWidth=1;fontSize=7;" value="📦&lt;br&gt;BBox Dedup&lt;br&gt;(IoU · Containment&lt;br&gt;· Cluster Filter&lt;br&gt;· Rotation Fallback)" vertex="1">
+                    <mxGeometry height="90" width="90" x="870" y="660" as="geometry"/>
+                </mxCell>
+
+                <!-- WS scan:detected -->
+                <mxCell id="ws_detected" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=1;fontSize=7;" value="📢&lt;br&gt;scan:detected&lt;br&gt;Per-Camera&lt;br&gt;Results" vertex="1">
+                    <mxGeometry height="70" width="70" x="710" y="720" as="geometry"/>
+                </mxCell>
+
+                <!-- Step 5: Fusion Engine -->
+                <mxCell id="step5_fusion" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=7;fontStyle=1;" value="⑤&lt;br&gt;Multi-Camera&lt;br&gt;Fusion Engine&lt;br&gt;(Confidence-Weighted&lt;br&gt;Majority Voting)" vertex="1">
+                    <mxGeometry height="110" width="110" x="500" y="830" as="geometry"/>
+                </mxCell>
+
+                <!-- Top Anchor -->
+                <mxCell id="top_anchor" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#f59e0b;strokeWidth=1;fontSize=7;" value="🎯&lt;br&gt;Top Camera&lt;br&gt;Cultivar Anchor&lt;br&gt;(Overhead Priority)" vertex="1">
+                    <mxGeometry height="80" width="80" x="660" y="840" as="geometry"/>
+                </mxCell>
+
+                <!-- Conflict / Flag -->
+                <mxCell id="auto_flag" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#ea580c;strokeWidth=1;fontSize=7;" value="⚠️&lt;br&gt;Auto-Flag&lt;br&gt;(Conflict · Low Conf&lt;br&gt;· Missing Views&lt;br&gt;· Count Mismatch)" vertex="1">
+                    <mxGeometry height="80" width="80" x="380" y="870" as="geometry"/>
+                </mxCell>
+
+                <!-- Harmonization -->
+                <mxCell id="harmonize" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#f59e0b;strokeWidth=1;fontSize=7;" value="🔄&lt;br&gt;Cross-View&lt;br&gt;Cultivar&lt;br&gt;Harmonization" vertex="1">
+                    <mxGeometry height="70" width="70" x="660" y="940" as="geometry"/>
+                </mxCell>
+
+                <!-- Step 6: Environmental Fusion -->
+                <mxCell id="step6_env" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5f5e3;strokeColor=#16a34a;strokeWidth=2;fontSize=7;fontStyle=1;" value="⑥&lt;br&gt;Environmental&lt;br&gt;Fusion&lt;br&gt;(Sensor + VPD&lt;br&gt;+ Treatment)" vertex="1">
+                    <mxGeometry height="100" width="100" x="250" y="830" as="geometry"/>
+                </mxCell>
+
+                <!-- VPD Calculation -->
+                <mxCell id="vpd_calc" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#16a34a;strokeWidth=1;fontSize=7;" value="🧪&lt;br&gt;VPD Calc&lt;br&gt;(Magnus-Tetens&lt;br&gt;kPa)" vertex="1">
+                    <mxGeometry height="70" width="70" x="140" y="830" as="geometry"/>
+                </mxCell>
+
+                <!-- Step 7: Spoilage Prediction -->
+                <mxCell id="step7_spoilage" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;fontSize=8;fontStyle=1;" value="⑦&lt;br&gt;Spoilage&lt;br&gt;Prediction&lt;br&gt;(Random Forest&lt;br&gt;Regression)" vertex="1">
+                    <mxGeometry height="110" width="110" x="350" y="1020" as="geometry"/>
+                </mxCell>
+
+                <!-- RFR Features -->
+                <mxCell id="rfr_features" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#ec4899;strokeWidth=1;fontSize=6;" value="🧬&lt;br&gt;6 Features:&lt;br&gt;cultivar · ripeness&lt;br&gt;· temp · humidity&lt;br&gt;· vpd · treatment" vertex="1">
+                    <mxGeometry height="80" width="80" x="220" y="1050" as="geometry"/>
+                </mxCell>
+
+                <!-- Fallback Rules -->
+                <mxCell id="fallback_rules" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#ec4899;strokeWidth=1;fontSize=7;" value="📏&lt;br&gt;Rule-Based&lt;br&gt;Fallback&lt;br&gt;(Literature Values)" vertex="1">
+                    <mxGeometry height="70" width="70" x="220" y="1160" as="geometry"/>
+                </mxCell>
+
+                <!-- Step 8: Persist to DB -->
+                <mxCell id="step8_persist" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=2;fontSize=7;fontStyle=1;" value="⑧&lt;br&gt;Persist to DB&lt;br&gt;(Scan · Classification&lt;br&gt;· Detections · Images&lt;br&gt;· Activity Log)" vertex="1">
+                    <mxGeometry height="100" width="100" x="540" y="1050" as="geometry"/>
+                </mxCell>
+
+                <!-- Notification -->
+                <mxCell id="notification" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1;fontSize=7;" value="🔔&lt;br&gt;App&lt;br&gt;Notification&lt;br&gt;(scan_complete&lt;br&gt;· scan_flagged)" vertex="1">
+                    <mxGeometry height="80" width="80" x="700" y="1060" as="geometry"/>
+                </mxCell>
+
+                <!-- Step 9: Broadcast Completed -->
+                <mxCell id="step9_complete" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=7;fontStyle=1;" value="⑨&lt;br&gt;scan:completed&lt;br&gt;WebSocket&lt;br&gt;(Kiosk + Dashboard)" vertex="1">
+                    <mxGeometry height="90" width="90" x="430" y="1200" as="geometry"/>
+                </mxCell>
+
+                <!-- ══════════════════════════════════════════════════════ -->
+                <!-- LAYER 4: BOOT SEQUENCE (Right Side)                   -->
+                <!-- ══════════════════════════════════════════════════════ -->
+
+                <!-- Boot Phase 1 -->
+                <mxCell id="boot_p1" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f0fdf4;strokeColor=#16a34a;strokeWidth=2;fontSize=7;fontStyle=1;" value="🔧&lt;br&gt;Phase 1&lt;br&gt;Config&lt;br&gt;Validation" vertex="1">
+                    <mxGeometry height="70" width="70" x="1100" y="60" as="geometry"/>
+                </mxCell>
+
+                <!-- Boot Phase 2 -->
+                <mxCell id="boot_p2" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f0fdf4;strokeColor=#16a34a;strokeWidth=2;fontSize=7;fontStyle=1;" value="💾&lt;br&gt;Phase 2&lt;br&gt;Database&lt;br&gt;+ Seed" vertex="1">
+                    <mxGeometry height="70" width="70" x="1100" y="170" as="geometry"/>
+                </mxCell>
+
+                <!-- Boot Phase 3 -->
+                <mxCell id="boot_p3" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;fontSize=7;fontStyle=1;" value="🧠&lt;br&gt;Phase 3&lt;br&gt;ML Models&lt;br&gt;Load + Warmup" vertex="1">
+                    <mxGeometry height="70" width="70" x="1100" y="280" as="geometry"/>
+                </mxCell>
+
+                <!-- ML Models Detail -->
+                <mxCell id="ml_models" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#ec4899;strokeWidth=1;fontSize=6;" value="🤖&lt;br&gt;BananaPreDetector&lt;br&gt;(COCO yolo26n.pt)&lt;br&gt;BananaClassifier&lt;br&gt;(custom weights)&lt;br&gt;SpoilagePredictor&lt;br&gt;(RFR .joblib)" vertex="1">
+                    <mxGeometry height="110" width="110" x="1220" y="250" as="geometry"/>
+                </mxCell>
+
+                <!-- Boot Phase 4 -->
+                <mxCell id="boot_p4" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=2;fontSize=7;fontStyle=1;" value="📷&lt;br&gt;Phase 4&lt;br&gt;Camera Init&lt;br&gt;+ Register" vertex="1">
+                    <mxGeometry height="70" width="70" x="1100" y="400" as="geometry"/>
+                </mxCell>
+
+                <!-- Boot Phase 5 -->
+                <mxCell id="boot_p5" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5f5e3;strokeColor=#16a34a;strokeWidth=2;fontSize=7;fontStyle=1;" value="🌡️&lt;br&gt;Phase 5&lt;br&gt;Sensor Init&lt;br&gt;(Serial Connect)" vertex="1">
+                    <mxGeometry height="70" width="70" x="1100" y="510" as="geometry"/>
+                </mxCell>
+
+                <!-- Boot Phase 6 -->
+                <mxCell id="boot_p6" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#66FF66;strokeColor=#16a34a;strokeWidth=2;fontSize=7;fontStyle=1;" value="✅&lt;br&gt;Phase 6&lt;br&gt;System&lt;br&gt;Ready!" vertex="1">
+                    <mxGeometry height="70" width="70" x="1100" y="620" as="geometry"/>
+                </mxCell>
+
+                <!-- ══════════════════════════════════════════════════════ -->
+                <!-- LAYER 5: WEBSOCKET ARCHITECTURE (Far Right)           -->
+                <!-- ══════════════════════════════════════════════════════ -->
+
+                <!-- WS Manager -->
+                <mxCell id="ws_mgr" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=3;fontSize=8;fontStyle=1;" value="🔌&lt;br&gt;WebSocket&lt;br&gt;Manager&lt;br&gt;(/api/v1/ws)" vertex="1">
+                    <mxGeometry height="100" width="100" x="1100" y="800" as="geometry"/>
+                </mxCell>
+
+                <!-- Room: Kiosk -->
+                <mxCell id="room_kiosk" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#6366f1;strokeWidth=1;fontSize=8;" value="🖥️&lt;br&gt;Room:&lt;br&gt;Kiosk" vertex="1">
+                    <mxGeometry height="70" width="70" x="1020" y="940" as="geometry"/>
+                </mxCell>
+
+                <!-- Room: Dashboard -->
+                <mxCell id="room_dashboard" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#6366f1;strokeWidth=1;fontSize=8;" value="🏠&lt;br&gt;Room:&lt;br&gt;Dashboard" vertex="1">
+                    <mxGeometry height="70" width="70" x="1120" y="940" as="geometry"/>
+                </mxCell>
+
+                <!-- Room: Devices -->
+                <mxCell id="room_devices" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#6366f1;strokeWidth=1;fontSize=8;" value="📷&lt;br&gt;Room:&lt;br&gt;Devices" vertex="1">
+                    <mxGeometry height="70" width="70" x="1220" y="940" as="geometry"/>
+                </mxCell>
+
+                <!-- ══════════════════════════════════════════════════════ -->
+                <!-- LAYER 6: BACKGROUND TASKS (Bottom Right)              -->
+                <!-- ══════════════════════════════════════════════════════ -->
+
+                <!-- Background Tasks Hub -->
+                <mxCell id="bg_tasks" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=8;fontStyle=1;" value="⏱️&lt;br&gt;Background&lt;br&gt;Tasks&lt;br&gt;(asyncio)" vertex="1">
+                    <mxGeometry height="90" width="90" x="1100" y="1100" as="geometry"/>
+                </mxCell>
+
+                <!-- Sensor Polling Task -->
+                <mxCell id="bg_sensor" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#f59e0b;strokeWidth=1;fontSize=7;" value="🔄&lt;br&gt;Sensor&lt;br&gt;Polling Loop&lt;br&gt;(5s interval)" vertex="1">
+                    <mxGeometry height="70" width="70" x="980" y="1120" as="geometry"/>
+                </mxCell>
+
+                <!-- Camera Health Task -->
+                <mxCell id="bg_camera" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#f59e0b;strokeWidth=1;fontSize=7;" value="🔄&lt;br&gt;Camera Health&lt;br&gt;Monitor&lt;br&gt;(10s interval)" vertex="1">
+                    <mxGeometry height="70" width="70" x="1230" y="1120" as="geometry"/>
+                </mxCell>
+
+                <!-- Data Retention Task -->
+                <mxCell id="bg_retention" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#f59e0b;strokeWidth=1;fontSize=7;" value="🗑️&lt;br&gt;Data Retention&lt;br&gt;Worker&lt;br&gt;(30d Cleanup)" vertex="1">
+                    <mxGeometry height="70" width="70" x="1100" y="1230" as="geometry"/>
+                </mxCell>
+
+                <!-- ══════════════════════════════════════════════════════ -->
+                <!-- EDGES — HARDWARE LAYER                                -->
+                <!-- ══════════════════════════════════════════════════════ -->
+
+                <!-- Arduino → Serial -->
+                <mxCell id="e_arduino_serial" edge="1" parent="1" source="arduino" target="serial_conn" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Serial → Sensor Reader -->
+                <mxCell id="e_serial_reader" edge="1" parent="1" source="serial_conn" target="sensor_reader" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Camera Array → OpenCV -->
+                <mxCell id="e_cam_opencv" edge="1" parent="1" source="camera_array" target="opencv_cap" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#2563eb;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- OpenCV → Camera Manager -->
+                <mxCell id="e_opencv_mgr" edge="1" parent="1" source="opencv_cap" target="camera_mgr" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#2563eb;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- ══════════════════════════════════════════════════════ -->
+                <!-- EDGES — SENSOR BACKGROUND                             -->
+                <!-- ══════════════════════════════════════════════════════ -->
+
+                <!-- Sensor Reader → DB -->
+                <mxCell id="e_sensor_db" edge="1" parent="1" source="sensor_reader" target="sensor_persist" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#f59e0b;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Sensor Reader → WS -->
+                <mxCell id="e_sensor_ws" edge="1" parent="1" source="sensor_reader" target="sensor_broadcast" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#6366f1;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- ══════════════════════════════════════════════════════ -->
+                <!-- EDGES — CAMERA HEALTH                                 -->
+                <!-- ══════════════════════════════════════════════════════ -->
+
+                <!-- Camera Mgr → Health Monitor -->
+                <mxCell id="e_mgr_health" edge="1" parent="1" source="camera_mgr" target="health_monitor" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#f59e0b;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Health Monitor → Frame Validation -->
+                <mxCell id="e_health_valid" edge="1" parent="1" source="health_monitor" target="frame_valid" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#f59e0b;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Health Monitor → Device DB -->
+                <mxCell id="e_health_db" edge="1" parent="1" source="health_monitor" target="device_db" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#2563eb;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Health Monitor → Device WS -->
+                <mxCell id="e_health_ws" edge="1" parent="1" source="health_monitor" target="device_broadcast" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#6366f1;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- ══════════════════════════════════════════════════════ -->
+                <!-- EDGES — SCAN PIPELINE                                 -->
+                <!-- ══════════════════════════════════════════════════════ -->
+
+                <!-- Scan Trigger → scan:started -->
+                <mxCell id="e_trigger_started" edge="1" parent="1" source="scan_trigger" target="step1_started" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- scan:started → Capture -->
+                <mxCell id="e_started_capture" edge="1" parent="1" source="step1_started" target="step2_capture" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Camera Mgr → Capture (data flow) -->
+                <mxCell id="e_mgr_capture" edge="1" parent="1" source="camera_mgr" target="step2_capture" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#2563eb;endArrow=block;endFill=1;dashed=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Capture → Save JPEG -->
+                <mxCell id="e_capture_save" edge="1" parent="1" source="step2_capture" target="save_jpeg" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#2563eb;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Capture → WS captured -->
+                <mxCell id="e_capture_ws" edge="1" parent="1" source="step2_capture" target="ws_captured" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#6366f1;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Capture → Pre-Detection -->
+                <mxCell id="e_capture_predetect" edge="1" parent="1" source="step2_capture" target="step3_predetect" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Pre-Detection → No Banana -->
+                <mxCell id="e_predetect_fail" edge="1" parent="1" source="step3_predetect" target="no_banana" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#ef4444;endArrow=block;endFill=1;dashed=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Pre-Detection → Classification -->
+                <mxCell id="e_predetect_classify" edge="1" parent="1" source="step3_predetect" target="step4_classify" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Classification → Labels -->
+                <mxCell id="e_classify_labels" edge="1" parent="1" source="step4_classify" target="class_labels" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#ec4899;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Classification → BBox NMS -->
+                <mxCell id="e_classify_bbox" edge="1" parent="1" source="step4_classify" target="bbox_nms" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#ec4899;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Classification → WS detected -->
+                <mxCell id="e_classify_ws" edge="1" parent="1" source="step4_classify" target="ws_detected" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#6366f1;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Classification → Fusion -->
+                <mxCell id="e_classify_fusion" edge="1" parent="1" source="step4_classify" target="step5_fusion" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Fusion → Top Anchor -->
+                <mxCell id="e_fusion_anchor" edge="1" parent="1" source="step5_fusion" target="top_anchor" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#f59e0b;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Fusion → Auto Flag -->
+                <mxCell id="e_fusion_flag" edge="1" parent="1" source="step5_fusion" target="auto_flag" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#ea580c;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Fusion → Harmonize -->
+                <mxCell id="e_fusion_harmonize" edge="1" parent="1" source="step5_fusion" target="harmonize" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#f59e0b;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Sensor Reader → Environmental Fusion (data flow) -->
+                <mxCell id="e_sensor_env" edge="1" parent="1" source="sensor_reader" target="step6_env" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;dashed=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Env → VPD -->
+                <mxCell id="e_env_vpd" edge="1" parent="1" source="step6_env" target="vpd_calc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#16a34a;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Env + Fusion → Spoilage -->
+                <mxCell id="e_env_spoilage" edge="1" parent="1" source="step6_env" target="step7_spoilage" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Fusion → Spoilage -->
+                <mxCell id="e_fusion_spoilage" edge="1" parent="1" source="step5_fusion" target="step7_spoilage" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Spoilage → RFR Features -->
+                <mxCell id="e_spoilage_features" edge="1" parent="1" source="step7_spoilage" target="rfr_features" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#ec4899;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Spoilage → Fallback -->
+                <mxCell id="e_spoilage_fallback" edge="1" parent="1" source="step7_spoilage" target="fallback_rules" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#ec4899;endArrow=block;endFill=1;dashed=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Spoilage → Persist -->
+                <mxCell id="e_spoilage_persist" edge="1" parent="1" source="step7_spoilage" target="step8_persist" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Persist → Notification -->
+                <mxCell id="e_persist_notif" edge="1" parent="1" source="step8_persist" target="notification" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#2563eb;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Persist → Broadcast Complete -->
+                <mxCell id="e_persist_complete" edge="1" parent="1" source="step8_persist" target="step9_complete" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- ══════════════════════════════════════════════════════ -->
+                <!-- EDGES — BOOT SEQUENCE                                 -->
+                <!-- ══════════════════════════════════════════════════════ -->
+
+                <mxCell id="e_boot_12" edge="1" parent="1" source="boot_p1" target="boot_p2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_boot_23" edge="1" parent="1" source="boot_p2" target="boot_p3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_boot_3models" edge="1" parent="1" source="boot_p3" target="ml_models" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#ec4899;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_boot_34" edge="1" parent="1" source="boot_p3" target="boot_p4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_boot_45" edge="1" parent="1" source="boot_p4" target="boot_p5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_boot_56" edge="1" parent="1" source="boot_p5" target="boot_p6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- ══════════════════════════════════════════════════════ -->
+                <!-- EDGES — WEBSOCKET ROOMS                               -->
+                <!-- ══════════════════════════════════════════════════════ -->
+
+                <mxCell id="e_ws_kiosk" edge="1" parent="1" source="ws_mgr" target="room_kiosk" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#6366f1;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_ws_dash" edge="1" parent="1" source="ws_mgr" target="room_dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#6366f1;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_ws_devices" edge="1" parent="1" source="ws_mgr" target="room_devices" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#6366f1;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- ══════════════════════════════════════════════════════ -->
+                <!-- EDGES — BACKGROUND TASKS                              -->
+                <!-- ══════════════════════════════════════════════════════ -->
+
+                <mxCell id="e_bg_sensor" edge="1" parent="1" source="bg_tasks" target="bg_sensor" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#f59e0b;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_bg_camera" edge="1" parent="1" source="bg_tasks" target="bg_camera" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#f59e0b;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_bg_retention" edge="1" parent="1" source="bg_tasks" target="bg_retention" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#f59e0b;endArrow=block;endFill=1;">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
