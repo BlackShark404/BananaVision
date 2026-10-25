@@ -1,398 +1,196 @@
 <mxfile host="65bd71144e">
     <diagram name="Figure 13: Admin Workflow - Web Dashboard (Shared Pages + 6 Admin Modules)" id="admin-workflow">
-        <mxGraphModel dx="1503" dy="990" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1200" math="0" shadow="0">
+        <mxGraphModel dx="1400" dy="1800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
-
-                <!-- ═══════════════════════════════════════════════════ -->
-                <!-- TITLE                                               -->
-                <!-- ═══════════════════════════════════════════════════ -->
-                <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;fontColor=#1e293b;" value="Figure 13: Administrator Workflow — Web Dashboard" vertex="1">
-                    <mxGeometry height="30" width="600" x="550" y="15" as="geometry"/>
+                <mxCell id="admin" value="&lt;span style=&quot;color: rgb(0, 0, 0); font-size: 9px;&quot;&gt;👤&lt;/span&gt;&lt;br&gt;Admin" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="30" y="70" width="60" height="60" as="geometry"/>
                 </mxCell>
-
-                <!-- ═══════════════════════════════════════════════════ -->
-                <!-- SECTION CONTAINERS                                  -->
-                <!-- ═══════════════════════════════════════════════════ -->
-                <mxCell id="shared_group" parent="1" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 6;fillColor=#f8fafc;strokeColor=#cbd5e1;strokeWidth=1;verticalAlign=top;align=left;spacingLeft=14;spacingTop=10;fontSize=10;fontStyle=1;fontColor=#475569;" value="SHARED PAGES — available to both operators and admins" vertex="1">
-                    <mxGeometry height="830" width="660" x="60" y="280" as="geometry"/>
-                </mxCell>
-                <mxCell id="admin_group" parent="1" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 6;fillColor=#fef7f7;strokeColor=#fecaca;strokeWidth=1;verticalAlign=top;align=left;spacingLeft=14;spacingTop=10;fontSize=10;fontStyle=1;fontColor=#991b1b;" value="ADMIN-ONLY MODULES — 6 modules (role-guarded)" vertex="1">
-                    <mxGeometry height="830" width="680" x="780" y="280" as="geometry"/>
-                </mxCell>
-
-                <!-- ═══════════════════════════════════════════════════ -->
-                <!-- ENTRY FLOW — Admin → Login → Dashboard              -->
-                <!-- ═══════════════════════════════════════════════════ -->
-                <mxCell id="admin" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=11;fontStyle=1;" value="👤&lt;br&gt;Admin" vertex="1">
-                    <mxGeometry height="80" width="80" x="520" y="60" as="geometry"/>
-                </mxCell>
-                <mxCell id="login" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;fontStyle=1;" value="🔐&lt;br&gt;Login&lt;br&gt;(Username/&lt;br&gt;Password)" vertex="1">
-                    <mxGeometry height="80" width="80" x="660" y="60" as="geometry"/>
-                </mxCell>
-                <mxCell id="dashboard" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=8;fontStyle=1;" value="🏠&lt;br&gt;Admin Dashboard&lt;br&gt;(KPIs · Notifications&lt;br&gt;Live Updates · Shortcuts)" vertex="1">
-                    <mxGeometry height="120" width="120" x="800" y="50" as="geometry"/>
-                </mxCell>
-
-                <!-- ═══════════════════════════════════════════════════ -->
-                <!-- SHARED PAGES — 5 main pages                         -->
-                <!-- ═══════════════════════════════════════════════════ -->
-
-                <!-- Scan Logs -->
-                <mxCell id="scan_logs" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=8;fontStyle=1;" value="📋&lt;br&gt;Scan Logs&lt;br&gt;(Filter / Export&lt;br&gt;/ QR)" vertex="1">
-                    <mxGeometry height="90" width="90" x="110" y="340" as="geometry"/>
-                </mxCell>
-                <!-- Analytics -->
-                <mxCell id="analytics" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=8;fontStyle=1;" value="📊&lt;br&gt;Analytics&lt;br&gt;(Filters /&lt;br&gt;Charts)" vertex="1">
-                    <mxGeometry height="90" width="90" x="430" y="340" as="geometry"/>
-                </mxCell>
-                <!-- Inventory -->
-                <mxCell id="inventory" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=8;fontStyle=1;" value="📦&lt;br&gt;Inventory&lt;br&gt;(FIFO /&lt;br&gt;Stock Risk)" vertex="1">
-                    <mxGeometry height="90" width="90" x="110" y="580" as="geometry"/>
-                </mxCell>
-                <!-- Device Status -->
-                <mxCell id="device_status" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=8;fontStyle=1;" value="📷&lt;br&gt;Device Status&lt;br&gt;(Cameras /&lt;br&gt;IoT / Health)" vertex="1">
-                    <mxGeometry height="90" width="90" x="430" y="580" as="geometry"/>
-                </mxCell>
-                <!-- Profile -->
-                <mxCell id="profile" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=8;fontStyle=1;" value="👤&lt;br&gt;Profile&lt;br&gt;(Password /&lt;br&gt;PIN / Theme)" vertex="1">
-                    <mxGeometry height="90" width="90" x="110" y="830" as="geometry"/>
-                </mxCell>
-
-                <!-- ═══════════════════════════════════════════════════ -->
-                <!-- SHARED PAGE ACTIONS                                 -->
-                <!-- ═══════════════════════════════════════════════════ -->
-
-                <!-- Scan Logs → actions -->
-                <mxCell id="view_detail" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="🔍&lt;br&gt;Scan Detail&lt;br&gt;(Edit · Flag&lt;br&gt;Notes · QR)" vertex="1">
-                    <mxGeometry height="60" width="60" x="240" y="330" as="geometry"/>
-                </mxCell>
-                <mxCell id="update_status" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="🔄&lt;br&gt;Update Status&lt;br&gt;+ Reason" vertex="1">
-                    <mxGeometry height="60" width="60" x="310" y="330" as="geometry"/>
-                </mxCell>
-                <mxCell id="export_logs" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="📊&lt;br&gt;Export&lt;br&gt;CSV / XLSX" vertex="1">
-                    <mxGeometry height="60" width="60" x="240" y="410" as="geometry"/>
-                </mxCell>
-                <mxCell id="print_qr" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="🏷️&lt;br&gt;QR / Print&lt;br&gt;Label" vertex="1">
-                    <mxGeometry height="60" width="60" x="310" y="410" as="geometry"/>
-                </mxCell>
-
-                <!-- Analytics → actions -->
-                <mxCell id="filter_data" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="🔽&lt;br&gt;Filter Data&lt;br&gt;(Source/Date)" vertex="1">
-                    <mxGeometry height="60" width="60" x="560" y="330" as="geometry"/>
-                </mxCell>
-                <mxCell id="view_charts" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="📈&lt;br&gt;View Charts&lt;br&gt;(Trends)" vertex="1">
-                    <mxGeometry height="60" width="60" x="560" y="410" as="geometry"/>
-                </mxCell>
-
-                <!-- Inventory → actions -->
-                <mxCell id="fifo_stock" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="📋&lt;br&gt;FIFO &amp; Stock&lt;br&gt;Risk" vertex="1">
-                    <mxGeometry height="60" width="60" x="240" y="570" as="geometry"/>
-                </mxCell>
-                <mxCell id="spoilage_alerts" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#ea580c;strokeWidth=1;fontSize=7;" value="⚠️&lt;br&gt;Spoilage&lt;br&gt;Alerts" vertex="1">
-                    <mxGeometry height="60" width="60" x="310" y="570" as="geometry"/>
-                </mxCell>
-                <mxCell id="stock_breakdown" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="📦&lt;br&gt;Ripeness /&lt;br&gt;Cultivar" vertex="1">
-                    <mxGeometry height="60" width="60" x="270" y="650" as="geometry"/>
-                </mxCell>
-
-                <!-- Device Status → actions -->
-                <mxCell id="camera_grid" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="📷&lt;br&gt;Camera Grid&lt;br&gt;+ Preview" vertex="1">
-                    <mxGeometry height="60" width="60" x="560" y="570" as="geometry"/>
-                </mxCell>
-                <mxCell id="sensor_readings" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="🌡️&lt;br&gt;DHT22&lt;br&gt;Readings" vertex="1">
-                    <mxGeometry height="60" width="60" x="630" y="570" as="geometry"/>
-                </mxCell>
-                <mxCell id="system_health" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="💻&lt;br&gt;System&lt;br&gt;Health" vertex="1">
-                    <mxGeometry height="60" width="60" x="600" y="650" as="geometry"/>
-                </mxCell>
-
-                <!-- Profile → actions -->
-                <mxCell id="update_password" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="🔑&lt;br&gt;Update&lt;br&gt;Password" vertex="1">
-                    <mxGeometry height="60" width="60" x="240" y="820" as="geometry"/>
-                </mxCell>
-                <mxCell id="change_pin" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="🔢&lt;br&gt;Change&lt;br&gt;Kiosk PIN" vertex="1">
-                    <mxGeometry height="60" width="60" x="310" y="820" as="geometry"/>
-                </mxCell>
-                <mxCell id="theme_avatar" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="🌓&lt;br&gt;Theme &amp; Avatar" vertex="1">
-                    <mxGeometry height="60" width="60" x="270" y="900" as="geometry"/>
-                </mxCell>
-
-                <!-- ═══════════════════════════════════════════════════ -->
-                <!-- ADMIN-ONLY MODULES — 6 modules                      -->
-                <!-- ═══════════════════════════════════════════════════ -->
-
-                <!-- Row 1: User Management, Delivery Intakes -->
-                <mxCell id="usermgmt" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=8;fontStyle=1;" value="👥&lt;br&gt;User&lt;br&gt;Management" vertex="1">
-                    <mxGeometry height="90" width="90" x="830" y="340" as="geometry"/>
-                </mxCell>
-                <mxCell id="intakes" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=8;fontStyle=1;" value="📦&lt;br&gt;Delivery&lt;br&gt;Intakes" vertex="1">
-                    <mxGeometry height="90" width="90" x="1200" y="340" as="geometry"/>
-                </mxCell>
-
-                <!-- Row 2: Supplier Management, Quality Control -->
-                <mxCell id="suppliers" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=8;fontStyle=1;" value="🏢&lt;br&gt;Supplier&lt;br&gt;Management" vertex="1">
-                    <mxGeometry height="90" width="90" x="830" y="580" as="geometry"/>
-                </mxCell>
-                <mxCell id="quality" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=8;fontStyle=1;" value="🔍✓&lt;br&gt;Quality&lt;br&gt;Control" vertex="1">
-                    <mxGeometry height="90" width="90" x="1200" y="580" as="geometry"/>
-                </mxCell>
-
-                <!-- Row 3: Activity Log, System Config -->
-                <mxCell id="activity" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=8;fontStyle=1;" value="📜&lt;br&gt;Activity&lt;br&gt;Log" vertex="1">
-                    <mxGeometry height="90" width="90" x="830" y="830" as="geometry"/>
-                </mxCell>
-                <mxCell id="config" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=8;fontStyle=1;" value="⚙️&lt;br&gt;System&lt;br&gt;Config" vertex="1">
-                    <mxGeometry height="90" width="90" x="1200" y="830" as="geometry"/>
-                </mxCell>
-
-                <!-- ═══════════════════════════════════════════════════ -->
-                <!-- ADMIN MODULE ACTIONS                                -->
-                <!-- ═══════════════════════════════════════════════════ -->
-
-                <!-- User Management → actions -->
-                <mxCell id="add_user" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="➕👤&lt;br&gt;Add User&lt;br&gt;(Temp Creds)" vertex="1">
-                    <mxGeometry height="60" width="60" x="960" y="320" as="geometry"/>
-                </mxCell>
-                <mxCell id="edit_user" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="✏️&lt;br&gt;Edit User&lt;br&gt;(Role/Status)" vertex="1">
-                    <mxGeometry height="60" width="60" x="1030" y="320" as="geometry"/>
-                </mxCell>
-                <mxCell id="reset_password" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="🔑&lt;br&gt;Reset&lt;br&gt;Password" vertex="1">
-                    <mxGeometry height="60" width="60" x="960" y="400" as="geometry"/>
-                </mxCell>
-                <mxCell id="reset_pin" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="🔢&lt;br&gt;Reset&lt;br&gt;Kiosk PIN" vertex="1">
-                    <mxGeometry height="60" width="60" x="1030" y="400" as="geometry"/>
-                </mxCell>
-
-                <!-- Delivery Intake → actions -->
-                <mxCell id="bulk_status" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="🔄&lt;br&gt;Bulk Inventory&lt;br&gt;Status + Reason" vertex="1">
-                    <mxGeometry height="60" width="60" x="1330" y="320" as="geometry"/>
-                </mxCell>
-                <mxCell id="batch_qr" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="🏷️&lt;br&gt;Print Batch&lt;br&gt;QR Label" vertex="1">
-                    <mxGeometry height="60" width="60" x="1400" y="320" as="geometry"/>
-                </mxCell>
-                <mxCell id="export_intakes" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="📊&lt;br&gt;Export&lt;br&gt;CSV / XLSX" vertex="1">
-                    <mxGeometry height="60" width="60" x="1360" y="400" as="geometry"/>
-                </mxCell>
-
-                <!-- Supplier → actions -->
-                <mxCell id="add_supplier" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="➕🏢&lt;br&gt;Add&lt;br&gt;Supplier" vertex="1">
-                    <mxGeometry height="60" width="60" x="960" y="570" as="geometry"/>
-                </mxCell>
-                <mxCell id="edit_supplier" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="✏️🏢&lt;br&gt;Edit&lt;br&gt;Supplier" vertex="1">
-                    <mxGeometry height="60" width="60" x="1030" y="570" as="geometry"/>
-                </mxCell>
-                <mxCell id="toggle_supplier" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="✅&lt;br&gt;Activate /&lt;br&gt;Deactivate" vertex="1">
-                    <mxGeometry height="60" width="60" x="990" y="650" as="geometry"/>
-                </mxCell>
-
-                <!-- Quality Control → actions -->
-                <mxCell id="review_scan" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="🔍&lt;br&gt;Review Scan&lt;br&gt;(Evidence&lt;br&gt;+ Notes)" vertex="1">
-                    <mxGeometry height="60" width="60" x="1330" y="570" as="geometry"/>
-                </mxCell>
-                <mxCell id="override_scan" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="✏️&lt;br&gt;Override&lt;br&gt;Classification" vertex="1">
-                    <mxGeometry height="60" width="60" x="1400" y="570" as="geometry"/>
-                </mxCell>
-                <mxCell id="flag_scan" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="🚩&lt;br&gt;Flag /&lt;br&gt;Unflag" vertex="1">
-                    <mxGeometry height="60" width="60" x="1330" y="650" as="geometry"/>
-                </mxCell>
-                <mxCell id="export_quality" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="📊&lt;br&gt;Export&lt;br&gt;CSV / XLSX" vertex="1">
-                    <mxGeometry height="60" width="60" x="1400" y="650" as="geometry"/>
-                </mxCell>
-
-                <!-- Activity Log → actions -->
-                <mxCell id="filter_actions" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="🔽&lt;br&gt;Filter Action&lt;br&gt;/ User" vertex="1">
-                    <mxGeometry height="60" width="60" x="960" y="830" as="geometry"/>
-                </mxCell>
-                <mxCell id="export_activity" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="📊&lt;br&gt;Export&lt;br&gt;CSV / XLSX" vertex="1">
-                    <mxGeometry height="60" width="60" x="1030" y="830" as="geometry"/>
-                </mxCell>
-
-                <!-- System Config → actions -->
-                <mxCell id="camera_config" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="📷&lt;br&gt;Cameras +&lt;br&gt;Calibration" vertex="1">
-                    <mxGeometry height="60" width="60" x="1330" y="820" as="geometry"/>
-                </mxCell>
-                <mxCell id="detection_threshold" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="🎚️&lt;br&gt;Review&lt;br&gt;Threshold" vertex="1">
-                    <mxGeometry height="60" width="60" x="1400" y="820" as="geometry"/>
-                </mxCell>
-                <mxCell id="data_backups" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="💾&lt;br&gt;Retention /&lt;br&gt;Backup / Restore" vertex="1">
-                    <mxGeometry height="60" width="60" x="1330" y="900" as="geometry"/>
-                </mxCell>
-                <mxCell id="power_controls" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=7;" value="⏻&lt;br&gt;Restart /&lt;br&gt;Shutdown" vertex="1">
-                    <mxGeometry height="60" width="60" x="1400" y="900" as="geometry"/>
-                </mxCell>
-
-                <!-- ═══════════════════════════════════════════════════ -->
-                <!-- ENTRY EDGES — Admin → Login → Dashboard             -->
-                <!-- ═══════════════════════════════════════════════════ -->
-                <mxCell id="e_admin_login" edge="1" parent="1" source="admin" target="login" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;">
+                <mxCell id="arrow1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="admin" target="login" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_login_dashboard" edge="1" parent="1" source="login" target="dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;">
+                <mxCell id="login" value="🔐&lt;br&gt;Login" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="120" y="70" width="60" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="login" target="dashboard" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-
-                <!-- Dashboard → Shared Pages -->
-                <mxCell id="e_dash_shared" edge="1" parent="1" source="dashboard" target="shared_group" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#6366f1;endArrow=block;endFill=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=9;fontColor=#4338ca;" value="Menu · shared pages">
+                <mxCell id="dashboard" value="🏠&#xa;Admin&#xa;Dashboard&#xa;(Overview + Notifications)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=8;" parent="1" vertex="1">
+                    <mxGeometry x="210" y="-110" width="100" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_um" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="dashboard" target="usermgmt" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="usermgmt" value="👥&lt;br&gt;User&lt;br&gt;Management" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#333333;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="215" y="-270" width="90" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="adduser" value="➕👤&lt;br&gt;Add User" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="310" y="-370" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_add" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="usermgmt" target="adduser" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edituser" value="✏️👤&lt;br&gt;Edit User" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="160" y="-370" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_edit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="usermgmt" target="edituser" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="disableuser" value="🚫&lt;br&gt;Disable User" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="-250" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_disable" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="usermgmt" target="disableuser" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="resetpw" value="🔑&lt;br&gt;Reset&lt;br&gt;Password" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="235" y="-380" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_reset" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="usermgmt" target="resetpw" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_bm" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="dashboard" target="batchmgmt" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="batchmgmt" value="📦&lt;br&gt;Delivery&lt;br&gt;Intakes&lt;br&gt;(Treatment + QR)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#333333;strokeWidth=2;fontSize=8;" parent="1" vertex="1">
+                    <mxGeometry x="215" y="150" width="90" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="editbatch" value="✏️&lt;br&gt;Edit&lt;br&gt;Intake" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="330" y="265" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_editb" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="batchmgmt" target="editbatch" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="830" y="220"/>
-                            <mxPoint x="390" y="220"/>
+                            <mxPoint x="355" y="190"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
-
-                <!-- Dashboard → Admin Modules -->
-                <mxCell id="e_dash_admin" edge="1" parent="1" source="dashboard" target="admin_group" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;endArrow=block;endFill=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=9;fontColor=#b91c1c;" value="Admin · 6 modules">
+                <mxCell id="togglestatus" value="✅&lt;br&gt;Toggle&lt;br&gt;Status" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="125" y="265" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_toggle" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="batchmgmt" target="togglestatus" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="890" y="220"/>
-                            <mxPoint x="1120" y="220"/>
+                            <mxPoint x="150" y="190"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
-
-                <!-- ═══════════════════════════════════════════════════ -->
-                <!-- SHARED PAGE EDGES — parent → action                 -->
-                <!-- ═══════════════════════════════════════════════════ -->
-
-                <!-- Scan Logs → 4 actions (2×2 grid layout) -->
-                <mxCell id="e_scan_view" edge="1" parent="1" source="scan_logs" target="view_detail" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="arrow_qc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="dashboard" target="qualitycontrol" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_scan_status" edge="1" parent="1" source="scan_logs" target="update_status" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="qualitycontrol" value="🔍✓&lt;br&gt;Quality Control&lt;br&gt;(Flagged Scans)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#333333;strokeWidth=2;fontSize=8;" parent="1" vertex="1">
+                    <mxGeometry x="360" y="10" width="70" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="flagscan" value="🚩&lt;br&gt;Flag Scan" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="-20" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_flag" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="qualitycontrol" target="flagscan" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_scan_export" edge="1" parent="1" source="scan_logs" target="export_logs" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="editscan" value="✏️&lt;br&gt;Edit Scan&lt;br&gt;Data" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="40" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_editscan" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="qualitycontrol" target="editscan" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_scan_qr" edge="1" parent="1" source="scan_logs" target="print_qr" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="reviewnotes" value="📝&lt;br&gt;Review&lt;br&gt;Notes" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="370" y="110" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="qualitycontrol" target="reviewnotes" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-
-                <!-- Analytics → 2 actions -->
-                <mxCell id="e_analytics_filter" edge="1" parent="1" source="analytics" target="filter_data" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="arrow_as" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="dashboard" target="allscans" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_analytics_charts" edge="1" parent="1" source="analytics" target="view_charts" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="11" style="edgeStyle=none;html=1;" edge="1" parent="1" source="allscans" target="4">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-
-                <!-- Inventory → 3 actions -->
-                <mxCell id="e_inv_fifo" edge="1" parent="1" source="inventory" target="fifo_stock" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="12" style="edgeStyle=none;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="allscans" target="6">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_inv_spoilage" edge="1" parent="1" source="inventory" target="spoilage_alerts" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="allscans" value="📋&lt;br&gt;Scan Log" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#333333;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="-340" width="70" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_al" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="dashboard" target="activitylog" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_inv_breakdown" edge="1" parent="1" source="inventory" target="stock_breakdown" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="activitylog" value="📜&lt;br&gt;Activity&lt;br&gt;Log" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#333333;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="-95" width="70" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="filteractions" value="🔽&lt;br&gt;Filter&lt;br&gt;Actions" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="20" y="-85" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_filter" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="activitylog" target="filteractions" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-
-                <!-- Device Status → 3 actions -->
-                <mxCell id="e_dev_cameras" edge="1" parent="1" source="device_status" target="camera_grid" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="arrow_sc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="dashboard" target="systemconfig" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_dev_sensors" edge="1" parent="1" source="device_status" target="sensor_readings" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="systemconfig" value="⚙️&lt;br&gt;System Config&lt;br&gt;(Cameras / Threshold / Retention)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#333333;strokeWidth=2;fontSize=7;" parent="1" vertex="1">
+                    <mxGeometry x="610" y="-95" width="70" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="cameraconfig" value="📷&lt;br&gt;Camera" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="720" y="-130" width="45" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_camera" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="systemconfig" target="cameraconfig" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_dev_health" edge="1" parent="1" source="device_status" target="system_health" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="aisettings" value="🤖&lt;br&gt;AI" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="622.5" y="-210" width="45" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_ai" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="systemconfig" target="aisettings" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-
-                <!-- Profile → 3 actions -->
-                <mxCell id="e_profile_password" edge="1" parent="1" source="profile" target="update_password" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="storage" value="💾&lt;br&gt;Storage" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="622.5" y="25" width="45" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_storage" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="systemconfig" target="storage" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_profile_pin" edge="1" parent="1" source="profile" target="change_pin" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="power" value="⏻&#xa;Power" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="720" y="-45" width="45" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_power" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="systemconfig" target="power" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_profile_theme" edge="1" parent="1" source="profile" target="theme_avatar" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="arrow_sm" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" parent="1" source="dashboard" target="suppliermgmt" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-
-                <!-- ═══════════════════════════════════════════════════ -->
-                <!-- ADMIN MODULE EDGES — parent → action                -->
-                <!-- ═══════════════════════════════════════════════════ -->
-
-                <!-- User Management → 4 actions (2×2) -->
-                <mxCell id="e_user_add" edge="1" parent="1" source="usermgmt" target="add_user" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="suppliermgmt" value="🏢&lt;br&gt;Supplier&lt;br&gt;Management&lt;br&gt;(Active / Inactive)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#333333;strokeWidth=2;fontSize=8;" parent="1" vertex="1">
+                    <mxGeometry x="490" y="120" width="90" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="addsupplier" value="➕&lt;br&gt;Add&lt;br&gt;Supplier" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="630" y="100" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_addsup" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="suppliermgmt" target="addsupplier" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_user_edit" edge="1" parent="1" source="usermgmt" target="edit_user" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="togglesupplier" value="✅&lt;br&gt;Toggle&lt;br&gt;Status" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="630" y="180" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow_toggsup" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;endArrow=block;endFill=1;" parent="1" source="suppliermgmt" target="togglesupplier" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_user_password" edge="1" parent="1" source="usermgmt" target="reset_password" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="2" value="&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;View Detail" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" vertex="1" parent="1">
+                    <mxGeometry x="380" y="-350" width="77.5" height="77.5" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_user_pin" edge="1" parent="1" source="usermgmt" target="reset_pin" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="4" value="&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;Export CSV" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" vertex="1" parent="1">
+                    <mxGeometry x="605" y="-342.5" width="75" height="75" as="geometry"/>
                 </mxCell>
-
-                <!-- Delivery Intake → 3 actions -->
-                <mxCell id="e_intake_bulk" edge="1" parent="1" source="intakes" target="bulk_status" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="6" value="&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;Update Status" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=9;" vertex="1" parent="1">
+                    <mxGeometry x="496.25" y="-470" width="77.5" height="77.5" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_intake_qr" edge="1" parent="1" source="intakes" target="batch_qr" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="7" value="" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=default;verticalAlign=top;aspect=fixed;imageAspect=0;image=data:image/svg+xml,PHN2ZyB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2ZXJzaW9uPSIxLjEiIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiBoZWlnaHQ9IjgwMHB4IiB3aWR0aD0iODAwcHgiPgogICAgPHRpdGxlPmRldGFpbHM8L3RpdGxlPgogICAgPGcgZmlsbC1ydWxlPSJldmVub2RkIiBmaWxsPSJub25lIiBzdHJva2Utd2lkdGg9IjEiIHN0cm9rZT0ibm9uZSIgaWQ9IlBhZ2UtMSI+CiAgICAgICAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjQuMDAwMDAwLCA2NC4wMDAwMDApIiBmaWxsPSIjMDAwMDAwIiBpZD0iQ29tYmluZWQtU2hhcGUiPgogICAgICAgICAgICA8cGF0aCBkPSJNMzg0LDY0IEwzODQsMzg0IEw2NCwzODQgTDY0LDY0IEwzODQsNjQgWiBNMzQxLjMzMzMzMywxMDYuNjY2NjY3IEwxMDYuNjY2NjY3LDEwNi42NjY2NjcgTDEwNi42NjY2NjcsMzQxLjMzMzMzMyBMMzQxLjMzMzMzMywzNDEuMzMzMzMzIEwzNDEuMzMzMzMzLDEwNi42NjY2NjcgWiBNMzIwLDEuNDIxMDg1NDdlLTE0IEwzMjAsNDIuNjY2NjY2NyBMNDIuNjY2LDQyLjY2NiBMNDIuNjY2NjY2NywzMjAgTDEuNDIxMDg1NDdlLTE0LDMyMCBMMS40MjEwODU0N2UtMTQsMS40MjEwODU0N2UtMTQgTDMyMCwxLjQyMTA4NTQ3ZS0xNCBaIE0yOTguNjY2NjY3LDIzNC42NjY2NjcgTDI5OC42NjY2NjcsMjc3LjMzMzMzMyBMMTQ5LjMzMzMzMywyNzcuMzMzMzMzIEwxNDkuMzMzMzMzLDIzNC42NjY2NjcgTDI5OC42NjY2NjcsMjM0LjY2NjY2NyBaIE0yOTguNjY2NjY3LDE0OS4zMzMzMzMgTDI5OC42NjY2NjcsMTkyIEwxNDkuMzMzMzMzLDE5MiBMMTQ5LjMzMzMzMywxNDkuMzMzMzMzIEwyOTguNjY2NjY3LDE0OS4zMzMzMzMgWiI+Cgo8L3BhdGg+CiAgICAgICAgPC9nPgogICAgPC9nPgo8L3N2Zz4=;" vertex="1" parent="1">
+                    <mxGeometry x="398.75" y="-340" width="40" height="40" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_intake_export" edge="1" parent="1" source="intakes" target="export_intakes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="9" value="" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=default;verticalAlign=top;aspect=fixed;imageAspect=0;image=data:image/svg+xml,PHN2ZyB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWw6c3BhY2U9InByZXNlcnZlIiB2aWV3Qm94PSIwIDAgNTEyIDUxMiIgaWQ9IkxheWVyXzEiIHZlcnNpb249IjEuMSI+CjxyZWN0IGhlaWdodD0iNDkxLjYwMiIgd2lkdGg9IjMzMi41NTUiIHN0eWxlPSJmaWxsOiNGRkU2Qjg7IiB5PSIxMC4xOTkiIHg9Ijg5LjcyMyIvPgo8Zz4KCTxwYXRoIGQ9Ik0yNTMuNDIsMzIyLjYxM0wzMDMuMSwzNTEuM2M4LjUzMiw0LjkyNiw4LjUzMiwxNy4yNDEsMCwyMi4xNjdsLTQ5LjY4LDI4LjY4NyYjMTA7JiM5OyYjOTtjLTguNTMzLDQuOTI3LTE5LjE5OC0xLjIzMS0xOS4xOTgtMTEuMDgzdi01Ny4zNzVDMjM0LjIyMiwzMjMuODQ0LDI0NC44ODgsMzE3LjY4NiwyNTMuNDIsMzIyLjYxM3oiIHN0eWxlPSJmaWxsOiNCQ0M5ODc7Ii8+Cgk8cGF0aCBkPSJNMzUzLjQzMSwyMDEuMjNsLTQ5LjY4LTI4LjY4N2MtOC41MzItNC45MjYtOC41MzItMTcuMjQxLDAtMjIuMTY3bDQ5LjY4LTI4LjY4NyYjMTA7JiM5OyYjOTtjOC41MzMtNC45MjcsMTkuMTk4LDEuMjMxLDE5LjE5OCwxMS4wODN2NTcuMzc1QzM3Mi42MjksMTk5Ljk5OSwzNjEuOTYzLDIwNi4xNTcsMzUzLjQzMSwyMDEuMjN6IiBzdHlsZT0iZmlsbDojQkNDOTg3OyIvPgo8L2c+CjxnPgoJPHBhdGggZD0iTTQzNC41NDYsMTUxLjI2aC0yLjA2OVYxMC4xOTlDNDMyLjQ3Niw0LjU2Niw0MjcuOTA5LDAsNDIyLjI3NywwSDg5LjcyMyYjMTA7JiM5OyYjOTtjLTUuNjMyLDAtMTAuMTk5LDQuNTY2LTEwLjE5OSwxMC4xOTl2MjQyLjAzM2gtMi4wNjljLTMzLjE4LDAtNjAuMTc1LDI2Ljk5NC02MC4xNzUsNjAuMTc1czI2Ljk5NSw2MC4xNzUsNjAuMTc1LDYwLjE3NWgyLjA2OSYjMTA7JiM5OyYjOTt2MTI5LjIxOGMwLDUuNjMzLDQuNTY3LDEwLjE5OSwxMC4xOTksMTAuMTk5aDMzMi41NTRjNS42MzIsMCwxMC4xOTktNC41NjYsMTAuMTk5LTEwLjE5OXYtMjMwLjE5aDIuMDY5JiMxMDsmIzk7JiM5O2MzMy4xOCwwLDYwLjE3NS0yNi45OTQsNjAuMTc1LTYwLjE3NVM0NjcuNzI2LDE1MS4yNiw0MzQuNTQ2LDE1MS4yNnogTTc3LjQ1MywzNTIuMTg1Yy0yMS45MzMsMC0zOS43NzctMTcuODQzLTM5Ljc3Ny0zOS43NzcmIzEwOyYjOTsmIzk7YzAtMjEuOTMzLDE3Ljg0NC0zOS43NzcsMzkuNzc3LTM5Ljc3N2gyLjA2OXY3OS41NTRINzcuNDUzeiBNOTkuOTIyLDQ5MS42MDJWMzcyLjU4M2gxMjQuMTAxdjE4LjQ4OCYjMTA7JiM5OyYjOTtjMCw4LjMxNCw0LjI5OSwxNS43NiwxMS40OTksMTkuOTE3YzMuNiwyLjA3OSw3LjU0OSwzLjExOCwxMS40OTksMy4xMThjMy45NSwwLDcuOS0xLjAzOSwxMS41MDEtMy4xMTlsNDkuNjc4LTI4LjY4NiYjMTA7JiM5OyYjOTtjNy4yMDEtNC4xNTcsMTEuNDk4LTExLjYwMywxMS40OTgtMTkuOTE2YzAtOC4zMTMtNC4yOTgtMTUuNzU5LTExLjQ5Ny0xOS45MTZsLTQ5LjY3OS0yOC42ODdoLTAuMDAxJiMxMDsmIzk7JiM5O2MtNy4yMDItNC4xNTgtMTUuOC00LjE1OC0yMi45OTksMGMtNy4yMDEsNC4xNTctMTEuNDk5LDExLjYwMi0xMS40OTksMTkuOTE2djE4LjQ4OGgtMTI0LjFWMjAuMzk4aDMxMi4xNTZWMTUxLjI2SDM4Mi44M3YtMTguNDg4JiMxMDsmIzk7JiM5O2MwLTguMzE0LTQuMjk5LTE1Ljc2LTExLjQ5OS0xOS45MTZjLTcuMjAxLTQuMTU3LTE1Ljc5OC00LjE1OC0yMywwLjAwMWwtNDkuNjc4LDI4LjY4NmMtNy4yMDEsNC4xNTctMTEuNDk4LDExLjYwMy0xMS40OTgsMTkuOTE2JiMxMDsmIzk7JiM5O2MwLDguMzEzLDQuMjk4LDE1Ljc1OSwxMS40OTcsMTkuOTE1bDQ5LjY3OSwyOC42ODdoMC4wMDFjMy42LDIuMDgsNy41NDksMy4xMTgsMTEuNSwzLjExOGMzLjk0OSwwLDcuODk4LTEuMDM5LDExLjQ5OS0zLjExOCYjMTA7JiM5OyYjOTtjNy4yMDEtNC4xNTcsMTEuNDk5LTExLjYwMywxMS40OTktMTkuOTE3di0xOC40ODhoMjkuMjQ4djMxOS45NDVIOTkuOTIyeiBNMjQ4LjMyMSwzMzEuNDQ2bDQ5LjY4LDI4LjY4NyYjMTA7JiM5OyYjOTtjMS4wNzQsMC42MiwxLjI5OCwxLjU2NywxLjI5OCwyLjI1MXMtMC4yMjUsMS42MzEtMS4yOTksMi4yNTFsLTQ5LjY3OCwyOC42ODZjLTEuMDc1LDAuNjIyLTIuMDA5LDAuMzQzLTIuNjAxLDAmIzEwOyYjOTsmIzk7Yy0wLjU5My0wLjM0Mi0xLjI5OS0xLjAxMS0xLjI5OS0yLjI1MXYtNTcuMzc1YzAtMS4yNCwwLjcwNy0xLjkwOCwxLjI5OS0yLjI1MWMwLjMzNy0wLjE5NSwwLjc4My0wLjM2OCwxLjMwMi0wLjM2OCYjMTA7JiM5OyYjOTtDMjQ3LjQxOSwzMzEuMDc3LDI0Ny44NTYsMzMxLjE3NywyNDguMzIxLDMzMS40NDZ6IE0zNjIuNDMxLDEzMi43NzJ2NTcuMzc1YzAsMS4yNC0wLjcwNywxLjkwOS0xLjI5OSwyLjI1MSYjMTA7JiM5OyYjOTtjLTAuNTkzLDAuMzQyLTEuNTI3LDAuNjItMi42LDBsLTQ5LjY4LTI4LjY4N2MtMS4wNzQtMC42Mi0xLjI5OC0xLjU2Ny0xLjI5OC0yLjI1MXMwLjIyNS0xLjYzMSwxLjI5OS0yLjI1Mmw0OS42NzgtMjguNjg2JiMxMDsmIzk7JiM5O2MxLjA3NS0wLjYyLDIuMDA3LTAuMzQzLDIuNjAxLDBDMzYxLjcyMywxMzAuODY0LDM2Mi40MzEsMTMxLjUzMiwzNjIuNDMxLDEzMi43NzJ6IE00MzQuNTQ2LDI1MS4yMTJoLTIuMDY5di03OS41NTRoMi4wNjkmIzEwOyYjOTsmIzk7YzIxLjkzMywwLDM5Ljc3NywxNy44NDQsMzkuNzc3LDM5Ljc3N1M0NTYuNDc4LDI1MS4yMTIsNDM0LjU0NiwyNTEuMjEyeiIgc3R5bGU9ImZpbGw6IzREM0QzNjsiLz4KCTxwYXRoIGQ9Ik0zNTYuOTcyLDgyLjYxNGg3LjEzOWM1LjYzMiwwLDEwLjE5OS00LjU2NiwxMC4xOTktMTAuMTk5cy00LjU2Ny0xMC4xOTktMTAuMTk5LTEwLjE5OWgtNy4xMzkmIzEwOyYjOTsmIzk7Yy01LjYzMiwwLTEwLjE5OSw0LjU2Ni0xMC4xOTksMTAuMTk5UzM1MS4zNCw4Mi42MTQsMzU2Ljk3Miw4Mi42MTR6IiBzdHlsZT0iZmlsbDojNEQzRDM2OyIvPgoJPHBhdGggZD0iTTE0Ny44ODgsODIuNjE0aDE2OS4zMDdjNS42MzIsMCwxMC4xOTktNC41NjYsMTAuMTk5LTEwLjE5OXMtNC41NjctMTAuMTk5LTEwLjE5OS0xMC4xOTlIMTQ3Ljg4OCYjMTA7JiM5OyYjOTtjLTUuNjMyLDAtMTAuMTk5LDQuNTY2LTEwLjE5OSwxMC4xOTlTMTQyLjI1Niw4Mi42MTQsMTQ3Ljg4OCw4Mi42MTR6IiBzdHlsZT0iZmlsbDojNEQzRDM2OyIvPgoJPHBhdGggZD0iTTI4NS41NzcsMjM5LjY4MUgxNDcuODg4Yy01LjYzMiwwLTEwLjE5OSw0LjU2Ni0xMC4xOTksMTAuMTk5YzAsNS42MzMsNC41NjcsMTAuMTk5LDEwLjE5OSwxMC4xOTkmIzEwOyYjOTsmIzk7aDEzNy42ODljNS42MzIsMCwxMC4xOTktNC41NjYsMTAuMTk5LTEwLjE5OUMyOTUuNzc2LDI0NC4yNDcsMjkxLjIwOSwyMzkuNjgxLDI4NS41NzcsMjM5LjY4MXoiIHN0eWxlPSJmaWxsOiM0RDNEMzY7Ii8+Cgk8cGF0aCBkPSJNMTQ3Ljg4OCwxNDMuODA5aDkxLjc5M2M1LjYzMiwwLDEwLjE5OS00LjU2NiwxMC4xOTktMTAuMTk5YzAtNS42MzMtNC41NjctMTAuMTk5LTEwLjE5OS0xMC4xOTkmIzEwOyYjOTsmIzk7aC05MS43OTNjLTUuNjMyLDAtMTAuMTk5LDQuNTY2LTEwLjE5OSwxMC4xOTlDMTM3LjY4OSwxMzkuMjQzLDE0Mi4yNTYsMTQzLjgwOSwxNDcuODg4LDE0My44MDl6IiBzdHlsZT0iZmlsbDojNEQzRDM2OyIvPgoJPHBhdGggZD0iTTE0Ny44ODgsMTk4Ljg4NGg5MS43OTNjNS42MzIsMCwxMC4xOTktNC41NjYsMTAuMTk5LTEwLjE5OWMwLTUuNjMzLTQuNTY3LTEwLjE5OS0xMC4xOTktMTAuMTk5JiMxMDsmIzk7JiM5O2gtOTEuNzkzYy01LjYzMiwwLTEwLjE5OSw0LjU2Ni0xMC4xOTksMTAuMTk5QzEzNy42ODksMTk0LjMxOCwxNDIuMjU2LDE5OC44ODQsMTQ3Ljg4OCwxOTguODg0eiIgc3R5bGU9ImZpbGw6IzREM0QzNjsiLz4KPC9nPgo8L3N2Zz4=;" vertex="1" parent="1">
+                    <mxGeometry x="519" y="-460" width="32" height="32" as="geometry"/>
                 </mxCell>
-
-                <!-- Supplier → 3 actions -->
-                <mxCell id="e_supplier_add" edge="1" parent="1" source="suppliers" target="add_supplier" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="10" value="" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=default;verticalAlign=top;aspect=fixed;imageAspect=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgNDAwIiBoZWlnaHQ9IjgwMHB4IiB3aWR0aD0iODAwcHgiPgoKPGRlZnM+Cgo8c3R5bGU+LmNscy0xe2ZpbGw6IzEwMTAxMDt9PC9zdHlsZT4KCjwvZGVmcz4KCjx0aXRsZS8+Cgo8ZyBpZD0ieHh4LXdvcmQiPgoKPHBhdGggZD0iTTMyNSwxMDVIMjUwYTUsNSwwLDAsMS01LTVWMjVhNSw1LDAsMSwxLDEwLDBWOTVoNzBhNSw1LDAsMCwxLDAsMTBaIiBjbGFzcz0iY2xzLTEiLz4KCjxwYXRoIGQ9Ik0zMjUsMTU0LjgzYTUsNSwwLDAsMS01LTVWMTAyLjA3TDI0Ny45MywzMEgxMDBBMjAsMjAsMCwwLDAsODAsNTB2OTguMTdhNSw1LDAsMCwxLTEwLDBWNTBhMzAsMzAsMCwwLDEsMzAtMzBIMjUwYTUsNSwwLDAsMSwzLjU0LDEuNDZsNzUsNzVBNSw1LDAsMCwxLDMzMCwxMDB2NDkuODNBNSw1LDAsMCwxLDMyNSwxNTQuODNaIiBjbGFzcz0iY2xzLTEiLz4KCjxwYXRoIGQ9Ik0zMDAsMzgwSDEwMGEzMCwzMCwwLDAsMS0zMC0zMFYyNzVhNSw1LDAsMCwxLDEwLDB2NzVhMjAsMjAsMCwwLDAsMjAsMjBIMzAwYTIwLDIwLDAsMCwwLDIwLTIwVjI3NWE1LDUsMCwwLDEsMTAsMHY3NUEzMCwzMCwwLDAsMSwzMDAsMzgwWiIgY2xhc3M9ImNscy0xIi8+Cgo8cGF0aCBkPSJNMjc1LDI4MEgxMjVhNSw1LDAsMSwxLDAtMTBIMjc1YTUsNSwwLDAsMSwwLDEwWiIgY2xhc3M9ImNscy0xIi8+Cgo8cGF0aCBkPSJNMjAwLDMzMEgxMjVhNSw1LDAsMSwxLDAtMTBoNzVhNSw1LDAsMCwxLDAsMTBaIiBjbGFzcz0iY2xzLTEiLz4KCjxwYXRoIGQ9Ik0zMjUsMjgwSDc1YTMwLDMwLDAsMCwxLTMwLTMwVjE3My4xN2EzMCwzMCwwLDAsMSwzMC0zMGguMmwyNTAsMS42NmEzMC4wOSwzMC4wOSwwLDAsMSwyOS44MSwzMFYyNTBBMzAsMzAsMCwwLDEsMzI1LDI4MFpNNzUsMTUzLjE3YTIwLDIwLDAsMCwwLTIwLDIwVjI1MGEyMCwyMCwwLDAsMCwyMCwyMEgzMjVhMjAsMjAsMCwwLDAsMjAtMjBWMTc0LjgzYTIwLjA2LDIwLjA2LDAsMCwwLTE5Ljg4LTIwbC0yNTAtMS42NloiIGNsYXNzPSJjbHMtMSIvPgoKPHBhdGggZD0iTTE2OC40OCwyMTcuNDhsOC45MSwxYTIwLjg0LDIwLjg0LDAsMCwxLTYuMTksMTMuMThxLTUuMzMsNS4xOC0xNCw1LjE4LTcuMzEsMC0xMS44Ni0zLjY3YTIzLjQzLDIzLjQzLDAsMCwxLTctMTAsMzcuNzQsMzcuNzQsMCwwLDEtMi40Ni0xMy44N3EwLTEyLjE5LDUuNzgtMTkuODJ0MTUuOS03LjY0YTE4LjY5LDE4LjY5LDAsMCwxLDEzLjIsNC44OHE1LjI3LDQuODgsNi42NCwxNGwtOC45MS45NHEtMi40Ni0xMi4wNy0xMC44Ni0xMi4wNy01LjM5LDAtOC4zOCw1dC0zLDE0LjU1cTAsOS42OSwzLjIsMTQuNjN0OC40OCw0Ljk0YTkuMyw5LjMsMCwwLDAsNy4xOS0zLjMyQTEzLjI1LDEzLjI1LDAsMCwwLDE2OC40OCwyMTcuNDhaIiBjbGFzcz0iY2xzLTEiLz4KCjxwYXRoIGQ9Ik0xNzkuNDEsMjIzLjE1bDkuMzQtMnExLjY4LDcuOTMsMTIuODksNy45Myw1LjEyLDAsNy44Ny0yYTYuMDcsNi4wNywwLDAsMCwyLjc1LTUsNy4wOSw3LjA5LDAsMCwwLTEuMjUtNHEtMS4yNS0xLjg1LTUuMzUtMi45MWwtMTAuMi0yLjY2YTI1LjEsMjUuMSwwLDAsMS03LjczLTMuMTEsMTIuMTUsMTIuMTUsMCwwLDEtNC00LjksMTUuNTQsMTUuNTQsMCwwLDEtMS41LTYuNzYsMTQsMTQsMCwwLDEsNS4zMS0xMS40NnE1LjMxLTQuMzIsMTMuNTktNC4zMmEyNC44NiwyNC44NiwwLDAsMSwxMi4yOSwzLDEzLjU2LDEzLjU2LDAsMCwxLDYuODksOC41MmwtOS4xNCwyLjI3cS0yLjExLTYuMDUtOS44NC02LjA1LTQuNDksMC02Ljg2LDEuODhhNS44Myw1LjgzLDAsMCwwLTIuMzYsNC43N3EwLDQuNTcsNy40Miw2LjQxbDkuMDYsMi4yN3E4LjI0LDIuMDcsMTEuMDUsNi4xMWExNS4yOSwxNS4yOSwwLDAsMSwyLjgxLDguOTMsMTQuNywxNC43LDAsMCwxLTUuOTIsMTIuMzZxLTUuOTIsNC41MS0xNS4zMyw0LjUxYTI4LDI4LDAsMCwxLTEzLjg5LTMuMzJBMTYuMjksMTYuMjksMCwwLDEsMTc5LjQxLDIyMy4xNVoiIGNsYXNzPSJjbHMtMSIvPgoKPHBhdGggZD0iTTI1MC4zMSwyMzZoLTkuNzdMMjI0LjEsMTgyLjY4aDEwLjE2bDEyLjIzLDQwLjg2TDI1OSwxODIuNjhoOFoiIGNsYXNzPSJjbHMtMSIvPgoKPC9nPgoKPC9zdmc+;" vertex="1" parent="1">
+                    <mxGeometry x="625" y="-328.75" width="35" height="35" as="geometry"/>
                 </mxCell>
-                <mxCell id="e_supplier_edit" edge="1" parent="1" source="suppliers" target="edit_supplier" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
+                <mxCell id="13" style="edgeStyle=none;html=1;entryX=0.968;entryY=0.575;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="allscans" target="2">
                     <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="e_supplier_toggle" edge="1" parent="1" source="suppliers" target="toggle_supplier" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-
-                <!-- Quality Control → 4 actions (2×2) -->
-                <mxCell id="e_quality_review" edge="1" parent="1" source="quality" target="review_scan" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="e_quality_override" edge="1" parent="1" source="quality" target="override_scan" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="e_quality_flag" edge="1" parent="1" source="quality" target="flag_scan" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="e_quality_export" edge="1" parent="1" source="quality" target="export_quality" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-
-                <!-- Activity Log → 2 actions -->
-                <mxCell id="e_activity_filter" edge="1" parent="1" source="activity" target="filter_actions" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="e_activity_export" edge="1" parent="1" source="activity" target="export_activity" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-
-                <!-- System Config → 4 actions (2×2) -->
-                <mxCell id="e_config_cameras" edge="1" parent="1" source="config" target="camera_config" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="e_config_threshold" edge="1" parent="1" source="config" target="detection_threshold" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="e_config_data" edge="1" parent="1" source="config" target="data_backups" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="e_config_power" edge="1" parent="1" source="config" target="power_controls" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-
-                <!-- ═══════════════════════════════════════════════════ -->
-                <!-- DOCUMENTATION NOTE                                  -->
-                <!-- ═══════════════════════════════════════════════════ -->
-                <mxCell id="note" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=9;fontColor=#64748b;" value="Admin routes are role-guarded: non-admin users are redirected to /dashboard.&lt;br&gt;Scan status, classification overrides, notes, and flags are recorded in the activity trail.&lt;br&gt;Business dates and timestamps use Asia/Manila." vertex="1">
-                    <mxGeometry height="50" width="700" x="60" y="1130" as="geometry"/>
                 </mxCell>
             </root>
         </mxGraphModel>
