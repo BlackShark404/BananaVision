@@ -34,16 +34,16 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { scanLogParams, VALID_PAGE_SIZES } from "@/lib/scanLogFilters"
 import { useDashboardResource } from "@/hooks/useDashboardResource"
-import type { ScanLogRow, ScanLogParams } from "@/types/scanLogs"
+import type { ScanLogRow, ScanLogParams, ScanLogReconciliation } from "@/types/scanLogs"
 import { AppDateFilter } from "@/components/AppDateFilter"
 import { Badge } from "@/components/ui/badge"
 import { generateQRCodeDataUrl } from "@/lib/qrcode"
 import { ScanLabelPrint } from "@/components/ScanLabelPrint"
 import type { Cultivar, Ripeness, InventoryStatus, ScanResult } from "@/types"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
-import { collectScanPages } from "@/lib/scanData"
+import { collectScanPages, type ApiScan } from "@/lib/scanData"
 import { formatSpoilageDays } from "@/lib/spoilageDisplay"
-import { LIVE_RESUMED_EVENT, SCAN_CHANGED_EVENT, SCANS_ADDED_EVENT } from "@/lib/liveEvents"
+import { LIVE_RESUMED_EVENT, SCAN_UPDATED_EVENT, SCANS_ADDED_EVENT, newEventId, type ScanUpdateDetail } from "@/lib/liveEvents"
 
 type LogScan = Omit<ScanResult, "cultivar" | "ripeness" | "confidence"> & {
   cultivar: string
@@ -51,6 +51,8 @@ type LogScan = Omit<ScanResult, "cultivar" | "ripeness" | "confidence"> & {
   confidence: number | null
   remainingDays: number | null
   atRisk: boolean
+  operatorId?: string
+  sourceKey?: string
 }
 
 async function mapScan(row: ScanLogRow, atRisk: boolean): Promise<LogScan> {
@@ -62,7 +64,7 @@ async function mapScan(row: ScanLogRow, atRisk: boolean): Promise<LogScan> {
     source: row.source_name, intakeId: row.intake_id ?? undefined, inventoryStatus: row.inventory_status as InventoryStatus,
     statusUpdatedAt: row.status_updated_at ?? undefined, flagged: row.flagged, isOverridden: row.is_overridden,
     thumbnailUrl: row.thumbnail_url ? getImageUrl(row.thumbnail_url) : undefined, remainingDays: row.remaining_days,
-    atRisk,
+    atRisk, operatorId: row.operator_id, sourceKey: row.source_key,
   }
   // A QR rendering failure must not hide the scan history.
   try { scan.qrCode = await generateQRCodeDataUrl(scan) } catch { /* Thumbnail fallback remains available. */ }
@@ -78,6 +80,79 @@ function isEditingTarget() {
 
 function newScanNotice(count: number) {
   return `${count} new Kiosk ${count === 1 ? "scan" : "scans"} available.`
+}
+
+function recordChangedNotice(count: number) {
+  return `${count} scan ${count === 1 ? "record has" : "records have"} changed outside this view.`
+}
+
+function isReview(scan: Pick<LogScan, "flagged" | "confidence">, threshold: number) {
+  return scan.flagged === true
+    || (scan.confidence !== null && scan.confidence < threshold)
+}
+
+function mergeScanRow(row: LogScan, detail: ScanUpdateDetail): LogScan {
+  const raw = detail.scan ?? {}
+  const next: LogScan = { ...row }
+  if (Number.isInteger(raw.revision)) next.revision = raw.revision
+  if ("date_time" in raw && raw.date_time) next.dateTime = raw.date_time
+  if ("cultivar" in raw) next.cultivar = raw.cultivar ?? "Unknown"
+  if ("ripeness" in raw) next.ripeness = raw.ripeness ?? "Unknown"
+  if ("confidence" in raw) next.confidence = raw.confidence ?? null
+  if ("temperature" in raw) next.temperature = raw.temperature ?? undefined
+  if ("humidity" in raw) next.humidity = raw.humidity ?? undefined
+  if ("vpd" in raw) next.vpd = raw.vpd ?? undefined
+  if ("spoilage_days" in raw) next.spoilageDays = raw.spoilage_days ?? "Unknown"
+  if ("finger_count" in raw && typeof raw.finger_count === "number") next.fingerCount = raw.finger_count
+  if ("operator_name" in raw) next.operator = raw.operator_name ?? "Unknown"
+  if ("operator_id" in raw) next.operatorId = raw.operator_id ?? undefined
+  if ("source_key" in raw) next.sourceKey = raw.source_key ?? undefined
+  if ("source_name" in raw || "source_text" in raw) {
+    next.source = raw.source_name ?? raw.source_text ?? undefined
+  }
+  if ("inventory_status" in raw && raw.inventory_status) next.inventoryStatus = raw.inventory_status
+  if ("status_updated_at" in raw) next.statusUpdatedAt = raw.status_updated_at ?? undefined
+  if ("flagged" in raw) next.flagged = raw.flagged === true
+  if ("is_overridden" in raw) next.isOverridden = raw.is_overridden === true
+  if ("intake_id" in raw) next.intakeId = raw.intake_id ?? undefined
+  if ("remaining_days" in raw) next.remainingDays = raw.remaining_days ?? null
+  if ("inventory_eligible" in raw) next.inventoryEligible = raw.inventory_eligible === true
+  if ("risk_as_of" in raw) next.riskAsOf = raw.risk_as_of ?? undefined
+  if ("has_notes" in raw) next.hasNotes = raw.has_notes === true
+  if ("thumbnail_url" in raw) next.thumbnailUrl = raw.thumbnail_url ? getImageUrl(raw.thumbnail_url) : undefined
+  // remaining_days is rounded for transport. The reconciliation response owns
+  // the exact <=2-day decision; do not invent risk from a rounded event value.
+  if (next.inventoryEligible === false) next.atRisk = false
+  return next
+}
+
+/** Ambiguous search membership waits for the authorized reconciliation read. */
+function filterMembership(
+  scan: LogScan,
+  params: ScanLogParams,
+  threshold: number,
+  sourceKeyKnown: boolean,
+): "in" | "out" | "unknown" {
+  if (params.inventory_status && scan.inventoryStatus !== params.inventory_status) return "out"
+  if (params.flagged_only && scan.flagged !== true) return "out"
+  if (params.cultivar && scan.cultivar !== params.cultivar) return "out"
+  if (params.ripeness && scan.ripeness !== params.ripeness) return "out"
+  if (params.intake_id && scan.intakeId !== params.intake_id) return "out"
+  if (params.operator_id) {
+    if (!scan.operatorId) return "unknown"
+    if (scan.operatorId !== params.operator_id) return "out"
+  }
+  if (params.stock_eligible && scan.inventoryEligible !== true) return "out"
+  if (params.attention === "at-risk" && !scan.atRisk) return "out"
+  if (params.attention === "review" && !isReview(scan, threshold)) return "out"
+  if (params.attention === "success" && isReview(scan, threshold)) return "out"
+  if (params.source_key) {
+    if (!sourceKeyKnown) return "unknown"
+    if (scan.sourceKey !== params.source_key) return "out"
+  }
+  if (params.source) return "unknown"
+  if (params.search) return "unknown"
+  return "in"
 }
 
 export default function Logs() {
@@ -109,9 +184,16 @@ function LogsContent() {
   const snapshot = useRef<{ key: string; id: string; riskIds: Set<string> } | null>(null)
   const [newScanCount, setNewScanCount] = useState(0)
   const [newScanDismissed, setNewScanDismissed] = useState(false)
+  const [changedIds, setChangedIds] = useState<Set<string>>(new Set())
+  const [changedDismissed, setChangedDismissed] = useState(false)
+  const seenScanEvents = useRef(new Set<string>())
   const pendingRequest = useRef<AbortController | null>(null)
   // Read at check time so a notice never replaces rows during an active edit.
   const pendingUi = useRef({ page: 1, blocked: false, loading: false })
+  const interactionBlocked = useRef(false)
+  const displayedRows = useRef<{ key: string; rows: LogScan[] } | null>(null)
+  const deferredRows = useRef(false)
+  const scheduleReconciliation = useRef<() => void>(() => {})
 
   const load = useCallback(async (signal: AbortSignal) => {
     const params = scanLogParams(new URLSearchParams(queryKey))
@@ -121,15 +203,21 @@ function LogsContent() {
       || (params.attention === "at-risk" && snapshot.current?.key === parentKey)
       ? snapshot.current : null
     let result
+    let live: ScanLogReconciliation | null = null
     let riskIds = cached?.riskIds
     try {
       result = await api.scanLogs.list({ ...params, stable: true, snapshot_id: cached?.id }, signal)
+      if (cached && result.snapshot_id) {
+        live = await api.scanLogs.reconcile({ ...params, snapshot_id: result.snapshot_id }, signal)
+        if (live.snapshot_id !== result.snapshot_id) throw new Error("Browse snapshot changed. Please refresh.")
+      }
     } catch (error) {
       const status = typeof error === "object" && error !== null && "status" in error ? Number(error.status) : 0
       if (!signal.aborted && [409, 410].includes(status)) snapshot.current = null
       // An expired or superseded snapshot should not surface as a failed poll.
       if (!cached || signal.aborted || ![409, 410].includes(status)) throw error
       riskIds = undefined
+      live = null
       result = await api.scanLogs.list({ ...params, stable: true }, signal)
     }
     try {
@@ -156,51 +244,156 @@ function LogsContent() {
       throw error
     }
     if (!signal.aborted && result.snapshot_id) snapshot.current = { key, id: result.snapshot_id, riskIds }
-    const rows = await Promise.all(result.items.map(row => mapScan(
-      row, params.attention === "at-risk" || riskIds.has(row.id),
+    const liveRisk = new Set(live?.at_risk_ids ?? [])
+    let rows = await Promise.all((live?.items ?? result.items).map(row => mapScan(
+      row, live ? liveRisk.has(row.id) : params.attention === "at-risk" || riskIds.has(row.id),
     )))
-    return { result, rows }
+    const previous = displayedRows.current?.key === queryKey ? displayedRows.current.rows : null
+    const blocked = interactionBlocked.current || isEditingTarget()
+    if (live && previous) {
+      const old = new Map(previous.map(row => [row.id, row]))
+      // Never keep a row the authoritative read has removed. Only defer value
+      // changes during interaction; a newer committed event also beats this read.
+      rows = rows.map(row => {
+        const prior = old.get(row.id)
+        return prior && (blocked || (prior.revision ?? 0) > (row.revision ?? 0)) ? prior : row
+      })
+      if (blocked) deferredRows.current = true
+    }
+    return { result, rows, live }
   }, [queryKey])
   const resource = useDashboardResource(load, { keepPreviousData: true })
   const refreshResource = resource.refresh
+  displayedRows.current = resource.data && !resource.isPreviousData ? { key: queryKey, rows: resource.data.rows } : null
+  interactionBlocked.current = exporting || !!statusAction || !!qrModalScan || pendingScans.size > 0
+    || !!document.querySelector('[role="menu"], [role="listbox"]')
+  // Coalesce bursts (including bulk mutations) into one bounded live read.
+  // The resource owns cancellation, sequencing, errors and the existing 30s fallback.
+  useEffect(() => {
+    let timer: number | undefined
+    const schedule = () => {
+      if (timer !== undefined) window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        timer = undefined
+        deferredRows.current = false
+        void refreshResource()
+      }, 200)
+    }
+    const onBlur = () => { if (deferredRows.current) schedule() }
+    scheduleReconciliation.current = schedule
+    window.addEventListener(SCANS_ADDED_EVENT, schedule)
+    document.addEventListener("focusout", onBlur)
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer)
+      scheduleReconciliation.current = () => {}
+      window.removeEventListener(SCANS_ADDED_EVENT, schedule)
+      document.removeEventListener("focusout", onBlur)
+    }
+  }, [refreshResource])
+  useEffect(() => {
+    if (deferredRows.current && !interactionBlocked.current && !isEditingTarget()) {
+      deferredRows.current = false
+      scheduleReconciliation.current()
+    }
+  })
   const refreshSnapshot = useCallback(() => {
     pendingRequest.current?.abort()
     pendingRequest.current = null
     snapshot.current = null
     setNewScanCount(0)
     setNewScanDismissed(false)
+    setChangedIds(new Set())
+    setChangedDismissed(false)
     return refreshResource()
   }, [refreshResource])
-  const latestRefresh = useRef(refreshSnapshot)
-  useEffect(() => { latestRefresh.current = refreshSnapshot }, [refreshSnapshot])
-  const scanRefreshTimer = useRef<number | null>(null)
-  useEffect(() => {
-    const onScanChanged = () => {
-      snapshot.current = null
-      if (document.hidden) return
-      if (scanRefreshTimer.current) window.clearTimeout(scanRefreshTimer.current)
-      scanRefreshTimer.current = window.setTimeout(() => {
-        scanRefreshTimer.current = null
-        void latestRefresh.current()
-      }, 200)
-    }
-    window.addEventListener(SCAN_CHANGED_EVENT, onScanChanged)
-    return () => {
-      window.removeEventListener(SCAN_CHANGED_EVENT, onScanChanged)
-      if (scanRefreshTimer.current) window.clearTimeout(scanRefreshTimer.current)
-    }
-  }, [])
   const response = resource.data?.result
   const filtered = resource.data?.rows ?? []
-  const stats = { avgConfidence: response?.avg_confidence, spoilingSoon: response?.at_risk_count, reviewCount: response?.review_count ?? 0 }
+  const liveTotals = resource.data?.live ?? response
+  const stats = { avgConfidence: liveTotals?.avg_confidence, spoilingSoon: liveTotals?.at_risk_count, reviewCount: liveTotals?.review_count ?? 0 }
   const operators = response?.options.operators ?? []
   const sources = response?.options.sources ?? []
+
+  // Row patches use the resource updater so concurrent renders cannot overwrite
+  // a newer revision with an event payload that arrived slightly earlier.
+  const latestResource = useRef(resource)
+  latestResource.current = resource
+  const applyScanUpdate = useCallback((detail: ScanUpdateDetail) => {
+    if (!detail.scanId) return
+    if (detail.eventId) {
+      if (seenScanEvents.current.has(detail.eventId)) return
+      seenScanEvents.current.add(detail.eventId)
+      if (seenScanEvents.current.size > 200) {
+        const oldest = seenScanEvents.current.values().next().value
+        if (oldest) seenScanEvents.current.delete(oldest)
+      }
+    }
+    scheduleReconciliation.current()
+    const current = latestResource.current.data
+    const row = current?.rows.find(item => item.id === detail.scanId)
+    if (!current || !row) return
+    const params = scanLogParams(new URLSearchParams(queryKey))
+    const threshold = current.result.confidence_threshold
+    const sourceKeyKnown = !params.source_key
+      || current.result.options.sources.some(source => source.key === params.source_key)
+    // Once this account's own write commits, applying its filter membership is
+    // safe. Only an unrelated remote event waits for an active edit to finish.
+    const local = detail.actorId === user?.id
+    const blocked = !local && (pendingUi.current.blocked || isEditingTarget())
+    if (!blocked) {
+      if (detail.deleted) {
+        latestResource.current.patch(previous => previous && previous.rows.some(item => item.id === detail.scanId)
+          ? {
+              ...previous,
+              rows: previous.rows.filter(item => item.id !== detail.scanId),
+            }
+          : previous)
+      } else {
+        if (!Number.isInteger(detail.revision) || detail.revision <= (row.revision ?? 0)) return
+        latestResource.current.patch(previous => {
+          const visible = previous?.rows.find(item => item.id === detail.scanId)
+          if (!previous || !visible || detail.revision <= (visible.revision ?? 0)) return previous
+          const merged = mergeScanRow(visible, detail)
+          const membership = filterMembership(merged, params, threshold, sourceKeyKnown)
+          if (membership === "out") {
+            return {
+              ...previous,
+              rows: previous.rows.filter(item => item.id !== detail.scanId),
+            }
+          }
+          return {
+            ...previous,
+            rows: previous.rows.map(item => item.id === detail.scanId ? merged : item),
+          }
+        })
+      }
+    }
+    // The acting tab already sees its own optimistic row; only remote edits need
+    // a notice explaining that totals and filtered membership may be stale.
+    if (detail.actorId === user?.id) return
+    setChangedIds(previous => {
+      if (previous.has(detail.scanId)) return previous
+      const next = new Set(previous)
+      next.add(detail.scanId)
+      return next
+    })
+    setChangedDismissed(false)
+  }, [queryKey, user?.id])
+  const latestApplyScanUpdate = useRef(applyScanUpdate)
+  useEffect(() => { latestApplyScanUpdate.current = applyScanUpdate }, [applyScanUpdate])
+  useEffect(() => {
+    const onScanUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<ScanUpdateDetail>).detail
+      if (detail) latestApplyScanUpdate.current(detail)
+    }
+    window.addEventListener(SCAN_UPDATED_EVENT, onScanUpdated)
+    return () => window.removeEventListener(SCAN_UPDATED_EVENT, onScanUpdated)
+  }, [])
 
   useEffect(() => {
     pendingUi.current = {
       page: response?.page ?? requestParams.page,
       blocked: resource.isPreviousData || resource.loading || exporting || !!statusAction
-        || !!qrModalScan || pendingScans.size > 0 || isEditingTarget()
+        || !!qrModalScan || pendingScans.size > 0
         || !!document.querySelector('[role="menu"], [role="listbox"]'),
       loading: resource.loading || resource.isPreviousData,
     }
@@ -268,6 +461,8 @@ function LogsContent() {
   useEffect(() => {
     setNewScanCount(0)
     setNewScanDismissed(false)
+    setChangedIds(new Set())
+    setChangedDismissed(false)
   }, [response?.snapshot_id])
 
   const updateFilters = (changes: Record<string, string | undefined>, replace = false) => {
@@ -299,6 +494,8 @@ function LogsContent() {
     snapshot.current = null
     setNewScanCount(0)
     setNewScanDismissed(false)
+    setChangedIds(new Set())
+    setChangedDismissed(false)
     // Keep every applicable filter and sort, but a new snapshot starts at page 1.
     if (requestParams.page !== 1) updateFilters({ page: undefined })
     else void refreshResource()
@@ -320,20 +517,27 @@ function LogsContent() {
     const { scan, status } = statusAction
     inFlight.current.add(scan.id)
     setPendingScans(new Set(inFlight.current))
+    const patchDetail = (saved: ApiScan) => applyScanUpdate({
+      eventId: newEventId(), scanId: scan.id, revision: saved.revision, kind: "status",
+      actorId: user?.id ?? "", changed: ["inventory_status"], partial: false, scan: saved,
+    })
     try {
-      await scanWrite(`${user?.id}:${scan.id}:status`, {
+      const saved = await scanWrite(`${user?.id}:${scan.id}:status`, {
         expected_revision: scanRevision(scan.revision), inventory_status: status, reason: statusReason.trim(),
       }, body => api.scans.updateStatus(scan.id, body))
+      // Patch the visible row instead of rebuilding the frozen browse snapshot.
+      patchDetail(saved)
       toast.success(`Scan marked as ${status}`)
       setStatusAction(null)
-      await latestRefresh.current()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Status update failed", {
-        action: scanRetryAction(error, () => { setStatusAction(null); void latestRefresh.current() }) ?? (isScanConflict(error) ? { label: "Reload latest", onClick: () => {
+        action: scanRetryAction(error, () => { setStatusAction(null); void api.scans.detail(scan.id)
+          .then(saved => patchDetail(saved))
+          .catch(error => toast.error(error.message)) }) ?? (isScanConflict(error) ? { label: "Reload latest", onClick: () => {
           void api.scans.detail(scan.id).then(saved => {
             setStatusAction(current => current?.scan.id === scan.id ? { ...current, scan: { ...current.scan,
               revision: saved.revision, inventoryStatus: saved.inventory_status } } : current)
-            void latestRefresh.current()
+            patchDetail(saved)
           }).catch(error => toast.error(error.message))
         } } : undefined),
       })
@@ -609,16 +813,28 @@ const columns: ColumnDef<LogScan>[] = [
           <Button variant="link" size="sm" className="h-auto p-0" onClick={viewLatestScans}>Show latest scans</Button>
         </div>
       )}
+      {changedIds.size > 0 && !changedDismissed && (
+        <div role="status" aria-live="polite" className="flex flex-col gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-2">
+            <RefreshCw aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-amber-600" />
+            <p><strong>{recordChangedNotice(changedIds.size)}</strong> Totals update automatically. Row changes wait while you edit; Refresh rebuilds the page order and export.</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 sm:ml-4">
+            <Button size="sm" onClick={() => void refreshSnapshot()}>Refresh</Button>
+            <Button size="sm" variant="ghost" onClick={() => setChangedDismissed(true)}>Later</Button>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-3">
         <AppStatsCard
           loading={!response && resource.loading}
           title="Total Scans"
-          value={response ? response.total : resource.loading ? "…" : "—"}
+          value={liveTotals ? liveTotals.total : resource.loading ? "…" : "—"}
           icon={TrendingUp}
           delay={50}
-          description={response ? "Matching records · click to reset filters" : resource.loading ? "Loading…" : "Unavailable"}
+          description={response ? "Live matching records · click to reset filters" : resource.loading ? "Loading…" : "Unavailable"}
           onClick={clearAllFilters}
         />
         <AppStatsCard

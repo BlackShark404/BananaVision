@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { LIVE_RESUMED_EVENT } from "@/lib/liveEvents"
 
 interface ResourceOptions {
   keepPreviousData?: boolean
@@ -74,6 +75,12 @@ export function useDashboardResource<T>(
     }
   }, [load, keepPreviousData])
 
+  const patch = useCallback((updater: (data: T) => T) => {
+    setState(previous => previous.source === load && previous.data !== null
+      ? { ...previous, data: updater(previous.data) }
+      : previous)
+  }, [load])
+
   useEffect(() => {
     mounted.current = true
     void refresh()
@@ -90,6 +97,7 @@ export function useDashboardResource<T>(
     }
     window.addEventListener("focus", onResume)
     window.addEventListener("online", onResume)
+    window.addEventListener(LIVE_RESUMED_EVENT, onResume)
     document.addEventListener("visibilitychange", onResume)
     return () => {
       mounted.current = false
@@ -98,12 +106,13 @@ export function useDashboardResource<T>(
       window.clearInterval(interval)
       window.removeEventListener("focus", onResume)
       window.removeEventListener("online", onResume)
+      window.removeEventListener(LIVE_RESUMED_EVENT, onResume)
       document.removeEventListener("visibilitychange", onResume)
     }
   }, [refresh])
 
   if (state.source === load) {
-    return { ...state, refresh }
+    return { ...state, refresh, patch }
   }
 
   return {
@@ -114,5 +123,6 @@ export function useDashboardResource<T>(
     loading: true,
     isPreviousData: keepPreviousData && state.data !== null,
     refresh,
+    patch,
   }
 }

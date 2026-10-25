@@ -25,7 +25,7 @@ import {
   Check,
   Loader2,
 } from "lucide-react"
-import { NOTIFICATIONS_CHANGED_EVENT } from "@/lib/liveEvents"
+import { LIVE_RESUMED_EVENT, NOTIFICATIONS_CHANGED_EVENT } from "@/lib/liveEvents"
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -131,20 +131,31 @@ function NotificationList() {
     if (open) void fetchNotifications()
   }, [open, fetchNotifications])
 
-  // Refresh after a completed scan or a broadcast notification event.
+  // Refresh after a completed scan, a broadcast notification event, or a
+  // reconnect/tab restore that may have missed one.
   useEffect(() => {
     let timer: number | undefined
     const refresh = () => {
+      if (document.hidden) return
       if (timer) window.clearTimeout(timer)
       timer = window.setTimeout(() => {
         timer = undefined
         void fetchNotifications()
       }, 250)
     }
+    const onVisibility = () => { if (!document.hidden) refresh() }
     window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh)
+    window.addEventListener("focus", refresh)
+    window.addEventListener("online", refresh)
+    window.addEventListener(LIVE_RESUMED_EVENT, refresh)
+    document.addEventListener("visibilitychange", onVisibility)
     return () => {
       if (timer) window.clearTimeout(timer)
       window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh)
+      window.removeEventListener("focus", refresh)
+      window.removeEventListener("online", refresh)
+      window.removeEventListener(LIVE_RESUMED_EVENT, refresh)
+      document.removeEventListener("visibilitychange", onVisibility)
     }
   }, [fetchNotifications])
 

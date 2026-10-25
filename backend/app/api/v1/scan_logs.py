@@ -4,12 +4,13 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 
 from app.api.deps import CurrentUser, DbSession, StreamDbSession
-from app.schemas.scan_logs import ScanLogList, ScanLogPending, ScanLogQuery
+from app.schemas.scan_logs import ScanLogList, ScanLogPending, ScanLogQuery, ScanLogReconciliation
 from app.services.scan_logs import (
     export_scan_logs,
     export_scan_logs_xlsx,
     list_scan_logs,
     pending_scan_count,
+    reconcile_scan_logs,
 )
 
 router = APIRouter(prefix="/scan-logs", tags=["Scan Logs"])
@@ -29,6 +30,16 @@ async def scan_logs_pending(
     if query.snapshot_id is None:
         raise HTTPException(422, "A browse snapshot is required for live scan counts.")
     return await pending_scan_count(db, user, query)
+
+
+@router.get("/reconcile", response_model=ScanLogReconciliation)
+async def scan_logs_reconcile(
+    db: DbSession, user: CurrentUser, query: Annotated[ScanLogQuery, Query()],
+):
+    """Refresh page values and metrics without replacing its frozen membership."""
+    if query.snapshot_id is None:
+        raise HTTPException(422, "A browse snapshot is required for reconciliation.")
+    return await reconcile_scan_logs(db, user, query)
 
 
 @router.get("/export")

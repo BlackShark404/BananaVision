@@ -1,0 +1,81 @@
+CURRENT RESUME HERE (2026-10-24) - LIVE SCAN LOG NOTICES COMMITTED AND PUSHED
+
+DONE
+- Added GET /api/v1/scan-logs/pending, which requires an existing browse snapshot and returns an
+  absolute count of committed scans newer than the snapshot's newest included row.
+- Snapshot meta now stores a watermark (newest matching date_time + native UUID tiebreak); older
+  snapshots fall back to generated_at. Counting reuses the exact account scope, filters and
+  confidence threshold, never mutates the frozen snapshot, and cannot double-count on reconnects.
+- Frontend: Page 1 opens a fresh snapshot when new matching scans arrive and no interaction is
+  active. Page 2+ keeps frozen rows/page/sort/scroll and shows "X new Kiosk scans available.
+  Would you like to refresh Scan Logs?" with View Latest Scans and Later.
+- View Latest Scans starts at Page 1 while preserving applicable filters/sort; Later keeps the
+  snapshot and leaves a subtle pending indicator. Detection runs on scan completion events,
+  WebSocket resume and normal resource refreshes, so missed events are caught.
+- Added useWebSocket onReconnect (only after an existing connection reopens), SCANS_ADDED_EVENT,
+  LIVE_RESUMED_EVENT and focused backend/browser regressions. Existing SCAN_CHANGED_EVENT behavior
+  remains for edits.
+- Updated docs/knowledge/Frontend.md and docs/knowledge/Testing and Validation.md. Archived the
+  previous progress record at docs/history/2026-10-24-before-live-scan-notices.txt.
+- Stored the verified implementation decision in ICM (01M5KDV8QH01YWXDZYK1NNKH0C) and corrected
+  the older Logs snapshot-invalidation wording.
+- Independent re-verification inspected all 15 modified paths plus the archive, and traced the
+  pending endpoint, snapshot binding/expiry, watermark/count predicates, dashboard scoping,
+  commit-before-broadcast ordering, ScanContext event routing, Logs Page 1/Page 2+ behavior,
+  reconnect handling and 409/410 recovery.
+- Added two backend regressions: Admin versus Operator pending scoping, and pending 409/410
+  handling. Added two browser regressions: hidden-tab Page 1 deferral, and a failed pending-count
+  request retaining the frozen page. Focused totals below include these four cases.
+
+IN PROGRESS
+- None. The implementation, tests, documentation and progress record were committed as 385e863
+  and pushed to origin/main; the working tree is clean.
+
+TEST RESULTS
+- Independent backend re-verification (SQLite contracts, fresh temporary working directory):
+  full suite 596 passed, 66 skipped, 1 warning (115.94s). PostgreSQL-URL-gated, hardware/model
+  and optional environment cases account for the skips.
+- Focused backend test_scan_logs.py + test_scan_snapshots.py: 37 passed (5.66s). New coverage
+  proves pending counts are snapshot-relative, account/filter scoped, absolute across repeated
+  checks, reject missing snapshots, return 409 for changed filters and 410 for expired/unknown
+  snapshots, and leave frozen rows/total unchanged. Admin sees both operators' new scans; an
+  Operator sees only their own.
+- Full frontend suite: 252 passed, 0 failed, 0 skipped (340.60s), before the two final browser
+  regressions were added. tests/scanrecords.test.mjs then passed 54/54 (96.47s), including the
+  Page 2 notice/Later/View Latest flow, Page 1 auto-refresh preserving filters/sort, search-active
+  deferral, hidden-tab deferral, failed-pending recovery, WebSocket-resume recheck, snapshot/export
+  integrity and 409/410 recovery.
+- npm run typecheck PASS. npm run build PASS (15.00s); existing >500 kB chunk warning remains.
+- Frontend ESLint: 41 problems (36 errors, 5 warnings), matching HEAD. Every diagnostic in a
+  changed file also exists at HEAD; no new findings.
+- Backend Ruff on the five changed files: 23 findings versus 25 at HEAD; no new findings. The
+  change set resolves two pre-existing import-order diagnostics. Repository-wide Ruff with the
+  backend configuration: 645 findings; the five changed files introduce none.
+- git diff --check PASS. PostgreSQL-specific rerun was environment-blocked: PostgreSQL 18 client
+  backends terminate with exception 0xC0000142, then shared-memory error 487, in fresh clusters on
+  ports 55432-55435 and an older working cluster. Do not report those tests as passing. The prior
+  implementation-time PostgreSQL result remains a recorded claim, not re-observed here.
+- No live station database, captures, physical cameras, OS power or deployment was used.
+  Disposable PostgreSQL clusters created during the attempt were stopped and removed.
+
+GIT STATUS
+- Branch main. Feature commit 385e863 and this status-only progress update are pushed to
+  origin/main; local HEAD, origin/main and git ls-remote refs/heads/main matched after each push.
+- Working tree clean. Safety stash stash@{0} retained and untouched.
+- No branches, worktrees, resets, force-push or history rewrite.
+
+REMAINING
+- PostgreSQL-specific and physical Kiosk/hardware behavior were not independently re-verified in
+  this session. Multi-session/cross-client concurrency is covered by scoped tests and code review,
+  not by a live multi-client run.
+- Known boundary unchanged: cross-client status/flag edits are not broadcast to Logs; they still
+  recover through refresh or snapshot expiry.
+- Stale comment noted: Dashboard.tsx still says completion broadcasts before commit, which is no
+  longer true after the commit-before-broadcast change. This is documentation-only and outside the
+  current scoped change set.
+
+EXACT RESUME HERE
+- No pending implementation work. Feature commit 385e863 is on origin/main; this status-only
+  update follows it. Verify refs only if continuing later.
+- PostgreSQL-specific and physical Kiosk/hardware verification remain the open gaps noted above.
+- Do not restart the implementation or rerun passing suites without a new change or failure.

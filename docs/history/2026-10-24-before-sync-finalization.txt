@@ -1,0 +1,84 @@
+CURRENT RESUME HERE (2026-10-24) - CROSS-SESSION SYNC IMPLEMENTED AND VERIFIED, AWAITING COMMIT AUTHORIZATION
+
+DONE
+- Backend post-commit mutation events. New backend/app/ws/mutations.py publishes only after the
+  owning transaction commits. scan:changed carries event_id, scan_id, revision, kind, changed
+  fields, actor_id, partial/deleted flags and the authorized row fields needed for a patch.
+  intake:changed and supplier:changed carry event_id plus the persisted row (including updated_at).
+- Routing is account-scoped: scan edits go to the dashboard room (Admin) and the owning Operator's
+  account-scoped kiosk room. Intake/supplier reference changes go to dashboard and kiosk because
+  every authenticated role can read that registry. Other Operators receive nothing.
+- Covered commits: scan flag, correction, inventory status, provenance and notes; intake create,
+  status and bulk inventory; supplier create/update. Guests and restricted socket rooms are
+  unchanged. There is no scan or intake delete/archive endpoint in this application (410 is only
+  reachable for rows already removed), so no delete event path exists to add; the `deleted` flag is
+  carried only for completeness.
+- Mutation endpoints that previously relied on the request-scoped session commit now commit
+  explicitly before broadcasting (intakes, suppliers, mutate_scan), so no event can describe an
+  uncommitted row. Bulk inventory emits one partial scan event per changed scan plus an intake event
+  and never broadcasts note text or images.
+- Sensor freshness evidence. GET /api/v1/sensors/latest, the sensor WebSocket payloads and /health
+  now include server_time and stale_after_seconds (max(3 x polling interval, 15)). A reading is
+  live only while its recorded_at age is within that window; sensor_connected alone is not
+  freshness.
+- Frontend reconciliation. lib/liveEvents.ts defines SCAN_UPDATED_EVENT, INTAKE_CHANGED_EVENT,
+  SUPPLIER_CHANGED_EVENT and a bounded event-id dedupe helper. ScanContext merges by stable ID and
+  revision, preserves newer local revisions and fields omitted by partial payloads, removes deleted
+  rows and drops stale events. InventoryContext merges intakes/suppliers with updated_at ordering
+  and reconciles on resume. useDashboardResource exposes patch() and re-fetches on focus, online,
+  visibility and LIVE_RESUMED_EVENT with abort/sequence guards.
+- Scan Logs keeps its frozen snapshot behavior. Visible rows are patched in place by revision;
+  when a control is focused or an edit is pending, a remote change only shows a non-intrusive
+  notice. Deleted or filtered-out rows are removed instead of being shown as current. Page 1 still
+  auto-refreshes for new Kiosk scans; Page 2+ keeps rows/page/filters/sort/scroll and the existing
+  View Latest Scans / Later notice. Pending counts remain new-commit only, so ordinary edits never
+  increment them. 409/410 snapshot recovery and stable exports are unchanged.
+- AdminContext, AppNotifications and DeviceStatus also reconcile on reconnect/restore.
+  DeviceStatus accepts only newer timestamped readings, rejects out-of-order readings, lets a
+  timestamped reading keep authority over a delayed untimestamped initial fetch, and shows legacy
+  payloads without recorded_at as unknown freshness - never Live or Optimal.
+- Tests added: backend/tests/test_mutation_events.py (7 cases) and
+  frontend/tests/crosssession.test.mjs + crosssession.fixture.tsx (9 cases using separate browser
+  contexts for Admin, Operator A and Operator B with an account/room-aware WebSocket double).
+
+REMAINING
+- PostgreSQL-backed multi-session verification was not possible: BANANAVISION_TEST_DATABASE_URL is
+  unset and PostgreSQL 18 client backends on this host fail with 0xC0000142 followed by shared
+  memory error 487. Treat the cross-session coverage as SQLite-backed contracts plus browser tests,
+  not a live multi-client station run.
+- No physical Kiosk, camera or sensor hardware was exercised.
+- Documented boundary: an edit missed while the socket was down cannot be replayed. Reconnect
+  reconciles scans, intakes, suppliers, config, users and notifications, and Logs re-fetches the
+  same frozen snapshot, but a changed row inside that snapshot needs an explicit Refresh (or
+  snapshot expiry). Page 1 memberships and KPIs are likewise authoritative only after Refresh.
+- Snapshot-scoped KPI cards are intentionally not recomputed from a single patched row; the change
+  notice points users to Refresh for totals and filter membership.
+
+TEST RESULTS
+- Backend focused: backend/tests/test_mutation_events.py 7 passed.
+- Backend full: 603 passed, 66 skipped, 1 warning via
+  backend\.venv\Scripts\python.exe -m pytest -q --basetemp="...\opencode\bv-pytest".
+  The default pytest temp directory raises PermissionError [WinError 5] on this host.
+- Frontend targeted: crosssession 9 passed; the earlier crosssession + scanwrites +
+  scanflagindicator + operationsloading set passed 17 before the final focused-control case.
+- Frontend full browser suite: 263 passed, 0 failed, 0 skipped (~277s).
+- npm run typecheck PASS. npm run build PASS with the pre-existing >500 kB chunk warning.
+- npm run lint: 40 problems (35 errors, 5 warnings). Every remaining diagnostic is pre-existing
+  debt in untouched code or the same files at HEAD; this change set added none and removed one.
+- git diff --check clean. No live station database, captures, physical cameras or OS power used.
+
+GIT STATUS
+- Branch main, HEAD 02b5c8e. All work in this change set is uncommitted; nothing staged, committed,
+  pushed, merged or deployed.
+- stash@{0} "BananaVision reviewed work before origin notification integration 2026-10-23" retained.
+- No branches, worktrees, resets or history rewrites.
+
+CURRENT RESUME HERE
+- Implementation and verification are complete. The next action is explicit authorization to commit
+  (and separately, to push). Until then keep the working tree as-is.
+- Archived previous progress record: docs/history/2026-10-24-before-cross-session-sync.txt.
+- Knowledge updates: docs/knowledge/Frontend.md, docs/knowledge/Testing and Validation.md,
+  docs/knowledge/Resolved Bugs.md, the Graphify graph (4246 nodes, 12841 edges, 263 communities;
+  SQL extraction still unavailable because tree_sitter_sql is not installed) and ICM memory
+  01M5PXRZGW93JG9CS7P7ZZPCCY, which supersedes the older "edits are not broadcast" boundary.
+- Do not rerun the full suites without a new change or new evidence.

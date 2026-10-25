@@ -5,10 +5,38 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { Monitor, Camera, Wifi, WifiOff, Cpu, HardDrive, Clock, MemoryStick, Thermometer, Activity, RefreshCw, Droplets } from "lucide-react"
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { useWebSocket } from "@/hooks/useWebSocket"
+
+interface SensorReading {
+  temperature: number
+  humidity: number
+  /** null when an older payload omitted recorded_at; such a reading is never live. */
+  recordedAt: number | null
+  ageAtReceipt: number | null
+  staleAfter: number
+  receivedPerf: number
+  source: "initial" | "live"
+}
+
+interface SensorPayload {
+  temperature: number
+  humidity: number
+  recorded_at?: string | null
+  server_time?: string
+  stale_after_seconds?: number
+}
+
+function readingAge(ageMs: number) {
+  const seconds = Math.max(0, Math.round(ageMs / 1000))
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) return `${minutes}m`
+  return `${Math.round(minutes / 60)}h`
+}
+
 export default function DeviceStatus() {
   const { devices, devicesLoading, devicesReady, devicesError } = useAdmin()
   const online = devices.filter((d) => d.status === "Online").length
@@ -30,47 +58,102 @@ export default function DeviceStatus() {
     cpu_temp: number | null
   } | null>(null)
 
-  const [sensorData, setSensorData] = useState<{ temperature: number; humidity: number } | null>(null)
+  const [sensorReading, setSensorReading] = useState<SensorReading | null>(null)
+  const latestReading = useRef<SensorReading | null>(null)
   const [sensorConnected, setSensorConnected] = useState<boolean | null>(null)
   const [sensorLoading, setSensorLoading] = useState(true)
   const [sensorError, setSensorError] = useState("")
   const [sensorRetry, setSensorRetry] = useState(0)
-  const liveSensorRevision = useRef(0)
+  const [sensorClock, setSensorClock] = useState(() => performance.now())
+
+  const acceptSensorReading = useCallback((raw: SensorPayload, source: "initial" | "live" = "live") => {
+    if (!Number.isFinite(raw.temperature) || !Number.isFinite(raw.humidity)) return false
+    const recordedAt = Date.parse(raw.recorded_at ?? "")
+    const hasRecordedAt = Number.isFinite(recordedAt)
+    // A delayed/out-of-order event must never replace a newer reading.
+    const previous = latestReading.current
+    if (previous) {
+      if (hasRecordedAt && previous.recordedAt !== null && recordedAt <= previous.recordedAt) return false
+      // Without a timestamp a reading cannot prove it is newer. Keep an already
+      // timestamped reading, and never let a delayed initial fetch replace a
+      // measurement that arrived live over the socket.
+      if (!hasRecordedAt && (previous.recordedAt !== null || (source === "initial" && previous.source === "live"))) return false
+    }
+    // Age at receipt uses the server's own clock. Elapsed time then uses the
+    // monotonic browser clock, so workstation clock skew cannot make a stale
+    // reading look live (or a live reading look stale).
+    const serverTime = Date.parse(raw.server_time ?? "")
+    const ageAtReceipt = hasRecordedAt
+      ? Number.isFinite(serverTime)
+        ? Math.max(0, serverTime - recordedAt)
+        : Math.max(0, Date.now() - recordedAt)
+      : null
+    const staleAfter = typeof raw.stale_after_seconds === "number"
+      && Number.isFinite(raw.stale_after_seconds)
+      ? Math.max(1000, raw.stale_after_seconds * 1000)
+      : 15_000
+    const next = {
+      temperature: raw.temperature,
+      humidity: raw.humidity,
+      recordedAt: hasRecordedAt ? recordedAt : null,
+      ageAtReceipt,
+      staleAfter,
+      receivedPerf: performance.now(),
+      source,
+    }
+    latestReading.current = next
+    setSensorReading(next)
+    setSensorClock(performance.now())
+    return true
+  }, [])
 
   // Listen for live sensor readings via WebSocket
   useWebSocket({
     rooms: ["dashboard"],
     onEvent: (event, data) => {
       if (event === "sensor:update") {
-        if (!Number.isFinite(data.temperature) || !Number.isFinite(data.humidity)) return
-        ++liveSensorRevision.current
-        setSensorLoading(false)
-        setSensorError("")
-        setSensorConnected(true)
-        setSensorData({
-          temperature: data.temperature,
-          humidity: data.humidity
-        })
+        if (acceptSensorReading(data as SensorPayload)) {
+          setSensorLoading(false)
+          setSensorError("")
+          setSensorConnected(true)
+        }
       }
     }
   })
 
+  // Re-evaluate freshness even when no new reading arrives.
+  useEffect(() => {
+    const timer = window.setInterval(() => setSensorClock(performance.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const sensorAge = sensorReading && sensorReading.ageAtReceipt !== null
+    ? Math.max(0, sensorReading.ageAtReceipt + (sensorClock - sensorReading.receivedPerf))
+    : null
+  const sensorFresh = sensorAge !== null && sensorReading !== null && sensorAge <= sensorReading.staleAfter
+  const sensorLive = sensorFresh && sensorConnected !== false
+  const sensorData = sensorReading
+
   // Fetch initial sensor data and health on mount
   useEffect(() => {
     let active = true
-    const revision = liveSensorRevision.current
     setSensorLoading(true)
     setSensorError("")
     api.sensors.latest().then((res) => {
-      if (active && revision === liveSensorRevision.current && res) setSensorData({ temperature: res.temperature, humidity: res.humidity })
-    }).catch(() => { if (active && revision === liveSensorRevision.current) setSensorError("Sensor readings unavailable.") })
+      if (!active) return
+      if (res) acceptSensorReading(res, "initial")
+    }).catch(() => {
+      if (active && !latestReading.current) setSensorError("Sensor readings unavailable.")
+    })
       .finally(() => { if (active) setSensorLoading(false) })
 
     api.health().then((res) => {
-      if (active && revision === liveSensorRevision.current) setSensorConnected(res.sensor_connected)
-    }).catch(() => { if (active && revision === liveSensorRevision.current) setSensorError("Sensor connection status unavailable.") })
+      if (active) setSensorConnected(res.sensor_connected)
+    }).catch(() => {
+      if (active && !latestReading.current) setSensorError("Sensor connection status unavailable.")
+    })
     return () => { active = false }
-  }, [sensorRetry])
+  }, [sensorRetry, acceptSensorReading])
 
   // Fetch live system metrics every 5 seconds
   useEffect(() => {
@@ -283,13 +366,17 @@ export default function DeviceStatus() {
             <Badge
               variant="outline"
               className={`text-xs px-2.5 py-0.5 rounded-full font-semibold shrink-0 ${
-                sensorConnected
+                sensorLive
                   ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : "bg-red-50 text-red-600 border-red-200"
+                  : sensorConnected === false
+                    ? "bg-red-50 text-red-600 border-red-200"
+                    : sensorData
+                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                      : "bg-muted text-muted-foreground border-border"
               }`}
             >
-              {sensorConnected ? <Wifi className="w-3.5 h-3.5 mr-1.5" /> : <WifiOff className="w-3.5 h-3.5 mr-1.5" />}
-              {sensorConnected === null ? "Status unknown" : sensorConnected ? (sensorData ? "Live" : "No readings") : "Offline"}
+              {sensorLive ? <Wifi className="w-3.5 h-3.5 mr-1.5" /> : <WifiOff className="w-3.5 h-3.5 mr-1.5" />}
+              {sensorConnected === null ? "Status unknown" : sensorConnected === false ? "Offline" : !sensorData ? "No readings" : sensorLive ? "Live" : "Stale"}
             </Badge>
           </div>
         </CardHeader>
@@ -306,9 +393,20 @@ export default function DeviceStatus() {
               </div>
             </div>
           )}
+          {sensorConnected !== false && sensorData && !sensorFresh && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-amber-50/60 border border-amber-200/60 rounded-xl">
+              <div className="w-8 h-8 shrink-0 rounded-full bg-amber-100 flex items-center justify-center text-amber-700">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-amber-900 leading-none mb-1">Sensor Reading Stale</p>
+                <p className="text-xs text-amber-800/80 leading-tight">{sensorAge === null ? "This reading has no recorded time, so its freshness cannot be verified. Waiting for a fresh poll." : `Last reading ${readingAge(sensorAge)} ago. Waiting for a fresh poll.`}</p>
+              </div>
+            </div>
+          )}
           {sensorLoading && !sensorData && <p role="status" className="text-sm text-muted-foreground">Loading sensor readings…</p>}
           {!sensorLoading && !sensorData && <p className="text-sm text-muted-foreground">No sensor readings available.</p>}
-          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${!sensorConnected ? 'opacity-70 grayscale-[30%]' : ''}`}>
+          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${!sensorLive ? 'opacity-70 grayscale-[30%]' : ''}`}>
             <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border">
               <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
                 <Thermometer className="w-5 h-5" />

@@ -2,6 +2,33 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## Live Logs reconciliation finalization — 2026-10-25
+
+- Reproduced four browser failures before the fix: deferred edits, missed reconnect edits,
+  off-page KPI changes, and failed reconciliation recovery. All now have passing coverage.
+- Full backend with disposable PostgreSQL 18: **681 passed, 0 failed, 0 skipped**, 55 known
+  enum/model fixture warnings (217.32s). Focused integration first passed **53/53**. After
+  test-only lint cleanup, reconciliation/mutation cases passed **19/19**, then mutation/time-write
+  fixtures **44/44**. All four fresh clusters on loopback port 55449 stopped cleanly and were removed.
+- The new PostgreSQL test uses independent Admin, owning Operator and other Operator sessions:
+  committed revision/flag updates and exact stored prediction strings reconcile, other-account
+  data stays absent, removed rows disappear, and original snapshots remain unchanged.
+- Full frontend: **266 passed, 0 failed, 0 skipped** (338.09s). The strengthened focused-control
+  case then passed **1/1**, explicitly waiting for a completed live read while focus remains held
+  before proving values apply after blur. Cross-session tests use separate browser contexts and
+  mock HTTP/WebSocket transport; this is not a browser-to-PostgreSQL hardware station run.
+- Typecheck and production build passed (36.19s build; existing >500 kB warning). Frontend lint:
+  **35 errors / 5 warnings**, unchanged baseline. Configured backend Ruff: **645 findings**;
+  changed files **69 versus 72 at HEAD**, **no introduced diagnostics**. New regression files are
+  clean. Test import/fixture lint issues from the interrupted work were corrected.
+- Scoped source/security review covered snapshot ownership, role/token/generation binding, filter
+  scope, expiry, immutable exports and exact risk decisions; no actionable new finding. No new
+  Codex Security service scan was launched; this is source review plus isolated regression evidence.
+- Graphify refreshed successfully: **4270 nodes, 12967 edges, 250 communities** after final test cleanup; SQL extraction
+  remains unavailable because `tree_sitter_sql` is absent. No paid extraction enabled.
+- Earlier PostgreSQL process failures were environment-bound: isolated runs with the necessary
+  execution access now succeed. No live station data, camera, sensor, OS power or deployment used.
+
 ## Final integration verification — 2026-10-24
 
 - Full isolated PostgreSQL 18.6 suite: **658 passed, 0 failed, 0 skipped** (173.87s). Focused notification/scan-log/write suites: **72 passed** (17.30s). After test-only import/fixture-name lint cleanup, all **7 notification tests passed** again (5.67s), including four simultaneous single/read-all combinations. Disposable clusters used loopback port 55447 were stopped after each run, and their generated cluster directories were removed after verification. No station environment or hardware was used.
@@ -11,7 +38,40 @@ Comprehensive guide to testing strategies, verification requirements, test runne
 - Backend warnings: one Pydantic enum fixture warning, two scikit-learn artifact/runtime version warnings and 52 feature-name warnings. No model artifact or prediction logic was changed.
 - Codex Security scan `9a6cf9e9-3384-47d0-a86f-7f980d354778` completed: **0 reportable findings**, all **28 inventoried source files** covered. Daybreak entitlement unavailable; supported scoped source review plus isolated regressions used. Scan identity remains the original working-tree target at `2da9d5c`; incoming receipt integration and final corrective edits received supplemental review.
 - Graphify AST update: **4128 nodes, 12475 edges, 252 communities**, without graph loss. SQL extraction was unavailable (`tree_sitter_sql` missing); SQL/migration behavior was covered by source review and PostgreSQL tests. No paid semantic extraction was enabled.
-- Pre-0010 v4 archives require recreation under the incoming pre-release policy. Cross-client status/flag edits still are not broadcast to Logs; refresh/expiry remains their recovery boundary. Historical results below describe earlier checkpoints, not the final integrated tree.
+- Pre-0010 v4 archives require recreation under the incoming pre-release policy. Historical results below describe earlier checkpoints, not the final integrated tree. Cross-client status/flag edits are now broadcast; see the cross-session sync verification below.
+
+## Cross-session sync verification — 2026-10-24
+
+- Scope: committed scan edits (flag, quality correction, inventory status, provenance, notes),
+  intake status/bulk inventory, and supplier create/update now publish post-commit events to
+  account-scoped rooms. Reconnect/focus/visibility/online reconciliation and sensor freshness were
+  verified together.
+- Backend `tests/test_mutation_events.py`: **7 passed**. It proves the event is emitted only after
+  commit, carries revision and actor evidence, routes Admin to `dashboard` and the owning Operator to
+  its account-scoped `kiosk` room without exposing another Operator's scans, emits one partial scan
+  event per bulk-inventory change, and that sensor freshness uses recorded_at plus server time.
+- Full backend suite (isolated SQLite fixture): **603 passed, 66 skipped, 1 warning**. The default
+  pytest temp directory raises `PermissionError [WinError 5]` on this host, so an explicit
+  `--basetemp` is required.
+- Frontend `tests/crosssession.test.mjs`: **9 passed**, driving separate browser contexts for Admin,
+  Operator A and Operator B against real providers and an account/room-aware WebSocket double. Cases
+  cover flag propagation with actor suppression and Operator B isolation; Page 2 row patching with
+  event-id dedupe and refresh-only-on-request; deferral of a remote edit while a control is focused
+  (notice only, then apply after blur); Page 1 new-scan auto-refresh; Page 2 new-scan
+  notice/Later/View Latest Scans; 410+409 snapshot recovery; intake/supplier propagation with
+  `updated_at` ordering; reconnect reconciliation of scans, intakes, config, users and notifications
+  with frozen rows preserved; and sensor stale/live/out-of-order/age-expiry handling.
+- Full frontend browser suite: **263 passed, 0 failed, 0 skipped** (~277s).
+- `npm run typecheck` and `npm run build` pass; only the existing >500 kB chunk warning remains.
+  Frontend ESLint reports **40 problems (35 errors, 5 warnings)**; every remaining diagnostic is
+  pre-existing debt, and this change set introduced none while removing one.
+- `git diff --check` is clean. No live station database, captures, physical cameras or OS power was
+  used.
+- Historical limitation, superseded by the 2026-10-25 verification above: PostgreSQL-backed three-session runs. `BANANAVISION_TEST_DATABASE_URL` was unset and
+  PostgreSQL 18 client backends on this host fail with `0xC0000142` followed by shared-memory error
+  487. No physical Kiosk pair was exercised.
+- The former missed-edit/KPI boundary is resolved by the authorized live reconciliation endpoint
+  described above and in [[Frontend]]. Frozen page order and exports remain intentional.
 
 ## Live Scan Logs pagination verification — 2026-10-24
 
@@ -21,7 +81,8 @@ Comprehensive guide to testing strategies, verification requirements, test runne
 - `npm run typecheck` and `npm run build` pass (build 15.00s); the existing >500 kB chunk warning remains. Frontend ESLint is unchanged at the **41-problem baseline (36 errors, 5 warnings)**; every diagnostic in a changed file also exists at HEAD.
 - Backend Ruff on the five changed files reports **23 findings versus 25 at HEAD**, with no new findings; the change set resolves two pre-existing import-order diagnostics. Repository-wide Ruff with the backend configuration reports 645 findings; the five changed files introduce none.
 - `git diff --check` passes. No live station database, captures, physical cameras or deployment was used. Disposable PostgreSQL clusters created during the attempt were stopped and removed.
-- Known boundary unchanged: cross-client status/flag edits are not broadcast to Logs and still recover through refresh or snapshot expiry.
+- Cross-client status/flag edits are now broadcast; missed edits also recover through automatic
+  live reconciliation (2026-10-25 follow-up above).
 
 ## Live-data and persistence audit — 2026-10-23
 
@@ -317,6 +378,7 @@ The frontend uses Node.js native test runner (`node --test`) driving headless Ch
 | `scanlogfilters.test.mjs` | Unit tests for query string builders (`buildScanLogsUrl`) and filter parsing (`scanLogParams`) |
 | `isoday.test.mjs` | Unit tests for the local calendar-day helpers (`parseIsoDay`, `formatIsoDay`) behind the Logs date filter `YYYY-MM-DD` values |
 | `adminloading.test.mjs`, `loading.test.mjs`, `operationsloading.test.mjs` | First-load vs refresh/empty/error states, delayed reads after writes, read deadlines, notification account scope, operator-list recovery and sensor freshness |
+| `crosssession.test.mjs` | Three isolated browser contexts (Admin, Operator A, Operator B): post-commit flag/edit propagation, account-scoped room isolation, event-id dedupe, frozen Page 2 row patching, new-scan notices, reconnect reconciliation, 409/410 snapshot recovery, timestamp-ordered intake/supplier merges and sensor freshness/out-of-order rejection |
 
 ### Running Frontend Tests
 

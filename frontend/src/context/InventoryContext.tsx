@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext"
 import { useScans } from "@/context/ScanContext"
 import type { DailyIntake, Supplier, InventoryStatus } from "@/types"
 import { useLocation } from "react-router-dom"
+import { INTAKE_CHANGED_EVENT, LIVE_RESUMED_EVENT, SUPPLIER_CHANGED_EVENT } from "@/lib/liveEvents"
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,7 @@ const mapApiSupplier = (s: any): Supplier => ({
   contactPhone: s.contact_phone || s.contactPhone,
   status: s.status,
   dateAdded: s.date_added || s.dateAdded || "",
+  updatedAt: s.updated_at || s.updatedAt,
 })
 
 const mapApiIntake = (i: any): DailyIntake => ({
@@ -59,9 +61,54 @@ const mapApiIntake = (i: any): DailyIntake => ({
   treatedAt: i.treated_at || i.treatedAt,
   spoiledAt: i.spoiled_at || i.spoiledAt,
   scanCount: i.scan_count || i.scanCount || 0,
+  updatedAt: i.updated_at || i.updatedAt,
 })
 
 // ── Provider ────────────────────────────────────────────────────────────────
+
+/** Minimal shape of the post-commit events; unknown fields are ignored. */
+interface IntakeEventDetail {
+  event_id?: string
+  intake_id?: string
+  status?: string
+  intake?: {
+    id?: string
+    supplier_id?: string
+    supplier_name?: string
+    batch_number?: string
+    intake_date?: string
+    date?: string
+    status?: string
+    scan_count?: number
+    treatment?: string
+    created_at?: string
+    updated_at?: string
+    updatedAt?: string
+  } | null
+}
+
+interface SupplierEventDetail {
+  event_id?: string
+  supplier?: {
+    id?: string
+    name?: string
+    contact_person?: string
+    contactPhone?: string
+    status?: string
+    date_added?: string
+    updated_at?: string
+    updatedAt?: string
+  } | null
+}
+
+/** Timestamp order rejects an event or response that was overtaken by a local write. */
+function isNewer(incoming?: string, current?: string) {
+  if (!incoming) return true
+  if (!current) return true
+  const next = Date.parse(incoming)
+  const previous = Date.parse(current)
+  return !Number.isFinite(next) || !Number.isFinite(previous) || next >= previous
+}
 
 export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
@@ -87,6 +134,10 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
   const supplierSeq = useRef(0)
   const [supplierReload, setSupplierReload] = useState(0)
   const hasIntakeSnapshot = useRef(false)
+  const intakesRef = useRef<DailyIntake[]>([])
+  intakesRef.current = intakes
+  const seenEvents = useRef(new Set<string>())
+  const reconcileTimer = useRef<number | null>(null)
   const cancelLoad = useCallback(() => { ++loadSeq.current; ++supplierSeq.current }, [])
   const acceptWrite = useCallback(() => {
     ++loadSeq.current
@@ -130,7 +181,9 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
           setActiveIntake(current => {
             if (current) {
               const refreshed = loaded.find(intake => intake.id === current.id)
-              if (!refreshed) return current
+              // A record missing from the authoritative registry is deleted or
+              // no longer accessible; never keep presenting it as the open batch.
+              if (!refreshed) return null
               return refreshed.status === "Active" ? refreshed : null
             }
             // A reload must resume the open batch instead of forcing a duplicate intake.
@@ -157,6 +210,110 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
   }, [loadData, cancelLoad, pathname, supplierReload])
 
   const refreshIntakes = useCallback(() => { void loadData() }, [loadData])
+
+  const scheduleReconcile = useCallback(() => {
+    if (!user) return
+    if (reconcileTimer.current) window.clearTimeout(reconcileTimer.current)
+    reconcileTimer.current = window.setTimeout(() => {
+      reconcileTimer.current = null
+      if (!document.hidden) void loadData()
+    }, 250)
+  }, [loadData, user])
+
+  const acceptEventId = useCallback((detail: { event_id?: string } | null | undefined) => {
+    const eventId = typeof detail?.event_id === "string" ? detail.event_id : ""
+    if (!eventId) return true
+    if (seenEvents.current.has(eventId)) return false
+    seenEvents.current.add(eventId)
+    if (seenEvents.current.size > 200) {
+      const oldest = seenEvents.current.values().next().value
+      if (oldest) seenEvents.current.delete(oldest)
+    }
+    return true
+  }, [])
+
+  const applyIntakeEvent = useCallback((detail: IntakeEventDetail) => {
+    if (!acceptEventId(detail)) return
+    const raw = detail?.intake && typeof detail.intake === "object" ? detail.intake : null
+    const id = String(raw?.id ?? detail?.intake_id ?? "")
+    if (!id) return
+    const mapped = raw && (raw.intake_date || raw.date) ? mapApiIntake(raw) : null
+    const status = (raw?.status ?? detail?.status) as DailyIntake["status"] | undefined
+    const updatedAt = raw?.updated_at ?? raw?.updatedAt
+    if (!mapped && !intakesRef.current.some(intake => intake.id === id)) {
+      // A partial status event cannot reconstruct the registry row.
+      scheduleReconcile()
+      return
+    }
+    setIntakes(previous => {
+      const index = previous.findIndex(intake => intake.id === id)
+      if (index < 0) return mapped ? [mapped, ...previous] : previous
+      const current = previous[index]
+      if (!isNewer(updatedAt ?? mapped?.updatedAt, current.updatedAt)) return previous
+      const merged = {
+        ...current,
+        ...(mapped ?? {}),
+        id,
+        status: status ?? mapped?.status ?? current.status,
+        updatedAt: updatedAt ?? mapped?.updatedAt ?? current.updatedAt,
+      }
+      // A creation event carries zero scans; a later registry read is authoritative
+      // for the computed count and must not flicker back to zero.
+      if (mapped?.scanCount === 0 && current.scanCount) merged.scanCount = current.scanCount
+      const next = [...previous]
+      next[index] = merged
+      return next
+    })
+    setActiveIntake(current => {
+      if (!current || current.id !== id) return current
+      if (!isNewer(updatedAt ?? mapped?.updatedAt, current.updatedAt)) return current
+      const nextStatus = status ?? mapped?.status ?? current.status
+      return nextStatus === "Active"
+        ? { ...current, ...(mapped ?? {}), id, status: nextStatus,
+            updatedAt: updatedAt ?? mapped?.updatedAt ?? current.updatedAt }
+        : null
+    })
+    if (!intakesReady) setIntakesReady(true)
+  }, [acceptEventId, intakesReady, scheduleReconcile])
+
+  const applySupplierEvent = useCallback((detail: SupplierEventDetail) => {
+    if (!acceptEventId(detail)) return
+    const raw = detail?.supplier
+    if (!raw?.id) return
+    const mapped = mapApiSupplier(raw)
+    setSuppliers(previous => {
+      const index = previous.findIndex(supplier => supplier.id === mapped.id)
+      if (index < 0) return [...previous, mapped]
+      if (!isNewer(mapped.updatedAt, previous[index].updatedAt)) return previous
+      const next = [...previous]
+      next[index] = { ...previous[index], ...mapped }
+      return next
+    })
+    if (!suppliersReady) setSuppliersReady(true)
+    setSuppliersError(null)
+  }, [acceptEventId, suppliersReady])
+
+  useEffect(() => {
+    const onIntake = (event: Event) => applyIntakeEvent((event as CustomEvent<IntakeEventDetail>).detail)
+    const onSupplier = (event: Event) => applySupplierEvent((event as CustomEvent<SupplierEventDetail>).detail)
+    const onResume = () => scheduleReconcile()
+    const onVisibility = () => { if (!document.hidden) scheduleReconcile() }
+    window.addEventListener(INTAKE_CHANGED_EVENT, onIntake)
+    window.addEventListener(SUPPLIER_CHANGED_EVENT, onSupplier)
+    window.addEventListener("focus", onResume)
+    window.addEventListener("online", onResume)
+    window.addEventListener(LIVE_RESUMED_EVENT, onResume)
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => {
+      window.removeEventListener(INTAKE_CHANGED_EVENT, onIntake)
+      window.removeEventListener(SUPPLIER_CHANGED_EVENT, onSupplier)
+      window.removeEventListener("focus", onResume)
+      window.removeEventListener("online", onResume)
+      window.removeEventListener(LIVE_RESUMED_EVENT, onResume)
+      document.removeEventListener("visibilitychange", onVisibility)
+      if (reconcileTimer.current) window.clearTimeout(reconcileTimer.current)
+    }
+  }, [applyIntakeEvent, applySupplierEvent, scheduleReconcile])
 
   // ── Reset on logout ─────────────────────────────────────────────────────
 

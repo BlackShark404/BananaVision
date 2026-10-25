@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import String, and_, cast, func, or_, select
+from sqlalchemy import String, and_, cast, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import as_manila
@@ -21,6 +21,7 @@ from app.schemas.scan_logs import (
     ScanLogOptions,
     ScanLogPending,
     ScanLogQuery,
+    ScanLogReconciliation,
     ScanLogRow,
     SourceOption,
 )
@@ -245,6 +246,54 @@ async def pending_scan_count(
         snapshot_id=saved.id,
         new_count=await _new_scan_count(db, user, saved, query),
         generated_at=meta.get("generated_at") or dashboard.now_manila(),
+    )
+
+
+async def reconcile_scan_logs(
+    db: AsyncSession, user: UserAccount, query: ScanLogQuery,
+) -> ScanLogReconciliation:
+    """Overlay a frozen page with current values without mutating its snapshot.
+
+    Membership and order come only from the authorized snapshot slice. Current
+    account scope and filters can remove rows, but never backfill the page.
+    Metrics deliberately cover the entire current authorized filtered result.
+    """
+    saved = await _snapshot(db, user, query)
+    frozen = slice_snapshot(saved, query.page, query.page_size)["items"]
+    identifiers = [UUID(row["id"]) for row in frozen]
+    now = dashboard.now_manila()
+    scans = dashboard._scoped_projection(user, now)
+    threshold = await dashboard._threshold(db)
+    conditions = _conditions(scans, query, threshold)
+    metrics_query = (
+        select(
+            func.count().label("live_total"),
+            func.avg(scans.c.confidence).label("live_avg_confidence"),
+            func.count().filter(dashboard._expiring(scans)).label("live_at_risk"),
+            func.count().filter(dashboard._review(scans, threshold)).label("live_review"),
+            func.count().filter(scans.c.flagged.is_(True)).label("live_flagged"),
+        ).select_from(scans).where(*conditions)
+    ).subquery("live_metrics")
+    page_query = (
+        select(scans, dashboard._expiring(scans).label("at_risk"))
+        .where(*conditions, scans.c.id.in_(identifiers))
+    ).subquery("live_page")
+    # One SQL statement gives page values and whole-filter metrics the same
+    # PostgreSQL read view even when another session commits during this read.
+    rows = (await db.execute(
+        select(metrics_query, page_query)
+        .select_from(metrics_query.outerjoin(page_query, true()))
+    )).all()
+    metrics = rows[0]
+    current = {row.id: row for row in rows if row.id is not None}
+    ordered = [current[identifier] for identifier in identifiers if identifier in current]
+    return ScanLogReconciliation(
+        snapshot_id=saved.id, items=[_row(row) for row in ordered],
+        at_risk_ids=[row.id for row in ordered if row.at_risk],
+        total=metrics.live_total, avg_confidence=dashboard._mean(metrics.live_avg_confidence),
+        at_risk_count=metrics.live_at_risk, review_count=metrics.live_review,
+        flagged_count=metrics.live_flagged,
+        confidence_threshold=threshold, generated_at=now,
     )
 
 

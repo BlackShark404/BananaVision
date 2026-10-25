@@ -18,7 +18,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_current_user
-from app.api.v1 import activity, config, intakes, notifications, quality, scans, suppliers, users
+from app.api.v1 import (
+    activity, config, intakes, notifications, quality, scans, sensors, suppliers, users,
+)
 from app.core import database
 from app.core.db_types import ManilaDateTime
 from app.core.time import MANILA, as_manila, business_day_bounds, input_manila, now_manila
@@ -137,7 +139,8 @@ def application(monkeypatch):
 
     app = FastAPI()
     for router in (scans.router, suppliers.router, users.router, intakes.router,
-                   config.router, activity.router, quality.router, notifications.router):
+                   config.router, activity.router, quality.router, notifications.router,
+                   sensors.router):
         app.include_router(router, prefix="/api/v1")
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
         id=ids.admin, token_version=1, full_name="Admin User", role=SimpleNamespace(name="Admin"),

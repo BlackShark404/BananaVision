@@ -10,7 +10,7 @@ import { toast } from "sonner"
 import { useLocation } from "react-router-dom"
 import type { ScanResult, ScanNote, InventoryStatus } from "@/types"
 import { collectScanPages, mapApiScan, mapApiScanNote, type ApiScan } from "@/lib/scanData"
-import { notifyLiveResumed, notifyNotificationsChanged, notifyScanChanged, notifyScansAdded } from "@/lib/liveEvents"
+import { notifyLiveResumed, notifyNotificationsChanged, notifyScansAdded, notifyScanUpdated, notifyIntakeChanged, notifySupplierChanged, newEventId, type ScanUpdateDetail } from "@/lib/liveEvents"
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -77,6 +77,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
   const knownScans = useRef(new Map<string, ScanResult>())
   const noteRequests = useRef(new Map<string, number>())
   const completedScans = useRef(new Set<string>())
+  const seenScanEvents = useRef(new Set<string>())
 
   const acceptScan = useCallback((raw: ApiScan) => {
     const incoming = mapApiScan(raw, getImageUrl)
@@ -99,7 +100,6 @@ function ScanStore({ children }: { children: React.ReactNode }) {
       setScanNotes(previous => [...previous.filter(note => note.scanId !== saved.id), ...saved.notes!])
       setNotesState(previous => ({ ...previous, [saved.id]: { loading: false, error: null, ready: true } }))
     }
-    if (previousRevision > 0 && (saved.revision ?? 0) > previousRevision) notifyScanChanged()
     return saved
   }, [])
 
@@ -152,7 +152,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
     const saved = knownScans.current.get(scanResult.id) ?? latest
     setScans(prev => [saved, ...prev.filter(scan => scan.id !== saved.id)])
     setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: saved })
-    // A completion adds a row; edits use notifyScanChanged so frozen page 2+
+    // A completion adds a row; edits use notifyScanUpdated so frozen page 2+
     // snapshots are never replaced unless the user asks for the latest scans.
     notifyScansAdded()
     notifyNotificationsChanged()
@@ -201,6 +201,84 @@ function ScanStore({ children }: { children: React.ReactNode }) {
         toast.error(data?.error || "Scan failed. Please try again.")
         break
 
+      case "scan:changed": {
+        const eventId = typeof data?.event_id === "string" ? data.event_id : ""
+        if (eventId) {
+          if (seenScanEvents.current.has(eventId)) break
+          seenScanEvents.current.add(eventId)
+          if (seenScanEvents.current.size > 200) {
+            const oldest = seenScanEvents.current.values().next().value
+            if (oldest) seenScanEvents.current.delete(oldest)
+          }
+        }
+        const incoming = data?.scan
+        if (data?.deleted && incoming?.id) {
+          knownScans.current.delete(incoming.id)
+          setScans(previous => previous.filter(scan => scan.id !== incoming.id))
+          setScanState(previous => previous.lastResult?.id === incoming.id
+            ? { ...previous, lastResult: null }
+            : previous)
+          notifyScanUpdated({
+            eventId: eventId || newEventId(), scanId: incoming.id,
+            revision: Number(data.revision) || 0, kind: data.kind || "deleted",
+            actorId: data.actor_id || "", changed: [], partial: true,
+            deleted: true, scan: incoming,
+          })
+          break
+        }
+        if (!incoming?.id) break
+        const previous = knownScans.current.get(incoming.id)
+        if (data.partial) {
+          if (!previous || !Number.isInteger(incoming.revision)
+            || incoming.revision <= (previous.revision ?? 0)) break
+          const updated = {
+            ...previous,
+            revision: incoming.revision,
+            inventoryStatus: incoming.inventory_status ?? previous.inventoryStatus,
+            statusUpdatedAt: incoming.status_updated_at ?? previous.statusUpdatedAt,
+            inventoryEligible: incoming.inventory_eligible ?? previous.inventoryEligible,
+            remainingDays: incoming.remaining_days ?? previous.remainingDays,
+            riskAsOf: incoming.risk_as_of ?? previous.riskAsOf,
+          }
+          knownScans.current.set(incoming.id, updated)
+          setScans(current => current.map(scan => scan.id === incoming.id ? updated : scan))
+          setScanState(current => current.lastResult?.id === incoming.id
+            ? { ...current, lastResult: updated }
+            : current)
+          notifyScanUpdated({
+            eventId: eventId || newEventId(), scanId: incoming.id,
+            revision: incoming.revision, kind: data.kind || "changed",
+            actorId: data.actor_id || "",
+            changed: Array.isArray(data.changed) ? data.changed : [],
+            partial: true, scan: incoming,
+          })
+          break
+        }
+        const saved = acceptScan(incoming)
+        if (!previous) {
+          // The row is outside the loaded history window; reconcile rather than
+          // inventing a position in the list.
+          void refreshScans()
+        } else if ((saved.revision ?? 0) > (previous.revision ?? 0)) {
+          notifyScanUpdated({
+            eventId: eventId || newEventId(), scanId: saved.id,
+            revision: saved.revision ?? 0, kind: data.kind || "changed",
+            actorId: data.actor_id || "",
+            changed: Array.isArray(data.changed) ? data.changed : [],
+            partial: false, scan: incoming,
+          })
+        }
+        break
+      }
+
+      case "intake:changed":
+        notifyIntakeChanged(data ?? {})
+        break
+
+      case "supplier:changed":
+        notifySupplierChanged(data ?? {})
+        break
+
       case "notification":
         notifyNotificationsChanged()
         break
@@ -213,7 +291,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
         updateDeviceFromWs(data.camera_id, data.status, data.last_seen)
         break
     }
-  }, [acceptCompletedScan, updateDeviceFromWs])
+  }, [acceptCompletedScan, acceptScan, refreshScans, updateDeviceFromWs])
 
   const handleWsReconnect = useCallback(() => {
     // Events may have been missed while the socket was down. Resync history,
@@ -251,7 +329,15 @@ function ScanStore({ children }: { children: React.ReactNode }) {
 
   const flagScan = useCallback(async (id: string, flagged: boolean, revision?: number) => {
     const body = { flagged, expected_revision: scanRevision(revision ?? knownScans.current.get(id)?.revision) }
-    return scanWrite(`${user?.id}:${id}:flag`, body, async payload => acceptScan(await api.scans.flag(id, payload)))
+    const { saved, raw } = await scanWrite(`${user?.id}:${id}:flag`, body, async payload => {
+      const response = await api.scans.flag(id, payload)
+      return { raw: response, saved: acceptScan(response) }
+    })
+    notifyScanUpdated({
+      eventId: newEventId(), scanId: id, revision: raw.revision, kind: "flag",
+      actorId: user?.id ?? "", changed: ["flagged"], partial: false, scan: raw,
+    })
+    return saved
   }, [user?.id, acceptScan])
 
   const addScanNote = useCallback(async (scanId: string, note: string, revision?: number) => {
@@ -272,6 +358,11 @@ function ScanStore({ children }: { children: React.ReactNode }) {
         }
         setScanNotes(previous => [...previous.filter(item => item.id !== saved.id), saved])
       }
+      notifyScanUpdated({
+        eventId: newEventId(), scanId, revision: raw.revision, kind: "note",
+        actorId: user?.id ?? "", changed: ["note"], partial: true,
+        scan: { id: scanId, revision: raw.revision, has_notes: true },
+      })
       return { note: saved, revision: raw.revision }
     })
   }, [user?.id])
@@ -306,26 +397,43 @@ function ScanStore({ children }: { children: React.ReactNode }) {
     if (data.source !== undefined && data.source !== before?.source) changes.source_text = data.source
     return scanWrite(`${user?.id}:${id}:correction`, {
       ...changes, reason, expected_revision: scanRevision(before?.revision),
-    }, async payload => acceptScan(await api.scans.override(id, payload)))
+    }, async payload => {
+      const raw = await api.scans.override(id, payload)
+      const saved = acceptScan(raw)
+      notifyScanUpdated({
+        eventId: newEventId(), scanId: id, revision: raw.revision, kind: "correction",
+        actorId: user?.id ?? "", changed: Object.keys(changes), partial: false, scan: raw,
+      })
+      return saved
+    })
   }, [user?.id, acceptScan])
 
   // ── Cross-context helper for InventoryContext ───────────────────────────
 
   const updateScansForIntake = useCallback((scanIds: string[], status: InventoryStatus, statusUpdatedAt: string, revisions: Record<string, number>) => {
     if (!mounted.current) return
+    const updates: ScanUpdateDetail[] = []
     for (const id of scanIds) {
       const known = knownScans.current.get(id)
       const revision = revisions[id]
       if (known && Number.isInteger(revision) && revision > (known.revision ?? 0)) {
         knownScans.current.set(id, { ...known, revision, inventoryStatus: status, statusUpdatedAt,
           inventoryEligible: status === "In Stock" ? known.inventoryEligible : false })
+        updates.push({
+          eventId: newEventId(), scanId: id, revision, kind: "status",
+          actorId: user?.id ?? "", changed: ["inventory_status"], partial: true,
+          scan: {
+            id, revision, inventory_status: status, status_updated_at: statusUpdatedAt,
+            inventory_eligible: status === "In Stock" ? known.inventoryEligible : false,
+          },
+        })
       }
     }
     setScans(previous => previous.map(scan => knownScans.current.get(scan.id) ?? scan))
     setScanState(previous => previous.lastResult ? { ...previous, lastResult: knownScans.current.get(previous.lastResult.id) ?? previous.lastResult } : previous)
-    notifyScanChanged()
+    for (const update of updates) notifyScanUpdated(update)
     void refreshScans()
-  }, [refreshScans])
+  }, [refreshScans, user?.id])
 
   return (
     <ScanContext value={{

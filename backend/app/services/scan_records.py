@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from dataclasses import dataclass
 
 from fastapi import HTTPException
 from sqlalchemy import select, text, true, update
@@ -34,6 +35,15 @@ from app.schemas.scan import (
 from app.services.auth_service import lock_current_account
 from app.services.inventory_policy import inventory_facts
 from app.services.scan_evidence import evidence_url
+from app.ws.mutations import publish_scan_event, scan_event
+
+
+@dataclass(frozen=True)
+class ScanChange:
+    """A committed-shape description of exactly what apply_scan_change wrote."""
+
+    note: ScanNote | None = None
+    changed: tuple[str, ...] = ()
 
 
 def is_admin(user) -> bool:
@@ -126,6 +136,50 @@ def serialize_scan(scan, user=None):
         ],
         updated_at=scan.updated_at,
     )
+
+
+def _scan_source(scan) -> tuple[str, str]:
+    """Match the Dashboard/Scan Logs source key without exposing a new query."""
+    if scan.intake and scan.intake.supplier_id:
+        supplier = scan.intake.supplier
+        return f"supplier:{scan.intake.supplier_id}", (supplier.name if supplier else "Unknown")
+    text = (scan.source_text or "").strip()
+    if text:
+        return f"text:{text}", text
+    return "unknown", "Unknown"
+
+
+def scan_event_payload(scan, user) -> dict:
+    """Authorized row fields only; image lists and note text are never broadcast."""
+    payload = serialize_scan(scan, user).model_dump(mode="json")
+    payload.pop("images", None)
+    payload.pop("original_ai_result", None)
+    source_key, source_name = _scan_source(scan)
+    payload.update({
+        "operator_id": str(scan.operator_id),
+        "source_key": source_key,
+        "source_name": source_name,
+    })
+    return payload
+
+
+def partial_scan_event_payload(scan) -> dict:
+    """Bulk status changes do not need to hydrate a full classification row."""
+    latest = scan.status_logs[-1] if scan.status_logs else None
+    facts = inventory_facts(
+        scan,
+        latest.inventory_status if latest else InventoryStatusEnum.IN_STOCK,
+        now_manila(),
+    )
+    return {
+        "id": str(scan.id),
+        "revision": scan.revision,
+        "inventory_status": latest.inventory_status if latest else InventoryStatusEnum.IN_STOCK,
+        "status_updated_at": latest.updated_at.isoformat() if latest else None,
+        "inventory_eligible": facts["inventory_eligible"],
+        "remaining_days": facts["remaining_days"],
+        "risk_as_of": facts["risk_as_of"].isoformat(),
+    }
 
 
 async def scan_history(db, scan, user):
@@ -222,7 +276,7 @@ async def apply_scan_change(db, scan, user, kind, changes, reason=None, client_i
         if key == "text" or old != value:
             previous[key], new[key] = old, value
     if not new:
-        return None
+        return ScanChange()
     now = now_manila()
     expected = scan.revision
     result = await db.execute(update(Scan).where(Scan.id == scan.id, Scan.revision == expected)
@@ -275,7 +329,7 @@ async def apply_scan_change(db, scan, user, kind, changes, reason=None, client_i
         )
     )
     await db.flush()
-    return note
+    return ScanChange(note, tuple(sorted(new)))
 
 
 async def mutate_scan(db, scan_id, user, kind, body, client_ip=None):
@@ -313,15 +367,32 @@ async def mutate_scan(db, scan_id, user, kind, body, client_ip=None):
     )
     if kind == "note":
         changes = {"text": body.note}
-    note = await apply_scan_change(
+    change = await apply_scan_change(
         db, scan, user, kind, changes, getattr(body, "reason", None), client_ip=client_ip
     )
-    if note:
+    if change.note:
         response = {
-            **ScanNoteResponse.model_validate(note).model_dump(mode="json"),
+            **ScanNoteResponse.model_validate(change.note).model_dump(mode="json"),
             "revision": scan.revision,
         }
     else:
         response = (await serialize_detail(db, scan, user)).model_dump(mode="json")
     save_receipt(db, user, body, fingerprint, response)
+    if change.changed:
+        # Publish only after the row, audit event and replay receipt are durable.
+        event = scan_event(
+            scan_id=scan.id,
+            revision=scan.revision,
+            kind=kind,
+            changed=change.changed,
+            actor_id=user.id,
+            scan=scan_event_payload(scan, user),
+        )
+        owner_id = (
+            scan.operator.account.id
+            if scan.operator and scan.operator.account
+            else None
+        )
+        await db.commit()
+        await publish_scan_event(event, owner_account_id=owner_id)
     return response

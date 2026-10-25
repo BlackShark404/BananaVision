@@ -53,8 +53,11 @@ async function setup(t, status = 200, options = {}) {
       return reply({ snapshot_id: url.searchParams.get('snapshot_id'), new_count: state.pendingCount ?? 0,
         generated_at: state.record.date_time })
     }
-    if (url.pathname === '/api/v1/scan-logs') {
-      if (state.logResponse) return reply(state.logResponse(Object.fromEntries(url.searchParams)))
+    if (['/api/v1/scan-logs', '/api/v1/scan-logs/reconcile'].includes(url.pathname)) {
+      const replyPage = data => reply(url.pathname.endsWith('/reconcile') ? {
+        ...data, at_risk_ids: data.at_risk_ids ?? (data.at_risk_count ? data.items.slice(0, data.at_risk_count).map(row => row.id) : []),
+      } : data)
+      if (state.logResponse) return replyPage(state.logResponse(Object.fromEntries(url.searchParams)))
       if (state.logStatus) return reply({ detail: 'Too many records for a browse snapshot. Narrow filters or export.' }, state.logStatus)
       if (state.expire && url.searchParams.get('snapshot_id')) return reply({ detail: 'Browse snapshot expired. Refresh.' }, 410)
       const search = url.searchParams.get('search') || 'Initial'
@@ -62,7 +65,7 @@ async function setup(t, status = 200, options = {}) {
       const isRisk = url.searchParams.get('attention') === 'at-risk'
       const pageSize = Number(url.searchParams.get('page_size') || 10)
       const total = isRisk ? 1 : 201
-      return reply({ items: [{ ...state.record, source_name: search, remaining_days: 1, temperature: null, humidity: null }], total,
+      return replyPage({ items: [{ ...state.record, source_name: search, remaining_days: 1, temperature: null, humidity: null }], total,
         snapshot_id: url.searchParams.get('snapshot_id') || state.snapshotToken || 'snapshot-one', page: Number(url.searchParams.get('page') || 1), page_size: pageSize, avg_confidence: 92, at_risk_count: state.atRiskCount ?? (isRisk ? 1 : 0), review_count: 0,
         options: { sources: [], operators: [] }, generated_at: state.record.date_time })
     }
@@ -104,6 +107,7 @@ test('Logs show only the readable range and use risk snapshot membership through
       items: selected.map(({ at_risk: _fixtureRisk, ...row }) => ({ ...row, source_name: 'Stored source' })),
       total: params.attention === 'at-risk' ? 1 : 24, page: Number(params.page), page_size: Number(params.page_size || 10),
       at_risk_count: 1, avg_confidence: 92, review_count: 0, flagged_count: 0,
+      at_risk_ids: records.filter(row => row.at_risk).map(row => row.id),
       generated_at: scan().date_time, snapshot_id: params.snapshot_id || snapshotId,
       options: { sources: [], operators: [] },
     }

@@ -90,3 +90,18 @@ class ScanLogPending(BaseModel):
     snapshot_id: UUID
     new_count: int
     generated_at: Timestamp
+
+
+class ScanLogReconciliation(BaseModel):
+    """Current authorized values for a frozen page, plus live whole-filter metrics."""
+
+    snapshot_id: UUID
+    items: list[ScanLogRow]
+    at_risk_ids: list[UUID]
+    total: int
+    avg_confidence: float | None
+    at_risk_count: int
+    review_count: int
+    flagged_count: int
+    confidence_threshold: float
+    generated_at: Timestamp

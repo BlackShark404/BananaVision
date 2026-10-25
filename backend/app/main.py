@@ -107,7 +107,8 @@ async def health_check():
     from app.services.classification import banana_classifier
     from app.services.banana_detector import banana_pre_detector
     from app.services.spoilage import spoilage_predictor
-    from app.services.sensor_reader import sensor_reader
+    from app.services.sensor_reader import freshness_window_seconds, sensor_reader
+    from app.core.time import now_manila
 
     models_ready = banana_classifier.is_loaded and banana_pre_detector.is_loaded
     cameras_ok = len(camera_manager.online_cameras) > 0
@@ -128,4 +129,9 @@ async def health_check():
         "yolo_loaded": banana_classifier.is_loaded,
         "rfr_loaded": spoilage_predictor.is_loaded,
         "sensor_connected": sensor_reader.is_connected,
+        "sensor_recorded_at": (
+            sensor_reader.latest.recorded_at.isoformat() if sensor_reader.latest else None
+        ),
+        "sensor_stale_after_seconds": freshness_window_seconds(),
+        "server_time": now_manila().isoformat(),
     }

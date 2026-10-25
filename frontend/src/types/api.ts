@@ -79,6 +79,7 @@ export interface ApiSupplier extends ApiSupplierWrite {
   id: string
   status: ActiveStatus
   date_added: string
+  updated_at?: string
 }
 
 export interface ApiIntake {
@@ -96,6 +97,7 @@ export interface ApiIntake {
   spoiled_at: string | null
   scan_count: number
   created_at: string
+  updated_at?: string
 }
 
 export interface ApiSensor {
@@ -103,6 +105,8 @@ export interface ApiSensor {
   humidity: number
   recorded_at: string
   source: string
+  server_time?: string
+  stale_after_seconds?: number
 }
 
 export interface ApiNotification {

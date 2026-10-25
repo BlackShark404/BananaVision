@@ -59,3 +59,17 @@ export interface ScanLogPending {
   new_count: number
   generated_at: string
 }
+
+/** Live authorized rows for a frozen page, plus current whole-filter totals. */
+export interface ScanLogReconciliation {
+  snapshot_id: string
+  items: ScanLogRow[]
+  at_risk_ids: string[]
+  total: number
+  avg_confidence: number | null
+  at_risk_count: number
+  review_count: number
+  flagged_count: number
+  generated_at: string
+  confidence_threshold: number
+}

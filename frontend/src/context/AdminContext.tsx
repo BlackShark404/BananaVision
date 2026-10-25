@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext"
 import type { User, Device, ActivityLog, SystemConfig } from "@/types"
 import type { ApiUser, ApiDevice, ApiActivity, ApiUserUpdate, ApiConfigUpdate, ApiConfig } from "@/types/api"
 import { useLocation } from "react-router-dom"
+import { LIVE_RESUMED_EVENT } from "@/lib/liveEvents"
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -212,6 +213,36 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     void loadData()
     return () => controller.abort()
   }, [user, pathname, usersRequests, usersReload, setUsers, setDevices, setActivityLogs, setActivityLoading, setActivityError, setUsersLoading, setUsersReady, setUsersError, setDevicesLoading, setDevicesReady, setDevicesError, setActivityReady])
+
+  // Reconcile after a reconnect, tab restore or network recovery. The debounce
+  // collapses focus + visibilitychange into one authoritative read.
+  const adminLoadingRef = useRef(false)
+  adminLoadingRef.current = usersLoading || devicesLoading || activityLoading
+  const reconcileTimer = useRef<number | null>(null)
+  useEffect(() => {
+    const reconcile = () => {
+      if (!user || document.hidden || adminLoadingRef.current) return
+      if (reconcileTimer.current) window.clearTimeout(reconcileTimer.current)
+      reconcileTimer.current = window.setTimeout(() => {
+        reconcileTimer.current = null
+        if (document.hidden) return
+        setUsersReload(value => value + 1)
+        void reloadConfig()
+      }, 250)
+    }
+    const onVisibility = () => { if (!document.hidden) reconcile() }
+    window.addEventListener("focus", reconcile)
+    window.addEventListener("online", reconcile)
+    window.addEventListener(LIVE_RESUMED_EVENT, reconcile)
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => {
+      window.removeEventListener("focus", reconcile)
+      window.removeEventListener("online", reconcile)
+      window.removeEventListener(LIVE_RESUMED_EVENT, reconcile)
+      document.removeEventListener("visibilitychange", onVisibility)
+      if (reconcileTimer.current) window.clearTimeout(reconcileTimer.current)
+    }
+  }, [reloadConfig, setUsersReload, user])
 
   // ── CRUD Operations ─────────────────────────────────────────────────────
 

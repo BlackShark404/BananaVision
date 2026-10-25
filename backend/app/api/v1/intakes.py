@@ -25,6 +25,7 @@ from app.services.scan_records import (
     save_receipt,
     apply_scan_change,
     is_admin,
+    partial_scan_event_payload,
     scan_scope,
 )
 from app.core.http import get_client_ip
@@ -32,6 +33,12 @@ from app.models.supplier import Supplier
 from app.models.intake import Intake
 from app.models.scan import Scan
 from app.models.activity_log import ActivityLog
+from app.ws.mutations import (
+    intake_event,
+    publish_intake_event,
+    publish_scan_event,
+    scan_event,
+)
 from app.schemas.common import (
     IntakeCreate,
     IntakeResponse,
@@ -98,7 +105,7 @@ async def create_intake(body: IntakeCreate, db: DbSession, user: CurrentUser, re
         ip_address=get_client_ip(request),
     ))
 
-    return IntakeResponse(
+    response = IntakeResponse(
         id=new_intake.id,
         supplier_id=new_intake.supplier_id,
         supplier_name=sup.name if sup else None,
@@ -113,7 +120,21 @@ async def create_intake(body: IntakeCreate, db: DbSession, user: CurrentUser, re
         spoiled_at=new_intake.spoiled_at,
         scan_count=0,
         created_at=new_intake.created_at,
+        updated_at=new_intake.updated_at,
     )
+    payload = response.model_dump(mode="json")
+    payload.pop("qr_code", None)
+    await db.commit()
+    await publish_intake_event(
+        intake_event(
+            intake_id=new_intake.id,
+            kind="created",
+            actor_id=user.id,
+            intake=payload,
+            status=new_intake.status,
+        )
+    )
+    return response
 
 
 @router.get("", response_model=list[IntakeResponse])
@@ -149,6 +170,7 @@ async def list_intakes(db: DbSession, user: CurrentUser):
             spoiled_at=intake.spoiled_at,
             scan_count=scan_count,
             created_at=intake.created_at,
+            updated_at=intake.updated_at,
         )
         for intake, scan_count in rows
     ]
@@ -171,6 +193,17 @@ async def update_intake_status(
         details=f"Intake {intake_id} status → {body.status}",
         ip_address=get_client_ip(request),
     ))
+    await db.commit()
+    await publish_intake_event(
+        intake_event(
+            intake_id=intake.id,
+            kind="status",
+            actor_id=admin.id,
+            intake={"id": str(intake.id), "status": intake.status.value,
+                    "updated_at": intake.updated_at.isoformat()},
+            status=intake.status,
+        )
+    )
     return {"message": "Intake status updated"}
 
 
@@ -207,6 +240,7 @@ async def bulk_update_intake_inventory(
             "Intake scans changed. Reload the intake before applying this action."
         )
     updated_ids = []
+    pending_events = []
     for scan in scans:
         current = (
             scan.status_logs[-1].inventory_status
@@ -217,11 +251,24 @@ async def bulk_update_intake_inventory(
             current not in (InventoryStatusEnum.SOLD, InventoryStatusEnum.SPOILED)
             and current != body.inventory_status
         ):
-            await apply_scan_change(
+            change = await apply_scan_change(
                 db, scan, admin, "status", {"inventory_status": body.inventory_status}, body.reason,
                 client_ip=get_client_ip(request),
             )
-            updated_ids.append(str(scan.id))
+            if change.changed:
+                updated_ids.append(str(scan.id))
+                pending_events.append((
+                    scan_event(
+                        scan_id=scan.id,
+                        revision=scan.revision,
+                        kind="status",
+                        changed=change.changed,
+                        actor_id=admin.id,
+                        scan=partial_scan_event_payload(scan),
+                        partial=True,
+                    ),
+                    scan.operator.account_id if scan.operator else None,
+                ))
     final_in_stock = (
         body.inventory_status == InventoryStatusEnum.IN_STOCK
         if not scans
@@ -252,4 +299,17 @@ async def bulk_update_intake_inventory(
         "revisions": {str(scan.id): scan.revision for scan in scans},
     }
     save_receipt(db, admin, body, fingerprint, response)
+    await db.commit()
+    for event, owner_account_id in pending_events:
+        await publish_scan_event(event, owner_account_id=owner_account_id)
+    await publish_intake_event(
+        intake_event(
+            intake_id=intake.id,
+            kind="bulk-inventory",
+            actor_id=admin.id,
+            intake={"id": str(intake.id), "status": intake.status.value,
+                    "updated_at": intake.updated_at.isoformat()},
+            status=intake.status,
+        )
+    )
     return response

@@ -6,7 +6,7 @@
 
 import { getToken, clearAuth } from "@/lib/auth"
 import type { DashboardScanPage, DashboardScanParams, DashboardSummary } from "@/types/dashboard"
-import type { ScanLogPage, ScanLogParams, ScanLogPending } from "@/types/scanLogs"
+import type { ScanLogPage, ScanLogParams, ScanLogPending, ScanLogReconciliation } from "@/types/scanLogs"
 import type { ApiScan, ApiScanNote, RecordPage } from "@/lib/scanData"
 import type { LabelPreview, PrintJob } from "@/types/printing"
 import type { CameraDiscovery } from "@/types/cameras"
@@ -297,6 +297,7 @@ export const api = {
   },
 
   scanLogs: {
+    reconcile: (params: ScanLogParams, signal?: AbortSignal) => get<ScanLogReconciliation>("/api/v1/scan-logs/reconcile", { ...params }, signal),
     list: (params: ScanLogParams, signal?: AbortSignal) => get<ScanLogPage>("/api/v1/scan-logs", { ...params }, signal),
     pending: (params: ScanLogParams, signal?: AbortSignal) => get<ScanLogPending>("/api/v1/scan-logs/pending", { ...params }, signal),
     export: async (params: ScanLogParams, signal?: AbortSignal) => {
@@ -401,5 +402,5 @@ export const api = {
   },
 
   // ── Health ───────────────────────────────────────────────────────────────
-  health: () => get<{ status: string; cameras_online: number; cameras_total: number; yolo_loaded: boolean; rfr_loaded: boolean; sensor_connected: boolean }>("/health"),
+  health: () => get<{ status: string; cameras_online: number; cameras_total: number; yolo_loaded: boolean; rfr_loaded: boolean; sensor_connected: boolean; sensor_recorded_at?: string | null; sensor_stale_after_seconds?: number; server_time?: string }>("/health"),
 }

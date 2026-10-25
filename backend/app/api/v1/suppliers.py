@@ -15,6 +15,7 @@ from app.models.supplier import Supplier
 from app.models.activity_log import ActivityLog
 from app.core.http import get_client_ip
 from app.schemas.common import SupplierCreate, SupplierUpdate, SupplierResponse
+from app.ws.mutations import publish_supplier_event, supplier_event
 
 
 router = APIRouter(prefix="/suppliers", tags=["Suppliers"])
@@ -39,7 +40,17 @@ async def create_supplier(body: SupplierCreate, db: DbSession, admin: AdminUser,
         ip_address=get_client_ip(request),
     ))
     await db.flush()
-    return SupplierResponse.model_validate(supplier)
+    response = SupplierResponse.model_validate(supplier)
+    await db.commit()
+    await publish_supplier_event(
+        supplier_event(
+            supplier_id=supplier.id,
+            kind="created",
+            actor_id=admin.id,
+            supplier=response.model_dump(mode="json"),
+        )
+    )
+    return response
 
 
 @router.patch("/{supplier_id}", response_model=SupplierResponse)
@@ -63,4 +74,14 @@ async def update_supplier(
     ))
 
     await db.flush()
-    return SupplierResponse.model_validate(supplier)
+    response = SupplierResponse.model_validate(supplier)
+    await db.commit()
+    await publish_supplier_event(
+        supplier_event(
+            supplier_id=supplier.id,
+            kind="updated",
+            actor_id=admin.id,
+            supplier=response.model_dump(mode="json"),
+        )
+    )
+    return response

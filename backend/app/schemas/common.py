@@ -7,6 +7,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 from datetime import date
+from app.core.time import now_manila
 from app.schemas.timestamps import InputTimestamp, Timestamp
 
 from pydantic import BaseModel, Field, StrictInt, StrictBool, field_validator, model_validator
@@ -34,6 +35,10 @@ class SensorReadingResponse(BaseModel):
     humidity: float
     recorded_at: Timestamp
     source: str = "DHT22"
+    # Server clock evidence lets clients detect stale readings without trusting
+    # a possibly skewed workstation clock. Three missed polls is the default.
+    server_time: Timestamp = Field(default_factory=now_manila)
+    stale_after_seconds: int = 15
 
     model_config = {"from_attributes": True}
 
@@ -66,6 +71,7 @@ class SupplierResponse(BaseModel):
     contact_phone: str | None = None
     status: ActiveStatusEnum
     date_added: Timestamp
+    updated_at: Timestamp
 
     model_config = {"from_attributes": True}
 
@@ -95,6 +101,7 @@ class IntakeResponse(BaseModel):
     spoiled_at: Timestamp | None = None
     scan_count: int = 0
     created_at: Timestamp
+    updated_at: Timestamp
 
 
 class IntakeStatusUpdate(BaseModel):

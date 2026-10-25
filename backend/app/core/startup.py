@@ -46,7 +46,7 @@ from app.services.power_control import reconcile_power
 from app.services.classification import banana_classifier
 from app.services.banana_detector import banana_pre_detector
 from app.services.spoilage import spoilage_predictor
-from app.services.sensor_reader import sensor_reader
+from app.services.sensor_reader import freshness_window_seconds, sensor_reader
 from app.ws.manager import ws_manager
 from app.ws import events
 from app.schemas.enums import RoleEnum, ActiveStatusEnum, DeviceStatusEnum, PasswordSetupReasonEnum
@@ -216,15 +216,21 @@ async def start_background_tasks(*, allow_blocked=False):
                 await db.commit()
 
             # Broadcast via WebSocket
+            freshness = {
+                "server_time": now_manila().isoformat(),
+                "stale_after_seconds": freshness_window_seconds(),
+            }
             await ws_manager.send_to_room(events.ROOM_KIOSK, events.SENSOR_UPDATE, {
                 "temperature": data.temperature,
                 "humidity": data.humidity,
                 "recorded_at": data.recorded_at.isoformat(),
+                **freshness,
             })
             await ws_manager.send_to_room(events.ROOM_DASHBOARD, events.SENSOR_UPDATE, {
                 "temperature": data.temperature,
                 "humidity": data.humidity,
                 "recorded_at": data.recorded_at.isoformat(),
+                **freshness,
             })
 
     sensor_task = asyncio.create_task(sensor_reader.start_polling(on_sensor_reading))

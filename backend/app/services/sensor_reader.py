@@ -21,6 +21,11 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+def freshness_window_seconds() -> int:
+    """Three missed polls (or at least 15s) before a reading is no longer live."""
+    return max(int(settings.sensor_read_interval_s) * 3, 15)
+
+
 @dataclass
 class SensorData:
     """Parsed sensor reading."""

@@ -151,6 +151,7 @@ export interface DailyIntake {
   spoiledAt?: string
   scanCount?: number
   source?: string
+  updatedAt?: string
 }
 
 export interface Supplier {
@@ -160,6 +161,7 @@ export interface Supplier {
   contactPhone?: string
   status: ActiveStatus
   dateAdded: string
+  updatedAt?: string
 }
 
 export interface User {

@@ -2,6 +2,42 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-10-24: Cross-session mutation sync and sensor freshness
+
+- **Symptoms:** a scan edited in one session (flag, correction, status, note, provenance) stayed stale in
+  other sessions until a manual refresh; intake and supplier changes behaved the same way. Device Status
+  could label a reading **Live**/**Optimal** because only `sensor_connected` was checked, even when
+  `recorded_at` was minutes old.
+- **Root causes:**
+  - Scan edit endpoints persisted mutations but emitted no events, so other authenticated sessions had
+    no invalidation signal. Where a signal existed, it was either a coarse refresh that discarded the
+    frozen Logs snapshot or arrived before the transaction had committed.
+  - `recorded_at` existed in storage but was not compared against the actual polling interval, and the
+    client trusted the workstation clock.
+- **Fixes:**
+  - `backend/app/ws/mutations.py` publishes post-commit `scan:changed`, `intake:changed` and
+    `supplier:changed` events to account-scoped rooms. `mutate_scan`, intake and supplier endpoints now
+    commit explicitly before broadcasting.
+  - Frontend consumers merge by stable ID and revision (or `updated_at` for intakes/suppliers), reject
+    stale payloads, drop duplicate `event_id`s and reconcile on reconnect/focus/visibility/online.
+  - Logs patches a visible frozen row instead of replacing the snapshot, and only raises a notice when
+    an edit lands during an active edit or focused control.
+  - Sensor payloads carry `server_time` and `stale_after_seconds` (`max(3 × polling interval, 15)`).
+    Device Status computes age from the server clock, advances it monotonically, rejects out-of-order
+    readings and delayed untimestamped initial fetches.
+- **Second-order regression caught and fixed:** accepting legacy payloads without `recorded_at` was
+  necessary for compatibility, but they must display with unknown freshness and can never be **Live**
+  or **Optimal**; the first implementation dropped them entirely.
+- **Verification:** backend `test_mutation_events.py` 7 passed; full backend 603 passed / 66 skipped.
+  Frontend `crosssession.test.mjs` 9 passed in three separate browser contexts, including deferral of
+  a remote edit while a control is focused; full browser suite 263 passed. Details and the PostgreSQL
+  gap are in [[Testing and Validation]].
+- **Follow-up resolved 2026-10-25:** missed edits and KPI changes now reconcile automatically through
+  an authorized live read of the frozen page IDs plus whole-filter metrics. Deleted/inaccessible/
+  filtered-out rows disappear on reconciliation, focused controls defer values until blur, and
+  rounded event values cannot invent at-risk membership. Page order and frozen exports remain
+  unchanged. See [[Frontend]] and the latest [[Testing and Validation]] results.
+
 ## 2026-10-24: Final integration corrections
 
 - **Expired risk membership:** Logs could reuse at-risk IDs from an expired snapshot after retrying with a new one. The retry clears the old membership, keeping the replacement rows, indicators and snapshot counts aligned.

@@ -14,6 +14,13 @@ SCAN_DETECTED = "scan:detected"
 SCAN_ANALYZING = "scan:analyzing"
 SCAN_COMPLETED = "scan:completed"
 SCAN_FAILED = "scan:failed"
+# Committed edits only. Clients merge by scan ID and revision; the payload is
+# an invalidation/row patch, never a substitute for an authorized detail read.
+SCAN_CHANGED = "scan:changed"
+
+# ── Inventory Events ─────────────────────────────────────────────────────────
+INTAKE_CHANGED = "intake:changed"
+SUPPLIER_CHANGED = "supplier:changed"
 
 # ── Sensor Events ────────────────────────────────────────────────────────────
 SENSOR_UPDATE = "sensor:update"

@@ -35,22 +35,68 @@ The UI distinguishes between initial loads, continuous/hardware actions, and bac
 ## Live-data synchronization (2026-10-23)
 
 - Final integration: an expired snapshot retry discards old at-risk membership; accepted scan completions invalidate notifications once after ID deduplication across rooms and HTTP delivery. WebSocket open/message callbacks require current socket ownership, invalidated before cleanup/reconnect closes the previous socket. Authentication remains unchanged. See [[Resolved Bugs]] and [[Testing and Validation]] for regression evidence and the long-run Edge limitation.
-- Coarse browser events in `lib/liveEvents.ts` connect the existing providers without adding another WebSocket: `SCAN_CHANGED_EVENT` refreshes scan consumers, and `NOTIFICATIONS_CHANGED_EVENT` refreshes the notification badge/list.
+- Coarse browser events in `lib/liveEvents.ts` connect the existing providers without adding another WebSocket: `NOTIFICATIONS_CHANGED_EVENT` refreshes the notification badge/list. Committed edits now use the revision-aware `SCAN_UPDATED_EVENT`; see *Cross-session mutation sync* below.
 - `ScanProvider` merges newer revisions, preserves fields omitted by partial responses, and deduplicates a completed scan that arrives from the Kiosk room, dashboard room and HTTP response. Later print fields still merge through `acceptScan`. A bounded set prevents the dedupe memory from growing indefinitely.
-- `useDashboardResource` coalesces focus, visibility and online events into one refresh. Logs invalidates its browse snapshot on edit events and retries an expired/superseded snapshot once without it, so a 10-minute snapshot expiry does not become a failed poll or a full-snapshot polling loop.
+- `useDashboardResource` coalesces focus, visibility and online events into one refresh and retries an expired/superseded snapshot once without it, so a 10-minute snapshot expiry does not become a failed poll or a full-snapshot polling loop. Logs no longer discards its frozen snapshot for every edit; it patches the visible row by revision.
 - Scan Detail refreshes in place on focus/visibility and every 30 seconds while visible, merging the latest record without replacing the open page with a loading skeleton. It aborts and pauses while an edit, status dialog, flag, or note is pending, and a failed background read preserves the current record.
 - Kiosk restores the newest server-reported Active intake after remount/reload. Inventory stock, cultivar and ripeness links preserve the selected source, In Stock state and eligible-stock predicate; intake-linked spoilage rows intentionally open that intake's full log. Dashboard source links preserve the selected Asia/Manila business date.
 - Activity Log renders stored timestamps in `Asia/Manila`, matching the rest of the business-date UI. Delivery Intake feedback reports the persisted changed-scan count and resulting intake status instead of claiming every scan changed.
-- Known boundary: a status change accepted by another client is not broadcast as a scan event, so Logs can show that row until its snapshot is refreshed or expires. Incoming revision 0010 now isolates broadcast notification read receipts per account.
+- Incoming revision 0010 isolates broadcast notification read receipts per account.
 
 ## Live Scan Logs notices (2026-10-24)
 
 - `GET /api/v1/scan-logs/pending` returns the absolute count of committed scans newer than the frozen snapshot's newest included row. The watermark is the newest matching `date_time` plus its UUID tiebreak; the count reuses the same account scope, filter predicates and confidence threshold as the snapshot. It never extends, reorders or mutates the snapshot, and repeated checks do not double-count after reconnects.
 - Page 1 automatically opens a fresh snapshot when a new matching scan is detected and no interaction is active (dialog, export, pending write, focused editor, open menu/listbox, loading data or hidden document). Page 2+ keeps its frozen rows, page, sort and scroll and shows **X new Kiosk scans available. Would you like to refresh Scan Logs?** with **View Latest Scans** and **Later**.
 - **View Latest Scans** starts a fresh page-1 snapshot while preserving the applicable filters and sort. **Later** dismisses the prompt, retains the current snapshot and leaves a subtle pending indicator that can still open the latest scans.
-- `SCANS_ADDED_EVENT` announces committed Kiosk completions, `LIVE_RESUMED_EVENT` triggers a check after a WebSocket reconnect, and normal `useDashboardResource` polling/focus refreshes also check the pending count, so missed events are caught without replacing Page 2. The existing `SCAN_CHANGED_EVENT` path is retained for edits; only newly committed scans use the non-destructive notice flow.
+- `SCANS_ADDED_EVENT` announces committed Kiosk completions, `LIVE_RESUMED_EVENT` triggers a check after a WebSocket reconnect, and normal `useDashboardResource` polling/focus refreshes also check the pending count, so missed events are caught without replacing Page 2. Ordinary edits never increment this count; they use the row-patch flow described below.
 - Admins receive every completion through the `dashboard` room; Operators receive only their own account-scoped `kiosk` room events. The 30-second Logs polling path still catches any matching commit whose event was missed.
 - Detection uses the newest included row rather than `generated_at`, so a scan already visible in the snapshot cannot also be announced as new. Older snapshots without a watermark fall back to `generated_at` until they refresh or expire.
+
+## Cross-session mutation sync (2026-10-24)
+
+- Committed scan and intake mutations now reach other authorized sessions over the existing
+  authenticated WebSocket. Events are invalidation hints published only after commit, never a
+  substitute for an authorized read.
+- `scan:changed` carries `event_id`, `scan_id`, `revision`, `kind`, changed field names, `actor_id`,
+  `partial`/`deleted` flags and the authorized row fields needed to patch a visible row. Editions
+  include flag, quality correction, inventory status, provenance and notes.
+- `intake:changed` and `supplier:changed` carry `event_id` plus the persisted row, including
+  `updated_at`, because those records are readable by every authenticated role and have no revision.
+- Rooms remain account-scoped: Admin receives scan edits in `dashboard`, the owning Operator in its
+  account-scoped `kiosk` room, and other Operators receive nothing. Admin sockets subscribed to both
+  rooms may see one scan event twice; the browser drops the duplicate `event_id`.
+- Endpoints that previously relied on the request-scoped session commit now commit explicitly before
+  broadcasting, so an event can never describe an uncommitted row. Bulk inventory emits one partial
+  scan event per changed scan plus an intake event; note text and images are never broadcast.
+- Consumers merge by stable ID. `ScanContext` keeps the higher revision, preserves fields omitted by
+  partial payloads, drops stale events and removes rows for a `deleted` event (no delete endpoint
+  currently emits one). `InventoryContext` orders intake and supplier events by `updated_at`.
+- On WebSocket reconnect, browser focus, visibility restoration and `online`, `useDashboardResource`,
+  `ScanContext`, `InventoryContext`, `AdminContext` and `AppNotifications` reconcile against the
+  authoritative API with abort/sequence guards, so a stale response cannot overwrite newer data and
+  duplicate resume events collapse into one debounced read.
+- Logs keeps its frozen snapshot. A visible row is patched in place; if a control is focused or a
+  write is pending, a remote change only raises a non-intrusive notice. Deleted or newly
+  filtered-out rows are removed rather than shown as current. Page 1/Page 2+ new-scan behavior,
+  exports, 409/410 recovery and snapshot expiry are unchanged.
+- Follow-up (2026-10-25): `GET /api/v1/scan-logs/reconcile` validates the same snapshot owner,
+  role, session generation, filters and expiry, then reads current authorized versions of only the
+  frozen page IDs. Missing, inaccessible and filtered-out rows disappear without page backfilling.
+  One SQL statement returns these rows, exact at-risk IDs and current whole-filter metrics together.
+  It changes neither snapshot storage nor CSV/XLSX exports; no database migration is needed.
+- Logs coalesces mutation bursts into a 200 ms reconciliation refresh and uses the existing 30-second
+  polling/focus/online/reconnect path to recover missed edits. KPI cards use current totals; table
+  order and export remain tied to the frozen browse session. Remote row values wait while a control
+  is focused or a write is pending, then reconcile after blur/completion. Removed rows are not kept
+  during editing. Failed reads retain the last verified data with the existing error/retry message.
+  Exact risk membership comes from the server, never rounded event `remaining_days`.
+- Sensor freshness: `/sensors/latest`, sensor WebSocket payloads and `/health` include
+  `server_time` and `stale_after_seconds` (`max(3 × polling interval, 15)`). A reading is live only
+  while its `recorded_at` age is inside that window. The age at receipt uses the server clock and
+  subsequent elapsed time uses the monotonic browser clock, so workstation skew cannot make a stale
+  reading look live. Out-of-order readings and delayed untimestamped initial fetches are rejected.
+  Legacy payloads without `recorded_at` still display but report unknown freshness, never **Live** or
+  **Optimal**.
 
 ## Recorded environmental measurements
 
