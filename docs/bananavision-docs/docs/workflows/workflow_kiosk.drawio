@@ -1,158 +1,301 @@
 <mxfile host="65bd71144e">
-    <diagram name="Figure 12A: Kiosk Workflow - Operator PIN, Delivery Intake &amp; AI Scanning" id="kiosk-workflow">
-        <mxGraphModel dx="456" dy="1380" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="800" math="0" shadow="0">
+    <diagram name="Figure 12A: Kiosk Workflow — Operator Auth, Delivery Intake &amp; AI Scan Pipeline" id="kiosk-workflow">
+        <mxGraphModel dx="456" dy="1580" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
+
+                <!-- ═══════════ OPERATOR AUTH LANE ═══════════ -->
+
                 <mxCell id="select_operator" value="👤&lt;br&gt;Select&lt;br&gt;Operator&lt;br&gt;(Active Only)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=10;fontStyle=1;" parent="1" vertex="1">
                     <mxGeometry x="40" y="100" width="90" height="90" as="geometry"/>
                 </mxCell>
+
                 <mxCell id="pin_entry" value="🔢&lt;br&gt;PIN Entry&lt;br&gt;(4-digit)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=10;fontStyle=1;" parent="1" vertex="1">
                     <mxGeometry x="170" y="105" width="80" height="80" as="geometry"/>
                 </mxCell>
+
                 <mxCell id="pin_decision" value="❓&lt;br&gt;PIN Change&lt;br&gt;Required?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=10;fontStyle=1;" parent="1" vertex="1">
                     <mxGeometry x="290" y="100" width="90" height="90" as="geometry"/>
                 </mxCell>
+
                 <mxCell id="new_pin" value="🔢&lt;br&gt;Create New&lt;br&gt;Kiosk PIN" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=9;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="300" y="-20" width="70" height="70" as="geometry"/>
+                    <mxGeometry x="260" y="-20" width="70" height="70" as="geometry"/>
                 </mxCell>
-                <mxCell id="kiosk" value="🖥️&lt;br&gt;Kiosk&lt;br&gt;Terminal" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=10;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="420" y="105" width="80" height="80" as="geometry"/>
+
+                <mxCell id="confirm_pin" value="✅&lt;br&gt;Confirm&lt;br&gt;New PIN" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#22c55e;strokeWidth=2;fontSize=9;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="370" y="-20" width="70" height="70" as="geometry"/>
                 </mxCell>
-                <mxCell id="select_supplier" value="🏢&lt;br&gt;Select / Create&lt;br&gt;Delivery Intake&lt;br&gt;(Supplier + Treatment)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=9;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="540" y="105" width="80" height="80" as="geometry"/>
+
+                <mxCell id="kiosk" value="🖥️&lt;br&gt;Kiosk Terminal&lt;br&gt;(Live Camera Feeds&lt;br&gt;+ Multi-Camera Switch)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=8;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="95" width="100" height="100" as="geometry"/>
                 </mxCell>
-                <mxCell id="scan_interface" value="🔍&lt;br&gt;Kiosk Scan Interface&lt;br&gt;(Full Screen&lt;br&gt;REST + WebSocket)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=2;fontSize=8;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="660" y="95" width="100" height="100" as="geometry"/>
+
+                <!-- ═══════════ DELIVERY INTAKE LANE ═══════════ -->
+
+                <mxCell id="select_supplier" value="🏢&lt;br&gt;Select Supplier&lt;br&gt;(Active Only)&lt;br&gt;+ Treatment&lt;br&gt;(Natural / Ethephon)&lt;br&gt;+ Auto Batch #" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=7;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="580" y="90" width="110" height="110" as="geometry"/>
                 </mxCell>
+
+                <mxCell id="scan_interface" value="🔍&lt;br&gt;Kiosk Scan View&lt;br&gt;(Full Screen&lt;br&gt;REST + WebSocket)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=2;fontSize=8;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="730" y="95" width="100" height="100" as="geometry"/>
+                </mxCell>
+
                 <mxCell id="scan_now" value="▶️&lt;br&gt;Scan&lt;br&gt;Now" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#66FF66;strokeColor=#16a34a;strokeWidth=2;fontSize=10;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="800" y="110" width="70" height="70" as="geometry"/>
+                    <mxGeometry x="870" y="110" width="70" height="70" as="geometry"/>
                 </mxCell>
+
+                <!-- ═══════════ AI PIPELINE BOX ═══════════ -->
+
                 <mxCell id="pipeline_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f9ff;strokeColor=#3b82f6;strokeWidth=2;" parent="1" vertex="1">
-                    <mxGeometry x="900" y="60" width="340" height="160" as="geometry"/>
+                    <mxGeometry x="970" y="50" width="570" height="190" as="geometry"/>
                 </mxCell>
-                <mxCell id="pipeline_title" value="AI Scan Pipeline (Capture → Detect → Fuse → Predict)" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fillColor=#cce5ff;strokeColor=none;" parent="1" vertex="1">
-                    <mxGeometry x="960" y="79" width="200" height="20" as="geometry"/>
+
+                <mxCell id="pipeline_title" value="AI Scan Pipeline (Capture → Pre-Detect → Classify → Fuse → Predict)" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fillColor=#cce5ff;strokeColor=none;" parent="1" vertex="1">
+                    <mxGeometry x="1050" y="62" width="410" height="20" as="geometry"/>
                 </mxCell>
-                <mxCell id="capturing" value="📷&lt;br&gt;Capturing&lt;br&gt;(Configured Cameras&lt;br&gt;+ Sensor Context)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#333333;strokeWidth=1;fontSize=7;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="920" y="115" width="60" height="60" as="geometry"/>
+
+                <mxCell id="capturing" value="📷&lt;br&gt;Capture&lt;br&gt;All Cameras&lt;br&gt;(Parallel)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#333333;strokeWidth=1;fontSize=7;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="990" y="100" width="60" height="60" as="geometry"/>
                 </mxCell>
-                <mxCell id="detecting" value="🎯&lt;br&gt;Detecting&lt;br&gt;(YOLOv8)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#333333;strokeWidth=1;fontSize=8;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="1000" y="115" width="60" height="60" as="geometry"/>
+
+                <mxCell id="pre_detect" value="🍌&lt;br&gt;Pre-Detect&lt;br&gt;Gate&lt;br&gt;(COCO YOLO)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=1;fontSize=7;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="1065" y="100" width="60" height="60" as="geometry"/>
                 </mxCell>
-                <mxCell id="analyzing" value="🔬&lt;br&gt;Fuse + Analyze&lt;br&gt;(Multi-camera&lt;br&gt;+ Engineered Features)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#333333;strokeWidth=1;fontSize=7;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="1080" y="115" width="60" height="60" as="geometry"/>
+
+                <mxCell id="detecting" value="🎯&lt;br&gt;Classify&lt;br&gt;(YOLOv8&lt;br&gt;Cultivar+Ripe)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#333333;strokeWidth=1;fontSize=7;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="1140" y="100" width="60" height="60" as="geometry"/>
                 </mxCell>
-                <mxCell id="calculating" value="🧮&lt;br&gt;Predicting&lt;br&gt;(RFR Spoilage&lt;br&gt;+ Treatment)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#333333;strokeWidth=1;fontSize=7;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="1160" y="115" width="60" height="60" as="geometry"/>
+
+                <mxCell id="analyzing" value="🔬&lt;br&gt;Multi-Camera&lt;br&gt;Fusion +&lt;br&gt;Cultivar Harmonize" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#333333;strokeWidth=1;fontSize=7;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="1215" y="100" width="60" height="60" as="geometry"/>
                 </mxCell>
-                <mxCell id="scan_result" value="✅&lt;br&gt;Persisted Scan Result&lt;br&gt;(QR + Evidence + Audit)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#22c55e;strokeWidth=2;fontSize=8;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="1080" y="-130" width="70" height="70" as="geometry"/>
+
+                <mxCell id="sensor_data" value="🌡️&lt;br&gt;Sensor&lt;br&gt;(Temp / Hum&lt;br&gt;/ VPD)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ecfdf5;strokeColor=#10b981;strokeWidth=1;fontSize=7;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="1290" y="165" width="55" height="55" as="geometry"/>
                 </mxCell>
-                <mxCell id="decision" value="❓&lt;br&gt;Flag for&lt;br&gt;Review?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=10;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="900" y="-140" width="90" height="90" as="geometry"/>
+
+                <mxCell id="calculating" value="🧮&lt;br&gt;Predict&lt;br&gt;(RFR Spoilage&lt;br&gt;+ Treatment)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#333333;strokeWidth=1;fontSize=7;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="1290" y="90" width="65" height="65" as="geometry"/>
                 </mxCell>
-                <mxCell id="accept" value="✓&lt;br&gt;Continue&lt;br&gt;(Already Saved)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#22c55e;strokeWidth=2;fontSize=8;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="850" y="-40" width="70" height="70" as="geometry"/>
+
+                <mxCell id="persist" value="💾&lt;br&gt;Persist&lt;br&gt;(DB + Commit&lt;br&gt;+ Notifications)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#333333;strokeWidth=1;fontSize=7;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="1380" y="100" width="60" height="60" as="geometry"/>
                 </mxCell>
-                <mxCell id="flag" value="⚠️&lt;br&gt;Flag Scan&lt;br&gt;+ Notify Quality" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=8;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="730" y="-130" width="70" height="70" as="geometry"/>
+
+                <mxCell id="no_banana" value="🚫&lt;br&gt;No Banana&lt;br&gt;Detected" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#ef4444;strokeWidth=1;fontSize=8;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="1065" y="180" width="55" height="55" as="geometry"/>
                 </mxCell>
+
+                <!-- ═══════════ POST-SCAN RESULTS ═══════════ -->
+
+                <mxCell id="scan_result" value="✅&lt;br&gt;Scan Result&lt;br&gt;(QR + Evidence&lt;br&gt;+ Detections&lt;br&gt;+ Bounding Boxes)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#22c55e;strokeWidth=2;fontSize=7;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="1250" y="-140" width="80" height="80" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="auto_print" value="🖨️&lt;br&gt;Auto-Print&lt;br&gt;Label&lt;br&gt;(CUPS/Win)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;fontSize=8;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="1110" y="-140" width="80" height="80" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="print_status" value="📋&lt;br&gt;Print Status&lt;br&gt;(Queued → Sent&lt;br&gt;/ Failed+Retry)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f3f4f6;strokeColor=#6b7280;strokeWidth=1;fontSize=7;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="1120" y="-250" width="65" height="65" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="decision" value="❓&lt;br&gt;Operator&lt;br&gt;Action" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=10;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="960" y="-140" width="90" height="90" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="accept" value="✓&lt;br&gt;Accept&lt;br&gt;(Already Saved)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#22c55e;strokeWidth=2;fontSize=8;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="870" y="-40" width="70" height="70" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="flag" value="⚠️&lt;br&gt;Flag Scan&lt;br&gt;(→ QC Dashboard)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=8;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="800" y="-150" width="80" height="80" as="geometry"/>
+                </mxCell>
+
                 <mxCell id="recent_scans" value="📋&lt;br&gt;Recent Scans&lt;br&gt;(Last 5)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f3f4f6;strokeColor=#6b7280;strokeWidth=2;fontSize=9;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="670" y="-50" width="80" height="80" as="geometry"/>
+                    <mxGeometry x="700" y="-50" width="80" height="80" as="geometry"/>
                 </mxCell>
-                <mxCell id="print_report" value="🖨️&lt;br&gt;Print&lt;br&gt;Spoilage Report&lt;br&gt;(Estimation)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;fontSize=8;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="970" y="-140" width="80" height="80" as="geometry"/>
+
+                <mxCell id="detection_lightbox" value="🔎&lt;br&gt;Detection&lt;br&gt;Lightbox&lt;br&gt;(Bounding Boxes)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ede9fe;strokeColor=#8b5cf6;strokeWidth=1;fontSize=7;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="1360" y="-145" width="70" height="70" as="geometry"/>
                 </mxCell>
+
                 <mxCell id="operator_swap" value="🔄&lt;br&gt;Swap&lt;br&gt;Operator" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=1;fontSize=9;fontStyle=1;" parent="1" vertex="1">
                     <mxGeometry x="45" y="240" width="80" height="80" as="geometry"/>
                 </mxCell>
+
+                <mxCell id="scan_failed" value="❌&lt;br&gt;Scan Failed&lt;br&gt;(Toast Error)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#ef4444;strokeWidth=2;fontSize=8;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="960" y="-260" width="70" height="70" as="geometry"/>
+                </mxCell>
+
+                <!-- ═══════════ ARROWS — AUTH LANE ═══════════ -->
+
                 <mxCell id="arrow1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;" parent="1" source="select_operator" target="pin_entry" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
+
                 <mxCell id="arrow2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;" parent="1" source="pin_entry" target="pin_decision" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
+
                 <mxCell id="arrow3" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f59e0b;endArrow=block;endFill=1;fontSize=10;fontStyle=1;" parent="1" source="pin_decision" target="new_pin" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
+
+                <mxCell id="arrow3b" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#22c55e;endArrow=block;endFill=1;" parent="1" source="new_pin" target="confirm_pin" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="arrow3c" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;" parent="1" source="confirm_pin" target="kiosk" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="490" y="45"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
                 <mxCell id="arrow4" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#22c55e;endArrow=block;endFill=1;fontSize=10;fontStyle=1;" parent="1" source="pin_decision" target="kiosk" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="arrow5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;" parent="1" source="new_pin" target="kiosk" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="460" y="45"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
+
+                <!-- ═══════════ ARROWS — INTAKE + SCAN ═══════════ -->
+
                 <mxCell id="arrow6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;" parent="1" source="kiosk" target="select_supplier" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
+
                 <mxCell id="arrow7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;" parent="1" source="select_supplier" target="scan_interface" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
+
                 <mxCell id="arrow8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;" parent="1" source="scan_interface" target="scan_now" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
+
+                <!-- ═══════════ ARROWS — PIPELINE ═══════════ -->
+
                 <mxCell id="arrow9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;" parent="1" source="scan_now" target="capturing" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="arrow10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;" parent="1" source="capturing" target="detecting" edge="1">
+
+                <mxCell id="arrow10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;" parent="1" source="capturing" target="pre_detect" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
+
+                <mxCell id="arrow_predet_fail" value="No banana" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#ef4444;endArrow=block;endFill=1;fontSize=8;fontStyle=1;fontColor=#ef4444;" parent="1" source="pre_detect" target="no_banana" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="arrow_predet_ok" value="✓" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#22c55e;endArrow=block;endFill=1;fontSize=10;fontStyle=1;fontColor=#22c55e;" parent="1" source="pre_detect" target="detecting" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
                 <mxCell id="arrow11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;" parent="1" source="detecting" target="analyzing" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
+
                 <mxCell id="arrow11b" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;" parent="1" source="analyzing" target="calculating" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="arrow12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" source="calculating" target="scan_result" edge="1">
+
+                <mxCell id="arrow_sensor" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#10b981;endArrow=block;endFill=1;dashed=1;" parent="1" source="sensor_data" target="calculating" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="arrow_calc_persist" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;" parent="1" source="calculating" target="persist" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- ═══════════ ARROWS — RESULTS ═══════════ -->
+
+                <mxCell id="arrow12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" source="persist" target="scan_result" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="1190" y="20"/>
-                            <mxPoint x="1115" y="20"/>
+                            <mxPoint x="1410" y="10"/>
+                            <mxPoint x="1290" y="10"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="arrow13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor:#333333;endArrow=block;endFill=1;" parent="1" source="scan_result" target="print_report" edge="1">
+
+                <mxCell id="arrow_result_det" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#8b5cf6;endArrow=block;endFill=1;dashed=1;" parent="1" source="scan_result" target="detection_lightbox" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="arrow13b" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor:#333333;endArrow=block;endFill=1;" parent="1" source="print_report" target="decision" edge="1">
+
+                <mxCell id="arrow13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;" parent="1" source="scan_result" target="auto_print" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="arrow14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#22c55e;endArrow=block;endFill=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" source="decision" target="accept" edge="1">
+
+                <mxCell id="arrow_print_status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#6b7280;endArrow=block;endFill=1;dashed=1;" parent="1" source="auto_print" target="print_status" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="arrow13b" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;" parent="1" source="auto_print" target="decision" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <mxCell id="arrow14" value="Accept" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#22c55e;endArrow=block;endFill=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;fontSize=9;fontStyle=1;fontColor=#22c55e;" parent="1" source="decision" target="accept" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="945" y="-5"/>
+                            <mxPoint x="1005" y="-5"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="arrow15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f59e0b;endArrow=block;endFill=1;" parent="1" source="decision" target="flag" edge="1">
+
+                <mxCell id="arrow15" value="Flag" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f59e0b;endArrow=block;endFill=1;fontSize=9;fontStyle=1;fontColor=#f59e0b;" parent="1" source="decision" target="flag" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
+
+                <!-- ═══════════ ARROWS — LOOPS + DASHED ═══════════ -->
+
                 <mxCell id="arrow16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#6b7280;endArrow=block;endFill=1;dashed=1;" parent="1" source="scan_interface" target="recent_scans" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
+
                 <mxCell id="arrow17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#6b7280;endArrow=block;endFill=1;dashed=1;" parent="1" source="accept" target="scan_interface" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="885" y="70"/>
-                            <mxPoint x="750" y="70"/>
+                            <mxPoint x="905" y="70"/>
+                            <mxPoint x="780" y="70"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
+
                 <mxCell id="arrow18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#6b7280;endArrow=block;endFill=1;dashed=1;" parent="1" source="flag" target="recent_scans" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="765" y="-170"/>
-                            <mxPoint x="710" y="-170"/>
+                            <mxPoint x="840" y="-170"/>
+                            <mxPoint x="740" y="-170"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
+
                 <mxCell id="arrow19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;" parent="1" source="operator_swap" target="select_operator" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
+
+                <mxCell id="arrow_no_banana_back" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#ef4444;endArrow=block;endFill=1;dashed=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" parent="1" source="no_banana" target="scan_failed" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1000" y="207"/>
+                            <mxPoint x="1000" y="260"/>
+                            <mxPoint x="940" y="260"/>
+                            <mxPoint x="940" y="-225"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <mxCell id="arrow_failed_back" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#6b7280;endArrow=block;endFill=1;dashed=1;" parent="1" source="scan_failed" target="scan_interface" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="910" y="-225"/>
+                            <mxPoint x="910" y="-280"/>
+                            <mxPoint x="780" y="-280"/>
+                            <mxPoint x="780" y="-280"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
             </root>
         </mxGraphModel>
     </diagram>
