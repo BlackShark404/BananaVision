@@ -4,359 +4,592 @@ A storyboard is a sequence of visual frames used to illustrate how users interac
 
 ## BananaVision Storyboard (Quality & Shelf-Life Dashboard and Mini PC Kiosk)
 
-These figures map directly to the implemented interfaces. The storyboard is divided into the Web Dashboard (for monitoring and administration) and the Mini PC Kiosk (for physical edge deployment).
+These figures map directly to the implemented interfaces and application routes across the BananaVision platform. The storyboard is organized into four interconnected deployment domains: the Public Web Portal & Traceability featuring the landing page and unauthenticated QR-code batch tracking portal (`/track/:scanId`); the Operator Web Dashboard providing role-scoped shift monitoring, scan logs, FIFO inventory management, analytics, and device status; the Dedicated Mini PC Kiosk providing an isolated, touch-first edge scanning terminal for physical post-harvest inspection, multi-camera capture, 4-stage AI classification, and automated thermal label printing; and the Administrator Web Dashboard delivering comprehensive operational governance, user credential handoff, delivery intake batch management, quality control review and overrides, activity audit logs, and station configuration.
 
-## Figure 28: Landing Page - Hero Section (Web)
+---
 
-Figure 28: Illustrates the hero section of the public-facing landing page, introducing BananaVision as an AI-powered banana classification system built for medium and large enterprises. The section presents the system tagline, a brief value proposition, and primary call-to-action buttons for accessing the dashboard or learning more.
+## Figure 35: Landing Page - Hero Section (Web)
+
+Figure 35: Illustrates the hero section of the public-facing landing page, introducing BananaVision as an AI-powered banana classification and shelf-life estimation system built for medium and large enterprises. The section features a modern glassmorphic hero banner, the system tagline ("Smarter Classification with BananaVision"), a concise value proposition, and primary call-to-action buttons for accessing the dashboard or learning more.
 
 - Route: `/`
 - User Type: Public
-- Main Actions: Navigate to login, scroll to learn more
+- Main Actions: Navigate to login (`/login`), smooth-scroll to explore system capabilities (`/#about`)
 
-## Figure 29: Landing Page - About Section (Web)
+---
 
-Figure 29: Shows the About BananaVision section, describing the system's mission and capabilities. It explains how the system uses AI and camera-based recognition to identify banana cultivar, determine ripeness, and estimate shelf life, serving medium and large enterprises including retail grocery chains, banana processing and chip manufacturing facilities, and wholesale distributors.
+## Figure 36: Landing Page - About Section (Web)
+
+Figure 36: Shows the About BananaVision section, describing the system's operational mission and industrial scope. It highlights how the platform combines multi-angle computer vision and ambient environmental sensing to identify banana cultivars (Lakatan, Latundan, Cardaba), determine ripeness stages (Unripe, Semi Ripe, Ripe, Overripe), and estimate remaining shelf life. The section outlines support for medium and large enterprises in the banana supply chain, including retail grocery chains, banana processing and chip manufacturing facilities, and commercial wholesale distributors.
 
 - Route: `/#about`
 - User Type: Public
-- Main Actions: Read system overview
+- Main Actions: Read system mission, understand supply-chain application
 
-## Figure 30: Landing Page - Key Features Section (Web)
+---
 
-Figure 30: Displays the Key Features grid highlighting the six core capabilities of the system: AI-Assisted Scanning, Operator Kiosk, Scan Review, Inventory Tracking, Reports & Charts, and Full Scan History. Each feature is presented with an icon and brief description.
+## Figure 37: Landing Page - Key Features Section (Web)
+
+Figure 37: Displays the Key Features grid highlighting the six core functional capabilities of the system. The presentation outlines AI-assisted scanning for identifying commercial Philippine banana cultivars (Lakatan, Latundan, Cardaba), determining ripeness stages, counting bunch fingers, and calculating shelf life using microclimate telemetry; the touch-friendly operator kiosk for rapid multi-camera batch scanning; scan review mechanisms that automatically flag low-confidence or conflicting classifications for administrative oversight; real-time inventory tracking with First-In, First-Out (FIFO) handling guidance and 2-day spoilage warnings; interactive analytics reports and charts illustrating throughput trends and worker performance; and a complete, searchable scan history providing an exportable audit trail of every inspection record.
 
 - Route: `/#features`
 - User Type: Public
-- Main Actions: Review feature highlights
+- Main Actions: Review core functional highlights
 
-## Figure 31: Landing Page - System Modules Section (Web)
+---
 
-Figure 31: Shows the System Modules section, presenting three role-based modules: Operator Kiosk, Operator Dashboard, and Admin Dashboard. Each module is displayed with a numbered card listing its specific capabilities and user actions.
+## Figure 38: Landing Page - System Modules Section (Web)
+
+Figure 38: Shows the System Modules section, presenting the three role-tailored application environments across numbered cards. The section details the Operator Kiosk deployed on the edge terminal for PIN-authenticated scanning, multi-angle camera previewing, intake batch and ripening treatment assignment, result validation, and thermal label printing; the Operator Dashboard providing a role-scoped web view of personal shift throughput KPIs, individual scan history, performance analytics, FIFO inventory health, and camera and sensor status; and the Admin Dashboard delivering enterprise-wide operational oversight, user account administration with temporary credential handoff, delivery intake batch management, supplier registration, quality control review queues, activity audit logs, and station hardware configuration with power controls.
 
 - Route: `/#modules`
 - User Type: Public
-- Main Actions: Understand role-based system structure
+- Main Actions: Understand role-based system structure and access boundaries
 
-## Figure 32: Landing Page - FAQs Section (Web)
+---
 
-Figure 32: Displays the Frequently Asked Questions section using an accordion interface. Questions address the target market (medium and large enterprises including retail grocery chains, processing facilities, and wholesale distributors), internet connectivity requirements (runs locally on mini PC with no internet needed), and required hardware (mini PC, webcams, external monitor).
+## Figure 39: Landing Page - FAQs Section (Web)
+
+Figure 39: Displays the Frequently Asked Questions section utilizing an interactive accordion interface to clarify system deployment. The questions address the target market of medium and large agricultural enterprises handling banana packaging, ripening, processing, and wholesale distribution; the offline network capability allowing the entire platform to operate autonomously on a local edge Mini PC over local LAN or Wi-Fi hotspot without requiring an active internet connection; and the physical hardware architecture consisting of an x86_64 Mini PC connected to a 4-camera USB webcam array, an Arduino Uno DHT22 temperature and humidity sensor module, a Grozziie TP870 S USB thermal label printer, and an external kiosk display monitor.
 
 - Route: `/#faqs`
 - User Type: Public
-- Main Actions: Expand/collapse FAQ items
+- Main Actions: Expand/collapse FAQ accordion items
 
-## Figure 33: Landing Page - Contact Support Section (Web)
+---
 
-Figure 33: Shows the Contact Support section with a call-to-action for reaching the support team via email. Provides a direct link to contact support for setup and business inquiries.
+## Figure 40: Landing Page - Contact Support Section (Web)
+
+Figure 40: Shows the Contact Support section featuring a direct communication channel for enterprise inquiries. Provides an action button linking directly to the technical support team via email (`mailto:support@bananavision.com`) for station deployment, hardware setup assistance, and business inquiries.
 
 - Route: `/#contact`
 - User Type: Public
-- Main Actions: Contact support team via email
+- Main Actions: Contact technical support team via email
 
-## Figure 34: Login Page (Web)
+---
 
-Figure 34: Depicts the authentication interface, requiring users to input valid credentials to access the role-based system dashboard.
+## Figure 41: Login Page (Web)
+
+Figure 41: Depicts the centralized authentication portal, requiring users to submit valid username and password credentials. Features password visibility toggling and client-side form validation. Upon successful authentication, the system evaluates the user's role and redirects them to either the Operator Dashboard or Admin Dashboard.
 
 - Route: `/login`
-- User Type: Public
-- Main Actions: Sign in, toggle password visibility
+- User Type: Public / Unauthenticated Staff
+- Main Actions: Sign in with credentials, toggle password visibility, trigger authentication
 
-## Figure 35: First Login Password Change for Newly Created Account
+---
 
-Figure 35: Shows the mandatory security prompt presented to new users upon their first login. The user is required to set and confirm a new permanent password before they can access their role-based dashboard.
+## Figure 42: First Login Password Change for Newly Created Account
 
-## Figure 36: First Login Password Change after Password Reset
+Figure 42: Shows the mandatory security modal presented immediately upon first sign-in for newly registered accounts created with temporary credentials (`new_account`). The user is prevented from navigating the system until they establish and confirm a new, permanent password meeting security complexity requirements.
 
-Figure 36: Shows the forced password reset workflow triggered when an administrator has reset an existing user\'s password. The user must provide a new password before gaining system access.
+- Route: `/login` (mandatory modal prompt)
+- User Type: Newly Onboarded Operator / Admin
+- Main Actions: Enter new permanent password, confirm password, establish account security
 
+---
 
-## Figure 37: Dashboard (Operator View)
+## Figure 43: First Login Password Change after Password Reset
 
-Figure 37: Shows the operator dashboard presenting scan-related KPIs, active sources, confidence statistics, and recent scan activity for day-to-day monitoring.
+Figure 43: Shows the forced password update interface presented to existing users whose credentials were reset by an administrator (`password_reset`). The user must replace the administrator-issued temporary password with a new permanent password before gaining dashboard access.
+
+- Route: `/login` (mandatory modal prompt)
+- User Type: Operator / Admin
+- Main Actions: Enter new permanent password, confirm password, regain account access
+
+---
+
+## Figure 44: Dashboard (Operator View)
+
+Figure 44: Shows the operator dashboard tailored for daily shift monitoring. Displays operator-scoped KPIs (personal scan count, active delivery sources, average detection confidence), shortcuts to operational modules, a feed of recent personal scans, and real-time operational alerts received via WebSockets.
 
 - Route: `/dashboard`
 - User Type: Operator
-- Main Actions: Review KPIs, open logs, navigate to module pages
+- Main Actions: Review shift throughput, inspect recent personal scans, monitor operational alerts, navigate to operational modules
 
-## Figure 38: Global Notification Center (Operator View)
+---
 
-Figure 38: Shows the global notification dropdown accessible from the top navigation header. This view dynamically filters alerts to display only immediate operational updates relevant to the current user, specifically scan completions and flagged scans requiring operator attention.
+## Figure 45: Global Notification Center (Operator View)
 
-- Route: Available globally on all protected routes
+Figure 45: Shows the global notification dropdown accessible from the top navigation header on all authenticated routes. Dynamically filters notifications to present immediate operational updates relevant to the current operator, including scan completions, flagged scans requiring attention, and station hardware alerts.
+
+- Route: Global header across protected routes
 - User Type: Operator
-- Main Actions: View alerts, navigate to scan details, mark as read, clear all notifications
+- Main Actions: View operational alerts, jump directly to scan details, mark notifications as read, clear notifications
 
-## Figure 39: Logs and Scan History (Operator View)
+---
 
-Figure 39: Shows the operator logs page listing the operator's scan records with filters, search, status indicators, environmental IoT data (temperature and humidity), QR code thumbnails, and export support for operational tracking. Clicking a QR code thumbnail opens a modal displaying the enlarged QR code with a "Print Tag" button for printing a compact tag to attach to the banana hand.
+## Figure 46: Logs and Scan History (Operator View)
+
+Figure 46: Shows the operator logs page presenting a comprehensive table of scan records strictly scoped to the logged-in operator. Features multi-criteria filtering by search keyword, cultivar (Lakatan, Latundan, Cardaba), ripeness stage (Unripe, Semi Ripe, Ripe, Overripe), delivery source, inventory status (In Stock, Sold, For Processing, Spoiled), scan date (Asia/Manila calendar date), and card-based attention filters (At-Risk <=2 days, Pending Review, Auto-approved). Supports live logs reconciliation via WebSockets, inline inventory status updates with mandatory reason logging, CSV/XLSX exports, and clickable QR code thumbnails.
 
 - Route: `/logs`
 - User Type: Operator
-- Main Actions: Filter scans, export CSV, open scan details, view QR code modal, print tag, update inventory status
+- Main Actions: Search and filter scans, export CSV/XLSX, update inventory status with reason, view QR code modal, inspect scan details
 
-## Figure 40: QR Code Modal (Logs View)
+---
 
-Figure 40: Shows the QR code preview modal that appears when clicking a QR code thumbnail in the scan logs table. The modal displays the enlarged QR code, the cultivar name, scan ID, and a single "Print Tag" button that prints a compact tag (QR code, scan ID, cultivar, ripeness, and date) designed to be attached directly to the banana hand.
+## Figure 47: QR Code Modal & Thermal Label Printing (Logs View)
+
+Figure 47: Shows the QR code modal triggered by clicking any QR code thumbnail in the scan logs table. Displays an enlarged scannable QR code encoding saved prediction values (scan UUID, cultivar, ripeness, spoilage days, confidence, temperature, humidity) and provides integrated thermal label printing via the connected Grozziie TP870 S USB printer. Operators can specify label quantity (1 to 10 copies) and click "Print labels" to print 40mm × 30mm adhesive tags for produce packaging.
 
 - Route: `/logs` (modal overlay)
 - User Type: Operator / Admin
-- Main Actions: View enlarged QR code, print compact tag
+- Main Actions: View enlarged QR code, select label quantity (1–10 copies), dispatch print job to station thermal label printer
 
-## Figure 41: Scan Detail Page (Operator Context)
+---
 
-Figure 41: Shows the detailed scan view presenting cultivar, ripeness, confidence, estimated spoilage range (in days), environmental sensor readings (temperature and humidity), camera captures, QR tracking section with save and print tag actions, and note history.
+## Figure 48: Scan Detail Page (Operator Context)
+
+Figure 48: Shows the comprehensive scan evidence view displaying synchronized captures from all four cameras (Top CAM-001, Left CAM-002, Right CAM-003, Rear CAM-004) with toggleable YOLO detection bounding boxes and per-camera confidence scores. Displays detected finger count, cultivar, ripeness stage, environmental microclimate telemetry (temperature, relative humidity, and calculated Vapor Pressure Deficit in kPa), spoilage shelf-life estimation with RMSE range, immutable original AI result comparison, QR tracking section with image download and print tag actions, audit note history, and inventory status transition controls with reason logging.
 
 - Route: `/scans/:scanId`
 - User Type: Operator
-- Main Actions: View full scan context, save QR code image, print tag, flag scan, add notes
+- Main Actions: Inspect multi-angle camera evidence and bounding boxes, review microclimate sensor readings, download QR code, print tag, flag scan for review, log audit notes, transition inventory status
 
-## Figure 42: Analytics Page (Operator View)
+---
 
-Figure 42: Shows the operator analytics screen with chart-based insights filtered uniquely to the logged-in operator's activity.
+## Figure 49: Analytics Page (Operator View)
+
+Figure 49: Shows the operator analytics dashboard presenting visual charts filtered strictly to the logged-in operator's historical activity. Features custom date range selection, ripeness stage distribution pie charts, cultivar count bar charts (Lakatan, Latundan, Cardaba), and daily scan throughput trendlines.
 
 - Route: `/analytics`
 - User Type: Operator
-- Main Actions: Change date range, compare trends, inspect distributions
+- Main Actions: Adjust date range, inspect personal ripeness distribution, review cultivar counts, analyze daily scan throughput
 
-## Figure 43: Inventory Monitoring Page (Operator Context)
+---
 
-Figure 43: Shows the inventory module summarizing stock quantities, ripeness breakdown, estimated spoilage day ranges (RMSE-adjusted), and FIFO-based handling guidance.
+## Figure 50: Inventory Monitoring Page (Operator Context)
+
+Figure 50: Shows the inventory monitoring module summarizing active in-stock produce. Displays total banana hands and finger counts, stock breakdown by ripeness stage and cultivar, First-In, First-Out (FIFO) handling guidance, and an urgent spoilage alert table highlighting items expiring within 2 days or already overdue, with direct links to filtered scan records.
 
 - Route: `/inventory`
 - User Type: Operator
-- Main Actions: Monitor stock health, review spoilage urgency
+- Main Actions: Monitor stock counts by cultivar and ripeness, review FIFO dispatch recommendations, inspect 2-day spoilage alerts table
 
-## Figure 44: Device Status Page (Operator Context)
+---
 
-Figure 44: Shows the connected device monitoring interface for camera health, online/offline state, uptime indicators, and real-time environmental sensors (ambient temperature and humidity) used by the random forest model.
+## Figure 51: Device Status Page (Operator Context)
+
+Figure 51: Shows the hardware monitoring interface displaying the operational health of station peripherals: a 4-camera connection grid (Top, Left, Right, Rear) with real-time online/offline indicators, Arduino Uno DHT22 ambient temperature and relative humidity readings polled continuously over USB serial, and edge Mini PC host performance metrics (CPU usage, memory allocation, SSD disk space, uptime).
 
 - Route: `/devices`
 - User Type: Operator
-- Main Actions: Check camera availability and sensor readings
+- Main Actions: Verify camera connectivity, inspect live ambient temperature and humidity, monitor edge PC host performance
 
-## Figure 45: User Profile and Account Settings (Operator View)
+---
 
-Figure 45: Shows the operator profile page where users manage account details, avatar, password and PIN settings, and personal usage statistics.
+## Figure 52: User Profile and Account Settings (Operator View)
+
+Figure 52: Shows the operator profile page where users manage personal account details, upload a custom profile avatar (up to 2MB), toggle between light and dark visual themes, view personal lifetime scan metrics and confidence averages, and open modals to change their web password or 4-digit kiosk PIN.
 
 - Route: `/profile`
 - User Type: Operator
-- Main Actions: Update profile settings, change password and kiosk PIN, switch theme
+- Main Actions: Update profile information, upload avatar, toggle theme, launch Change Password modal, launch Change Kiosk PIN modal
 
-## Figure 46: Change Password Modal
+---
 
-Figure 46: Shows the interface within the user profile where operators and admins can securely update their own login password by providing their current credential followed by the desired new string.
+## Figure 53: Change Password Modal
 
-## Figure 47: Change Kiosk PIN Modal
+Figure 53: Shows the self-service password update modal within the user profile. Requires the user to enter and verify their current password before defining and confirming a new permanent password.
 
-Figure 47: Displays the modal used by warehouse operators to independently manage their secure 4-digit numeric PIN, which is required for authenticating physical actions on the mini PC kiosk.
+- Route: `/profile` (modal overlay)
+- User Type: Operator / Admin
+- Main Actions: Verify current password, input new password, confirm new password
 
+---
 
-## Figure 48: Kiosk Idle/Lock Screen (Login)
+## Figure 54: Change Kiosk PIN Modal
 
-Figure 48: Shows the primary idle lock screen presented when the kiosk is not in use or explicitly locked. A warehouse operator must input their secure 4-digit PIN to unlock the environment and begin their shift or batch session.
+Figure 54: Displays the modal utilized by warehouse operators to independently manage their secure 4-digit numeric kiosk PIN. Utilizes a 4-slot input OTP interface requiring verification of the existing PIN before capturing and confirming the new 4-digit sequence used for edge station authentication.
 
-## Figure 49: Set New PIN for Newly Created Account
+- Route: `/profile` (modal overlay)
+- User Type: Operator
+- Main Actions: Verify current 4-digit PIN, input new 4-digit PIN, confirm new PIN
 
-Figure 49: Captures the initialization prompt delivered to a newly registered warehouse operator the very first time they attempt to sign into an edge kiosk, creating their personal 4-digit PIN.
+---
 
-## Figure 50: Set New PIN after Admin Reset
+## Figure 55: Kiosk Idle/Lock Screen (PIN Login)
 
-Figure 50: Shows the recovery interface that forces an existing operator to define a new, securely remembered 4-digit PIN immediately following an administrator-triggered PIN reset.
+Figure 55: Shows the primary edge terminal lock screen displayed when the kiosk is idle or locked. Features a grid of registered warehouse operators with avatars and names. The operator selects their profile and enters their 4-digit numeric PIN on the touch-friendly keypad to unlock the scanning terminal.
 
-## Figure 51: Kiosk Interface (Mini PC)
+- Route: `/kiosk` (idle screen)
+- User Type: Operator
+- Deployment Context: Dedicated edge Mini PC terminal (fullscreen kiosk mode)
+- Main Actions: Select operator profile, enter 4-digit numeric PIN, unlock scanning terminal
 
-Figure 51: Shows the full-screen kiosk interface deployed on the mini PC terminal for rapid operator scanning, displaying current operator details, time context, and scan controls.
+---
+
+## Figure 56: Set New PIN for Newly Created Account (Kiosk)
+
+Figure 56: Captures the initialization prompt presented to a newly registered warehouse operator the first time they sign into the edge kiosk using temporary credentials (`new_account`). Forces the operator to define and confirm their personal 4-digit PIN before unlocking the scanning station.
+
+- Route: `/kiosk` (initialization overlay)
+- User Type: Operator
+- Deployment Context: Dedicated edge Mini PC terminal
+- Main Actions: Enter temporary PIN, create new 4-digit PIN, confirm new PIN
+
+---
+
+## Figure 57: Set New PIN after Admin Reset (Kiosk)
+
+Figure 57: Shows the recovery interface presented on the kiosk immediately following an administrator-triggered PIN reset (`pin_reset`). Forces the operator to enter the administrator-issued temporary PIN and establish a new permanent 4-digit PIN.
+
+- Route: `/kiosk` (recovery overlay)
+- User Type: Operator
+- Deployment Context: Dedicated edge Mini PC terminal
+- Main Actions: Enter temporary PIN, create new 4-digit PIN, confirm new PIN
+
+---
+
+## Figure 58: Kiosk Interface (Mini PC Scanning Terminal)
+
+Figure 58: Shows the full-screen kiosk interface deployed on the edge Mini PC terminal. Displays current operator badge, live system clock, active delivery intake batch, 4-camera live feed preview with angle switcher (Top, Left, Right, Rear), "Scan Now" button, "Demo Mode" print calibration button, and a sidebar displaying the 5 most recent scans from the active shift.
 
 - Route: `/kiosk`
 - User Type: Operator
-- Deployment Context: Dedicated mini PC kiosk terminal
-- Main Actions: Select source, start scan, swap operator
+- Deployment Context: Dedicated edge Mini PC terminal
+- Main Actions: Preview camera feeds, select active delivery intake, trigger scan, run demo label print, swap operator, inspect recent scans
 
-## Figure 52: Swap Operator Modal
+---
 
-Figure 52: Shows the quick-swap authentication overlay presented when changing operators mid-shift. This secondary challenge ensures accountability for subsequent scans without fully locking the kiosk context.
+## Figure 59: Swap Operator Modal (Kiosk)
 
-## Figure 53: Kiosk Source Selection Modal
+Figure 59: Shows the rapid shift-handover overlay allowing operators to switch active accounts at the edge terminal without terminating the current delivery intake session. Prompts for target operator selection and 4-digit PIN verification.
 
-Figure 53: Displays the source selection dialog window presented to the operator. This ensures that every subsequent banana classification scanned sequentially corresponds to the explicitly selected intake supplier or farm batch origin until the operator changes it.
+- Route: `/kiosk` (overlay)
+- User Type: Operator
+- Deployment Context: Dedicated edge Mini PC terminal
+- Main Actions: Select new operator profile, enter 4-digit PIN, transfer active scanning shift
 
-## Figure 54: Kiosk Scanning In Progress
+---
 
-Figure 54: Depicts the fullscreen data entry interface presented on the physical kiosk hardware when actively processing image captures and logging visual inspection readings along with IoT temperature and humidity capture.
+## Figure 60: Kiosk Source / Delivery Intake Selection Modal
 
-## Figure 55: Kiosk Scan Result & Validation
+Figure 60: Displays the intake selection dialog presented to the operator. Enables selecting a registered agricultural supplier and choosing the ripening treatment (`Natural` or `Ethephon`) to create or select the active delivery intake batch, ensuring all subsequent scans maintain strict provenance.
 
-Figure 55: Shows the immediate post-scan result panel on the kiosk interface, presenting the predicted cultivar, ripeness, finger count, environmental sensor data, confidence level, and a QR code preview confirming that a tracking tag has been generated. The operator is prompted via large action buttons to explicitly "Accept" the classification into inventory or "Flag for Review" if the AI's classification seems incorrect.
+- Route: `/kiosk` (modal dialog)
+- User Type: Operator
+- Deployment Context: Dedicated edge Mini PC terminal
+- Main Actions: Select supplier, choose ripening treatment (`Natural` / `Ethephon`), establish active delivery intake batch
 
-## Figure 56: Dashboard (Admin View)
+---
 
-Figure 56: Shows the admin dashboard with system-level visibility, including aggregate scan metrics, multi-user activity context, and operational status indicators.
+## Figure 61: Kiosk Scanning In Progress (4-Stage Pipeline)
+
+Figure 61: Depicts the fullscreen active scanning interface presented on the physical kiosk hardware, visualizing the 4-stage edge AI inspection pipeline through real-time progress indicators. The interface tracks synchronized parallel image capture across all four cameras (Top CAM-001, Left CAM-002, Right CAM-003, Rear CAM-004) paired with serial polling of Arduino Uno DHT22 ambient temperature and humidity; Ultralytics YOLO26 object detection for finger counting and per-camera cultivar and ripeness bounding box localization; multi-camera confidence-weighted fusion with botanical harmonization and Magnus-Tetens Vapor Pressure Deficit (VPD) feature engineering; and Random Forest Regression (RFR) spoilage shelf-life calculation.
+
+- Route: `/kiosk` (active scan overlay)
+- User Type: Operator
+- Deployment Context: Dedicated edge Mini PC terminal
+- Main Actions: Monitor live scan execution, observe multi-camera capture status
+
+---
+
+## Figure 62: Kiosk Scan Result & Validation
+
+Figure 62: Shows the immediate post-scan result panel on the kiosk interface. Displays predicted cultivar (Lakatan, Latundan, Cardaba), ripeness stage (Unripe, Semi Ripe, Ripe, Overripe), detected finger count, detection confidence percentage, ambient sensor data ($T$, $RH$, and $VPD$), spoilage shelf-life estimation in days with RMSE range, multi-camera thumbnail carousel with bounding box toggle, auto-print status for the Grozziie TP870 S 40mm × 30mm adhesive QR label, and touch buttons to "Accept" into inventory or "Flag for Review".
+
+- Route: `/kiosk` (post-scan panel)
+- User Type: Operator
+- Deployment Context: Dedicated edge Mini PC terminal
+- Main Actions: Review classification and spoilage predictions, inspect bounding boxes, verify label printing, accept scan into inventory, flag scan for review
+
+---
+
+## Figure 63: Dashboard (Admin View)
+
+Figure 63: Shows the administrator dashboard providing enterprise-wide visibility. Displays aggregate scan metrics, active delivery intake totals, overall AI confidence averages, flagged scan counts requiring review, a system-wide recent scan timeline, real-time WebSocket alerts, and direct shortcuts to all management modules.
 
 - Route: `/dashboard`
 - User Type: Admin
-- Main Actions: Review overall system status, jump to management modules
+- Main Actions: Monitor enterprise KPIs, track active delivery intakes, review quality alerts, navigate to management modules
 
-## Figure 57: Global Notification Center (Admin View)
+---
 
-Figure 57: Shows the global notification dropdown accessible from the top navigation header. This administrative view displays a comprehensive list of all system-wide notification types, including system-level alerts, batch intake updates, global quality warnings, and individual scan updates.
+## Figure 64: Global Notification Center (Admin View)
 
-- Route: `/alert` Available globally on all protected routes
+Figure 64: Shows the administrative notification center accessible from the navigation header. Consolidates system-wide operational alerts, including hardware status notifications (camera disconnects, sensor timeouts), quality control alerts (classification conflicts, low-confidence scans), intake delivery updates, and automated data retention notices.
+
+- Route: Global header across protected routes
 - User Type: Admin
-- Main Actions: View comprehensive system alerts, navigate to the source of the alert, mark as read, clear all notifications
+- Main Actions: Review system-wide alerts, navigate to source records, mark notifications as read, clear notifications
 
-## Figure 58: Logs and Scan History (Admin View)
+---
 
-Figure 58: Shows the admin logs page listing organization-wide scan records with additional operator-level filtering, QR code thumbnails, environmental IoT data (temperature and humidity), and management actions. Clicking a QR code thumbnail opens a modal with an enlarged QR code and a "Print Tag" button.
+## Figure 65: Logs and Scan History (Admin View)
+
+Figure 65: Shows the administrative scan history page displaying all organization-wide scans across all operators. Includes an operator filter dropdown alongside standard filters (cultivar, ripeness, intake source, inventory status, Asia/Manila calendar date, and attention cards). Supports live WebSocket reconciliation, inline inventory status updates with mandatory reason logging, CSV/XLSX exports, and QR code modals with multi-label thermal printing (1–10 copies).
 
 - Route: `/logs`
 - User Type: Admin
-- Main Actions: Filter scans across all operators, export CSV, open scan details, view QR code modal, print tag
+- Main Actions: Filter scans across all operators, export CSV/XLSX, update inventory statuses with reason, view QR modal & print batch labels, inspect scan details
 
-## Figure 59: Scan Detail Page (Admin Context)
+---
 
-Figure 59: Shows the detailed scan view similar to the operator's view but with elevated control actions to edit or override algorithm estimates. Includes QR tracking section with save and print tag actions.
+## Figure 66: Scan Detail Page (Admin Context)
+
+Figure 66: Shows the detailed scan view in administrative context. Combines full 4-camera visual evidence with bounding box overlays, DHT22 microclimate readings, calculated VPD, spoilage shelf-life range, immutable original AI result comparison, and QR tag management with authoritative management controls: "Edit Scan Data" override mode (correcting cultivar, ripeness, finger count, or source with mandatory audit reason logging and revision locking) and note logging.
 
 - Route: `/scans/:scanId`
 - User Type: Admin
-- Main Actions: View full scan context, save QR code, print tag, apply data corrections, add authoritative notes
+- Main Actions: Inspect multi-angle evidence and bounding boxes, download QR code, print tag, apply authoritative classification overrides, log audit notes, update inventory status
 
-## Figure 60: Analytics Page (Admin View)
+---
 
-Figure 60: Shows the admin analytics screen with broader organization-level chart insights and source-based filtering across users and intakes.
+## Figure 67: Analytics Page (Admin View)
+
+Figure 67: Shows the enterprise analytics dashboard providing organization-level business intelligence. Features custom date range filtering, source-based comparisons across intakes, cultivar distribution charts (Lakatan, Latundan, Cardaba), ripeness stage breakdowns, volume trends, and a comprehensive operator performance table evaluating throughput and review rates.
 
 - Route: `/analytics`
 - User Type: Admin
-- Main Actions: Change date range, filter by source, compare trends across operators
+- Main Actions: Select custom date ranges, filter by intake source, compare operator throughput, inspect cultivar and ripeness distributions
 
-## Figure 61: Inventory Monitoring Page (Admin Context)
+---
 
-Figure 61: Shows the inventory module with authoritative actions to adjust stock counts manually alongside the computed spoilage alerts.
+## Figure 68: Inventory Monitoring Page (Admin Context)
+
+Figure 68: Shows the enterprise inventory monitoring module displaying active stock levels (hands and fingers) by cultivar and ripeness stage, First-In, First-Out (FIFO) queue guidance, and critical 2-day spoilage warnings across all supplier sources, with direct links to filtered scan log records.
 
 - Route: `/inventory`
 - User Type: Admin
-- Main Actions: Monitor stock health, inspect intake-linked items, manual overrides
+- Main Actions: Monitor enterprise stock health, evaluate FIFO dispatch priorities, inspect 2-day spoilage alert table, filter by supplier source
 
-## Figure 62: Device Status Page (Admin Context)
+---
 
-Figure 62: Shows connected device monitoring including granular system resource status and camera restart actions.
+## Figure 69: Device Status Page (Admin Context)
+
+Figure 69: Shows connected device diagnostics including 4-camera connection health, DirectShow enumeration status, Arduino Uno DHT22 serial communication loop metrics, and granular edge Mini PC host performance telemetry (CPU usage, memory allocation, SSD disk space, uptime, and CPU temperature).
 
 - Route: `/devices`
 - User Type: Admin
-- Main Actions: Check availability, monitor performance telemetry, remote troubleshooting
+- Main Actions: Monitor camera array connectivity, check DHT22 sensor communication, review edge server host resource metrics
 
-## Figure 63: User Management (Admin)
+---
 
-Figure 63: Shows the user administration page for managing operator and admin accounts, including role assignment, status updates, and account resets.
+## Figure 70: User Management (Admin)
+
+Figure 70: Shows the user administration module for governing operator and administrator accounts. Displays account table with username, full name, role badge, status badge, search, role filters (Admin, Operator), status filters (Active, Inactive), and action triggers (Add User, Edit User, Toggle Status, Reset Password, Reset PIN).
 
 - Route: `/admin/users`
 - User Type: Admin
-- Main Actions: Add user, edit user, reset password/PIN, activate or deactivate account
+- Main Actions: Search/filter user registry, register new user, edit user details, activate/deactivate account, initiate password reset, initiate kiosk PIN reset
 
-## Figure 64: Create User with Temporary Credentials
+---
 
-Figure 64: Shows the initial account creation form used by administrators to generate placeholder credentials (e.g., password ) when onboarding new staff or operator personnel.
+## Figure 71: Create User with Temporary Credentials Handoff Dialog
 
-## Figure 65: Reset User Password to Temporary Password
+Figure 71: Shows the initial account creation form used by administrators to register new personnel, paired with a secure one-time handoff dialog that displays the auto-generated temporary password and 4-digit operator kiosk PIN for physical handoff to the employee.
 
-Figure 65: Displays the administrative action to forcibly revert an existing user's password back to a default state, allowing them to regain access and establish a permanent credential.
-
-## Figure 66: Reset Operator Kiosk PIN
-
-Figure 66: Represents the admin action to forcibly reset an operator's secure access PIN, prompting them to create a new one upon their next kiosk login.
-
-## Figure 67: Intake Management (Admin)
-
-Figure 67: Shows the delivery intakes page used to track batches, monitor intake status, and perform bulk inventory state updates across an entire batch.
-
-- Route: `/admin/intakes`
+- Route: `/admin/users` (dialog overlay)
 - User Type: Admin
-- Main Actions: Search/Filter intakes, change intake activity status, apply bulk inventory updates
+- Main Actions: Input username, full name, role, and status; view auto-generated temporary password and 4-digit PIN; securely hand off credentials to employee
 
-## Figure 68: Bulk Update Status Menu
+---
 
-Figure 68: Demonstrates the time-saving administrative feature allowing the bulk re-assignment of an entire intake batch\'s inventory status simultaneously via a quick-access dropdown menu.
+## Figure 72: Reset User Password Dialog
 
-## Figure 69: Terminal Status Warning Dialog
+Figure 72: Displays the administrative action dialog to reset an existing user's password. Generates a secure temporary password displayed once in a confirmation modal for administrative handoff, forcing the user to create a new password upon their next login.
 
-Figure 69: Captures the critical safeguard dialog that pauses bulk administrative operations to require final confirmation before finalizing permanent inventory state changes.
+- Route: `/admin/users` (dialog overlay)
+- User Type: Admin
+- Main Actions: Confirm password reset, view auto-generated temporary password, securely hand off credential
 
-## Figure 70: Supplier Management (Admin)
+---
 
-Figure 70: Shows the supplier management module for maintaining supplier records, contact details, and activation status.
+## Figure 73: Reset Operator Kiosk PIN Dialog
+
+Figure 73: Represents the administrative recovery dialog to reset an operator's 4-digit kiosk access PIN. Generates an auto-generated temporary PIN displayed once for administrative handoff, prompting mandatory PIN initialization upon next kiosk login.
+
+- Route: `/admin/users` (dialog overlay)
+- User Type: Admin
+- Main Actions: Confirm PIN reset, view auto-generated temporary 4-digit PIN, hand off PIN for kiosk sign-in
+
+---
+
+## Figure 74: Delivery Intake Management (Admin)
+
+Figure 74: Shows the delivery intake management page used to govern produce batch arrivals. Lists all intakes with supplier name, harvest date, ripening treatment (`Natural` / `Ethephon`), associated scan counts, and status (`Active` / `Depleted`). Features actions to create new intakes, print batch QR code labels for pallet containers, and initiate bulk inventory updates.
+
+- Route: `/admin/delivery-intakes`
+- User Type: Admin
+- Main Actions: Search and filter intake batches, register new delivery intake, monitor batch lifecycle, print batch QR labels, trigger bulk inventory updates
+
+---
+
+## Figure 75: Bulk Update Status Menu (Delivery Intake)
+
+Figure 75: Demonstrates the administrative bulk inventory management action allowing simultaneous reassignment of an entire delivery intake batch's inventory status (In Stock, For Processing, Sold, Spoiled) via a quick-access menu with mandatory audit reason logging and revision conflict resolution.
+
+- Route: `/admin/delivery-intakes` (dropdown action)
+- User Type: Admin
+- Main Actions: Select target inventory status for entire intake batch, input mandatory change reason, commit bulk transition
+
+---
+
+## Figure 76: Terminal Status Warning Confirmation Dialog (Delivery Intake)
+
+Figure 76: Captures the critical safeguard dialog that pauses bulk inventory operations when selecting irreversible terminal statuses (Sold, Spoiled). Displays affected scan counts and requires explicit confirmation to prevent accidental produce retirement.
+
+- Route: `/admin/delivery-intakes` (alert dialog)
+- User Type: Admin
+- Main Actions: Review affected scan volume, acknowledge permanent status transition, confirm bulk status update
+
+---
+
+## Figure 77: Supplier Management (Admin)
+
+Figure 77: Shows the supplier management module maintaining the agricultural grower directory. Lists farm suppliers, contact persons, phone numbers, and active/inactive statuses, with search, status filtering, and management actions.
 
 - Route: `/admin/suppliers`
 - User Type: Admin
-- Main Actions: Add supplier, edit supplier data, activate or deactivate supplier
+- Main Actions: Search supplier registry, filter by status, register new supplier, edit supplier details, toggle supplier activation
 
-## Figure 71: Add New Supplier Modal
+---
 
-Figure 71: Shows the data entry form utilized by management to onboard a new agricultural supplier or farm entity into the system, including critical registry and contact fields.
+## Figure 78: Add New Supplier Modal
 
-## Figure 72: Edit Supplier Modal
+Figure 78: Shows the data entry form used to onboard a new agricultural supplier or farm entity into the system, enforcing unique supplier name validation, contact person, and phone number fields.
 
-Figure 72: Depicts the data modification screen an administrator uses to maintain the accuracy of supplier records, adjusting contact info or status metrics as business relationships evolve.
+- Route: `/admin/suppliers` (modal overlay)
+- User Type: Admin
+- Main Actions: Input supplier name, contact person, and phone number; validate uniqueness; save to registry
 
-## Figure 73: Deactivation Confirmation Dialog
+---
 
-Figure 73: Displays the mandatory verification modal protecting the organization\'s supplier registry, ensuring active suppliers are not accidentally suspended or removed from routing options.
+## Figure 79: Edit Supplier Modal
 
-## Figure 74: Quality Control (Admin)
+Figure 79: Depicts the data modification screen an administrator uses to maintain the accuracy of supplier records, adjusting contact details or status metrics as business relationships evolve.
 
-Figure 74: Shows the quality control page focused on flagged and low-confidence scans, enabling review, override, and correction workflows. Displays ML inputs including cultivar, temperature, and humidity.
+- Route: `/admin/suppliers` (modal overlay)
+- User Type: Admin
+- Main Actions: Update supplier contact name and phone details, save modifications
+
+---
+
+## Figure 80: Deactivation Confirmation Dialog (Supplier)
+
+Figure 80: Displays the protective confirmation modal safeguarding the supplier registry, ensuring active farm suppliers are not accidentally suspended or removed from intake selection.
+
+- Route: `/admin/suppliers` (alert dialog)
+- User Type: Admin
+- Main Actions: Confirm supplier deactivation, review warning on intake routing
+
+---
+
+## Figure 81: Quality Control (Admin)
+
+Figure 81: Shows the dedicated quality control inspection queue presenting banana scans requiring human oversight due to low vision confidence (< configured threshold), cross-camera classification conflicts, or manual operator flags. Displays multi-camera thumbnails, detected bounding boxes, DHT22 temperature and humidity readings, and calculated VPD.
 
 - Route: `/admin/quality`
 - User Type: Admin
-- Main Actions: Filter quality issues, review scan anomalies, apply override updates
+- Main Actions: Filter quality queue by "Flagged", "Low Confidence", or "Overridden"; open review modal; approve verified scans
 
-## Figure 75: Scan Details Review Modal
+---
 
-Figure 75: Views the focused modal utilized by system administrators to meticulously review individual scan captures that the vision model flagged due to low confidence or anomalies.
+## Figure 82: Scan Details Review Modal (Quality Control)
 
-## Figure 76: Edit Scan Data / Override Mode
+Figure 82: Shows the focused review modal utilized by administrators to meticulously inspect individual scan captures. Displays multi-view camera captures with bounding boxes, per-camera confidence scores, detected finger counts, immutable original AI predictions, and microclimate telemetry.
 
-Figure 76: Shows the authoritative override interface where an administrator formally rejects a system estimation and manually catalogs the true cultivar or ripeness, permanently logging the human correction.
+- Route: `/admin/quality` (modal overlay)
+- User Type: Admin
+- Main Actions: Inspect multi-angle camera evidence and bounding boxes, compare original AI predictions, review sensor readings
 
-## Figure 77: Activity Log (Admin)
+---
 
-Figure 77: Shows the activity log screen that records user and system actions for auditing, traceability, and administrative review.
+## Figure 83: Edit Scan Data / Authoritative Override Mode
+
+Figure 83: Shows the authoritative override interface where an administrator formally overrides algorithm estimates and manually catalogs the true cultivar, ripeness stage, finger count, or source, permanently logging the human correction with a mandatory audit reason and optimistic revision locking.
+
+- Route: `/admin/quality` and `/scans/:scanId` (modal overlay)
+- User Type: Admin
+- Main Actions: Select corrected cultivar, ripeness stage, finger count, or source; input mandatory justification reason; save authoritative correction
+
+---
+
+## Figure 84: Activity Log (Admin)
+
+Figure 84: Shows the activity log screen recording all user and system actions for security auditing and compliance. Displays a server-paginated table of events (logins, logouts, scan creations, scan overrides, user modifications, configuration changes) with timestamps, user identities, action categories, detail descriptions, and client IP addresses, alongside 24-hour summary metrics and CSV export.
 
 - Route: `/admin/activity`
 - User Type: Admin
-- Main Actions: Search events, filter by action/user, export audit logs
+- Main Actions: Search audit events, filter by action type and user, review 24-hour summary metrics, export audit logs as CSV
 
-## Figure 78: System Configuration (Admin)
+---
 
-Figure 78: Shows the system configuration page for scanner settings, AI threshold adjustment, data handling options, and controlled power actions. All configuration modules are viewable on a single consolidated page for immediate system state oversight.
+## Figure 85: System Configuration - Overview (Admin)
+
+Figure 85: Shows the consolidated system configuration portal organizing station settings into four tabs: Scanner Configuration, AI Settings, Storage Management, and Power Management.
 
 - Route: `/admin/config`
 - User Type: Admin
-- Main Actions: Update camera IDs, tune confidence threshold, trigger export, run system controls
+- Main Actions: Navigate configuration tabs, monitor maintenance state, save global station settings
 
-## Figure 79: Hardware Integration
+---
 
-Figure 79: Displays the hardware setup panel used by system administrators to configure the specific camera device IDs utilized by the edge equipment during active fruit inspection.
+## Figure 86: Scanner Configuration & Camera Calibration
 
-## Figure 80: AI Settings
+Figure 86: Displays the hardware setup panel used by administrators to discover USB cameras via DirectShow/cv2-enumerate-cameras, map physical camera positions (Top CAM-001, Left CAM-002, Right CAM-003, Rear CAM-004), and launch live camera calibration preview feeds to adjust lens focus, lighting, and bunch placement.
 
-Figure 80: Depicts the machine learning configuration interface where administrators calibrate the required certainty thresholds the vision algorithm must meet to auto-accept a scan.
+- Route: `/admin/config` (Scanner Configuration tab)
+- User Type: Admin
+- Main Actions: Discover connected camera indices, map physical camera positions, launch live camera calibration preview modal
 
-## Figure 81: Storage Management
+---
 
-Figure 81: Shows the administrative tools dedicated to managing historical data volume, including toggling routine storage cleanup rules and executing manual flat-file CSV backups of scan activity.
+## Figure 87: AI Settings (Confidence Threshold Calibration)
 
-## Figure 82: Power Management
+Figure 87: Depicts the machine learning configuration interface where administrators calibrate the required review confidence threshold slider (0% to 100%), establishing the certainty level the YOLO vision model must satisfy to auto-accept a scan into inventory versus routing it to the Quality Control queue.
 
-Figure 82: Captures the remote operations view where administrators can observe the uptime of deployment edge terminals and trigger maintenance restart or shutdown operations across the network.
+- Route: `/admin/config` (AI Settings tab)
+- User Type: Admin
+- Main Actions: Adjust detection review confidence threshold slider, save threshold configuration
 
-## Figure 83: User Profile and Account Settings (Admin View)
+---
 
-Figure 83: Shows the admin profile page where users manage account details, avatar, password settings, and system-level personal statistics.
+## Figure 88: Storage Management & Station Backup / Restore
+
+Figure 88: Shows the administrative data management tools dedicated to configuring automated image retention cleanup policies for expired camera captures, triggering flat-file CSV scan activity exports, and generating or restoring typed system backup archives with SHA-256 validation.
+
+- Route: `/admin/config` (Storage Management tab)
+- User Type: Admin
+- Main Actions: Toggle automated capture retention cleanup, export scan data CSV, create typed system backup archive, restore configuration archive
+
+---
+
+## Figure 89: Power Management & System Maintenance Controls
+
+Figure 89: Captures the remote station operations view where administrators observe terminal uptime and trigger controlled operating system restart or shutdown commands, coordinated by a maintenance state machine that drains active scans before power execution to prevent data corruption.
+
+- Route: `/admin/config` (Power Management tab)
+- User Type: Admin
+- Main Actions: Monitor station uptime, initiate controlled Mini PC shutdown, initiate controlled Mini PC restart
+
+---
+
+## Figure 90: User Profile and Account Settings (Admin View)
+
+Figure 90: Shows the administrator profile page where users manage account details, upload an avatar (up to 2MB), toggle dark/light themes, review administrative activity metrics, and open the Change Password modal (omitting kiosk PIN controls since edge scanning is operator-specific).
 
 - Route: `/profile`
 - User Type: Admin
-- Main Actions: Update profile settings, change password, switch theme
+- Main Actions: Update profile settings, upload avatar, toggle theme, launch Change Password modal
 
-## Figure 84: Change Password Modal
+---
 
-Figure 84: Displays the administrative self-service interface dedicated to maintaining the security of the manager\'s own account by allowing credential modification.
+## Figure 91: Change Password Modal (Admin Context)
+
+Figure 91: Displays the administrative self-service modal dedicated to maintaining account security by verifying the current password before applying a new permanent credential.
+
+- Route: `/profile` (modal overlay)
+- User Type: Admin
+- Main Actions: Verify current password, input new password, confirm new password
+
+---
+
+## Figure 92: Public Scan Tracking View (Mobile & Web QR Portal)
+
+Figure 92: Shows the public-facing scan tracking interface accessible by scanning the QR code on a printed 40mm × 30mm produce label with any smartphone camera or standard web browser without requiring system authentication. Displays verified banana provenance: cultivar (Lakatan, Latundan, Cardaba), ripeness stage, finger count, estimated remaining shelf life in days, scan timestamp, delivery intake origin, and inspection capture photos, while automatically redirecting authenticated warehouse personnel to the full internal scan detail page.
+
+- Route: `/track/:scanId`
+- User Type: Public / Downstream Consumer / Quality Inspector
+- Main Actions: Scan printed QR label with smartphone or browser, inspect produce provenance and classification, verify remaining shelf-life days, view multi-camera capture photos
