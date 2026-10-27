@@ -1,475 +1,227 @@
 <mxfile host="65bd71144e">
-    <diagram name="Figure 14: IoT Hardware Integration, Edge AI &amp; Spoilage Prediction Workflow" id="iot-workflow">
-        <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1680" pageHeight="1120" math="0" shadow="0">
+    <diagram name="Figure 14: IoT Hardware Integration &amp; AI Scanning Pipeline" id="iot-workflow">
+        <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1480" pageHeight="700" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
 
-                <!-- ═══════════ HEADER TITLE & LEGEND ═══════════ -->
 
-                <mxCell id="title" value="&lt;b&gt;Figure 14: IoT Hardware Integration, Edge AI Vision &amp;amp; Spoilage Prediction Workflow&lt;/b&gt;&lt;br&gt;BananaVision Capstone Project | 4-Camera Array, DHT22 Microclimate Telemetry, Multi-Camera YOLO Fusion &amp;amp; RFR Pipeline" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;" vertex="1" parent="1">
-                    <mxGeometry x="40" y="20" width="800" height="45" as="geometry"/>
+
+                <mxCell id="legend_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#cbd5e1;strokeWidth=1;" parent="1" vertex="1">
+                    <mxGeometry x="870" y="20" width="560" height="46" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="legend_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#cbd5e1;strokeWidth=1;" vertex="1" parent="1">
-                    <mxGeometry x="880" y="18" width="760" height="50" as="geometry"/>
+                <mxCell id="leg_hw" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="885" y="29" width="26" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg_hw_txt" value="&lt;b&gt;Hardware&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="915" y="28" width="65" height="26" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="leg_hw" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;" vertex="1" parent="1">
-                    <mxGeometry x="895" y="29" width="28" height="28" as="geometry"/>
+                <mxCell id="leg_gate" value="" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="985" y="28" width="26" height="26" as="geometry"/>
                 </mxCell>
-                <mxCell id="leg_hw_txt" value="&lt;b&gt;Physical Hardware&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=8;" vertex="1" parent="1">
-                    <mxGeometry x="928" y="29" width="95" height="28" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="leg_gate" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;" vertex="1" parent="1">
-                    <mxGeometry x="1035" y="29" width="28" height="28" as="geometry"/>
-                </mxCell>
-                <mxCell id="leg_gate_txt" value="&lt;b&gt;Ingestion &amp;amp; Gating&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=8;" vertex="1" parent="1">
-                    <mxGeometry x="1068" y="29" width="105" height="28" as="geometry"/>
+                <mxCell id="leg_gate_txt" value="&lt;b&gt;Decision Gate&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1015" y="28" width="85" height="26" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="leg_ai" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#22c55e;strokeWidth=2;" vertex="1" parent="1">
-                    <mxGeometry x="1185" y="29" width="28" height="28" as="geometry"/>
+                <mxCell id="leg_ai" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="1105" y="29" width="26" height="26" as="geometry"/>
                 </mxCell>
-                <mxCell id="leg_ai_txt" value="&lt;b&gt;AI Vision &amp;amp; Fusion&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=8;" vertex="1" parent="1">
-                    <mxGeometry x="1218" y="29" width="100" height="28" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="leg_rfr" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;" vertex="1" parent="1">
-                    <mxGeometry x="1330" y="29" width="28" height="28" as="geometry"/>
-                </mxCell>
-                <mxCell id="leg_rfr_txt" value="&lt;b&gt;Spoilage Model&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=8;" vertex="1" parent="1">
-                    <mxGeometry x="1363" y="29" width="95" height="28" as="geometry"/>
+                <mxCell id="leg_ai_txt" value="&lt;b&gt;AI / Vision&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1135" y="28" width="65" height="26" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="leg_pers" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;" vertex="1" parent="1">
-                    <mxGeometry x="1470" y="29" width="28" height="28" as="geometry"/>
+                <mxCell id="leg_rfr" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="1205" y="29" width="26" height="26" as="geometry"/>
                 </mxCell>
-                <mxCell id="leg_pers_txt" value="&lt;b&gt;Persistence &amp;amp; Egress&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=8;" vertex="1" parent="1">
-                    <mxGeometry x="1503" y="29" width="125" height="28" as="geometry"/>
-                </mxCell>
-
-                <!-- ═══════════ OPERATOR & EDGE NODE (PHYSICAL LAYER) ═══════════ -->
-
-                <mxCell id="operator" value="👤&lt;br&gt;&lt;b&gt;Operator&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Kiosk Touch UI&lt;br&gt;/ Web API Trigger&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=9;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="40" y="235" width="85" height="85" as="geometry"/>
+                <mxCell id="leg_rfr_txt" value="&lt;b&gt;Spoilage Model&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1235" y="28" width="85" height="26" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="minipc" value="🖥️&lt;br&gt;&lt;b&gt;Mini PC Edge Node&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;FastAPI Backend&lt;br&gt;Station Coordinator&lt;br&gt;&amp;amp; OpenCV Pipeline&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=9;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="155" y="230" width="100" height="95" as="geometry"/>
+                <mxCell id="leg_out" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="1325" y="29" width="26" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg_out_txt" value="&lt;b&gt;Output / Store&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1355" y="28" width="70" height="26" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="printer" value="🖨️&lt;br&gt;&lt;b&gt;Thermal Printer&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;USB ESC/POS&lt;br&gt;Spoilage Label&lt;br&gt;&amp;amp; Batch QR&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;fontSize=9;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="40" y="445" width="85" height="85" as="geometry"/>
+                <!-- ═══════════ TRIGGER & CONTROLLER ═══════════ -->
+                <mxCell id="operator" value="👤&lt;br&gt;&lt;b&gt;Operator / Kiosk&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 9px;&quot;&gt;Touch UI Scan Trigger&lt;br&gt;(POST /api/v1/scans)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="270" width="105" height="105" as="geometry"/>
                 </mxCell>
 
-                <!-- ═══════════ 4-CAMERA MULTI-VIEW ARRAY ═══════════ -->
-
-                <mxCell id="camera_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f9ff;strokeColor=#3b82f6;strokeWidth=2;dashed=1;" vertex="1" parent="1">
-                    <mxGeometry x="290" y="95" width="270" height="260" as="geometry"/>
+                <mxCell id="minipc" value="🖥️&lt;br&gt;&lt;b&gt;Mini PC Edge Node&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#0369a1&quot; style=&quot;font-size: 9px;&quot;&gt;FastAPI Backend &amp;amp;&lt;br&gt;Pipeline Coordinator&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2.5;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="180" y="265" width="115" height="115" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="camera_title" value="4-Camera Multi-View Array (USB 3.0)" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fillColor=#dbeafe;strokeColor=none;" vertex="1" parent="1">
-                    <mxGeometry x="310" y="105" width="230" height="22" as="geometry"/>
+                <!-- ═══════════ ZONE 1: PHYSICAL HARDWARE SENSING ═══════════ -->
+                <mxCell id="box_hardware" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f9ff;strokeColor=#0284c7;strokeWidth=2;dashed=1;" parent="1" vertex="1">
+                    <mxGeometry x="325" y="115" width="180" height="425" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="cam1" value="📷&lt;br&gt;&lt;b&gt;CAM-001 (Top)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Primary Anchor&lt;br&gt;Bunch Cultivar&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="305" y="135" width="110" height="70" as="geometry"/>
+                <mxCell id="title_hardware" value="&lt;b&gt;1. Hardware Sensing Layer&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#0369a1;" parent="1" vertex="1">
+                    <mxGeometry x="330" y="125" width="170" height="20" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="cam2" value="📷&lt;br&gt;&lt;b&gt;CAM-002 (Left)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Lateral Aspect&lt;br&gt;Ripeness/Fingers&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=8;" vertex="1" parent="1">
-                    <mxGeometry x="435" y="135" width="110" height="70" as="geometry"/>
+                <mxCell id="cam_array" value="📷&lt;br&gt;&lt;b&gt;4-Camera Array&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;Top (Anchor), Left,&lt;br&gt;Right &amp;amp; Rear Views&lt;br&gt;(Parallel Acquisition)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="355" y="165" width="120" height="120" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="cam3" value="📷&lt;br&gt;&lt;b&gt;CAM-003 (Right)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Lateral Aspect&lt;br&gt;Ripeness/Fingers&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=8;" vertex="1" parent="1">
-                    <mxGeometry x="305" y="235" width="110" height="70" as="geometry"/>
+                <mxCell id="dht22" value="🌡️&lt;br&gt;&lt;b&gt;DHT22 Sensor&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;Arduino Uno Serial:&lt;br&gt;Ambient Temp, Hum&lt;br&gt;&amp;amp; Calculated VPD&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="355" y="380" width="120" height="120" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="cam4" value="📷&lt;br&gt;&lt;b&gt;CAM-004 (Rear)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Posterior Aspect&lt;br&gt;Shadow Fill&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=8;" vertex="1" parent="1">
-                    <mxGeometry x="435" y="235" width="110" height="70" as="geometry"/>
+                <!-- ═══════════ ZONE 2: EDGE AI & SPOILAGE PIPELINE ═══════════ -->
+                <mxCell id="box_ai" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#16a34a;strokeWidth=2;dashed=1;" parent="1" vertex="1">
+                    <mxGeometry x="535" y="115" width="510" height="425" as="geometry"/>
                 </mxCell>
 
-                <!-- ═══════════ MICROCLIMATE IOT TELEMETRY ═══════════ -->
-
-                <mxCell id="sensor_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fffbeb;strokeColor=#f59e0b;strokeWidth=2;dashed=1;" vertex="1" parent="1">
-                    <mxGeometry x="160" y="405" width="400" height="155" as="geometry"/>
+                <mxCell id="title_ai" value="&lt;b&gt;2. Edge AI Vision &amp;amp; Spoilage Pipeline&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#15803d;" parent="1" vertex="1">
+                    <mxGeometry x="670" y="125" width="240" height="20" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="sensor_title" value="Microclimate IoT Telemetry (USB Serial @ 9600 Baud)" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fillColor=#fef3c7;strokeColor=none;" vertex="1" parent="1">
-                    <mxGeometry x="180" y="415" width="350" height="22" as="geometry"/>
+                <!-- Decision Gate: Banana Present? -->
+                <mxCell id="gate" value="❓&lt;br&gt;&lt;b&gt;Banana&lt;br&gt;Present?&lt;/b&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=10;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="555" y="270" width="95" height="95" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="arduino" value="🔌&lt;br&gt;&lt;b&gt;Arduino Uno&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;MCU Controller&lt;br&gt;5s Background Poll&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="180" y="445" width="85" height="85" as="geometry"/>
+                <!-- If No: Abort -->
+                <mxCell id="abort_node" value="🚫&lt;br&gt;&lt;b&gt;Abort &amp;amp; Alert&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#dc2626&quot; style=&quot;font-size: 8px;&quot;&gt;Empty Tray Alert /&lt;br&gt;Reposition Hand&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=1.5;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="557" y="415" width="90" height="90" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="dht22" value="🌡️&lt;br&gt;&lt;b&gt;DHT22 Sensor&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Ambient Temp (T)&lt;br&gt;&amp;amp; Rel Humidity (RH)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="295" y="445" width="85" height="85" as="geometry"/>
+                <!-- If Yes: YOLOv8 Detection -->
+                <mxCell id="yolo" value="🎯&lt;br&gt;&lt;b&gt;YOLOv8 Detection&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;Cultivar, Ripeness&lt;br&gt;&amp;amp; Finger Count&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#16a34a;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="700" y="268" width="100" height="100" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="sensor_buffer" value="📊&lt;br&gt;&lt;b&gt;Microclimate Prep&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Magnus-Tetens VPD&lt;br&gt;+ Intake Treatment&lt;br&gt;(Natural/Ethephon)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ecfdf5;strokeColor=#10b981;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="420" y="440" width="95" height="95" as="geometry"/>
+                <mxCell id="fusion" value="🔬&lt;br&gt;&lt;b&gt;Multi-Cam Fusion&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;Confidence-Weighted&lt;br&gt;Consensus &amp;amp; Botanical&lt;br&gt;Harmonization&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#16a34a;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="825" y="265" width="105" height="105" as="geometry"/>
                 </mxCell>
 
-                <!-- ═══════════ INGESTION & PRE-DETECTION GATE ═══════════ -->
-
-                <mxCell id="capture_buffer" value="💾&lt;br&gt;&lt;b&gt;Capture Buffer&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Parallel Multi-Cam&lt;br&gt;Frame Acquisition&lt;br&gt;(RAM Buffer)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="595" y="180" width="95" height="95" as="geometry"/>
+                <mxCell id="rfr" value="⏱️&lt;br&gt;&lt;b&gt;Spoilage Model&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#b45309&quot; style=&quot;font-size: 8px;&quot;&gt;Random Forest (RFR):&lt;br&gt;Ripeness + Climate&lt;br&gt;→ Remaining Days&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="955" y="268" width="100" height="100" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="pre_gate" value="🍌&lt;br&gt;&lt;b&gt;Pre-Detect Gate&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;COCO YOLO (yolo26n)&lt;br&gt;Class 46 Verify&lt;br&gt;Banana on Tray?&lt;/font&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="735" y="175" width="110" height="105" as="geometry"/>
+                <!-- ═══════════ ZONE 3: PERSISTENCE & DISTRIBUTION ═══════════ -->
+                <mxCell id="box_output" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#faf5ff;strokeColor=#9333ea;strokeWidth=2;dashed=1;" parent="1" vertex="1">
+                    <mxGeometry x="1075" y="115" width="375" height="425" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="no_banana" value="🚫&lt;br&gt;&lt;b&gt;No Banana&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Graceful Abort&lt;br&gt;Prompt Operator&lt;br&gt;Reposition Hand&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fee2e2;strokeColor=#ef4444;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="735" y="85" width="110" height="65" as="geometry"/>
+                <mxCell id="title_output" value="&lt;b&gt;3. Persistence &amp;amp; Real-Time Distribution&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#7e22ce;" parent="1" vertex="1">
+                    <mxGeometry x="1140" y="125" width="250" height="20" as="geometry"/>
                 </mxCell>
 
-                <!-- ═══════════ AI PROCESSING PIPELINE (YOLO + FUSION) ═══════════ -->
-
-                <mxCell id="ai_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#22c55e;strokeWidth=2;dashed=1;" vertex="1" parent="1">
-                    <mxGeometry x="880" y="85" width="380" height="475" as="geometry"/>
+                <mxCell id="db" value="💾&lt;br&gt;&lt;b&gt;PostgreSQL DB&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;Transactional Store:&lt;br&gt;Scans, Images &amp;amp; Logs&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#6366f1;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1100" y="170" width="115" height="115" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="ai_title" value="Edge AI Vision &amp;amp; Fusion Pipeline (YOLOv8/v26 + Confidence Fusion)" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fillColor=#dcfce7;strokeColor=none;" vertex="1" parent="1">
-                    <mxGeometry x="900" y="95" width="340" height="22" as="geometry"/>
+                <mxCell id="websocket" value="📡&lt;br&gt;&lt;b&gt;WebSocket Events&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;Live Broadcast to&lt;br&gt;Kiosk &amp;amp; Dashboards&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1300" y="170" width="115" height="115" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="yolo_infer" value="🧠&lt;br&gt;&lt;b&gt;YOLO Inference&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Custom best.pt&lt;br&gt;Cultivar &amp;amp; Ripeness&lt;br&gt;Bounding Boxes&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#22c55e;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="905" y="145" width="105" height="105" as="geometry"/>
+                <mxCell id="inventory" value="📦&lt;br&gt;&lt;b&gt;FIFO Inventory&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;Batch Tracking &amp;amp;&lt;br&gt;2-Day Spoilage Alerts&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#f59e0b;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1100" y="380" width="115" height="115" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="finger_count" value="🔢&lt;br&gt;&lt;b&gt;Finger Count&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Per-Camera View&lt;br&gt;Finger Detections&lt;br&gt;&amp;amp; Coordinates&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1;fontSize=8;" vertex="1" parent="1">
-                    <mxGeometry x="912" y="280" width="90" height="90" as="geometry"/>
+                <mxCell id="printer" value="🖨️&lt;br&gt;&lt;b&gt;Thermal Printer&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#be185d&quot; style=&quot;font-size: 8px;&quot;&gt;USB ESC/POS Auto-Print:&lt;br&gt;Spoilage Label &amp;amp; QR&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1300" y="380" width="115" height="115" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="fusion_engine" value="🔬&lt;br&gt;&lt;b&gt;Multi-Camera&lt;br&gt;Fusion Engine&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Confidence-Weighted&lt;br&gt;Majority Voting&lt;br&gt;CAM-001 Anchor&lt;br&gt;Max Finger Union&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#22c55e;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="1055" y="140" width="115" height="115" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="harmonization" value="🌿&lt;br&gt;&lt;b&gt;Botanical Cultivar&lt;br&gt;Harmonization&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Bunch Uniformity Rule&lt;br&gt;Reconcile Dissenting&lt;br&gt;Per-Cam Labels&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="1060" y="280" width="105" height="105" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="conflict_check" value="❓&lt;br&gt;&lt;b&gt;Conflict &amp;amp; Threshold&lt;br&gt;Guard&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Disagreement or&lt;br&gt;Conf &amp;lt; Threshold?&lt;/font&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="1052" y="420" width="120" height="100" as="geometry"/>
-                </mxCell>
-
-                <!-- ═══════════ SPOILAGE ESTIMATION ENGINE ═══════════ -->
-
-                <mxCell id="spoilage_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;dashed=1;" vertex="1" parent="1">
-                    <mxGeometry x="1295" y="85" width="345" height="475" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="spoilage_title" value="Spoilage Estimation Engine (Random Forest Regression)" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fillColor=#ffedd5;strokeColor=none;" vertex="1" parent="1">
-                    <mxGeometry x="1310" y="95" width="315" height="22" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="feature_vector" value="🧬&lt;br&gt;&lt;b&gt;6-Feature Vector&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;[Cultivar, Ripeness,&lt;br&gt;Temp, Humidity,&lt;br&gt;VPD, Treatment]&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="1320" y="160" width="105" height="105" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="rfr_model" value="🧮&lt;br&gt;&lt;b&gt;RFR Model&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;spoilage_rfr.joblib&lt;br&gt;Predicts Shelf Life&lt;br&gt;(Remaining Days)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="1475" y="160" width="110" height="110" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="rule_fallback" value="📖&lt;br&gt;&lt;b&gt;Literature Rule Fallback&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Offline Safety Range&lt;br&gt;(If RFR Unavailable)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#666666;strokeWidth=1;fontSize=7;" vertex="1" parent="1">
-                    <mxGeometry x="1485" y="295" width="90" height="90" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="scan_result" value="✅&lt;br&gt;&lt;b&gt;Scan Result Record&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Fused Cultivar &amp;amp; Ripeness&lt;br&gt;Confidence % &amp;amp; Finger Count&lt;br&gt;Spoilage Days &amp;amp; Boxes&lt;br&gt;Auto-Flagged Status&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#22c55e;strokeWidth=3;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="1395" y="415" width="125" height="125" as="geometry"/>
-                </mxCell>
-
-                <!-- ═══════════ PERSISTENCE, DISTRIBUTION & EGRESS LAYER ═══════════ -->
-
-                <mxCell id="egress_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#faf5ff;strokeColor=#6366f1;strokeWidth=2;dashed=1;" vertex="1" parent="1">
-                    <mxGeometry x="40" y="605" width="1600" height="470" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="egress_title" value="Station Persistence, Real-Time Distribution &amp;amp; Output Layer" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fillColor=#ede9fe;strokeColor=none;" vertex="1" parent="1">
-                    <mxGeometry x="60" y="615" width="350" height="22" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="postgres" value="💾&lt;br&gt;&lt;b&gt;PostgreSQL 17+ Database&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Scans, Classifications,&lt;br&gt;Detections, Images,&lt;br&gt;Activity Logs, Intakes&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="1425" y="665" width="115" height="115" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="file_store" value="🖼️&lt;br&gt;&lt;b&gt;Evidence Capture Store&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;/captures/&amp;lt;scan_id&amp;gt;/&lt;br&gt;CAM-001..004 JPEGs&lt;br&gt;Thumbnails &amp;amp; Evidence&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="1235" y="665" width="115" height="115" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="ws_broker" value="⚡&lt;br&gt;&lt;b&gt;WebSocket Broker&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;/api/v1/ws Rooms:&lt;br&gt;kiosk &amp;amp; dashboard&lt;br&gt;Real-time Events&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="1025" y="665" width="115" height="115" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="kiosk_display" value="🖥️&lt;br&gt;&lt;b&gt;Kiosk Touch UI&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Full-Screen Scan Feed,&lt;br&gt;Bounding Boxes,&lt;br&gt;5 Recent Scans,&lt;br&gt;Operator Swap&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="780" y="665" width="115" height="115" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="web_dashboard" value="🌐&lt;br&gt;&lt;b&gt;Web Dashboard&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Operator &amp;amp; Admin Views,&lt;br&gt;Role-Based Scan Logs,&lt;br&gt;Analytics &amp;amp; Telemetry&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="780" y="830" width="115" height="115" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="print_spooler" value="🖨️&lt;br&gt;&lt;b&gt;Print Spooler Trigger&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Auto-Print Thermal Label&lt;br&gt;CUPS / Win Spooler&lt;br&gt;Batch QR &amp;amp; Spoilage Days&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="240" y="670" width="110" height="110" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="qc_queue" value="🚩&lt;br&gt;&lt;b&gt;QC Override Queue&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Admin Flagged Scan Review&lt;br&gt;Multi-Camera Evidence&lt;br&gt;Revision-Locked Override&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="1025" y="830" width="115" height="115" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="fifo_inventory" value="📦&lt;br&gt;&lt;b&gt;FIFO Inventory Tracking&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;Batch Intake Updates,&lt;br&gt;FIFO Stock Movement,&lt;br&gt;2-Day Spoilage Warnings&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="1235" y="830" width="115" height="115" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="audit_activity" value="📋&lt;br&gt;&lt;b&gt;Audit &amp;amp; Notifications&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;scan_created Event,&lt;br&gt;Real-Time Notifications,&lt;br&gt;System Activity Log&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=1;fontSize=8;" vertex="1" parent="1">
-                    <mxGeometry x="1425" y="830" width="115" height="115" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="telemetry_live" value="📡&lt;br&gt;&lt;b&gt;Station Device Status&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 7px;&quot;&gt;4-Cam Live Health Grid,&lt;br&gt;DHT22 Temp/Humidity,&lt;br&gt;Mini PC CPU &amp;amp; Storage&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=8;fontStyle=1;" vertex="1" parent="1">
-                    <mxGeometry x="535" y="830" width="115" height="115" as="geometry"/>
-                </mxCell>
-
-                <!-- ═══════════ EDGES & CONNECTION FLOWS ═══════════ -->
-
-                <!-- Operator to Mini PC -->
-                <mxCell id="edge_op_minipc" value="Trigger Scan&lt;br&gt;POST /api/v1/scans" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0284c7;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="operator" target="minipc">
+                <!-- ═══════════ FLOW ARROWS ═══════════ -->
+                <mxCell id="arr_op" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;endArrow=block;endFill=1;" parent="1" source="operator" target="minipc" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
 
-                <!-- Mini PC to Camera Array -->
-                <mxCell id="edge_minipc_cams" value="Parallel Capture&lt;br&gt;USB 3.0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#2563eb;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="minipc" target="cam1">
+                <!-- Mini PC -> 4 Cameras -->
+                <mxCell id="arr_pc_cam" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0284c7;endArrow=block;endFill=1;" parent="1" source="minipc" target="cam_array" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="205" y="170"/>
+                            <mxPoint x="305" y="300"/>
+                            <mxPoint x="305" y="225"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
 
-                <!-- Mini PC to Arduino Serial -->
-                <mxCell id="edge_minipc_arduino" value="USB Serial Poll&lt;br&gt;@ 9600 Baud" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f59e0b;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="minipc" target="arduino">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-
-                <!-- Arduino to DHT22 -->
-                <mxCell id="edge_arduino_dht22" value="Digital Pin Read" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f59e0b;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="arduino" target="dht22">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-
-                <!-- DHT22 to Sensor Buffer -->
-                <mxCell id="edge_dht22_buffer" value="T &amp;amp; RH Telemetry" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#10b981;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="dht22" target="sensor_buffer">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-
-                <!-- Cameras to Capture Buffer -->
-                <mxCell id="edge_cam1_buffer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#3b82f6;endArrow=block;endFill=1;" edge="1" parent="1" source="cam2" target="capture_buffer">
+                <!-- Mini PC -> DHT22 -->
+                <mxCell id="arr_pc_dht" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0284c7;endArrow=block;endFill=1;" parent="1" source="minipc" target="dht22" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="575" y="170"/>
-                            <mxPoint x="575" y="210"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="edge_cam4_buffer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#3b82f6;endArrow=block;endFill=1;" edge="1" parent="1" source="cam4" target="capture_buffer">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="575" y="270"/>
-                            <mxPoint x="575" y="240"/>
+                            <mxPoint x="305" y="340"/>
+                            <mxPoint x="305" y="440"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
 
-                <!-- Capture Buffer to Pre-Detect Gate -->
-                <mxCell id="edge_buffer_gate" value="Evaluate Frames" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#ea580c;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="capture_buffer" target="pre_gate">
+                <!-- Cameras -> Decision Gate (Banana Present?) -->
+                <mxCell id="arr_cam_gate" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;" parent="1" source="cam_array" target="gate" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="500" y="225"/>
+                            <mxPoint x="500" y="318"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- Decision Gate Yes -> YOLOv8 -->
+                <mxCell id="arr_gate_yes" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;fontSize=10;fontColor=#15803d;fontStyle=1;" parent="1" source="gate" target="yolo" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
 
-                <!-- Pre-Detect Gate: No Banana -->
-                <mxCell id="edge_gate_no" value="No Banana Found&lt;br&gt;(Empty / Foreign)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#ef4444;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="pre_gate" target="no_banana">
+                <!-- Decision Gate No -> Abort -->
+                <mxCell id="arr_gate_no" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;endArrow=block;endFill=1;fontSize=10;fontColor=#dc2626;fontStyle=1;" parent="1" source="gate" target="abort_node" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
 
-                <!-- Pre-Detect Gate: Banana Present -> YOLO Inference -->
-                <mxCell id="edge_gate_yes" value="Banana Present&lt;br&gt;(Class 46 Confirmed)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#22c55e;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="pre_gate" target="yolo_infer">
+                <!-- Pipeline Internal Flow -->
+                <mxCell id="arr_yolo_fusion" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;" parent="1" source="yolo" target="fusion" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
 
-                <!-- YOLO to Finger Count -->
-                <mxCell id="edge_yolo_finger" value="Bounding Boxes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="yolo_infer" target="finger_count">
+                <mxCell id="arr_fusion_rfr" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;" parent="1" source="fusion" target="rfr" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
 
-                <!-- YOLO to Fusion Engine -->
-                <mxCell id="edge_yolo_fusion" value="Per-Cam Cultivar &amp;amp;&lt;br&gt;Ripeness Confidences" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#22c55e;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="yolo_infer" target="fusion_engine">
+                <!-- DHT22 -> RFR Spoilage Model (Climate input) -->
+                <mxCell id="arr_dht_rfr" value="Microclimate Telemetry" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#0284c7;strokeDasharray=4 4;endArrow=block;endFill=1;fontSize=9;fontColor=#0284c7;" parent="1" source="dht22" target="rfr" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="510" y="440"/>
+                            <mxPoint x="510" y="490"/>
+                            <mxPoint x="1005" y="490"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- RFR Spoilage -> PostgreSQL DB -->
+                <mxCell id="arr_rfr_db" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#6366f1;endArrow=block;endFill=1;" parent="1" source="rfr" target="db" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1065" y="318"/>
+                            <mxPoint x="1065" y="227"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- RFR Spoilage -> FIFO Inventory -->
+                <mxCell id="arr_rfr_inv" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f59e0b;endArrow=block;endFill=1;" parent="1" source="rfr" target="inventory" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1065" y="318"/>
+                            <mxPoint x="1065" y="437"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- DB -> WebSocket Broker -->
+                <mxCell id="arr_db_ws" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0284c7;endArrow=block;endFill=1;" parent="1" source="db" target="websocket" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
 
-                <!-- Finger Count to Fusion Engine -->
-                <mxCell id="edge_finger_fusion" value="View Counts" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="finger_count" target="fusion_engine">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="1030" y="325"/>
-                            <mxPoint x="1030" y="220"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-
-                <!-- Fusion Engine to Harmonization -->
-                <mxCell id="edge_fusion_harm" value="Fused Consensus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0284c7;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="fusion_engine" target="harmonization">
+                <!-- DB / Inventory -> Thermal Printer -->
+                <mxCell id="arr_inv_print" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#ec4899;endArrow=block;endFill=1;" parent="1" source="inventory" target="printer" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-
-                <!-- Harmonization to Conflict Check -->
-                <mxCell id="edge_harm_conflict" value="Check Conf &amp;amp; Cross-Cam" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="harmonization" target="conflict_check">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-
-                <!-- Harmonization to Feature Vector Assembly -->
-                <mxCell id="edge_harm_vector" value="Cultivar &amp;amp; Ripeness" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f59e0b;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="harmonization" target="feature_vector">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="1275" y="332"/>
-                            <mxPoint x="1275" y="212"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-
-                <!-- Microclimate Feature Prep to Feature Vector -->
-                <mxCell id="edge_env_vector" value="T, RH, VPD &amp;amp; Treatment" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#10b981;dashed=1;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="sensor_buffer" target="feature_vector">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="550" y="487"/>
-                            <mxPoint x="550" y="580"/>
-                            <mxPoint x="1285" y="580"/>
-                            <mxPoint x="1285" y="240"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-
-                <!-- Feature Vector to RFR Spoilage Model -->
-                <mxCell id="edge_vector_rfr" value="6-Feature Input" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#ea580c;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="feature_vector" target="rfr_model">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-
-                <!-- RFR Fallback to Rule Model -->
-                <mxCell id="edge_rfr_fallback" value="Model Offline" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#666666;dashed=1;endArrow=block;endFill=1;fontSize=7;" edge="1" parent="1" source="rfr_model" target="rule_fallback">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-
-                <!-- RFR Model to Scan Result -->
-                <mxCell id="edge_rfr_result" value="Predicted Days" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#22c55e;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="rfr_model" target="scan_result">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="1530" y="440"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-
-                <!-- Harmonization to Scan Result -->
-                <mxCell id="edge_harm_result" value="Visual Classes &amp;amp; Boxes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#22c55e;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="harmonization" target="scan_result">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="1200" y="340"/>
-                            <mxPoint x="1200" y="460"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-
-                <!-- Scan Result to PostgreSQL Database -->
-                <mxCell id="edge_result_db" value="Transactional Commit&lt;br&gt;(Scans, Class, Logs)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#6366f1;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="scan_result" target="postgres">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="1480" y="600"/>
-                            <mxPoint x="1480" y="665"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-
-                <!-- Scan Result to Evidence Storage -->
-                <mxCell id="edge_result_files" value="Save JPEGs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#333333;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="scan_result" target="file_store">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="1395" y="520"/>
-                            <mxPoint x="1292" y="520"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-
-                <!-- Scan Result to WebSocket Broker -->
-                <mxCell id="edge_result_ws" value="Broadcast&lt;br&gt;scan:completed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#6366f1;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="scan_result" target="ws_broker">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="1395" y="490"/>
-                            <mxPoint x="1082" y="490"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-
-                <!-- WebSocket to Kiosk Touch Display -->
-                <mxCell id="edge_ws_kiosk" value="Real-Time UI Update" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0284c7;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="ws_broker" target="kiosk_display">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-
-                <!-- WebSocket to Web Dashboard -->
-                <mxCell id="edge_ws_dash" value="Live Dashboard Feed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f59e0b;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="ws_broker" target="web_dashboard">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="980" y="722"/>
-                            <mxPoint x="980" y="887"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-
-                <!-- Conflict Check to QC Queue -->
-                <mxCell id="edge_conflict_qc" value="If auto_flagged = True" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;dashed=1;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="conflict_check" target="qc_queue">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="1112" y="580"/>
-                            <mxPoint x="1082" y="580"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-
-                <!-- WebSocket to Print Spooler -->
-                <mxCell id="edge_ws_print" value="Trigger Auto-Print" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#ec4899;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="kiosk_display" target="print_spooler">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-
-                <!-- Print Spooler to Thermal Printer Hardware -->
-                <mxCell id="edge_spooler_printer" value="ESC/POS Output" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#ec4899;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="print_spooler" target="printer">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="295" y="580"/>
-                            <mxPoint x="82" y="580"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-
-                <!-- Database to FIFO Inventory Tracking -->
-                <mxCell id="edge_db_fifo" value="Update Batch Stock" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="postgres" target="fifo_inventory">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="1482" y="800"/>
-                            <mxPoint x="1292" y="800"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-
-                <!-- Database to Audit & Notifications -->
-                <mxCell id="edge_db_audit" value="Log Activity &amp; Alert" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#6366f1;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="postgres" target="audit_activity">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-
-                <!-- Telemetry Update from Mini PC / Arduino to Live Device Status -->
-                <mxCell id="edge_telemetry_live" value="Periodic Sensor &amp; Cam Status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#0284c7;dashed=1;endArrow=block;endFill=1;fontSize=8;" edge="1" parent="1" source="sensor_buffer" target="telemetry_live">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="467" y="750"/>
-                            <mxPoint x="592" y="750"/>
-                        </Array>
-                    </mxGeometry>
                 </mxCell>
 
             </root>
