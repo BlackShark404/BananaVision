@@ -325,8 +325,9 @@ its database labels are the same as its application values.
 | INFERENCE_TIME_MS | Inference duration in milliseconds. | NUMERIC(8,2) | Yes | — | — | — | — |
 | CAPTURED_AT | Timestamp when the camera image was captured (Asia/Manila). | TIMESTAMP WITH TIME ZONE | No | Application-generated (Asia/Manila timestamp) | — | — | — |
 | SCAN_ID | Parent scan. | UUID | No | — | FK | SCAN(ID) | FK ON DELETE CASCADE |
+| DEVICE_ID | Camera device entity that produced this detection. | UUID | Yes | — | FK | DEVICE(ID) | FK ON DELETE SET NULL |
 
-**Notes:** Deleting the scan cascades to these rows.
+**Notes:** Deleting the scan cascades to these rows. Deleting or unpairing the referenced device sets `DEVICE_ID` to null.
 
 ### Table 30: SCAN_IMAGE Table
 
@@ -342,8 +343,9 @@ its database labels are the same as its application values.
 | FILE_SIZE_BYTES | Image file size in bytes. | INTEGER | Yes | — | — | — | — |
 | CAPTURED_AT | Timestamp when the image was captured (Asia/Manila). | TIMESTAMP WITH TIME ZONE | No | Application-generated (Asia/Manila timestamp) | — | — | — |
 | SCAN_ID | Parent scan. | UUID | No | — | FK | SCAN(ID) | FK ON DELETE CASCADE |
+| DEVICE_ID | Camera device entity that captured this image. | UUID | Yes | — | FK | DEVICE(ID) | FK ON DELETE SET NULL |
 
-**Notes:** Deleting the scan cascades to these rows.
+**Notes:** Deleting the scan cascades to these rows. Deleting or unpairing the referenced device sets `DEVICE_ID` to null.
 
 ### Table 31: SCAN_NOTE Table
 
@@ -499,6 +501,8 @@ application may impose additional restrictions.
 | `ADMIN_PROFILE` | `SYSTEM_CONFIG` | `UPDATED_BY_ADMIN` -> `ID` | 1:N | `SET NULL` |
 | `APP_NOTIFICATION` | `APP_NOTIFICATION_READ` | `NOTIFICATION_ID` -> `ID` | 1:N | `CASCADE` |
 | `DELIVERY_INTAKE` | `SCAN` | `INTAKE_ID` -> `ID` | 1:N | `SET NULL` |
+| `DEVICE` | `SCAN_DETECTION` | `DEVICE_ID` -> `ID` | 1:N | `SET NULL` |
+| `DEVICE` | `SCAN_IMAGE` | `DEVICE_ID` -> `ID` | 1:N | `SET NULL` |
 | `OPERATOR_PROFILE` | `SCAN` | `OPERATOR_ID` -> `ID` | 1:N | `RESTRICT` |
 | `SCAN` | `SCAN_CLASSIFICATION` | `SCAN_ID` -> `ID` | 1:1 | `CASCADE` |
 | `SCAN` | `SCAN_DETECTION` | `SCAN_ID` -> `ID` | 1:N | `CASCADE` |
@@ -528,4 +532,26 @@ application may impose additional restrictions.
 - Historical snapshots, audit JSON and engineered features are intentional controlled
   denormalization for auditability and reproducibility.
 
+## ORM relationship coverage
+
+Every foreign-key relationship in the schema has a corresponding SQLAlchemy ORM
+`relationship()` declaration enabling bidirectional navigation:
+
+- **`SCAN`** navigates to its classification, status logs, original AI result, detections,
+  images, notes, print jobs and events via eager-loaded or on-demand relationships.
+- **`SCAN_LABEL_PRINT_JOB`** links to its parent scan (`scan`) and the requesting user
+  account (`owner`).
+- **`SCAN_EVENT`** links to its parent scan (`scan`).
+- **`SUPPLIER`** ↔ **`DELIVERY_INTAKE`** is fully bidirectional (`intakes` / `supplier`).
+- **`SCAN_LABEL_PRINT_JOB.print_jobs`** and **`SCAN_EVENT.events`** on the `Scan` model
+  use `lazy="raise"` so they are not eagerly loaded on every scan query.
+- **`DEVICE`** ↔ **`SCAN_DETECTION`** and **`SCAN_IMAGE`** provide reverse links (`detections` /
+  `images` with `lazy="raise"`) and direct references (`device` with `lazy="selectin"` on detection/image).
+
+Five models intentionally have no ORM relationships: `SENSOR_READING` (standalone
+time-series), `MAINTENANCE_STATE` (system singleton), `SCAN_BROWSE_SNAPSHOT` (ephemeral, no FK),
+`SCAN_MUTATION` (audit immutability, no FK) and `SCAN_TOMBSTONE` (deleted-scan evidence, no FK).
+
+For the complete ORM relationship map with loading strategies, see `docs/schema_tables.md`.
 For the exact PostgreSQL DDL and constraint names, see `docs/bananavision_schema_current.sql`.
+

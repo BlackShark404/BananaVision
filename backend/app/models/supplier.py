@@ -10,7 +10,7 @@ from app.core.time import now_manila
 
 from sqlalchemy import String, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.db_types import ManilaDateTime
@@ -34,3 +34,6 @@ class Supplier(Base):
         default=now_manila,
         onupdate=now_manila,
     )
+
+    # Relationships
+    intakes = relationship("Intake", back_populates="supplier", lazy="raise")

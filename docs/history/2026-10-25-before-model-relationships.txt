@@ -1,0 +1,65 @@
+CURRENT RESUME HERE (2026-10-25) - LIVE LOGS RECONCILIATION VERIFIED; READY FOR COMMIT REVIEW
+
+DONE
+- Preserved prior cross-session mutation events, role-scoped routing, sensor freshness and all
+  existing changes on main. Root cause was missing mutation signals and re-reading frozen values,
+  not a need to delete historical records or snapshot schemas.
+- Added authenticated GET /api/v1/scan-logs/reconcile: validates snapshot owner, role, token,
+  generation, filters and expiry; reads current authorized versions of frozen page IDs, omitting
+  removed/inaccessible/filtered-out rows. Current whole-filter metrics and exact risk IDs use one
+  SQL read view. Snapshot payload, pagination order and CSV/XLSX export remain immutable.
+- Logs coalesces event bursts (200 ms) and reuses existing 30-second polling/resume recovery.
+  Live KPI cards include off-page edits. Missed edits recover on reconnect; failed reads retain
+  last verified data with an error. Remote values defer during editing then apply after blur;
+  inaccessible rows are not retained. Rounded event days never determine at-risk membership.
+- Page 1 new Kiosk scans refresh automatically; Page 2+ retains View Latest Scans/Later behavior.
+  No database migration, model change, UI redesign, live database or hardware operations.
+- Added SQLite API and independent-account PostgreSQL regression coverage; extended browser
+  cross-session/Logs fixtures. Fixed only newly introduced test lint issues.
+
+IN PROGRESS
+- None. Implementation and relevant verification are complete.
+
+TEST RESULTS
+- Red reproduction: 4 targeted browser failures before reconciliation implementation.
+- Focused affected browser run: 65 passed. Final full frontend: 266 passed, 0 failed/skipped
+  (338.09s). Stronger completed-read/edit-deferral assertion: 1 passed afterward.
+- Focused backend integration: 53 passed. Full suite with disposable PostgreSQL 18: 681 passed,
+  0 failed/skipped, 55 pre-existing fixture/model warnings (217.32s).
+- After test-only lint corrections: reconciliation/mutation 19 passed; mutation/time-write 44 passed.
+- PostgreSQL test proves Admin/owning Operator/other Operator independent committed reads,
+  exact stored prediction preservation, removal and immutable original snapshots. Browser tests
+  use mocked transport; no single browser-to-PostgreSQL station run or physical hardware test.
+- npm run typecheck PASS; npm run build PASS (36.19s; existing >500 kB warning).
+- npm run lint: unchanged 35 errors/5 warnings. Configured backend Ruff: 645 findings;
+  changed paths 69 versus 72 at HEAD, no introduced diagnostics. New regression files clean.
+- git diff --check PASS. Logs: frontend/node_modules/.tmp/sync-final-*.
+- Four disposable clusters at port 55449 were stopped (PG_STOP_EXIT=0) and their verified temporary
+  cluster directories removed. Earlier PostgreSQL sandbox/process limitation is resolved.
+
+SECURITY / KNOWLEDGE
+- Focused final source/security review found no actionable new defect. Authentication, snapshot
+  ownership/token/generation, scoped filters, expiry and exact risk boundary have regression tests.
+  No new Codex Security service scan launched; do not describe this as a new service scan result.
+- Graphify: 4270 nodes, 12967 edges, 250 communities after final test cleanup; no graph loss. SQL extractor dependency remains
+  unavailable; no paid extraction or installation. Frontend/Resolved Bugs/Testing knowledge updated.
+- ICM verified follow-up saved: 01M5RMD3QVD2GA3GTTW2RNCHKV, superseding the old manual-KPI/missed-edit limitation.
+
+GIT STATUS
+- main/HEAD 02b5c8efeda64e1c8983cf69e36aed99297d07bd matches origin/main and fresh remote ls-remote.
+- 38 intended paths: 30 modified, 8 added/untracked, none deleted; all unstaged/uncommitted.
+- Safety stash retained unchanged. No branches, worktrees, commits, pushes, resets or deployment.
+- Prior checkpoint archived: docs/history/2026-10-24-before-sync-finalization.txt.
+
+REMAINING / LIMITATIONS
+- Live station/hardware testing is outside this isolated verification. No scan/intake delete UI
+  exists; removal tests deliberately simulate externally removed/reassigned records in fixtures.
+- Snapshots intentionally freeze page membership/order/export; current rows and KPI totals are live.
+  Users choose View Latest Scans/Refresh to rebuild frozen page order/export after changes.
+- Existing lint debt, model/fixture warnings and bundle warning remain; no introduced regressions.
+
+EXACT RESUME HERE
+- Implementation is ready for reviewed commit/push authorization. Do not repeat completed suites
+  unless code changes. No current instruction authorizes staging/committing/pushing this follow-up.
+- Final memory, documentation and diff/status checks complete. No implementation work remains;
+  next step is reviewed commit/push authorization. Preserve the safety stash and existing changes.

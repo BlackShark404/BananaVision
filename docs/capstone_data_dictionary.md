@@ -273,8 +273,9 @@ business boundaries.
 | INFERENCE_TIME_MS | NUMERIC(8,2) | Yes |  |  |  |
 | CAPTURED_AT | TIMESTAMP WITH TIME ZONE | No | Application-generated (Asia/Manila timestamp) |  |  |
 | SCAN_ID | UUID | No |  | FK | SCAN(ID) |
+| DEVICE_ID | UUID | Yes |  | FK | DEVICE(ID) |
 
-**Notes:** Deleting the scan cascades to these rows.
+**Notes:** Deleting the scan cascades to these rows. Deleting or unpairing the referenced device sets `DEVICE_ID` to null.
 
 ### Table 30: SCAN_IMAGE Table
 
@@ -288,8 +289,9 @@ business boundaries.
 | FILE_SIZE_BYTES | INTEGER | Yes |  |  |  |
 | CAPTURED_AT | TIMESTAMP WITH TIME ZONE | No | Application-generated (Asia/Manila timestamp) |  |  |
 | SCAN_ID | UUID | No |  | FK | SCAN(ID) |
+| DEVICE_ID | UUID | Yes |  | FK | DEVICE(ID) |
 
-**Notes:** Deleting the scan cascades to these rows.
+**Notes:** Deleting the scan cascades to these rows. Deleting or unpairing the referenced device sets `DEVICE_ID` to null.
 
 ### Table 31: SCAN_NOTE Table
 
@@ -430,5 +432,27 @@ business boundaries.
   (`SCAN_EVENT`), and engineered features (`DEW_POINT`, `VPD`, `HEAT_INDEX`) are intentional
   controlled denormalization for auditability, historical accuracy and reproducibility.
 
+## ORM relationship coverage
+
+Every foreign-key relationship in the schema has a corresponding SQLAlchemy ORM
+`relationship()` declaration enabling bidirectional navigation:
+
+- **`SCAN`** navigates to its classification, status logs, original AI result, detections,
+  images, notes, print jobs and events via eager-loaded or on-demand relationships.
+- **`SCAN_LABEL_PRINT_JOB`** links to its parent scan (`scan`) and the requesting user
+  account (`owner`).
+- **`SCAN_EVENT`** links to its parent scan (`scan`).
+- **`SUPPLIER`** ↔ **`DELIVERY_INTAKE`** is fully bidirectional (`intakes` / `supplier`).
+- **`SCAN_LABEL_PRINT_JOB.print_jobs`** and **`SCAN_EVENT.events`** on the `Scan` model
+  use `lazy="raise"` so they are not eagerly loaded on every scan query.
+- **`DEVICE`** ↔ **`SCAN_DETECTION`** and **`SCAN_IMAGE`** provide reverse links (`detections` /
+  `images` with `lazy="raise"`) and direct references (`device` with `lazy="selectin"` on detection/image).
+
+Five models intentionally have no ORM relationships: `SENSOR_READING` (standalone
+time-series), `MAINTENANCE_STATE` (system singleton), `SCAN_BROWSE_SNAPSHOT` (ephemeral, no FK),
+`SCAN_MUTATION` (audit immutability, no FK) and `SCAN_TOMBSTONE` (deleted-scan evidence, no FK).
+
+For the complete ORM relationship map with loading strategies, see `docs/schema_tables.md`.
 For the technical companion with explicit constraint names, indexes and referential actions,
 see `docs/schema_tables.md`. The source DDL is `docs/bananavision_schema_current.sql`.
+

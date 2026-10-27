@@ -374,11 +374,14 @@ Per-camera inference results and bounding boxes for a scan.
 | `INFERENCE_TIME_MS` | NUMERIC(8,2) | Yes |  |  |  |
 | `CAPTURED_AT` | TIMESTAMP WITH TIME ZONE | No |  |  |  |
 | `SCAN_ID` | UUID | No |  | FK | `SCAN.ID` |
+| `DEVICE_ID` | UUID | Yes |  | FK | `DEVICE.ID` |
 
 **Keys, constraints and indexes**
 
 - Foreign key: `SCAN_ID` → `SCAN.ID` (`ON DELETE CASCADE`).
+- Foreign key: `DEVICE_ID` → `DEVICE.ID` (`ON DELETE SET NULL`).
 - Index: `IX_SCAN_DETECTION_SCAN_ID` on `SCAN_ID`.
+- Index: `IX_SCAN_DETECTION_DEVICE_ID` on `DEVICE_ID`.
 
 ### `SCAN_IMAGE`
 
@@ -394,11 +397,14 @@ Per-camera captured image metadata for a scan.
 | `FILE_SIZE_BYTES` | INTEGER | Yes |  |  |  |
 | `CAPTURED_AT` | TIMESTAMP WITH TIME ZONE | No |  |  |  |
 | `SCAN_ID` | UUID | No |  | FK | `SCAN.ID` |
+| `DEVICE_ID` | UUID | Yes |  | FK | `DEVICE.ID` |
 
 **Keys, constraints and indexes**
 
 - Foreign key: `SCAN_ID` → `SCAN.ID` (`ON DELETE CASCADE`).
+- Foreign key: `DEVICE_ID` → `DEVICE.ID` (`ON DELETE SET NULL`).
 - Index: `IX_SCAN_IMAGE_SCAN_ID` on `SCAN_ID`.
+- Index: `IX_SCAN_IMAGE_DEVICE_ID` on `DEVICE_ID`.
 
 ### `SCAN_NOTE`
 
@@ -581,6 +587,8 @@ may impose additional restrictions.
 | `ADMIN_PROFILE` | `SYSTEM_CONFIG` | `UPDATED_BY_ADMIN` → `ID` | 1:N | `SET NULL` |
 | `APP_NOTIFICATION` | `APP_NOTIFICATION_READ` | `NOTIFICATION_ID` → `ID` | 1:N | `CASCADE` |
 | `DELIVERY_INTAKE` | `SCAN` | `INTAKE_ID` → `ID` | 1:N | `SET NULL` |
+| `DEVICE` | `SCAN_DETECTION` | `DEVICE_ID` → `ID` | 1:N | `SET NULL` |
+| `DEVICE` | `SCAN_IMAGE` | `DEVICE_ID` → `ID` | 1:N | `SET NULL` |
 | `OPERATOR_PROFILE` | `SCAN` | `OPERATOR_ID` → `ID` | 1:N | `RESTRICT` |
 | `SCAN` | `SCAN_CLASSIFICATION` | `SCAN_ID` → `ID` | 1:1 | `CASCADE` |
 | `SCAN` | `SCAN_DETECTION` | `SCAN_ID` → `ID` | 1:N | `CASCADE` |
@@ -621,5 +629,80 @@ may impose additional restrictions.
 - All timestamps are `TIMESTAMP WITH TIME ZONE`. Business date boundaries and display
   conversions use the backend Asia/Manila helpers.
 
+## ORM relationship declarations
+
+Every foreign-key relationship has a corresponding SQLAlchemy `relationship()` declaration
+on at least one side. The table below lists all ORM relationship attributes, their target
+model, loading strategy, cascade behavior and bidirectional `back_populates` partner. Models
+with no foreign keys and no ORM relationships are listed separately at the end.
+
+### Loading strategies
+
+| Strategy | Meaning |
+| --- | --- |
+| `selectin` | Eagerly loaded via a follow-up `SELECT … IN` query; included in the default result. |
+| `raise` | Not loaded by default; accessing the attribute without an explicit join raises an error. Used for large or rarely needed collections. |
+
+### Relationship map
+
+| Model | Attribute | → Target | Cardinality | Lazy | Cascade | Back-populates |
+| --- | --- | --- | --- | --- | --- | --- |
+| `UserRole` | `accounts` | `UserAccount` | 1:N | `selectin` | — | `role` |
+| `UserAccount` | `role` | `UserRole` | N:1 | `selectin` | — | `accounts` |
+| `UserAccount` | `admin_profile` | `AdminProfile` | 1:1 | `selectin` | `all, delete-orphan` | `account` |
+| `UserAccount` | `operator_profile` | `OperatorProfile` | 1:1 | `selectin` | `all, delete-orphan` | `account` |
+| `UserAccount` | `activity_logs` | `ActivityLog` | 1:N | `raise` | — | `user` |
+| `AdminProfile` | `account` | `UserAccount` | 1:1 | default | — | `admin_profile` |
+| `OperatorProfile` | `account` | `UserAccount` | 1:1 | `selectin` | — | `operator_profile` |
+| `OperatorProfile` | `scans` | `Scan` | 1:N | `raise` | — | `operator` |
+| `Device` | `detections` | `ScanDetection` | 1:N | `raise` | — | `device` |
+| `Device` | `images` | `ScanImage` | 1:N | `raise` | — | `device` |
+| `Supplier` | `intakes` | `Intake` | 1:N | `raise` | — | `supplier` |
+| `Intake` | `scans` | `Scan` | 1:N | `selectin` | — | `intake` |
+| `Intake` | `supplier` | `Supplier` | N:1 | `selectin` | — | `intakes` |
+| `Scan` | `operator` | `OperatorProfile` | N:1 | `selectin` | — | `scans` |
+| `Scan` | `intake` | `Intake` | N:1 | `selectin` | — | `scans` |
+| `Scan` | `classification` | `ScanClassification` | 1:1 | `selectin` | `all, delete-orphan` | `scan` |
+| `Scan` | `status_logs` | `ScanStatusLog` | 1:N | `selectin` | `all, delete-orphan` | `scan` |
+| `Scan` | `original_ai_result` | `ScanOriginalAiResult` | 1:1 | `selectin` | `all, delete-orphan` | `scan` |
+| `Scan` | `detections` | `ScanDetection` | 1:N | `selectin` | `all, delete-orphan` | `scan` |
+| `Scan` | `images` | `ScanImage` | 1:N | `selectin` | `all, delete-orphan` | `scan` |
+| `Scan` | `notes` | `ScanNote` | 1:N | `selectin` | `all, delete-orphan` | `scan` |
+| `Scan` | `print_jobs` | `PrintJob` | 1:N | `raise` | `all, delete-orphan` | `scan` |
+| `Scan` | `events` | `ScanEvent` | 1:N | `raise` | `all, delete-orphan` | `scan` |
+| `ScanClassification` | `scan` | `Scan` | 1:1 | default | — | `classification` |
+| `ScanStatusLog` | `scan` | `Scan` | N:1 | default | — | `status_logs` |
+| `ScanOriginalAiResult` | `scan` | `Scan` | 1:1 | default | — | `original_ai_result` |
+| `ScanDetection` | `scan` | `Scan` | N:1 | default | — | `detections` |
+| `ScanDetection` | `device` | `Device` | N:1 | `selectin` | — | `detections` |
+| `ScanImage` | `scan` | `Scan` | N:1 | default | — | `images` |
+| `ScanImage` | `device` | `Device` | N:1 | `selectin` | — | `images` |
+| `ScanNote` | `scan` | `Scan` | N:1 | default | — | `notes` |
+| `ScanEvent` | `scan` | `Scan` | N:1 | `selectin` | — | `events` |
+| `PrintJob` | `scan` | `Scan` | N:1 | `selectin` | — | `print_jobs` |
+| `PrintJob` | `owner` | `UserAccount` | N:1 | `selectin` | — | — |
+| `ActivityLog` | `user` | `UserAccount` | N:1 | default | — | `activity_logs` |
+| `AppNotification` | `user` | `UserAccount` | N:1 | default | — | — |
+| `AppNotification` | `reads` | `AppNotificationRead` | 1:N | default | `all, delete-orphan` | `notification` |
+| `AppNotificationRead` | `notification` | `AppNotification` | N:1 | default | — | `reads` |
+| `AppNotificationRead` | `user` | `UserAccount` | N:1 | default | — | — |
+| `SystemConfig` | `admin` | `AdminProfile` | N:1 | `selectin` | — | — |
+
+### Models without ORM relationships
+
+These models intentionally have no `relationship()` declarations. They are either
+standalone time-series data, system singletons, or audit/evidence tables whose foreign
+keys are intentionally omitted to preserve immutability after the referenced row is
+deleted or changed.
+
+| Model | Table | Reason |
+| --- | --- | --- |
+| `SensorReading` | `sensor_reading` | Standalone environment time-series; no logical parent entity. |
+| `MaintenanceState` | `maintenance_state` | System singleton deliberately excluded from application relationships. |
+| `ScanSnapshot` | `scan_browse_snapshot` | Ephemeral browse snapshot; `OWNER_ID` intentionally has no FK. |
+| `ScanMutation` | `scan_mutation` | Idempotency receipt; `ACTOR_ID` intentionally has no FK. |
+| `ScanTombstone` | `scan_tombstone` | Tombstone for deleted scans; the referenced scan no longer exists. |
+
 For the exact PostgreSQL DDL, enum definitions, sequences, defaults and constraint names,
 use [`bananavision_schema_current.sql`](bananavision_schema_current.sql).
+

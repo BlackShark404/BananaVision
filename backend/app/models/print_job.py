@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import JSON, Boolean, CheckConstraint, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.db_types import ManilaDateTime
@@ -38,3 +38,7 @@ class PrintJob(Base):
     updated_at: Mapped[datetime] = mapped_column(
         ManilaDateTime(), default=now_manila, onupdate=now_manila,
     )
+
+    # Relationships
+    scan = relationship("Scan", back_populates="print_jobs", lazy="selectin")
+    owner = relationship("UserAccount", lazy="selectin")

@@ -702,6 +702,8 @@ def _upgrade_to_current(manifest, root):
                 elif table.name == "app_notification":
                     row = {key: value for key, value in row.items()
                            if key != "is_read"}
+                if table.name in ("scan_detection", "scan_image") and "device_id" not in row:
+                    row["device_id"] = None
                 validated = _row(table, row)
                 encoded = _dump(_encode(validated)) + b"\n"
                 if len(encoded) > MAX_ROW_BYTES:

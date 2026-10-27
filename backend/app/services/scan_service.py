@@ -25,6 +25,7 @@ from app.services.scan_creation import create_scan_record
 from app.services.scan_records import serialize_scan
 from app.models.scan_detection import ScanDetection
 from app.models.scan_image import ScanImage
+from app.models.device import Device
 from app.models.activity_log import ActivityLog
 from app.models.app_notification import AppNotification
 from app.core.exceptions import ConflictException, ModelInferenceError, NotFoundException
@@ -158,6 +159,10 @@ async def _execute_scan_pipeline(
         db_detections: list[ScanDetection] = []
         db_images: list[ScanImage] = []
 
+        # Build camera_id → device.id map for linking detections/images to devices
+        device_rows = (await db.execute(select(Device.camera_id, Device.id))).all()
+        device_map: dict[str, uuid.UUID] = {row.camera_id: row.id for row in device_rows}
+
         for cap in captures:
             # Classify
             result = await run_blocking(
@@ -169,6 +174,7 @@ async def _execute_scan_pipeline(
             # Store per-camera detection record
             db_detections.append(ScanDetection(
                 scan_id=scan_id,
+                device_id=device_map.get(cap.camera_id),
                 camera_id=cap.camera_id,
                 camera_label=cap.camera_label,
                 detected_cultivar=result.cultivar,
@@ -188,6 +194,7 @@ async def _execute_scan_pipeline(
                 file_stat = os.stat(cap.file_path) if os.path.exists(cap.file_path) else None
                 db_images.append(ScanImage(
                     scan_id=scan_id,
+                    device_id=device_map.get(cap.camera_id),
                     camera_id=cap.camera_id,
                     file_path=cap.file_path,
                     width=cap.frame.shape[1] if cap.frame is not None else None,

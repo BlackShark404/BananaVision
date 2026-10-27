@@ -4,7 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import JSON, ForeignKey, Integer, String, Text, UniqueConstraint, event, select
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.db_types import ManilaDateTime
@@ -30,6 +30,9 @@ class ScanEvent(Base):
     previous_values: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     new_values: Mapped[dict] = mapped_column(JSON)
     evidence_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # Relationships
+    scan = relationship("Scan", back_populates="events", lazy="selectin")
 
 
 class ScanMutation(Base):

@@ -53,5 +53,5 @@ class Intake(Base):
 
     # Relationships
     scans = relationship("Scan", back_populates="intake", lazy="selectin")
-    supplier = relationship("Supplier", lazy="selectin")
+    supplier = relationship("Supplier", back_populates="intakes", lazy="selectin")
 

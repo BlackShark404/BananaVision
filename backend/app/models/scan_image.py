@@ -23,6 +23,8 @@ class ScanImage(Base):
     )
     scan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("scan.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    device_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("device.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     camera_id: Mapped[str] = mapped_column(String(20), nullable=False)
     file_path: Mapped[str] = mapped_column(String(500), nullable=False)
     width: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -33,3 +35,4 @@ class ScanImage(Base):
 
     # Relationships
     scan = relationship("Scan", back_populates="images")
+    device = relationship("Device", back_populates="images", lazy="selectin")

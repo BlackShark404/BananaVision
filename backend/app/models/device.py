@@ -10,7 +10,7 @@ from app.core.time import now_manila
 
 from sqlalchemy import CheckConstraint, Enum as SAEnum, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.db_types import ManilaDateTime
@@ -52,3 +52,7 @@ class Device(Base):
         default=now_manila,
         onupdate=now_manila,
     )
+
+    # Relationships — reverse links to per-camera scan data
+    detections = relationship("ScanDetection", back_populates="device", lazy="raise")
+    images = relationship("ScanImage", back_populates="device", lazy="raise")

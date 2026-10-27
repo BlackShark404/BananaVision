@@ -23,6 +23,8 @@ class ScanDetection(Base):
     )
     scan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("scan.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    device_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("device.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     camera_id: Mapped[str] = mapped_column(String(20), nullable=False)
     camera_label: Mapped[str] = mapped_column(String(30), nullable=False)
     detected_cultivar: Mapped[str | None] = mapped_column(String(20), nullable=True)
@@ -36,3 +38,4 @@ class ScanDetection(Base):
 
     # Relationships
     scan = relationship("Scan", back_populates="detections")
+    device = relationship("Device", back_populates="detections", lazy="selectin")

@@ -346,6 +346,7 @@ ALTER SEQUENCE public.scan_classification_id_seq OWNED BY public.scan_classifica
 CREATE TABLE public.scan_detection (
     id uuid NOT NULL,
     scan_id uuid NOT NULL,
+    device_id uuid,
     camera_id character varying(20) NOT NULL,
     camera_label character varying(30) NOT NULL,
     detected_cultivar character varying(20),
@@ -384,6 +385,7 @@ CREATE TABLE public.scan_event (
 CREATE TABLE public.scan_image (
     id uuid NOT NULL,
     scan_id uuid NOT NULL,
+    device_id uuid,
     camera_id character varying(20) NOT NULL,
     file_path character varying(500) NOT NULL,
     width integer,
@@ -1032,6 +1034,13 @@ CREATE INDEX ix_scan_detection_scan_id ON public.scan_detection USING btree (sca
 
 
 --
+-- Name: ix_scan_detection_device_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_scan_detection_device_id ON public.scan_detection USING btree (device_id);
+
+
+--
 -- Name: ix_scan_event_scan_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1043,6 +1052,13 @@ CREATE INDEX ix_scan_event_scan_id ON public.scan_event USING btree (scan_id);
 --
 
 CREATE INDEX ix_scan_image_scan_id ON public.scan_image USING btree (scan_id);
+
+
+--
+-- Name: ix_scan_image_device_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_scan_image_device_id ON public.scan_image USING btree (device_id);
 
 
 --
@@ -1153,6 +1169,14 @@ ALTER TABLE ONLY public.scan_detection
 
 
 --
+-- Name: scan_detection scan_detection_device_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scan_detection
+    ADD CONSTRAINT scan_detection_device_id_fkey FOREIGN KEY (device_id) REFERENCES public.device(id) ON DELETE SET NULL;
+
+
+--
 -- Name: scan_event scan_event_scan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1166,6 +1190,14 @@ ALTER TABLE ONLY public.scan_event
 
 ALTER TABLE ONLY public.scan_image
     ADD CONSTRAINT scan_image_scan_id_fkey FOREIGN KEY (scan_id) REFERENCES public.scan(id) ON DELETE CASCADE;
+
+
+--
+-- Name: scan_image scan_image_device_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scan_image
+    ADD CONSTRAINT scan_image_device_id_fkey FOREIGN KEY (device_id) REFERENCES public.device(id) ON DELETE SET NULL;
 
 
 --

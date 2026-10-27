@@ -39,8 +39,9 @@ async def _schedule_power_action(action: str):
     else:
         raise HTTPException(503, 'Power commands are unsupported on this operating system')
     try:
+        extra_kwargs = {'creationflags': getattr(subprocess, 'CREATE_NO_WINDOW', 0)} if system == 'windows' else {}
         result = await run_blocking(subprocess.run, command, capture_output=True, text=True, timeout=5, check=False,
-                                    **({'creationflags': subprocess.CREATE_NO_WINDOW} if system == 'windows' else {}))
+                                    **extra_kwargs)
     except subprocess.TimeoutExpired as exc:
         raise HTTPException(504, 'Power command outcome is unknown; station admission remains closed') from exc
     except OSError as exc:

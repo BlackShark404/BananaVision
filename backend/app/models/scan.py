@@ -61,3 +61,5 @@ class Scan(Base):
     detections = relationship("ScanDetection", back_populates="scan", lazy="selectin", cascade="all, delete-orphan")
     images = relationship("ScanImage", back_populates="scan", lazy="selectin", cascade="all, delete-orphan")
     notes = relationship("ScanNote", back_populates="scan", lazy="selectin", cascade="all, delete-orphan")
+    print_jobs = relationship("PrintJob", back_populates="scan", lazy="raise", cascade="all, delete-orphan")
+    events = relationship("ScanEvent", back_populates="scan", lazy="raise", cascade="all, delete-orphan")
