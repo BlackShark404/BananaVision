@@ -2,6 +2,13 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-10-28: Workflow diagram typography for embedded documentation
+
+- The four draw.io figures (`workflow_admin`, `workflow_operator`, `workflow_kiosk`, `workflow_iot`) use 18 px bold titles, 14 px secondary lines (route, role, credentials) and 14 px edge labels. Figures are inserted at a fixed width, so these are the values that keep the labels readable at document scale.
+- Nodes carry an icon, a title and structural metadata only (route path, role qualifier, login credentials). Capability descriptions were removed because node width is driven by the longest line and the prose already exists in `WORKFLOW_DOCUMENTATION.md`.
+- Node sizes are fitted from real rendered text widths; shapes are sized so every label line stays unwrapped. Edge exit/entry points are pinned (`exitX/exitY`, `entryX/entryY`) alongside waypoints so the orthogonal router keeps the planned corridors.
+- Page size is trimmed to the drawing plus a 20 px margin, since extra whitespace shrinks the labels when the figure is scaled to the page width.
+
 ## 2026-10-24: Notification integration and socket ownership
 
 - Keep revision 0010's per-user receipts and existing private/broadcast visibility. Single and read-all operations insert visible receipts using ordered `INSERT ... SELECT ... ON CONFLICT DO NOTHING`, so concurrent requests retain one receipt and its original `read_at` without a check/insert race.

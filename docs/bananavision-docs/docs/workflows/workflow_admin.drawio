@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram name="Figure 13: Administrator Workflow — Web Dashboard (Full Access)" id="admin-workflow">
-        <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1350" pageHeight="850" math="0" shadow="0">
+        <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1123" pageHeight="748" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -10,72 +10,72 @@
 
 
                 <!-- ═══════════ AUTHENTICATION ENTRY LANE ═══════════ -->
-                <mxCell id="admin" value="👤&lt;br&gt;&lt;b&gt;Administrator&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#dc2626&quot; style=&quot;font-size: 10px;&quot;&gt;(Full Access)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=11;spacing=2;" parent="1" vertex="1">
-                    <mxGeometry x="45" y="375" width="110" height="110" as="geometry"/>
+                <mxCell id="admin" value="👤&lt;br&gt;&lt;b&gt;Administrator&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#dc2626&quot; style=&quot;font-size: 14px;&quot;&gt;(Full Access)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=18;spacing=2;" parent="1" vertex="1">
+                    <mxGeometry x="20" y="280" width="132" height="132" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="login" value="🔐&lt;br&gt;&lt;b&gt;Login&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Username &amp;amp;&lt;br&gt;Password&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=11;spacing=2;" parent="1" vertex="1">
-                    <mxGeometry x="180" y="375" width="110" height="110" as="geometry"/>
+                <mxCell id="login" value="🔐&lt;br&gt;&lt;b&gt;Login&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 14px;&quot;&gt;Username &amp;amp;&lt;br&gt;Password&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=18;spacing=2;" parent="1" vertex="1">
+                    <mxGeometry x="172" y="280" width="132" height="132" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="dashboard" value="🏠&lt;br&gt;&lt;b&gt;Admin Dashboard&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#b45309&quot; style=&quot;font-size: 10px;&quot;&gt;Operational KPIs, Live&lt;br&gt;Alerts &amp;amp; System Hub&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2.5;fontSize=11;spacing=3;" parent="1" vertex="1">
-                    <mxGeometry x="320" y="360" width="140" height="140" as="geometry"/>
+                <mxCell id="dashboard" value="🏠&lt;br&gt;&lt;b&gt;Admin Dashboard&lt;/b&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2.5;fontSize=18;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="324" y="258" width="176" height="176" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ 6 ADMIN-ONLY MODULES ═══════════ -->
                 <!-- Module 1: User Management -->
-                <mxCell id="usermgmt" value="👥&lt;br&gt;&lt;b&gt;User Management&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#991b1b&quot; style=&quot;font-size: 10px;&quot;&gt;(/admin/users)&lt;br&gt;Accounts, Roles &amp;amp;&lt;br&gt;Kiosk PIN Resets&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=11;spacing=3;" parent="1" vertex="1">
-                    <mxGeometry x="535" y="125" width="136" height="136" as="geometry"/>
+                <mxCell id="usermgmt" value="👥&lt;br&gt;&lt;b&gt;User Management&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#991b1b&quot; style=&quot;font-size: 14px;&quot;&gt;(/admin/users)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=18;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="517" y="20" width="178" height="178" as="geometry"/>
                 </mxCell>
 
                 <!-- Module 2: Activity Log -->
-                <mxCell id="activitylog" value="📜&lt;br&gt;&lt;b&gt;Activity Log&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#991b1b&quot; style=&quot;font-size: 10px;&quot;&gt;(/admin/activity)&lt;br&gt;Comprehensive Audit Trail&lt;br&gt;&amp;amp; CSV/XLSX Export&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=11;spacing=3;" parent="1" vertex="1">
-                    <mxGeometry x="745" y="125" width="136" height="136" as="geometry"/>
+                <mxCell id="activitylog" value="📜&lt;br&gt;&lt;b&gt;Activity Log&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#991b1b&quot; style=&quot;font-size: 14px;&quot;&gt;(/admin/activity)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=18;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="721" y="20" width="178" height="178" as="geometry"/>
                 </mxCell>
 
                 <!-- Module 3: System Config -->
-                <mxCell id="systemconfig" value="⚙️&lt;br&gt;&lt;b&gt;System Config&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#991b1b&quot; style=&quot;font-size: 10px;&quot;&gt;(/admin/config)&lt;br&gt;4-Cam Calibration, AI&lt;br&gt;Cutoff, Backup &amp;amp; Power&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=11;spacing=3;" parent="1" vertex="1">
-                    <mxGeometry x="955" y="125" width="136" height="136" as="geometry"/>
+                <mxCell id="systemconfig" value="⚙️&lt;br&gt;&lt;b&gt;System Config&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#991b1b&quot; style=&quot;font-size: 14px;&quot;&gt;(/admin/config)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=18;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="925" y="20" width="178" height="178" as="geometry"/>
                 </mxCell>
 
                 <!-- Module 4: Supplier Management -->
-                <mxCell id="suppliermgmt" value="🏢&lt;br&gt;&lt;b&gt;Suppliers&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#991b1b&quot; style=&quot;font-size: 10px;&quot;&gt;(/admin/suppliers)&lt;br&gt;Vendor Directory &amp;amp;&lt;br&gt;Partner Contacts&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=11;spacing=3;" parent="1" vertex="1">
-                    <mxGeometry x="535" y="365" width="136" height="136" as="geometry"/>
+                <mxCell id="suppliermgmt" value="🏢&lt;br&gt;&lt;b&gt;Suppliers&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#991b1b&quot; style=&quot;font-size: 14px;&quot;&gt;(/admin/suppliers)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=18;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="517" y="260" width="178" height="178" as="geometry"/>
                 </mxCell>
 
                 <!-- Module 5: Delivery Intakes -->
-                <mxCell id="batchmgmt" value="📦&lt;br&gt;&lt;b&gt;Delivery Intakes&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#991b1b&quot; style=&quot;font-size: 10px;&quot;&gt;(/admin/delivery-intakes)&lt;br&gt;Batch Tracking, Treatment&lt;br&gt;&amp;amp; Batch QR Labels&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=11;spacing=3;" parent="1" vertex="1">
-                    <mxGeometry x="745" y="365" width="136" height="136" as="geometry"/>
+                <mxCell id="batchmgmt" value="📦&lt;br&gt;&lt;b&gt;Delivery Intakes&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#991b1b&quot; style=&quot;font-size: 14px;&quot;&gt;(/admin/delivery-intakes)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=18;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="721" y="260" width="178" height="178" as="geometry"/>
                 </mxCell>
 
                 <!-- Module 6: Quality Control -->
-                <mxCell id="qualitycontrol" value="🔍✓&lt;br&gt;&lt;b&gt;Quality Control&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#991b1b&quot; style=&quot;font-size: 10px;&quot;&gt;(/admin/quality)&lt;br&gt;Flagged &amp;amp; Low-Conf&lt;br&gt;Review, Overrides &amp;amp; Notes&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=11;spacing=3;" parent="1" vertex="1">
-                    <mxGeometry x="955" y="365" width="136" height="136" as="geometry"/>
+                <mxCell id="qualitycontrol" value="🔍✓&lt;br&gt;&lt;b&gt;Quality Control&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#991b1b&quot; style=&quot;font-size: 14px;&quot;&gt;(/admin/quality)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=2;fontSize=18;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="925" y="260" width="178" height="178" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ SHARED CORE MONITORING VIEWS ═══════════ -->
                 <mxCell id="shared_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#6366f1;strokeWidth=1.5;dashed=1;" parent="1" vertex="1">
-                    <mxGeometry x="485" y="580" width="650" height="185" as="geometry"/>
+                    <mxGeometry x="463" y="536" width="640" height="192" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="shared_title" value="&lt;b&gt;Shared Core Views (Operator &amp;amp; Administrator)&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#4338ca;" parent="1" vertex="1">
-                    <mxGeometry x="640" y="590" width="340" height="20" as="geometry"/>
+                <mxCell id="shared_title" value="&lt;b&gt;Shared Core Views (Operator &amp;amp; Administrator)&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#4338ca;" parent="1" vertex="1">
+                    <mxGeometry x="573" y="542" width="420" height="22" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="scan_logs" value="📋&lt;br&gt;&lt;b&gt;Scan Logs&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 10px;&quot;&gt;(/logs)&lt;br&gt;Global History,&lt;br&gt;Detail &amp;amp; CSV Export&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=1.5;fontSize=11;spacing=2;" parent="1" vertex="1">
-                    <mxGeometry x="505" y="625" width="116" height="116" as="geometry"/>
+                <mxCell id="scan_logs" value="📋&lt;br&gt;&lt;b&gt;Scan Logs&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 14px;&quot;&gt;(/logs)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=1.5;fontSize=18;spacing=2;" parent="1" vertex="1">
+                    <mxGeometry x="483" y="573" width="132" height="132" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="analytics" value="📊&lt;br&gt;&lt;b&gt;Analytics&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 10px;&quot;&gt;(/analytics)&lt;br&gt;Quality Trends &amp;amp;&lt;br&gt;Cultivar Breakdown&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=1.5;fontSize=11;spacing=2;" parent="1" vertex="1">
-                    <mxGeometry x="665" y="625" width="116" height="116" as="geometry"/>
+                <mxCell id="analytics" value="📊&lt;br&gt;&lt;b&gt;Analytics&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 14px;&quot;&gt;(/analytics)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=1.5;fontSize=18;spacing=2;" parent="1" vertex="1">
+                    <mxGeometry x="639" y="573" width="132" height="132" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="inventory" value="📦&lt;br&gt;&lt;b&gt;Inventory&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 10px;&quot;&gt;(/inventory)&lt;br&gt;FIFO Stock Queue &amp;amp;&lt;br&gt;Spoilage Warnings&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=1.5;fontSize=11;spacing=2;" parent="1" vertex="1">
-                    <mxGeometry x="825" y="625" width="116" height="116" as="geometry"/>
+                <mxCell id="inventory" value="📦&lt;br&gt;&lt;b&gt;Inventory&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 14px;&quot;&gt;(/inventory)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=1.5;fontSize=18;spacing=2;" parent="1" vertex="1">
+                    <mxGeometry x="795" y="573" width="132" height="132" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="devicestatus" value="📷&lt;br&gt;&lt;b&gt;Device Status&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 10px;&quot;&gt;(/devices)&lt;br&gt;4-Cam Health Grid &amp;amp;&lt;br&gt;DHT22 Telemetry&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=1.5;fontSize=11;spacing=2;" parent="1" vertex="1">
-                    <mxGeometry x="985" y="625" width="116" height="116" as="geometry"/>
+                <mxCell id="devicestatus" value="📷&lt;br&gt;&lt;b&gt;Device Status&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 14px;&quot;&gt;(/devices)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=1.5;fontSize=18;spacing=2;" parent="1" vertex="1">
+                    <mxGeometry x="951" y="573" width="132" height="132" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ FLOW ARROWS (HUB-AND-SPOKE ARCHITECTURE) ═══════════ -->
@@ -89,31 +89,23 @@
 
                 <!-- ─── Hub Branch 1: System Governance ─── -->
                 <!-- Dashboard -> User Management -->
-                <mxCell id="arr_um" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;endArrow=block;endFill=1;" parent="1" source="dashboard" target="usermgmt" edge="1">
+                <mxCell id="arr_um" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;endArrow=block;endFill=1;exitX=0.5;exitY=0;entryX=0;entryY=0.5;" parent="1" source="dashboard" target="usermgmt" edge="1">
                     <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="390" y="193"/>
-                        </Array>
+                        <Array as="points"><mxPoint x="412" y="109"/></Array>
                     </mxGeometry>
                 </mxCell>
 
                 <!-- Dashboard -> Activity Log -->
-                <mxCell id="arr_al" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;endArrow=block;endFill=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" source="dashboard" target="activitylog" edge="1">
+                <mxCell id="arr_al" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;endArrow=block;endFill=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;exitX=0.5;exitY=0;" parent="1" source="dashboard" target="activitylog" edge="1">
                     <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="430" y="285"/>
-                            <mxPoint x="813" y="285"/>
-                        </Array>
+                        <Array as="points"><mxPoint x="412" y="216"/><mxPoint x="810" y="216"/></Array>
                     </mxGeometry>
                 </mxCell>
 
                 <!-- Dashboard -> System Config -->
-                <mxCell id="arr_sc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;endArrow=block;endFill=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" source="dashboard" target="systemconfig" edge="1">
+                <mxCell id="arr_sc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;endArrow=block;endFill=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;exitX=0.5;exitY=0;" parent="1" source="dashboard" target="systemconfig" edge="1">
                     <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="430" y="285"/>
-                            <mxPoint x="1023" y="285"/>
-                        </Array>
+                        <Array as="points"><mxPoint x="412" y="216"/><mxPoint x="1014" y="216"/></Array>
                     </mxGeometry>
                 </mxCell>
 
@@ -124,65 +116,45 @@
                 </mxCell>
 
                 <!-- Dashboard -> Delivery Intakes (Independent Spoke) -->
-                <mxCell id="arr_bm" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;endArrow=block;endFill=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="dashboard" target="batchmgmt" edge="1">
+                <mxCell id="arr_bm" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;endArrow=block;endFill=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=1;exitY=0.5;" parent="1" source="dashboard" target="batchmgmt" edge="1">
                     <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="480" y="410"/>
-                            <mxPoint x="480" y="325"/>
-                            <mxPoint x="813" y="325"/>
-                        </Array>
+                        <Array as="points"><mxPoint x="510" y="346"/><mxPoint x="510" y="241"/><mxPoint x="810" y="241"/></Array>
                     </mxGeometry>
                 </mxCell>
 
                 <!-- Dashboard -> Quality Control (Independent Spoke) -->
-                <mxCell id="arr_qc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;endArrow=block;endFill=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="dashboard" target="qualitycontrol" edge="1">
+                <mxCell id="arr_qc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#dc2626;endArrow=block;endFill=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=1;exitY=0.5;" parent="1" source="dashboard" target="qualitycontrol" edge="1">
                     <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="480" y="410"/>
-                            <mxPoint x="480" y="325"/>
-                            <mxPoint x="1023" y="325"/>
-                        </Array>
+                        <Array as="points"><mxPoint x="510" y="346"/><mxPoint x="510" y="241"/><mxPoint x="1014" y="241"/></Array>
                     </mxGeometry>
                 </mxCell>
 
                 <!-- ─── Hub Branch 3: Shared Core Monitoring Views (Dashed Indigo) ─── -->
                 <!-- Dashboard -> Scan Logs -->
-                <mxCell id="arr_sh_logs" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#6366f1;strokeDasharray=4 4;endArrow=block;endFill=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="dashboard" target="scan_logs" edge="1">
+                <mxCell id="arr_sh_logs" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#6366f1;strokeDasharray=4 4;endArrow=block;endFill=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;" parent="1" source="dashboard" target="scan_logs" edge="1">
                     <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="390" y="545"/>
-                            <mxPoint x="563" y="545"/>
-                        </Array>
+                        <Array as="points"><mxPoint x="412" y="476"/><mxPoint x="549" y="476"/></Array>
                     </mxGeometry>
                 </mxCell>
 
                 <!-- Dashboard -> Analytics -->
-                <mxCell id="arr_sh_analytics" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#6366f1;strokeDasharray=4 4;endArrow=block;endFill=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="dashboard" target="analytics" edge="1">
+                <mxCell id="arr_sh_analytics" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#6366f1;strokeDasharray=4 4;endArrow=block;endFill=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;" parent="1" source="dashboard" target="analytics" edge="1">
                     <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="390" y="545"/>
-                            <mxPoint x="723" y="545"/>
-                        </Array>
+                        <Array as="points"><mxPoint x="412" y="476"/><mxPoint x="705" y="476"/></Array>
                     </mxGeometry>
                 </mxCell>
 
                 <!-- Dashboard -> Inventory -->
-                <mxCell id="arr_sh_inventory" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#6366f1;strokeDasharray=4 4;endArrow=block;endFill=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="dashboard" target="inventory" edge="1">
+                <mxCell id="arr_sh_inventory" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#6366f1;strokeDasharray=4 4;endArrow=block;endFill=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;" parent="1" source="dashboard" target="inventory" edge="1">
                     <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="390" y="545"/>
-                            <mxPoint x="883" y="545"/>
-                        </Array>
+                        <Array as="points"><mxPoint x="412" y="476"/><mxPoint x="861" y="476"/></Array>
                     </mxGeometry>
                 </mxCell>
 
                 <!-- Dashboard -> Device Status -->
-                <mxCell id="arr_sh_devices" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#6366f1;strokeDasharray=4 4;endArrow=block;endFill=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="dashboard" target="devicestatus" edge="1">
+                <mxCell id="arr_sh_devices" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#6366f1;strokeDasharray=4 4;endArrow=block;endFill=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;" parent="1" source="dashboard" target="devicestatus" edge="1">
                     <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="390" y="545"/>
-                            <mxPoint x="1043" y="545"/>
-                        </Array>
+                        <Array as="points"><mxPoint x="412" y="476"/><mxPoint x="1017" y="476"/></Array>
                     </mxGeometry>
                 </mxCell>
 
