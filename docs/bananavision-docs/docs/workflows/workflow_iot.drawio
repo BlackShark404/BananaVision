@@ -1,95 +1,91 @@
 <mxfile host="65bd71144e">
     <diagram name="Figure 14: IoT Hardware Integration &amp; AI Scanning Pipeline" id="iot-workflow">
-        <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1480" pageHeight="700" math="0" shadow="0">
+        <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1620" pageHeight="700" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
 
-
-
-
-
                 <!-- ═══════════ TRIGGER & CONTROLLER ═══════════ -->
-                <mxCell id="operator" value="👤&lt;br&gt;&lt;b&gt;Operator / Kiosk&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Touch UI Scan Trigger&lt;br&gt;(POST /api/v1/scans)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
-                    <mxGeometry x="40" y="270" width="105" height="105" as="geometry"/>
+                <mxCell id="operator" value="👤&lt;br&gt;&lt;b&gt;Operator / Kiosk&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Touch UI Scan Trigger&lt;br&gt;(POST /api/v1/scans)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=11;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="35" y="265" width="116" height="116" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="minipc" value="🖥️&lt;br&gt;&lt;b&gt;Mini PC Edge Node&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#0369a1&quot; style=&quot;font-size: 10px;&quot;&gt;FastAPI Backend &amp;amp;&lt;br&gt;Pipeline Coordinator&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2.5;fontSize=11;" parent="1" vertex="1">
-                    <mxGeometry x="180" y="265" width="115" height="115" as="geometry"/>
+                <mxCell id="minipc" value="🖥️&lt;br&gt;&lt;b&gt;Mini PC Edge Node&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#0369a1&quot; style=&quot;font-size: 10px;&quot;&gt;FastAPI Backend &amp;amp;&lt;br&gt;Pipeline Coordinator&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2.5;fontSize=11;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="175" y="260" width="126" height="126" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ ZONE 1: PHYSICAL HARDWARE SENSING ═══════════ -->
                 <mxCell id="box_hardware" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f9ff;strokeColor=#0284c7;strokeWidth=2;dashed=1;" parent="1" vertex="1">
-                    <mxGeometry x="325" y="115" width="180" height="425" as="geometry"/>
+                    <mxGeometry x="330" y="110" width="195" height="440" as="geometry"/>
                 </mxCell>
 
                 <mxCell id="title_hardware" value="&lt;b&gt;1. Hardware Sensing Layer&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#0369a1;" parent="1" vertex="1">
-                    <mxGeometry x="330" y="125" width="170" height="20" as="geometry"/>
+                    <mxGeometry x="335" y="120" width="185" height="20" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="cam_array" value="📷&lt;br&gt;&lt;b&gt;4-Camera Array&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Top (Anchor), Left,&lt;br&gt;Right &amp;amp; Rear Views&lt;br&gt;(Parallel Acquisition)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
-                    <mxGeometry x="355" y="165" width="120" height="120" as="geometry"/>
+                <mxCell id="cam_array" value="📷&lt;br&gt;&lt;b&gt;4-Camera Array&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Top (Anchor), Left,&lt;br&gt;Right &amp;amp; Rear Views&lt;br&gt;(Parallel Acquisition)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;fontSize=11;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="362" y="155" width="132" height="132" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="dht22" value="🌡️&lt;br&gt;&lt;b&gt;DHT22 Sensor&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Arduino Uno Serial:&lt;br&gt;Ambient Temp, Hum&lt;br&gt;&amp;amp; Calculated VPD&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
-                    <mxGeometry x="355" y="380" width="120" height="120" as="geometry"/>
+                <mxCell id="dht22" value="🌡️&lt;br&gt;&lt;b&gt;DHT22 Sensor&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Arduino Uno Serial:&lt;br&gt;Ambient Temp, Hum&lt;br&gt;&amp;amp; Calculated VPD&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;fontSize=11;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="362" y="390" width="132" height="132" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ ZONE 2: EDGE AI & SPOILAGE PIPELINE ═══════════ -->
                 <mxCell id="box_ai" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#16a34a;strokeWidth=2;dashed=1;" parent="1" vertex="1">
-                    <mxGeometry x="535" y="115" width="510" height="425" as="geometry"/>
+                    <mxGeometry x="545" y="110" width="590" height="440" as="geometry"/>
                 </mxCell>
 
                 <mxCell id="title_ai" value="&lt;b&gt;2. Edge AI Vision &amp;amp; Spoilage Pipeline&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#15803d;" parent="1" vertex="1">
-                    <mxGeometry x="670" y="125" width="240" height="20" as="geometry"/>
+                    <mxGeometry x="710" y="120" width="260" height="20" as="geometry"/>
                 </mxCell>
 
                 <!-- Decision Gate: Banana Present? -->
                 <mxCell id="gate" value="❓&lt;br&gt;&lt;b&gt;Banana&lt;br&gt;Present?&lt;/b&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=11;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="555" y="270" width="95" height="95" as="geometry"/>
+                    <mxGeometry x="560" y="270" width="105" height="105" as="geometry"/>
                 </mxCell>
 
                 <!-- If No: Abort -->
-                <mxCell id="abort_node" value="🚫&lt;br&gt;&lt;b&gt;Abort &amp;amp; Alert&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#dc2626&quot; style=&quot;font-size: 10px;&quot;&gt;Empty Tray Alert /&lt;br&gt;Reposition Hand&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=1.5;fontSize=11;" parent="1" vertex="1">
-                    <mxGeometry x="557" y="415" width="90" height="90" as="geometry"/>
+                <mxCell id="abort_node" value="🚫&lt;br&gt;&lt;b&gt;Abort &amp;amp; Alert&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#dc2626&quot; style=&quot;font-size: 10px;&quot;&gt;Empty Tray Alert /&lt;br&gt;Reposition Hand&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=1.5;fontSize=11;spacing=2;" parent="1" vertex="1">
+                    <mxGeometry x="560" y="415" width="104" height="104" as="geometry"/>
                 </mxCell>
 
                 <!-- If Yes: YOLOv8 Detection -->
-                <mxCell id="yolo" value="🎯&lt;br&gt;&lt;b&gt;YOLOv8 Detection&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Cultivar, Ripeness&lt;br&gt;&amp;amp; Finger Count&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#16a34a;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
-                    <mxGeometry x="700" y="268" width="100" height="100" as="geometry"/>
+                <mxCell id="yolo" value="🎯&lt;br&gt;&lt;b&gt;YOLOv8 Detection&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Cultivar, Ripeness&lt;br&gt;&amp;amp; Finger Count&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#16a34a;strokeWidth=2;fontSize=11;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="705" y="265" width="114" height="114" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="fusion" value="🔬&lt;br&gt;&lt;b&gt;Multi-Cam Fusion&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Confidence-Weighted&lt;br&gt;Consensus &amp;amp; Botanical&lt;br&gt;Harmonization&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#16a34a;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
-                    <mxGeometry x="825" y="265" width="105" height="105" as="geometry"/>
+                <mxCell id="fusion" value="🔬&lt;br&gt;&lt;b&gt;Multi-Cam Fusion&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Confidence-Weighted&lt;br&gt;Consensus &amp;amp; Botanical&lt;br&gt;Harmonization&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#16a34a;strokeWidth=2;fontSize=11;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="845" y="261" width="122" height="122" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="rfr" value="⏱️&lt;br&gt;&lt;b&gt;Spoilage Model&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#b45309&quot; style=&quot;font-size: 10px;&quot;&gt;Random Forest (RFR):&lt;br&gt;Ripeness + Climate&lt;br&gt;→ Remaining Days&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
-                    <mxGeometry x="955" y="268" width="100" height="100" as="geometry"/>
+                <mxCell id="rfr" value="⏱️&lt;br&gt;&lt;b&gt;Spoilage Model&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#b45309&quot; style=&quot;font-size: 10px;&quot;&gt;Random Forest (RFR):&lt;br&gt;Ripeness + Climate&lt;br&gt;→ Remaining Days&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=11;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="995" y="261" width="122" height="122" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ ZONE 3: PERSISTENCE & DISTRIBUTION ═══════════ -->
                 <mxCell id="box_output" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#faf5ff;strokeColor=#9333ea;strokeWidth=2;dashed=1;" parent="1" vertex="1">
-                    <mxGeometry x="1075" y="115" width="375" height="425" as="geometry"/>
+                    <mxGeometry x="1155" y="110" width="415" height="440" as="geometry"/>
                 </mxCell>
 
                 <mxCell id="title_output" value="&lt;b&gt;3. Persistence &amp;amp; Real-Time Distribution&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#7e22ce;" parent="1" vertex="1">
-                    <mxGeometry x="1140" y="125" width="250" height="20" as="geometry"/>
+                    <mxGeometry x="1235" y="120" width="260" height="20" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="db" value="💾&lt;br&gt;&lt;b&gt;PostgreSQL DB&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Transactional Store:&lt;br&gt;Scans, Images &amp;amp; Logs&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#6366f1;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
-                    <mxGeometry x="1100" y="170" width="115" height="115" as="geometry"/>
+                <mxCell id="db" value="💾&lt;br&gt;&lt;b&gt;PostgreSQL DB&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Transactional Store:&lt;br&gt;Scans, Images &amp;amp; Logs&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#6366f1;strokeWidth=2;fontSize=11;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="1185" y="160" width="126" height="126" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="websocket" value="📡&lt;br&gt;&lt;b&gt;WebSocket Events&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Live Broadcast to&lt;br&gt;Kiosk &amp;amp; Dashboards&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
-                    <mxGeometry x="1300" y="170" width="115" height="115" as="geometry"/>
+                <mxCell id="websocket" value="📡&lt;br&gt;&lt;b&gt;WebSocket Events&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Live Broadcast to&lt;br&gt;Kiosk &amp;amp; Dashboards&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;fontSize=11;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="1415" y="160" width="126" height="126" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="inventory" value="📦&lt;br&gt;&lt;b&gt;FIFO Inventory&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Batch Tracking &amp;amp;&lt;br&gt;2-Day Spoilage Alerts&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#f59e0b;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
-                    <mxGeometry x="1100" y="380" width="115" height="115" as="geometry"/>
+                <mxCell id="inventory" value="📦&lt;br&gt;&lt;b&gt;FIFO Inventory&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Batch Tracking &amp;amp;&lt;br&gt;2-Day Spoilage Alerts&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#f59e0b;strokeWidth=2;fontSize=11;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="1185" y="390" width="126" height="126" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="printer" value="🖨️&lt;br&gt;&lt;b&gt;Thermal Printer&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#be185d&quot; style=&quot;font-size: 10px;&quot;&gt;USB ESC/POS Auto-Print:&lt;br&gt;Spoilage Label &amp;amp; QR&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
-                    <mxGeometry x="1300" y="380" width="115" height="115" as="geometry"/>
+                <mxCell id="printer" value="🖨️&lt;br&gt;&lt;b&gt;Thermal Printer&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#be185d&quot; style=&quot;font-size: 10px;&quot;&gt;USB ESC/POS Auto-Print:&lt;br&gt;Spoilage Label &amp;amp; QR&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;fontSize=11;spacing=3;" parent="1" vertex="1">
+                    <mxGeometry x="1415" y="390" width="126" height="126" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ FLOW ARROWS ═══════════ -->
@@ -101,8 +97,8 @@
                 <mxCell id="arr_pc_cam" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0284c7;endArrow=block;endFill=1;" parent="1" source="minipc" target="cam_array" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="305" y="300"/>
-                            <mxPoint x="305" y="225"/>
+                            <mxPoint x="315" y="300"/>
+                            <mxPoint x="315" y="221"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
@@ -111,8 +107,8 @@
                 <mxCell id="arr_pc_dht" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0284c7;endArrow=block;endFill=1;" parent="1" source="minipc" target="dht22" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="305" y="340"/>
-                            <mxPoint x="305" y="440"/>
+                            <mxPoint x="315" y="346"/>
+                            <mxPoint x="315" y="456"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
@@ -121,8 +117,8 @@
                 <mxCell id="arr_cam_gate" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;" parent="1" source="cam_array" target="gate" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="500" y="225"/>
-                            <mxPoint x="500" y="318"/>
+                            <mxPoint x="535" y="221"/>
+                            <mxPoint x="535" y="323"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
@@ -150,9 +146,9 @@
                 <mxCell id="arr_dht_rfr" value="Microclimate Telemetry" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#0284c7;strokeDasharray=4 4;endArrow=block;endFill=1;fontSize=9;fontColor=#0284c7;" parent="1" source="dht22" target="rfr" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="510" y="440"/>
-                            <mxPoint x="510" y="490"/>
-                            <mxPoint x="1005" y="490"/>
+                            <mxPoint x="535" y="456"/>
+                            <mxPoint x="535" y="500"/>
+                            <mxPoint x="1056" y="500"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
@@ -161,8 +157,8 @@
                 <mxCell id="arr_rfr_db" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#6366f1;endArrow=block;endFill=1;" parent="1" source="rfr" target="db" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="1065" y="318"/>
-                            <mxPoint x="1065" y="227"/>
+                            <mxPoint x="1145" y="323"/>
+                            <mxPoint x="1145" y="223"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
@@ -171,8 +167,8 @@
                 <mxCell id="arr_rfr_inv" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f59e0b;endArrow=block;endFill=1;" parent="1" source="rfr" target="inventory" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="1065" y="318"/>
-                            <mxPoint x="1065" y="437"/>
+                            <mxPoint x="1145" y="323"/>
+                            <mxPoint x="1145" y="453"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
