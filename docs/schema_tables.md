@@ -579,33 +579,35 @@ Per-user read receipts for notifications, including broadcasts.
 
 ## ERD relationship summary
 
-Cardinality reflects schema-enforced uniqueness on the child foreign key. The application
-may impose additional restrictions.
+In relational database modeling, relationship cardinalities must be understood from **both perspectives**:
+- **Parent → Child (1:N or 1:M)**: Looking from the parent/primary table down to its related records. For example, **from DELIVERY_INTAKE to SCAN is 1:N (1:M)**, meaning one delivery intake batch contains multiple banana scans.
+- **Child → Parent (N:1 or 1:1)**: Looking from an individual child record back up to its parent entity. For example, **from SCAN to DELIVERY_INTAKE is N:1 (1:1 from the scan's perspective)**, meaning each banana scan belongs to at most one intake batch.
+- **One-to-One (1:1)**: When a foreign key column is constrained by a UNIQUE index (such as SCAN_CLASSIFICATION.SCAN_ID or ADMIN_PROFILE.ACCOUNT_ID), the relationship is strictly **1:1 in both directions**.
 
-| Parent | Child | Foreign key | Cardinality | ON DELETE |
-| --- | --- | --- | --- | --- |
-| `ADMIN_PROFILE` | `SYSTEM_CONFIG` | `UPDATED_BY_ADMIN` → `ID` | 1:N | `SET NULL` |
-| `APP_NOTIFICATION` | `APP_NOTIFICATION_READ` | `NOTIFICATION_ID` → `ID` | 1:N | `CASCADE` |
-| `DELIVERY_INTAKE` | `SCAN` | `INTAKE_ID` → `ID` | 1:N | `SET NULL` |
-| `DEVICE` | `SCAN_DETECTION` | `DEVICE_ID` → `ID` | 1:N | `SET NULL` |
-| `DEVICE` | `SCAN_IMAGE` | `DEVICE_ID` → `ID` | 1:N | `SET NULL` |
-| `OPERATOR_PROFILE` | `SCAN` | `OPERATOR_ID` → `ID` | 1:N | `RESTRICT` |
-| `SCAN` | `SCAN_CLASSIFICATION` | `SCAN_ID` → `ID` | 1:1 | `CASCADE` |
-| `SCAN` | `SCAN_DETECTION` | `SCAN_ID` → `ID` | 1:N | `CASCADE` |
-| `SCAN` | `SCAN_EVENT` | `SCAN_ID` → `ID` | 1:N | `CASCADE` |
-| `SCAN` | `SCAN_IMAGE` | `SCAN_ID` → `ID` | 1:N | `CASCADE` |
-| `SCAN` | `SCAN_LABEL_PRINT_JOB` | `PREDICTION_ID` → `ID` | 1:N | `CASCADE` |
-| `SCAN` | `SCAN_NOTE` | `SCAN_ID` → `ID` | 1:N | `CASCADE` |
-| `SCAN` | `SCAN_ORIGINAL_AI_RESULT` | `SCAN_ID` → `ID` | 1:1 | `CASCADE` |
-| `SCAN` | `SCAN_STATUS_LOG` | `SCAN_ID` → `ID` | 1:N | `CASCADE` |
-| `SUPPLIER` | `DELIVERY_INTAKE` | `SUPPLIER_ID` → `ID` | 1:N | `RESTRICT` |
-| `USER_ACCOUNT` | `ACTIVITY_LOG` | `USER_ID` → `ID` | 1:N | `SET NULL` |
-| `USER_ACCOUNT` | `ADMIN_PROFILE` | `ACCOUNT_ID` → `ID` | 1:1 | `CASCADE` |
-| `USER_ACCOUNT` | `APP_NOTIFICATION` | `USER_ID` → `ID` | 1:N | `CASCADE` |
-| `USER_ACCOUNT` | `APP_NOTIFICATION_READ` | `USER_ID` → `ID` | 1:N | `CASCADE` |
-| `USER_ACCOUNT` | `OPERATOR_PROFILE` | `ACCOUNT_ID` → `ID` | 1:1 | `CASCADE` |
-| `USER_ACCOUNT` | `SCAN_LABEL_PRINT_JOB` | `OWNER_ID` → `ID` | 1:N | `CASCADE` |
-| `USER_ROLE` | `USER_ACCOUNT` | `ROLE_ID` → `ID` | 1:N | `RESTRICT` |
+| Parent Table | Child Table | Foreign Key Column | Parent → Child (1:N / 1:M) | Child → Parent (N:1 / 1:1) | Bidirectional Relationship Statement | ON DELETE |
+| --- | --- | --- | --- | --- | --- | --- |
+| ADMIN_PROFILE | SYSTEM_CONFIG | UPDATED_BY_ADMIN → ID | 1:N (1:M) | N:1 (0..1) | 1 Admin updates 0..N Config revisions; Each Config revision is updated by 0..1 Admin | SET NULL |
+| APP_NOTIFICATION | APP_NOTIFICATION_READ | NOTIFICATION_ID → ID | 1:N (1:M) | N:1 (1:1) | 1 Notification has 0..N Read Receipts; Each Read Receipt belongs to 1 Notification | CASCADE |
+| DELIVERY_INTAKE | SCAN | INTAKE_ID → ID | 1:N (1:M) | N:1 (0..1) | 1 Intake batch has 0..N Scans; Each Scan belongs to 0..1 Intake batch | SET NULL |
+| DEVICE | SCAN_DETECTION | DEVICE_ID → ID | 1:N (1:M) | N:1 (0..1) | 1 Device captures 0..N Detections; Each Detection originates from 0..1 Device | SET NULL |
+| DEVICE | SCAN_IMAGE | DEVICE_ID → ID | 1:N (1:M) | N:1 (0..1) | 1 Device captures 0..N Images; Each Image originates from 0..1 Device | SET NULL |
+| OPERATOR_PROFILE | SCAN | OPERATOR_ID → ID | 1:N (1:M) | N:1 (1:1) | 1 Operator performs 0..N Scans; Each Scan is performed by 1 Operator | RESTRICT |
+| SCAN | SCAN_CLASSIFICATION | SCAN_ID → ID | 1:1 | 1:1 | 1 Scan has 1 Classification; Each Classification belongs to 1 Scan | CASCADE |
+| SCAN | SCAN_DETECTION | SCAN_ID → ID | 1:N (1:M) | N:1 (1:1) | 1 Scan has 1..N Detections; Each Detection belongs to 1 Scan | CASCADE |
+| SCAN | SCAN_EVENT | SCAN_ID → ID | 1:N (1:M) | N:1 (1:1) | 1 Scan has 1..N Audit Events; Each Audit Event belongs to 1 Scan | CASCADE |
+| SCAN | SCAN_IMAGE | SCAN_ID → ID | 1:N (1:M) | N:1 (1:1) | 1 Scan has 1..N Captured Images; Each Image belongs to 1 Scan | CASCADE |
+| SCAN | SCAN_LABEL_PRINT_JOB | PREDICTION_ID → ID | 1:N (1:M) | N:1 (1:1) | 1 Scan has 0..N Print Jobs; Each Print Job prints 1 Scan | CASCADE |
+| SCAN | SCAN_NOTE | SCAN_ID → ID | 1:N (1:M) | N:1 (1:1) | 1 Scan has 0..N Operator Notes; Each Note belongs to 1 Scan | CASCADE |
+| SCAN | SCAN_ORIGINAL_AI_RESULT | SCAN_ID → ID | 1:1 | 1:1 | 1 Scan has 1 Original AI Result; Each Original AI Result belongs to 1 Scan | CASCADE |
+| SCAN | SCAN_STATUS_LOG | SCAN_ID → ID | 1:N (1:M) | N:1 (1:1) | 1 Scan has 1..N Status Logs; Each Status Log belongs to 1 Scan | CASCADE |
+| SUPPLIER | DELIVERY_INTAKE | SUPPLIER_ID → ID | 1:N (1:M) | N:1 (0..1) | 1 Supplier delivers 0..N Intakes; Each Intake belongs to 0..1 Supplier | RESTRICT |
+| USER_ACCOUNT | ACTIVITY_LOG | USER_ID → ID | 1:N (1:M) | N:1 (0..1) | 1 User generates 0..N Activity Logs; Each Activity Log links to 0..1 User | SET NULL |
+| USER_ACCOUNT | ADMIN_PROFILE | ACCOUNT_ID → ID | 1:1 | 1:1 | 1 User has 0..1 Admin Profile; Each Admin Profile belongs to 1 User | CASCADE |
+| USER_ACCOUNT | APP_NOTIFICATION | USER_ID → ID | 1:N (1:M) | N:1 (0..1) | 1 User receives 0..N Direct Notifications; Each Direct Notification targets 0..1 User | CASCADE |
+| USER_ACCOUNT | APP_NOTIFICATION_READ | USER_ID → ID | 1:N (1:M) | N:1 (1:1) | 1 User has 0..N Read Receipts; Each Read Receipt belongs to 1 User | CASCADE |
+| USER_ACCOUNT | OPERATOR_PROFILE | ACCOUNT_ID → ID | 1:1 | 1:1 | 1 User has 0..1 Operator Profile; Each Operator Profile belongs to 1 User | CASCADE |
+| USER_ACCOUNT | SCAN_LABEL_PRINT_JOB | OWNER_ID → ID | 1:N (1:M) | N:1 (1:1) | 1 User creates 0..N Print Jobs; Each Print Job is owned by 1 User | CASCADE |
+| USER_ROLE | USER_ACCOUNT | ROLE_ID → ID | 1:N (1:M) | N:1 (1:1) | 1 Role is assigned to 0..N Users; Each User has 1 Role | RESTRICT |
 
 ## Schema notes
 
