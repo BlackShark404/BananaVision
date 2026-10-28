@@ -10,33 +10,33 @@
 
 
                 <!-- ═══════════ STEP 1: OPERATOR AUTHENTICATION ═══════════ -->
-                <mxCell id="kiosk_terminal" value="🖥️&lt;br&gt;&lt;b&gt;Kiosk Terminal&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 9px;&quot;&gt;Full-Screen UI&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=11;fontStyle=0;" parent="1" vertex="1">
+                <mxCell id="kiosk_terminal" value="🖥️&lt;br&gt;&lt;b&gt;Kiosk Terminal&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Full-Screen UI&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=11;fontStyle=0;" parent="1" vertex="1">
                     <mxGeometry x="40" y="260" width="105" height="105" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="pin_auth" value="🔢&lt;br&gt;&lt;b&gt;PIN Auth&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 9px;&quot;&gt;4-Digit Operator Entry&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
+                <mxCell id="pin_auth" value="🔢&lt;br&gt;&lt;b&gt;PIN Auth&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;4-Digit Operator Entry&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="185" y="262" width="100" height="100" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="op_swap" value="🔄&lt;br&gt;&lt;b&gt;Operator Swap&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 9px;&quot;&gt;Fast PIN Shift Handoff&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8fafc;strokeColor=#64748b;strokeWidth=1.5;strokeDasharray=4 4;fontSize=10;" parent="1" vertex="1">
+                <mxCell id="op_swap" value="🔄&lt;br&gt;&lt;b&gt;Operator Swap&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Fast PIN Shift Handoff&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8fafc;strokeColor=#64748b;strokeWidth=1.5;strokeDasharray=4 4;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="187" y="115" width="95" height="95" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ STEP 2: DELIVERY INTAKE SELECTION ═══════════ -->
-                <mxCell id="select_intake" value="📦&lt;br&gt;&lt;b&gt;Select Intake&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 9px;&quot;&gt;Supplier, Batch # &amp;amp;&lt;br&gt;Ripening Treatment&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
+                <mxCell id="select_intake" value="📦&lt;br&gt;&lt;b&gt;Select Intake&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Supplier, Batch # &amp;amp;&lt;br&gt;Ripening Treatment&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="330" y="258" width="110" height="110" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ STEP 3: SCAN INTERFACE & TRIGGER ═══════════ -->
-                <mxCell id="scan_interface" value="🔍&lt;br&gt;&lt;b&gt;Scan View&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 9px;&quot;&gt;Multi-Camera Feeds&lt;br&gt;&amp;amp; Ready State&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
+                <mxCell id="scan_interface" value="🔍&lt;br&gt;&lt;b&gt;Scan View&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Multi-Camera Feeds&lt;br&gt;&amp;amp; Ready State&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="480" y="260" width="105" height="105" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="recent_scans" value="📋&lt;br&gt;&lt;b&gt;Recent Scans&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 9px;&quot;&gt;Last 5 AI Scans Sidebar&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8fafc;strokeColor=#64748b;strokeWidth=1.5;strokeDasharray=4 4;fontSize=10;" parent="1" vertex="1">
+                <mxCell id="recent_scans" value="📋&lt;br&gt;&lt;b&gt;Recent Scans&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Last 5 AI Scans Sidebar&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8fafc;strokeColor=#64748b;strokeWidth=1.5;strokeDasharray=4 4;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="485" y="425" width="95" height="95" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="scan_now" value="▶️&lt;br&gt;&lt;b&gt;Scan Now&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#15803d&quot; style=&quot;font-size: 9px;&quot;&gt;Trigger AI Pipeline&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
+                <mxCell id="scan_now" value="▶️&lt;br&gt;&lt;b&gt;Scan Now&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#15803d&quot; style=&quot;font-size: 10px;&quot;&gt;Trigger AI Pipeline&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="625" y="265" width="95" height="95" as="geometry"/>
                 </mxCell>
 
@@ -49,28 +49,28 @@
                     <mxGeometry x="800" y="212" width="285" height="20" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="step_capture" value="📷&lt;br&gt;&lt;b&gt;Capture&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;4 Cameras +&lt;br&gt;DHT22 Temp/Hum&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1.5;fontSize=10;" parent="1" vertex="1">
-                    <mxGeometry x="775" y="268" width="75" height="75" as="geometry"/>
+                <mxCell id="step_capture" value="📷&lt;br&gt;&lt;b&gt;Capture&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;4 Cameras +&lt;br&gt;DHT22 Temp/Hum&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1.5;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="770" y="265" width="80" height="80" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="step_detect" value="🍌&lt;br&gt;&lt;b&gt;Detect&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;YOLOv8 Cultivar,&lt;br&gt;Ripeness &amp;amp; Count&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1.5;fontSize=10;" parent="1" vertex="1">
-                    <mxGeometry x="860" y="268" width="75" height="75" as="geometry"/>
+                <mxCell id="step_detect" value="🍌&lt;br&gt;&lt;b&gt;Detect&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;YOLOv8 Cultivar,&lt;br&gt;Ripeness &amp;amp; Count&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1.5;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="860" y="265" width="80" height="80" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="step_fusion" value="🔬&lt;br&gt;&lt;b&gt;Fusion&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;Confidence-&lt;br&gt;Weighted Consensus&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1.5;fontSize=10;" parent="1" vertex="1">
-                    <mxGeometry x="945" y="268" width="75" height="75" as="geometry"/>
+                <mxCell id="step_fusion" value="🔬&lt;br&gt;&lt;b&gt;Fusion&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Confidence-&lt;br&gt;Weighted Consensus&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1.5;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="950" y="265" width="80" height="80" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="step_predict" value="⏱️&lt;br&gt;&lt;b&gt;Predict&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;RFR Spoilage&lt;br&gt;Shelf Life (Days)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1.5;fontSize=10;" parent="1" vertex="1">
-                    <mxGeometry x="1030" y="268" width="75" height="75" as="geometry"/>
+                <mxCell id="step_predict" value="⏱️&lt;br&gt;&lt;b&gt;Predict&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;RFR Spoilage&lt;br&gt;Shelf Life (Days)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1.5;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="1040" y="265" width="80" height="80" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ STEP 5: RESULTS & PRINTING ═══════════ -->
-                <mxCell id="scan_result" value="✅&lt;br&gt;&lt;b&gt;Scan Result&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 9px;&quot;&gt;Cultivar, Ripeness,&lt;br&gt;Days &amp;amp; Bounding Boxes&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
+                <mxCell id="scan_result" value="✅&lt;br&gt;&lt;b&gt;Scan Result&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Cultivar, Ripeness,&lt;br&gt;Days &amp;amp; Bounding Boxes&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="1165" y="258" width="110" height="110" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="auto_print" value="🖨️&lt;br&gt;&lt;b&gt;Print Label&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 9px;&quot;&gt;Auto Thermal Spoilage&lt;br&gt;&amp;amp; Batch QR Label&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                <mxCell id="auto_print" value="🖨️&lt;br&gt;&lt;b&gt;Print Label&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Auto Thermal Spoilage&lt;br&gt;&amp;amp; Batch QR Label&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="1172" y="115" width="95" height="95" as="geometry"/>
                 </mxCell>
 
@@ -79,11 +79,11 @@
                     <mxGeometry x="1310" y="263" width="100" height="100" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="accept" value="✓&lt;br&gt;&lt;b&gt;Accept Result&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#15803d&quot; style=&quot;font-size: 9px;&quot;&gt;Save &amp;amp; Scan Next&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                <mxCell id="accept" value="✓&lt;br&gt;&lt;b&gt;Accept Result&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#15803d&quot; style=&quot;font-size: 10px;&quot;&gt;Save &amp;amp; Scan Next&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="1440" y="268" width="90" height="90" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="flag" value="⚠️&lt;br&gt;&lt;b&gt;Flag for QC&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#b45309&quot; style=&quot;font-size: 9px;&quot;&gt;Send to Review Queue&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                <mxCell id="flag" value="⚠️&lt;br&gt;&lt;b&gt;Flag for QC&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#b45309&quot; style=&quot;font-size: 10px;&quot;&gt;Send to Review Queue&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="1315" y="425" width="90" height="90" as="geometry"/>
                 </mxCell>
 
@@ -149,7 +149,7 @@
                 </mxCell>
 
                 <!-- Return loop from Accept back to Scan View -->
-                <mxCell id="arr_loop" value="Next Scan" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#64748b;strokeDasharray=4 4;endArrow=block;endFill=1;fontSize=9;fontColor=#64748b;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" source="accept" target="scan_interface" edge="1">
+                <mxCell id="arr_loop" value="Next Scan" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#64748b;strokeDasharray=4 4;endArrow=block;endFill=1;fontSize=10;fontColor=#64748b;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" source="accept" target="scan_interface" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
                             <mxPoint x="1485" y="555"/>

@@ -10,57 +10,57 @@
 
 
                 <!-- ═══════════ OPERATOR AUTHENTICATION ENTRY ═══════════ -->
-                <mxCell id="operator" value="👤&lt;br&gt;&lt;b&gt;Operator&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 9px;&quot;&gt;(Role-Limited)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
+                <mxCell id="operator" value="👤&lt;br&gt;&lt;b&gt;Operator&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;(Role-Limited)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="50" y="360" width="95" height="95" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="login" value="🔐&lt;br&gt;&lt;b&gt;Login&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 9px;&quot;&gt;Username &amp;amp;&lt;br&gt;Password&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
+                <mxCell id="login" value="🔐&lt;br&gt;&lt;b&gt;Login&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Username &amp;amp;&lt;br&gt;Password&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#333333;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="190" y="360" width="95" height="95" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="dashboard" value="🏠&lt;br&gt;&lt;b&gt;Operator Dashboard&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#b45309&quot; style=&quot;font-size: 9px;&quot;&gt;Shift Metrics, Live Alerts&lt;br&gt;&amp;amp; Recent Scans&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2.5;fontSize=11;" parent="1" vertex="1">
+                <mxCell id="dashboard" value="🏠&lt;br&gt;&lt;b&gt;Operator Dashboard&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#b45309&quot; style=&quot;font-size: 10px;&quot;&gt;Shift Metrics, Live Alerts&lt;br&gt;&amp;amp; Recent Scans&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2.5;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="340" y="345" width="125" height="125" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ OPERATOR MODULE 1: USER PROFILE ═══════════ -->
-                <mxCell id="profile" value="👤&lt;br&gt;&lt;b&gt;User Profile&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 9px;&quot;&gt;(/profile)&lt;br&gt;Change Pass &amp;amp;&lt;br&gt;Kiosk 4-Digit PIN&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
+                <mxCell id="profile" value="👤&lt;br&gt;&lt;b&gt;User Profile&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 10px;&quot;&gt;(/profile)&lt;br&gt;Change Pass &amp;amp;&lt;br&gt;Kiosk 4-Digit PIN&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="510" y="140" width="115" height="115" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ OPERATOR MODULE 2: KIOSK MODE ═══════════ -->
-                <mxCell id="kiosk_mode" value="🖥️&lt;br&gt;&lt;b&gt;Kiosk Mode&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#0369a1&quot; style=&quot;font-size: 9px;&quot;&gt;(/kiosk)&lt;br&gt;Dedicated Touch&lt;br&gt;Scanning Terminal&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
+                <mxCell id="kiosk_mode" value="🖥️&lt;br&gt;&lt;b&gt;Kiosk Mode&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#0369a1&quot; style=&quot;font-size: 10px;&quot;&gt;(/kiosk)&lt;br&gt;Dedicated Touch&lt;br&gt;Scanning Terminal&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="720" y="140" width="115" height="115" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="kiosk_scan" value="▶️ 🖨️&lt;br&gt;&lt;b&gt;Scan &amp;amp; Print&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;Select Intake, 4-Cam&lt;br&gt;Scan &amp;amp; Label Print&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=1.5;fontSize=10;" parent="1" vertex="1">
-                    <mxGeometry x="900" y="152" width="90" height="90" as="geometry"/>
+                <mxCell id="kiosk_scan" value="▶️ 🖨️&lt;br&gt;&lt;b&gt;Scan &amp;amp; Print&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Select Intake, 4-Cam&lt;br&gt;Scan &amp;amp; Label Print&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=1.5;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="895" y="150" width="95" height="95" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ OPERATOR MODULE 3: SCAN LOGS ═══════════ -->
-                <mxCell id="scan_logs" value="📋&lt;br&gt;&lt;b&gt;Scan Logs&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 9px;&quot;&gt;(/logs)&lt;br&gt;Role-Filtered History&lt;br&gt;&amp;amp; CSV Export&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
+                <mxCell id="scan_logs" value="📋&lt;br&gt;&lt;b&gt;Scan Logs&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 10px;&quot;&gt;(/logs)&lt;br&gt;Role-Filtered History&lt;br&gt;&amp;amp; CSV Export&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="670" y="350" width="115" height="115" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="scan_detail" value="🔍&lt;br&gt;&lt;b&gt;Scan Detail&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;4-Cam Feeds, Boxes&lt;br&gt;&amp;amp; Sensor Readings&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#6366f1;strokeWidth=1.5;fontSize=10;" parent="1" vertex="1">
-                    <mxGeometry x="840" y="362" width="90" height="90" as="geometry"/>
+                <mxCell id="scan_detail" value="🔍&lt;br&gt;&lt;b&gt;Scan Detail&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;4-Cam Feeds, Boxes&lt;br&gt;&amp;amp; Sensor Readings&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#6366f1;strokeWidth=1.5;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="838" y="360" width="95" height="95" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ OPERATOR MODULE 4: ANALYTICS ═══════════ -->
-                <mxCell id="analytics" value="📊&lt;br&gt;&lt;b&gt;Analytics&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 9px;&quot;&gt;(/analytics)&lt;br&gt;Quality Distribution,&lt;br&gt;Cultivar &amp;amp; Shift Trends&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
+                <mxCell id="analytics" value="📊&lt;br&gt;&lt;b&gt;Analytics&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 10px;&quot;&gt;(/analytics)&lt;br&gt;Quality Distribution,&lt;br&gt;Cultivar &amp;amp; Shift Trends&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="1000" y="350" width="115" height="115" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ OPERATOR MODULE 5: INVENTORY ═══════════ -->
-                <mxCell id="inventory" value="📦&lt;br&gt;&lt;b&gt;Inventory&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 9px;&quot;&gt;(/inventory)&lt;br&gt;FIFO Queue &amp;amp;&lt;br&gt;2-Day Spoilage Alerts&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
+                <mxCell id="inventory" value="📦&lt;br&gt;&lt;b&gt;Inventory&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 10px;&quot;&gt;(/inventory)&lt;br&gt;FIFO Queue &amp;amp;&lt;br&gt;2-Day Spoilage Alerts&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="510" y="555" width="115" height="115" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ OPERATOR MODULE 6: DEVICE STATUS ═══════════ -->
-                <mxCell id="devices" value="📷&lt;br&gt;&lt;b&gt;Device Status&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 9px;&quot;&gt;(/devices)&lt;br&gt;4-Cam Live Health &amp;amp;&lt;br&gt;DHT22 Temp/Humidity&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
+                <mxCell id="devices" value="📷&lt;br&gt;&lt;b&gt;Device Status&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4338ca&quot; style=&quot;font-size: 10px;&quot;&gt;(/devices)&lt;br&gt;4-Cam Live Health &amp;amp;&lt;br&gt;DHT22 Temp/Humidity&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0e7ff;strokeColor=#6366f1;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="720" y="555" width="115" height="115" as="geometry"/>
                 </mxCell>
 
-                <!-- ═══════════ FLOW ARROWS ═══════════ -->
+                <!-- ═══════════ FLOW ARROWS (HUB-AND-SPOKE ARCHITECTURE) ═══════════ -->
                 <mxCell id="arr_login" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#2563eb;endArrow=block;endFill=1;" parent="1" source="operator" target="login" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
@@ -88,6 +88,7 @@
                     </mxGeometry>
                 </mxCell>
 
+                <!-- Kiosk -> Internal Scan Action -->
                 <mxCell id="arr_kscan" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#0284c7;endArrow=block;endFill=1;" parent="1" source="kiosk_mode" target="kiosk_scan" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
@@ -97,13 +98,19 @@
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
 
+                <!-- Scan Logs -> Internal Detail View -->
                 <mxCell id="arr_detail" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#6366f1;endArrow=block;endFill=1;" parent="1" source="scan_logs" target="scan_detail" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
 
-                <!-- Scan Logs -> Analytics -->
-                <mxCell id="arr_analytics" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#6366f1;endArrow=block;endFill=1;" parent="1" source="scan_detail" target="analytics" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
+                <!-- Dashboard -> Analytics (Independent Hub-and-Spoke Branch) -->
+                <mxCell id="arr_analytics" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#6366f1;endArrow=block;endFill=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="dashboard" target="analytics" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="440" y="295"/>
+                            <mxPoint x="1058" y="295"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
 
                 <!-- Dashboard -> Inventory -->

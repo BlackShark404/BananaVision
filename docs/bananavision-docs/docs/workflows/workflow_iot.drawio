@@ -10,11 +10,11 @@
 
 
                 <!-- ═══════════ TRIGGER & CONTROLLER ═══════════ -->
-                <mxCell id="operator" value="👤&lt;br&gt;&lt;b&gt;Operator / Kiosk&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 9px;&quot;&gt;Touch UI Scan Trigger&lt;br&gt;(POST /api/v1/scans)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                <mxCell id="operator" value="👤&lt;br&gt;&lt;b&gt;Operator / Kiosk&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Touch UI Scan Trigger&lt;br&gt;(POST /api/v1/scans)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="40" y="270" width="105" height="105" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="minipc" value="🖥️&lt;br&gt;&lt;b&gt;Mini PC Edge Node&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#0369a1&quot; style=&quot;font-size: 9px;&quot;&gt;FastAPI Backend &amp;amp;&lt;br&gt;Pipeline Coordinator&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2.5;fontSize=10;" parent="1" vertex="1">
+                <mxCell id="minipc" value="🖥️&lt;br&gt;&lt;b&gt;Mini PC Edge Node&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#0369a1&quot; style=&quot;font-size: 10px;&quot;&gt;FastAPI Backend &amp;amp;&lt;br&gt;Pipeline Coordinator&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2.5;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="180" y="265" width="115" height="115" as="geometry"/>
                 </mxCell>
 
@@ -27,11 +27,11 @@
                     <mxGeometry x="330" y="125" width="170" height="20" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="cam_array" value="📷&lt;br&gt;&lt;b&gt;4-Camera Array&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;Top (Anchor), Left,&lt;br&gt;Right &amp;amp; Rear Views&lt;br&gt;(Parallel Acquisition)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                <mxCell id="cam_array" value="📷&lt;br&gt;&lt;b&gt;4-Camera Array&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Top (Anchor), Left,&lt;br&gt;Right &amp;amp; Rear Views&lt;br&gt;(Parallel Acquisition)&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="355" y="165" width="120" height="120" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="dht22" value="🌡️&lt;br&gt;&lt;b&gt;DHT22 Sensor&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;Arduino Uno Serial:&lt;br&gt;Ambient Temp, Hum&lt;br&gt;&amp;amp; Calculated VPD&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                <mxCell id="dht22" value="🌡️&lt;br&gt;&lt;b&gt;DHT22 Sensor&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Arduino Uno Serial:&lt;br&gt;Ambient Temp, Hum&lt;br&gt;&amp;amp; Calculated VPD&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="355" y="380" width="120" height="120" as="geometry"/>
                 </mxCell>
 
@@ -45,25 +45,25 @@
                 </mxCell>
 
                 <!-- Decision Gate: Banana Present? -->
-                <mxCell id="gate" value="❓&lt;br&gt;&lt;b&gt;Banana&lt;br&gt;Present?&lt;/b&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=10;fontStyle=1;" parent="1" vertex="1">
+                <mxCell id="gate" value="❓&lt;br&gt;&lt;b&gt;Banana&lt;br&gt;Present?&lt;/b&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=11;fontStyle=1;" parent="1" vertex="1">
                     <mxGeometry x="555" y="270" width="95" height="95" as="geometry"/>
                 </mxCell>
 
                 <!-- If No: Abort -->
-                <mxCell id="abort_node" value="🚫&lt;br&gt;&lt;b&gt;Abort &amp;amp; Alert&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#dc2626&quot; style=&quot;font-size: 8px;&quot;&gt;Empty Tray Alert /&lt;br&gt;Reposition Hand&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=1.5;fontSize=9;" parent="1" vertex="1">
+                <mxCell id="abort_node" value="🚫&lt;br&gt;&lt;b&gt;Abort &amp;amp; Alert&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#dc2626&quot; style=&quot;font-size: 10px;&quot;&gt;Empty Tray Alert /&lt;br&gt;Reposition Hand&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fee2e2;strokeColor=#dc2626;strokeWidth=1.5;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="557" y="415" width="90" height="90" as="geometry"/>
                 </mxCell>
 
                 <!-- If Yes: YOLOv8 Detection -->
-                <mxCell id="yolo" value="🎯&lt;br&gt;&lt;b&gt;YOLOv8 Detection&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;Cultivar, Ripeness&lt;br&gt;&amp;amp; Finger Count&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#16a34a;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                <mxCell id="yolo" value="🎯&lt;br&gt;&lt;b&gt;YOLOv8 Detection&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Cultivar, Ripeness&lt;br&gt;&amp;amp; Finger Count&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#16a34a;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="700" y="268" width="100" height="100" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="fusion" value="🔬&lt;br&gt;&lt;b&gt;Multi-Cam Fusion&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;Confidence-Weighted&lt;br&gt;Consensus &amp;amp; Botanical&lt;br&gt;Harmonization&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#16a34a;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                <mxCell id="fusion" value="🔬&lt;br&gt;&lt;b&gt;Multi-Cam Fusion&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Confidence-Weighted&lt;br&gt;Consensus &amp;amp; Botanical&lt;br&gt;Harmonization&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#16a34a;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="825" y="265" width="105" height="105" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="rfr" value="⏱️&lt;br&gt;&lt;b&gt;Spoilage Model&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#b45309&quot; style=&quot;font-size: 8px;&quot;&gt;Random Forest (RFR):&lt;br&gt;Ripeness + Climate&lt;br&gt;→ Remaining Days&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                <mxCell id="rfr" value="⏱️&lt;br&gt;&lt;b&gt;Spoilage Model&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#b45309&quot; style=&quot;font-size: 10px;&quot;&gt;Random Forest (RFR):&lt;br&gt;Ripeness + Climate&lt;br&gt;→ Remaining Days&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="955" y="268" width="100" height="100" as="geometry"/>
                 </mxCell>
 
@@ -76,19 +76,19 @@
                     <mxGeometry x="1140" y="125" width="250" height="20" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="db" value="💾&lt;br&gt;&lt;b&gt;PostgreSQL DB&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;Transactional Store:&lt;br&gt;Scans, Images &amp;amp; Logs&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#6366f1;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                <mxCell id="db" value="💾&lt;br&gt;&lt;b&gt;PostgreSQL DB&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Transactional Store:&lt;br&gt;Scans, Images &amp;amp; Logs&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#6366f1;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="1100" y="170" width="115" height="115" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="websocket" value="📡&lt;br&gt;&lt;b&gt;WebSocket Events&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;Live Broadcast to&lt;br&gt;Kiosk &amp;amp; Dashboards&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                <mxCell id="websocket" value="📡&lt;br&gt;&lt;b&gt;WebSocket Events&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Live Broadcast to&lt;br&gt;Kiosk &amp;amp; Dashboards&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="1300" y="170" width="115" height="115" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="inventory" value="📦&lt;br&gt;&lt;b&gt;FIFO Inventory&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 8px;&quot;&gt;Batch Tracking &amp;amp;&lt;br&gt;2-Day Spoilage Alerts&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#f59e0b;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                <mxCell id="inventory" value="📦&lt;br&gt;&lt;b&gt;FIFO Inventory&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 10px;&quot;&gt;Batch Tracking &amp;amp;&lt;br&gt;2-Day Spoilage Alerts&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#f59e0b;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="1100" y="380" width="115" height="115" as="geometry"/>
                 </mxCell>
 
-                <mxCell id="printer" value="🖨️&lt;br&gt;&lt;b&gt;Thermal Printer&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#be185d&quot; style=&quot;font-size: 8px;&quot;&gt;USB ESC/POS Auto-Print:&lt;br&gt;Spoilage Label &amp;amp; QR&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;fontSize=10;" parent="1" vertex="1">
+                <mxCell id="printer" value="🖨️&lt;br&gt;&lt;b&gt;Thermal Printer&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#be185d&quot; style=&quot;font-size: 10px;&quot;&gt;USB ESC/POS Auto-Print:&lt;br&gt;Spoilage Label &amp;amp; QR&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="1300" y="380" width="115" height="115" as="geometry"/>
                 </mxCell>
 
