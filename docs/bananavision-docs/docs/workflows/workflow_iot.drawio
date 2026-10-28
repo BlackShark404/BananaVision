@@ -1,91 +1,91 @@
 <mxfile host="65bd71144e">
     <diagram name="Figure 14: IoT Hardware Integration &amp; AI Scanning Pipeline" id="iot-workflow">
-        <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="832" pageHeight="784" math="0" shadow="0">
+        <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1132" pageHeight="486" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
 
                 <!-- ═══════════ TRIGGER & CONTROLLER ═══════════ -->
                 <mxCell id="operator" value="&lt;font style=&quot;font-size: 30px;&quot;&gt;👤&lt;/font&gt;&lt;br&gt;&lt;b&gt;Operator / Kiosk&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 14px;&quot;&gt;(POST /api/v1/scans)&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#0284c7;" parent="1" vertex="1">
-                    <mxGeometry x="20" y="112" width="146" height="77" as="geometry"/>
+                    <mxGeometry x="20" y="66" width="146" height="77" as="geometry"/>
                 </mxCell>
 
                 <mxCell id="minipc" value="&lt;font style=&quot;font-size: 30px;&quot;&gt;🖥️&lt;/font&gt;&lt;br&gt;&lt;b&gt;Mini PC Edge Node&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#0284c7;" parent="1" vertex="1">
-                    <mxGeometry x="210" y="120" width="171" height="60" as="geometry"/>
+                    <mxGeometry x="210" y="74" width="171" height="60" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ ZONE 1: PHYSICAL HARDWARE SENSING ═══════════ -->
                 <mxCell id="box_hardware" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#0284c7;strokeWidth=2;dashed=1;" parent="1" vertex="1">
-                    <mxGeometry x="425" y="48" width="180" height="202" as="geometry"/>
+                    <mxGeometry x="425" y="48" width="180" height="160" as="geometry"/>
                 </mxCell>
 
                 <mxCell id="title_hardware" value="&lt;b&gt;1. Hardware Sensing Layer&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#0369a1;" parent="1" vertex="1">
-                    <mxGeometry x="355" y="20" width="320" height="24" as="geometry"/>
+                    <mxGeometry x="395" y="20" width="240" height="24" as="geometry"/>
                 </mxCell>
 
                 <mxCell id="cam_array" value="&lt;font style=&quot;font-size: 30px;&quot;&gt;📷&lt;/font&gt;&lt;br&gt;&lt;b&gt;4-Camera Array&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#0284c7;" parent="1" vertex="1">
-                    <mxGeometry x="445" y="62" width="140" height="60" as="geometry"/>
+                    <mxGeometry x="440" y="132" width="140" height="60" as="geometry"/>
                 </mxCell>
 
                 <mxCell id="dht22" value="&lt;font style=&quot;font-size: 30px;&quot;&gt;🌡️&lt;/font&gt;&lt;br&gt;&lt;b&gt;DHT22 Sensor&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#0284c7;" parent="1" vertex="1">
-                    <mxGeometry x="450" y="154" width="129" height="60" as="geometry"/>
+                    <mxGeometry x="440" y="60" width="129" height="60" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ ZONE 2: EDGE AI & SPOILAGE PIPELINE ═══════════ -->
                 <mxCell id="box_ai" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#16a34a;strokeWidth=2;dashed=1;" parent="1" vertex="1">
-                    <mxGeometry x="60" y="288" width="744" height="216" as="geometry"/>
+                    <mxGeometry x="50" y="266" width="724" height="200" as="geometry"/>
                 </mxCell>
 
                 <mxCell id="title_ai" value="&lt;b&gt;2. Edge AI Vision &amp;amp; Spoilage Pipeline&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#15803d;" parent="1" vertex="1">
-                    <mxGeometry x="247" y="258" width="340" height="24" as="geometry"/>
+                    <mxGeometry x="242" y="240" width="340" height="24" as="geometry"/>
                 </mxCell>
 
                 <!-- Decision Gate: Banana Present? -->
                 <mxCell id="gate" value="&lt;font style=&quot;font-size: 30px;&quot;&gt;❓&lt;/font&gt;&lt;br&gt;&lt;b&gt;Banana&lt;br&gt;Present?&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#ea580c;" parent="1" vertex="1">
-                    <mxGeometry x="686" y="307" width="83" height="82" as="geometry"/>
+                    <mxGeometry x="80" y="276" width="83" height="82" as="geometry"/>
                 </mxCell>
 
                 <!-- If No: Abort -->
                 <mxCell id="abort_node" value="&lt;font style=&quot;font-size: 30px;&quot;&gt;🚫&lt;/font&gt;&lt;br&gt;&lt;b&gt;Abort &amp;amp; Alert&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#dc2626;" parent="1" vertex="1">
-                    <mxGeometry x="668" y="420" width="118" height="60" as="geometry"/>
+                    <mxGeometry x="62" y="386" width="118" height="60" as="geometry"/>
                 </mxCell>
 
-                <!-- If Yes: YOLOv8 Detection -->
-                <mxCell id="yolo" value="&lt;font style=&quot;font-size: 30px;&quot;&gt;🎯&lt;/font&gt;&lt;br&gt;&lt;b&gt;YOLOv8 Detection&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#16a34a;" parent="1" vertex="1">
-                    <mxGeometry x="478" y="318" width="164" height="60" as="geometry"/>
+                <!-- If Yes: YOLO26 Detection -->
+                <mxCell id="yolo" value="&lt;font style=&quot;font-size: 30px;&quot;&gt;🎯&lt;/font&gt;&lt;br&gt;&lt;b&gt;YOLO26 Detection&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#16a34a;" parent="1" vertex="1">
+                    <mxGeometry x="207" y="287" width="164" height="60" as="geometry"/>
                 </mxCell>
 
                 <mxCell id="fusion" value="&lt;font style=&quot;font-size: 30px;&quot;&gt;🔬&lt;/font&gt;&lt;br&gt;&lt;b&gt;Multi-Cam Fusion&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#16a34a;" parent="1" vertex="1">
-                    <mxGeometry x="277" y="318" width="157" height="60" as="geometry"/>
+                    <mxGeometry x="415" y="287" width="157" height="60" as="geometry"/>
                 </mxCell>
 
                 <mxCell id="rfr" value="&lt;font style=&quot;font-size: 30px;&quot;&gt;⏱️&lt;/font&gt;&lt;br&gt;&lt;b&gt;Spoilage Model&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#ea580c;" parent="1" vertex="1">
-                    <mxGeometry x="95" y="318" width="138" height="60" as="geometry"/>
+                    <mxGeometry x="616" y="287" width="138" height="60" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ ZONE 3: PERSISTENCE & DISTRIBUTION ═══════════ -->
                 <mxCell id="box_output" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#9333ea;strokeWidth=2;dashed=1;" parent="1" vertex="1">
-                    <mxGeometry x="376" y="560" width="420" height="204" as="geometry"/>
+                    <mxGeometry x="720" y="48" width="392" height="182" as="geometry"/>
                 </mxCell>
 
                 <mxCell id="title_output" value="&lt;b&gt;3. Persistence &amp;amp; Real-Time Distribution&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#7e22ce;" parent="1" vertex="1">
-                    <mxGeometry x="410" y="528" width="380" height="24" as="geometry"/>
+                    <mxGeometry x="720" y="20" width="392" height="24" as="geometry"/>
                 </mxCell>
 
                 <mxCell id="db" value="&lt;font style=&quot;font-size: 30px;&quot;&gt;💾&lt;/font&gt;&lt;br&gt;&lt;b&gt;PostgreSQL DB&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#6366f1;" parent="1" vertex="1">
-                    <mxGeometry x="413" y="676" width="141" height="60" as="geometry"/>
+                    <mxGeometry x="740" y="60" width="141" height="60" as="geometry"/>
                 </mxCell>
 
                 <mxCell id="websocket" value="&lt;font style=&quot;font-size: 30px;&quot;&gt;📡&lt;/font&gt;&lt;br&gt;&lt;b&gt;WebSocket Events&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#0284c7;" parent="1" vertex="1">
-                    <mxGeometry x="400" y="588" width="167" height="60" as="geometry"/>
+                    <mxGeometry x="925" y="60" width="167" height="60" as="geometry"/>
                 </mxCell>
 
                 <mxCell id="inventory" value="&lt;font style=&quot;font-size: 30px;&quot;&gt;📦&lt;/font&gt;&lt;br&gt;&lt;b&gt;FIFO Inventory&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#f59e0b;" parent="1" vertex="1">
-                    <mxGeometry x="631" y="588" width="133" height="60" as="geometry"/>
+                    <mxGeometry x="744" y="150" width="133" height="60" as="geometry"/>
                 </mxCell>
 
                 <mxCell id="printer" value="&lt;font style=&quot;font-size: 30px;&quot;&gt;🖨️&lt;/font&gt;&lt;br&gt;&lt;b&gt;Thermal Printer&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#ec4899;" parent="1" vertex="1">
-                    <mxGeometry x="628" y="676" width="139" height="60" as="geometry"/>
+                    <mxGeometry x="939" y="150" width="139" height="60" as="geometry"/>
                 </mxCell>
 
                 <!-- ═══════════ FLOW ARROWS ═══════════ -->
@@ -96,26 +96,26 @@
                 <!-- Mini PC -> 4 Cameras -->
                 <mxCell id="arr_pc_cam" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0284c7;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="minipc" target="cam_array" edge="1">
                     <mxGeometry relative="1" as="geometry">
-                        <Array as="points"><mxPoint x="405" y="150"/><mxPoint x="405" y="92"/></Array>
+                        <Array as="points"><mxPoint x="405" y="104"/><mxPoint x="405" y="162"/></Array>
                     </mxGeometry>
                 </mxCell>
 
                 <!-- Mini PC -> DHT22 -->
                 <mxCell id="arr_pc_dht" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0284c7;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="minipc" target="dht22" edge="1">
                     <mxGeometry relative="1" as="geometry">
-                        <Array as="points"><mxPoint x="405" y="150"/><mxPoint x="405" y="184"/></Array>
+                        <Array as="points"><mxPoint x="405" y="104"/><mxPoint x="405" y="90"/></Array>
                     </mxGeometry>
                 </mxCell>
 
                 <!-- Cameras -> Decision Gate (Banana Present?) -->
-                <mxCell id="arr_cam_gate" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" parent="1" source="cam_array" target="gate" edge="1">
+                <mxCell id="arr_cam_gate" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="cam_array" target="gate" edge="1">
                     <mxGeometry relative="1" as="geometry">
-                        <Array as="points"><mxPoint x="727.5" y="92"/></Array>
+                        <Array as="points"><mxPoint x="510" y="220"/><mxPoint x="121.5" y="220"/></Array>
                     </mxGeometry>
                 </mxCell>
 
-                <!-- Decision Gate Yes -> YOLOv8 -->
-                <mxCell id="arr_gate_yes" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;fontSize=14;fontColor=#15803d;fontStyle=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" parent="1" source="gate" target="yolo" edge="1">
+                <!-- Decision Gate Yes -> YOLO26 -->
+                <mxCell id="arr_gate_yes" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;fontSize=14;fontColor=#15803d;fontStyle=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="gate" target="yolo" edge="1">
                     <mxGeometry relative="1" as="geometry"><mxPoint x="0" y="-10" as="offset"/><Array as="points"></Array></mxGeometry>
                 </mxCell>
 
@@ -125,42 +125,42 @@
                 </mxCell>
 
                 <!-- Pipeline Internal Flow -->
-                <mxCell id="arr_yolo_fusion" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" parent="1" source="yolo" target="fusion" edge="1">
+                <mxCell id="arr_yolo_fusion" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="yolo" target="fusion" edge="1">
                     <mxGeometry relative="1" as="geometry"><Array as="points"></Array></mxGeometry>
                 </mxCell>
 
-                <mxCell id="arr_fusion_rfr" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" parent="1" source="fusion" target="rfr" edge="1">
+                <mxCell id="arr_fusion_rfr" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16a34a;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="fusion" target="rfr" edge="1">
                     <mxGeometry relative="1" as="geometry"><Array as="points"></Array></mxGeometry>
                 </mxCell>
 
                 <!-- DHT22 -> RFR Spoilage Model (Climate input) -->
-                <mxCell id="arr_dht_rfr" value="Microclimate Telemetry" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#0284c7;strokeDasharray=4 4;endArrow=block;endFill=1;fontSize=14;fontColor=#0284c7;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" parent="1" source="dht22" target="rfr" edge="1">
+                <mxCell id="arr_dht_rfr" value="Microclimate Telemetry" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#0284c7;strokeDasharray=4 4;endArrow=block;endFill=1;fontSize=14;fontColor=#0284c7;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0.17;entryY=0;" parent="1" source="dht22" target="rfr" edge="1">
                     <mxGeometry relative="1" as="geometry"><mxPoint x="0" y="-14" as="offset"/>
-                        <Array as="points"><mxPoint x="514.5" y="240"/><mxPoint x="40" y="240"/><mxPoint x="40" y="348"/></Array>
+                        <Array as="points"><mxPoint x="640" y="90"/></Array>
                     </mxGeometry>
                 </mxCell>
 
                 <!-- RFR Spoilage -> PostgreSQL DB -->
-                <mxCell id="arr_rfr_db" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#6366f1;endArrow=block;endFill=1;exitX=0.3;exitY=1;entryX=0;entryY=0.5;" parent="1" source="rfr" target="db" edge="1">
+                <mxCell id="arr_rfr_db" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#6366f1;endArrow=block;endFill=1;exitX=0.39;exitY=0;entryX=0;entryY=0.5;" parent="1" source="rfr" target="db" edge="1">
                     <mxGeometry relative="1" as="geometry">
-                        <Array as="points"><mxPoint x="136" y="512"/><mxPoint x="340" y="512"/><mxPoint x="340" y="706"/></Array>
+                        <Array as="points"><mxPoint x="670" y="90"/></Array>
                     </mxGeometry>
                 </mxCell>
 
                 <!-- RFR Spoilage -> FIFO Inventory -->
-                <mxCell id="arr_rfr_inv" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f59e0b;endArrow=block;endFill=1;exitX=0.7;exitY=1;entryX=1;entryY=0.5;" parent="1" source="rfr" target="inventory" edge="1">
+                <mxCell id="arr_rfr_inv" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f59e0b;endArrow=block;endFill=1;exitX=0.61;exitY=0;entryX=0;entryY=0.5;" parent="1" source="rfr" target="inventory" edge="1">
                     <mxGeometry relative="1" as="geometry">
-                        <Array as="points"><mxPoint x="192" y="492"/><mxPoint x="812" y="492"/><mxPoint x="812" y="618"/></Array>
+                        <Array as="points"><mxPoint x="700" y="180"/></Array>
                     </mxGeometry>
                 </mxCell>
 
                 <!-- DB -> WebSocket Broker -->
-                <mxCell id="arr_db_ws" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0284c7;endArrow=block;endFill=1;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" parent="1" source="db" target="websocket" edge="1">
+                <mxCell id="arr_db_ws" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0284c7;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="db" target="websocket" edge="1">
                     <mxGeometry relative="1" as="geometry"><Array as="points"></Array></mxGeometry>
                 </mxCell>
 
                 <!-- DB / Inventory -> Thermal Printer -->
-                <mxCell id="arr_inv_print" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#ec4899;endArrow=block;endFill=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="inventory" target="printer" edge="1">
+                <mxCell id="arr_inv_print" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#ec4899;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="inventory" target="printer" edge="1">
                     <mxGeometry relative="1" as="geometry"><Array as="points"></Array></mxGeometry>
                 </mxCell>
 
