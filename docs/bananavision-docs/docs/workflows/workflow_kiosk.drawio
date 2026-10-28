@@ -7,37 +7,7 @@
 
 
 
-                <mxCell id="legend_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#cbd5e1;strokeWidth=1;" parent="1" vertex="1">
-                    <mxGeometry x="960" y="20" width="540" height="46" as="geometry"/>
-                </mxCell>
 
-                <mxCell id="leg_kiosk" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;" parent="1" vertex="1">
-                    <mxGeometry x="980" y="29" width="26" height="26" as="geometry"/>
-                </mxCell>
-                <mxCell id="leg_kiosk_txt" value="&lt;b&gt;Terminal / View&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
-                    <mxGeometry x="1012" y="28" width="85" height="26" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="leg_pipeline" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f0fdf4;strokeColor=#16a34a;strokeWidth=2;" parent="1" vertex="1">
-                    <mxGeometry x="1110" y="29" width="26" height="26" as="geometry"/>
-                </mxCell>
-                <mxCell id="leg_pipeline_txt" value="&lt;b&gt;AI Pipeline Step&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
-                    <mxGeometry x="1142" y="28" width="90" height="26" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="leg_action" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=2;" parent="1" vertex="1">
-                    <mxGeometry x="1245" y="29" width="26" height="26" as="geometry"/>
-                </mxCell>
-                <mxCell id="leg_action_txt" value="&lt;b&gt;Intake / Action&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
-                    <mxGeometry x="1277" y="28" width="85" height="26" as="geometry"/>
-                </mxCell>
-
-                <mxCell id="leg_output" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fce7f3;strokeColor=#ec4899;strokeWidth=2;" parent="1" vertex="1">
-                    <mxGeometry x="1375" y="29" width="26" height="26" as="geometry"/>
-                </mxCell>
-                <mxCell id="leg_output_txt" value="&lt;b&gt;Output / Print&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
-                    <mxGeometry x="1407" y="28" width="80" height="26" as="geometry"/>
-                </mxCell>
 
                 <!-- ═══════════ STEP 1: OPERATOR AUTHENTICATION ═══════════ -->
                 <mxCell id="kiosk_terminal" value="🖥️&lt;br&gt;&lt;b&gt;Kiosk Terminal&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#64748b&quot; style=&quot;font-size: 9px;&quot;&gt;Full-Screen UI&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=2;fontSize=11;fontStyle=0;" parent="1" vertex="1">
