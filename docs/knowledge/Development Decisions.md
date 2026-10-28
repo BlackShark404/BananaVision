@@ -2,6 +2,15 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-10-28: Workflow diagrams use icon + caption nodes with no shapes
+
+- All four workflow figures (`workflow_kiosk`, `workflow_operator`, `workflow_admin`, `workflow_iot`) draw each step as a free-standing emoji icon plus caption instead of an ellipse or rectangle. Shape fills and outlines were removed because filled nodes shrink the text available at the fixed 16 cm insertion width; the icons and stand-alone arrows follow the reference capstone layout.
+- A node is one text cell: a 30 px emoji line, an 18 px bold title, then 14 px metadata (route path, role qualifier, login credential). Nothing else was added, so existing wording and topology are unchanged.
+- Subsystem colour coding moved from the shape stroke to the caption text: the previous `strokeColor` becomes `fontColor` (red admin, blue kiosk UI, green pipeline, amber intake, indigo shared views, orange decision). Emoji keep their native colours.
+- Zone containers stay as dashed rectangles but are `fillColor=none`, and their headings sit above the box rather than inside it, so a caption is never mistaken for a container.
+- Node boxes are still fitted from Chrome-measured text (longest line + 6 px, sum of 1.2 x line height + 2 px), so no caption wraps at any zoom. Current page sizes: kiosk 923x619, operator 925x487, admin 1071x532, iot 832x784. At a 16 cm insertion width the 18 px caption renders at 8.8 / 8.8 / 7.6 / 9.8 pt.
+- Draw.io's SVG/PNG siblings in `docs/bananavision-docs/docs/workflows/` are hand-exported, so they stay out of date until the `.drawio` files are re-exported from the desktop app.
+
 ## 2026-10-28: Workflow diagram typography for embedded documentation
 
 - The four draw.io figures (`workflow_admin`, `workflow_operator`, `workflow_kiosk`, `workflow_iot`) use 18 px bold titles, 14 px secondary lines (route, role, credentials) and 14 px edge labels. Figures are inserted at a fixed width, so these are the values that keep the labels readable at document scale.
