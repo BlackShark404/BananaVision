@@ -7,7 +7,7 @@ version: 1.0.0
 # Activate Skill: bigquery-sql
 
 Please read and internalize the skill documentation located at:
-**`C:/Users/Roronoa Zoro/.gemini/skills/bigquery-sql/SKILL.md`**
+**`C:/Users/Roronoa Zoro/.config/opencode/skills/bigquery-sql/SKILL.md`**
 
 (And any other relevant files in that directory)
 
