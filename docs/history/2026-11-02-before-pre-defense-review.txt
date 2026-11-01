@@ -1,0 +1,46 @@
+CURRENT RESUME HERE (2026-10-28) - BIDIRECTIONAL SCHEMA RELATIONSHIPS & CARDINALITIES DOCUMENTED; READY FOR COMMIT REVIEW
+
+DONE
+- Added bidirectional SQLAlchemy ORM relationships connecting Device to ScanDetection and ScanImage:
+  `Device.detections` and `Device.images` with lazy="raise", `ScanDetection.device` and `ScanImage.device`
+  with lazy="selectin" and nullable foreign key `device_id` referencing `device(id)` ON DELETE SET NULL.
+- Added Alembic migration `0011_device_scan_links.py` adding `device_id` with index and foreign key constraint,
+  including backfill matching existing detections/images to devices by camera_id.
+- Updated `scan_service.py` pipeline to resolve `camera_id` -> `Device.id` and populate `device_id` on
+  captured detections and images.
+- Updated `backup_archive.py` to support `device_id` defaulting for legacy backup archive upgrades.
+- Updated `test_migrations.py` to expect `0011_device_scan_links`.
+- Fixed cross-platform `AttributeError: module 'subprocess' has no attribute 'CREATE_NO_WINDOW'` in `power_control.py`
+  using `getattr(subprocess, 'CREATE_NO_WINDOW', 0)`.
+- Fully synchronized schema documentation:
+  - `docs/bananavision_schema_current.sql`: Added `device_id` columns, indexes, and FK constraints.
+  - `docs/schema_tables.md`: Updated table definitions, ERD foreign key relationships table, ORM map,
+    and removed `Device` from models without relationships (now 5 standalone models remain).
+  - `docs/capstone_data_dictionary.md` and `docs/capstone_data_dictionary_detailed.md`: Updated table
+    definitions, FK constraints, and ORM relationship coverage.
+
+IN PROGRESS
+- None. Implementation and relevant verification are complete.
+
+TEST RESULTS
+- Python syntax compilation (`py_compile`) clean across all modified backend files.
+- `test_power_command_outcomes_are_checked`: 4 passed (100%).
+- `test_migrations.py`: 6 passed, 2 skipped (100%).
+- `test_backup_archive.py`: 38 passed (100%).
+- Targeted scan tests: 104 passed, 15 skipped (100%).
+- Full backend suite: 577 passed, 104 skipped, 0 failed (38.59s).
+- Frontend typecheck (`npm run typecheck`): PASS with 0 errors.
+
+SECURITY / KNOWLEDGE
+- No sensitive credentials or secrets modified.
+- Foreign keys use `ON DELETE SET NULL` to ensure device unpairing or removal never destroys scan data.
+- Graphify / Obsidian documentation synchronized with current database schema and models.
+
+GIT STATUS
+- 17 intended paths: 16 modified, 1 untracked migration (`0011_device_scan_links.py`), none deleted.
+- Safety stash retained unchanged. No unauthorized branches, worktrees, commits, or pushes.
+- Prior checkpoint archived: `docs/history/2026-10-25-before-model-relationships.txt`.
+
+EXACT RESUME HERE
+- Implementation is complete and fully verified. Ready for reviewed commit/push authorization.
+- Do not repeat completed suites unless code changes. Preserve the safety stash and existing changes.

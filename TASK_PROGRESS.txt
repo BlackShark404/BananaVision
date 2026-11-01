@@ -1,46 +1,46 @@
-CURRENT RESUME HERE (2026-10-28) - BIDIRECTIONAL SCHEMA RELATIONSHIPS & CARDINALITIES DOCUMENTED; READY FOR COMMIT REVIEW
+CURRENT RESUME HERE (2026-11-02) - PRE-DEFENSE AUDIT COMPLETE; FINDINGS READY FOR FOLLOW-UP
+
+AUTHORIZED SCOPE
+- Execute docs/Capstone_Full_System_Pre_Defense_Review_Prompt.md and save the review report.
+- Review only: no application fixes, schema changes, staging/commits, deployment or live operations.
+- Existing main checkout at source checkpoint 0964ea9. Initial status contained only the user's
+  untracked review prompt. Prior checkpoint archived to docs/history/2026-11-02-before-pre-defense-review.txt.
 
 DONE
-- Added bidirectional SQLAlchemy ORM relationships connecting Device to ScanDetection and ScanImage:
-  `Device.detections` and `Device.images` with lazy="raise", `ScanDetection.device` and `ScanImage.device`
-  with lazy="selectin" and nullable foreign key `device_id` referencing `device(id)` ON DELETE SET NULL.
-- Added Alembic migration `0011_device_scan_links.py` adding `device_id` with index and foreign key constraint,
-  including backfill matching existing detections/images to devices by camera_id.
-- Updated `scan_service.py` pipeline to resolve `camera_id` -> `Device.id` and populate `device_id` on
-  captured detections and images.
-- Updated `backup_archive.py` to support `device_id` defaulting for legacy backup archive upgrades.
-- Updated `test_migrations.py` to expect `0011_device_scan_links`.
-- Fixed cross-platform `AttributeError: module 'subprocess' has no attribute 'CREATE_NO_WINDOW'` in `power_control.py`
-  using `getattr(subprocess, 'CREATE_NO_WINDOW', 0)`.
-- Fully synchronized schema documentation:
-  - `docs/bananavision_schema_current.sql`: Added `device_id` columns, indexes, and FK constraints.
-  - `docs/schema_tables.md`: Updated table definitions, ERD foreign key relationships table, ORM map,
-    and removed `Device` from models without relationships (now 5 standalone models remain).
-  - `docs/capstone_data_dictionary.md` and `docs/capstone_data_dictionary_detailed.md`: Updated table
-    definitions, FK constraints, and ORM relationship coverage.
+- Created Capstone_Pre_Defense_Audit_Report.md with all 10 required sections, prioritized findings,
+  objective/feature evidence maps, acceptance checklist, 15 panel questions and minimum/backup demo plans.
+- Reviewed research/ML/IoT, frontend flows, backend authorization/persistence/maintenance and schema.
+- Confirmed key issues: opaque model fallback/default inputs; stale/invalid scan sensor inputs;
+  harmonized raw camera labels; printed QR versus tracking claims; stock/Accept/demo-document mismatches;
+  overlong-password HTTP 500; invalid treatment silently saved as Natural; duplicate-supplier HTTP 500.
+- Public summary image URLs also point to protected evidence routes; the anonymous image contract fails.
+- No application, test, manifest or lockfile changes. Restored local frontend dependencies using npm ci.
 
-IN PROGRESS
-- None. Implementation and relevant verification are complete.
+VERIFICATION
+- Full isolated PostgreSQL 18.6 backend: 680 passed, 1 skipped, 1 warning; 489.13s; no failures.
+  Skip: seed/kiosk trained artifact case, app/ml/weights/spoilage_rfr.joblib absent.
+  Disposable schemas, fresh temp cwd, mocked hardware, loopback port 55456; cluster stopped successfully.
+- Frontend build (tsc -b && vite build): PASS after locked dependency restore; existing >500 kB warning.
+- Convenience npm run typecheck: exit 0, but root config has no files and does not check referenced projects;
+  report flags this coverage gap. Production build supplies the stronger current TypeScript check.
+- Frontend lint: 35 errors / 5 warnings, existing debt. Ruff 0.17.3: 627 findings / 98 files, existing debt.
+- Full frontend browser rerun after npm ci: 266 passed, 0 failed, 0 skipped; 432.45s.
+  Initial incomplete-install run was interrupted after missing-module failures; it is not a passing run.
+- Isolated observed-behavior probes confirm password, supplier and treatment defects (3 observations,
+  4.97s). Synthetic sensor/model/QR/date probes substantiate report findings; they do not measure accuracy.
 
-TEST RESULTS
-- Python syntax compilation (`py_compile`) clean across all modified backend files.
-- `test_power_command_outcomes_are_checked`: 4 passed (100%).
-- `test_migrations.py`: 6 passed, 2 skipped (100%).
-- `test_backup_archive.py`: 38 passed (100%).
-- Targeted scan tests: 104 passed, 15 skipped (100%).
-- Full backend suite: 577 passed, 104 skipped, 0 failed (38.59s).
-- Frontend typecheck (`npm run typecheck`): PASS with 0 errors.
+LIMITS / KNOWLEDGE / CLEANUP
+- No station DB/captures, physical cameras/sensors/printer, secrets or OS power accessed.
+- Approved manuscript/objectives, current independent model/shelf-life evaluation and live rehearsal missing.
+- Graphify graph/CLI/package absent; ICM tools unavailable. Used source and existing local knowledge notes;
+  no graph refresh, ICM storage or duplicate Obsidian note was appropriate for this review-only task.
+- Automatic approval review blocked temporary directory deletion ("blocked by policy"). Stopped test files
+  remain at C:\Users\Kent\AppData\Local\Temp\bv-defense-audit-b64f5597223d40599874aaf4f88ce911.
+  No test database or cleanup process remains running. Raw logs retained in the user's Temp directory.
+- No staging, commits, pushes, branches, worktrees, live operations or application fixes were performed.
 
-SECURITY / KNOWLEDGE
-- No sensitive credentials or secrets modified.
-- Foreign keys use `ON DELETE SET NULL` to ensure device unpairing or removal never destroys scan data.
-- Graphify / Obsidian documentation synchronized with current database schema and models.
-
-GIT STATUS
-- 17 intended paths: 16 modified, 1 untracked migration (`0011_device_scan_links.py`), none deleted.
-- Safety stash retained unchanged. No unauthorized branches, worktrees, commits, or pushes.
-- Prior checkpoint archived: `docs/history/2026-10-25-before-model-relationships.txt`.
-
-EXACT RESUME HERE
-- Implementation is complete and fully verified. Ready for reviewed commit/push authorization.
-- Do not repeat completed suites unless code changes. Preserve the safety stash and existing changes.
+EXACT NEXT STEP
+- Review is complete; read Capstone_Pre_Defense_Audit_Report.md for evidence and ordered P1 actions.
+- Next implementation scope has not been requested. Do not treat audit recommendations as completed fixes.
+- Highest-value evidence still needed: approved manuscript/final slides, current independent evaluation,
+  and a dated hardware/demo/UAT rehearsal. No further test reruns are needed unless source/environment changes.
