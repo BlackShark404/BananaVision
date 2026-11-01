@@ -21,7 +21,7 @@ These are the user's repository-specific choices for applying generic skill work
 - Review security-sensitive authorization, persistence, archive/file and maintenance boundaries. Use Context7 or primary documentation when library behavior is uncertain.
 - Prefer the current checkout. Worktrees require explicit authorization and a genuine isolation need; subagents are for useful independent work or a focused final review, not an automatic per-step ritual.
 - Load relevant skills/references on demand. Do not run a full skill chain for small edits or copy vendor skill instructions into additional local skills.
-- Default to GPT-6 Astra Medium; use High when hard concurrency, recovery or architecture reasoning warrants it, where the model selection is available. Follow explicit task/model overrides.
+- Model selection is left to each contributor/agent. No default model is imposed by this repository. Choose based on your own budget and toolstack; see the model comparison notes in TASK_PROGRESS.txt for free-tier options. Follow explicit task/model overrides.
 - Keep `TASK_PROGRESS.txt` limited to current milestones, pending work, verified results, constraints and an exact next step. Archive superseded content before replacing it.
 
 Read [the development workflow](docs/development-workflow.md) for verification commands and tooling details.
