@@ -1,0 +1,65 @@
+CURRENT RESUME HERE (2026-11-03) - ACCEPTANCE TESTING MARKDOWN DRAFT COMPLETE
+
+AUTHORIZED SCOPE
+- Read the updated BananaVision manuscript PDF and user acceptance/usability survey XLSX.
+- User clarified Acceptance Testing only; preserve the existing Alpha Testing section.
+- Write the missing acceptance section in Markdown using actual survey results and the
+  supplied reference structure. No PDF/workbook edits or application implementation.
+- Existing main checkout retained. Pre-existing progress, manuscript replacement and
+  role-review/history changes preserved; no staging, commits, pushes or deployment.
+- Previous checkpoint archived byte-for-byte to
+  docs/history/2026-11-03-before-acceptance-testing-draft.txt.
+
+DONE
+- Created docs/Acceptance_Testing.md with an introduction, evaluator profile, reliability
+  table/discussion/conclusion, SUS item and respondent-score tables, qualitative feedback,
+  overall conclusion, source links and calculation notes.
+- Scanned all 249 PDF pages through extracted text; visually checked PDF pages 197-198
+  (printed 185-186): Alpha Testing exists; Acceptance Testing contains only a heading.
+- Verified final body table before testing is Table 45; draft continues with Tables 46-48.
+- Workbook contains five respondents at one wholesale distribution enterprise: two
+  Administrators and three Operators; four optional comments; all 70 ratings complete.
+- Reliability item means/sample SD: 4.20/0.45, 4.60/0.55, 4.40/0.55, 4.40/0.55.
+  Overall mean 4.40; sample SD across respondent four-item averages 0.38.
+- Standard SUS reverse scoring yields respondent scores 50, 47.5, 50, 47.5, 50;
+  mean 49.00/100, sample SD 1.37. High agreement with negative items is retained and
+  discussed honestly. Scores are not percentages; no passing usability claim is made.
+- Distinguishes perceived reliability from measured technical reliability and does not
+  invent fault injection, recovery timings, detection accuracy or successful deployment.
+
+VERIFICATION
+- Workbook opened read-only using bundled Python/openpyxl; source workbook preserved.
+- Independently re-read XLSX XML using stdlib ZIP/XML and reconciled all 70 rating cells,
+  four reliability means, composite SD, five SUS scores, SUS mean and sample SD: passed.
+- All three Markdown tables have consistent column counts; local source links resolve;
+  heading, whitespace and unfinished-placeholder checks passed.
+- Focused independent review of draft, screenshots and workbook-derived statistics found
+  no actionable statistical or unsupported-claim issue. Reviewer did not reopen XLSX.
+- git diff --check passed for the final checkpoint and document changes. New-file
+  no-index whitespace check emitted only the Git LF-to-CRLF advisory; exit 1 reflects
+  the added-file diff.
+- No backend/frontend tests, typecheck, lint or build run: documentation-only task,
+  following docs/development-workflow.md. No runtime, database or hardware accessed.
+
+LIMITS / KNOWLEDGE
+- Numeric export and supplied charts do not preserve original response-scale anchors or
+  approved verbal interpretation bands. Draft explicitly uses conventional 1=Strongly
+  Disagree / 5=Strongly Agree coding and disclosed equal-width reliability reporting bands.
+- Original form instructions need confirmation before final substantive interpretation.
+  Contradictory positive/negative SUS agreement requires follow-up, not silent recoding.
+- Five respondents at one enterprise cannot establish broad user acceptance or quantify
+  objective performance. No study-specific technical/usability pass threshold supplied.
+- PDF and XLSX unchanged. No Graphify update needed for document-only drafting; no ICM
+  tools available. Existing Obsidian testing note consulted; application knowledge unchanged.
+- Standard sandbox process launch failed; safe scoped file operations and analysis worked
+  through auto-reviewed elevated execution. No integration/configuration changes made.
+- Prior functionality/roles review and all unrelated modifications remain intact; its
+  checkpoint is preserved in the archive above.
+
+EXACT NEXT STEP
+- Review docs/Acceptance_Testing.md against original questionnaire anchors/instructions.
+- Clarify the negative-item responses with evaluators; if an administration error is
+  established, preserve original data and collect a documented fresh evaluation.
+- Insert the reviewed acceptance section after printed page 185, then update pagination,
+  captions and the manuscript list of tables to include Tables 46-48.
+- No application fixes, deployments or Git writes are authorized by this drafting task.

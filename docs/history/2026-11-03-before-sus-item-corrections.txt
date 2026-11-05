@@ -1,0 +1,62 @@
+CURRENT RESUME HERE (2026-11-03) - SUS VERBAL CLARIFICATION INCORPORATED
+
+AUTHORIZED SCOPE / CURRENT DECISION
+- Update docs/Acceptance_Testing.md after the user explained that high ratings on negative
+  SUS items were intended as favorable feedback. In response to a clarification question,
+  the user explicitly confirmed: evaluators confirmed this verbally.
+- Keep approved Chapters 1-3 and the questionnaire unchanged. SUS-only formal analysis;
+  no reliability results or revived methodology revisions. Markdown-only changes.
+- Preserve original survey responses, PDF and XLSX. No item-specific replacement ratings
+  were supplied, so do not assign new ratings or report a corrected SUS score.
+- Existing main and unrelated changes retained. No Git staging/commits/pushes, deployment,
+  application changes, station data or hardware access.
+- Previous checkpoint preserved byte-for-byte in
+  docs/history/2026-11-03-before-sus-verbal-clarification.txt.
+
+DONE
+- Updated acceptance discussion and conclusions to report favorable positive-item responses,
+  optional comments and the evaluators' verbal clarification, attributed to the research team.
+- Added Verbal Clarification of Responses subsection, distinguishing the reported favorable
+  intentions from original numerical entries and literal wording of negative statements.
+- Removed interpretations treating negative-item entries as confirmed usability difficulties.
+  Explained that the original score has limited interpretation because of item misunderstanding.
+- Preserved both SUS tables, all item means/SDs, five respondent contribution totals/scores,
+  and the original mean49.00/100/sampleSD1.37. No revised positive SUS score calculated.
+- Clarified that item9 ('I felt very confident using the system') is a positive item.
+- Table notes now describe raw numerical entries without assuming intended agreement;
+  verbal clarification is separately sourced and not converted into replacement ratings.
+- Approved scope, exclusions of four extra reliability items, and the superseded notice
+  on docs/Acceptance_Testing_Manuscript_Revisions.md remain unchanged.
+
+VERIFICATION
+- Checked exact preservation of ten item means/SDs, five respondent contribution/score rows,
+  mean49.00 and sampleSD1.37 against previously independently verified workbook results.
+- Confirmed attribution of verbal clarification, explicit absence of replacement ratings/
+  corrected score, removal of prior difficulty conclusions, and SUS-only scope.
+- Confirmed two Markdown tables, captions46-47, local source links and clean whitespace.
+- PDF and XLSX SHA256 hashes still match original verified files.
+- Independent methodological review found a raw-means wording inconsistency; corrected
+  it and the source-note wording. No other actionable issue was found.
+- git diff --check passed. No application tests/typecheck/lint/build rerun: prose-only change
+  under docs/development-workflow.md; numerical source analysis was already verified.
+
+LIMITS / KNOWLEDGE
+- Verbal confirmation was reported by user/research team, not independently witnessed or
+  represented by written respondent-level corrected answers. No dates, transcripts or new
+  numerical response values were invented.
+- Original entries still yield50,47.5,50,47.5,50 and mean49.00 with sampleSD1.37.
+  Favorable intentions do not themselves determine corrected numbers or a new SUS score.
+- Do not treat original score alone as conclusive poor usability or verbal clarification
+  as proof of a high standardized SUS result. Report favorable feedback with this limitation.
+- Original form anchors remain absent from export; refer to approved form/instructions.
+- Five respondents at one wholesale enterprise remain a limited pilot group; no broad
+  acceptance, objective reliability or AI accuracy claim established by this questionnaire.
+- No code/architecture changes: Graphify/Obsidian technical updates unnecessary. ICM
+  unavailable; no integrations/configuration changed.
+
+EXACT NEXT STEP
+- Review updated docs/Acceptance_Testing.md for manual manuscript insertion.
+- If a defensible revised SUS estimate is needed, obtain documented respondent-level
+  answers using unchanged approved items and clearly understood, neutral agreement
+  instructions. Preserve originals separately; report any new administration distinctly.
+- Keep Chapters 1-3 and questionnaire unchanged; do not apply the superseded guide.

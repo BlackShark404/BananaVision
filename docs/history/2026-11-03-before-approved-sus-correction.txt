@@ -1,0 +1,57 @@
+CURRENT RESUME HERE (2026-11-03) - SUS ITEM CORRECTIONS AWAIT EXACT RATINGS
+
+AUTHORIZED SCOPE / CURRENT DECISION
+- Update docs/Acceptance_Testing.md for user-reported mistaken responses to SUS items6,8,10.
+- User says evaluators intended disagreement (1 or2), rather than recorded agreement (4 or5).
+- Asked for exact ratings per evaluator/item or a confirmed uniform correction rule.
+  User reiterated intended1or2 categories but did not provide exact values or a mapping.
+- Do not choose1versus2, automatically invert scores, or report a corrected mean without
+  actual evaluator-confirmed answers. Legitimate confirmed corrections can be calculated.
+- Keep approved Chapters1-3 and questionnaire unchanged; SUS-only, Markdown-only scope.
+- Preserve original source PDF/XLSX and unrelated changes; remain on main. No Git writes,
+  application/schema changes, deployment, live station database or hardware access.
+- Previous checkpoint archived byte-for-byte in
+  docs/history/2026-11-03-before-sus-item-corrections.txt.
+
+DONE
+- Added explicit correction-status notice to active acceptance draft: corrected SUS score
+  pending; original numerical entries/calculations remain for transparency.
+- Table46 now Original Recorded System Usability Scale Item Responses; Table47 now
+  System Usability Scale Scores Calculated from Original Entries. Mean row labeled
+  Original-entry mean;49.00/SD1.37 are not presented as corrected results.
+- Verbal-clarification subsection specifically identifies items6,8,10 as reported mistaken
+  4/5 entries intended as1/2; explains that these categories contribute different amounts.
+- Conclusions report favorable impressions and pending corrected numeric results.
+- Other items remain as recorded. Items2and4 also have negative wording, but the user
+  has not supplied numerical corrections for them. Do not assume further corrections.
+- Earlier methodology/reliability revision guide remains prominently superseded.
+
+VERIFICATION
+- Read current workbook directly: hash unchanged; rows2-6 still contain original triples
+  for Q6/Q8/Q10: R1(5,5,5),R2(5,5,4),R3(5,4,5),R4(5,5,5),R5(5,5,5).
+- Q6=columnO;Q8=columnQ;Q10=columnS. R1-R5 correspond to workbook rows2-6.
+- Checked preservation of all ten original item means/SDs, five contribution/score rows,
+  original mean49.00, pending-correction notice, two table structures/captions and whitespace.
+- Independent review approved original/pending distinction and faithful attribution;
+  no fabricated corrections or actionable overclaim found.
+- No application tests/typecheck/lint/build: documentation-only change. Existing source
+  numerical analysis remains valid for original records; corrected analysis is not done.
+
+LIMITS / CURRENT MISSING INPUT
+- Need each evaluator's exact1or2 for each corrected item, or an explicitly evaluator-
+  confirmed uniform mapping. Favorable intent alone cannot distinguish intensity.
+- No corrected means, SDs, respondent scores or overall SUS result can be computed yet.
+- Original raw source remains intact; no written corrected values/dates/transcripts invented.
+- Do not imply original49 demonstrates confirmed bad feedback or report a high revised
+  score from assumed answers. Favorable verbal feedback is separate evidence.
+- Five evaluators at one enterprise; approved form anchors absent from numerical export.
+- No code changes: Graphify/Obsidian technical updates unnecessary; ICM unavailable.
+
+EXACT NEXT STEP
+- Accept exact evaluator-confirmed corrections if supplied. Avoid repeating the long input
+  question without explaining that1and2 have different contributions.
+- Record corrections separately with provenance, preserve original workbook, and recompute
+  affected item means/SDs and all respondent/overall SUS results from confirmed values.
+- Correct only identified items; do not infer corrections to2or4 or flip all negative items.
+- Until exact values arrive, active draft reports favorable feedback and a pending corrected
+  SUS result, with original49.00/SD1.37 clearly labeled as the original-entry calculation.

@@ -1,0 +1,65 @@
+CURRENT RESUME HERE (2026-11-03) - MANUAL THESIS REVISION GUIDE COMPLETE
+
+AUTHORIZED SCOPE
+- Include both four supplementary perceived-reliability statements and ten-item SUS in
+  Acceptance Testing, with matching small changes to methodology and related passages.
+- User explicitly requested Markdown instructions and replacement paragraphs for manual
+  thesis editing to preserve formatting. Do not edit the source PDF or workbook.
+- Existing main checkout retained. No application/schema/configuration changes, Git
+  staging/commits/pushes, deployment, station database or hardware access.
+- Previous checkpoint preserved byte-for-byte in
+  docs/history/2026-11-03-before-methodology-alignment.txt.
+
+DONE
+- Created docs/Acceptance_Testing_Manuscript_Revisions.md: page map, precise selection
+  boundaries and copy-ready replacement/addition text for objective 5, limitation 5,
+  methodology pilot passage, acceptance section, abstract, conclusion and recommendations.
+- Guide also identifies table captions, list/table-of-contents updates, reference entry
+  and plain-text paste/automatic-numbering guidance for preserving thesis formatting.
+- Source locations: objective printed6/PDF18; limitation printed10/PDF22; methodology
+  printed66-67/PDF78-79; acceptance printed186/PDF198; abstract PDF2; conclusion
+  printed209/PDF221; recommendations printed210-211/PDF222-223.
+- Updated docs/Acceptance_Testing.md to explicitly label the four reliability statements
+  as supplementary study-specific user-perception items, separate from standard SUS.
+  Added guide link; caption46 and overall reliability labels now specify perceived reliability.
+- No combined 14-item SUS or overall acceptance score. No prior instrument approval,
+  validation or objectively measured fault/recovery performance asserted.
+- Original questionnaire findings unchanged: five respondents at one wholesale enterprise,
+  two assigned Administrator and three Operator roles; four optional comments.
+- Reliability item means/SD:4.20/0.45,4.60/0.55,4.40/0.55,4.40/0.55;
+  descriptive composite4.40/SD0.38. Standard SUS mean49.00/100, sampleSD1.37;
+  respondent scores50,47.5,50,47.5,50. Original 70 rating cells were already verified.
+
+VERIFICATION
+- Rescanned PDF for questionnaire/methodology references; inspected complete relevant
+  objective, limitation, methodology, abstract, conclusion and recommendation passages.
+- Rendered and visually reviewed PDF pages18,22,78,79; page labels/selection boundaries agree.
+- Eight original source-anchor/location checks passed, including the four-sentence method
+  passage spanning two pages and preservation of its following CI/CD sentence.
+- Source PDF and XLSX SHA256 hashes match before/after: both unchanged.
+- Local Markdown links, all four tables across both documents, matching captions46-48,
+  shared scores, whitespace and unfinished-placeholder checks passed.
+- Independent methodological review found only citation-placement and numbering guidance
+  refinements; both incorporated. SUS citation now applies specifically to its scoring.
+- First anchor-check attempt hit PowerShell's handling of a superscript character in the
+  verifier; an explicit Unicode escape fixed the verifier and all checks then passed.
+- No application tests/typecheck/lint/build rerun: documentation-only changes, per
+  docs/development-workflow.md. Earlier numerical verification reused without alteration.
+
+LIMITS / KNOWLEDGE
+- Thesis changes exist as Markdown replacement text only; the user will apply them manually.
+- Original form's response anchors are absent from numeric export. Conventional coding and
+  draft reliability reporting bands remain explicit assumptions requiring confirmation.
+- Agreement with positive and negative SUS items remains unresolved; responses retained.
+  No passing usability or broad acceptance claim made; findings limited to five evaluators.
+- No source code/architecture changes: Graphify refresh and Obsidian technical-note changes
+  unnecessary. ICM tools unavailable; no integration/configuration changes attempted.
+- Prior role-review documents, source manuscript replacement and other user changes preserved.
+
+EXACT NEXT STEP
+- Open docs/Acceptance_Testing_Manuscript_Revisions.md and apply its replacements to the
+  editable thesis manually using existing paragraph, list and caption styles.
+- Insert docs/Acceptance_Testing.md body at Acceptance Testing; update table captions,
+  contents/list-of-tables page numbers and SUS reference in the edited thesis.
+- Confirm original questionnaire anchors/instructions and clarify conflicting SUS responses
+  before finalizing interpretations. Preserve original responses if conducting a new evaluation.

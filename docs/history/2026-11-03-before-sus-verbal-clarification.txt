@@ -1,0 +1,59 @@
+CURRENT RESUME HERE (2026-11-03) - SUS-ONLY ACCEPTANCE TESTING COMPLETE
+
+AUTHORIZED SCOPE / CURRENT DECISION
+- User confirmed Chapters 1-3 and questionnaire are already approved and cannot change.
+- Explicitly requested docs/Acceptance_Testing.md focus on the approved ten-item SUS.
+- Prior plan to add reliability and revise methodology is superseded; do not apply it.
+- Markdown-only work. Keep approved manuscript, questionnaire and original survey records
+  unchanged. No application work, Git staging/commits/pushes, deployment or live access.
+- Existing main checkout and all unrelated modifications preserved.
+- Previous checkpoint archived byte-for-byte to
+  docs/history/2026-11-03-before-sus-only-acceptance.txt.
+
+DONE
+- Updated docs/Acceptance_Testing.md: SUS-only introduction, 50 complete SUS ratings,
+  ten item means/sample SDs, five respondent scores, discussion, contextual comments
+  and SUS-based conclusion. Removed reliability table, findings, bands and conclusions.
+- Added transparent exclusion note: workbook's four additional reliability items are
+  outside approved SUS analysis and excluded from reported results and SUS scores.
+- Renumbered remaining captions: Table46 System Usability Scale Item Responses;
+  Table47 Respondent-Level System Usability Scale Scores.
+- Marked docs/Acceptance_Testing_Manuscript_Revisions.md prominently SUPERSEDED / DO NOT
+  APPLY. Its former proposals remain historical reference; active draft flags this too.
+- Preserved scores:50,47.5,50,47.5,50; mean49.00/100; sampleSD1.37. Five respondents
+  at one wholesale enterprise: two assigned Administrator and three Operator roles.
+- No changes to source PDF, XLSX, approved objectives/methodology or questionnaire.
+
+VERIFICATION
+- Independently reconciled all 50 SUS cells from XLSX XML against ten item means/SDs,
+  five odd/even contribution totals and respondent scores, mean49.00 and sampleSD1.37.
+- Confirmed exactly two consistent Markdown tables with captions46-47; no reliability
+  result table/headings, reliability reporting bands or favorable reliability conclusions.
+- Confirmed explicit exclusions, superseded-guide notice, valid local links and whitespace.
+- PDF and XLSX SHA256 unchanged from earlier verified originals.
+- Focused independent review approved scope, scores, role counts and approval wording;
+  no actionable issue found. Active draft's full added-file diff reviewed.
+- git diff --check passed. New-file diff exit1 is expected because document is untracked;
+  Git LF-to-CRLF advisory only, not a validation failure.
+- No backend/frontend tests, typecheck, lint or build: documentation-only changes, per
+  docs/development-workflow.md. No application files or integrations modified.
+
+LIMITS / KNOWLEDGE
+- Original response anchors are not present in numerical export. Interpretations use
+  conventional 1=Strongly Disagree / 5=Strongly Agree coding and require confirmation
+  against the approved form; this does not authorize changing that form.
+- Agreement with positive and negative SUS items remains unresolved; responses retained
+  without alteration and even-numbered items reverse-scored. No passing usability claim.
+- Five evaluators from one enterprise support only limited pilot conclusions.
+- Optional comments are context and do not change SUS scores. Extra reliability responses
+  remain in original workbook, without an added formal reliability analysis or appendix.
+- No source/architecture changes: Graphify and Obsidian technical updates unnecessary;
+  ICM unavailable. No installation, integration changes or background work performed.
+
+EXACT NEXT STEP
+- Use docs/Acceptance_Testing.md for manual insertion of SUS results into the manuscript.
+- Preserve approved Chapters 1-3, objectives, methodology and questionnaire. Do not use the
+  superseded methodology/reliability revision proposals.
+- Synchronize final acceptance-table captions/page references when inserting results.
+- Confirm original response anchors/instructions and clarify conflicting SUS responses
+  before finalizing conclusions, while preserving original survey records.

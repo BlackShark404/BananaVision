@@ -1,0 +1,51 @@
+CURRENT RESUME HERE (2026-11-02) - FUNCTIONALITY / ROLE GAP REVIEW COMPLETE
+
+AUTHORIZED SCOPE
+- Verify whether BananaVision lacks user roles or functionality for panel defense, especially
+  owner-to-inventor reporting of IoT maintenance/system problems. Review only; no application fixes.
+- Existing main checkout at 1848ac0; initial Git status clean. No branches/worktrees or Git writes.
+- Previous audit checkpoint archived to
+  docs/history/2026-11-02-before-functionality-and-roles-review.txt.
+
+DONE
+- Created docs/Capstone_Functionality_and_Roles_Review.md with existing-feature inventory,
+  recommended responsibilities, nine evidence-backed gaps, support delivery/case workflow,
+  proposed acceptance scenarios, panel answers and capstone/commercial scope distinctions.
+- Confirmed only Admin/Operator supported; public Contact Support Team opens external email.
+  No implemented incident submission/provider inbox/reply/acknowledgement/resolution workflow found.
+- Confirmed existing accounts/resets/QC/inventory disposition/device visibility/notifications/
+  backup-restore/printer retry/browser reconnect capabilities; these are not missing features.
+- Identified sole-Admin recovery, sensor reconnect/freshness, predictor provenance, physical-stock
+  identity, Accept semantics and physical-label tracking limitations. Prior audit defects remain unfixed.
+- Provider Support is justified if in-product support is promised; a central Platform/Super Admin
+  is conditional on multi-customer deployment. A new role alone cannot deliver remote reports.
+- Independent focused reviews covered backend roles/support, frontend flows and IoT operations;
+  final role/support review found no material issue after a role-schema wording refinement.
+
+VERIFICATION / EVIDENCE
+- Current review used static source/docs inspection, without runtime services or station access.
+- git diff --name-only 0964ea9 HEAD contained only earlier audit/prompt/progress/history documents:
+  application source is unchanged from the previous runtime audit checkpoint.
+- No new application tests/type checks/lint/build: documentation-only review. Prior audit results:
+  isolated backend 680 passed / 1 skipped / 1 warning; frontend 266 passed; production build passed;
+  frontend lint 35 errors / 5 warnings and Ruff 627 findings were existing debt, not passing checks.
+- Review-document source references and relative links checked; scoped whitespace/diff review passed.
+  No application/schema/test/manifest/lockfile changes introduced.
+
+LIMITS / KNOWLEDGE / CONSTRAINTS
+- Approved manuscript/objectives/final slides and deployment intent remain unconfirmed. Report covers
+  both a standalone capstone station and a supported multi-customer product; neither scope was chosen.
+- Independent current model/shelf-life validation, hardware/UAT rehearsal, deployment connectivity,
+  sensor calibration/recovery and external support mailbox delivery remain unverified.
+- No live station DB/captures, hardware, secrets or OS power accessed. No staging/commit/push/deploy.
+- Graphify graph/CLI absent; ICM tools unavailable. Used source and relevant local Obsidian notes.
+  No graph update, persistent-memory write, integration change or tool installation was appropriate.
+- Earlier audit temporary-file cleanup limitation remains recorded in the archived checkpoint;
+  no test service was started during this review.
+
+EXACT NEXT STEP
+- Read docs/Capstone_Functionality_and_Roles_Review.md alongside Capstone_Pre_Defense_Audit_Report.md.
+- Compare approved scope with the findings, establish the intended deployment, then select a bounded
+  implementation task. No application implementation is authorized by the current review alone.
+- Core validation/provenance/demo-contract defects remain higher-priority defense concerns than
+  adding role names. Do not present proposed support/fleet management as existing functionality.
