@@ -1,0 +1,14 @@
+{
+  "name": "caveman",
+  "displayName": "Caveman",
+  "version": "1.0.0",
+  "description": "Caveman Docs and API MCP server (https://caveman.so/mcp) for searching Caveman documentation, products, and Caveman Cloud OpenAPI operations.",
+  "homepage": "https://caveman.so",
+  "repository": "https://github.com/JuliusBrussee/caveman",
+  "suggestedPrompts": [
+    "List Caveman products and install commands",
+    "Search Caveman docs for CLI and MCP setup",
+    "Look up Caveman Cloud API operations"
+  ]
+}
+
