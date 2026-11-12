@@ -334,7 +334,10 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
     const resp = await api.intakes.create({ supplier_id: supplierId, batch_number: batchNumber, source: "Kiosk", treatment: treatment || "Natural" })
     const newIntake = mapApiIntake(resp)
     acceptWrite()
-    setIntakes((prev) => [newIntake, ...prev])
+    // The live creation event can land before this response; merge by id instead of prepending.
+    setIntakes((prev) => prev.some((intake) => intake.id === newIntake.id)
+      ? prev.map((intake) => (intake.id === newIntake.id ? { ...intake, ...newIntake } : intake))
+      : [newIntake, ...prev])
     setActiveIntake(newIntake)
     return newIntake
   }, [acceptWrite])
@@ -362,7 +365,11 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
     }
     const newSup = await api.suppliers.create(apiData)
     acceptSupplierWrite()
-    setSuppliers((prev) => [...prev, mapApiSupplier(newSup)])
+    const mapped = mapApiSupplier(newSup)
+    // The live creation event can land before this response; merge by id instead of appending.
+    setSuppliers((prev) => prev.some((supplier) => supplier.id === mapped.id)
+      ? prev.map((supplier) => (supplier.id === mapped.id ? { ...supplier, ...mapped } : supplier))
+      : [...prev, mapped])
   }, [acceptSupplierWrite])
 
   const updateSupplier = useCallback(async (id: string, data: Partial<Omit<Supplier, "id" | "dateAdded">>) => {

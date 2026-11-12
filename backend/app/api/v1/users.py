@@ -70,7 +70,7 @@ async def create_user(body: UserCreate, db: DbSession, admin: AdminUser, request
     role_res = await db.execute(select(UserRole).where(UserRole.name == body.role))
     user_role = role_res.scalar_one_or_none()
     if not user_role:
-        raise NotFoundException(f"Role '{body.role}' not found")
+        raise NotFoundException(f"Role '{body.role.value}' not found")
 
     password = body.password or temporary_password()
     pin = (body.pin or temporary_pin()) if body.role == RoleEnum.OPERATOR else None
@@ -99,7 +99,7 @@ async def create_user(body: UserCreate, db: DbSession, admin: AdminUser, request
     db.add(ActivityLog(
         user_id=admin.id,
         action="user_created",
-        details=f"Created user '{body.username}' with role {body.role}",
+        details=f"Created user '{body.username}' with role {body.role.value}",
         ip_address=get_client_ip(request),
     ))
 

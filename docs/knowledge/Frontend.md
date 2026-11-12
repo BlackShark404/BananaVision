@@ -70,7 +70,9 @@ The UI distinguishes between initial loads, continuous/hardware actions, and bac
   scan event per changed scan plus an intake event; note text and images are never broadcast.
 - Consumers merge by stable ID. `ScanContext` keeps the higher revision, preserves fields omitted by
   partial payloads, drops stale events and removes rows for a `deleted` event (no delete endpoint
-  currently emits one). `InventoryContext` orders intake and supplier events by `updated_at`.
+  currently emits one). `InventoryContext` orders intake and supplier events by `updated_at`, and
+  its create responses merge into an already-received live row instead of appending a duplicate
+  (fixed 2026-11-12; see [[Resolved Bugs]]).
 - On WebSocket reconnect, browser focus, visibility restoration and `online`, `useDashboardResource`,
   `ScanContext`, `InventoryContext`, `AdminContext` and `AppNotifications` reconcile against the
   authoritative API with abort/sequence guards, so a stale response cannot overwrite newer data and

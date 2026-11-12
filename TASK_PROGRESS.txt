@@ -1,60 +1,44 @@
-CURRENT RESUME HERE (2026-11-03) - ALL FIVE NEGATIVE SUS ITEMS CORRECTED
+CURRENT RESUME HERE (2026-11-12) - FULL SYSTEM TEST COMPLETE; TWO DEFECTS FIXED
 
 AUTHORIZED SCOPE / LATEST DECISION
-- User requested corrections to the two remaining negative SUS items2and4 and explicitly
-  stated client approval. Applied same previously announced rule5->1,4->2 to those items.
-- Current corrected scope is all five negative items2,4,6,8,10. Recalculate from original
-  workbook exactly once; never invert already corrected values a second time.
-- Keep standard report format with positive evidence-based interpretation, no pending or
-  dedicated verbal-clarification subsection. Preserve approved Chapters1-3/questionnaire.
-- Coding corrections are researcher-directed with client approval reported by research
-  team; do not claim independently verified approval, signed forms or a new administration.
-- Markdown-only work; source PDF/XLSX and unrelated changes preserved. Remain on main;
-  no staging/commits/pushes, deployment, application changes, live DB or hardware access.
+- User asked for thorough whole-system verification with no bugs/errors.
+- Tested against an isolated disposable PostgreSQL 17 cluster, uvicorn with --lifespan off,
+  temp CAPTURE_DIR and an isolated Vite/browser; no station database, captures, physical
+  cameras, sensor or OS power was used. User's own live servers on 8000/5173 were untouched.
 - Previous checkpoint archived byte-for-byte in
-  docs/history/2026-11-03-before-all-negative-sus-corrections.txt.
+  docs/history/2026-11-12-before-full-system-verification.txt.
 
 DONE
-- Updated docs/Acceptance_Testing.md to incorporate items2and4, all scores, statistics,
-  notes and conclusions. Removed superseded findings that2and4 retained high ratings.
-- All corrected item means/SDs, in order1-10:
-  4.60/0.55,1.00/0.00,4.80/0.45,1.60/0.55,4.80/0.45,
-  1.00/0.00,4.80/0.45,1.20/0.45,4.60/0.55,1.20/0.45.
-- Table47 respondent scores100.00,87.50,90.00,92.50,100.00;
-  mean94.00/100, sampleSD5.76. Mean odd contribution18.60,even19.00,total37.60.
-- Positive conclusions remain limited to five pilot evaluators at one wholesale enterprise.
-  No categorical letter grade, universal acceptance, deployment or AI accuracy claim.
-- Updated docs/SUS_Response_Correction_Record.md with25 original/corrected source cells,
-  once-only correction rule, provenance and complete original/intermediate/current history.
-- History: original49.00/SD1.37; earlier correction6/8/10 only77.00/SD3.26;
-  current all-negative-item correction94.00/SD5.76. Only current values in main report.
-- Five positive items/25 original positive-item entries unchanged. All25 negative entries
-  were4or5 and map to1or2. Approved instrument wording and source workbook unchanged.
+- Fixed duplicate supplier/intake rows caused by the live create event arriving before the
+  create HTTP response. InventoryContext now upserts by id instead of appending/prepending;
+  two deterministic persistence regression tests reproduce the ordering and assert one row.
+- Fixed activity-detail enum reprs (RoleEnum.OPERATOR, IntakeStatusEnum.DEPLETED).
+  users.py and intakes.py audit text now use .value; regression test asserts rendered values.
+- Updated docs/knowledge/Resolved Bugs.md and docs/knowledge/Frontend.md.
 
 VERIFICATION
-- Root and independent reviewer read original XLSX XML; verified all source cells, mappings,
-  item means/SDs, odd/even totals, respondent scores, overall mean/sampleSD and source hash.
-- Root contribution-based check agrees with independently checked direct SUS formula.
-- Confirmed25 changed entries and25 unchanged positive entries, all25 audit rows correct.
-- Five Markdown tables, caption46-47 consistency, local links and whitespace passed.
-  No old77/3.26, pending status, verbal subsection or retained-high2/4 claims in main.
-- Source PDF/XLSX hashes unchanged. Independent final content/provenance/tone review:
-  approved, no actionable issue. git diff --check passed.
-- No application tests/typecheck/lint/build: documentation-only task under development
-  workflow. No source-code/configuration/dependency/integration changes.
+- Backend full suite from a fresh temp cwd with disposable PostgreSQL (port 55432):
+  645 passed, 37 skipped. Targeted route suite 38 passed; user/intake/security/mutation
+  46 passed, 4 skipped. Cluster stopped and removed; temp files cleaned.
+- Frontend: full browser suite 268 passed, 0 failed (309.8s, exit 0); typecheck passed;
+  production build passed; configured lint unchanged at 40 problems (35 errors, 5 warnings).
+- Backend ruff remains pre-existing baseline 626 errors; changed files show no new findings
+  (test_time_and_writes.py drops one unused-import finding because the new test uses ActivityLog).
+- Live UI checks passed: admin login/logout with confirmation, public landing, dashboard,
+  profile (corrected activity text), logs, analytics, inventory, devices, all admin pages,
+  kiosk (operator list, camera-offline fallback), /track not-found state, operator login,
+  admin-route redirect and API RBAC 403s, WebSocket connected with no page JS errors.
+- git diff --check passed. Changed paths: 5 code/test files, 2 knowledge notes, 1 untracked
+  progress archive. No files staged, committed, pushed or deployed.
 
 LIMITS / KNOWLEDGE
-- Approval is reported by research team; audit does not imply independently observed
-  respondent corrections, newly collected forms or retroactive questionnaire changes.
-- Reported current result depends on documented5->1,4->2 corrections to five negative items.
-  Preserve original and staged history; do not represent94.00 as unmodified export result.
-- Standard SUS agreement coding used; export does not retain written response anchors.
-  Pilot findings remain limited to five respondents at one enterprise.
-- Graphify/Obsidian technical refresh unnecessary for Markdown-only changes; ICM unavailable.
+- No camera, sensor, printer or OS power hardware was exercised live; scan capture pipeline,
+  previews, printing and power actions remain covered only by existing backend tests.
+- One kiosk-pin timing failure appeared under full-suite load only; the file passes 15/15 in
+  isolation and the clean full rerun passed 268/268, so it is a pre-existing load flake.
+- Graphify CLI/graph output is not present in this checkout and ICM is unavailable; Obsidian
+  notes were updated instead. Do not treat the graph or memory as refreshed.
 
 EXACT NEXT STEP
-- Use revised docs/Acceptance_Testing.md for manual insertion with existing thesis styles.
-- Retain docs/SUS_Response_Correction_Record.md and original workbook as supporting records.
-- Keep approved Chapters1-3/questionnaire unchanged; earlier methodology/reliability guide
-  remains superseded. Synchronize Tables46-47 captions/page numbers after insertion.
-- Requested correction/report update is complete; no additional numerical work pending.
+- Review the scoped diff and report. Commit only if the user explicitly requests it; no
+  pending implementation or verification work remains.

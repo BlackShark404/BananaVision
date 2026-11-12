@@ -190,7 +190,7 @@ async def update_intake_status(
     db.add(ActivityLog(
         user_id=admin.id,
         action="intake_status_changed",
-        details=f"Intake {intake_id} status → {body.status}",
+        details=f"Intake {intake_id} status → {body.status.value}",
         ip_address=get_client_ip(request),
     ))
     await db.commit()

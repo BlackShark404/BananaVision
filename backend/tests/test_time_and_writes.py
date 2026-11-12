@@ -307,6 +307,21 @@ def test_http_write_only_succeeds_after_commit_and_failure_rolls_back(applicatio
         assert db.get(Scan, ids.scan).date_time == app.historical
 
 
+def test_activity_details_render_enum_values_not_enum_reprs(application):
+    app = application
+    created = app.client.post("/api/v1/users", json={
+        "username": "enum-check", "full_name": "Enum Check", "role": "Operator",
+    })
+    assert created.status_code == 201, created.text
+    status = app.client.patch(f"/api/v1/intakes/{app.ids.intake}/status",
+                              json={"status": "Depleted"})
+    assert status.status_code == 200, status.text
+    with Session(app.engine) as db:
+        details = {log.action: log.details for log in db.scalars(select(ActivityLog))}
+    assert details["user_created"] == "Created user 'enum-check' with role Operator"
+    assert details["intake_status_changed"] == f"Intake {app.ids.intake} status → Depleted"
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("fail_commit", [False, True])
 @pytest.mark.parametrize("detection_values", [(0, 0), (None, None), (50, 1)])

@@ -53,6 +53,20 @@ async function setup(t, options = {}) {
       if (state.holdWrite) await state.holdWrite()
       if (state.failWrites) return reply({ detail: "Database write rejected" }, 503)
       const body = request.postDataJSON()
+      if (url.pathname === "/api/v1/suppliers") {
+        const supplier = { id: "supplier-new", ...body, date_added: storedDate(0), updated_at: storedDate(0) }
+        state.suppliers.push(supplier)
+        return reply(supplier, 201)
+      }
+      if (url.pathname === "/api/v1/intakes") {
+        const intake = {
+          id: "intake-new", supplier_id: body.supplier_id, supplier_name: "Original supplier",
+          source: body.source ?? "Kiosk", batch_number: body.batch_number,
+          intake_date: storedDate(0), status: "Active", scan_count: 0,
+        }
+        state.intakes.unshift(intake)
+        return reply(intake)
+      }
       if (url.pathname === "/api/v1/suppliers/supplier-1") {
         state.suppliers[0] = { ...state.suppliers[0], ...body, name: "Canonical supplier" }
         return reply(state.suppliers[0])
@@ -285,4 +299,40 @@ test("Quality Control disables export after incomplete history retrieval", async
   const { page } = await setup(t, { screen: "quality", failPage: 2 })
   assert.equal(await page.getByRole("button", { name: /export csv/i }).isDisabled(), true)
   await page.getByRole("alert").filter({ hasText: /History page unavailable/ }).waitFor()
+})
+
+test("a supplier live event that arrives before its create response does not duplicate the row", async t => {
+  let release
+  const pending = new Promise(resolve => { release = resolve })
+  const { page, state } = await setup(t, { failWrites: false, holdWrite: () => pending })
+  await page.getByRole("button", { name: "supplierAdd", exact: true }).click()
+  await until(() => state.requests.some(request => request.method === "POST" && request.path === "/api/v1/suppliers"))
+  await page.evaluate(() => window.dashboardSocket.emit("supplier:changed", {
+    event_id: "supplier-event-1", supplier_id: "supplier-new", kind: "created",
+    supplier: { id: "supplier-new", name: "New supplier", status: "Active", date_added: "2024-05-05T08:10:00+08:00", updated_at: "2024-05-05T08:10:00+08:00" },
+  }))
+  await until(async () => (await snapshot(page)).suppliers.some(supplier => supplier.id === "supplier-new"), "Live supplier event was not applied")
+  release()
+  await until(async () => (await page.getByTestId("operation-result").textContent()) === "success")
+  const created = (await snapshot(page)).suppliers.filter(supplier => supplier.id === "supplier-new")
+  assert.equal(created.length, 1, "The create response must merge into the live row, not append a copy")
+  assert.equal(created[0].name, "New supplier")
+})
+
+test("an intake live event that arrives before its create response does not duplicate the row", async t => {
+  let release
+  const pending = new Promise(resolve => { release = resolve })
+  const { page, state } = await setup(t, { failWrites: false, holdWrite: () => pending })
+  await page.getByRole("button", { name: "intake", exact: true }).click()
+  await until(() => state.requests.some(request => request.method === "POST" && request.path === "/api/v1/intakes"))
+  await page.evaluate(() => window.dashboardSocket.emit("intake:changed", {
+    event_id: "intake-event-1", intake_id: "intake-new", kind: "created", status: "Active",
+    intake: { id: "intake-new", supplier_id: "supplier-1", supplier_name: "Original supplier", source: "Kiosk", batch_number: "new-batch", intake_date: "2024-05-05T08:10:00+08:00", status: "Active", scan_count: 0 },
+  }))
+  await until(async () => (await snapshot(page)).intakes.some(intake => intake.id === "intake-new"), "Live intake event was not applied")
+  release()
+  await until(async () => (await page.getByTestId("operation-result").textContent()) === "success")
+  const current = await snapshot(page)
+  assert.equal(current.intakes.filter(intake => intake.id === "intake-new").length, 1, "The create response must merge into the live row, not prepend a copy")
+  assert.equal(current.activeIntake.id, "intake-new")
 })

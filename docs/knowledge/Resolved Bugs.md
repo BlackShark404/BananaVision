@@ -2,6 +2,24 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-11-12: Duplicate create rows from live-event races and enum text in activity details
+
+- **Symptoms:** creating a supplier showed the same UUID twice in Supplier Management/Inventory and
+  inflated the active-supplier KPI. Delivery intake creation had the same race. Profile and Activity
+  Log rendered enum member names such as `RoleEnum.OPERATOR` and `IntakeStatusEnum.DEPLETED`.
+- **Root causes:** the post-commit `supplier:changed`/`intake:changed` event could reach the browser
+  before the create HTTP response. `InventoryContext.addSupplier`/`startIntake` appended the
+  response row without checking whether the id already existed. Audit `details` f-strings
+  interpolated `str, Enum` members; on this runtime `str()` renders `EnumName.MEMBER`.
+- **Fixes:** create responses now upsert by id, merging into a row already applied from the live
+  event. `users.py` and `intakes.py` activity details use `.value`.
+- **Verification:** new persistence regression tests hold the create response until after the
+  matching event and then assert exactly one row and the correct active intake (17/17 suite).
+  `test_time_and_writes.py` asserts activity details contain `Operator`/`Depleted`, not enum reprs.
+  Full backend on disposable PostgreSQL: **645 passed, 37 skipped**. Full frontend suite, typecheck
+  and production build passed; live UI confirmed one supplier row and the corrected activity text.
+  See [[Testing and Validation]] and [[Frontend]].
+
 ## 2026-10-24: Cross-session mutation sync and sensor freshness
 
 - **Symptoms:** a scan edited in one session (flag, correction, status, note, provenance) stayed stale in
