@@ -259,31 +259,146 @@ def test_real_banana_view_keeps_its_fingers_when_evidence_is_tight():
     assert gated.ood_rejected_boxes == 0
 
 
-def test_shifted_redetection_of_an_accepted_finger_is_not_a_gate_intervention(monkeypatch):
+TOP_NAMES = {0: "lakatan_ripe", 1: "lakatan_unripe", 2: "cardaba_ripe"}
+FRAME_W, FRAME_H = 640, 480
+
+
+class TopPasses:
+    """Calibrated Top view: fixed rows for the first, rotated and recovery passes.
+
+    With `evidence` the fake deletes unsupported rows itself, which is the reference
+    the gate must match. Rotated-frame rows are judged in original coordinates.
+    """
+
+    def __init__(self, passes, frame, evidence=None):
+        self.passes, self.frame, self.evidence, self.calls = passes, frame, evidence, 0
+
+    def predict(self, image, **_kwargs):
+        rows = self.passes[min(self.calls, len(self.passes) - 1)]
+        self.calls += 1
+        if self.evidence is not None:
+            flipped = image is not self.frame
+
+            def original(row):
+                x1, y1, x2, y2 = row[:4]
+                if not flipped:
+                    return row[:4]
+                return (FRAME_W - x2, FRAME_H - y2, FRAME_W - x1, FRAME_H - y1)
+
+            rows = [row for row in rows if on_banana(original(row), self.evidence)]
+        boxes = [
+            SimpleNamespace(xyxy=np.array([row[:4]], dtype=float), conf=[row[4]], cls=[row[5]])
+            for row in rows
+        ]
+        return [SimpleNamespace(boxes=boxes, names=TOP_NAMES)]
+
+
+def run_top(passes, evidence, mode):
+    """mode: 'gated', 'deleted' (reference) or 'ungated'."""
+    frame = np.zeros((FRAME_H, FRAME_W, 3), dtype=np.uint8)
+    classifier = BananaClassifier()
+    classifier._model = TopPasses(passes, frame, evidence if mode == "deleted" else None)
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+    gate = {"banana_evidence": evidence} if mode == "gated" else {}
+    return classifier.predict(frame, confidence_threshold=0.50, camera_label="Top", **gate)
+
+
+@pytest.fixture
+def top_settings(monkeypatch):
     monkeypatch.setattr(classification, "settings", SimpleNamespace(
         yolo_iou_threshold=0.45, yolo_top_overlap_refinement=True,
         yolo_top_rotation_fallback=True,
     ))
+
+
+def boxes(*xywh):
+    return [EvidenceBox(x, y, w, h, 0.5) for x, y, w, h in xywh]
+
+
+@pytest.mark.parametrize(("first", "rotated", "evidence"), [
+    # Unsupported repeats of a kept finger decided which orientation is canonical.
+    ([(300, 100, 400, 400, 0.95, 2), (0, 90, 100, 390, 0.55, 0)],
+     [(540, 290, 640, 390, 0.97, 0), (540, 190, 640, 290, 0.90, 0),
+      (540, 90, 640, 190, 0.90, 0)],
+     boxes((340, 230, 20, 40), (40, 220, 20, 40))),
+    # An unsupported rotated box was the only report of a label conflict.
+    ([(0, 0, 100, 100, 0.90, 0), (100, 0, 200, 100, 0.55, 1)],
+     [(470, 380, 610, 480, 0.80, 0)],
+     boxes((30, 30, 40, 40), (130, 30, 40, 40))),
+    # An unsupported rotated box swallowed a nested fragment before being dropped.
+    ([(0, 0, 100, 140, 0.90, 0)],
+     [(540, 180, 640, 480, 0.85, 0), (540, 180, 640, 280, 0.80, 0)],
+     boxes((0, 40, 100, 60), (0, 220, 100, 60))),
+])
+def test_rotated_pass_removal_that_changes_the_result_is_always_counted(
+    top_settings, first, rotated, evidence,
+):
+    passes = [first, rotated, []]
+    gated = run_top(passes, evidence, "gated")
+    assert summary(gated) == summary(run_top(passes, evidence, "deleted"))
+    # The gate altered what the classifier would report, so the scan must be flagged.
+    assert summary(gated) != summary(run_top(passes, evidence, "ungated"))
+    assert gated.ood_rejected_boxes > 0
+
+
+def test_random_top_views_obey_the_gate_contract(top_settings):
+    rng = np.random.default_rng(20261113)
+
+    def finger():
+        x, y = float(rng.integers(0, 540)), float(rng.integers(0, 180))
+        return (x, y, x + float(rng.integers(40, 100)), y + float(rng.integers(120, 300)))
+
+    def rotate(row):
+        x1, y1, x2, y2 = row[:4]
+        return (FRAME_W - x2, FRAME_H - y2, FRAME_W - x1, FRAME_H - y1, *row[4:])
+
+    counted = unchanged = altered = 0
+    for _ in range(400):
+        first = [(*finger(), round(float(rng.uniform(0.5, 0.97)), 3), int(rng.integers(0, 3)))
+                 for _ in range(int(rng.integers(1, 7)))]
+        # The rotated pass repeats some fingers (shifted or relabeled) and adds new ones.
+        rotated = []
+        for x1, y1, x2, y2, _score, label in first:
+            if rng.random() < 0.6:
+                dx = float(rng.integers(-12, 13))
+                relabel = int(rng.integers(0, 3)) if rng.random() < 0.3 else label
+                rotated.append(rotate((x1 + dx, y1, x2 + dx, y2,
+                                       round(float(rng.uniform(0.5, 0.99)), 3), relabel)))
+        rotated += [rotate((*finger(), round(float(rng.uniform(0.5, 0.99)), 3),
+                            int(rng.integers(0, 3)))) for _ in range(int(rng.integers(0, 4)))]
+        evidence = [
+            EvidenceBox(float(rng.integers(0, 500)), float(rng.integers(0, 300)),
+                        float(rng.integers(30, 320)), float(rng.integers(30, 320)), 0.5)
+            for _ in range(int(rng.integers(1, 4)))
+        ]
+        passes = [first, rotated, first]
+        gated = run_top(passes, evidence, "gated")
+        # The result is the classifier's own result for the boxes on banana evidence.
+        assert summary(gated) == summary(run_top(passes, evidence, "deleted"))
+        same = summary(gated) == summary(run_top(passes, evidence, "ungated"))
+        if gated.ood_rejected_boxes == 0:
+            # Nothing counted means nothing changed: no silent alteration.
+            assert same
+            unchanged += 1
+        else:
+            counted += 1
+            altered += not same
+    assert counted > 100 and unchanged > 10 and altered > 50
+
+
+def test_shifted_redetection_in_the_rotated_pass_is_counted_but_changes_nothing(top_settings):
     # Grown evidence ends at x = 475. The edge finger (centre 470) is accepted; the
-    # rotated and recovery passes return it 8 px to the right (centre 478).
+    # rotated pass returns it 8 px to the right (centre 478), outside the evidence.
     evidence = [EvidenceBox(x=100, y=80, w=300, h=320, confidence=0.8)]
     fingers = [(110 + 55 * index, 100, 150 + 55 * index, 380, 0.90, 0) for index in range(5)]
     edge = (440, 100, 500, 380, 0.90, 0)
-    shifted = (448, 100, 508, 380, 0.88, 0)
     rotated_shifted = (640 - 508, 480 - 380, 640 - 448, 480 - 100, 0.88, 0)
-    frame = np.zeros((480, 640, 3), dtype=np.uint8)
-
-    def run(**gate):
-        classifier = BananaClassifier()
-        classifier._model = SequencePredictor(
-            [[*fingers, edge], [rotated_shifted], [*fingers, shifted]], names=NAMES,
-        )
-        classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
-        return classifier.predict(frame, confidence_threshold=0.50, camera_label="Top", **gate)
-
-    legacy, gated = run(), run(banana_evidence=evidence)
-    assert summary(gated) == summary(legacy) and gated.finger_count == 6
-    assert gated.ood_rejected_boxes == 0
+    passes = [[*fingers, edge], [rotated_shifted], [*fingers, edge]]
+    gated, ungated = run_top(passes, evidence, "gated"), run_top(passes, evidence, "ungated")
+    assert summary(gated) == summary(ungated) and gated.finger_count == 6
+    # A rotated repeat can steer the orientation and conflict logic, so it is always
+    # counted: flagging a scan for nothing is the safe direction.
+    assert gated.ood_rejected_boxes == 1
 
 
 def test_box_without_banana_evidence_cannot_suppress_fingers_on_the_banana():

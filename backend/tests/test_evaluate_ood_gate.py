@@ -105,31 +105,123 @@ def test_pool_loading_refuses_missing_or_escaping_files(tmp_path):
         evaluation.load_pool(pool, empty, "calibration")
 
 
-@pytest.mark.parametrize(("banana", "expected"), [
-    (True, {"no_gate": ("Lakatan", 3), "legacy_gate": ("Lakatan", 3), "ood_gate": ("Lakatan", 2)}),
-    (False, {"no_gate": ("Lakatan", 3), "legacy_gate": (None, 0), "ood_gate": (None, 0)}),
-])
-def test_pipeline_variants_compare_no_gate_legacy_gate_and_ood_gate(banana, expected):
+def fake_detector(by_image):
+    """by_image maps an image tag to (banana_detected, evidence boxes)."""
+    def detect(image, **_kwargs):
+        banana, boxes = by_image[image]
+        return SimpleNamespace(
+            available=True, banana_detected=banana, boxes=boxes,
+            best_confidence=max((box.confidence for box in boxes), default=0.0),
+        )
+    return SimpleNamespace(detect=detect)
+
+
+def fake_classifier(calls):
+    def predict(image, **kwargs):
+        calls.append((image, kwargs))
+        # Three fingers without the gate; the gate keeps as many as it has evidence boxes.
+        fingers = len(kwargs["banana_evidence"]) if "banana_evidence" in kwargs else 3
+        return SimpleNamespace(
+            cultivar="Lakatan" if fingers else None, finger_count=fingers,
+        )
+    return SimpleNamespace(predict=predict)
+
+
+def test_scan_is_scored_like_the_station_with_each_view_using_its_own_evidence():
+    weak = [EvidenceBox(0, 0, 60, 200, 0.21)]
     calls = []
-    detector = SimpleNamespace(detect=lambda _image, **kwargs: SimpleNamespace(
-        available=True, banana_detected=banana, boxes=EVIDENCE if banana else [],
-    ))
-
-    def predict(_image, **kwargs):
-        calls.append(kwargs)
-        fingers = 2 if "banana_evidence" in kwargs else 3
-        return SimpleNamespace(cultivar="Lakatan", finger_count=fingers)
-
-    outcome = evaluation.predict_variants(
-        None, detector, SimpleNamespace(predict=predict), POLICY, 0.5, camera_label="Top",
+    scored = evaluation.score_scan(
+        [("top", "Top"), ("left", "Left"), ("rear", "Rear")],
+        # Only Top reaches the acceptance confidence; Left has weak evidence, Rear none.
+        fake_detector({"top": (True, EVIDENCE), "left": (False, weak), "rear": (False, [])}),
+        fake_classifier(calls), POLICY, 0.5,
     )
-    assert outcome == expected
-    assert len(calls) == (2 if banana else 1)
+    assert [view["has_banana"] for view in scored] == [True, False, False]
+    assert all(view["scan_accepted"] for view in scored)
+    # The earlier rule kept every box of every view once one view showed a banana.
+    assert [view["legacy_gate"] for view in scored] == [("Lakatan", 3)] * 3
+    assert [view["no_gate"] for view in scored] == [("Lakatan", 3)] * 3
+    # The gate still classifies a view below acceptance, with that view's own evidence.
+    assert [view["ood_gate"] for view in scored] == [("Lakatan", 1), ("Lakatan", 1), (None, 0)]
     # The station passes the view; without it the Top paths and filters are skipped.
-    assert all(call["camera_label"] == "Top" for call in calls)
+    assert [(image, kwargs["camera_label"]) for image, kwargs in calls] == [
+        ("top", "Top"), ("top", "Top"), ("left", "Left"), ("left", "Left"),
+        ("rear", "Rear"), ("rear", "Rear"),
+    ]
+    assert calls[3][1]["banana_evidence"] == weak
+
+
+def test_scan_without_enough_banana_views_is_rejected_for_every_view():
+    calls = []
+    detector = fake_detector({"a": (True, EVIDENCE), "b": (False, [])})
+    rejected = evaluation.score_scan(
+        [("b", "Top")], detector, fake_classifier(calls), POLICY, 0.5,
+    )
+    assert rejected == [{
+        "has_banana": False, "scan_accepted": False, "no_gate": ("Lakatan", 3),
+        "legacy_gate": (None, 0), "ood_gate": (None, 0),
+    }]
+    # Two views required, one present: the earlier rule passes, the gate does not.
+    strict = evaluation.score_scan(
+        [("a", "Top"), ("b", "Left")], detector, fake_classifier(calls),
+        GatePolicy(min_banana_views=2), 0.5,
+    )
+    assert [view["legacy_gate"] for view in strict] == [("Lakatan", 3)] * 2
+    assert [view["ood_gate"] for view in strict] == [(None, 0)] * 2
     broken = SimpleNamespace(detect=lambda _image, **kwargs: SimpleNamespace(available=False))
     with pytest.raises(EvaluationError):
-        evaluation.predict_variants(None, broken, SimpleNamespace(predict=predict), POLICY, 0.5)
+        evaluation.score_scan([("a", "Top")], broken, fake_classifier(calls), POLICY, 0.5)
+
+
+def test_top_path_status_requires_every_calibration_condition():
+    module = SimpleNamespace(
+        TOP_CALIBRATED_CHECKPOINTS={"abc": 640}, TOP_OVERLAP_CONFIDENCE=0.50,
+        TOP_OVERLAP_BASE_IOU=0.45,
+        settings=SimpleNamespace(yolo_iou_threshold=0.45, yolo_top_overlap_refinement=True,
+                                 yolo_top_rotation_fallback=True),
+    )
+    classifier = SimpleNamespace(_checkpoint_sha256="abc", _image_size=640)
+    assert evaluation.top_paths(classifier, module, 0.50)["active"] is True
+    lower = evaluation.top_paths(classifier, module, 0.45)
+    assert lower["checkpoint_registered"] is True and lower["confidence_is_calibrated"] is False
+    assert lower["active"] is False
+    resized = evaluation.top_paths(SimpleNamespace(_checkpoint_sha256="abc", _image_size=800),
+                                   module, 0.50)
+    assert resized["image_size_matches"] is False and resized["active"] is False
+    unknown = evaluation.top_paths(SimpleNamespace(_checkpoint_sha256="zzz", _image_size=640),
+                                   module, 0.50)
+    assert unknown["checkpoint_registered"] is False and unknown["active"] is False
+    module.settings.yolo_top_rotation_fallback = False
+    assert evaluation.top_paths(classifier, module, 0.50)["active"] is False
+
+
+def test_existing_output_stops_the_run_before_any_evaluation(tmp_path, monkeypatch, capsys):
+    ran = []
+    monkeypatch.setattr(evaluation, "run_gate", lambda args: ran.append("gate") or {})
+    monkeypatch.setattr(evaluation, "run_pipeline", lambda args: ran.append("pipeline") or {})
+    report = tmp_path / "ood-pipeline-report.json"
+    report.write_text("{}")
+    for command in (["gate", "--ood", str(tmp_path)],
+                    ["pipeline", "--weights", "w.pt", "--ood", str(tmp_path)]):
+        with pytest.raises(SystemExit) as stopped:
+            evaluation.main([*command, "--output", str(report)])
+        assert stopped.value.code == 2
+    assert ran == [] and "output already exists" in capsys.readouterr().err
+    fresh = tmp_path / "new.json"
+    assert evaluation.main(["gate", "--ood", str(tmp_path), "--output", str(fresh)]) == 0
+    assert ran == ["gate"] and json.loads(fresh.read_text()) == {}
+
+
+@pytest.mark.parametrize(("filename", "scan"), [
+    ("valid__B4_Latundan1_NoneChemical_02570_top_jpg.rf.995e.jpg",
+     "valid__B4_Latundan1_NoneChemical_02570"),
+    ("valid__B4_Latundan1_NoneChemical_02570_back_jpg.rf.b17c.jpg",
+     "valid__B4_Latundan1_NoneChemical_02570"),
+    ("valid__B4_Latundan1_NoneChemical_02571_left.jpg", "valid__B4_Latundan1_NoneChemical_02571"),
+    ("plain.jpg", "plain"),
+])
+def test_views_of_one_capture_share_a_scan_id(filename, scan):
+    assert evaluation.scan_id(filename) == scan
 
 
 @pytest.mark.parametrize(("filename", "view"), [

@@ -30,8 +30,11 @@ DONE
   pass, the rotated Top pass and the occluded-finger recovery pass before any other rule
   sees it; the team's rules (V2 checkpoints, canonical rotation, TTA recovery, cluster
   and duplicate rules, genuine max-view counting) are not modified, and nothing changes
-  when no evidence is given. A box counts as an intervention only when the pass would
-  not have dropped it anyway, so a scan is flagged exactly when the gate altered it.
+  when no evidence is given. Every scan the gate altered is flagged: in the first and
+  recovery passes a skipped box counts unless that pass would have dropped it anyway;
+  in the rotated Top pass every skipped box counts, because a repeat there still steers
+  the orientation and label-conflict logic. A Top scan can so be flagged for a skipped
+  box that changed nothing; the reverse (a silent change) does not happen.
 - scan_service.py / api/v1/scans.py: gate on every view; rejection 422 with detail +
   code/status/is_ood/reason; same fields on scan:failed; any scan that lost a box is
   saved flagged; scan_rejected activity row with per-view banana scores. Faults answer
@@ -45,8 +48,11 @@ DONE
   split. merge-negatives copies a prepared YOLO dataset and adds background images to
   train only. backend/ood-data/ is git-ignored.
 - backend/scripts/evaluate_ood_gate.py: `gate` mode (run here) and `pipeline` mode
-  (needs trained weights + labeled split). Pipeline mode reads the camera view from each
-  prepared file name, reports each view, and says whether the weights are Top-calibrated.
+  (needs trained weights + labeled split). Pipeline mode groups the prepared files of
+  one capture into a scan and scores it as the station does (scan gate over the views,
+  then each view with its own camera label and banana evidence), reports each view, and
+  says under `top_paths` whether the Top refinement, rotated pass and recovery ran.
+  Fusion across views is not simulated.
 - Frontend: api.ts error code/reason; ScanContext refusal state with one notice per
   scan; Kiosk status card "No Lakatan, Latundan, or Cardaba detected" and an alert card
   "Scan could not run" for 503 faults; Activity Log badge and full detail; Profile label.
@@ -60,8 +66,8 @@ VERIFICATION
   FPR at 95 % TPR 2.83 %. Box support keeps 94.92 % of banana boxes; 7.3 % of near-OOD
   and 0.16 % of far-OOD object boxes pass. One banana view plus three unrelated views:
   OOD boxes admitted 11069 -> 475.
-- Backend: 675 passed, 104 skipped (PostgreSQL-only; no disposable cluster here);
-  the team main (0c74c73) alone gives 582 passed, 104 skipped. 93 new tests.
+- Backend: 685 passed, 104 skipped (PostgreSQL-only; no disposable cluster here);
+  the team main (0c74c73) alone gives 582 passed, 104 skipped. 103 new tests.
 - Frontend: 280 browser tests, 5 new kiosk cases. Full run 279 passed, 1 failed
   (397.1 s): kiosk-pin "PIN verification sends once..." stopped in its own setup with
   "clock.pauseAt: Cannot fast-forward to the past". That test, its fixture and the
@@ -82,6 +88,12 @@ VERIFICATION
   scans flagged although the gate changed nothing (these three led to the simpler
   "never emitted" design), the laptop evaluation not passing the camera view, the wrong
   weights file in the command, and an inaccurate "disjoint by split" statement.
+- A randomized confirmation of about 146,000 cases found the gate-off path identical to
+  0c74c73 and the gate result identical to the classifier on the supported boxes, but
+  2,044 Top cases where a skipped rotated-pass box changed the result uncounted. Fixed
+  by counting every skipped rotated-pass box; rerun of about 61,000 cases: 0 violations.
+  It also led to scan-level scoring, the `top_paths` status and an early output check in
+  the evaluation script.
 - No live station database, captures, cameras, sensors or OS power were used.
 
 LIMITS / KNOWLEDGE
@@ -100,8 +112,9 @@ EXACT NEXT STEP
 - On the laptop, from backend/ with the project venv:
     python scripts/prepare_ood_dataset.py fetch --manifest scripts/ood/open_images_ood_manifest.json --output ood-data
     python scripts/evaluate_ood_gate.py pipeline --weights <file named by YOLO_MODEL_PATH> --id-split <prepared dataset>/test --ood ood-data --pool benchmark --output ood-pipeline-report.json
-  Use the weights the station runs (the V2 checkpoint). In the report,
-  `top_calibrated_checkpoint` must be true. Compare `legacy_gate` with `ood_gate`, in
-  total and under `in_distribution_by_view`: per-cultivar recall and `finger_boxes` must
-  not drop for real bananas. Send the JSON back for review.
+  Use the weights the station runs (the V2 checkpoint) and keep --confidence at 0.50.
+  In the report, `top_paths.active` must be true. Compare `legacy_gate` with `ood_gate`,
+  in total and under `in_distribution_by_view`: per-cultivar recall and `finger_boxes`
+  must not drop for real bananas, and `scans_accepted` should equal `scans`. Send the
+  JSON back for review.
 - Then open the pull request from the fork to BlackShark404/BananaVision. No deployment.

@@ -10,10 +10,14 @@ gate      Banana-vs-OOD gate on a fetched Open Images pool (no cultivar weights 
 pipeline  Full two-stage pipeline with the trained cultivar weights on a prepared
           YOLO split (in-distribution) and an OOD pool. Reports per-cultivar
           precision/recall/F1 and the false-cultivar rate before and after the gate.
-          The camera view (Top, Left, Right, Rear) is read from each prepared file
-          name, as the station passes it, so the Top refinement, the rotated pass
-          and the background filters run. Use the weights the station runs
-          (YOLO_MODEL_PATH); the report says whether they are Top-calibrated.
+          Prepared files of one capture are scored together as one scan, as on the
+          station: the scan passes when enough views show a banana, then every view
+          is classified with its own camera label and its own banana evidence. An OOD
+          image is a one-camera scan under --ood-view. Use the weights the station
+          runs (YOLO_MODEL_PATH); "top_paths" in the report says whether the Top
+          refinement, rotated pass and finger recovery were really active.
+          Fusion across views is not simulated, and dataset photos are not station
+          captures.
 
 Examples (the pool directory and both report names are git-ignored):
   python scripts/evaluate_ood_gate.py gate --ood ood-data --pool benchmark \\
@@ -39,7 +43,13 @@ BACKEND = Path(__file__).resolve().parents[1]
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
-from app.services.ood_gate import EvidenceBox, GatePolicy, is_supported  # noqa: E402
+from app.services.ood_gate import (  # noqa: E402
+    EvidenceBox,
+    GatePolicy,
+    ViewEvidence,
+    decide_scan,
+    is_supported,
+)
 
 DEFAULT_MANIFEST = Path(__file__).resolve().parent / "ood" / "open_images_ood_manifest.json"
 OOD_GROUPS = ("near", "far")
@@ -254,6 +264,13 @@ def camera_view(filename: str) -> str | None:
     return "Rear" if view == "back" else view.capitalize()
 
 
+def scan_id(filename: str) -> str:
+    """Files of one capture share everything before the view suffix."""
+    stem = Path(filename).stem.split(".rf.", 1)[0]
+    match = VIEW_SUFFIX.search(stem)
+    return stem[:match.start()] if match else stem
+
+
 def _id_images(split: Path) -> list[tuple[Path, str, str | None]]:
     """Images of a prepared YOLO split with a single ground-truth cultivar and their view."""
     images, labels = split / "images", split / "labels"
@@ -303,32 +320,71 @@ def classification_metrics(pairs: list[tuple[str, str | None]]) -> dict:
     return result
 
 
-def predict_variants(
-    image, detector, classifier, policy: GatePolicy, confidence: float,
-    camera_label: str | None = None,
-) -> dict:
-    """Cultivar and finger count without a gate, with the legacy gate, and with the new gate."""
-    pre = detector.detect(
-        image, accept_confidence=policy.banana_confidence,
-        support_confidence=policy.support_confidence,
-    )
-    if not pre.available:
-        raise EvaluationError("The banana pre-detector is not loaded")
-    # The view selects the Top refinement, the rotated pass and the background filters.
-    open_result = classifier.predict(
-        image, confidence_threshold=confidence, camera_label=camera_label,
-    )
-    gated = classifier.predict(
-        image, confidence_threshold=confidence, camera_label=camera_label,
-        banana_evidence=pre.boxes or [], support_margin=policy.support_margin,
-    ) if pre.banana_detected else None
-    return {
-        "no_gate": (open_result.cultivar, open_result.finger_count),
-        "legacy_gate": (
-            (open_result.cultivar, open_result.finger_count) if pre.banana_detected else (None, 0)
-        ),
-        "ood_gate": (gated.cultivar, gated.finger_count) if gated else (None, 0),
+VARIANTS = ("no_gate", "legacy_gate", "ood_gate")
+
+
+def score_scan(
+    views: list[tuple[object, str | None]], detector, classifier, policy: GatePolicy,
+    confidence: float,
+) -> list[dict]:
+    """Score one scan the way scan_service does, without fusion.
+
+    views: (image, camera_label) per captured view. Returns one entry per view with
+    (cultivar, finger_count) for each variant:
+      no_gate      the cultivar model alone;
+      legacy_gate  the earlier rule: the scan passes when any view shows a banana,
+                   then every box of every view is kept;
+      ood_gate     the scan passes on the same evidence, then each view keeps only
+                   the boxes its own banana evidence covers.
+    """
+    evidence = []
+    for index, (image, label) in enumerate(views):
+        pre = detector.detect(
+            image, accept_confidence=policy.banana_confidence,
+            support_confidence=policy.support_confidence,
+        )
+        if not pre.available:
+            raise EvaluationError("The banana pre-detector is not loaded")
+        evidence.append(ViewEvidence(
+            camera_id=str(index), camera_label=label or "", evidence=pre.boxes or [],
+            banana_score=pre.best_confidence, has_banana=bool(pre.banana_detected),
+        ))
+    legacy_accepted = any(view.has_banana for view in evidence)
+    accepted = decide_scan(evidence, policy).accepted
+    scored = []
+    for (image, label), view in zip(views, evidence, strict=True):
+        # The view selects the Top refinement, the rotated pass and the background filters.
+        open_result = classifier.predict(
+            image, confidence_threshold=confidence, camera_label=label,
+        )
+        outcome = (open_result.cultivar, open_result.finger_count)
+        gated = classifier.predict(
+            image, confidence_threshold=confidence, camera_label=label,
+            banana_evidence=view.evidence, support_margin=policy.support_margin,
+        ) if accepted else None
+        scored.append({
+            "has_banana": view.has_banana,
+            "scan_accepted": accepted,
+            "no_gate": outcome,
+            "legacy_gate": outcome if legacy_accepted else (None, 0),
+            "ood_gate": (gated.cultivar, gated.finger_count) if gated else (None, 0),
+        })
+    return scored
+
+
+def top_paths(classifier, classification, confidence: float) -> dict:
+    """Whether the calibrated Top refinement, rotated pass and recovery can run."""
+    settings = classification.settings
+    expected = classification.TOP_CALIBRATED_CHECKPOINTS.get(classifier._checkpoint_sha256 or "")
+    status = {
+        "checkpoint_registered": expected is not None,
+        "image_size_matches": expected is not None and classifier._image_size == expected,
+        "confidence_is_calibrated": confidence == classification.TOP_OVERLAP_CONFIDENCE,
+        "iou_is_calibrated": settings.yolo_iou_threshold == classification.TOP_OVERLAP_BASE_IOU,
+        "overlap_refinement_setting": bool(settings.yolo_top_overlap_refinement),
+        "rotation_fallback_setting": bool(getattr(settings, "yolo_top_rotation_fallback", False)),
     }
+    return {**status, "active": all(status.values())}
 
 
 def run_pipeline(args: argparse.Namespace) -> dict:
@@ -348,14 +404,9 @@ def run_pipeline(args: argparse.Namespace) -> dict:
         classifier.load()
     if not classifier.is_loaded:
         raise EvaluationError("The cultivar model failed to load")
-    variants = ("no_gate", "legacy_gate", "ood_gate")
     report: dict = {
         "mode": "pipeline", "weights_sha256": classifier._checkpoint_sha256,
-        # Without a registered checkpoint the Top refinement, the rotated pass and the
-        # occluded-finger recovery do not run, on the station or here.
-        "top_calibrated_checkpoint": (
-            classifier._checkpoint_sha256 in classification.TOP_CALIBRATED_CHECKPOINTS
-        ),
+        "top_paths": top_paths(classifier, classification, args.confidence),
         "policy": asdict(policy), "detection_confidence": args.confidence,
     }
 
@@ -366,32 +417,45 @@ def run_pipeline(args: argparse.Namespace) -> dict:
         return image
 
     if args.id_split:
-        # Results for all images, and separately for each camera view.
-        pairs: dict = defaultdict(lambda: {variant: [] for variant in variants})
-        fingers: dict = defaultdict(Counter)
+        scans: dict = defaultdict(list)
         for path, truth, view in _id_images(args.id_split):
-            view = view or args.camera_label
-            outcome = predict_variants(
-                read(path), detector, classifier, policy, args.confidence, camera_label=view,
+            scans[scan_id(path.name)].append((path, truth, view or args.camera_label))
+        # Results for all images, and separately for each camera view.
+        pairs: dict = defaultdict(lambda: {variant: [] for variant in VARIANTS})
+        fingers: dict = defaultdict(Counter)
+        below: Counter = Counter()
+        accepted_scans = 0
+        for members in scans.values():
+            scored = score_scan(
+                [(read(path), view) for path, _, view in members],
+                detector, classifier, policy, args.confidence,
             )
-            for scope in ("all", view or "no_view"):
-                for variant in variants:
-                    pairs[scope][variant].append((truth, outcome[variant][0]))
-                    fingers[scope][variant] += outcome[variant][1]
+            accepted_scans += scored[0]["scan_accepted"]
+            for (_, truth, view), outcome in zip(members, scored, strict=True):
+                for scope in ("all", view or "no_view"):
+                    below[scope] += not outcome["has_banana"]
+                    for variant in VARIANTS:
+                        pairs[scope][variant].append((truth, outcome[variant][0]))
+                        fingers[scope][variant] += outcome[variant][1]
 
         def summarize(scope: str) -> dict:
             return {
                 "images": len(pairs[scope]["no_gate"]),
+                # Views where the verifier alone would not accept; on an accepted
+                # scan they are still classified, with their own evidence.
+                "frames_below_acceptance": below[scope],
                 **{
                     variant: {
                         **classification_metrics(pairs[scope][variant]),
                         "finger_boxes": fingers[scope][variant],
                     }
-                    for variant in variants
+                    for variant in VARIANTS
                 },
             }
 
-        report["in_distribution"] = summarize("all")
+        report["in_distribution"] = {
+            "scans": len(scans), "scans_accepted": accepted_scans, **summarize("all"),
+        }
         report["in_distribution_by_view"] = {
             scope: summarize(scope) for scope in (*VIEWS, "no_view") if scope in pairs
         }
@@ -400,21 +464,26 @@ def run_pipeline(args: argparse.Namespace) -> dict:
         for record in load_pool(args.ood, args.manifest, args.pool):
             if record["group"] not in OOD_GROUPS:
                 continue
-            outcome = predict_variants(
-                read(record["path"]), detector, classifier, policy, args.confidence,
+            [outcome] = score_scan(
+                [(read(record["path"]), args.ood_view)], detector, classifier, policy,
+                args.confidence,
             )
             counts[record["group"]]["images"] += 1
-            for variant in variants:
+            for variant in VARIANTS:
                 counts[record["group"]][variant] += outcome[variant][0] is not None
         report["out_of_distribution"] = {
-            group: {
-                "images": tally["images"],
-                **{
-                    f"false_cultivar_rate_{variant}": _rate(tally[variant], tally["images"])
-                    for variant in variants
-                },
-            }
-            for group, tally in counts.items()
+            # Each OOD image is scored as a one-camera scan under this view.
+            "view": args.ood_view,
+            **{
+                group: {
+                    "images": tally["images"],
+                    **{
+                        f"false_cultivar_rate_{variant}": _rate(tally[variant], tally["images"])
+                        for variant in VARIANTS
+                    },
+                }
+                for group, tally in counts.items()
+            },
         }
     return report
 
@@ -423,6 +492,7 @@ def _policy(args: argparse.Namespace) -> GatePolicy:
     return GatePolicy(
         banana_confidence=args.banana_confidence, support_confidence=args.support_confidence,
         support_margin=args.support_margin,
+        min_banana_views=getattr(args, "min_banana_views", 1),
     )
 
 
@@ -452,17 +522,23 @@ def main(argv: list[str] | None = None) -> int:
         "--camera-label", choices=VIEWS,
         help="view for in-distribution files whose name does not end in a view",
     )
+    pipeline.add_argument(
+        "--ood-view", choices=VIEWS, default="Top",
+        help="camera view under which each OOD image is scored (default: Top)",
+    )
+    pipeline.add_argument("--min-banana-views", type=int, default=1)
     args = parser.parse_args(argv)
     try:
         if args.command == "pipeline" and not (args.id_split or args.ood):
             raise EvaluationError("Give --id-split, --ood, or both")
+        # Checked before the run: a long evaluation must not be lost at the end.
+        if args.output and args.output.exists():
+            raise EvaluationError(f"output already exists: {args.output}")
         report = run_gate(args) if args.command == "gate" else run_pipeline(args)
     except (OSError, ValueError) as exc:
         parser.exit(2, f"Evaluation failed: {exc}\n")
     text = json.dumps(report, indent=2) + "\n"
     if args.output:
-        if args.output.exists():
-            parser.exit(2, f"Evaluation failed: output already exists: {args.output}\n")
         args.output.write_text(text, encoding="utf-8")
     print(text, end="")
     return 0

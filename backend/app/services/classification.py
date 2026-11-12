@@ -423,14 +423,20 @@ class BananaClassifier:
         # `off_banana` only counts the distinct boxes the gate actually removed.
         off_banana: list[Detection] = []
 
-        def rejected_by_gate(box: Detection, dropped_anyway) -> bool:
-            """dropped_anyway(box, kept): the pass's own rule for repeats of a kept box."""
+        def rejected_by_gate(box: Detection, dropped_anyway=None) -> bool:
+            """dropped_anyway(box, kept): the pass's own rule for repeats of a kept box.
+
+            Without it every skipped box counts. The rotated Top pass needs that: a
+            repeat there still feeds the orientation decision and the label-conflict
+            check, so skipping it can change the result.
+            """
             if banana_evidence is None or is_supported(box, banana_evidence, support_margin):
                 return False
             # Not an intervention when this pass would have dropped the box anyway as
             # a repeat of an accepted detection, or when the object is already counted.
             if not (
-                any(dropped_anyway(box, kept) for kept in detections)
+                (dropped_anyway is not None
+                 and any(dropped_anyway(box, kept) for kept in detections))
                 or any(
                     _is_same_class_sub_box(box, seen) or _is_duplicate_detection(box, seen)
                     for seen in off_banana
@@ -438,13 +444,6 @@ class BananaClassifier:
             ):
                 off_banana.append(box)
             return True
-
-        def same_label_rotated_duplicate(box: Detection, kept: Detection) -> bool:
-            # A different label on the same finger is a conflict the team code reports;
-            # removing that report is an intervention and stays counted.
-            return box.cls == kept.cls and _is_duplicate_detection(
-                box, kept, TOP_ROTATION_DEDUP_IOU,
-            )
 
         if results and len(results) > 0:
             result = results[0]
@@ -542,7 +541,7 @@ class BananaClassifier:
                             x=ox1, y=oy1, w=ox2 - ox1, h=oy2 - oy1,
                             cls=cls_name, confidence=conf,
                         )
-                        if rejected_by_gate(candidate, same_label_rotated_duplicate):
+                        if rejected_by_gate(candidate):
                             continue
                         if any(_is_same_class_sub_box(candidate, existing) for existing in rot_candidates):
                             continue

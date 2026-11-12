@@ -109,10 +109,12 @@ Full report: `docs/audits/ood-gate-evaluation-2026-11-13.json`.
 - **Not measured here:** per-cultivar precision, recall and F1 before and after the
   gate, and the false-cultivar rate of Stage 2 itself. Both need the trained weights and
   a labeled split: run `evaluate_ood_gate.py pipeline` where they exist. Give it the
-  weights the station runs (`YOLO_MODEL_PATH`); the report's `top_calibrated_checkpoint`
-  must be true, or the Top refinement, rotated pass and finger recovery do not run. It
-  reads the camera view from each prepared file name and reports each view separately.
-  Dataset photos are still not station captures.
+  weights the station runs (`YOLO_MODEL_PATH`) at confidence 0.50; the report's
+  `top_paths.active` must be true, or the Top refinement, rotated pass and finger
+  recovery did not run. It groups the prepared files of one capture into a scan, applies
+  the scan gate over its views, classifies each view with its own camera label and
+  evidence, and reports each view. Fusion across views is not simulated, and dataset
+  photos are still not station captures.
 - **Unsupported banana cultivars pass.** COCO "banana" covers every variety, and Stage 2
   has no "other banana" class. Rejecting them needs labeled examples and retraining.
 - **Strong lookalikes pass the verifier:** yellow watermelon slices 0.90, mango slice

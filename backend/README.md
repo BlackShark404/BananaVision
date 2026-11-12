@@ -146,10 +146,13 @@ python scripts/prepare_ood_dataset.py merge-negatives \
     --dataset <prepared dataset> --ood ood-data --output <new directory> --ratio 0.10
 ```
 
-Pipeline mode reads the camera view (Top, Left, Right, Rear) from each prepared file
-name and passes it to the classifier, as the station does, and reports each view. Use
-the weights the station runs: `top_calibrated_checkpoint` in the report must be true,
-otherwise the Top refinement, the rotated pass and the finger recovery do not run.
+Pipeline mode scores scans as the station does. Prepared files of one capture form one
+scan: it passes when enough views show a banana, then every view is classified with its
+own camera label (read from the file name) and its own banana evidence. Results are
+given in total and per view. An OOD image is a one-camera scan under `--ood-view`
+(default `Top`). Use the weights the station runs and keep `--confidence 0.50`:
+`top_paths.active` in the report must be true, otherwise the Top refinement, the rotated
+pass and the finger recovery did not run. Fusion across views is not simulated.
 
 `merge-negatives` never changes the source dataset, the validation split or the test
 split. It refuses a dataset that contains symbolic links, and a `data.yaml` whose `train`
