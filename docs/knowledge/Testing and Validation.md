@@ -2,6 +2,68 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## Out-of-distribution rejection — 2026-11-13
+
+Design, thresholds and limits are in [[AI Models]]; the kiosk state is in [[Frontend]].
+
+- **Gate evaluation** (`backend/scripts/evaluate_ood_gate.py gate`, Open Images V7 pools,
+  report `docs/audits/ood-gate-evaluation-2026-11-13.json`). Held-out benchmark: near-OOD
+  frame rejection **96.72 % → 97.31 %**, far-OOD **99.86 % → 100 %**, generic banana frames
+  accepted **90.07 %**, AUROC **0.976**, FPR at 95 % TPR **2.83 %**. Box support keeps
+  **94.92 %** of annotated banana boxes and passes **7.3 %** of near-OOD and **0.16 %** of
+  far-OOD object boxes. Thresholds were chosen on the calibration pool only.
+- **Laptop pipeline run (2026-11-13):** `pipeline` mode with `banana_yolo26s.pt` on the
+  benchmark pool. OOD images that end with a cultivar: near-OOD **76.42 % → 3.28 % →
+  2.99 %** and far-OOD **61.24 % → 0.14 % → 0.00 %** (no gate → earlier gate → OOD gate).
+  That checkpoint is not Top-calibrated (`top_paths.active` false). See [[AI Models]].
+- **Laptop labeled-split run (2026-11-13):** `pipeline --id-split` with `best.pt` of run
+  `v26s_run2_zick` on 416 labeled test photos (337 scans). Photos that end with a cultivar:
+  **416 → 409 → 408** (no gate → earlier gate → OOD gate); finger boxes **3 534 → 3 467 →
+  3 453**; no wrong cultivar in any variant. The OOD gate's extra loss (1 photo, 14 boxes)
+  is in the Rear view only. Reports: `docs/audits/ood-pipeline-ood-pool-2026-11-13.json`
+  and `docs/audits/ood-pipeline-labeled-split-2026-11-13.json`.
+- **Not measured:** any result on a registered Top-calibrated checkpoint, the number of real
+  scans the gate would flag, and four-camera fusion. No retraining was run.
+- **Backend:** full suite **685 passed, 104 skipped** (PostgreSQL-only cases; no disposable
+  cluster in this environment), against **582 passed, 104 skipped** on the team's
+  `0c74c73`. The 103 new tests cover gate logic, classifier filtering (including cluster-box,
+  rotated-pass, canonical-rotation and occluded-finger-recovery cases), the 422/503/WebSocket contract, the audit row, the dataset script (leakage, path
+  safety, truncated, incomplete and non-JPEG payloads, merge isolation), evaluation metrics,
+  and the real COCO verifier on 12 synthetic frames (blank, noise, blur, yellow/green shapes).
+- **Frontend:** 280 browser tests including 5 new kiosk cases. Full run **279 passed,
+  1 failed** (397.1 s). The failure was `kiosk-pin.test.mjs` "PIN verification sends
+  once…", which stopped in its own setup with `clock.pauseAt: Cannot fast-forward to the
+  past`: it installs the page clock and then pauses it at a `new Date()` taken in Node, so
+  the two clocks can race. The test, its fixture and the harness are unchanged by this
+  work, and the file passed **15/15 on three reruns**. Typecheck and production build
+  passed (existing >500 kB chunk warning); lint **40 problems (35 errors, 5 warnings)**,
+  unchanged baseline.
+- **Ruff:** new files clean. Changed backend files **43 findings, the same as on
+  `0c74c73`**; no introduced diagnostic.
+- **Review:** an independent design review before the tests, then four separate reviews
+  of the finished change (correctness, security, API/UI contract, tests and documentation).
+  They raised 20 concrete points; each was addressed, and code defects are pinned by
+  regression tests. Seven tests were checked by mutation: replacing the full JPEG decode,
+  removing the redirect refusal, removing the image-ID leak check, removing the shared
+  notice id, and removing each of the three classifier gate hooks made the matching test
+  fail. A further review after merging the team's `0c74c73` raised 8 points (three in the
+  classifier gate, one in the evaluation script, four in the notes); all were addressed,
+  and the gate was reduced to a plain contract: its result equals the classifier's result
+  for the boxes on banana evidence. A randomized confirmation (about 146,000 cases over
+  first-pass, rotated Top, canonical-rotation and recovery scenarios) then found no case
+  where the gate-off path differs from `0c74c73` and none against that contract, but
+  2,044 Top cases where a skipped rotated-pass box changed the result without being
+  counted. Every skipped rotated-pass box is now counted; the same campaign rerun
+  (about 61,000 cases) shows no violation. The repository tests pin this on 300 random
+  first-pass frames and 400 random Top views. The campaign also led to scan-level scoring
+  in the evaluation script. No Codex Security service scan was run.
+- **Running the new tests:** `test_ood_gate_model.py` needs `ultralytics` and the tracked
+  `backend/yolo26n.pt`; it skips where either is missing. No test uses the network, the
+  station database, captures, cameras or sensors.
+- **Tools:** Graphify CLI/graph, ICM and Context7 were unavailable in this checkout, so
+  the graph and project memory were not refreshed. Ultralytics behaviour for empty label
+  files was checked in the installed 8.4.40 source.
+
 ## Live Logs reconciliation finalization — 2026-10-25
 
 - Reproduced four browser failures before the fix: deferred edits, missed reconnect edits,

@@ -205,6 +205,7 @@ export interface ActivityLog {
     | "user_updated"
     | "config_changed"
     | "scan_flagged"
+    | "scan_rejected"
     | "supplier_created"
     | "supplier_updated"
     | "supplier_deleted"

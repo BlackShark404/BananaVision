@@ -1,0 +1,36 @@
+{
+  "mode": "pipeline",
+  "weights_sha256": "d1acd351fc551f8c4004879d79fcb777a1456c2b6aa08df20d9c76e064114dd5",
+  "top_paths": {
+    "checkpoint_registered": false,
+    "image_size_matches": false,
+    "confidence_is_calibrated": true,
+    "iou_is_calibrated": true,
+    "overlap_refinement_setting": true,
+    "rotation_fallback_setting": true,
+    "active": false
+  },
+  "policy": {
+    "banana_confidence": 0.3,
+    "support_confidence": 0.05,
+    "support_margin": 0.25,
+    "min_banana_views": 1,
+    "box_support_filter": true
+  },
+  "detection_confidence": 0.5,
+  "out_of_distribution": {
+    "view": "Top",
+    "near": {
+      "images": 670,
+      "false_cultivar_rate_no_gate": 0.7642,
+      "false_cultivar_rate_legacy_gate": 0.0328,
+      "false_cultivar_rate_ood_gate": 0.0299
+    },
+    "far": {
+      "images": 707,
+      "false_cultivar_rate_no_gate": 0.6124,
+      "false_cultivar_rate_legacy_gate": 0.0014,
+      "false_cultivar_rate_ood_gate": 0.0
+    }
+  }
+}

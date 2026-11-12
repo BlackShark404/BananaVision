@@ -8,12 +8,13 @@ import uuid
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import desc, func, select
 from app.core.http import get_client_ip
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import AdminUser, CurrentUser, DbSession
-from app.core.exceptions import ModelInferenceError, NotFoundException
+from app.core.exceptions import ModelInferenceError, NotFoundException, ScanRejectedError
 from app.core.time import now_manila
 from app.models.operator_profile import OperatorProfile
 from app.models.scan import Scan
@@ -45,7 +46,8 @@ from app.services.scan_records import (
 )
 from app.services.inventory_policy import remaining_shelf_life
 from app.services.scan_evidence import evidence_url
-from app.services.scan_service import execute_scan_pipeline
+from app.services.ood_gate import REJECTION_CODE
+from app.services.scan_service import execute_scan_pipeline, rejection_payload
 from app.config import get_settings
 from app.services.print_jobs import queue_automatic_label
 
@@ -71,6 +73,13 @@ async def trigger_scan(
             intake_id=body.intake_id,
             supplier_name=body.source_text,  # Use source_text from request
             client_ip=get_client_ip(request),
+        )
+    except ScanRejectedError as exc:
+        # `detail` stays a string for existing clients; the other fields are additive.
+        status_code = 422 if exc.code == REJECTION_CODE else 503
+        return JSONResponse(
+            status_code=status_code,
+            content={"detail": exc.message, **rejection_payload(exc)},
         )
     except ModelInferenceError as exc:
         raise HTTPException(status_code=422, detail=str(exc))

@@ -38,8 +38,8 @@
 ### Question 3: "Why do you have two YOLO models in the code? Isn't one enough?"
 > **Your Answer:**  
 > "That was a deliberate architectural decision to ensure reliability. If you feed an empty tray, a coffee mug, or a person's hand into a custom-trained classifier, YOLO will still try to find the closest match and predict 'Lakatan Ripe' with low-to-medium confidence. To prevent this garbage-in-garbage-out failure:
-> 1. **Stage 1 (`BananaPreDetector`):** We use a lightweight standard COCO model (`yolo26n.pt`) strictly filtering for COCO Class 46 ('banana'). If no banana is detected in any camera view, the pipeline halts immediately with a user-friendly message: *'No banana found — please place the banana on the tray'*.
-> 2. **Stage 2 (`BananaClassifier`):** Only after passing the gate do we run our heavy custom-trained cultivar and ripeness model on the high-resolution multi-camera frames."
+> 1. **Stage 1 (`BananaPreDetector`):** We use a lightweight standard COCO model (`yolo26n.pt`) strictly filtering for COCO Class 46 ('banana'). If no banana is detected in any camera view, the pipeline halts immediately with a user-friendly message: *'No Lakatan, Latundan, or Cardaba detected. Place a supported banana hand on the tray and scan again.'*
+> 2. **Stage 2 (`BananaClassifier`):** Only after passing the gate do we run our heavy custom-trained cultivar and ripeness model on the high-resolution multi-camera frames. Each cultivar box must also sit on banana evidence from Stage 1; a box on a foreign object is dropped and the scan is flagged for review."
 
 ---
 

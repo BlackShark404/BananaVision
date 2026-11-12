@@ -17,6 +17,7 @@ import numpy as np
 from app.config import get_settings
 from app.core.exceptions import ModelInferenceError
 from app.schemas.enums import CultivarEnum, RipenessEnum
+from app.services.ood_gate import EvidenceBox, is_supported
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -70,6 +71,8 @@ class ClassificationResult:
     inference_time_ms: float = 0.0
     conflict_detected: bool = False
     cultivar_conflict: bool = False
+    # Cultivar boxes discarded because no banana evidence covered them.
+    ood_rejected_boxes: int = 0
 
 
 # ── Class label parsing ─────────────────────────────────────────────────────
@@ -351,6 +354,8 @@ class BananaClassifier:
     def predict(
         self, image: np.ndarray, *, confidence_threshold: float,
         camera_label: str | None = None,
+        banana_evidence: list[EvidenceBox] | None = None,
+        support_margin: float = 0.25,
     ) -> ClassificationResult:
         """
         Run YOLO inference on a single image.
@@ -358,6 +363,10 @@ class BananaClassifier:
         Args:
             image: BGR numpy array (from OpenCV)
             camera_label: Configured camera view, independent of device/logical ID.
+            banana_evidence: Banana boxes from the general detector for this frame.
+                When given, cultivar boxes outside that evidence are rejected as
+                out-of-distribution. None keeps every box.
+            support_margin: Relative growth of each evidence box before the check.
 
         Returns:
             ClassificationResult with detections, cultivar, ripeness, etc.
@@ -408,6 +417,33 @@ class BananaClassifier:
         cultivar_votes: dict[str, list[float]] = {}
         class_votes: dict[tuple[str | None, str | None], list[float]] = {}
         duplicate_label_conflict = False
+        # OOD gate: a cultivar box that no banana evidence covers is treated as if the
+        # model had never emitted it. It is skipped in every pass before any other
+        # rule sees it, so it cannot vote, count as a finger or influence another box.
+        # `off_banana` only counts the distinct boxes the gate actually removed.
+        off_banana: list[Detection] = []
+
+        def rejected_by_gate(box: Detection, dropped_anyway=None) -> bool:
+            """dropped_anyway(box, kept): the pass's own rule for repeats of a kept box.
+
+            Without it every skipped box counts. The rotated Top pass needs that: a
+            repeat there still feeds the orientation decision and the label-conflict
+            check, so skipping it can change the result.
+            """
+            if banana_evidence is None or is_supported(box, banana_evidence, support_margin):
+                return False
+            # Not an intervention when this pass would have dropped the box anyway as
+            # a repeat of an accepted detection, or when the object is already counted.
+            if not (
+                (dropped_anyway is not None
+                 and any(dropped_anyway(box, kept) for kept in detections))
+                or any(
+                    _is_same_class_sub_box(box, seen) or _is_duplicate_detection(box, seen)
+                    for seen in off_banana
+                )
+            ):
+                off_banana.append(box)
+            return True
 
         if results and len(results) > 0:
             result = results[0]
@@ -452,6 +488,9 @@ class BananaClassifier:
                             and (det_h / det_w) >= 2.5 and y2 < 0.65 * img_h
                         ):
                             continue
+
+                    if rejected_by_gate(det, _is_same_class_sub_box):
+                        continue
 
                     # Suppress same-class nested duplicate boxes or severe IoU duplicates.
                     if any(_is_same_class_sub_box(det, existing) for existing in detections):
@@ -502,6 +541,8 @@ class BananaClassifier:
                             x=ox1, y=oy1, w=ox2 - ox1, h=oy2 - oy1,
                             cls=cls_name, confidence=conf,
                         )
+                        if rejected_by_gate(candidate):
+                            continue
                         if any(_is_same_class_sub_box(candidate, existing) for existing in rot_candidates):
                             continue
                         rot_candidates.append(candidate)
@@ -663,6 +704,8 @@ class BananaClassifier:
                             x=x1, y=y1, w=det_w, h=det_h,
                             cls=cls_name, confidence=conf,
                         )
+                        if rejected_by_gate(cand, _is_recovery_duplicate):
+                            continue
                         if any(_is_recovery_duplicate(cand, existing) for existing in detections):
                             continue
                         detections.append(cand)
@@ -715,6 +758,7 @@ class BananaClassifier:
             inference_time_ms=elapsed_ms,
             conflict_detected=conflict_detected,
             cultivar_conflict=cultivar_conflict,
+            ood_rejected_boxes=len(off_banana),
         )
 
     def _best_vote(self, votes: dict[str, list[float]]) -> str | None:

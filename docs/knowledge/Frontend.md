@@ -184,6 +184,38 @@ countdown labels are the aged view. `1-4` at capture is 2.5 days and is not at r
 No model calculations, historical predictions or Manila date rules changed.
 See [[Testing and Validation]] for boundary and seed/Kiosk parity coverage.
 
+## Rejected scan presentation (2026-11-13)
+
+A scan with no supported banana cultivar is refused by the backend gate described in
+[[AI Models]]. Nothing is saved, so there is no result to show.
+
+- `lib/api.ts` copies `code` and `reason` from the error body onto the thrown error by
+  name. The body's text `status` is never copied, because `error.status` is the numeric
+  HTTP status that `AuthContext` and `scanWrites` read.
+- `ScanProvider` keeps `scanState.rejection` (`{ message, code, reason }`) for any coded
+  refusal, from either the HTTP response or the `scan:failed` WebSocket event. Starting
+  or completing a scan clears it.
+- Notices: a coded refusal reports the same text on both paths, so they share one toast
+  whose id is scoped to that scan (`scan-refused-<attempt>`); a later scan always gets its
+  own. It is a warning for `ood_rejected` and an error for a fault. A failure without a
+  code keeps one toast per report, as before, so the operator wording sent over the
+  WebSocket is not replaced by the HTTP wording.
+- Kiosk replaces the empty result card:
+  - `ood_rejected`: a `role="status"` card, **No Lakatan, Latundan, or Cardaba detected**,
+    the instruction to place a supported banana hand on the tray, and **Nothing was
+    saved.** No cultivar, confidence or spoilage value is shown.
+  - any other code (`ood_gate_unavailable`, `capture_unavailable`): a `role="alert"` card,
+    **Scan could not run**, with the server message. It stays until the next scan, because
+    a fault that needs an administrator must not vanish with a 4-second toast.
+  - Card text uses `text-muted-foreground` at full opacity for AA contrast. The layout,
+    spacing and the Recent Scans list are unchanged.
+- A failure without a code (for example an unexpected server error) keeps the ordinary
+  empty card and shows only the error toast.
+- Activity Log: amber badge for `scan_rejected`, and the Details cell carries the full text
+  as its title because rejection rows end with the per-view banana scores. Profile's
+  recent activity shows "Scan rejected: no supported banana detected" instead of the raw
+  audit string.
+
 ## Quality Control camera evidence
 
 Quality Control uses the scan's recorded image/detection camera IDs and saved position
