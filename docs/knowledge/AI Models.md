@@ -154,11 +154,21 @@ Lakatan 155, Latundan 127) in 337 scans. Weights: `best.pt` of training run
   Rear frames. The report does not say which Rear photos lost boxes.
 - **Limits of this run:** this checkpoint is not in `TOP_CALIBRATED_CHECKPOINTS` either
   (`top_paths.active` false). The test photos may overlap its training data, so the
-  perfect no-gate score may read high; the gate comparison is unaffected. Most scans
-  are a single photo, and fusion is not simulated. The report does not count flagged
-  scans: at least one accepted scan lost boxes (one Rear photo lost all of them). The
-  finger-box figures are totals, so they show the net change only.
-- **Decision:** no code or threshold change. Thresholds are not tuned on a test split.
+  perfect no-gate score may read high. The scan-gate decisions come from the verifier
+  alone and are unaffected by that; the box-level differences (photos without a
+  cultivar, finger boxes) are measured on this checkpoint's boxes and may differ on
+  unseen photos. Most scans are a single photo, and fusion is not simulated. The report
+  does not count flagged scans: at least one accepted scan lost boxes (one Rear photo
+  lost all of them). If that photo were the only view of its scan, the station would
+  reject the scan instead of flagging it; the report cannot tell. The finger-box
+  figures are totals, so they show the net change only.
+- **Against the criteria set before the run: not met.** They asked that recall and
+  `finger_boxes` do not drop and that `scans_accepted` equals `scans`. Measured: 330 of
+  337 scans accepted (the earlier gate rejects the same 7), one more photo without a
+  cultivar, 14 fewer finger boxes.
+- **Decision:** no code or threshold change, because the extra cost is small, limited
+  to the Rear totals, and thresholds are not tuned on a test split. Whether that cost
+  is acceptable on the station is the team's call.
 
 ### Limits
 
