@@ -104,11 +104,31 @@ Full report: `docs/audits/ood-gate-evaluation-2026-11-13.json`.
   held a supported OOD box. The any-camera rule compounds single-frame errors, and box
   support alone does not fix a lookalike that fools the verifier.
 
+### Stage 2 on the benchmark (laptop run, 2026-11-13)
+
+`evaluate_ood_gate.py pipeline` on a team laptop, default policy, confidence 0.50, each
+OOD image scored as a one-camera Top scan. Numbers are copied from the terminal output;
+the counts follow from the reported rates.
+
+| OOD images that end with a cultivar | No gate | Earlier gate | OOD gate |
+| --- | --- | --- | --- |
+| Near-OOD (670 images) | 76.42 % (512) | 3.28 % (22) | 2.99 % (20) |
+| Far-OOD (707 images) | 61.24 % (433) | 0.14 % (1) | 0.00 % (0) |
+
+- This confirms the root cause: with no gate, Stage 2 names a cultivar on most
+  non-banana photos.
+- The banana verifier does almost all of the rejection. Box support removes 3 more
+  images; the 20 remaining near-OOD images pass the verifier as bananas.
+- Weights: `banana_yolo26s.pt` (20,341,509 bytes, SHA-256 starting `d1acd351`). It is
+  not in `TOP_CALIBRATED_CHECKPOINTS`, so `top_paths.active` was false and the Top
+  refinement, rotated pass and finger recovery did not run.
+- No labeled split was given, so the effect on real bananas is not part of this run.
+
 ### Limits
 
-- **Not measured here:** per-cultivar precision, recall and F1 before and after the
-  gate, and the false-cultivar rate of Stage 2 itself. Both need the trained weights and
-  a labeled split: run `evaluate_ood_gate.py pipeline` where they exist. Give it the
+- **Not measured:** per-cultivar precision, recall and F1 before and after the gate
+  (needs a labeled split), and any result on a registered Top-calibrated checkpoint.
+  Run `evaluate_ood_gate.py pipeline` where both exist. Give it the
   weights the station runs (`YOLO_MODEL_PATH`) at confidence 0.50; the report's
   `top_paths.active` must be true, or the Top refinement, rotated pass and finger
   recovery did not run. It groups the prepared files of one capture into a scan, applies

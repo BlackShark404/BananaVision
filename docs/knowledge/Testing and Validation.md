@@ -12,9 +12,13 @@ Design, thresholds and limits are in [[AI Models]]; the kiosk state is in [[Fron
   accepted **90.07 %**, AUROC **0.976**, FPR at 95 % TPR **2.83 %**. Box support keeps
   **94.92 %** of annotated banana boxes and passes **7.3 %** of near-OOD and **0.16 %** of
   far-OOD object boxes. Thresholds were chosen on the calibration pool only.
-- **Not measured:** per-cultivar precision/recall/F1 and Stage 2's own false-cultivar rate.
-  The trained weights and labeled dataset are not in the repository; `pipeline` mode
-  produces those numbers where they exist. No retraining was run.
+- **Laptop pipeline run (2026-11-13):** `pipeline` mode with `banana_yolo26s.pt` on the
+  benchmark pool. OOD images that end with a cultivar: near-OOD **76.42 % → 3.28 % →
+  2.99 %** and far-OOD **61.24 % → 0.14 % → 0.00 %** (no gate → earlier gate → OOD gate).
+  That checkpoint is not Top-calibrated (`top_paths.active` false). See [[AI Models]].
+- **Not measured:** per-cultivar precision/recall/F1 before and after the gate. The labeled
+  dataset is not in the repository; `pipeline` mode with `--id-split` produces those
+  numbers where it exists. No retraining was run.
 - **Backend:** full suite **685 passed, 104 skipped** (PostgreSQL-only cases; no disposable
   cluster in this environment), against **582 passed, 104 skipped** on the team's
   `0c74c73`. The 103 new tests cover gate logic, classifier filtering (including cluster-box,

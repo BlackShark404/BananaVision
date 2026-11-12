@@ -20,7 +20,9 @@ ROOT CAUSE (code reading + measurement)
 - The pre-detector failed open when it could not run.
 - Measured single-frame leak of the earlier gate on the held-out benchmark: near-OOD
   3.28 % (22/670), far-OOD 0.14 % (1/708). Four unrelated views compound this to 6.55 %.
-- Stage 2's own false-cultivar rate could NOT be reproduced here (no weights).
+- Stage 2's own false-cultivar rate, measured on the laptop on 2026-11-13 (details under
+  LAPTOP EVALUATION): with no gate it names a cultivar on 76.42 % of near-OOD and
+  61.24 % of far-OOD photos.
 
 DONE
 - backend/app/services/ood_gate.py: pure gate logic, policy, rejection codes.
@@ -97,8 +99,9 @@ VERIFICATION
 - No live station database, captures, cameras, sensors or OS power were used.
 
 LIMITS / KNOWLEDGE
-- NOT measured: per-cultivar precision/recall/F1 before and after, and Stage 2's
-  false-cultivar rate. No retraining with negatives was run.
+- NOT measured: per-cultivar precision/recall/F1 before and after the gate (needs the
+  labeled split), and any result on a registered Top-calibrated checkpoint. No
+  retraining with negatives was run.
 - Unsupported banana cultivars pass the gate (COCO "banana" covers all varieties).
 - Strong lookalikes pass the verifier (yellow watermelon 0.90, mango slice 0.89, yellow
   squash 0.84); retraining Stage 2 with the hard negatives is the remedy.
@@ -108,13 +111,27 @@ LIMITS / KNOWLEDGE
 - Graphify CLI/graph, ICM and Context7 were unavailable; graph and memory not refreshed.
   No Codex Security service scan was run; source review only.
 
+LAPTOP EVALUATION (2026-11-13, user's laptop; numbers copied from the terminal output)
+- Command: evaluate_ood_gate.py pipeline --weights app/ml/weights/banana_yolo26s.pt
+  --ood <fetched pool> --pool benchmark, default policy, confidence 0.50, OOD view Top.
+- Weights: banana_yolo26s.pt, 20,341,509 bytes, SHA-256 starting d1acd351. It is NOT a
+  registered Top-calibrated checkpoint, so `top_paths.active` was false: the Top
+  refinement, rotated pass and finger recovery did not run.
+- Pool: 670 near-OOD and 707 far-OOD images (5 of 1,654 downloads failed; 1 far-OOD).
+- Share of OOD images that end with a cultivar (counts follow from the rates):
+    near-OOD  no gate 76.42 % (512)   earlier gate 3.28 % (22)   OOD gate 2.99 % (20)
+    far-OOD   no gate 61.24 % (433)   earlier gate 0.14 % (1)    OOD gate 0.00 % (0)
+- Reading: the banana verifier does almost all of the rejection; box support removes
+  3 more images. The 20 remaining near-OOD images pass the verifier as bananas.
+- No --id-split was given: the effect on real Lakatan, Latundan and Cardaba scans is
+  still not measured.
+
 EXACT NEXT STEP
-- On the laptop, from backend/ with the project venv:
-    python scripts/prepare_ood_dataset.py fetch --manifest scripts/ood/open_images_ood_manifest.json --output ood-data
-    python scripts/evaluate_ood_gate.py pipeline --weights <file named by YOLO_MODEL_PATH> --id-split <prepared dataset>/test --ood ood-data --pool benchmark --output ood-pipeline-report.json
-  Use the weights the station runs (the V2 checkpoint) and keep --confidence at 0.50.
-  In the report, `top_paths.active` must be true. Compare `legacy_gate` with `ood_gate`,
-  in total and under `in_distribution_by_view`: per-cultivar recall and `finger_boxes`
-  must not drop for real bananas, and `scans_accepted` should equal `scans`. Send the
-  JSON back for review.
+- Still open on the laptop (needs files from the team's Google Drive): the checkpoint
+  the station runs (a registered Top-calibrated file, so `top_paths.active` is true) and
+  the labeled dataset. Then, from backend/ with the project venv:
+    python scripts/evaluate_ood_gate.py pipeline --weights <station checkpoint> --id-split <prepared dataset>/test --ood <fetched pool> --pool benchmark --output <new report file>
+  Keep --confidence at 0.50. Compare `legacy_gate` with `ood_gate`, in total and under
+  `in_distribution_by_view`: per-cultivar recall and `finger_boxes` must not drop for
+  real bananas, and `scans_accepted` should equal `scans`.
 - Then open the pull request from the fork to BlackShark404/BananaVision. No deployment.
