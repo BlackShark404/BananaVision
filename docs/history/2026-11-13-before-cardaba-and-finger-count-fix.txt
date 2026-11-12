@@ -1,0 +1,54 @@
+CURRENT RESUME HERE (2026-11-12) - UNCERTAIN-CULTIVAR CONSISTENCY ACROSS KIOSK, SCAN DETAIL AND PUBLIC QR
+
+AUTHORIZED SCOPE / LATEST DECISION
+- User reported that a mixed-cultivar batch shows "Uncertain" in the Kiosk while images
+  remain labeled per camera, and asked whether a toast should notify the operator.
+  After diagnosis, the user said: "I see, fix it based on what best suited for the system."
+- Chosen approach: reuse the existing tested frontend heuristic (camera majority) in Scan
+  Detail and Kiosk recent scans, and expose the existing server review marker (flagged)
+  on the public QR endpoint. No database migration and no duplicated majority logic in Python.
+- Previous checkpoint archived byte-for-byte in
+  docs/history/2026-11-12-before-uncertainty-consistency.txt.
+
+DONE
+- Kiosk: one-time warning toast per conflicted scan ("Cultivar uncertain" with camera
+  breakdown); Accept is gated as "Review required" until the conflict is resolved.
+  Recent Scans rows now show "Uncertain", "Review needed" and "-" spoilage instead of
+  the stored candidate cultivar, confidence and spoilage estimate.
+- Scan Detail: banner shows the camera breakdown and the stored AI candidate; the header
+  badge becomes Needs Review for conflicts. A human cultivar correction resolves the
+  warning through the existing isOverridden/originalAiResult rule; count-only overrides
+  do not resolve it.
+- Public QR: PublicScanResponse and GET /api/v1/scans/{id}/track include flagged;
+  PublicScanView shows a "Pending quality review" notice stating the classification and
+  estimates are preliminary. Camera-level detections remain authenticated-only.
+- Frontend api.ts public type updated.
+- Tests: backend test_public_track_reports_review_status (flag false -> true); kiosk
+  split-view loop adds toast, Review required gating and recent-row assertions; scanrecords
+  split-view banner and correction resolution; public-scan flagged notice and absence for
+  unflagged records.
+- docs/knowledge/Frontend.md updated for the new presentation.
+
+VERIFICATION
+- Full frontend browser suite 275 passed, 0 failed (394.8s). That run started before the
+  final Recent Scans row edit; after it, the kiosk suite passed 18/18 (including the new
+  row assertions) and scanrecords + public-scan passed 65/65.
+- Typecheck passed; production build passed. Lint unchanged at 40 problems
+  (35 errors, 5 warnings) versus the existing baseline; Kiosk's unused camera handlers
+  exist identically at HEAD.
+- Backend tests/test_time_and_writes.py: 40 passed.
+- No live station database, captures, cameras or sensors were used. Ruff is not installed
+  in backend/venv, so backend lint was not run.
+
+LIMITS / KNOWLEDGE
+- Kiosk Accept stays a local acknowledgement; persistence of review happens via Flag or
+  Quality Control. The split heuristic is frontend-only and needs per-camera detections,
+  which public tracking does not expose; the public page only discloses review state.
+- The warning toast is de-duplicated per scan id for the session.
+- Browser tests used
+  PLAYWRIGHT_MODULE=/Users/khensorela/Herd/valiants-realty-platform/node_modules/playwright/index.mjs.
+- Graphify CLI/graph output and ICM remain unavailable in this checkout; not refreshed.
+- The working tree became staged externally (no git add was run by the agent).
+
+EXACT NEXT STEP
+- Review the scoped diff; commit only if the user explicitly requests it. No deployment.

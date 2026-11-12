@@ -713,3 +713,31 @@ def test_peripheral_background_filter_suppresses_upper_door_frame():
     # On Top camera, upper frame detections are NOT suppressed
     top_result = classifier.predict(frame, confidence_threshold=0.50, camera_label="Top")
     assert top_result.finger_count == 4
+
+
+def test_multi_finger_top_anchor_prevails_over_lower_confidence_peripheral_tips():
+    top = ClassificationResult(
+        cultivar="Cardaba", ripeness="Unripe", confidence=88.3, finger_count=8,
+    )
+    left = ClassificationResult(
+        cultivar="Lakatan", ripeness="Unripe", confidence=78.0, finger_count=7,
+    )
+    right = ClassificationResult(
+        cultivar="Lakatan", ripeness="Unripe", confidence=76.0, finger_count=7,
+    )
+    rear = ClassificationResult(
+        cultivar="Lakatan", ripeness="Unripe", confidence=80.0, finger_count=11,
+    )
+
+    fused = FusionEngine().fuse([
+        ("CAM-001", "Top", top),
+        ("CAM-002", "Left", left),
+        ("CAM-003", "Right", right),
+        ("CAM-004", "Rear", rear),
+    ], expected_camera_count=4)
+
+    assert fused.cultivar == "Cardaba"
+    assert fused.ripeness == "Unripe"
+    assert fused.cultivar_conflict is False
+    assert fused.finger_count == 13
+

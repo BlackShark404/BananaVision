@@ -641,7 +641,7 @@ export default function Kiosk() {
                   envCards.push(
                     <div key="fingers" className="bg-muted/50 rounded-xl p-3 text-center border border-border">
                       <Hand className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider" title="Estimated finger count; confirm the physical total before accepting.">Est. Fingers</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider" title="Estimated finger count; confirm the physical total before accepting.">Estimated Fingers</p>
                       <p className="text-lg font-bold">{lastResult.fingerCount}</p>
                     </div>
                   )

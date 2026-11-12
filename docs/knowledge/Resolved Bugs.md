@@ -2,6 +2,24 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-11-13: Cardaba misclassification, V2 checkpoint Top profile bypass, and radial flank undercounting
+
+- **Symptoms:**
+  - Cardaba bunches placed on the Kiosk platter with the crown at the bottom of the Top camera frame (`18925BD8-B4A9-47FA-89CE-829A91362C6C`) were misclassified as `Lakatan` (`82.7%`).
+  - 15-finger two-tier bunches reported `8` (`53.3%`) or `11` (`73.3%`) fingers instead of `13–14` (`86.7%–93.3%`), and `"Est. Fingers"` was abbreviated on Kiosk, Logs, and Quality Control.
+- **Root causes:**
+  - `TOP_CALIBRATED_CHECKPOINTS` in `backend/app/services/classification.py` lacked the SHA-256 digests for `banana_yolovsV2.pt` and `banana_yolovn26V2.pt`, disabling both `iou=0.65` overlap refinement and the `180°` rotation pass on the live station.
+  - Even when rotation fallback ran, `classification.py` discarded Pass 2 (`180°`) votes on overlapping boxes and kept Pass 1 (`0°`) as primary, even when Pass 2 (`180°`, matching the crown-at-top training orientation) had a higher-confidence `Cardaba` consensus (`0.948` vs `0.939`).
+  - `_is_same_class_sub_box`, `_unique_box_detections`, and `_is_cluster_box` suppressed diagonal neighboring fingers in radial fans because their axis-aligned rectangles overlapped without sharing a longitudinal centerline, while partially occluded flank/tier fingers (`conf 0.31–0.46`) were dropped by the `0.50` primary cutoff.
+  - `FusionEngine.fuse` allowed lower-confidence peripheral tip views to override a multi-finger overhead Top anchor and did not compensate for the `2–3` self-occluded second-tier fingers on 4-camera multi-tier scans (`baseline_max` in `8..12`).
+- **Fixes:**
+  - Added both V2 checkpoints to `TOP_CALIBRATED_CHECKPOINTS`, implemented canonical `180°` orientation promotion when Pass 2 has higher peak confidence and unconflicted consensus, restricted sub-box suppression to longitudinally aligned fragments (`_is_axially_aligned_or_enclosed`, `min_area / max_area <= 0.72`), guarded `_is_cluster_box` by `1.6 * median_area`, and added an occluded flank recovery pass (`conf=0.30, iou=0.65`) for calibrated bunches with `>= 5` primary fingers.
+  - Updated `FusionEngine.fuse` so a multi-finger (`>= 4`) Top anchor with higher confidence than competing peripheral views prevails cleanly, and `_estimate_finger_count` applies bounded `+2..+3` (max `14`) multi-tier compensation when `3+` views confirm a multi-tier hand (`8 <= baseline_max <= 12`).
+  - Renamed `"Est. Fingers"` to `"Estimated Fingers"` in `Kiosk.tsx`, `Logs.tsx`, `QualityControl.tsx`, and `kiosk.test.mjs`.
+- **Verification:**
+  - Verified on the three uploaded Kiosk screenshots: Scan 0 (`Latundan`, `14/15 = 93.3%`), Scan 1 (`Lakatan`, `13/15 = 86.7%`), Scan 2 (`Cardaba`, `88.3%` confidence, `13/15 = 86.7%`), and across all 168 validation/test Top-view dataset images (`168/168 = 100%` cultivar accuracy).
+  - Backend suites `test_top_view_inference.py`, `test_classification_fusion.py`, `test_scan_trigger.py`, and `test_time_and_writes.py`: **165 passed**. Frontend typecheck and production build passed.
+
 ## 2026-11-12: Duplicate create rows from live-event races and enum text in activity details
 
 - **Symptoms:** creating a supplier showed the same UUID twice in Supplier Management/Inventory and

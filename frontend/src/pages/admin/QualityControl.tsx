@@ -796,7 +796,7 @@ export default function QualityControl() {
                     </Card>
                     <Card className="bg-muted/50">
                       <CardContent className="p-4">
-                        <Label className="text-xs text-muted-foreground">Est. Fingers</Label>
+                        <Label className="text-xs text-muted-foreground">Estimated Fingers</Label>
                         <p className="text-lg font-bold mt-1">{selectedScan.fingerCount}</p>
                       </CardContent>
                     </Card>

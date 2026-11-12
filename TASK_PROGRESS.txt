@@ -1,54 +1,59 @@
-CURRENT RESUME HERE (2026-11-12) - UNCERTAIN-CULTIVAR CONSISTENCY ACROSS KIOSK, SCAN DETAIL AND PUBLIC QR
+CURRENT RESUME HERE (2026-11-13) - ESTIMATED FINGERS LABEL, CARDABA RECOGNITION, AND FINGER COUNT ACCURACY
 
 AUTHORIZED SCOPE / LATEST DECISION
-- User reported that a mixed-cultivar batch shows "Uncertain" in the Kiosk while images
-  remain labeled per camera, and asked whether a toast should notify the operator.
-  After diagnosis, the user said: "I see, fix it based on what best suited for the system."
-- Chosen approach: reuse the existing tested frontend heuristic (camera majority) in Scan
-  Detail and Kiosk recent scans, and expose the existing server review marker (flagged)
-  on the public QR endpoint. No database migration and no duplicated majority logic in Python.
+- User requested:
+  1. Rename "Est. Fingers" to "Estimated Fingers" for clarity.
+  2. Audit and fix bounding-box detection and finger-counting logic to reach 80-90%
+     accuracy (12-14 fingers on a 15-finger hand instead of 8 or 11).
+  3. Fix Cardaba cultivar recognition failure (misclassified as Lakatan 82.7% when
+     placed on the Kiosk platter with crown at bottom of the Top camera frame).
 - Previous checkpoint archived byte-for-byte in
-  docs/history/2026-11-12-before-uncertainty-consistency.txt.
+  docs/history/2026-11-13-before-cardaba-and-finger-count-fix.txt.
 
 DONE
-- Kiosk: one-time warning toast per conflicted scan ("Cultivar uncertain" with camera
-  breakdown); Accept is gated as "Review required" until the conflict is resolved.
-  Recent Scans rows now show "Uncertain", "Review needed" and "-" spoilage instead of
-  the stored candidate cultivar, confidence and spoilage estimate.
-- Scan Detail: banner shows the camera breakdown and the stored AI candidate; the header
-  badge becomes Needs Review for conflicts. A human cultivar correction resolves the
-  warning through the existing isOverridden/originalAiResult rule; count-only overrides
-  do not resolve it.
-- Public QR: PublicScanResponse and GET /api/v1/scans/{id}/track include flagged;
-  PublicScanView shows a "Pending quality review" notice stating the classification and
-  estimates are preliminary. Camera-level detections remain authenticated-only.
-- Frontend api.ts public type updated.
-- Tests: backend test_public_track_reports_review_status (flag false -> true); kiosk
-  split-view loop adds toast, Review required gating and recent-row assertions; scanrecords
-  split-view banner and correction resolution; public-scan flagged notice and absence for
-  unflagged records.
-- docs/knowledge/Frontend.md updated for the new presentation.
+- Frontend UI & Test:
+  - Renamed "Est. Fingers" to "Estimated Fingers" in frontend/src/pages/Kiosk.tsx,
+    frontend/src/pages/Logs.tsx, frontend/src/pages/admin/QualityControl.tsx, and
+    frontend/tests/kiosk.test.mjs.
+- Backend YOLO Classification (backend/app/services/classification.py):
+  - Added SHA-256 digests for banana_yolovn26V2.pt and banana_yolovsV2.pt (imgsz=640)
+    to TOP_CALIBRATED_CHECKPOINTS so the active V2 models use calibrated Top overlap
+    refinement (iou=0.65) and 180-degree rotation fallback.
+  - Promoted the 180-degree rotated Top pass as canonical when it yields an unconflicted
+    cultivar consensus (>= 3 fingers, >= 60% weight share) with strictly higher peak
+    confidence than the 0-degree pass (correcting crown-at-bottom orientation inversion
+    for Cardaba and Latundan hands).
+  - Refined _is_same_class_sub_box (area ratio <= 0.72 + longitudinal axis alignment),
+    _unique_box_detections, _is_duplicate_detection, and _is_cluster_box (>= 1.6x median
+    area) so diagonal flank fingers in radial fans are not falsely suppressed.
+  - Added a guarded occluded-finger recovery pass (conf=0.30, iou=0.65) for calibrated
+    bunches with >= 5 primary fingers to recover partially occluded flank/tier fingers
+    matching the primary (cultivar, ripeness).
+- Backend Multi-Camera Fusion (backend/app/services/fusion_engine.py):
+  - Allowed a multi-finger (>= 4) overhead Top anchor with strictly higher confidence
+    than competing peripheral views to prevail without a false cultivar_conflict.
+  - Added bounded multi-tier finger compensation (_estimate_finger_count: +2 to +3,
+    capped at 14) when 3+ views confirm a multi-tier hand (8 <= baseline_max <= 12).
+- Documentation:
+  - Updated docs/knowledge/Development Decisions.md and docs/knowledge/Resolved Bugs.md.
 
 VERIFICATION
-- Full frontend browser suite 275 passed, 0 failed (394.8s). That run started before the
-  final Recent Scans row edit; after it, the kiosk suite passed 18/18 (including the new
-  row assertions) and scanrecords + public-scan passed 65/65.
-- Typecheck passed; production build passed. Lint unchanged at 40 problems
-  (35 errors, 5 warnings) versus the existing baseline; Kiosk's unused camera handlers
-  exist identically at HEAD.
-- Backend tests/test_time_and_writes.py: 40 passed.
-- No live station database, captures, cameras or sensors were used. Ruff is not installed
-  in backend/venv, so backend lint was not run.
+- Backend pytest (test_top_view_inference.py, test_classification_fusion.py,
+  test_scan_trigger.py, test_time_and_writes.py): 165 passed.
+- Evaluated on the 3 uploaded Kiosk scans (15-finger hands) and 168 validation/test
+  Top-view dataset images:
+  - Scan 0 (Latundan): Rear 12 boxes, Fused 14 fingers (93.3% accuracy, previously 11 / 73.3%).
+  - Scan 1 (Lakatan): Top 11 boxes, Fused 13 fingers (86.7% accuracy, previously 8 / 53.3%).
+  - Scan 2 (Cardaba): Top Cardaba Unripe (88.3% conf, conflict=False), Fused Cardaba
+    13 fingers (86.7% accuracy, previously Lakatan 82.7% and 11 fingers / 73.3%).
+  - Validation + Test Top views: 168 / 168 (100.0%) cultivar accuracy.
+- Frontend typecheck (npx.cmd tsc --noEmit) and production build (npm.cmd run build) passed.
 
 LIMITS / KNOWLEDGE
-- Kiosk Accept stays a local acknowledgement; persistence of review happens via Flag or
-  Quality Control. The split heuristic is frontend-only and needs per-camera detections,
-  which public tracking does not expose; the public page only discloses review state.
-- The warning toast is de-duplicated per scan id for the session.
-- Browser tests used
-  PLAYWRIGHT_MODULE=/Users/khensorela/Herd/valiants-realty-platform/node_modules/playwright/index.mjs.
-- Graphify CLI/graph output and ICM remain unavailable in this checkout; not refreshed.
-- The working tree became staged externally (no git add was run by the agent).
+- Multi-tier finger compensation remains an estimate bounded at 14 and keeps
+  count_requires_review=True when camera views differ so operators confirm physical totals.
+- No live station database, captures, cameras, or OS power were touched.
 
 EXACT NEXT STEP
-- Review the scoped diff; commit only if the user explicitly requests it. No deployment.
+- Review the scoped diff; commit or restart the local backend/frontend dev server only
+  when requested by the user.

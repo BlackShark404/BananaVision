@@ -213,7 +213,7 @@ test('a live scan requiring review makes the flag visible to the operator', asyn
   await page.getByRole('button', { name: /Start.*Intake/i }).click()
   await page.getByRole('button', { name: 'Scan Now', exact: true }).click()
   await page.getByText('Scan Complete - Review Needed', { exact: true }).waitFor()
-  assert.equal(await page.getByText('Est. Fingers', { exact: true }).locator('..').locator('p').last().innerText(), '13')
+  assert.equal(await page.getByText('Estimated Fingers', { exact: true }).locator('..').locator('p').last().innerText(), '13')
   await page.getByText('13 fingers', { exact: true }).waitFor()
   assert.deepEqual(state.scans[0].detections.map(view => view.finger_count), counts)
   assert.equal(writesTo(state, '/trigger').length, 1)

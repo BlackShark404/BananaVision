@@ -712,7 +712,7 @@ const columns: ColumnDef<LogScan>[] = [
       },
     },
     {
-      header: "Est. Fingers",
+      header: "Estimated Fingers",
       sortable: true,
       sortKey: "finger_count",
       cell: (scan) => <span className="text-sm">{scan.fingerCount}</span>,

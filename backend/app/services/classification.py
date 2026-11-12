@@ -30,11 +30,16 @@ TOP_CALIBRATED_CHECKPOINTS: dict[str, int] = {
     TOP_OVERLAP_CHECKPOINT_SHA256: 640,
     "96808fa8ed706909237197e8db2510dccabfaeceed85a4d1ab5182cd28c95f7b": 800,   # banana_yolov26n.pt
     "57ae6c0fe5bfe067f50cd8722823168e630fa99d35bc7905cc6a7010c02aaa41": 1024,  # banana_yolov26s.pt
+    "dc171845fe353a2147f6c9219b27fa66df88902eb566eb141670cf4ee5d2b204": 640,   # banana_yolovn26V2.pt
+    "9e21668e272bae8ea387d836bbc2b087b5fbb3ae90d375353f49105681e2f478": 640,   # banana_yolovsV2.pt
 }
 TOP_OVERLAP_CONFIDENCE = 0.50
 TOP_OVERLAP_BASE_IOU = 0.45
 TOP_OVERLAP_IOU = 0.65
 TOP_ROTATION_DEDUP_IOU = 0.40
+OCCLUDED_FINGER_RECOVERY_CONF = 0.30
+OCCLUDED_FINGER_MIN_PRIMARY = 5
+OCCLUDED_FINGER_MIN_AREA_RATIO = 0.25
 
 
 def _checkpoint_digest(path: str) -> str:
@@ -145,6 +150,21 @@ def _box_containment(a: Detection, b: Detection) -> float:
     return inter / min_area if min_area > 0 else 0.0
 
 
+def _is_axially_aligned_or_enclosed(
+    a: Detection, b: Detection, axis_tol: float = 0.08,
+) -> bool:
+    """True when two boxes share the same longitudinal axis (not diagonal neighbors)."""
+    min_w = min(a.w, b.w)
+    min_h = min(a.h, b.h)
+    if min_w <= 0 or min_h <= 0:
+        return True
+    cx_a, cy_a = a.x + a.w / 2.0, a.y + a.h / 2.0
+    cx_b, cy_b = b.x + b.w / 2.0, b.y + b.h / 2.0
+    rel_dx = abs(cx_a - cx_b) / min_w
+    rel_dy = abs(cy_a - cy_b) / min_h
+    return min(rel_dx, rel_dy) <= axis_tol
+
+
 def _unique_box_detections(detections: list[Detection]) -> list[Detection]:
     """Count coincident class hypotheses once, retaining raw boxes for review.
 
@@ -154,10 +174,17 @@ def _unique_box_detections(detections: list[Detection]) -> list[Detection]:
     unique: list[Detection] = []
     for detection in detections:
         if not any(
-            (detection.x == existing.x and detection.y == existing.y
-             and detection.w == existing.w and detection.h == existing.h)
-            or _box_iou(detection, existing) >= 0.70
-            or _box_containment(detection, existing) >= 0.85
+            _is_same_class_sub_box(detection, existing)
+            if detection.cls == existing.cls
+            else (
+                (detection.x == existing.x and detection.y == existing.y
+                 and detection.w == existing.w and detection.h == existing.h)
+                or _box_iou(detection, existing) >= 0.70
+                or (
+                    _box_containment(detection, existing) >= 0.85
+                    and _is_axially_aligned_or_enclosed(detection, existing)
+                )
+            )
             for existing in unique
         ):
             unique.append(detection)
@@ -178,8 +205,11 @@ def _is_same_class_sub_box(det: Detection, existing: Detection) -> bool:
     exist_area = existing.w * existing.h
     min_area = min(det_area, exist_area)
     max_area = max(det_area, exist_area)
-    if max_area > 0 and (min_area / max_area) <= 0.85:
-        if _box_containment(det, existing) >= 0.80:
+    if max_area > 0 and (min_area / max_area) <= 0.72:
+        if (
+            _box_containment(det, existing) >= 0.80
+            and _is_axially_aligned_or_enclosed(det, existing)
+        ):
             return True
     return False
 
@@ -187,7 +217,10 @@ def _is_same_class_sub_box(det: Detection, existing: Detection) -> bool:
 def _is_cluster_box(det: Detection, others: list[Detection]) -> bool:
     """Detect whether det is an encompassing cluster box covering 2+ distinct fingers."""
     det_area = det.w * det.h
-    if det_area <= 0:
+    if det_area <= 0 or not others:
+        return False
+    other_areas = [o.w * o.h for o in others if o.w * o.h > 0]
+    if other_areas and det_area < 1.6 * float(np.median(other_areas)):
         return False
     contained = []
     for o in others:
@@ -218,7 +251,7 @@ def _is_duplicate_detection(
         return True
 
     cont = _box_containment(candidate, existing)
-    if cont >= 0.75:
+    if cont >= 0.75 and _is_axially_aligned_or_enclosed(candidate, existing):
         return True
 
     if cont >= 0.45:
@@ -418,6 +451,8 @@ class BananaClassifier:
                         class_votes.setdefault((cultivar, ripeness), []).append(conf)
 
         # ── Rotation fallback: recover fingers missed in the original orientation ──
+        rot_is_canonical = False
+        rotated: np.ndarray | None = None
         if is_calibrated_top and getattr(settings, "yolo_top_rotation_fallback", False):
             img_h, img_w = image.shape[:2]
             rotated = image[::-1, ::-1].copy()
@@ -438,6 +473,8 @@ class BananaClassifier:
                 rot_result = rot_results[0]
                 if rot_result.boxes is not None:
                     rot_boxes = sorted(rot_result.boxes, key=lambda b: float(b.conf[0]), reverse=True)
+                    rot_candidates: list[Detection] = []
+                    rot_cultivar_votes: dict[str, list[float]] = {}
                     for box in rot_boxes:
                         rx1, ry1, rx2, ry2 = box.xyxy[0].tolist()
                         conf = float(box.conf[0])
@@ -450,30 +487,175 @@ class BananaClassifier:
                             x=ox1, y=oy1, w=ox2 - ox1, h=oy2 - oy1,
                             cls=cls_name, confidence=conf,
                         )
-                        # Check against all accepted detections (pass 1 and newly accepted)
-                        # using robust containment and spatial alignment
-                        duplicates = [
-                            existing for existing in detections
-                            if _is_duplicate_detection(
-                                candidate, existing, TOP_ROTATION_DEDUP_IOU,
-                            )
-                        ]
-                        if duplicates:
-                            # Suppression must not conceal cultivar/ripeness disagreement
-                            # between orientations of the same boxed finger.
-                            candidate_label = _parse_class_label(candidate.cls)
-                            duplicate_label_conflict = duplicate_label_conflict or any(
-                                candidate_label != _parse_class_label(existing.cls)
-                                for existing in duplicates
-                            )
+                        if any(_is_same_class_sub_box(candidate, existing) for existing in rot_candidates):
                             continue
-                        detections.append(candidate)
-                        cultivar, ripeness = _parse_class_label(cls_name)
-                        if cultivar:
-                            cultivar_votes.setdefault(cultivar, []).append(conf)
-                        if cultivar or ripeness:
-                            class_votes.setdefault((cultivar, ripeness), []).append(conf)
+                        rot_candidates.append(candidate)
+                        rot_cult, _ = _parse_class_label(cls_name)
+                        if rot_cult:
+                            rot_cultivar_votes.setdefault(rot_cult, []).append(conf)
+
+                    # Top-view training images have the crown at the top of the frame.
+                    # When a hand is placed with the crown at the bottom (180° inverted),
+                    # the rotated pass produces a higher-confidence canonical consensus.
+                    orig_best_cult = self._best_vote(cultivar_votes)
+                    rot_best_cult = self._best_vote(rot_cultivar_votes)
+                    orig_max_conf = max((d.confidence for d in detections), default=0.0)
+                    rot_max_conf = max((d.confidence for d in rot_candidates), default=0.0)
+                    rot_total_weight = sum(sum(v) for v in rot_cultivar_votes.values())
+                    rot_win_weight = sum(rot_cultivar_votes.get(rot_best_cult or "", []))
+                    rot_unconflicted = (
+                        rot_best_cult is not None
+                        and rot_total_weight > 0
+                        and rot_win_weight >= rot_total_weight * VOTE_CONFLICT_THRESHOLD
+                    )
+                    if (
+                        len(rot_candidates) >= 3
+                        and rot_unconflicted
+                        and rot_best_cult != orig_best_cult
+                        and rot_max_conf > orig_max_conf
+                    ):
+                        rot_is_canonical = True
+                        orig_detections = detections
+                        detections = []
+                        cultivar_votes = {}
+                        class_votes = {}
+                        primary_cls = rot_candidates[0].cls
+                        for cand in rot_candidates:
+                            detections.append(cand)
+                            cultivar, ripeness = _parse_class_label(cand.cls)
+                            if cultivar:
+                                cultivar_votes.setdefault(cultivar, []).append(cand.confidence)
+                            if cultivar or ripeness:
+                                class_votes.setdefault((cultivar, ripeness), []).append(cand.confidence)
+                        for orig_det in orig_detections:
+                            if any(
+                                _is_duplicate_detection(orig_det, existing, TOP_ROTATION_DEDUP_IOU)
+                                for existing in detections
+                            ):
+                                continue
+                            harmonized = Detection(
+                                x=orig_det.x, y=orig_det.y, w=orig_det.w, h=orig_det.h,
+                                cls=primary_cls, confidence=orig_det.confidence,
+                            )
+                            detections.append(harmonized)
+                            cultivar, ripeness = _parse_class_label(primary_cls)
+                            if cultivar:
+                                cultivar_votes.setdefault(cultivar, []).append(harmonized.confidence)
+                            if cultivar or ripeness:
+                                class_votes.setdefault((cultivar, ripeness), []).append(harmonized.confidence)
+                    else:
+                        for candidate in rot_candidates:
+                            # Check against all accepted detections (pass 1 and newly accepted)
+                            # using robust containment and spatial alignment
+                            duplicates = [
+                                existing for existing in detections
+                                if _is_duplicate_detection(
+                                    candidate, existing, TOP_ROTATION_DEDUP_IOU,
+                                )
+                            ]
+                            if duplicates:
+                                # Suppression must not conceal cultivar/ripeness disagreement
+                                # between orientations of the same boxed finger.
+                                candidate_label = _parse_class_label(candidate.cls)
+                                duplicate_label_conflict = duplicate_label_conflict or any(
+                                    candidate_label != _parse_class_label(existing.cls)
+                                    for existing in duplicates
+                                )
+                                continue
+                            detections.append(candidate)
+                            cultivar, ripeness = _parse_class_label(candidate.cls)
+                            if cultivar:
+                                cultivar_votes.setdefault(cultivar, []).append(candidate.confidence)
+                            if cultivar or ripeness:
+                                class_votes.setdefault((cultivar, ripeness), []).append(candidate.confidence)
             elapsed_ms = (time.time() - start) * 1000
+
+        # ── Occluded flank / second-tier finger recovery for multi-finger bunches ──
+        if (
+            expected_imgsz is not None
+            and self._image_size == expected_imgsz
+            and confidence_threshold == TOP_OVERLAP_CONFIDENCE
+            and len(detections) >= OCCLUDED_FINGER_MIN_PRIMARY
+            and not duplicate_label_conflict
+            and image is not None
+        ):
+            primary_cultivar = self._best_vote(cultivar_votes)
+            primary_ripeness_votes = {
+                ripeness: confs for (cultivar, ripeness), confs in class_votes.items()
+                if cultivar == primary_cultivar and ripeness
+            }
+            primary_ripeness = self._best_vote(primary_ripeness_votes)
+            primary_total_w = sum(sum(v) for v in cultivar_votes.values())
+            primary_win_w = sum(cultivar_votes.get(primary_cultivar or "", []))
+            if (
+                primary_cultivar
+                and primary_ripeness
+                and primary_total_w > 0
+                and primary_win_w >= primary_total_w * VOTE_CONFLICT_THRESHOLD
+            ):
+                median_area = float(np.median([d.w * d.h for d in detections]))
+                recovery_frame = rotated if (rot_is_canonical and rotated is not None) else image
+                img_h, img_w = image.shape[:2]
+                norm_cam = (camera_label or "").strip().casefold()
+                try:
+                    rec_results = self._model.predict(
+                        recovery_frame,
+                        conf=OCCLUDED_FINGER_RECOVERY_CONF,
+                        iou=TOP_OVERLAP_IOU,
+                        imgsz=self._image_size,
+                        augment=False,
+                        agnostic_nms=False,
+                        max_det=300,
+                        verbose=False,
+                    )
+                except Exception:
+                    rec_results = None
+                if rec_results and len(rec_results) > 0 and rec_results[0].boxes is not None:
+                    rec_boxes = sorted(
+                        rec_results[0].boxes, key=lambda b: float(b.conf[0]), reverse=True,
+                    )
+                    for box in rec_boxes:
+                        bx1, by1, bx2, by2 = box.xyxy[0].tolist()
+                        conf = float(box.conf[0])
+                        cls_id = int(box.cls[0])
+                        cls_name = rec_results[0].names[cls_id]
+                        if rot_is_canonical:
+                            x1, y1 = img_w - bx2, img_h - by2
+                            x2, y2 = img_w - bx1, img_h - by1
+                        else:
+                            x1, y1, x2, y2 = bx1, by1, bx2, by2
+                        det_w, det_h = x2 - x1, y2 - y1
+                        if det_w * det_h < OCCLUDED_FINGER_MIN_AREA_RATIO * median_area:
+                            continue
+                        if _parse_class_label(cls_name) != (primary_cultivar, primary_ripeness):
+                            continue
+                        if norm_cam == "rear" and y1 > 0.55 * img_h and det_w > 2.0 * det_h and conf < 0.60:
+                            continue
+                        if (
+                            getattr(settings, "yolo_peripheral_background_filter", True)
+                            and norm_cam in ("left", "right", "rear")
+                        ):
+                            if y2 < 0.22 * img_h:
+                                continue
+                            if (
+                                det_w > 0 and (det_h / det_w) >= 2.2 and y2 <= 0.55 * img_h
+                            ) or (
+                                y1 < 0.08 * img_h and det_w > 0
+                                and (det_h / det_w) >= 2.5 and y2 < 0.65 * img_h
+                            ):
+                                continue
+                        cand = Detection(
+                            x=x1, y=y1, w=det_w, h=det_h,
+                            cls=cls_name, confidence=conf,
+                        )
+                        if any(
+                            _is_duplicate_detection(cand, existing, 0.35)
+                            or _is_same_class_sub_box(cand, existing)
+                            for existing in detections
+                        ):
+                            continue
+                        detections.append(cand)
+                elapsed_ms = (time.time() - start) * 1000
 
         # Suppress cluster boxes that encompass 2+ distinct individual fingers
         if len(detections) >= 3:

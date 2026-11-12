@@ -635,3 +635,37 @@ def test_rotated_duplicate_with_competing_cultivar_requires_review(monkeypatch):
     assert result.finger_count == len(result.detections) == 1
     assert (result.cultivar, result.ripeness, result.confidence) == ("Lakatan", "Ripe", 92)
     assert result.conflict_detected is True
+
+
+def test_inverted_top_view_adopts_higher_confidence_rotated_cardaba_consensus(monkeypatch):
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_iou_threshold=0.45, yolo_top_overlap_refinement=True,
+        yolo_top_rotation_fallback=True,
+    ))
+    classifier = BananaClassifier()
+    classifier._model = SequencePredictor([
+        [
+            (100, 100, 180, 380, 0.91, 0),
+            (220, 100, 300, 380, 0.90, 0),
+            (340, 100, 420, 380, 0.89, 0),
+        ],
+        [
+            (460, 100, 540, 380, 0.95, 1),
+            (340, 100, 420, 380, 0.94, 1),
+            (220, 100, 300, 380, 0.94, 1),
+        ],
+    ], names={0: "lakatan_unripe", 1: "cardaba_unripe"})
+    classifier._checkpoint_sha256 = (
+        "9e21668e272bae8ea387d836bbc2b087b5fbb3ae90d375353f49105681e2f478"
+    )
+    result = classifier.predict(
+        np.zeros((480, 640, 3), dtype=np.uint8),
+        confidence_threshold=0.5, camera_label="Top",
+    )
+
+    assert result.cultivar == "Cardaba"
+    assert result.ripeness == "Unripe"
+    assert result.finger_count == 3
+    assert result.cultivar_conflict is False
+    assert result.conflict_detected is False
+
