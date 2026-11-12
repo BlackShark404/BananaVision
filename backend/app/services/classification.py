@@ -17,6 +17,7 @@ import numpy as np
 from app.config import get_settings
 from app.core.exceptions import ModelInferenceError
 from app.schemas.enums import CultivarEnum, RipenessEnum
+from app.services.ood_gate import EvidenceBox, is_supported
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -65,6 +66,8 @@ class ClassificationResult:
     inference_time_ms: float = 0.0
     conflict_detected: bool = False
     cultivar_conflict: bool = False
+    # Cultivar boxes discarded because no banana evidence covered them.
+    ood_rejected_boxes: int = 0
 
 
 # ── Class label parsing ─────────────────────────────────────────────────────
@@ -303,6 +306,8 @@ class BananaClassifier:
     def predict(
         self, image: np.ndarray, *, confidence_threshold: float,
         camera_label: str | None = None,
+        banana_evidence: list[EvidenceBox] | None = None,
+        support_margin: float = 0.25,
     ) -> ClassificationResult:
         """
         Run YOLO inference on a single image.
@@ -310,6 +315,10 @@ class BananaClassifier:
         Args:
             image: BGR numpy array (from OpenCV)
             camera_label: Configured camera view, independent of device/logical ID.
+            banana_evidence: Banana boxes from the general detector for this frame.
+                When given, cultivar boxes outside that evidence are rejected as
+                out-of-distribution. None keeps every box.
+            support_margin: Relative growth of each evidence box before the check.
 
         Returns:
             ClassificationResult with detections, cultivar, ripeness, etc.
@@ -360,6 +369,7 @@ class BananaClassifier:
         cultivar_votes: dict[str, list[float]] = {}
         class_votes: dict[tuple[str | None, str | None], list[float]] = {}
         duplicate_label_conflict = False
+        ood_rejected_boxes = 0
 
         if results and len(results) > 0:
             result = results[0]
@@ -375,6 +385,13 @@ class BananaClassifier:
                         x=x1, y=y1, w=x2 - x1, h=y2 - y1,
                         cls=cls_name, confidence=conf,
                     )
+                    # OOD gate: a closed-set label is trusted only on banana evidence.
+                    if banana_evidence is not None and not is_supported(
+                        det, banana_evidence, support_margin,
+                    ):
+                        ood_rejected_boxes += 1
+                        continue
+
                     # Suppress table lip / saucer edge false positives on Rear view
                     if (camera_label or "").strip().casefold() == "rear" and image is not None:
                         img_h = image.shape[0]
@@ -450,6 +467,12 @@ class BananaClassifier:
                             x=ox1, y=oy1, w=ox2 - ox1, h=oy2 - oy1,
                             cls=cls_name, confidence=conf,
                         )
+                        if banana_evidence is not None and not is_supported(
+                            candidate, banana_evidence, support_margin,
+                        ):
+                            # The rotated pass sees the same objects; pass 1 already
+                            # counted its rejections.
+                            continue
                         # Check against all accepted detections (pass 1 and newly accepted)
                         # using robust containment and spatial alignment
                         duplicates = [
@@ -522,6 +545,7 @@ class BananaClassifier:
             inference_time_ms=elapsed_ms,
             conflict_detected=conflict_detected,
             cultivar_conflict=cultivar_conflict,
+            ood_rejected_boxes=ood_rejected_boxes,
         )
 
     def _best_vote(self, votes: dict[str, list[float]]) -> str | None:

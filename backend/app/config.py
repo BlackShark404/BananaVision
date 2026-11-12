@@ -8,7 +8,7 @@ from pathlib import Path
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import SecretStr, Field, field_validator
+from pydantic import SecretStr, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -87,6 +87,18 @@ class Settings(BaseSettings):
     multi_camera_finger_fusion: bool = True
     rfr_model_path: str = "app/ml/weights/spoilage_rfr.joblib"
 
+    # ── Out-of-distribution rejection gate ───────────────────────────────────
+    # Calibrated on open-source images; see docs/knowledge/OOD Rejection.md.
+    # A view shows a banana when the general detector reaches this confidence.
+    ood_banana_confidence: float = Field(0.30, gt=0, le=1)
+    # Weaker banana evidence still supports cultivar boxes inside its region.
+    ood_support_confidence: float = Field(0.05, gt=0, le=1)
+    ood_support_margin: float = Field(0.25, ge=0, le=1)
+    ood_box_support_filter: bool = True
+    ood_min_banana_views: int = Field(1, ge=1, le=4)
+    # False rejects scans while the banana verifier is unavailable.
+    ood_gate_fail_open: bool = False
+
     # ── Storage ──────────────────────────────────────────────────────────────
     capture_dir: str = "captures"
     max_captures_retention_days: int = Field(30, ge=1)
@@ -155,6 +167,12 @@ class Settings(BaseSettings):
         if not ids or len(ids) > 4 or len(set(ids)) != len(ids) or any(i < 0 for i in ids):
             raise ValueError("Select one to four distinct nonnegative camera indices")
         return ids
+
+    @model_validator(mode="after")
+    def validate_ood_thresholds(self) -> Settings:
+        if self.ood_support_confidence > self.ood_banana_confidence:
+            raise ValueError("OOD support confidence cannot exceed OOD banana confidence")
+        return self
 
     @field_validator("bootstrap_admin_password")
     @classmethod
