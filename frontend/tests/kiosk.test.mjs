@@ -251,9 +251,13 @@ for (const mode of ['ai', 'cultivar_override', 'count_override']) {
       assert.match(await page.getByRole('status').filter({ hasText: /Cameras disagree/ }).textContent(), /Top \+ Right: Lakatan; Left \+ Rear: Latundan/)
       await page.getByText('Cultivar uncertain', { exact: true }).waitFor()
       assert.equal(await page.getByRole('button', { name: 'Review required', exact: true }).isDisabled(), true)
+      assert.equal(await page.getByText('Uncertain', { exact: true }).count(), 2)
+      assert.equal(await page.getByText(/Review needed/).count(), 1)
     } else {
       assert.equal(await page.getByText('Cultivar uncertain', { exact: true }).count(), 0)
       assert.equal(await page.getByRole('button', { name: 'Accept', exact: true }).isEnabled(), true)
+      assert.equal(await page.getByText('Uncertain', { exact: true }).count(), 0)
+      assert.equal(await page.getByText(/Review needed/).count(), 0)
     }
     assert.equal(state.scans[0].cultivar, corrected ? 'Lakatan' : 'Latundan')
     assert.equal(state.scans[0].confidence, 77.9)

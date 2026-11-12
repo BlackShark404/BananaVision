@@ -66,7 +66,7 @@ export default function Kiosk() {
     if (!lastResult || !cultivarConflict || notifiedConflict.current === lastResult.id) return
     notifiedConflict.current = lastResult.id
     toast.warning("Cultivar uncertain", {
-      description: `${cultivarConflict}. Flag this scan for review before accepting.`,
+      description: `${cultivarConflict}. Flag this scan for review; estimates stay hidden until the cultivar is corrected.`,
       duration: 8000,
     })
   }, [lastResult, cultivarConflict])
@@ -888,37 +888,40 @@ export default function Kiosk() {
               {recentScans.length === 0 ? (
                 <p className="text-center text-muted-foreground/50 text-xs py-6">No recent scans</p>
               ) : (
-                recentScans.map((scan, i) => (
-                  <Card
-                    key={scan.id}
-                    className="bg-card border-border rounded-xl animate-fade-in-row"
-                    style={{ animationDelay: `${i * 40}ms` }}
-                  >
-                    <CardContent className="p-3 flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 ${scan.ripeness === "Unripe" ? "bg-emerald-500/20" :
-                        scan.ripeness === "Ripe" ? "bg-yellow-500/20" :
-                          scan.ripeness === "Overripe" ? "bg-red-500/20" : "bg-violet-500/20"
-                        }`}>
-                        {ripenessIcon[scan.ripeness]}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold">{scan.cultivar}</span>
-                          <AppStatusBadge type="ripeness" status={scan.ripeness} size="sm" />
+                recentScans.map((scan, i) => {
+                  const conflict = cultivarCameraConflict(scan)
+                  return (
+                    <Card
+                      key={scan.id}
+                      className="bg-card border-border rounded-xl animate-fade-in-row"
+                      style={{ animationDelay: `${i * 40}ms` }}
+                    >
+                      <CardContent className="p-3 flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 ${scan.ripeness === "Unripe" ? "bg-emerald-500/20" :
+                          scan.ripeness === "Ripe" ? "bg-yellow-500/20" :
+                            scan.ripeness === "Overripe" ? "bg-red-500/20" : "bg-violet-500/20"
+                          }`}>
+                          {ripenessIcon[scan.ripeness]}
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(scan.dateTime).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila" })} · {scan.confidence === null ? "Unknown" : `${scan.confidence}%`} confidence
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="flex flex-col items-end">
-                          <p className="text-sm font-bold text-rose-500">{formatSpoilageDays(scan.spoilageDays)}</p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold">{conflict ? "Uncertain" : scan.cultivar}</span>
+                            <AppStatusBadge type="ripeness" status={scan.ripeness} size="sm" />
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(scan.dateTime).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila" })} · {conflict ? "Review needed" : scan.confidence === null ? "Unknown confidence" : `${scan.confidence}% confidence`}
+                          </p>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">{scan.fingerCount} fingers</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
+                        <div className="text-right shrink-0">
+                          <div className="flex flex-col items-end">
+                            <p className="text-sm font-bold text-rose-500">{conflict ? "—" : formatSpoilageDays(scan.spoilageDays)}</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">{scan.fingerCount} fingers</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })
               )}
             </div>
           </div>
