@@ -56,6 +56,14 @@ Once set up, the user simply opens `http://bananavision-pc:5173` from anywhere.
    Also check the power button / lid settings if applicable.
 7. **Auto-start BananaVision.** Tailscale starting is not enough — the app itself must be running. Configure auto-login and the startup shortcut from [kiosk-autostart-guide.md](kiosk-autostart-guide.md).
 
+**Power settings prerequisites.** The `powercfg` commands above only control OS sleep and need three conditions:
+
+- **Administrator elevation.** Run them in an Administrator PowerShell; as a normal user they fail with a permissions error. Changes apply immediately and persist across reboots.
+- **BIOS/UEFI AC recovery.** After a power outage many mini PCs stay off until the power button is pressed. Set *Restore on AC Power Loss*, *State After G3* or *After Power Failure* to **Power On** in BIOS so the station returns unattended.
+- **Windows Update restarts.** Set active hours so updates do not reboot the station while managers depend on it. On Windows Pro, enable *No auto-restart with logged on users for scheduled automatic updates installations* (Computer Configuration -> Administrative Templates -> Windows Components -> Windows Update).
+
+Confirm in **Settings** -> **System** -> **Power & battery** that Sleep shows **Never** while plugged in, or run `powercfg /query SCHEME_CURRENT SUB_SLEEP STANDBYIDLE`.
+
 Verify on the Mini PC:
 
 ```powershell
