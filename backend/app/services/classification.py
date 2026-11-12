@@ -38,9 +38,9 @@ TOP_OVERLAP_CONFIDENCE = 0.50
 TOP_OVERLAP_BASE_IOU = 0.45
 TOP_OVERLAP_IOU = 0.65
 TOP_ROTATION_DEDUP_IOU = 0.40
-OCCLUDED_FINGER_RECOVERY_CONF = 0.30
+OCCLUDED_FINGER_RECOVERY_CONF = 0.25
 OCCLUDED_FINGER_MIN_PRIMARY = 5
-OCCLUDED_FINGER_MIN_AREA_RATIO = 0.25
+OCCLUDED_FINGER_MIN_AREA_RATIO = 0.22
 
 
 def _checkpoint_digest(path: str) -> str:
@@ -265,6 +265,21 @@ def _is_duplicate_detection(
             if abs(cx_cand - cx_exist) <= 0.25 * min_w:
                 return True
 
+    return False
+
+
+def _is_recovery_duplicate(cand: Detection, existing: Detection) -> bool:
+    """True when a TTA recovery candidate duplicates an existing detection."""
+    if _box_iou(cand, existing) >= TOP_OVERLAP_IOU:
+        return True
+    if _is_same_class_sub_box(cand, existing) or _is_same_class_sub_box(existing, cand):
+        return True
+    if _box_containment(cand, existing) >= 0.80:
+        min_w, min_h = min(cand.w, existing.w), min(cand.h, existing.h)
+        cx_c, cy_c = cand.x + cand.w / 2.0, cand.y + cand.h / 2.0
+        cx_e, cy_e = existing.x + existing.w / 2.0, existing.y + existing.h / 2.0
+        if abs(cx_c - cx_e) <= 0.25 * min_w and abs(cy_c - cy_e) <= 0.25 * min_h:
+            return True
     return False
 
 
@@ -630,9 +645,9 @@ class BananaClassifier:
                     rec_results = self._model.predict(
                         recovery_frame,
                         conf=OCCLUDED_FINGER_RECOVERY_CONF,
-                        iou=TOP_OVERLAP_IOU,
+                        iou=0.70,
                         imgsz=self._image_size,
-                        augment=False,
+                        augment=True,
                         agnostic_nms=False,
                         max_det=300,
                         verbose=False,
@@ -679,11 +694,7 @@ class BananaClassifier:
                         )
                         if rejected_by_gate(cand):
                             continue
-                        if any(
-                            _is_duplicate_detection(cand, existing, 0.35)
-                            or _is_same_class_sub_box(cand, existing)
-                            for existing in detections
-                        ):
+                        if any(_is_recovery_duplicate(cand, existing) for existing in detections):
                             continue
                         detections.append(cand)
                 elapsed_ms = (time.time() - start) * 1000

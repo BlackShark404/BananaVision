@@ -7,8 +7,9 @@ AUTHORIZED SCOPE / LATEST DECISIONS
   RoronoaZoro1206/BananaVision after checks pass, then a pull request to
   BlackShark404/BananaVision from GitHub. The cultivar-accuracy evaluation runs on the
   laptop, because the trained weights and labeled dataset are not in the repository.
-- Built on top of commit e8825a5 (Cardaba recognition and finger estimates). That
-  checkpoint is archived byte-for-byte in
+- Built on top of the team commits e8825a5 (Cardaba recognition and finger estimates)
+  and 0c74c73 (genuine finger counts and recovery), merged in on 2026-11-13. The team
+  checkpoint of 0c74c73 is archived byte-for-byte in
   docs/history/2026-11-13-before-ood-rejection.txt.
 
 ROOT CAUSE (code reading + measurement)
@@ -28,7 +29,8 @@ DONE
   (grown 25 %) is set aside when the model emits it, in the first pass, the rotated Top
   pass and the occluded-finger recovery pass. It never votes, counts or suppresses a box
   on a banana; only the cluster rule still sees it. The V2 checkpoint, canonical
-  rotation and recovery logic of e8825a5 are unchanged when no evidence is given.
+  rotation, TTA recovery and genuine max-view counting of e8825a5 and 0c74c73 are
+  unchanged when no evidence is given.
 - scan_service.py / api/v1/scans.py: gate on every view; rejection 422 with detail +
   code/status/is_ood/reason; same fields on scan:failed; any scan that lost a box is
   saved flagged; scan_rejected activity row with per-view banana scores. Faults answer
@@ -56,14 +58,14 @@ VERIFICATION
   and 0.16 % of far-OOD object boxes pass. One banana view plus three unrelated views:
   OOD boxes admitted 11069 -> 475.
 - Backend: 664 passed, 104 skipped (PostgreSQL-only; no disposable cluster here);
-  e8825a5 alone gives 582 passed, 104 skipped. 82 new tests.
+  the team main (0c74c73) alone gives 582 passed, 104 skipped. 82 new tests.
 - Frontend: 280 browser tests, 5 new kiosk cases. Full run 279 passed, 1 failed
   (397.1 s): kiosk-pin "PIN verification sends once..." stopped in its own setup with
   "clock.pauseAt: Cannot fast-forward to the past". That test, its fixture and the
   harness are unchanged, and the file passed 15/15 on three reruns, so it is a
   Node-versus-browser clock race, not a regression. Typecheck and build passed; lint
   40 problems (35 errors, 5 warnings), unchanged baseline.
-- Ruff: new files clean; changed backend files 43 findings, the same as at e8825a5.
+- Ruff: new files clean; changed backend files 43 findings, the same as at 0c74c73.
 - Reviews: a design review, then four separate reviews of the finished change
   (correctness, security, API/UI contract, tests and documentation) raised 20 concrete
   points. All were addressed: suppression by unsupported boxes, votes of removed boxes,

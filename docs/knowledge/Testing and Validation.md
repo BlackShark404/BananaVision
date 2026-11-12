@@ -16,8 +16,8 @@ Design, thresholds and limits are in [[AI Models]]; the kiosk state is in [[Fron
   The trained weights and labeled dataset are not in the repository; `pipeline` mode
   produces those numbers where they exist. No retraining was run.
 - **Backend:** full suite **664 passed, 104 skipped** (PostgreSQL-only cases; no disposable
-  cluster in this environment), against **582 passed, 104 skipped** on the preceding commit
-  `e8825a5`. The 82 new tests cover gate logic, classifier filtering (including cluster-box,
+  cluster in this environment), against **582 passed, 104 skipped** on the team's
+  `0c74c73`. The 82 new tests cover gate logic, classifier filtering (including cluster-box,
   rotated-pass, canonical-rotation and occluded-finger-recovery cases), the 422/503/WebSocket contract, the audit row, the dataset script (leakage, path
   safety, truncated, incomplete and non-JPEG payloads, merge isolation), evaluation metrics,
   and the real COCO verifier on 12 synthetic frames (blank, noise, blur, yellow/green shapes).
@@ -30,7 +30,7 @@ Design, thresholds and limits are in [[AI Models]]; the kiosk state is in [[Fron
   passed (existing >500 kB chunk warning); lint **40 problems (35 errors, 5 warnings)**,
   unchanged baseline.
 - **Ruff:** new files clean. Changed backend files **43 findings, the same as on
-  `e8825a5`**; no introduced diagnostic.
+  `0c74c73`**; no introduced diagnostic.
 - **Review:** an independent design review before the tests, then four separate reviews
   of the finished change (correctness, security, API/UI contract, tests and documentation).
   They raised 20 concrete points; each was addressed, and code defects are pinned by
