@@ -76,7 +76,11 @@ async function request<T>(
     const err = await res.json().catch(() => ({ detail: res.statusText }))
     const detail = typeof err.detail === "string" ? err.detail : Array.isArray(err.detail)
       ? err.detail.map((item: { msg?: string }) => item.msg).filter(Boolean).join("; ") : `API error ${res.status}`
-    throw Object.assign(new Error(detail), { status: res.status })
+    // Machine-readable outcome of a refused scan. Copied by name: the body also has a
+    // text `status`, which must never replace the numeric HTTP status below.
+    const code = typeof err.code === "string" ? err.code : undefined
+    const reason = typeof err.reason === "string" ? err.reason : undefined
+    throw Object.assign(new Error(detail), { status: res.status, code, reason })
   }
 
   // 204 No Content

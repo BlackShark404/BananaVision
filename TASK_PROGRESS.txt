@@ -1,59 +1,95 @@
-CURRENT RESUME HERE (2026-11-13) - ESTIMATED FINGERS LABEL, CARDABA RECOGNITION, AND FINGER COUNT ACCURACY
+CURRENT RESUME HERE (2026-11-13) - OUT-OF-DISTRIBUTION (OOD) REJECTION FOR LAKATAN / LATUNDAN / CARDABA
 
-AUTHORIZED SCOPE / LATEST DECISION
-- User requested:
-  1. Rename "Est. Fingers" to "Estimated Fingers" for clarity.
-  2. Audit and fix bounding-box detection and finger-counting logic to reach 80-90%
-     accuracy (12-14 fingers on a 15-finger hand instead of 8 or 11).
-  3. Fix Cardaba cultivar recognition failure (misclassified as Lakatan 82.7% when
-     placed on the Kiosk platter with crown at bottom of the Top camera frame).
-- Previous checkpoint archived byte-for-byte in
-  docs/history/2026-11-13-before-cardaba-and-finger-count-fix.txt.
+AUTHORIZED SCOPE / LATEST DECISIONS
+- User asked for OOD detection and rejection backed by open-source negative data, so the
+  system reports only Lakatan, Latundan and Cardaba and rejects unrelated inputs.
+- Delivery decided on 2026-11-13: one commit on main of the fork
+  RoronoaZoro1206/BananaVision after checks pass, then a pull request to
+  BlackShark404/BananaVision from GitHub. The cultivar-accuracy evaluation runs on the
+  laptop, because the trained weights and labeled dataset are not in the repository.
+- Built on top of commit e8825a5 (Cardaba recognition and finger estimates). That
+  checkpoint is archived byte-for-byte in
+  docs/history/2026-11-13-before-ood-rejection.txt.
+
+ROOT CAUSE (code reading + measurement)
+- Stage 2 (12-class cultivar YOLO) is closed-set and was trained without background
+  images: any box it emits is a supported cultivar.
+- The COCO banana pre-detector passed a scan when any one camera saw a banana, then
+  Stage 2 ran on all views and every box voted and counted.
+- The pre-detector failed open when it could not run.
+- Measured single-frame leak of the earlier gate on the held-out benchmark: near-OOD
+  3.28 % (22/670), far-OOD 0.14 % (1/708). Four unrelated views compound this to 6.55 %.
+- Stage 2's own false-cultivar rate could NOT be reproduced here (no weights).
 
 DONE
-- Frontend UI & Test:
-  - Renamed "Est. Fingers" to "Estimated Fingers" in frontend/src/pages/Kiosk.tsx,
-    frontend/src/pages/Logs.tsx, frontend/src/pages/admin/QualityControl.tsx, and
-    frontend/tests/kiosk.test.mjs.
-- Backend YOLO Classification (backend/app/services/classification.py):
-  - Added SHA-256 digests for banana_yolovn26V2.pt and banana_yolovsV2.pt (imgsz=640)
-    to TOP_CALIBRATED_CHECKPOINTS so the active V2 models use calibrated Top overlap
-    refinement (iou=0.65) and 180-degree rotation fallback.
-  - Promoted the 180-degree rotated Top pass as canonical when it yields an unconflicted
-    cultivar consensus (>= 3 fingers, >= 60% weight share) with strictly higher peak
-    confidence than the 0-degree pass (correcting crown-at-bottom orientation inversion
-    for Cardaba and Latundan hands).
-  - Refined _is_same_class_sub_box (area ratio <= 0.72 + longitudinal axis alignment),
-    _unique_box_detections, _is_duplicate_detection, and _is_cluster_box (>= 1.6x median
-    area) so diagonal flank fingers in radial fans are not falsely suppressed.
-  - Added a guarded occluded-finger recovery pass (conf=0.30, iou=0.65) for calibrated
-    bunches with >= 5 primary fingers to recover partially occluded flank/tier fingers
-    matching the primary (cultivar, ripeness).
-- Backend Multi-Camera Fusion (backend/app/services/fusion_engine.py):
-  - Allowed a multi-finger (>= 4) overhead Top anchor with strictly higher confidence
-    than competing peripheral views to prevail without a false cultivar_conflict.
-  - Added bounded multi-tier finger compensation (_estimate_finger_count: +2 to +3,
-    capped at 14) when 3+ views confirm a multi-tier hand (8 <= baseline_max <= 12).
-- Documentation:
-  - Updated docs/knowledge/Development Decisions.md and docs/knowledge/Resolved Bugs.md.
+- backend/app/services/ood_gate.py: pure gate logic, policy, rejection codes.
+- banana_detector.py: banana evidence boxes at 0.05, `available` flag.
+- classification.py: a cultivar box whose centre is not covered by banana evidence
+  (grown 25 %) is set aside when the model emits it, in the first pass, the rotated Top
+  pass and the occluded-finger recovery pass. It never votes, counts or suppresses a box
+  on a banana; only the cluster rule still sees it. The V2 checkpoint, canonical
+  rotation and recovery logic of e8825a5 are unchanged when no evidence is given.
+- scan_service.py / api/v1/scans.py: gate on every view; rejection 422 with detail +
+  code/status/is_ood/reason; same fields on scan:failed; any scan that lost a box is
+  saved flagged; scan_rejected activity row with per-view banana scores. Faults answer
+  503 with is_ood false: verifier unavailable (fail closed) and no camera frame.
+- config.py / .env.example: OOD_BANANA_CONFIDENCE 0.30, OOD_SUPPORT_CONFIDENCE 0.05,
+  OOD_SUPPORT_MARGIN 0.25, OOD_BOX_SUPPORT_FILTER true, OOD_MIN_BANANA_VIEWS 1,
+  OOD_GATE_FAIL_OPEN false. No database migration.
+- backend/scripts/prepare_ood_dataset.py + scripts/ood/open_images_ood_manifest.json:
+  Open Images V7 pools (train_negatives 998, calibration 1284, benchmark 1654), disjoint
+  by split, image ID and file hash; merge-negatives copies a prepared YOLO dataset and
+  adds background images to train only. backend/ood-data/ is git-ignored.
+- backend/scripts/evaluate_ood_gate.py: `gate` mode (run here) and `pipeline` mode
+  (needs trained weights + labeled split).
+- Frontend: api.ts error code/reason; ScanContext refusal state with one notice per
+  scan; Kiosk status card "No Lakatan, Latundan, or Cardaba detected" and an alert card
+  "Scan could not run" for 503 faults; Activity Log badge and full detail; Profile label.
+- Docs: backend/README.md, docs/knowledge/AI Models.md (new), Frontend.md, Testing and
+  Validation.md, Development Decisions.md, the gate passages of the presentation guide
+  (docs/kent_presentation_guide 00 and 08), docs/audits/ood-gate-evaluation-2026-11-13.json.
 
 VERIFICATION
-- Backend pytest (test_top_view_inference.py, test_classification_fusion.py,
-  test_scan_trigger.py, test_time_and_writes.py): 165 passed.
-- Evaluated on the 3 uploaded Kiosk scans (15-finger hands) and 168 validation/test
-  Top-view dataset images:
-  - Scan 0 (Latundan): Rear 12 boxes, Fused 14 fingers (93.3% accuracy, previously 11 / 73.3%).
-  - Scan 1 (Lakatan): Top 11 boxes, Fused 13 fingers (86.7% accuracy, previously 8 / 53.3%).
-  - Scan 2 (Cardaba): Top Cardaba Unripe (88.3% conf, conflict=False), Fused Cardaba
-    13 fingers (86.7% accuracy, previously Lakatan 82.7% and 11 fingers / 73.3%).
-  - Validation + Test Top views: 168 / 168 (100.0%) cultivar accuracy.
-- Frontend typecheck (npx.cmd tsc --noEmit) and production build (npm.cmd run build) passed.
+- Held-out benchmark (gate only): near-OOD frame rejection 96.72 % -> 97.31 %, far-OOD
+  99.86 % -> 100 %, generic banana frames accepted 90.07 %, AUROC 0.976, AUPR 0.936,
+  FPR at 95 % TPR 2.83 %. Box support keeps 94.92 % of banana boxes; 7.3 % of near-OOD
+  and 0.16 % of far-OOD object boxes pass. One banana view plus three unrelated views:
+  OOD boxes admitted 11069 -> 475.
+- Backend: 664 passed, 104 skipped (PostgreSQL-only; no disposable cluster here);
+  e8825a5 alone gives 582 passed, 104 skipped. 82 new tests.
+- Frontend: 280 browser tests, 5 new kiosk cases. Full run 279 passed, 1 failed
+  (397.1 s): kiosk-pin "PIN verification sends once..." stopped in its own setup with
+  "clock.pauseAt: Cannot fast-forward to the past". That test, its fixture and the
+  harness are unchanged, and the file passed 15/15 on three reruns, so it is a
+  Node-versus-browser clock race, not a regression. Typecheck and build passed; lint
+  40 problems (35 errors, 5 warnings), unchanged baseline.
+- Ruff: new files clean; changed backend files 43 findings, the same as at e8825a5.
+- Reviews: a design review, then four separate reviews of the finished change
+  (correctness, security, API/UI contract, tests and documentation) raised 20 concrete
+  points. All were addressed: suppression by unsupported boxes, votes of removed boxes,
+  camera fault shown as a rejection, incomplete downloads, link write-through, data.yaml
+  relocation, line cap, unignored example paths, notice merging, fault display, contrast,
+  hidden audit detail, and six tests that could not fail for the defect they named.
+  Seven tests were confirmed by mutating the code they guard, including each of the
+  three places where the classifier applies the gate.
+- No live station database, captures, cameras, sensors or OS power were used.
 
 LIMITS / KNOWLEDGE
-- Multi-tier finger compensation remains an estimate bounded at 14 and keeps
-  count_requires_review=True when camera views differ so operators confirm physical totals.
-- No live station database, captures, cameras, or OS power were touched.
+- NOT measured: per-cultivar precision/recall/F1 before and after, and Stage 2's
+  false-cultivar rate. No retraining with negatives was run.
+- Unsupported banana cultivars pass the gate (COCO "banana" covers all varieties).
+- Strong lookalikes pass the verifier (yellow watermelon 0.90, mango slice 0.89, yellow
+  squash 0.84); retraining Stage 2 with the hard negatives is the remedy.
+- Green or peeled bananas score low (0.09-0.21); unripe station hands are unmeasured.
+  If valid scans are flagged or lose fingers, set OOD_BOX_SUPPORT_FILTER=false and report.
+- Thresholds come from open-source photos, not station captures.
+- Graphify CLI/graph, ICM and Context7 were unavailable; graph and memory not refreshed.
+  No Codex Security service scan was run; source review only.
 
 EXACT NEXT STEP
-- Review the scoped diff; commit or restart the local backend/frontend dev server only
-  when requested by the user.
+- On the laptop, from backend/ with the project venv:
+    python scripts/prepare_ood_dataset.py fetch --manifest scripts/ood/open_images_ood_manifest.json --output ood-data
+    python scripts/evaluate_ood_gate.py pipeline --weights app/ml/weights/banana_yolov26n.pt --id-split <prepared dataset>/test --ood ood-data --pool benchmark --output ood-pipeline-report.json
+  Compare `legacy_gate` with `ood_gate` in the report: per-cultivar recall and
+  `finger_boxes` must not drop for real bananas. Send the JSON back for review.
+- Then open the pull request from the fork to BlackShark404/BananaVision. No deployment.

@@ -111,6 +111,8 @@ export default function Profile() {
         return "Updated scan data in Quality Control"
       case "scan_flagged":
         return "Flagged a scan for manual review"
+      case "scan_rejected":
+        return "Scan rejected: no supported banana detected"
       case "intake_created":
         return "Recorded a new delivery intake"
       case "intake_status_changed":

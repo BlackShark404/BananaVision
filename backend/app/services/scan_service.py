@@ -28,11 +28,17 @@ from app.models.scan_image import ScanImage
 from app.models.device import Device
 from app.models.activity_log import ActivityLog
 from app.models.app_notification import AppNotification
-from app.core.exceptions import ConflictException, ModelInferenceError, NotFoundException
+from app.core.exceptions import (
+    ConflictException,
+    ModelInferenceError,
+    NotFoundException,
+    ScanRejectedError,
+)
 from app.schemas.enums import IntakeStatusEnum
 from app.services.camera_manager import camera_manager
 from app.services.classification import banana_classifier, _parse_class_label
 from app.services.banana_detector import banana_pre_detector
+from app.services import ood_gate
 from app.services.fusion_engine import fusion_engine
 from app.services.spoilage import spoilage_predictor
 from app.services.feature_engineering import calc_vpd
@@ -42,6 +48,39 @@ from app.ws.manager import ws_manager
 from app.ws import events
 
 logger = logging.getLogger(__name__)
+
+CAPTURE_UNAVAILABLE_CODE = "capture_unavailable"
+CAPTURE_UNAVAILABLE_MESSAGE = (
+    "No camera frame was captured. Check the cameras and try again."
+)
+
+
+def rejection_payload(exc: ScanRejectedError) -> dict:
+    """Machine-readable rejection fields shared by the HTTP and WebSocket contracts."""
+    is_ood = exc.code == ood_gate.REJECTION_CODE
+    return {
+        "code": exc.code,
+        "status": "rejected" if is_ood else "unavailable",
+        "is_ood": is_ood,
+        "reason": exc.reason,
+    }
+
+
+async def _record_rejection(
+    db: AsyncSession, account_id: uuid.UUID, exc: ScanRejectedError, client_ip: str | None,
+) -> None:
+    """Keep an audit row for a rejected scan; never mask the rejection itself."""
+    try:
+        db.add(ActivityLog(
+            user_id=account_id,
+            action="scan_rejected",
+            details=f"Scan rejected ({exc.reason}): {exc.audit}",
+            ip_address=client_ip,
+        ))
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        logger.exception("Could not record the rejected scan in the activity log")
 
 
 async def execute_scan_pipeline(
@@ -116,6 +155,13 @@ async def _execute_scan_pipeline(
 
         captures = await camera_manager.capture_all()
         captures = await run_blocking(camera_manager.save_captures, captures, scan_id_str)
+        if not captures:
+            # A camera fault is not an out-of-distribution object: it must not be
+            # shown or logged as "no supported banana".
+            raise ScanRejectedError(
+                CAPTURE_UNAVAILABLE_CODE, CAPTURE_UNAVAILABLE_MESSAGE,
+                code=CAPTURE_UNAVAILABLE_CODE, audit="no camera produced a frame",
+            )
 
         # Broadcast individual captures
         for i, cap in enumerate(captures):
@@ -136,17 +182,43 @@ async def _execute_scan_pipeline(
             "progress_pct": 30,
         })
 
-        any_banana_found = False
+        # Every view is checked: its banana evidence later decides which cultivar
+        # boxes of that same frame are trusted (out-of-distribution rejection).
+        settings = get_settings()
+        gate_policy = ood_gate.policy_from_settings(settings)
+        fail_open = getattr(settings, "ood_gate_fail_open", False)
+        # One entry per capture, in capture order.
+        view_evidence: list[ood_gate.ViewEvidence] = []
         for cap in captures:
             pre_result = await run_blocking(banana_pre_detector.detect, cap.frame)
-            if pre_result.banana_detected:
-                any_banana_found = True
-                break
+            if not getattr(pre_result, "available", True) and not fail_open:
+                # Without the verifier every object would reach the closed-set model.
+                raise ScanRejectedError(
+                    ood_gate.GATE_UNAVAILABLE_CODE, ood_gate.GATE_UNAVAILABLE_MESSAGE,
+                    code=ood_gate.GATE_UNAVAILABLE_CODE,
+                    audit=f"banana verifier unavailable on {cap.camera_label}",
+                )
+            boxes = getattr(pre_result, "boxes", None)
+            view_evidence.append(ood_gate.ViewEvidence(
+                camera_id=cap.camera_id, camera_label=cap.camera_label,
+                evidence=boxes if gate_policy.box_support_filter else None,
+                banana_score=float(getattr(pre_result, "best_confidence", 0.0) or 0.0),
+                has_banana=bool(pre_result.banana_detected),
+            ))
+        # Per-view scores are the only station evidence left after a rejection.
+        view_scores = ", ".join(
+            f"{view.camera_label} {view.banana_score:.2f}" for view in view_evidence
+        )
 
-        if not any_banana_found:
-            raise ModelInferenceError(
-                "BananaPreDetector",
-                "🍌 No banana found — please place the banana on the tray and try again.",
+        gate_decision = ood_gate.decide_scan(view_evidence, gate_policy)
+        if not gate_decision.accepted:
+            raise ScanRejectedError(
+                ood_gate.REASON_NO_BANANA, ood_gate.REJECTION_MESSAGE,
+                audit=(
+                    f"banana evidence in {gate_decision.banana_views} of {len(captures)} "
+                    f"views ({gate_decision.required_views} required); "
+                    f"banana scores: {view_scores}"
+                ),
             )
 
         # ── Step 4: YOLO cultivar/ripeness inference on each image ────
@@ -163,12 +235,21 @@ async def _execute_scan_pipeline(
         device_rows = (await db.execute(select(Device.camera_id, Device.id))).all()
         device_map: dict[str, uuid.UUID] = {row.camera_id: row.id for row in device_rows}
 
-        for cap in captures:
-            # Classify
+        ood_rejected_boxes = 0
+        for cap, view in zip(captures, view_evidence, strict=True):
+            # The cultivar model still sees every view. With evidence, only boxes
+            # that banana evidence covers survive and the dropped count is kept;
+            # without it (legacy detector or filter off) every box is kept.
+            gate_arguments = {} if view.evidence is None else {
+                "banana_evidence": view.evidence,
+                "support_margin": gate_policy.support_margin,
+            }
             result = await run_blocking(
                 banana_classifier.predict, cap.frame,
                 confidence_threshold=confidence_threshold, camera_label=cap.camera_label,
+                **gate_arguments,
             )
+            ood_rejected_boxes += getattr(result, "ood_rejected_boxes", 0)
             classification_results.append((cap.camera_id, cap.camera_label, result))
 
             # Store per-camera detection record
@@ -226,10 +307,21 @@ async def _execute_scan_pipeline(
 
         # Guard: if no banana was detected, abort the scan gracefully
         if fused.cultivar == "Unknown" or fused.ripeness == "Unknown":
-            raise ModelInferenceError(
-                "BananaClassifier",
-                "No banana detected in any camera frame. "
-                "Please position the banana hand and try again.",
+            raise ScanRejectedError(
+                ood_gate.REASON_NO_TARGET_CULTIVAR, ood_gate.REJECTION_MESSAGE,
+                audit=(
+                    f"no supported cultivar; {ood_rejected_boxes} cultivar boxes had no "
+                    f"banana evidence; banana scores: {view_scores}"
+                ),
+            )
+        # The gate never changes an accepted scan silently: dropped boxes can be a
+        # foreign object or a missed finger, so a person confirms the result.
+        auto_flagged = bool(fused.auto_flagged) or ood_rejected_boxes > 0
+        if ood_rejected_boxes:
+            logger.info(
+                "OOD gate dropped %s cultivar boxes without banana evidence in scan %s; "
+                "flagged for review (banana scores: %s)",
+                ood_rejected_boxes, scan_id_str, view_scores,
             )
 
         # Cross-view cultivar harmonization:
@@ -319,7 +411,7 @@ async def _execute_scan_pipeline(
         scan = await create_scan_record(
             db, scan_id=scan_id, operator_id=operator_id, operator_name=operator_name,
             intake=intake_obj, source_text=supplier_name, date_time=now_manila(),
-            classification=classification, flagged=fused.auto_flagged,
+            classification=classification, flagged=auto_flagged,
             actor_id=account_id, actor_name=operator_name,
         )
 
@@ -338,6 +430,11 @@ async def _execute_scan_pipeline(
             details=(
                 f"Scanned {fused.cultivar} ({fused.ripeness}) — "
                 f"{fused.confidence}% confidence, {fused.finger_count} fingers"
+                + (
+                    f"; {ood_rejected_boxes} boxes without banana evidence dropped, "
+                    "flagged for review"
+                    if ood_rejected_boxes else ""
+                )
             ),
             ip_address=client_ip,
         ))
@@ -354,7 +451,7 @@ async def _execute_scan_pipeline(
             user_id=account_id,
         ))
 
-        if fused.auto_flagged:
+        if auto_flagged:
             db.add(AppNotification(
                 type="scan_flagged",
                 title="Scan Auto-Flagged",
@@ -402,7 +499,7 @@ async def _execute_scan_pipeline(
         await ws_manager.send_to_room(events.ROOM_DASHBOARD, events.SCAN_COMPLETED, scan_result)
 
         # Broadcast notification if flagged
-        if fused.auto_flagged:
+        if auto_flagged:
             await ws_manager.send_to_room(events.ROOM_DASHBOARD, events.NOTIFICATION, {
                 "type": "scan_flagged",
                 "title": "Scan Auto-Flagged",
@@ -434,10 +531,20 @@ async def _execute_scan_pipeline(
         else:
             user_error = "Something went wrong during the scan. Please try again."
 
-        await send_scan_event(events.SCAN_FAILED, {
+        failure = {
             "scan_id": scan_id_str,
             "error": user_error,
             "stage": "pipeline",
-        })
-        logger.error(f"Scan pipeline failed: {exc}")
+        }
+        if isinstance(exc, ScanRejectedError):
+            # Additive fields: older clients keep reading `error`.
+            failure.update(rejection_payload(exc))
+        await send_scan_event(events.SCAN_FAILED, failure)
+        if isinstance(exc, ScanRejectedError) and exc.code == ood_gate.REJECTION_CODE:
+            # An expected outcome, not a fault. Captures are removed, so this line
+            # and the activity row are the record of what the station saw.
+            logger.info("OOD gate rejected scan %s (%s): %s", scan_id_str, exc.reason, exc.audit)
+            await _record_rejection(db, account_id, exc, client_ip)
+        else:
+            logger.error(f"Scan pipeline failed: {exc}")
         raise

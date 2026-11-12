@@ -14,13 +14,24 @@ import { notifyLiveResumed, notifyNotificationsChanged, notifyScansAdded, notify
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
+/** The backend refused the last scan and saved nothing. */
+export interface ScanRejection {
+  message: string
+  /** `ood_rejected` for a scan with no supported banana; any other code is a station fault. */
+  code: string
+  reason?: string
+}
+
 interface ScanState {
   isScanning: boolean
   scanStep: number
   scanStepLabel: string
   scanProgress: number
   lastResult: ScanResult | null
+  rejection: ScanRejection | null
 }
+
+export const OOD_REJECTED = "ood_rejected"
 
 interface ScanContextType {
   scans: ScanResult[]
@@ -65,6 +76,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
     scanStepLabel: "",
     scanProgress: 0,
     lastResult: null,
+    rejection: null,
   })
 
 
@@ -151,7 +163,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
     }
     const saved = knownScans.current.get(scanResult.id) ?? latest
     setScans(prev => [saved, ...prev.filter(scan => scan.id !== saved.id)])
-    setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: saved })
+    setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: saved, rejection: null })
     // A completion adds a row; edits use notifyScanUpdated so frozen page 2+
     // snapshots are never replaced unless the user asks for the latest scans.
     notifyScansAdded()
@@ -159,12 +171,27 @@ function ScanStore({ children }: { children: React.ReactNode }) {
     void refreshScans()
   }, [refreshScans, acceptScan])
 
+  // Counts scans so the notices of one scan can share a toast without touching the next.
+  const scanAttempt = useRef(0)
+
+  // A coded failure is a refused scan: it stays on screen until the next scan. The
+  // WebSocket event and the HTTP response carry the same text for it, so they share
+  // one notice per scan. Uncoded failures keep one toast per report, as before.
+  const failScan = useCallback((message: string, code?: string, reason?: string) => {
+    const rejection = code ? { message, code, reason } : null
+    setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: null, rejection })
+    if (!code) toast.error(message)
+    else if (code === OOD_REJECTED) toast.warning(message, { id: `scan-refused-${scanAttempt.current}` })
+    else toast.error(message, { id: `scan-refused-${scanAttempt.current}` })
+  }, [])
+
   // ── WebSocket — real-time updates ───────────────────────────────────────
 
   const handleWsEvent = useCallback((event: string, data: any) => {
     switch (event) {
       case "scan:started":
-        setScanState({ isScanning: true, scanStep: 1, scanStepLabel: "Capturing...", scanProgress: 20, lastResult: null })
+        scanAttempt.current += 1
+        setScanState({ isScanning: true, scanStep: 1, scanStepLabel: "Capturing...", scanProgress: 20, lastResult: null, rejection: null })
         break
 
       case "scan:capturing":
@@ -190,15 +217,14 @@ function ScanStore({ children }: { children: React.ReactNode }) {
       case "scan:completed": {
         const result = data.result || data
         void acceptCompletedScan({ ...result, id: result.id ?? result.scan_id, source_text: result.source_text ?? result.supplier ?? result.source }).catch(() => {
-          setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: null })
+          setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: null, rejection: null })
           toast.error("The completed scan could not be loaded. Please refresh Scan Logs.")
         })
         break
       }
 
       case "scan:failed":
-        setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: null })
-        toast.error(data?.error || "Scan failed. Please try again.")
+        failScan(data?.error || "Scan failed. Please try again.", data?.code, data?.reason)
         break
 
       case "scan:changed": {
@@ -291,7 +317,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
         updateDeviceFromWs(data.camera_id, data.status, data.last_seen)
         break
     }
-  }, [acceptCompletedScan, acceptScan, refreshScans, updateDeviceFromWs])
+  }, [acceptCompletedScan, acceptScan, failScan, refreshScans, updateDeviceFromWs])
 
   const handleWsReconnect = useCallback(() => {
     // Events may have been missed while the socket was down. Resync history,
@@ -312,18 +338,18 @@ function ScanStore({ children }: { children: React.ReactNode }) {
 
   const startScan = useCallback((source?: string, intakeId?: string) => {
     if (scanState.isScanning) return
-    setScanState({ isScanning: true, scanStep: 1, scanStepLabel: "Capturing...", scanProgress: 20, lastResult: null })
+    scanAttempt.current += 1
+    setScanState({ isScanning: true, scanStep: 1, scanStepLabel: "Capturing...", scanProgress: 20, lastResult: null, rejection: null })
 
     // Try backend API first
     const reqData = intakeId ? { intake_id: intakeId } : { source }
     api.scans.trigger(reqData)
       .then(acceptCompletedScan)
-      .catch((err: Error) => {
+      .catch((err: Error & { code?: string; reason?: string }) => {
         console.warn("[ScanContext] Scan API error:", err.message)
-        setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: null })
-        toast.error(err.message || "Scan failed. Please try again.")
+        failScan(err.message || "Scan failed. Please try again.", err.code, err.reason)
       })
-  }, [scanState.isScanning, acceptCompletedScan])
+  }, [scanState.isScanning, acceptCompletedScan, failScan])
 
   // ── CRUD Operations ─────────────────────────────────────────────────────
 

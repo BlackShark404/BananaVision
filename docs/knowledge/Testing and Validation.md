@@ -2,6 +2,49 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## Out-of-distribution rejection — 2026-11-13
+
+Design, thresholds and limits are in [[AI Models]]; the kiosk state is in [[Frontend]].
+
+- **Gate evaluation** (`backend/scripts/evaluate_ood_gate.py gate`, Open Images V7 pools,
+  report `docs/audits/ood-gate-evaluation-2026-11-13.json`). Held-out benchmark: near-OOD
+  frame rejection **96.72 % → 97.31 %**, far-OOD **99.86 % → 100 %**, generic banana frames
+  accepted **90.07 %**, AUROC **0.976**, FPR at 95 % TPR **2.83 %**. Box support keeps
+  **94.92 %** of annotated banana boxes and passes **7.3 %** of near-OOD and **0.16 %** of
+  far-OOD object boxes. Thresholds were chosen on the calibration pool only.
+- **Not measured:** per-cultivar precision/recall/F1 and Stage 2's own false-cultivar rate.
+  The trained weights and labeled dataset are not in the repository; `pipeline` mode
+  produces those numbers where they exist. No retraining was run.
+- **Backend:** full suite **664 passed, 104 skipped** (PostgreSQL-only cases; no disposable
+  cluster in this environment), against **582 passed, 104 skipped** on the preceding commit
+  `e8825a5`. The 82 new tests cover gate logic, classifier filtering (including cluster-box,
+  rotated-pass, canonical-rotation and occluded-finger-recovery cases), the 422/503/WebSocket contract, the audit row, the dataset script (leakage, path
+  safety, truncated, incomplete and non-JPEG payloads, merge isolation), evaluation metrics,
+  and the real COCO verifier on 12 synthetic frames (blank, noise, blur, yellow/green shapes).
+- **Frontend:** 280 browser tests including 5 new kiosk cases. Full run **279 passed,
+  1 failed** (397.1 s). The failure was `kiosk-pin.test.mjs` "PIN verification sends
+  once…", which stopped in its own setup with `clock.pauseAt: Cannot fast-forward to the
+  past`: it installs the page clock and then pauses it at a `new Date()` taken in Node, so
+  the two clocks can race. The test, its fixture and the harness are unchanged by this
+  work, and the file passed **15/15 on three reruns**. Typecheck and production build
+  passed (existing >500 kB chunk warning); lint **40 problems (35 errors, 5 warnings)**,
+  unchanged baseline.
+- **Ruff:** new files clean. Changed backend files **43 findings, the same as on
+  `e8825a5`**; no introduced diagnostic.
+- **Review:** an independent design review before the tests, then four separate reviews
+  of the finished change (correctness, security, API/UI contract, tests and documentation).
+  They raised 20 concrete points; each was addressed, and code defects are pinned by
+  regression tests. Seven tests were checked by mutation: replacing the full JPEG decode,
+  removing the redirect refusal, removing the image-ID leak check, removing the shared
+  notice id, and removing each of the three classifier gate hooks made the matching test
+  fail. No Codex Security service scan was run.
+- **Running the new tests:** `test_ood_gate_model.py` needs `ultralytics` and the tracked
+  `backend/yolo26n.pt`; it skips where either is missing. No test uses the network, the
+  station database, captures, cameras or sensors.
+- **Tools:** Graphify CLI/graph, ICM and Context7 were unavailable in this checkout, so
+  the graph and project memory were not refreshed. Ultralytics behaviour for empty label
+  files was checked in the installed 8.4.40 source.
+
 ## Live Logs reconciliation finalization — 2026-10-25
 
 - Reproduced four browser failures before the fix: deferred edits, missed reconnect edits,

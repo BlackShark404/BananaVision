@@ -47,6 +47,9 @@ backend/captures/*
 backend/app/ml/weights/*.pt
 backend/app/ml/weights/*.joblib
 !backend/app/ml/weights/.gitkeep
+# Downloaded open-source OOD images and local evaluation reports
+backend/ood-data/
+backend/ood-*-report.json
 
 # Matrix testing output
 matrix_results_*.txt

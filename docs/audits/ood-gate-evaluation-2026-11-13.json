@@ -1,0 +1,225 @@
+{
+  "format_version": 1,
+  "created": "2026-11-13",
+  "scope": "Banana-vs-OOD gate (COCO yolo26n, class 46) and the box-support filter, measured with the application's BananaPreDetector and ood_gate code on open-source images. No station database, capture, camera or trained cultivar weights were used.",
+  "command": "python scripts/evaluate_ood_gate.py gate --ood <pool dir> --pool <calibration|benchmark>",
+  "dataset": {
+    "source": "Open Images V7",
+    "license": "Images CC BY 2.0; annotations CC BY 4.0 (Google LLC)",
+    "manifest": "backend/scripts/ood/open_images_ood_manifest.json",
+    "manifest_sha256": "f9e0054805fda6b99ef32e681c2692993bbd025676345eb579c8efb334b34524",
+    "fetched_images": {
+      "train_negatives": 997,
+      "calibration": 1283,
+      "benchmark": 1650
+    },
+    "fetch_failures": 6,
+    "fetch_failure_reason": "payload was not a JPEG; rejected by validation",
+    "pools": {
+      "calibration": "negatives from the official validation split, bananas from the train split; used to choose the support confidence and margin",
+      "benchmark": "negatives from the official test split, bananas from the train split (disjoint image IDs); evaluated after the policy was fixed",
+      "train_negatives": "official validation split, disjoint from calibration; never evaluated"
+    },
+    "manifest_images": {
+      "train_negatives": 998,
+      "calibration": 1284,
+      "benchmark": 1654
+    }
+  },
+  "gate_model": {
+    "file": "backend/yolo26n.pt",
+    "sha256": "9b09cc8bf347f0fc8a5f7657480587f25db09b34bf33b0652110fb03a8ad4fef"
+  },
+  "policy": {
+    "banana_confidence": 0.3,
+    "support_confidence": 0.05,
+    "support_margin": 0.25,
+    "min_banana_views": 1,
+    "box_support_filter": true
+  },
+  "definitions": {
+    "before": "legacy rule: a frame is accepted when a banana box reaches banana_confidence; every cultivar box of an accepted scan was trusted",
+    "after": "an accepted frame yields a cultivar only when an annotated object box is covered by banana evidence",
+    "annotated_boxes": "Open Images object boxes stand in for a worst-case closed-set model that boxes every object",
+    "banana_group": "generic banana photographs; a proxy for the gate only, not Lakatan/Latundan/Cardaba station images",
+    "simulated_scans": "four unrelated photographs treated as four camera views (seed 20261112); bounds the structural effect, not a station measurement"
+  },
+  "calibration": {
+    "images": {
+      "near": 359,
+      "far": 652,
+      "banana": 272
+    },
+    "frame_gate": {
+      "near": {
+        "frames": 359,
+        "false_accept_rate_before": 0.0279,
+        "rejection_rate_before": 0.9721,
+        "false_cultivar_frame_rate_after": 0.0223,
+        "rejection_rate_after": 0.9777
+      },
+      "far": {
+        "frames": 652,
+        "false_accept_rate_before": 0.0015,
+        "rejection_rate_before": 0.9985,
+        "false_cultivar_frame_rate_after": 0.0,
+        "rejection_rate_after": 1.0
+      },
+      "banana": {
+        "frames": 272,
+        "accept_rate": 0.9007
+      }
+    },
+    "separation": {
+      "banana_vs_near": {
+        "auroc": 0.9795,
+        "aupr": 0.967,
+        "threshold_at_95_tpr": 0.1798,
+        "fpr_at_95_tpr": 0.0446
+      },
+      "banana_vs_far": {
+        "auroc": 0.994,
+        "aupr": 0.9911,
+        "threshold_at_95_tpr": 0.1798,
+        "fpr_at_95_tpr": 0.0031
+      },
+      "banana_vs_all_ood": {
+        "auroc": 0.9889,
+        "aupr": 0.9636,
+        "threshold_at_95_tpr": 0.1798,
+        "fpr_at_95_tpr": 0.0178
+      }
+    },
+    "box_support_filter": {
+      "near": {
+        "annotated_boxes": 794,
+        "surviving_boxes": 36,
+        "surviving_rate": 0.0453
+      },
+      "far": {
+        "annotated_boxes": 1160,
+        "surviving_boxes": 1,
+        "surviving_rate": 0.0009
+      },
+      "banana": {
+        "annotated_boxes": 570,
+        "retained_boxes": 541,
+        "retained_rate": 0.9491
+      }
+    },
+    "simulated_scans": {
+      "banana_plus_three_ood_views": {
+        "scans": 2000,
+        "accepted_by_scan_gate": 1809,
+        "ood_boxes_admitted_before": 10404,
+        "ood_boxes_admitted_after": 196,
+        "accepted_scans_with_ood_box_before": 1809,
+        "accepted_scans_with_ood_box_after": 130
+      },
+      "four_ood_views": {
+        "scans": 2000,
+        "accepted_by_scan_gate": 101,
+        "ood_boxes_admitted_before": 713,
+        "ood_boxes_admitted_after": 123,
+        "accepted_scans_with_ood_box_before": 101,
+        "accepted_scans_with_ood_box_after": 79
+      }
+    }
+  },
+  "benchmark": {
+    "images": {
+      "near": 670,
+      "far": 708,
+      "banana": 272
+    },
+    "frame_gate": {
+      "near": {
+        "frames": 670,
+        "false_accept_rate_before": 0.0328,
+        "rejection_rate_before": 0.9672,
+        "false_cultivar_frame_rate_after": 0.0269,
+        "rejection_rate_after": 0.9731
+      },
+      "far": {
+        "frames": 708,
+        "false_accept_rate_before": 0.0014,
+        "rejection_rate_before": 0.9986,
+        "false_cultivar_frame_rate_after": 0.0,
+        "rejection_rate_after": 1.0
+      },
+      "banana": {
+        "frames": 272,
+        "accept_rate": 0.9007
+      }
+    },
+    "separation": {
+      "banana_vs_near": {
+        "auroc": 0.9709,
+        "aupr": 0.9409,
+        "threshold_at_95_tpr": 0.1494,
+        "fpr_at_95_tpr": 0.0552
+      },
+      "banana_vs_far": {
+        "auroc": 0.9812,
+        "aupr": 0.9727,
+        "threshold_at_95_tpr": 0.1494,
+        "fpr_at_95_tpr": 0.0028
+      },
+      "banana_vs_all_ood": {
+        "auroc": 0.9762,
+        "aupr": 0.9358,
+        "threshold_at_95_tpr": 0.1494,
+        "fpr_at_95_tpr": 0.0283
+      }
+    },
+    "box_support_filter": {
+      "near": {
+        "annotated_boxes": 1588,
+        "surviving_boxes": 116,
+        "surviving_rate": 0.073
+      },
+      "far": {
+        "annotated_boxes": 1215,
+        "surviving_boxes": 2,
+        "surviving_rate": 0.0016
+      },
+      "banana": {
+        "annotated_boxes": 571,
+        "retained_boxes": 542,
+        "retained_rate": 0.9492
+      }
+    },
+    "simulated_scans": {
+      "banana_plus_three_ood_views": {
+        "scans": 2000,
+        "accepted_by_scan_gate": 1826,
+        "ood_boxes_admitted_before": 11069,
+        "ood_boxes_admitted_after": 475,
+        "accepted_scans_with_ood_box_before": 1826,
+        "accepted_scans_with_ood_box_after": 251
+      },
+      "four_ood_views": {
+        "scans": 2000,
+        "accepted_by_scan_gate": 131,
+        "ood_boxes_admitted_before": 1182,
+        "ood_boxes_admitted_after": 348,
+        "accepted_scans_with_ood_box_before": 131,
+        "accepted_scans_with_ood_box_after": 107
+      }
+    }
+  },
+  "error_analysis": {
+    "calibration_false_accepts": "11 frames inspected: all lookalikes (lemon slices, grapefruit, pineapple, yellow squash, zucchini, cucumber, pumpkin, potato wedges, a cupcake); no real banana",
+    "benchmark_false_accepts": "23 frames inspected after evaluation: lookalikes (yellow watermelon 0.90, mango slice 0.89, yellow squash 0.84, cheese, peppers, pickles, croissants); 1 frame labelled Pear contains a real unlabelled banana (score 0.70) and a second is doubtful, so the true false-accept rate is slightly lower than reported. The benchmark was not altered.",
+    "banana_misses": "27 calibration banana frames below 0.30: peeled or sliced bananas, drawings, small bananas in market scenes, and green bunches on the plant (scores 0.09-0.21)",
+    "train_negative_screen": "16 of 998 training negatives scored 0.15 or higher and were inspected; 1 showed a real banana bunch and is excluded (EXCLUDED_TRAIN_NEGATIVES)",
+    "synthetic_frames": "blank, noise, blurred noise and plain yellow/green shapes give no banana evidence; a blurred banana-shaped yellow crescent scores 0.32 and passes the gate",
+    "rejected_alternatives": "a competing-COCO-class veto and box-overlap support rules were measured on calibration and gave no better trade-off than the centre rule"
+  },
+  "not_measured": [
+    "Per-cultivar precision, recall and F1 before and after the gate: the trained cultivar weights and labeled dataset are not in the repository. Run evaluate_ood_gate.py pipeline where they exist.",
+    "False-cultivar rate of the closed-set cultivar model itself on OOD images (same reason).",
+    "Station recall for Lakatan, Latundan and Cardaba hands in the Top, Left, Right and Rear views, including unripe green fruit.",
+    "Effect of retraining with the background negatives: no training was run."
+  ]
+}

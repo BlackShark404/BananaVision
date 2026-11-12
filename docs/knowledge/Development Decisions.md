@@ -2,6 +2,15 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-13: Out-of-distribution rejection uses an independent banana verifier
+
+- The cultivar detector is closed-set, and its weights and dataset are not in the repository, so the rejection mechanism had to work without retraining. The COCO pre-detector became a banana-vs-OOD verifier: a scan needs banana evidence, and a cultivar box is trusted only where that evidence covers it. Details and measurements are in [[AI Models]].
+- A cultivar box without banana evidence is set aside as soon as the model emits it, in the first pass, the rotated Top pass and the occluded-finger recovery pass. It never votes, counts as a finger or suppresses a box that is on a banana. The cluster rule still sees it: dropping such boxes outright let a hand-sized cluster box survive as a finger once the fingers it contained were gone. Regression tests pin both cases.
+- The gate may not change an accepted scan silently. Any dropped box flags the saved scan for review, and a rejected scan writes a `scan_rejected` activity row with per-view banana scores, because its captures are removed like any failed scan.
+- The verifier fails closed (HTTP 503). `OOD_GATE_FAIL_OPEN=true` and `OOD_BOX_SUPPORT_FILTER=false` are the documented ways back to the earlier behaviour.
+- Rejected alternatives, both measured on the calibration pool: a veto when another COCO class overlaps the banana box with higher confidence (no gain), and box-overlap support rules instead of the centre rule (no better trade-off). A tighter acceptance threshold was not adopted because green and peeled bananas already score low.
+- Open-source data stays out of Git. A pinned manifest of Open Images V7 image IDs defines three disjoint pools, and thresholds were chosen on the calibration pool only. Training negatives that the verifier scores highly must be inspected by eye: one contained an unlabeled banana bunch and is excluded by ID.
+- Open risk accepted for now: thresholds come from open-source photos. Station recall for the three cultivars, especially unripe fruit, must be confirmed with `evaluate_ood_gate.py pipeline` before the gate is relied on.
 ## 2026-11-13: Cardaba Canonical Orientation, Radial Flank Deduplication, and Multi-Tier Finger Estimation
 
 - **UI clarity (`Estimated Fingers`):** Replaced `"Est. Fingers"` with `"Estimated Fingers"` across `Kiosk.tsx`, `Logs.tsx`, `QualityControl.tsx`, and `kiosk.test.mjs` so operators immediately understand the metric is an estimate.

@@ -72,3 +72,16 @@ class ModelInferenceError(Exception):
         self.model_name = model_name
         self.message = message
         super().__init__(f"{model_name}: {message}")
+
+
+class ScanRejectedError(ModelInferenceError):
+    """Raised when a scan shows no supported banana cultivar (out-of-distribution)."""
+
+    def __init__(
+        self, reason: str, message: str, *, code: str = "ood_rejected", audit: str = "",
+    ):
+        self.code = code
+        self.reason = reason
+        # Operator-independent facts for the server log and the activity log.
+        self.audit = audit
+        super().__init__("OODGate", message)

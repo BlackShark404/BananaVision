@@ -86,6 +86,73 @@ This guard does not change model recognition accuracy. See the
 [station validation protocol](../docs/knowledge/Testing%20and%20Validation.md#station-cultivar-recognition-protocol)
 for representative data collection, bunch-level splitting and offline evaluation.
 
+## Out-of-distribution rejection
+
+The cultivar model is closed-set: every box it emits is one of the twelve
+Lakatan/Latundan/Cardaba ripeness labels. The out-of-distribution (OOD) gate in
+`app/services/ood_gate.py` therefore requires independent banana evidence from the
+COCO pre-detector before a cultivar box is trusted:
+
+1. **Scan gate.** At least `OOD_MIN_BANANA_VIEWS` camera views must show a banana at
+   `OOD_BANANA_CONFIDENCE`. Otherwise the scan is rejected before classification.
+2. **Box support.** In each view a cultivar box is kept only when banana evidence
+   (confidence `OOD_SUPPORT_CONFIDENCE` or higher, grown by `OOD_SUPPORT_MARGIN` per
+   side) covers its centre. Dropped boxes neither vote nor count as fingers.
+3. **No silent change.** A scan that lost any box is saved flagged for review. A scan
+   left with no supported cultivar is rejected, nothing is stored, and a
+   `scan_rejected` activity row keeps the reason and the per-view banana scores.
+4. **Fail closed.** While the banana verifier cannot run, scans are refused with
+   HTTP 503 unless `OOD_GATE_FAIL_OPEN=true`.
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `OOD_BANANA_CONFIDENCE` | `0.30` | Banana confidence that accepts a view |
+| `OOD_SUPPORT_CONFIDENCE` | `0.05` | Weaker banana evidence that may support cultivar boxes |
+| `OOD_SUPPORT_MARGIN` | `0.25` | Relative growth of each evidence box |
+| `OOD_BOX_SUPPORT_FILTER` | `true` | `false` restores the earlier any-box behaviour |
+| `OOD_MIN_BANANA_VIEWS` | `1` | Views that must show a banana |
+| `OOD_GATE_FAIL_OPEN` | `false` | `true` classifies without the verifier |
+
+A rejected scan answers `POST /api/v1/scans/trigger` with HTTP 422. `detail` stays a
+string; `code` (`ood_rejected`), `status` (`rejected`), `is_ood` and `reason`
+(`no_banana` or `no_target_cultivar`) are additive. The `scan:failed` WebSocket event
+carries the same four fields beside `error`. A fault is not a rejection: an unavailable
+verifier (`ood_gate_unavailable`) or a scan with no camera frame (`capture_unavailable`)
+answers HTTP 503 with `is_ood: false` and writes no `scan_rejected` row. No database
+migration is needed.
+
+Open-source OOD data comes from Open Images V7. No image is stored in Git; the pinned
+manifest `scripts/ood/open_images_ood_manifest.json` lists the image IDs of three
+disjoint pools (`train_negatives`, `calibration`, `benchmark`). From `backend/`:
+
+```bash
+# Download the pools (about 1.1 GB) into the ignored backend/ood-data directory.
+python scripts/prepare_ood_dataset.py fetch \
+    --manifest scripts/ood/open_images_ood_manifest.json --output ood-data
+
+# Gate only: no cultivar weights needed.
+python scripts/evaluate_ood_gate.py gate --ood ood-data --pool benchmark
+
+# Full pipeline with the trained weights and a labeled split: per-cultivar
+# precision/recall/F1 and the false-cultivar rate without a gate, with the earlier
+# gate and with the OOD gate.
+python scripts/evaluate_ood_gate.py pipeline \
+    --weights app/ml/weights/banana_yolov26n.pt --id-split <prepared dataset>/test \
+    --ood ood-data --pool benchmark --output ood-pipeline-report.json
+
+# Retraining: copy a prepared dataset and add background images to train only.
+python scripts/prepare_ood_dataset.py merge-negatives \
+    --dataset <prepared dataset> --ood ood-data --output <new directory> --ratio 0.10
+```
+
+`merge-negatives` never changes the source dataset, the validation split or the test
+split. It refuses a dataset that contains symbolic links, and a `data.yaml` whose `train`
+entry is not the relative path `train/images`, because either could make the copy write
+to or train on the source. Never train or tune on the `benchmark` pool. Measured results and limits are in
+the [gate evaluation](../docs/audits/ood-gate-evaluation-2026-11-13.json) and
+[AI Models](../docs/knowledge/AI%20Models.md). The gate does not recognise unsupported
+banana cultivars: any banana passes the COCO verifier.
+
 ## Project Structure
 
 ```

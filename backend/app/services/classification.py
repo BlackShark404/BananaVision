@@ -17,6 +17,7 @@ import numpy as np
 from app.config import get_settings
 from app.core.exceptions import ModelInferenceError
 from app.schemas.enums import CultivarEnum, RipenessEnum
+from app.services.ood_gate import EvidenceBox, is_supported
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -70,6 +71,8 @@ class ClassificationResult:
     inference_time_ms: float = 0.0
     conflict_detected: bool = False
     cultivar_conflict: bool = False
+    # Cultivar boxes discarded because no banana evidence covered them.
+    ood_rejected_boxes: int = 0
 
 
 # ── Class label parsing ─────────────────────────────────────────────────────
@@ -336,6 +339,8 @@ class BananaClassifier:
     def predict(
         self, image: np.ndarray, *, confidence_threshold: float,
         camera_label: str | None = None,
+        banana_evidence: list[EvidenceBox] | None = None,
+        support_margin: float = 0.25,
     ) -> ClassificationResult:
         """
         Run YOLO inference on a single image.
@@ -343,6 +348,10 @@ class BananaClassifier:
         Args:
             image: BGR numpy array (from OpenCV)
             camera_label: Configured camera view, independent of device/logical ID.
+            banana_evidence: Banana boxes from the general detector for this frame.
+                When given, cultivar boxes outside that evidence are rejected as
+                out-of-distribution. None keeps every box.
+            support_margin: Relative growth of each evidence box before the check.
 
         Returns:
             ClassificationResult with detections, cultivar, ripeness, etc.
@@ -393,6 +402,21 @@ class BananaClassifier:
         cultivar_votes: dict[str, list[float]] = {}
         class_votes: dict[tuple[str | None, str | None], list[float]] = {}
         duplicate_label_conflict = False
+        # OOD gate: cultivar boxes that no banana evidence covers. They never join
+        # `detections`, so they cannot vote, count as fingers or suppress a box that
+        # is on a banana. They are kept only so the cluster rule still sees them.
+        off_banana: list[Detection] = []
+
+        def rejected_by_gate(box: Detection) -> bool:
+            if banana_evidence is None or is_supported(box, banana_evidence, support_margin):
+                return False
+            # Later passes see the same object again; set it aside once.
+            if not any(
+                _is_same_class_sub_box(box, seen) or _is_duplicate_detection(box, seen)
+                for seen in off_banana
+            ):
+                off_banana.append(box)
+            return True
 
         if results and len(results) > 0:
             result = results[0]
@@ -437,6 +461,9 @@ class BananaClassifier:
                             and (det_h / det_w) >= 2.5 and y2 < 0.65 * img_h
                         ):
                             continue
+
+                    if rejected_by_gate(det):
+                        continue
 
                     # Suppress same-class nested duplicate boxes or severe IoU duplicates.
                     if any(_is_same_class_sub_box(det, existing) for existing in detections):
@@ -487,6 +514,8 @@ class BananaClassifier:
                             x=ox1, y=oy1, w=ox2 - ox1, h=oy2 - oy1,
                             cls=cls_name, confidence=conf,
                         )
+                        if rejected_by_gate(candidate):
+                            continue
                         if any(_is_same_class_sub_box(candidate, existing) for existing in rot_candidates):
                             continue
                         rot_candidates.append(candidate)
@@ -648,6 +677,8 @@ class BananaClassifier:
                             x=x1, y=y1, w=det_w, h=det_h,
                             cls=cls_name, confidence=conf,
                         )
+                        if rejected_by_gate(cand):
+                            continue
                         if any(
                             _is_duplicate_detection(cand, existing, 0.35)
                             or _is_same_class_sub_box(cand, existing)
@@ -657,11 +688,13 @@ class BananaClassifier:
                         detections.append(cand)
                 elapsed_ms = (time.time() - start) * 1000
 
-        # Suppress cluster boxes that encompass 2+ distinct individual fingers
-        if len(detections) >= 3:
+        # Suppress cluster boxes that encompass 2+ distinct individual fingers. Boxes
+        # the OOD gate set aside still show that a larger box spans several objects.
+        cluster_pool = detections + off_banana
+        if len(cluster_pool) >= 3:
             detections = [
                 det for det in detections
-                if not _is_cluster_box(det, [o for o in detections if o != det])
+                if not _is_cluster_box(det, [o for o in cluster_pool if o != det])
             ]
 
         # Preserve cultivar consensus, then choose ripeness from that cultivar's
@@ -704,6 +737,7 @@ class BananaClassifier:
             inference_time_ms=elapsed_ms,
             conflict_detected=conflict_detected,
             cultivar_conflict=cultivar_conflict,
+            ood_rejected_boxes=len(off_banana),
         )
 
     def _best_vote(self, votes: dict[str, list[float]]) -> str | None:

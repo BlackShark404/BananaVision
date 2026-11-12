@@ -5,7 +5,7 @@ import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
 import { useState, useEffect, useCallback, useRef } from "react"
 import KioskOperatorSwap from "@/components/KioskOperatorSwap"
 import { useAuth } from "@/context/AuthContext"
-import { useScans } from "@/context/ScanContext"
+import { OOD_REJECTED, useScans } from "@/context/ScanContext"
 import { useInventory } from "@/context/InventoryContext"
 import { useAdmin } from "@/context/AdminContext"
 import { Card, CardContent } from "@/components/ui/card"
@@ -29,6 +29,8 @@ import {
   Flag,
   Eye,
   EyeOff,
+  SearchX,
+  TriangleAlert,
 } from "lucide-react"
 import { toast } from "sonner"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
@@ -51,7 +53,7 @@ export default function Kiosk() {
   const { scanState, startScan, scans, flagScan } = useScans()
   const { suppliers, activeIntake, startIntake } = useInventory()
   const { users, config } = useAdmin()
-  const { isScanning, scanStep, scanProgress, lastResult } = scanState
+  const { isScanning, scanStep, scanProgress, lastResult, rejection } = scanState
   const cultivarConflict = lastResult ? cultivarCameraConflict(lastResult) : null
   const [currentTime, setCurrentTime] = useState(new Date())
   const activeSuppliers = suppliers.filter(s => s.status === "Active")
@@ -864,6 +866,28 @@ export default function Kiosk() {
                     {flaggingScan ? "Flagging..." : lastResult.id === scanAction?.id && scanAction?.action === 'flagged' ? "Flagged" : "Flag for Review"}
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+          ) : rejection?.code === OOD_REJECTED ? (
+            <Card role="status" className="bg-card border-border rounded-2xl shrink-0 animate-fade-in">
+              <CardContent className="p-8 lg:p-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-4 border border-amber-500/30">
+                  <SearchX className="w-8 h-8 text-amber-500" aria-hidden="true" />
+                </div>
+                <p className="text-sm font-semibold">No Lakatan, Latundan, or Cardaba detected</p>
+                <p className="text-muted-foreground text-xs mt-1">Place a supported banana hand on the tray and scan again.</p>
+                <p className="text-muted-foreground text-xs mt-1">Nothing was saved.</p>
+              </CardContent>
+            </Card>
+          ) : rejection ? (
+            <Card role="alert" className="bg-card border-border rounded-2xl shrink-0 animate-fade-in">
+              <CardContent className="p-8 lg:p-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4 border border-destructive/30">
+                  <TriangleAlert className="w-8 h-8 text-destructive" aria-hidden="true" />
+                </div>
+                <p className="text-sm font-semibold">Scan could not run</p>
+                <p className="text-muted-foreground text-xs mt-1">{rejection.message}</p>
+                <p className="text-muted-foreground text-xs mt-1">Nothing was saved.</p>
               </CardContent>
             </Card>
           ) : (
