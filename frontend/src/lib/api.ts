@@ -230,6 +230,8 @@ export const api = {
         ripeness: string | null
         confidence: number | null
         spoilage_days: string | null
+        remaining_days: number | null
+        risk_as_of: string | null
         finger_count: number
         temperature: number | null
         humidity: number | null

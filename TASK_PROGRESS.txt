@@ -1,44 +1,60 @@
-CURRENT RESUME HERE (2026-11-12) - FULL SYSTEM TEST COMPLETE; TWO DEFECTS FIXED
+CURRENT RESUME HERE (2026-11-12) - LIVE SHELF-LIFE COUNTDOWN ON QR, SCAN DETAIL AND LOGS
 
 AUTHORIZED SCOPE / LATEST DECISION
-- User asked for thorough whole-system verification with no bugs/errors.
-- Tested against an isolated disposable PostgreSQL 17 cluster, uvicorn with --lifespan off,
-  temp CAPTURE_DIR and an isolated Vite/browser; no station database, captures, physical
-  cameras, sensor or OS power was used. User's own live servers on 8000/5173 were untouched.
+- User first chose QR tracking only with "countdown + estimate". After asking whether the
+  other pages should update dynamically instead of statically, the user approved
+  extending the live countdown to Scan Detail and adding a secondary live label to
+  in-stock Scan Logs rows.
+- Kiosk and Quality Control keep their existing static estimate display; Inventory
+  already shows aged days left. Logs sorting, snapshot membership and exports stay static.
 - Previous checkpoint archived byte-for-byte in
-  docs/history/2026-11-12-before-full-system-verification.txt.
+  docs/history/2026-11-12-before-live-countdown-extension.txt.
 
 DONE
-- Fixed duplicate supplier/intake rows caused by the live create event arriving before the
-  create HTTP response. InventoryContext now upserts by id instead of appending/prepending;
-  two deterministic persistence regression tests reproduce the ordering and assert one row.
-- Fixed activity-detail enum reprs (RoleEnum.OPERATOR, IntakeStatusEnum.DEPLETED).
-  users.py and intakes.py audit text now use .value; regression test asserts rendered values.
-- Updated docs/knowledge/Resolved Bugs.md and docs/knowledge/Frontend.md.
+- PublicScanResponse includes derived remaining_days and risk_as_of; the public
+  GET /api/v1/scans/{id}/track computes them with remaining_shelf_life(), factored out
+  of inventory_policy so Inventory and QR share one average-range-minus-elapsed rule.
+  Stored spoilage_days is unchanged.
+- PublicScanView leads with "N days left" / "Overdue", refreshed every 60 seconds via the
+  existing remainingStockDays/shelfLifeLabel helpers, with "Est. X-Y days from scan"
+  beneath it. Missing/invalid predictions keep the previous static/Unknown label.
+- Scan Detail now leads its Est. Spoilage card with the same live countdown for In Stock
+  records, ticking every 60 seconds client-side, with "Est. X-Y days from scan" beneath.
+  Sold/Spoiled records and missing predictions keep the static/Unknown display.
+- Scan Logs keeps the static range as the primary cell value and adds the aged label
+  beneath it for In Stock rows only. mapScan now stores riskAsOf from the list or
+  reconciliation generated_at, matching when the frozen rows' remaining_days were
+  computed; live event patches keep their own risk_as_of. No backend/API contract
+  change, no change to sorting, snapshot membership or CSV/XLSX exports.
+- Frontend api.ts public type updated; inventoryRisk helper input generalized for the
+  public response mapping without changing Inventory behavior.
+- Tests added: backend public track with 2 days elapsed and range 4-6 yields ~3 days;
+  frontend public QR countdown (4 -> 3 days left over 24 hours); Logs secondary label
+  (in-stock only, sold/unknown remain static) and snapshot-time aging; Scan Detail
+  countdown and terminal-status static fallback.
+- docs/knowledge/Frontend.md updated for the QR, Scan Detail and Logs behavior.
 
 VERIFICATION
-- Backend full suite from a fresh temp cwd with disposable PostgreSQL (port 55432):
-  645 passed, 37 skipped. Targeted route suite 38 passed; user/intake/security/mutation
-  46 passed, 4 skipped. Cluster stopped and removed; temp files cleaned.
-- Frontend: full browser suite 268 passed, 0 failed (309.8s, exit 0); typecheck passed;
-  production build passed; configured lint unchanged at 40 problems (35 errors, 5 warnings).
-- Backend ruff remains pre-existing baseline 626 errors; changed files show no new findings
-  (test_time_and_writes.py drops one unused-import finding because the new test uses ActivityLog).
-- Live UI checks passed: admin login/logout with confirmation, public landing, dashboard,
-  profile (corrected activity text), logs, analytics, inventory, devices, all admin pages,
-  kiosk (operator list, camera-offline fallback), /track not-found state, operator login,
-  admin-route redirect and API RBAC 403s, WebSocket connected with no page JS errors.
-- git diff --check passed. Changed paths: 5 code/test files, 2 knowledge notes, 1 untracked
-  progress archive. No files staged, committed, pushed or deployed.
+- Frontend full browser suite 272 passed, 0 failed (323.4s); scanrecords suite 57 passed
+  including the 4 new/updated countdown tests; typecheck passed; production build passed;
+  lint unchanged at 40 problems (35 errors, 5 warnings) versus the existing baseline.
+- Backend unchanged by the Scan Detail/Logs extension. Previous full backend run on a
+  disposable PostgreSQL 17 cluster: 646 passed, 37 skipped; targeted public/scan suites
+  39 passed, 4 skipped. Cluster was stopped and removed.
+- No live station database, captures, physical cameras, sensor or OS power was used.
 
 LIMITS / KNOWLEDGE
-- No camera, sensor, printer or OS power hardware was exercised live; scan capture pipeline,
-  previews, printing and power actions remain covered only by existing backend tests.
-- One kiosk-pin timing failure appeared under full-suite load only; the file passes 15/15 in
-  isolation and the clean full rerun passed 268/268, so it is a pre-existing load flake.
-- Graphify CLI/graph output is not present in this checkout and ICM is unavailable; Obsidian
-  notes were updated instead. Do not treat the graph or memory as refreshed.
+- Countdown granularity is whole-day via the existing shelfLifeLabel convention; fractional
+  remaining life can display as a narrow range (e.g. 2-3 days left), matching Inventory.
+- The QR page ticks its client-side countdown but does not re-fetch the scan, so a moved
+  range caused by a later correction appears only on reload.
+- Logs ages initial snapshot rows from that snapshot's generated_at and reconciliation
+  rows from the reconciliation time. Snapshots live 10 minutes, and the 30-second
+  reconciliation normally refreshes values first.
+- The QR countdown still renders for Sold/Spoiled stock beside the status badge; it
+  describes elapsed predicted shelf life, not current stock eligibility.
+- Graphify CLI/graph output and ICM remain unavailable in this checkout; not refreshed.
 
 EXACT NEXT STEP
-- Review the scoped diff and report. Commit only if the user explicitly requests it; no
-  pending implementation or verification work remains.
+- Review the scoped diff; commit only if the user explicitly requests it. Kiosk and
+  Quality Control were not included in the approved extension.

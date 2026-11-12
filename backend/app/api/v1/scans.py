@@ -14,6 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import AdminUser, CurrentUser, DbSession
 from app.core.exceptions import ModelInferenceError, NotFoundException
+from app.core.time import now_manila
 from app.models.operator_profile import OperatorProfile
 from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
@@ -42,6 +43,7 @@ from app.services.scan_records import (
     serialize_detail,
     serialize_scan,
 )
+from app.services.inventory_policy import remaining_shelf_life
 from app.services.scan_evidence import evidence_url
 from app.services.scan_service import execute_scan_pipeline
 from app.config import get_settings
@@ -188,6 +190,7 @@ async def public_scan_track(scan_id: uuid.UUID, db: DbSession):
         raise NotFoundException("Scan")
     classification = scan.classification
     latest = scan.status_logs[-1] if scan.status_logs else None
+    now = now_manila()
     return PublicScanResponse(
         id=scan.id,
         date_time=scan.date_time,
@@ -195,6 +198,10 @@ async def public_scan_track(scan_id: uuid.UUID, db: DbSession):
         ripeness=classification.ripeness if classification else None,
         confidence=classification.confidence if classification else None,
         spoilage_days=classification.spoilage_days if classification else None,
+        remaining_days=remaining_shelf_life(
+            classification.spoilage_days if classification else None, scan.date_time, now
+        ),
+        risk_as_of=now,
         finger_count=classification.finger_count if classification else 0,
         temperature=classification.temperature if classification else None,
         humidity=classification.humidity if classification else None,

@@ -1,0 +1,47 @@
+CURRENT RESUME HERE (2026-11-12) - PUBLIC QR LIVE SHELF-LIFE COUNTDOWN ADDED
+
+AUTHORIZED SCOPE / LATEST DECISION
+- User reported that QR scans show only the static spoilage range captured at scan time.
+  User chose scope "QR tracking page only" and display "countdown + estimate".
+- Authenticated screens (Logs, Scan Detail, Kiosk) intentionally keep their existing
+  static estimate display; Inventory already shows aged days left.
+- Previous checkpoint archived byte-for-byte in
+  docs/history/2026-11-12-before-public-qr-countdown.txt.
+
+DONE
+- PublicScanResponse now includes derived remaining_days and risk_as_of; the public
+  GET /api/v1/scans/{id}/track computes them with remaining_shelf_life(), factored out
+  of inventory_policy so Inventory and QR share one average-range-minus-elapsed rule.
+  Stored spoilage_days is unchanged.
+- PublicScanView leads with "N days left" / "Overdue", refreshed every 60 seconds via the
+  existing remainingStockDays/shelfLifeLabel helpers, with "Est. X-Y days from scan"
+  beneath it. Missing/invalid predictions keep the previous static/Unknown label.
+- Frontend api.ts public type updated; inventoryRisk helper input generalized to accept
+  the public response mapping without changing Inventory behavior.
+- Tests added: backend public track with 2 days elapsed and range 4-6 yields ~3 days;
+  frontend browser countdown test advances 24 hours and asserts 4 -> 3 days left plus
+  the original estimate. docs/knowledge/Frontend.md updated.
+
+VERIFICATION
+- Targeted backend: test_time_and_writes + test_seed_kiosk_contract 39 passed, 4 skipped;
+  affected scan/logs/dashboard/reconciliation suites 64 passed.
+- Full backend from a fresh temp cwd on disposable PostgreSQL 17 (port 55432, stopped and
+  removed): 646 passed, 37 skipped.
+- Frontend public-scan suite 5 passed; typecheck passed; production build passed; lint
+  unchanged at 40 problems (35 errors, 5 warnings). Changed backend files show no new
+  ruff findings versus HEAD.
+- No live station database, captures, physical cameras, sensor or OS power was used.
+
+LIMITS / KNOWLEDGE
+- Countdown granularity is whole-day via the existing shelfLifeLabel convention; fractional
+  remaining life can display as a narrow range (e.g. 2-3 days left), matching Inventory.
+- The QR page ticks its client-side countdown but does not re-fetch the scan, so a moved
+  range caused by a later correction appears only on reload.
+- The countdown still renders for Sold/Spoiled stock beside the status badge; it describes
+  elapsed predicted shelf life, not current stock eligibility.
+- Graphify CLI/graph output and ICM remain unavailable in this checkout; not refreshed.
+
+EXACT NEXT STEP
+- Review the scoped diff; commit only if the user explicitly requests it. Extending the
+  live countdown to Logs, Scan Detail or Kiosk was deliberately out of scope and needs a
+  new request.

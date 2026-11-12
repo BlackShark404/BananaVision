@@ -121,8 +121,21 @@ Kiosk, Scan Logs, Scan Details, public QR tracking and Quality Control use
 `3.487` becomes `3–4 days`, `0.9938` becomes `1 day`, and zero stays `0 days`.
 Historical ranges retain their endpoints, with an en dash and consistent units.
 Missing/invalid estimates show `Unknown`. These readable bounds are not RFR confidence
-intervals. Scan Logs has only one spoilage value; Inventory formats its aged remaining
-life with the same helper and retains `Overdue` for negative remaining life.
+intervals. Inventory formats its aged remaining life with the same helper and retains
+`Overdue` for negative remaining life.
+
+Public QR tracking (2026-11-12) now leads with a live countdown, e.g. `4 days left` or
+`Overdue`, aged client-side from `remaining_days` and `risk_as_of` with the same
+`lib/inventoryRisk.ts` helper used by Inventory. The stored range remains visible beneath
+it as `Est. 5–7 days from scan`. `GET /api/v1/scans/{id}/track` gained those two derived
+fields; the stored `spoilage_days` is unchanged, and missing predictions still show the
+previous static/`Unknown` label. Scan Detail applies the same countdown/estimate pair for
+In Stock records. Scan Logs (2026-11-12) keeps the static range as the primary cell value
+and adds the aged label beneath it for In Stock rows only; it anchors the as-of to the
+browse snapshot or reconciliation `generated_at`, because frozen rows carry
+`remaining_days` computed at that instant. Logs sorting, snapshot membership and
+CSV/XLSX exports remain static and unchanged. Sold/Spoiled records keep their existing
+static estimate.
 
 Raw `spoilage_days` stays intact in API responses, provider state, correction drafts,
 history and CSV. Read-only correction inputs and change previews format their labels
@@ -141,10 +154,11 @@ snapshots freeze flags and counts together; Refresh captures new values.
 The predictor stores the unrounded RFR mean as a decimal string in the existing
 `spoilage_days` field; fallback/historical records can contain ranges. No separate raw
 prediction field is needed. The numeric remaining estimate is the scalar or valid
-historical range midpoint minus elapsed days since the stored scan timestamp. Labels
-in Kiosk/Logs/Details describe the estimate at capture, not an aged range:
-`1-4` at capture is 2.5 days and is
-not at risk, while `3-6` after three days is 1.5 days and is at risk if stock eligible.
+historical range midpoint minus elapsed days since the stored scan timestamp. The static
+estimate labels used by Kiosk, Quality Control, correction inputs and the primary
+Logs/Details value describe the estimate at capture, not an aged range; the separate
+countdown labels are the aged view. `1-4` at capture is 2.5 days and is not at risk, while
+`3-6` after three days is 1.5 days and is at risk if stock eligible.
 No model calculations, historical predictions or Manila date rules changed.
 See [[Testing and Validation]] for boundary and seed/Kiosk parity coverage.
 

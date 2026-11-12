@@ -90,7 +90,7 @@ async function setup(t, status = 200, options = {}) {
   return { page, state }
 }
 
-test('Logs show only the readable range and use risk snapshot membership through filtering, sort, page and automatic refresh', async t => {
+test('Logs keep readable ranges and risk snapshot membership while showing a live days-left label for in-stock rows', async t => {
   const records = [
     { ...scan(), id, spoilage_days: '3-6', remaining_days: 1.5, at_risk: true },
     { ...scan(), id: id.replace(/1$/, '2'), spoilage_days: '2.00001', remaining_days: 2, at_risk: false },
@@ -108,7 +108,7 @@ test('Logs show only the readable range and use risk snapshot membership through
       total: params.attention === 'at-risk' ? 1 : 24, page: Number(params.page), page_size: Number(params.page_size || 10),
       at_risk_count: 1, avg_confidence: 92, review_count: 0, flagged_count: 0,
       at_risk_ids: records.filter(row => row.at_risk).map(row => row.id),
-      generated_at: scan().date_time, snapshot_id: params.snapshot_id || snapshotId,
+      generated_at: '2026-10-02T04:00:00Z', snapshot_id: params.snapshot_id || snapshotId,
       options: { sources: [], operators: [] },
     }
   }
@@ -116,7 +116,9 @@ test('Logs show only the readable range and use risk snapshot membership through
   const table = page.getByRole('table')
   await table.getByText('3–6 days', { exact: true }).waitFor()
   await table.getByText('2–3 days', { exact: true }).waitFor()
-  assert.equal(await table.getByText(/days left|Estimated expiry reached/).count(), 0)
+  assert.equal(await table.getByText('1–2 days left', { exact: true }).count(), 1)
+  assert.equal(await table.getByText('2 days left', { exact: true }).count(), 1)
+  assert.equal(await table.getByText(/days left/).count(), 2)  // Sold and unknown rows stay static.
   assert.equal(await table.getByRole('img', { name: 'At-risk scan', exact: true }).count(), 1)
   assert.equal(await table.getByText('Unknown days', { exact: true }).count(), 0)
   await table.getByText('Unknown', { exact: true }).waitFor()
@@ -141,6 +143,21 @@ test('Logs show only the readable range and use risk snapshot membership through
   assert.equal(await table.getByRole('img', { name: 'At-risk scan', exact: true }).count(), 1)
 })
 
+test('Logs ages the live days-left label from the snapshot time without changing the static estimate', async t => {
+  const record = { ...scan(), spoilage_days: '5-7', remaining_days: 4 }
+  const logResponse = params => ({
+    items: [{ ...record, source_name: 'Stored source' }], total: 1,
+    page: Number(params.page), page_size: Number(params.page_size || 10),
+    at_risk_count: 0, avg_confidence: 92, review_count: 0, flagged_count: 0, at_risk_ids: [],
+    generated_at: '2026-10-01T04:00:00Z', snapshot_id: 'snapshot-aging',
+    options: { sources: [], operators: [] },
+  })
+  const { page } = await setup(t, 200, { screen: 'logs', logResponse })
+  const table = page.getByRole('table')
+  await table.getByText('5–7 days', { exact: true }).waitFor()
+  await table.getByText('3 days left', { exact: true }).waitFor()
+})
+
 test('decimal spoilage displays a readable range in Logs and Details without changing stored values', async t => {
   const raw = '4.861489519142744'
   const record = { ...scan(), spoilage_days: raw,
@@ -162,6 +179,24 @@ test('decimal spoilage displays a readable range in Logs and Details without cha
   await page.getByRole('link', { name: 'Test logs link' }).click()
   await page.getByRole('table').getByText('4–5 days', { exact: true }).waitFor()
   assert.doesNotMatch(await page.getByRole('table').innerText(), /4\.861489519142744/)
+})
+
+test('ScanDetail shows a live countdown for in-stock scans beside the scan-time estimate', async t => {
+  const record = { ...scan(), spoilage_days: '5-7', remaining_days: 4,
+    risk_as_of: '2026-10-01T04:00:00Z', inventory_eligible: true }
+  const { page } = await setup(t, 200, { record })
+  const metric = page.getByText('Est. Spoilage', { exact: true }).locator('..')
+  await metric.getByText('3 days left', { exact: true }).waitFor()
+  await metric.getByText('Est. 5–7 days from scan', { exact: true }).waitFor()
+})
+
+test('ScanDetail keeps the static estimate for scans that are no longer in stock', async t => {
+  const record = { ...scan(), spoilage_days: '5-7', remaining_days: 4,
+    risk_as_of: '2026-10-01T04:00:00Z', inventory_status: 'Sold' }
+  const { page } = await setup(t, 200, { record })
+  const metric = page.getByText('Est. Spoilage', { exact: true }).locator('..')
+  await metric.getByText('5–7 days', { exact: true }).waitFor()
+  assert.equal(await metric.getByText(/days left|Overdue/).count(), 0)
 })
 
 test('QC formats numeric predictions and preserves their precision when correcting another field', async t => {

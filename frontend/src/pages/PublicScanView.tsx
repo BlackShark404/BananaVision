@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import { api, BASE_URL } from "@/lib/api"
 import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
+import { remainingStockDays, shelfLifeLabel } from "@/lib/inventoryRisk"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -51,6 +52,7 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
   const [notFound, setNotFound] = useState(false)
   const [loading, setLoading] = useState(true)
   const [activeImage, setActiveImage] = useState(0)
+  const [now, setNow] = useState(() => Date.now())
 
   // Authenticated users get redirected to the full detail page
   useEffect(() => {
@@ -89,6 +91,11 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
 
     return () => { cancelled = true; window.clearTimeout(timeout); controller.abort() }
   }, [scanId, user, retry])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const handleRetry = () => {
     setLoading(true)
@@ -139,6 +146,10 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
   }
 
   const dateObj = new Date(scan.date_time)
+  const remaining = remainingStockDays(
+    { remainingDays: scan.remaining_days, riskAsOf: scan.risk_as_of ?? undefined },
+    now,
+  )
 
   return (
     <div className="min-h-screen bg-background">
@@ -206,8 +217,15 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
                 <p className="text-xl mx-auto mb-1">⏳</p>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Spoilage</p>
                 <p className="text-xl font-bold">
-                  {formatSpoilageDays(scan.spoilage_days, false)} <span className="text-xs text-muted-foreground font-normal">{spoilageDayUnit(scan.spoilage_days)}</span>
+                  {remaining !== null
+                    ? shelfLifeLabel(remaining)
+                    : <>{formatSpoilageDays(scan.spoilage_days, false)} <span className="text-xs text-muted-foreground font-normal">{spoilageDayUnit(scan.spoilage_days)}</span></>}
                 </p>
+                {remaining !== null && scan.spoilage_days != null && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Est. {formatSpoilageDays(scan.spoilage_days)} from scan
+                  </p>
+                )}
               </div>
               <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
                 <Calendar className="w-5 h-5 text-muted-foreground mx-auto mb-1" />

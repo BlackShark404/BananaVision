@@ -43,6 +43,7 @@ import type { Cultivar, Ripeness, InventoryStatus, ScanResult } from "@/types"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import { collectScanPages, type ApiScan } from "@/lib/scanData"
 import { formatSpoilageDays } from "@/lib/spoilageDisplay"
+import { remainingStockDays, shelfLifeLabel } from "@/lib/inventoryRisk"
 import { LIVE_RESUMED_EVENT, SCAN_UPDATED_EVENT, SCANS_ADDED_EVENT, newEventId, type ScanUpdateDetail } from "@/lib/liveEvents"
 
 type LogScan = Omit<ScanResult, "cultivar" | "ripeness" | "confidence"> & {
@@ -55,7 +56,7 @@ type LogScan = Omit<ScanResult, "cultivar" | "ripeness" | "confidence"> & {
   sourceKey?: string
 }
 
-async function mapScan(row: ScanLogRow, atRisk: boolean): Promise<LogScan> {
+async function mapScan(row: ScanLogRow, atRisk: boolean, asOf: string): Promise<LogScan> {
   const scan: LogScan = {
     id: row.id, revision: row.revision, dateTime: row.date_time, cultivar: row.cultivar ?? "Unknown", ripeness: row.ripeness ?? "Unknown",
     confidence: row.confidence, temperature: row.temperature ?? undefined, humidity: row.humidity ?? undefined,
@@ -64,7 +65,7 @@ async function mapScan(row: ScanLogRow, atRisk: boolean): Promise<LogScan> {
     source: row.source_name, intakeId: row.intake_id ?? undefined, inventoryStatus: row.inventory_status as InventoryStatus,
     statusUpdatedAt: row.status_updated_at ?? undefined, flagged: row.flagged, isOverridden: row.is_overridden,
     thumbnailUrl: row.thumbnail_url ? getImageUrl(row.thumbnail_url) : undefined, remainingDays: row.remaining_days,
-    atRisk, operatorId: row.operator_id, sourceKey: row.source_key,
+    riskAsOf: asOf, atRisk, operatorId: row.operator_id, sourceKey: row.source_key,
   }
   // A QR rendering failure must not hide the scan history.
   try { scan.qrCode = await generateQRCodeDataUrl(scan) } catch { /* Thumbnail fallback remains available. */ }
@@ -177,6 +178,11 @@ function LogsContent() {
   const cardFilter = requestParams.attention === "all" ? null : requestParams.attention
   const [qrModalScan, setQrModalScan] = useState<LogScan | null>(null)
   const [exporting, setExporting] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
   const [pendingScans, setPendingScans] = useState<Set<string>>(new Set())
   const inFlight = useRef(new Set<string>())
   const [statusAction, setStatusAction] = useState<{ scan: LogScan; status: InventoryStatus } | null>(null)
@@ -245,8 +251,9 @@ function LogsContent() {
     }
     if (!signal.aborted && result.snapshot_id) snapshot.current = { key, id: result.snapshot_id, riskIds }
     const liveRisk = new Set(live?.at_risk_ids ?? [])
+    const asOf = live?.generated_at ?? result.generated_at
     let rows = await Promise.all((live?.items ?? result.items).map(row => mapScan(
-      row, live ? liveRisk.has(row.id) : params.attention === "at-risk" || riskIds.has(row.id),
+      row, live ? liveRisk.has(row.id) : params.attention === "at-risk" || riskIds.has(row.id), asOf,
     )))
     const previous = displayedRows.current?.key === queryKey ? displayedRows.current.rows : null
     const blocked = interactionBlocked.current || isEditingTarget()
@@ -681,17 +688,28 @@ const columns: ColumnDef<LogScan>[] = [
       header: "Est. Spoilage",
       sortable: true,
       sortKey: "spoilage_days",
-      cell: (scan) => (
-        <div className="text-sm">
-          <span
-            className={scan.atRisk ? "inline-flex items-center gap-1 text-orange-600" : undefined}
-            title={scan.atRisk ? "At risk: eligible stock with ≤2 days remaining, including overdue, at this snapshot. Range is the estimate when scanned." : "Estimate when scanned"}
-          >
-            {scan.atRisk && <AlertTriangle role="img" aria-label="At-risk scan" className="h-3.5 w-3.5 shrink-0" />}
-            {formatSpoilageDays(scan.spoilageDays)}
-          </span>
-        </div>
-      ),
+      cell: (scan) => {
+        const remaining = scan.inventoryStatus === "In Stock" ? remainingStockDays(scan, now) : null
+        return (
+          <div className="text-sm">
+            <span
+              className={scan.atRisk ? "inline-flex items-center gap-1 text-orange-600" : undefined}
+              title={scan.atRisk ? "At risk: eligible stock with ≤2 days remaining, including overdue, at this snapshot. Range is the estimate when scanned." : "Estimate when scanned"}
+            >
+              {scan.atRisk && <AlertTriangle role="img" aria-label="At-risk scan" className="h-3.5 w-3.5 shrink-0" />}
+              {formatSpoilageDays(scan.spoilageDays)}
+            </span>
+            {remaining !== null && (
+              <span
+                className="block text-[10px] text-muted-foreground"
+                title="Live remaining shelf life from the scan's prediction"
+              >
+                {shelfLifeLabel(remaining)}
+              </span>
+            )}
+          </div>
+        )
+      },
     },
     {
       header: "Est. Fingers",

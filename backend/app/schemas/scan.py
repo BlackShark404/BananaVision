@@ -202,6 +202,8 @@ class PublicScanResponse(BaseModel):
     ripeness: RipenessEnum | None
     confidence: float | None
     spoilage_days: str | None
+    remaining_days: float | None = None
+    risk_as_of: Timestamp | None = None
     finger_count: int
     temperature: float | None = None
     humidity: float | None = None

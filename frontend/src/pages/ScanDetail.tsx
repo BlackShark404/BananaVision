@@ -70,6 +70,7 @@ import BoundingBoxOverlay from "@/components/BoundingBoxOverlay"
 import { scanWrite, scanRevision, isScanConflict } from "@/lib/scanWrites"
 import { api } from "@/lib/api"
 import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
+import { remainingStockDays, shelfLifeLabel } from "@/lib/inventoryRisk"
 
 const EMPTY_DETECTIONS: ScanDetection[] = []
 
@@ -119,10 +120,17 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const [statusAction, setStatusAction] = useState<InventoryStatus | null>(null)
   const [statusReason, setStatusReason] = useState("")
   const [statusPending, setStatusPending] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const currentDetail = detail?.retry === retry ? detail : null
   const scan = currentDetail?.scan
   const scanDetections = scan?.detections ?? EMPTY_DETECTIONS
+  const remaining = scan && scan.inventoryStatus === "In Stock" ? remainingStockDays(scan, now) : null
   const notes = scan ? getScanNotes(scan.id) : []
   const isAdmin = user?.role === "Admin"
 
@@ -801,7 +809,14 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <AlertTriangle className="w-3.5 h-3.5" /> Est. Spoilage
                   </div>
-                  <p className="text-2xl font-bold">{formatSpoilageDays(scan.spoilageDays, false)} <span className="text-sm font-normal text-muted-foreground">{spoilageDayUnit(scan.spoilageDays)}</span></p>
+                  <p className="text-2xl font-bold">
+                    {remaining !== null
+                      ? shelfLifeLabel(remaining)
+                      : <>{formatSpoilageDays(scan.spoilageDays, false)} <span className="text-sm font-normal text-muted-foreground">{spoilageDayUnit(scan.spoilageDays)}</span></>}
+                  </p>
+                  {remaining !== null && (
+                    <p className="text-xs text-muted-foreground">Est. {formatSpoilageDays(scan.spoilageDays)} from scan</p>
+                  )}
                 </div>
               </div>
 

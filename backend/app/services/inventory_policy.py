@@ -23,6 +23,21 @@ def eligible_stock(scans):
     )
 
 
+def remaining_shelf_life(raw: str | None, scanned_at, now) -> float | None:
+    if raw is None:
+        return None
+    stripped = raw.strip(WHITESPACE)
+    if not re.fullmatch(PREDICTION_PATTERN, stripped):
+        return None
+    values = [float(value.strip(WHITESPACE)) for value in stripped.split("-")]
+    if len(values) > 1 and values[1] < values[0]:
+        return None
+    return (
+        sum(values) / len(values)
+        - (as_manila(now) - as_manila(scanned_at)).total_seconds() / 86400
+    )
+
+
 def inventory_facts(scan, status, now):
     provenance = scan.intake_provenance
     eligible = status == "In Stock" and (
@@ -32,12 +47,5 @@ def inventory_facts(scan, status, now):
             and scan.intake is not None and scan.intake.status == "Active")
     )
     raw = scan.classification.spoilage_days if scan.classification else None
-    remaining = None
-    if raw is not None and re.fullmatch(PREDICTION_PATTERN, raw.strip(WHITESPACE)):
-        values = [float(value.strip(WHITESPACE)) for value in raw.strip(WHITESPACE).split("-")]
-        if len(values) == 1 or values[1] >= values[0]:
-            remaining = (
-                sum(values) / len(values)
-                - (as_manila(now) - as_manila(scan.date_time)).total_seconds() / 86400
-            )
+    remaining = remaining_shelf_life(raw, scan.date_time, now)
     return {"inventory_eligible": bool(eligible), "remaining_days": remaining, "risk_as_of": now}

@@ -307,6 +307,21 @@ def test_http_write_only_succeeds_after_commit_and_failure_rolls_back(applicatio
         assert db.get(Scan, ids.scan).date_time == app.historical
 
 
+def test_public_track_reports_live_remaining_life(application):
+    app = application
+    with Session(app.engine) as db:
+        scan = db.get(Scan, app.ids.scan)
+        scan.date_time = now_manila() - timedelta(days=2)
+        scan.classification.spoilage_days = "4-6"
+        db.commit()
+    response = app.client.get(f"/api/v1/scans/{app.ids.scan}/track")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["spoilage_days"] == "4-6"
+    assert payload["remaining_days"] == pytest.approx(3, abs=0.01)
+    assert payload["risk_as_of"].endswith("+08:00")
+
+
 def test_activity_details_render_enum_values_not_enum_reprs(application):
     app = application
     created = app.client.post("/api/v1/users", json={
