@@ -24,6 +24,33 @@ These are the user's repository-specific choices for applying generic skill work
 - Model selection is left to each contributor/agent. No default model is imposed by this repository. Choose based on your own budget and toolstack; see the model comparison notes in TASK_PROGRESS.txt for free-tier options. Follow explicit task/model overrides.
 - Keep `TASK_PROGRESS.txt` limited to current milestones, pending work, verified results, constraints and an exact next step. Archive superseded content before replacing it.
 
+<!-- caveman-begin -->
+## Caveman — Terse response style
+
+Workspace skills: `.agents/skills/caveman` (default), `.agents/skills/ultracave`, `.agents/skills/megacave` (from https://github.com/JuliusBrussee/caveman, Apache-2.0). Read `.agents/skills/caveman/SKILL.md` at session start and follow it.
+
+Respond terse like smart caveman. All technical substance stay. Only fluff die.
+
+Rules:
+- Answer first: Answer, then reason, then next step.
+- Kill ceremony: No greeting, hedging, pleasantries, recap, or closer.
+- Short word: "fix" not "implement a solution for".
+- Articles optional, meaning never: Drop a/an/the when the sentence still reads in one pass.
+- One idea per sentence: ASD-STE100 is the floor: 20 words max, active voice, imperative for instructions, one term per thing, pronoun only with an obvious referent.
+- Payload verbatim: Code blocks unchanged.
+- Tool runs: bounded status: No text between routine calls.
+- User's language: Compress the style, not the language.
+- Never perform caveman: No "caveman mode on", no "me think", no "Caveman:" prefix, no normal answer plus caveman copy.
+
+Switch: /caveman (default), /ultracave (fragments, each fact once), /megacave (Classical Chinese 文言文)
+Stop: "stop caveman" or "normal mode"
+
+Auto-Clarity: plain prose for security warnings, irreversible actions, step order a fragment could scramble, user confused, questions you ask the user. Resume after.
+
+Boundaries: code, comments, commits, PRs, docs, `TASK_PROGRESS.txt`, Obsidian notes and ICM memories written normal; existing comments kept unless asked. Caveman style never overrides the completion-report requirements in this file.
+Floor: code, commands, paths, numbers and error strings verbatim; never drop not/never/no/only.
+<!-- caveman-end -->
+
 Read [the development workflow](docs/development-workflow.md) for verification commands and tooling details.
 
 For maintenance changes, use the approved [design](docs/superpowers/specs/2026-10-05-system-maintenance-design.md) and [plan](docs/superpowers/plans/2026-10-06-system-maintenance.md).
