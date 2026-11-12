@@ -107,13 +107,14 @@ Full report: `docs/audits/ood-gate-evaluation-2026-11-13.json`.
 ### Stage 2 on the benchmark (laptop run, 2026-11-13)
 
 `evaluate_ood_gate.py pipeline` on a team laptop, default policy, confidence 0.50, each
-OOD image scored as a one-camera Top scan. Numbers are copied from the terminal output;
-the counts follow from the reported rates.
+OOD image scored as a one-camera Top scan. Report:
+`docs/audits/ood-pipeline-ood-pool-2026-11-13.json`; the counts follow from its rates.
 
 | OOD images that end with a cultivar | No gate | Earlier gate | OOD gate |
 | --- | --- | --- | --- |
 | Near-OOD (670 images) | 76.42 % (512) | 3.28 % (22) | 2.99 % (20) |
 | Far-OOD (707 images) | 61.24 % (433) | 0.14 % (1) | 0.00 % (0) |
+| Both (1 377 images) | 68.63 % (945) | 1.67 % (23) | 1.45 % (20) |
 
 - This confirms the root cause: with no gate, Stage 2 names a cultivar on most
   non-banana photos.
@@ -124,11 +125,46 @@ the counts follow from the reported rates.
   refinement, rotated pass and finger recovery did not run.
 - No labeled split was given, so the effect on real bananas is not part of this run.
 
+### Real bananas through the gate (laptop run, 2026-11-13)
+
+Same script with `--id-split` on the test split of the Roboflow export
+`Banana_Ripeness.v17i.yolo26`: 416 photos with one labeled cultivar (Cardaba 134,
+Lakatan 155, Latundan 127) in 337 scans. Weights: `best.pt` of training run
+`v26s_run2_zick` (SHA-256 starting `fe9359d5`). Report:
+`docs/audits/ood-pipeline-labeled-split-2026-11-13.json`.
+
+| Real banana photos | No gate | Earlier gate | OOD gate |
+| --- | --- | --- | --- |
+| End with a cultivar | 416/416 (100 %) | 409/416 (98.32 %) | 408/416 (98.08 %) |
+| Finger boxes | 3 534 | 3 467 | 3 453 |
+| Wrong cultivar | 0 | 0 | 0 |
+
+| Rear view only (95 photos) | No gate | Earlier gate | OOD gate |
+| --- | --- | --- | --- |
+| End with a cultivar | 95/95 | 92/95 | 91/95 |
+| Finger boxes | 973 | 939 | 925 |
+
+- **Scan gate:** 330 of 337 scans accepted. The 7 rejected scans hold one photo each,
+  and the earlier gate rejects them too, because both use the same verifier rule.
+- **Cost of the OOD gate over the earlier gate:** 1 more photo without a cultivar
+  (a Cardaba) and 14 fewer finger boxes (0.40 %), all in the Rear view. The totals for
+  Top, Left and Right are identical in both.
+- **The verifier is weakest on Rear photos.** Below acceptance (0.30): Top 0/99,
+  Left 2/94, Right 2/128, Rear 6/95. The 3 such frames inside an accepted scan are all
+  Rear frames. The report does not say which Rear photos lost boxes.
+- **Limits of this run:** this checkpoint is not in `TOP_CALIBRATED_CHECKPOINTS` either
+  (`top_paths.active` false). The test photos may overlap its training data, so the
+  perfect no-gate score may read high; the gate comparison is unaffected. Most scans
+  are a single photo, and fusion is not simulated. The report does not count flagged
+  scans: at least one accepted scan lost boxes (one Rear photo lost all of them). The
+  finger-box figures are totals, so they show the net change only.
+- **Decision:** no code or threshold change. Thresholds are not tuned on a test split.
+
 ### Limits
 
-- **Not measured:** per-cultivar precision, recall and F1 before and after the gate
-  (needs a labeled split), and any result on a registered Top-calibrated checkpoint.
-  Run `evaluate_ood_gate.py pipeline` where both exist. Give it the
+- **Not measured:** any result on a registered Top-calibrated checkpoint, how many real
+  scans the gate would flag for review, and four-camera fusion.
+  For the first, run `evaluate_ood_gate.py pipeline` with the
   weights the station runs (`YOLO_MODEL_PATH`) at confidence 0.50; the report's
   `top_paths.active` must be true, or the Top refinement, rotated pass and finger
   recovery did not run. It groups the prepared files of one capture into a scan, applies

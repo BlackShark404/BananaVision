@@ -99,9 +99,9 @@ VERIFICATION
 - No live station database, captures, cameras, sensors or OS power were used.
 
 LIMITS / KNOWLEDGE
-- NOT measured: per-cultivar precision/recall/F1 before and after the gate (needs the
-  labeled split), and any result on a registered Top-calibrated checkpoint. No
-  retraining with negatives was run.
+- NOT measured: any result on a registered Top-calibrated checkpoint (Top refinement,
+  rotated pass, finger recovery), how many real scans the gate would flag for review,
+  and four-camera fusion. No retraining with negatives was run.
 - Unsupported banana cultivars pass the gate (COCO "banana" covers all varieties).
 - Strong lookalikes pass the verifier (yellow watermelon 0.90, mango slice 0.89, yellow
   squash 0.84); retraining Stage 2 with the hard negatives is the remedy.
@@ -111,27 +111,51 @@ LIMITS / KNOWLEDGE
 - Graphify CLI/graph, ICM and Context7 were unavailable; graph and memory not refreshed.
   No Codex Security service scan was run; source review only.
 
-LAPTOP EVALUATION (2026-11-13, user's laptop; numbers copied from the terminal output)
-- Command: evaluate_ood_gate.py pipeline --weights app/ml/weights/banana_yolo26s.pt
-  --ood <fetched pool> --pool benchmark, default policy, confidence 0.50, OOD view Top.
-- Weights: banana_yolo26s.pt, 20,341,509 bytes, SHA-256 starting d1acd351. It is NOT a
-  registered Top-calibrated checkpoint, so `top_paths.active` was false: the Top
-  refinement, rotated pass and finger recovery did not run.
-- Pool: 670 near-OOD and 707 far-OOD images (5 of 1,654 downloads failed; 1 far-OOD).
+LAPTOP EVALUATION (2026-11-13, user's laptop; `evaluate_ood_gate.py pipeline`)
+Both runs: default policy, confidence 0.50. Neither checkpoint is a registered
+Top-calibrated file, so `top_paths.active` was false: the Top refinement, rotated pass
+and finger recovery did not run. The report files are in docs/audits/ with their
+content unchanged (line endings converted to LF).
+
+Run 1 - non-banana photos (docs/audits/ood-pipeline-ood-pool-2026-11-13.json)
+- Weights: banana_yolo26s.pt, 20,341,509 bytes, SHA-256 starting d1acd351.
+- Pool: benchmark, 670 near-OOD and 707 far-OOD images (5 of 1,654 downloads failed;
+  1 far-OOD), each scored as a one-camera Top scan.
 - Share of OOD images that end with a cultivar (counts follow from the rates):
     near-OOD  no gate 76.42 % (512)   earlier gate 3.28 % (22)   OOD gate 2.99 % (20)
     far-OOD   no gate 61.24 % (433)   earlier gate 0.14 % (1)    OOD gate 0.00 % (0)
+    total     no gate 68.63 % (945)   earlier gate 1.67 % (23)   OOD gate 1.45 % (20)
 - Reading: the banana verifier does almost all of the rejection; box support removes
   3 more images. The 20 remaining near-OOD images pass the verifier as bananas.
-- No --id-split was given: the effect on real Lakatan, Latundan and Cardaba scans is
-  still not measured.
+
+Run 2 - real bananas (docs/audits/ood-pipeline-labeled-split-2026-11-13.json)
+- Weights: best.pt of training run v26s_run2_zick, SHA-256 starting fe9359d5.
+- Data: test split of the Roboflow export Banana_Ripeness.v17i.yolo26; 416 photos with
+  one labeled cultivar (Cardaba 134, Lakatan 155, Latundan 127), grouped into 337 scans.
+- Photos that end with a cultivar, and finger boxes:
+    no gate       416/416 (100 %)     3,534 boxes
+    earlier gate  409/416 (98.32 %)   3,467 boxes
+    OOD gate      408/416 (98.08 %)   3,453 boxes
+  No photo received a wrong cultivar in any variant (precision 1.0 throughout).
+- Scan gate: 330 of 337 scans accepted. The 7 rejected scans hold one photo each and
+  are rejected by the earlier gate as well (same verifier rule).
+- OOD gate against the earlier gate: 1 more photo without a cultivar (a Cardaba) and
+  14 fewer finger boxes (0.40 %), all in the Rear view. The totals for Top, Left and
+  Right are identical in both.
+- Verifier below acceptance (0.30): Top 0/99, Left 2/94, Right 2/128, Rear 6/95. The
+  3 such frames that sit inside an accepted scan are all Rear frames.
+- Limits of run 2: the test photos may overlap this checkpoint's training data, so the
+  perfect no-gate score may read high (the gate comparison is unaffected); most scans
+  are a single photo and fusion is not simulated; the report does not count flagged
+  scans (at least one accepted scan lost boxes: one Rear photo lost all of them). The
+  finger-box figures are totals, so they show the net change only.
+- Decision: no code or threshold change. Thresholds are not tuned on a test split.
 
 EXACT NEXT STEP
-- Still open on the laptop (needs files from the team's Google Drive): the checkpoint
-  the station runs (a registered Top-calibrated file, so `top_paths.active` is true) and
-  the labeled dataset. Then, from backend/ with the project venv:
-    python scripts/evaluate_ood_gate.py pipeline --weights <station checkpoint> --id-split <prepared dataset>/test --ood <fetched pool> --pool benchmark --output <new report file>
-  Keep --confidence at 0.50. Compare `legacy_gate` with `ood_gate`, in total and under
-  `in_distribution_by_view`: per-cultivar recall and `finger_boxes` must not drop for
-  real bananas, and `scans_accepted` should equal `scans`.
-- Then open the pull request from the fork to BlackShark404/BananaVision. No deployment.
+- Open the pull request from the fork's main to BlackShark404/BananaVision. No deployment.
+- Optional, for the Top-tuned paths: repeat run 2 with a registered Top-calibrated
+  checkpoint (the station's backend/app/ml/weights holds one), from backend/:
+    python scripts/evaluate_ood_gate.py pipeline --weights <registered checkpoint> --id-split <dataset>/test --output <new report file>
+  `top_paths.active` must then be true. Compare `legacy_gate` with `ood_gate` in total
+  and under `in_distribution_by_view`.
+- Optional: make the evaluation script count flagged scans and dropped boxes per view.

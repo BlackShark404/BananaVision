@@ -1,0 +1,375 @@
+{
+  "mode": "pipeline",
+  "weights_sha256": "fe9359d5b0f6d1baeeed37c821cff47002c1f2b2644e495f26933ef565cf7b0f",
+  "top_paths": {
+    "checkpoint_registered": false,
+    "image_size_matches": false,
+    "confidence_is_calibrated": true,
+    "iou_is_calibrated": true,
+    "overlap_refinement_setting": true,
+    "rotation_fallback_setting": true,
+    "active": false
+  },
+  "policy": {
+    "banana_confidence": 0.3,
+    "support_confidence": 0.05,
+    "support_margin": 0.25,
+    "min_banana_views": 1,
+    "box_support_filter": true
+  },
+  "detection_confidence": 0.5,
+  "in_distribution": {
+    "scans": 337,
+    "scans_accepted": 330,
+    "images": 416,
+    "frames_below_acceptance": 10,
+    "no_gate": {
+      "Cardaba": {
+        "support": 134,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "Lakatan": {
+        "support": 155,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "Latundan": {
+        "support": 127,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "images_without_cultivar": 0,
+      "finger_boxes": 3534
+    },
+    "legacy_gate": {
+      "Cardaba": {
+        "support": 134,
+        "precision": 1.0,
+        "recall": 0.9701,
+        "f1": 0.9848
+      },
+      "Lakatan": {
+        "support": 155,
+        "precision": 1.0,
+        "recall": 0.9871,
+        "f1": 0.9935
+      },
+      "Latundan": {
+        "support": 127,
+        "precision": 1.0,
+        "recall": 0.9921,
+        "f1": 0.996
+      },
+      "images_without_cultivar": 7,
+      "finger_boxes": 3467
+    },
+    "ood_gate": {
+      "Cardaba": {
+        "support": 134,
+        "precision": 1.0,
+        "recall": 0.9627,
+        "f1": 0.981
+      },
+      "Lakatan": {
+        "support": 155,
+        "precision": 1.0,
+        "recall": 0.9871,
+        "f1": 0.9935
+      },
+      "Latundan": {
+        "support": 127,
+        "precision": 1.0,
+        "recall": 0.9921,
+        "f1": 0.996
+      },
+      "images_without_cultivar": 8,
+      "finger_boxes": 3453
+    }
+  },
+  "in_distribution_by_view": {
+    "Top": {
+      "images": 99,
+      "frames_below_acceptance": 0,
+      "no_gate": {
+        "Cardaba": {
+          "support": 31,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "Lakatan": {
+          "support": 41,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "Latundan": {
+          "support": 27,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "images_without_cultivar": 0,
+        "finger_boxes": 868
+      },
+      "legacy_gate": {
+        "Cardaba": {
+          "support": 31,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "Lakatan": {
+          "support": 41,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "Latundan": {
+          "support": 27,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "images_without_cultivar": 0,
+        "finger_boxes": 868
+      },
+      "ood_gate": {
+        "Cardaba": {
+          "support": 31,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "Lakatan": {
+          "support": 41,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "Latundan": {
+          "support": 27,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "images_without_cultivar": 0,
+        "finger_boxes": 868
+      }
+    },
+    "Left": {
+      "images": 94,
+      "frames_below_acceptance": 2,
+      "no_gate": {
+        "Cardaba": {
+          "support": 27,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "Lakatan": {
+          "support": 33,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "Latundan": {
+          "support": 34,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "images_without_cultivar": 0,
+        "finger_boxes": 714
+      },
+      "legacy_gate": {
+        "Cardaba": {
+          "support": 27,
+          "precision": 1.0,
+          "recall": 0.963,
+          "f1": 0.9811
+        },
+        "Lakatan": {
+          "support": 33,
+          "precision": 1.0,
+          "recall": 0.9697,
+          "f1": 0.9846
+        },
+        "Latundan": {
+          "support": 34,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "images_without_cultivar": 2,
+        "finger_boxes": 695
+      },
+      "ood_gate": {
+        "Cardaba": {
+          "support": 27,
+          "precision": 1.0,
+          "recall": 0.963,
+          "f1": 0.9811
+        },
+        "Lakatan": {
+          "support": 33,
+          "precision": 1.0,
+          "recall": 0.9697,
+          "f1": 0.9846
+        },
+        "Latundan": {
+          "support": 34,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "images_without_cultivar": 2,
+        "finger_boxes": 695
+      }
+    },
+    "Right": {
+      "images": 128,
+      "frames_below_acceptance": 2,
+      "no_gate": {
+        "Cardaba": {
+          "support": 45,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "Lakatan": {
+          "support": 45,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "Latundan": {
+          "support": 38,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "images_without_cultivar": 0,
+        "finger_boxes": 979
+      },
+      "legacy_gate": {
+        "Cardaba": {
+          "support": 45,
+          "precision": 1.0,
+          "recall": 0.9556,
+          "f1": 0.9773
+        },
+        "Lakatan": {
+          "support": 45,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "Latundan": {
+          "support": 38,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "images_without_cultivar": 2,
+        "finger_boxes": 965
+      },
+      "ood_gate": {
+        "Cardaba": {
+          "support": 45,
+          "precision": 1.0,
+          "recall": 0.9556,
+          "f1": 0.9773
+        },
+        "Lakatan": {
+          "support": 45,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "Latundan": {
+          "support": 38,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "images_without_cultivar": 2,
+        "finger_boxes": 965
+      }
+    },
+    "Rear": {
+      "images": 95,
+      "frames_below_acceptance": 6,
+      "no_gate": {
+        "Cardaba": {
+          "support": 31,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "Lakatan": {
+          "support": 36,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "Latundan": {
+          "support": 28,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "images_without_cultivar": 0,
+        "finger_boxes": 973
+      },
+      "legacy_gate": {
+        "Cardaba": {
+          "support": 31,
+          "precision": 1.0,
+          "recall": 0.9677,
+          "f1": 0.9836
+        },
+        "Lakatan": {
+          "support": 36,
+          "precision": 1.0,
+          "recall": 0.9722,
+          "f1": 0.9859
+        },
+        "Latundan": {
+          "support": 28,
+          "precision": 1.0,
+          "recall": 0.9643,
+          "f1": 0.9818
+        },
+        "images_without_cultivar": 3,
+        "finger_boxes": 939
+      },
+      "ood_gate": {
+        "Cardaba": {
+          "support": 31,
+          "precision": 1.0,
+          "recall": 0.9355,
+          "f1": 0.9667
+        },
+        "Lakatan": {
+          "support": 36,
+          "precision": 1.0,
+          "recall": 0.9722,
+          "f1": 0.9859
+        },
+        "Latundan": {
+          "support": 28,
+          "precision": 1.0,
+          "recall": 0.9643,
+          "f1": 0.9818
+        },
+        "images_without_cultivar": 4,
+        "finger_boxes": 925
+      }
+    }
+  }
+}

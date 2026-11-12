@@ -16,9 +16,14 @@ Design, thresholds and limits are in [[AI Models]]; the kiosk state is in [[Fron
   benchmark pool. OOD images that end with a cultivar: near-OOD **76.42 % → 3.28 % →
   2.99 %** and far-OOD **61.24 % → 0.14 % → 0.00 %** (no gate → earlier gate → OOD gate).
   That checkpoint is not Top-calibrated (`top_paths.active` false). See [[AI Models]].
-- **Not measured:** per-cultivar precision/recall/F1 before and after the gate. The labeled
-  dataset is not in the repository; `pipeline` mode with `--id-split` produces those
-  numbers where it exists. No retraining was run.
+- **Laptop labeled-split run (2026-11-13):** `pipeline --id-split` with `best.pt` of run
+  `v26s_run2_zick` on 416 labeled test photos (337 scans). Photos that end with a cultivar:
+  **416 → 409 → 408** (no gate → earlier gate → OOD gate); finger boxes **3 534 → 3 467 →
+  3 453**; no wrong cultivar in any variant. The OOD gate's extra loss (1 photo, 14 boxes)
+  is in the Rear view only. Reports: `docs/audits/ood-pipeline-ood-pool-2026-11-13.json`
+  and `docs/audits/ood-pipeline-labeled-split-2026-11-13.json`.
+- **Not measured:** any result on a registered Top-calibrated checkpoint, the number of real
+  scans the gate would flag, and four-camera fusion. No retraining was run.
 - **Backend:** full suite **685 passed, 104 skipped** (PostgreSQL-only cases; no disposable
   cluster in this environment), against **582 passed, 104 skipped** on the team's
   `0c74c73`. The 103 new tests cover gate logic, classifier filtering (including cluster-box,
