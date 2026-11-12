@@ -121,10 +121,47 @@ def test_pipeline_variants_compare_no_gate_legacy_gate_and_ood_gate(banana, expe
         return SimpleNamespace(cultivar="Lakatan", finger_count=fingers)
 
     outcome = evaluation.predict_variants(
-        None, detector, SimpleNamespace(predict=predict), POLICY, 0.5,
+        None, detector, SimpleNamespace(predict=predict), POLICY, 0.5, camera_label="Top",
     )
     assert outcome == expected
     assert len(calls) == (2 if banana else 1)
+    # The station passes the view; without it the Top paths and filters are skipped.
+    assert all(call["camera_label"] == "Top" for call in calls)
     broken = SimpleNamespace(detect=lambda _image, **kwargs: SimpleNamespace(available=False))
     with pytest.raises(EvaluationError):
         evaluation.predict_variants(None, broken, SimpleNamespace(predict=predict), POLICY, 0.5)
+
+
+@pytest.mark.parametrize(("filename", "view"), [
+    ("valid__B4_Latundan1_NoneChemical_02570_top_jpg.rf.995e92959d649ecc.jpg", "Top"),
+    ("test__L2_Lakatan3_00012_left.jpg", "Left"),
+    ("train__C1_Cardaba_00007_RIGHT_png.rf.abc.png", "Right"),
+    ("valid__B4_Latundan1_00031_back-2-_jpg.rf.abc.jpg", "Rear"),
+    ("valid__B4_Latundan1_00031_rear.jpg", "Rear"),
+    ("valid__desktop_photo.jpg", None),
+    ("valid__topview_of_bananas.jpg", None),
+])
+def test_camera_view_is_read_from_the_prepared_file_name(filename, view):
+    assert evaluation.camera_view(filename) == view
+
+
+def test_pipeline_reads_views_and_reports_each_one(tmp_path):
+    split = tmp_path / "dataset" / "test"
+    (split / "images").mkdir(parents=True)
+    (split / "labels").mkdir()
+    names = [f"{c}_{r}" for c in ("cardaba", "lakatan", "latundan")
+             for r in ("overripe", "ripe", "semi_ripe", "unripe")]
+    (tmp_path / "dataset" / "data.yaml").write_text(f"nc: 12\nnames: {json.dumps(names)}\n")
+    for stem, label in [("a_00001_top_jpg.rf.x", 5), ("a_00001_back_jpg.rf.x", 5),
+                        ("plain", 9), ("mixed_00002_left", None)]:
+        (split / "images" / f"{stem}.jpg").write_bytes(b"x")
+        classes = (5, 1) if label is None else (label,)
+        (split / "labels" / f"{stem}.txt").write_text(
+            "".join(f"{value} 0.5 0.5 0.2 0.2\n" for value in classes)
+        )
+    found = {path.name: (truth, view) for path, truth, view in evaluation._id_images(split)}
+    assert found == {
+        "a_00001_top_jpg.rf.x.jpg": ("Lakatan", "Top"),
+        "a_00001_back_jpg.rf.x.jpg": ("Lakatan", "Rear"),
+        "plain.jpg": ("Latundan", None),
+    }  # the mixed-cultivar image has no single ground truth and is left out

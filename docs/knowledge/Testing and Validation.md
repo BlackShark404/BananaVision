@@ -15,9 +15,9 @@ Design, thresholds and limits are in [[AI Models]]; the kiosk state is in [[Fron
 - **Not measured:** per-cultivar precision/recall/F1 and Stage 2's own false-cultivar rate.
   The trained weights and labeled dataset are not in the repository; `pipeline` mode
   produces those numbers where they exist. No retraining was run.
-- **Backend:** full suite **664 passed, 104 skipped** (PostgreSQL-only cases; no disposable
+- **Backend:** full suite **675 passed, 104 skipped** (PostgreSQL-only cases; no disposable
   cluster in this environment), against **582 passed, 104 skipped** on the team's
-  `0c74c73`. The 82 new tests cover gate logic, classifier filtering (including cluster-box,
+  `0c74c73`. The 93 new tests cover gate logic, classifier filtering (including cluster-box,
   rotated-pass, canonical-rotation and occluded-finger-recovery cases), the 422/503/WebSocket contract, the audit row, the dataset script (leakage, path
   safety, truncated, incomplete and non-JPEG payloads, merge isolation), evaluation metrics,
   and the real COCO verifier on 12 synthetic frames (blank, noise, blur, yellow/green shapes).
@@ -37,7 +37,11 @@ Design, thresholds and limits are in [[AI Models]]; the kiosk state is in [[Fron
   regression tests. Seven tests were checked by mutation: replacing the full JPEG decode,
   removing the redirect refusal, removing the image-ID leak check, removing the shared
   notice id, and removing each of the three classifier gate hooks made the matching test
-  fail. No Codex Security service scan was run.
+  fail. A further review after merging the team's `0c74c73` raised 8 points (three in the
+  classifier gate, one in the evaluation script, four in the notes); all were addressed,
+  and the gate was reduced to a plain contract: its result equals the classifier's result
+  for the boxes on banana evidence, checked on 300 random frames, and a scan is flagged
+  exactly when the gate altered it. No Codex Security service scan was run.
 - **Running the new tests:** `test_ood_gate_model.py` needs `ultralytics` and the tracked
   `backend/yolo26n.pt`; it skips where either is missing. No test uses the network, the
   station database, captures, cameras or sensors.

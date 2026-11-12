@@ -10,11 +10,15 @@ gate      Banana-vs-OOD gate on a fetched Open Images pool (no cultivar weights 
 pipeline  Full two-stage pipeline with the trained cultivar weights on a prepared
           YOLO split (in-distribution) and an OOD pool. Reports per-cultivar
           precision/recall/F1 and the false-cultivar rate before and after the gate.
+          The camera view (Top, Left, Right, Rear) is read from each prepared file
+          name, as the station passes it, so the Top refinement, the rotated pass
+          and the background filters run. Use the weights the station runs
+          (YOLO_MODEL_PATH); the report says whether they are Top-calibrated.
 
 Examples (the pool directory and both report names are git-ignored):
   python scripts/evaluate_ood_gate.py gate --ood ood-data --pool benchmark \\
       --output ood-gate-report.json
-  python scripts/evaluate_ood_gate.py pipeline --weights app/ml/weights/banana_yolov26n.pt \\
+  python scripts/evaluate_ood_gate.py pipeline --weights <file named by YOLO_MODEL_PATH> \\
       --id-split <prepared dataset>/test --ood ood-data --pool benchmark \\
       --output ood-pipeline-report.json
 """
@@ -24,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import re
 import sys
 from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
@@ -40,6 +45,11 @@ DEFAULT_MANIFEST = Path(__file__).resolve().parent / "ood" / "open_images_ood_ma
 OOD_GROUPS = ("near", "far")
 CULTIVARS = ("Cardaba", "Lakatan", "Latundan")
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+# Prepared files end in the capture view, e.g. "..._02570_top_jpg.rf.<hash>.jpg".
+VIEW_SUFFIX = re.compile(
+    r"_(top|left|right|back|rear)(?:-\d+-?)?(?:_(?:jpg|jpeg|png|bmp|webp))?$", re.IGNORECASE
+)
+VIEWS = ("Top", "Left", "Right", "Rear")
 
 
 class EvaluationError(ValueError):
@@ -235,8 +245,17 @@ def run_gate(args: argparse.Namespace) -> dict:
     }
 
 
-def _id_images(split: Path) -> list[tuple[Path, str]]:
-    """Images of a prepared YOLO split with a single ground-truth cultivar."""
+def camera_view(filename: str) -> str | None:
+    """Camera view encoded in a prepared file name, as the station labels it."""
+    match = VIEW_SUFFIX.search(Path(filename).stem.split(".rf.", 1)[0])
+    if match is None:
+        return None
+    view = match[1].lower()
+    return "Rear" if view == "back" else view.capitalize()
+
+
+def _id_images(split: Path) -> list[tuple[Path, str, str | None]]:
+    """Images of a prepared YOLO split with a single ground-truth cultivar and their view."""
     images, labels = split / "images", split / "labels"
     yaml = split.parent / "data.yaml"
     if not images.is_dir() or not labels.is_dir() or not yaml.is_file():
@@ -255,7 +274,7 @@ def _id_images(split: Path) -> list[tuple[Path, str]]:
             for line in label.read_text(encoding="utf-8").splitlines() if line.strip()
         }
         if len(cultivars) == 1 and next(iter(cultivars)) in CULTIVARS:
-            selected.append((image, next(iter(cultivars))))
+            selected.append((image, next(iter(cultivars)), camera_view(image.name)))
     if not selected:
         raise EvaluationError(f"No single-cultivar labeled images in {split}")
     return selected
@@ -284,7 +303,10 @@ def classification_metrics(pairs: list[tuple[str, str | None]]) -> dict:
     return result
 
 
-def predict_variants(image, detector, classifier, policy: GatePolicy, confidence: float) -> dict:
+def predict_variants(
+    image, detector, classifier, policy: GatePolicy, confidence: float,
+    camera_label: str | None = None,
+) -> dict:
     """Cultivar and finger count without a gate, with the legacy gate, and with the new gate."""
     pre = detector.detect(
         image, accept_confidence=policy.banana_confidence,
@@ -292,10 +314,13 @@ def predict_variants(image, detector, classifier, policy: GatePolicy, confidence
     )
     if not pre.available:
         raise EvaluationError("The banana pre-detector is not loaded")
-    open_result = classifier.predict(image, confidence_threshold=confidence)
+    # The view selects the Top refinement, the rotated pass and the background filters.
+    open_result = classifier.predict(
+        image, confidence_threshold=confidence, camera_label=camera_label,
+    )
     gated = classifier.predict(
-        image, confidence_threshold=confidence, banana_evidence=pre.boxes or [],
-        support_margin=policy.support_margin,
+        image, confidence_threshold=confidence, camera_label=camera_label,
+        banana_evidence=pre.boxes or [], support_margin=policy.support_margin,
     ) if pre.banana_detected else None
     return {
         "no_gate": (open_result.cultivar, open_result.finger_count),
@@ -326,6 +351,11 @@ def run_pipeline(args: argparse.Namespace) -> dict:
     variants = ("no_gate", "legacy_gate", "ood_gate")
     report: dict = {
         "mode": "pipeline", "weights_sha256": classifier._checkpoint_sha256,
+        # Without a registered checkpoint the Top refinement, the rotated pass and the
+        # occluded-finger recovery do not run, on the station or here.
+        "top_calibrated_checkpoint": (
+            classifier._checkpoint_sha256 in classification.TOP_CALIBRATED_CHECKPOINTS
+        ),
         "policy": asdict(policy), "detection_confidence": args.confidence,
     }
 
@@ -336,20 +366,35 @@ def run_pipeline(args: argparse.Namespace) -> dict:
         return image
 
     if args.id_split:
-        pairs = {variant: [] for variant in variants}
-        fingers: Counter = Counter()
-        for path, truth in _id_images(args.id_split):
-            outcome = predict_variants(read(path), detector, classifier, policy, args.confidence)
-            for variant in variants:
-                pairs[variant].append((truth, outcome[variant][0]))
-                fingers[variant] += outcome[variant][1]
-        report["in_distribution"] = {
-            variant: {
-                **classification_metrics(pairs[variant]), "finger_boxes": fingers[variant],
+        # Results for all images, and separately for each camera view.
+        pairs: dict = defaultdict(lambda: {variant: [] for variant in variants})
+        fingers: dict = defaultdict(Counter)
+        for path, truth, view in _id_images(args.id_split):
+            view = view or args.camera_label
+            outcome = predict_variants(
+                read(path), detector, classifier, policy, args.confidence, camera_label=view,
+            )
+            for scope in ("all", view or "no_view"):
+                for variant in variants:
+                    pairs[scope][variant].append((truth, outcome[variant][0]))
+                    fingers[scope][variant] += outcome[variant][1]
+
+        def summarize(scope: str) -> dict:
+            return {
+                "images": len(pairs[scope]["no_gate"]),
+                **{
+                    variant: {
+                        **classification_metrics(pairs[scope][variant]),
+                        "finger_boxes": fingers[scope][variant],
+                    }
+                    for variant in variants
+                },
             }
-            for variant in variants
+
+        report["in_distribution"] = summarize("all")
+        report["in_distribution_by_view"] = {
+            scope: summarize(scope) for scope in (*VIEWS, "no_view") if scope in pairs
         }
-        report["in_distribution"]["images"] = len(pairs["no_gate"])
     if args.ood:
         counts: dict = {group: Counter() for group in OOD_GROUPS}
         for record in load_pool(args.ood, args.manifest, args.pool):
@@ -403,6 +448,10 @@ def main(argv: list[str] | None = None) -> int:
     pipeline.add_argument("--id-split", type=Path)
     pipeline.add_argument("--ood", type=Path)
     pipeline.add_argument("--confidence", type=float, default=0.50)
+    pipeline.add_argument(
+        "--camera-label", choices=VIEWS,
+        help="view for in-distribution files whose name does not end in a view",
+    )
     args = parser.parse_args(argv)
     try:
         if args.command == "pipeline" and not (args.id_split or args.ood):

@@ -32,10 +32,11 @@ Verified against the source on 2026-11-13. Related: [[Frontend]], [[Testing and 
    `OOD_BANANA_CONFIDENCE` (0.30). Otherwise the scan is rejected before Stage 2.
 2. **Box support.** A cultivar box is kept only when banana evidence at
    `OOD_SUPPORT_CONFIDENCE` (0.05), grown by `OOD_SUPPORT_MARGIN` (25 % per side), covers
-   its centre in the same frame. An unsupported box is set aside as soon as the model
-   emits it (first pass, rotated Top pass and occluded-finger recovery pass): it never
-   votes, counts as a finger or suppresses a box that is on a banana. Only the cluster
-   rule still sees it, so a hand-sized box over dropped fingers is not kept as a finger.
+   its centre in the same frame. An unsupported box is treated as if the model had
+   never emitted it: it is skipped in the first pass, the rotated Top pass and the
+   occluded-finger recovery pass before any other rule sees it. The result is exactly
+   what the classifier reports for the remaining boxes. Tests pin that contract on
+   300 random frames.
 3. **No silent change.** If any box was dropped, the saved scan is flagged for review.
    If no supported cultivar remains, the scan is rejected and nothing is stored.
 4. **Fail closed.** A verifier that cannot run refuses the scan (HTTP 503).
@@ -74,7 +75,10 @@ committed.
 - **Far-OOD** (24 classes): person, hand, face, car, chair, table, laptop, phone, book,
   bottle, building, tree, dog, cat, poster, box and similar.
 - **Banana**: generic banana photos, a proxy positive for the verifier only.
-- Leakage guards: disjoint official splits, disjoint image IDs, and a file-hash check.
+- Leakage guards: every pool is disjoint by image ID and by file hash. Benchmark
+  negatives also come from a different official split (test) than training and
+  calibration negatives (validation). Banana positives of calibration and benchmark
+  share the train split and are separated by image ID and file hash only.
 - One training negative showed an unlabeled banana bunch and is excluded by name
   (`EXCLUDED_TRAIN_NEGATIVES`). Re-inspect high-scoring negatives after any rebuild.
 
@@ -104,7 +108,11 @@ Full report: `docs/audits/ood-gate-evaluation-2026-11-13.json`.
 
 - **Not measured here:** per-cultivar precision, recall and F1 before and after the
   gate, and the false-cultivar rate of Stage 2 itself. Both need the trained weights and
-  a labeled split: run `evaluate_ood_gate.py pipeline` where they exist.
+  a labeled split: run `evaluate_ood_gate.py pipeline` where they exist. Give it the
+  weights the station runs (`YOLO_MODEL_PATH`); the report's `top_calibrated_checkpoint`
+  must be true, or the Top refinement, rotated pass and finger recovery do not run. It
+  reads the camera view from each prepared file name and reports each view separately.
+  Dataset photos are still not station captures.
 - **Unsupported banana cultivars pass.** COCO "banana" covers every variety, and Stage 2
   has no "other banana" class. Rejecting them needs labeled examples and retraining.
 - **Strong lookalikes pass the verifier:** yellow watermelon slices 0.90, mango slice

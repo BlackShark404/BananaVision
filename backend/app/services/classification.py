@@ -417,21 +417,34 @@ class BananaClassifier:
         cultivar_votes: dict[str, list[float]] = {}
         class_votes: dict[tuple[str | None, str | None], list[float]] = {}
         duplicate_label_conflict = False
-        # OOD gate: cultivar boxes that no banana evidence covers. They never join
-        # `detections`, so they cannot vote, count as fingers or suppress a box that
-        # is on a banana. They are kept only so the cluster rule still sees them.
+        # OOD gate: a cultivar box that no banana evidence covers is treated as if the
+        # model had never emitted it. It is skipped in every pass before any other
+        # rule sees it, so it cannot vote, count as a finger or influence another box.
+        # `off_banana` only counts the distinct boxes the gate actually removed.
         off_banana: list[Detection] = []
 
-        def rejected_by_gate(box: Detection) -> bool:
+        def rejected_by_gate(box: Detection, dropped_anyway) -> bool:
+            """dropped_anyway(box, kept): the pass's own rule for repeats of a kept box."""
             if banana_evidence is None or is_supported(box, banana_evidence, support_margin):
                 return False
-            # Later passes see the same object again; set it aside once.
-            if not any(
-                _is_same_class_sub_box(box, seen) or _is_duplicate_detection(box, seen)
-                for seen in off_banana
+            # Not an intervention when this pass would have dropped the box anyway as
+            # a repeat of an accepted detection, or when the object is already counted.
+            if not (
+                any(dropped_anyway(box, kept) for kept in detections)
+                or any(
+                    _is_same_class_sub_box(box, seen) or _is_duplicate_detection(box, seen)
+                    for seen in off_banana
+                )
             ):
                 off_banana.append(box)
             return True
+
+        def same_label_rotated_duplicate(box: Detection, kept: Detection) -> bool:
+            # A different label on the same finger is a conflict the team code reports;
+            # removing that report is an intervention and stays counted.
+            return box.cls == kept.cls and _is_duplicate_detection(
+                box, kept, TOP_ROTATION_DEDUP_IOU,
+            )
 
         if results and len(results) > 0:
             result = results[0]
@@ -477,7 +490,7 @@ class BananaClassifier:
                         ):
                             continue
 
-                    if rejected_by_gate(det):
+                    if rejected_by_gate(det, _is_same_class_sub_box):
                         continue
 
                     # Suppress same-class nested duplicate boxes or severe IoU duplicates.
@@ -529,7 +542,7 @@ class BananaClassifier:
                             x=ox1, y=oy1, w=ox2 - ox1, h=oy2 - oy1,
                             cls=cls_name, confidence=conf,
                         )
-                        if rejected_by_gate(candidate):
+                        if rejected_by_gate(candidate, same_label_rotated_duplicate):
                             continue
                         if any(_is_same_class_sub_box(candidate, existing) for existing in rot_candidates):
                             continue
@@ -692,20 +705,18 @@ class BananaClassifier:
                             x=x1, y=y1, w=det_w, h=det_h,
                             cls=cls_name, confidence=conf,
                         )
-                        if rejected_by_gate(cand):
+                        if rejected_by_gate(cand, _is_recovery_duplicate):
                             continue
                         if any(_is_recovery_duplicate(cand, existing) for existing in detections):
                             continue
                         detections.append(cand)
                 elapsed_ms = (time.time() - start) * 1000
 
-        # Suppress cluster boxes that encompass 2+ distinct individual fingers. Boxes
-        # the OOD gate set aside still show that a larger box spans several objects.
-        cluster_pool = detections + off_banana
-        if len(cluster_pool) >= 3:
+        # Suppress cluster boxes that encompass 2+ distinct individual fingers
+        if len(detections) >= 3:
             detections = [
                 det for det in detections
-                if not _is_cluster_box(det, [o for o in cluster_pool if o != det])
+                if not _is_cluster_box(det, [o for o in detections if o != det])
             ]
 
         # Preserve cultivar consensus, then choose ripeness from that cultivar's

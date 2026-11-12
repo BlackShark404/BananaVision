@@ -26,11 +26,12 @@ DONE
 - backend/app/services/ood_gate.py: pure gate logic, policy, rejection codes.
 - banana_detector.py: banana evidence boxes at 0.05, `available` flag.
 - classification.py: a cultivar box whose centre is not covered by banana evidence
-  (grown 25 %) is set aside when the model emits it, in the first pass, the rotated Top
-  pass and the occluded-finger recovery pass. It never votes, counts or suppresses a box
-  on a banana; only the cluster rule still sees it. The V2 checkpoint, canonical
-  rotation, TTA recovery and genuine max-view counting of e8825a5 and 0c74c73 are
-  unchanged when no evidence is given.
+  (grown 25 %) is treated as if the model never emitted it. It is skipped in the first
+  pass, the rotated Top pass and the occluded-finger recovery pass before any other rule
+  sees it; the team's rules (V2 checkpoints, canonical rotation, TTA recovery, cluster
+  and duplicate rules, genuine max-view counting) are not modified, and nothing changes
+  when no evidence is given. A box counts as an intervention only when the pass would
+  not have dropped it anyway, so a scan is flagged exactly when the gate altered it.
 - scan_service.py / api/v1/scans.py: gate on every view; rejection 422 with detail +
   code/status/is_ood/reason; same fields on scan:failed; any scan that lost a box is
   saved flagged; scan_rejected activity row with per-view banana scores. Faults answer
@@ -40,10 +41,12 @@ DONE
   OOD_GATE_FAIL_OPEN false. No database migration.
 - backend/scripts/prepare_ood_dataset.py + scripts/ood/open_images_ood_manifest.json:
   Open Images V7 pools (train_negatives 998, calibration 1284, benchmark 1654), disjoint
-  by split, image ID and file hash; merge-negatives copies a prepared YOLO dataset and
-  adds background images to train only. backend/ood-data/ is git-ignored.
+  by image ID and file hash; benchmark negatives also come from a different official
+  split. merge-negatives copies a prepared YOLO dataset and adds background images to
+  train only. backend/ood-data/ is git-ignored.
 - backend/scripts/evaluate_ood_gate.py: `gate` mode (run here) and `pipeline` mode
-  (needs trained weights + labeled split).
+  (needs trained weights + labeled split). Pipeline mode reads the camera view from each
+  prepared file name, reports each view, and says whether the weights are Top-calibrated.
 - Frontend: api.ts error code/reason; ScanContext refusal state with one notice per
   scan; Kiosk status card "No Lakatan, Latundan, or Cardaba detected" and an alert card
   "Scan could not run" for 503 faults; Activity Log badge and full detail; Profile label.
@@ -57,8 +60,8 @@ VERIFICATION
   FPR at 95 % TPR 2.83 %. Box support keeps 94.92 % of banana boxes; 7.3 % of near-OOD
   and 0.16 % of far-OOD object boxes pass. One banana view plus three unrelated views:
   OOD boxes admitted 11069 -> 475.
-- Backend: 664 passed, 104 skipped (PostgreSQL-only; no disposable cluster here);
-  the team main (0c74c73) alone gives 582 passed, 104 skipped. 82 new tests.
+- Backend: 675 passed, 104 skipped (PostgreSQL-only; no disposable cluster here);
+  the team main (0c74c73) alone gives 582 passed, 104 skipped. 93 new tests.
 - Frontend: 280 browser tests, 5 new kiosk cases. Full run 279 passed, 1 failed
   (397.1 s): kiosk-pin "PIN verification sends once..." stopped in its own setup with
   "clock.pauseAt: Cannot fast-forward to the past". That test, its fixture and the
@@ -74,6 +77,11 @@ VERIFICATION
   hidden audit detail, and six tests that could not fail for the defect they named.
   Seven tests were confirmed by mutating the code they guard, including each of the
   three places where the classifier applies the gate.
+- A further review after merging 0c74c73 raised 8 points, all addressed: a tight-evidence
+  case that emptied a real banana view, a set-aside box changing the cluster size check,
+  scans flagged although the gate changed nothing (these three led to the simpler
+  "never emitted" design), the laptop evaluation not passing the camera view, the wrong
+  weights file in the command, and an inaccurate "disjoint by split" statement.
 - No live station database, captures, cameras, sensors or OS power were used.
 
 LIMITS / KNOWLEDGE
@@ -91,7 +99,9 @@ LIMITS / KNOWLEDGE
 EXACT NEXT STEP
 - On the laptop, from backend/ with the project venv:
     python scripts/prepare_ood_dataset.py fetch --manifest scripts/ood/open_images_ood_manifest.json --output ood-data
-    python scripts/evaluate_ood_gate.py pipeline --weights app/ml/weights/banana_yolov26n.pt --id-split <prepared dataset>/test --ood ood-data --pool benchmark --output ood-pipeline-report.json
-  Compare `legacy_gate` with `ood_gate` in the report: per-cultivar recall and
-  `finger_boxes` must not drop for real bananas. Send the JSON back for review.
+    python scripts/evaluate_ood_gate.py pipeline --weights <file named by YOLO_MODEL_PATH> --id-split <prepared dataset>/test --ood ood-data --pool benchmark --output ood-pipeline-report.json
+  Use the weights the station runs (the V2 checkpoint). In the report,
+  `top_calibrated_checkpoint` must be true. Compare `legacy_gate` with `ood_gate`, in
+  total and under `in_distribution_by_view`: per-cultivar recall and `finger_boxes` must
+  not drop for real bananas. Send the JSON back for review.
 - Then open the pull request from the fork to BlackShark404/BananaVision. No deployment.

@@ -97,7 +97,8 @@ COCO pre-detector before a cultivar box is trusted:
    `OOD_BANANA_CONFIDENCE`. Otherwise the scan is rejected before classification.
 2. **Box support.** In each view a cultivar box is kept only when banana evidence
    (confidence `OOD_SUPPORT_CONFIDENCE` or higher, grown by `OOD_SUPPORT_MARGIN` per
-   side) covers its centre. Dropped boxes neither vote nor count as fingers.
+   side) covers its centre. A box without that support is treated as if the model had
+   never emitted it; the classifier's own rules are not modified.
 3. **No silent change.** A scan that lost any box is saved flagged for review. A scan
    left with no supported cultivar is rejected, nothing is stored, and a
    `scan_rejected` activity row keeps the reason and the per-view banana scores.
@@ -137,13 +138,18 @@ python scripts/evaluate_ood_gate.py gate --ood ood-data --pool benchmark
 # precision/recall/F1 and the false-cultivar rate without a gate, with the earlier
 # gate and with the OOD gate.
 python scripts/evaluate_ood_gate.py pipeline \
-    --weights app/ml/weights/banana_yolov26n.pt --id-split <prepared dataset>/test \
+    --weights <file named by YOLO_MODEL_PATH> --id-split <prepared dataset>/test \
     --ood ood-data --pool benchmark --output ood-pipeline-report.json
 
 # Retraining: copy a prepared dataset and add background images to train only.
 python scripts/prepare_ood_dataset.py merge-negatives \
     --dataset <prepared dataset> --ood ood-data --output <new directory> --ratio 0.10
 ```
+
+Pipeline mode reads the camera view (Top, Left, Right, Rear) from each prepared file
+name and passes it to the classifier, as the station does, and reports each view. Use
+the weights the station runs: `top_calibrated_checkpoint` in the report must be true,
+otherwise the Top refinement, the rotated pass and the finger recovery do not run.
 
 `merge-negatives` never changes the source dataset, the validation split or the test
 split. It refuses a dataset that contains symbolic links, and a `data.yaml` whose `train`

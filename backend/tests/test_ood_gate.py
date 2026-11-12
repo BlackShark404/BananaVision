@@ -156,23 +156,134 @@ def test_frame_without_banana_evidence_yields_no_cultivar():
     assert result.ood_rejected_boxes == 3
 
 
-def test_gate_runs_after_cluster_suppression_so_no_cluster_box_becomes_a_finger():
-    # Tight evidence covers only the middle finger. The hand-sized cluster box has
-    # its centre mid-hand, so filtering first would leave it standing as a finger.
-    evidence = [EvidenceBox(x=100, y=0, w=100, h=200, confidence=0.6)]
-    fingers = [(60, 20, 100, 180), (130, 20, 170, 180), (200, 20, 240, 180)]
-    # Another label keeps the cluster box out of the same-class nested-box rule.
-    cluster = (55, 15, 245, 185)
-    rows = [(*finger, 0.90, 0) for finger in fingers] + [(*cluster, 0.55, 1)]
-    legacy = classifier_for(rows).predict(None, confidence_threshold=0.50)
-    assert legacy.finger_count == 3 and len(legacy.detections) == 3
-
-    gated = classifier_for(rows).predict(
-        None, confidence_threshold=0.50, banana_evidence=evidence, support_margin=0.0,
+def summary(result):
+    return (
+        result.cultivar, result.ripeness, result.confidence, result.finger_count,
+        result.conflict_detected, result.cultivar_conflict,
+        [(d.x, d.y, d.w, d.h, d.cls, d.confidence) for d in result.detections],
     )
-    assert [(d.x, d.y, d.w, d.h) for d in gated.detections] == [(130, 20, 40, 160)]
+
+
+def on_banana(row, evidence, margin=0.25):
+    return ood_gate.is_supported(box(*row[:4]), evidence, margin)
+
+
+def assert_gate_equals_deleting_unsupported_boxes(rows, evidence, margin=0.25):
+    """The gate's contract: the team's classifier, minus the boxes off the banana."""
+    gated = classifier_for(rows).predict(
+        None, confidence_threshold=0.50, banana_evidence=evidence, support_margin=margin,
+    )
+    kept = [row for row in rows if on_banana(row, evidence, margin)]
+    assert summary(gated) == summary(classifier_for(kept).predict(None, confidence_threshold=0.50))
+    return gated
+
+
+def test_gate_result_equals_the_classifier_without_the_unsupported_boxes():
+    # Tight evidence over the middle finger; a hand-sized box of another label.
+    tight = [EvidenceBox(x=100, y=0, w=100, h=200, confidence=0.6)]
+    fingers = [(60, 20, 100, 180), (130, 20, 170, 180), (200, 20, 240, 180)]
+    mixed = [(*finger, 0.90, 0) for finger in fingers] + [(55, 15, 245, 185, 0.55, 1)]
+    gated = assert_gate_equals_deleting_unsupported_boxes(mixed, tight, margin=0.0)
     assert gated.finger_count == 1 and gated.ood_rejected_boxes == 2
-    assert gated.cultivar == "Lakatan"
+
+    # A rejected box must not change the cluster rule's size check for the others.
+    evidence = [EvidenceBox(210, 88, 270, 190, 0.8)]
+    rows = [
+        (310, 130, 545, 319, 0.826, 0), (99, 74, 227, 337, 0.655, 0),
+        (158, 166, 195, 394, 0.563, 0), (115, 92, 181, 267, 0.531, 1),
+    ]
+    without = assert_gate_equals_deleting_unsupported_boxes(rows, evidence)
+    with_foreign = assert_gate_equals_deleting_unsupported_boxes(
+        [*rows, (34, 142, 161, 432, 0.665, 0)], evidence,
+    )
+    assert summary(with_foreign) == summary(without)
+    assert (without.ood_rejected_boxes, with_foreign.ood_rejected_boxes) == (0, 1)
+
+
+def test_random_frames_obey_the_gate_contract():
+    rng = np.random.default_rng(20261113)
+    rejected = unchanged = 0
+    for _ in range(300):
+        rows = []
+        for _ in range(int(rng.integers(1, 9))):
+            x, y = float(rng.integers(0, 520)), float(rng.integers(0, 300))
+            w, h = float(rng.integers(20, 240)), float(rng.integers(40, 300))
+            rows.append((x, y, x + w, y + h, round(float(rng.uniform(0.5, 0.99)), 3),
+                         int(rng.integers(0, 3))))
+        # Nested same-label fragments at the ends of a box: the kind of repeat the
+        # team's classifier drops by itself.
+        for x1, y1, x2, y2, score, label in list(rows[:2]):
+            if rng.random() < 0.5 and score > 0.55:
+                rows.append((x1, y1, x2, y1 + (y2 - y1) * 0.2, round(score - 0.04, 3), label))
+        evidence = [
+            EvidenceBox(float(rng.integers(0, 400)), float(rng.integers(0, 250)),
+                        float(rng.integers(40, 300)), float(rng.integers(40, 300)), 0.5)
+            for _ in range(int(rng.integers(0, 3)))
+        ]
+        gated = assert_gate_equals_deleting_unsupported_boxes(rows, evidence)
+        unsupported = sum(not on_banana(row, evidence) for row in rows)
+        assert gated.ood_rejected_boxes <= unsupported
+        if gated.ood_rejected_boxes == 0:
+            # No counted intervention means no silent change: the scan is flagged
+            # whenever the gate altered what the team's classifier would report.
+            assert summary(gated) == summary(
+                classifier_for(rows).predict(None, confidence_threshold=0.50)
+            )
+            unchanged += unsupported > 0
+        rejected += gated.ood_rejected_boxes
+    # The sample exercises both outcomes.
+    assert rejected > 100 and unchanged > 0
+
+
+def test_real_banana_view_keeps_its_fingers_when_evidence_is_tight():
+    # A confident same-class hand box with its fingers; evidence covers the middle
+    # only. The team's classifier keeps the hand box; the gate must not empty the view.
+    evidence = [EvidenceBox(x=126.67, y=0, w=46.67, h=200, confidence=0.3)]
+    hand = (55, 15, 245, 185, 0.95, 0)
+    fingers = [(60, 20, 100, 180, 0.90, 0), (130, 20, 170, 180, 0.88, 0),
+               (200, 20, 240, 180, 0.86, 0)]
+    legacy = classifier_for([hand, *fingers]).predict(None, confidence_threshold=0.50)
+    gated = assert_gate_equals_deleting_unsupported_boxes([hand, *fingers], evidence)
+    assert legacy.finger_count == gated.finger_count == 1
+    assert summary(gated) == summary(legacy)
+    # The outer fingers only repeat the accepted hand box: no intervention, no flag.
+    assert gated.ood_rejected_boxes == 0
+
+    # One finger with nested fragments whose centres lie outside the evidence.
+    evidence = [EvidenceBox(x=90, y=150, w=80, h=100, confidence=0.3)]
+    rows = [(100, 50, 160, 350, 0.90, 0), (100, 50, 160, 120, 0.80, 0),
+            (100, 280, 160, 350, 0.78, 0)]
+    legacy = classifier_for(rows).predict(None, confidence_threshold=0.50)
+    gated = assert_gate_equals_deleting_unsupported_boxes(rows, evidence)
+    assert summary(gated) == summary(legacy) and gated.finger_count == 1
+    assert gated.ood_rejected_boxes == 0
+
+
+def test_shifted_redetection_of_an_accepted_finger_is_not_a_gate_intervention(monkeypatch):
+    monkeypatch.setattr(classification, "settings", SimpleNamespace(
+        yolo_iou_threshold=0.45, yolo_top_overlap_refinement=True,
+        yolo_top_rotation_fallback=True,
+    ))
+    # Grown evidence ends at x = 475. The edge finger (centre 470) is accepted; the
+    # rotated and recovery passes return it 8 px to the right (centre 478).
+    evidence = [EvidenceBox(x=100, y=80, w=300, h=320, confidence=0.8)]
+    fingers = [(110 + 55 * index, 100, 150 + 55 * index, 380, 0.90, 0) for index in range(5)]
+    edge = (440, 100, 500, 380, 0.90, 0)
+    shifted = (448, 100, 508, 380, 0.88, 0)
+    rotated_shifted = (640 - 508, 480 - 380, 640 - 448, 480 - 100, 0.88, 0)
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+
+    def run(**gate):
+        classifier = BananaClassifier()
+        classifier._model = SequencePredictor(
+            [[*fingers, edge], [rotated_shifted], [*fingers, shifted]], names=NAMES,
+        )
+        classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+        return classifier.predict(frame, confidence_threshold=0.50, camera_label="Top", **gate)
+
+    legacy, gated = run(), run(banana_evidence=evidence)
+    assert summary(gated) == summary(legacy) and gated.finger_count == 6
+    assert gated.ood_rejected_boxes == 0
 
 
 def test_box_without_banana_evidence_cannot_suppress_fingers_on_the_banana():
