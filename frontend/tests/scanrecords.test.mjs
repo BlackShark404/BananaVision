@@ -199,6 +199,32 @@ test('ScanDetail keeps the static estimate for scans that are no longer in stock
   assert.equal(await metric.getByText(/days left|Overdue/).count(), 0)
 })
 
+const splitViews = ['Top', 'Left', 'Right', 'Rear'].map((camera_label, index) => ({
+  camera_id: `CAM-00${index + 1}`, camera_label,
+  detected_cultivar: index % 2 === 0 ? 'Lakatan' : 'Latundan',
+  detected_ripeness: 'Ripe', confidence: index % 2 === 0 ? 65 : 90,
+  finger_count: 5, bounding_boxes: [], inference_time_ms: 1,
+}))
+
+test('ScanDetail explains split camera cultivars without hiding the stored AI candidate', async t => {
+  const { page } = await setup(t, 200, { record: { ...scan(), confidence: 92, detections: splitViews } })
+  await page.getByText('Cameras disagree on the cultivar', { exact: true }).waitFor()
+  await page.getByText('Top + Right: Lakatan; Left + Rear: Latundan.', { exact: true }).waitFor()
+  await page.getByText(/Stored AI candidate:/).waitFor()
+  await page.getByText('Needs Review', { exact: true }).waitFor()
+  assert.equal(await page.getByText('Verified', { exact: true }).count(), 0)
+})
+
+test('ScanDetail keeps a human cultivar correction without repeating the split-view warning', async t => {
+  const record = { ...scan(), cultivar: 'Lakatan', is_overridden: true,
+    original_ai_result: { cultivar: 'Latundan', ripeness: 'Ripe', confidence: 77.9, finger_count: 5 },
+    detections: splitViews }
+  const { page } = await setup(t, 200, { record })
+  await page.getByRole('heading', { name: /Scan Details/ }).waitFor()
+  assert.equal(await page.getByText('Cameras disagree on the cultivar').count(), 0)
+  assert.equal(await page.getByText('Verified', { exact: true }).count(), 1)
+})
+
 test('QC formats numeric predictions and preserves their precision when correcting another field', async t => {
   const raw = '0.9938128387987426'
   const { page, state } = await setup(t, 200, { screen: 'quality', record: { ...scan(), spoilage_days: raw } })

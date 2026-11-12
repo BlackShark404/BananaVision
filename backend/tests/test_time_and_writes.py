@@ -322,6 +322,19 @@ def test_public_track_reports_live_remaining_life(application):
     assert payload["risk_as_of"].endswith("+08:00")
 
 
+def test_public_track_reports_review_status(application):
+    app = application
+    first = app.client.get(f"/api/v1/scans/{app.ids.scan}/track")
+    assert first.status_code == 200, first.text
+    assert first.json()["flagged"] is False
+    with Session(app.engine) as db:
+        db.get(Scan, app.ids.scan).flagged = True
+        db.commit()
+    second = app.client.get(f"/api/v1/scans/{app.ids.scan}/track")
+    assert second.status_code == 200, second.text
+    assert second.json()["flagged"] is True
+
+
 def test_activity_details_render_enum_values_not_enum_reprs(application):
     app = application
     created = app.client.post("/api/v1/users", json={

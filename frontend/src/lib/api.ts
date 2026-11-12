@@ -239,6 +239,7 @@ export const api = {
         treatment: string | null
         source_text: string | null
         inventory_status: string
+        flagged: boolean
         images: { camera_id: string; file_path: string }[]
       }>
     },

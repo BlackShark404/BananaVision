@@ -177,6 +177,13 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
           <p className="font-mono text-sm font-bold uppercase text-foreground/80">{scan.id}</p>
         </div>
 
+        {scan.flagged && (
+          <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-700">
+            <p className="text-sm font-semibold">Pending quality review</p>
+            <p className="text-xs mt-0.5">This result was flagged for review. The classification and estimates shown are preliminary.</p>
+          </div>
+        )}
+
         {/* Classification Card */}
         <Card className="rounded-2xl overflow-hidden">
           <div className="h-1 bg-linear-to-r from-primary via-banana to-primary" />

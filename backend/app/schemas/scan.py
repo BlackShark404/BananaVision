@@ -211,6 +211,7 @@ class PublicScanResponse(BaseModel):
     treatment: str | None = None
     source_text: str | None = None
     inventory_status: InventoryStatusEnum
+    flagged: bool = False
     images: list[PublicScanImageRef] = []
 
 

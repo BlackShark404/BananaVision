@@ -209,6 +209,7 @@ async def public_scan_track(scan_id: uuid.UUID, db: DbSession):
         treatment=classification.treatment if classification else None,
         source_text=scan.source_text,
         inventory_status=latest.inventory_status if latest else "In Stock",
+        flagged=scan.flagged,
         images=[
             PublicScanImageRef(
                 camera_id=img.camera_id,

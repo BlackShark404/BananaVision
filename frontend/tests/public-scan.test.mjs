@@ -53,6 +53,28 @@ test('public QR tracking shows a live countdown beside the original estimate', a
   const metric = page.getByText('Est. Spoilage', { exact: true }).locator('..')
   await metric.getByText('4 days left', { exact: true }).waitFor()
   await metric.getByText('Est. 5–7 days from scan', { exact: true }).waitFor()
+  assert.equal(await page.getByText('Pending quality review', { exact: true }).count(), 0)
   await page.clock.fastForward('24:00:00')
   await metric.getByText('3 days left', { exact: true }).waitFor()
+})
+
+test('public QR tracking marks a flagged scan as pending quality review', async t => {
+  const context = await runtime.browser.newContext()
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', error => errors.push(error.message))
+  t.after(async () => { await context.close(); assert.deepEqual(errors, []) })
+  await installEnvironment(page)
+  const record = {
+    id: 'fixture-scan', date_time: '2026-09-30T12:00:00+08:00', cultivar: 'Lakatan',
+    ripeness: 'Ripe', spoilage_days: '5-7', confidence: 90, finger_count: 7,
+    temperature: null, humidity: null, vpd: null, treatment: 'Natural', source_text: 'Demo source',
+    inventory_status: 'In Stock', flagged: true, images: [],
+  }
+  await page.route('**/api/v1/**', route => route.fulfill({
+    json: record, headers: { 'access-control-allow-origin': '*' },
+  }))
+  await page.goto(`${runtime.url}/scans/fixture-scan/track`)
+  await page.getByText('Pending quality review', { exact: true }).waitFor()
+  await page.getByText(/classification and estimates shown are preliminary/i).waitFor()
 })

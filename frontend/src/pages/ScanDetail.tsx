@@ -68,6 +68,7 @@ import { AppChangePreview } from "@/components/AppChangePreview"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import BoundingBoxOverlay from "@/components/BoundingBoxOverlay"
 import { scanWrite, scanRevision, isScanConflict } from "@/lib/scanWrites"
+import { cultivarCameraConflict } from "@/lib/scanData"
 import { api } from "@/lib/api"
 import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
 import { remainingStockDays, shelfLifeLabel } from "@/lib/inventoryRisk"
@@ -130,6 +131,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const currentDetail = detail?.retry === retry ? detail : null
   const scan = currentDetail?.scan
   const scanDetections = scan?.detections ?? EMPTY_DETECTIONS
+  const cultivarConflict = scan ? cultivarCameraConflict(scan) : null
   const remaining = scan && scan.inventoryStatus === "In Stock" ? remainingStockDays(scan, now) : null
   const notes = scan ? getScanNotes(scan.id) : []
   const isAdmin = user?.role === "Admin"
@@ -409,7 +411,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
               <Flag className="w-3 h-3 fill-current" />
               Flagged
             </Badge>
-          ) : scan.confidence !== null && scan.confidence < config.confidenceThreshold ? (
+          ) : cultivarConflict || (scan.confidence !== null && scan.confidence < config.confidenceThreshold) ? (
             <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs gap-1">
               <AlertTriangle className="w-3 h-3" />
               Needs Review
@@ -422,6 +424,16 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
           )}
         </div>
       </div>
+
+      {cultivarConflict && (
+        <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          <p className="font-semibold">Cameras disagree on the cultivar</p>
+          <p className="text-xs mt-1">{cultivarConflict}.</p>
+          <p className="text-xs mt-1">
+            Stored AI candidate: <span className="font-semibold">{scan.cultivar}</span>. Correct the cultivar or clear the flag after review.
+          </p>
+        </div>
+      )}
 
       {/* Inventory Status Update Dialog */}
       <Dialog open={!!statusAction} onOpenChange={open => { if (!open && !statusPending) { setStatusAction(null); setStatusReason("") } }}>

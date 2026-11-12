@@ -2,7 +2,7 @@ import { scanRetryAction } from "@/lib/scanWriteFeedback"
 import { ScanImage } from "@/components/ScanImage"
 import { cultivarCameraConflict } from "@/lib/scanData"
 import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import KioskOperatorSwap from "@/components/KioskOperatorSwap"
 import { useAuth } from "@/context/AuthContext"
 import { useScans } from "@/context/ScanContext"
@@ -60,6 +60,16 @@ export default function Kiosk() {
   const [selectedTreatment, setSelectedTreatment] = useState<"Natural" | "Ethephon">("Natural")
   const [startingIntake, setStartingIntake] = useState(false)
   const [flaggingScan, setFlaggingScan] = useState(false)
+  const notifiedConflict = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!lastResult || !cultivarConflict || notifiedConflict.current === lastResult.id) return
+    notifiedConflict.current = lastResult.id
+    toast.warning("Cultivar uncertain", {
+      description: `${cultivarConflict}. Flag this scan for review before accepting.`,
+      duration: 8000,
+    })
+  }, [lastResult, cultivarConflict])
 
   const [kioskOperatorsList, setKioskOperatorsList] = useState<{ id: string; username: string; fullName: string; role: string; status: string; avatar?: string }[]>([])
   const [operatorsLoading, setOperatorsLoading] = useState(true)
@@ -811,7 +821,8 @@ export default function Kiosk() {
                 <div className="flex gap-3 pt-2">
                   <Button
                     size="lg"
-                    disabled={lastResult.id === scanAction?.id || flaggingScan}
+                    disabled={lastResult.id === scanAction?.id || flaggingScan || Boolean(cultivarConflict)}
+                    title={cultivarConflict ? "Cameras disagree on the cultivar. Flag this scan for review or correct it in Scan Logs." : undefined}
                     className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white gap-2 font-bold h-12 lg:h-14 text-sm lg:text-base"
                     onClick={() => {
                       if (lastResult && lastResult.id !== scanAction?.id) {
@@ -823,7 +834,7 @@ export default function Kiosk() {
                     }}
                   >
                     <CheckCircle2 className="w-4 h-4 lg:w-5 lg:h-5" />
-                    {lastResult.id === scanAction?.id && scanAction?.action === 'accepted' ? "Accepted" : "Accept"}
+                    {cultivarConflict ? "Review required" : lastResult.id === scanAction?.id && scanAction?.action === 'accepted' ? "Accepted" : "Accept"}
                   </Button>
                   <Button
                     size="lg"

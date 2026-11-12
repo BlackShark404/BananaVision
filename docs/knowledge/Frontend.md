@@ -142,6 +142,28 @@ history and CSV. Read-only correction inputs and change previews format their la
 without replacing draft values. Dashboard/Analytics show aggregate counts and link to
 Scan Logs; they do not render a separate per-scan spoilage estimate.
 
+## Uncertain cultivar presentation (2026-11-12)
+
+When cameras disagree on the cultivar, the Kiosk and Scan Detail disclose the split,
+and public QR tracking discloses the pending review state. The stored fused prediction
+remains the labelled AI candidate.
+
+- Kiosk keeps `Uncertain` with blank confidence/spoilage and the per-camera breakdown,
+  raises a one-time warning toast for the completed scan, and disables **Accept** so a
+  conflicted result is flagged for review instead of acknowledged. A human cultivar
+  correction still restores the normal presentation.
+- Scan Detail shows a **Cameras disagree on the cultivar** notice with the breakdown and
+  **Stored AI candidate: X**, and its header badge stays **Needs Review** instead of
+  **Verified**. Count-only overrides do not resolve the warning; a recorded cultivar
+  correction does.
+- Public QR tracking (`GET /api/v1/scans/{id}/track`) now returns `flagged`. A flagged
+  scan shows **Pending quality review** above the classification card and states that the
+  classification and estimates are preliminary. Per-camera detections stay
+  authenticated-only; the public page never exposes the camera breakdown.
+
+The per-image YOLO box labels are intentionally preserved as evidence: each label
+describes that camera's view, not the authoritative scan result.
+
 The warning icon uses the server's at-risk decision, never a client parse of the
 range or a comparison against rounded display values. Without introducing new database
 or API response schema fields, row warnings consume the existing server-side at-risk
