@@ -739,5 +739,5 @@ def test_multi_finger_top_anchor_prevails_over_lower_confidence_peripheral_tips(
     assert fused.cultivar == "Cardaba"
     assert fused.ripeness == "Unripe"
     assert fused.cultivar_conflict is False
-    assert fused.finger_count == 13
+    assert fused.finger_count == 11
 

@@ -231,7 +231,9 @@ class FusionEngine:
             round(sum(winning_confs) / len(winning_confs), 1) if winning_confs else 0.0
         )
 
-        final_fingers = self._estimate_finger_count(finger_counts)
+        # Views overlap: 2D edge positions cannot establish unique fingers across
+        # cameras. Use the largest observed per-view count without adding sightings.
+        final_fingers = max(finger_counts, default=0)
 
         expected = expected_camera_count if expected_camera_count is not None else len(per_camera)
         supporting_views = len(pair_cameras.get(winning_pair, set()))
@@ -240,10 +242,7 @@ class FusionEngine:
         # Different positive counts can reflect occlusion or detector errors. The
         # maximum is still an estimate; request confirmation when detecting views
         # disagree. Empty/missing views retain the support/capture checks above.
-        count_requires_review = (
-            len({count for count in finger_counts if count > 0}) > 1
-            or final_fingers > max(finger_counts, default=0)
-        )
+        count_requires_review = len({count for count in finger_counts if count > 0}) > 1
         auto_flagged = (
             conflict_detected or final_confidence < review_confidence_threshold * 100
             or insufficient_views or missing_captures or count_requires_review
@@ -269,30 +268,6 @@ class FusionEngine:
             cultivar_conflict=cultivar_conflict,
             per_camera=per_camera,
         )
-
-    def _estimate_finger_count(self, finger_counts: list[int]) -> int:
-        """Estimate total fingers from multi-view counts with bounded tier compensation.
-
-        On a two-tier banana hand (14-16 fingers), any single camera angle self-occludes
-        at 8-12 visible fingers while orthogonal/opposing views observe the second tier
-        and outer flanks (6-9 fingers). When multi_camera_finger_fusion is enabled and
-        at least 3 views confirm a multi-tier hand, add bounded complementary tier
-        compensation (+2 to +3, capped at 14) without inflating single-tier or
-        already-complete (>= 13) views.
-        """
-        baseline_max = max(finger_counts, default=0)
-        settings = get_settings()
-        if not getattr(settings, "multi_camera_finger_fusion", True):
-            return baseline_max
-
-        positive = sorted((c for c in finger_counts if c > 0), reverse=True)
-        if len(positive) >= 3 and 8 <= baseline_max <= 12:
-            second_view, third_view = positive[1], positive[2]
-            if second_view >= 6 and third_view >= 5:
-                complementary = 3 if (second_view >= 8 and third_view >= 8) else 2
-                return min(baseline_max + complementary, 14)
-
-        return baseline_max
 
     def _select_winner(self, weights: dict[str, float]) -> str | None:
         if not weights:
