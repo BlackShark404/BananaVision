@@ -7,11 +7,15 @@ BananaVision's frontend is a React 19 single-page application built with Vite, T
 Decision: [[Development Decisions]]; tests: [[Testing and Validation]].
 
 - Web QR codes open `/track/<scan id>` (`frontend/src/lib/qrcode.ts`), which renders
-  `PublicScanView` outside the staff layout. The page is read-only: logo and
-  "BananaVision · Scan Tracking" header (plain text), scan ID, pending-review notice,
-  cultivar, ripeness, confidence, `Est. Fingers`, `Est. Spoilage` with the Asia/Manila
-  countdown and `Est. … from scan`, scan date, sensor readings, source, treatment, stock
-  status and the footer time.
+  `PublicScanView` outside the staff layout. The page is read-only. The first screen shows
+  the logo and "BananaVision · Scan Tracking" header (plain text), the pending-review
+  notice, cultivar, ripeness, `Est. Spoilage` with the Asia/Manila countdown and `Est. …
+  from scan`, the scan date and the footer time.
+- Secondary values sit in a collapsed native `<details>` disclosure labelled "Scan
+  details": confidence, `Est. Fingers`, temperature, humidity, VPD, source, treatment and
+  the scan ID. The public page does not show `inventory_status`; stock state stays on staff
+  pages. The disclosure is not navigation, so the page still has no `<button>`, link or
+  other way out.
 - No link or button leaves the page: the header "Log in" button, the "Need more details?"
   login card and the error-screen "Log in" button were removed. The not-found screen has
   no button; the error screen keeps only "Retry".

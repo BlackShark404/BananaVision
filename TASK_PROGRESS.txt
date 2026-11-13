@@ -51,6 +51,11 @@ QR page:
   /track paths (dashboard.browser.mjs); backend/tests/test_public_scan_track.py (new).
 - Docs: docs/knowledge/Frontend.md, Development Decisions.md, Testing and Validation.md;
   docs/bananavision-docs/docs/STORYBOARD_CAPSTONE1.md Figure 92 text and Main Actions.
+- Public page hierarchy (2026-11-13, uncommitted): the first screen keeps ripeness,
+  cultivar, the shelf-life countdown, scan date and review notice. Confidence,
+  Est. Fingers, temperature, humidity, VPD, source, treatment and scan ID sit in a
+  collapsed native "Scan details" disclosure. inventory_status is no longer rendered
+  publicly. API fields and staff pages are unchanged.
 
 Public HTTPS:
 - Frontend transport: an HTTPS page calls its own origin for HTTP and WebSocket traffic
@@ -106,6 +111,11 @@ QR page (team main, before this merge):
   browser (a 600 px element read 616/616) and fixed: tests compare with clientWidth 390.
   The two QR test files pass 14/14 after that test-only change.
 - Graphify refreshed. ICM and UI/UX Pro Max are not available in the cloud session.
+- Public QR hierarchy (2026-11-13, uncommitted): public-scan.test.mjs and
+  public-scan-app.test.mjs pass 14/14; typecheck and production build pass; ESLint on
+  the changed files is clean. The live HTTPS page at 390, 360 and 320 px has no
+  sideways scroll, zero <button> elements, and the disclosure opens correctly.
+  Screenshots: .tmp/public-scan-collapsed.png and .tmp/public-scan-expanded.png.
 
 VERIFICATION — PUBLIC HTTPS (local main, before this merge)
 - Backend full suite from a fresh temporary working directory: 764 passed, 104 skipped in

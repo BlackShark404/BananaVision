@@ -12,7 +12,9 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/
 import {
   Banana,
   Calendar,
+  ChevronDown,
   Hand,
+  Info,
   Target,
   ScanLine,
   Loader2,
@@ -144,12 +146,6 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
 
       {/* Content */}
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
-        {/* Scan ID Header */}
-        <div className="text-center space-y-1">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Scan Record</p>
-          <p className="font-mono text-sm font-bold uppercase text-foreground/80">{scan.id}</p>
-        </div>
-
         {scan.flagged && (
           <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-700">
             <p className="text-sm font-semibold">Pending quality review</p>
@@ -162,7 +158,7 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
           <div className="h-1 bg-linear-to-r from-primary via-banana to-primary" />
           <CardContent className="p-5 space-y-4">
             {/* Ripeness + Cultivar */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl">
                   {ripenessIcon[scan.ripeness ?? ""] || "🍌"}
@@ -181,7 +177,41 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
 
             <Separator />
 
-            {/* Metrics Grid */}
+            {/* Shelf life is the value a person scans for. */}
+            <div className="rounded-xl border border-border bg-muted/50 px-4 py-5 text-center">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Spoilage</p>
+              <p className="text-2xl font-bold mt-1">
+                {countdown !== null
+                  ? countdown
+                  : <>{formatSpoilageDays(scan.spoilage_days, false)} <span className="text-xs text-muted-foreground font-normal">{spoilageDayUnit(scan.spoilage_days)}</span></>}
+              </p>
+              {countdown !== null && formatSpoilageDays(scan.spoilage_days) !== "Unknown" && (
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Est. {formatSpoilageDays(scan.spoilage_days)} from scan
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-center gap-2.5">
+              <Calendar className="w-4 h-4 text-muted-foreground" />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Scanned</p>
+                <p className="text-sm font-bold">{dateObj.toLocaleDateString("en-US", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" })}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Secondary values stay available, without crowding the first screen. */}
+        <details className="group rounded-2xl border border-border bg-card overflow-hidden">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center gap-2">
+              <Info className="w-4 h-4 text-muted-foreground" />
+              Scan details
+            </span>
+            <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="border-t border-border px-5 py-4 space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
                 <Target className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
@@ -193,82 +223,55 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider" title="Estimated finger count">{fingersLabel()}</p>
                 <p className="text-xl font-bold">{scan.finger_count}</p>
               </div>
-              <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                <p className="text-xl mx-auto mb-1">⏳</p>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Spoilage</p>
-                <p className="text-xl font-bold">
-                  {countdown !== null
-                    ? countdown
-                    : <>{formatSpoilageDays(scan.spoilage_days, false)} <span className="text-xs text-muted-foreground font-normal">{spoilageDayUnit(scan.spoilage_days)}</span></>}
-                </p>
-                {countdown !== null && formatSpoilageDays(scan.spoilage_days) !== "Unknown" && (
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    Est. {formatSpoilageDays(scan.spoilage_days)} from scan
-                  </p>
-                )}
-              </div>
-              <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                <Calendar className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Scanned</p>
-                <p className="text-sm font-bold">{dateObj.toLocaleDateString("en-US", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" })}</p>
-              </div>
             </div>
 
-            {/* Environmental data */}
             {(scan.temperature !== null || scan.humidity !== null || scan.vpd !== null) && (
-              <>
-                <Separator />
-                <div className="grid grid-cols-3 gap-3">
-                  {scan.temperature !== null && (
-                    <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                      <p className="text-lg mx-auto mb-0.5">🌡️</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Temp</p>
-                      <p className="text-lg font-bold">{scan.temperature}°C</p>
-                    </div>
-                  )}
-                  {scan.humidity !== null && (
-                    <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                      <p className="text-lg mx-auto mb-0.5">💧</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Humidity</p>
-                      <p className="text-lg font-bold">{scan.humidity}%</p>
-                    </div>
-                  )}
-                  {scan.vpd !== null && (
-                    <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                      <p className="text-lg mx-auto mb-0.5">💨</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">VPD</p>
-                      <p className="text-lg font-bold">{scan.vpd} <span className="text-xs font-normal">kPa</span></p>
-                    </div>
-                  )}
-                </div>
-              </>
+              <div className="grid grid-cols-3 gap-3">
+                {scan.temperature !== null && (
+                  <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
+                    <p className="text-lg mx-auto mb-0.5">🌡️</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Temp</p>
+                    <p className="text-lg font-bold">{scan.temperature}°C</p>
+                  </div>
+                )}
+                {scan.humidity !== null && (
+                  <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
+                    <p className="text-lg mx-auto mb-0.5">💧</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Humidity</p>
+                    <p className="text-lg font-bold">{scan.humidity}%</p>
+                  </div>
+                )}
+                {scan.vpd !== null && (
+                  <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
+                    <p className="text-lg mx-auto mb-0.5">💨</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">VPD</p>
+                    <p className="text-lg font-bold">{scan.vpd} <span className="text-xs font-normal">kPa</span></p>
+                  </div>
+                )}
+              </div>
             )}
 
-            {/* Source + Treatment + Inventory */}
-            {(scan.source_text || scan.treatment || scan.inventory_status) && (
-              <>
-                <Separator />
-                <div className="flex flex-wrap gap-2">
-                  {scan.source_text && (
-                    <Badge variant="secondary" className="gap-1.5 px-3 py-1">
-                      <Banana className="w-3.5 h-3.5" /> {scan.source_text}
-                    </Badge>
-                  )}
-                  {scan.treatment && (
-                    <Badge variant="secondary" className="gap-1.5 px-3 py-1">
-                      {scan.treatment === "Ethephon" ? "🧪" : "🌿"} {scan.treatment}
-                    </Badge>
-                  )}
-                  {scan.inventory_status && (
-                    <Badge variant="outline" className="gap-1.5 px-3 py-1">
-                      {scan.inventory_status}
-                    </Badge>
-                  )}
-                </div>
-              </>
+            {(scan.source_text || scan.treatment) && (
+              <div className="flex flex-wrap gap-2">
+                {scan.source_text && (
+                  <Badge variant="secondary" className="gap-1.5 px-3 py-1">
+                    <Banana className="w-3.5 h-3.5" /> {scan.source_text}
+                  </Badge>
+                )}
+                {scan.treatment && (
+                  <Badge variant="secondary" className="gap-1.5 px-3 py-1">
+                    {scan.treatment === "Ethephon" ? "🧪" : "🌿"} {scan.treatment}
+                  </Badge>
+                )}
+              </div>
             )}
-          </CardContent>
-        </Card>
+
+            <div className="bg-muted/50 rounded-xl p-3 border border-border">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Scan ID</p>
+              <p className="font-mono text-xs font-semibold break-all mt-1">{scan.id}</p>
+            </div>
+          </div>
+        </details>
 
         {/* Camera evidence stays behind staff authentication. */}
 

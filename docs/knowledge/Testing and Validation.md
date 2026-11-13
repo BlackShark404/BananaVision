@@ -6,11 +6,13 @@ Comprehensive guide to testing strategies, verification requirements, test runne
 
 Decision: [[Development Decisions]]; page notes: [[Frontend]].
 
-- `frontend/tests/public-scan.test.mjs` at a 390×844 phone viewport: the data renders
-  (scan ID, cultivar, ripeness, `Est. Fingers`, countdown and `Est. 5–7 days from scan`,
-  scan date, temperature, footer time); the page has no link, button, `role="button"`,
-  `role="link"` or `onclick` element and no "log in", "login", "sign in", "website" or
-  "dashboard" text; no sideways scroll; one unauthenticated request. Overflow is checked
+- `frontend/tests/public-scan.test.mjs` at a 390×844 phone viewport: the first screen
+  shows cultivar, ripeness, the countdown with `Est. 5–7 days from scan`, scan date and
+  footer time. Scan ID, `Est. Fingers` and temperature stay collapsed under "Scan details"
+  until the native disclosure is opened; `In Stock` never renders even when the API sends
+  `inventory_status`. The page has no link, `<button>`, `role="button"`, `role="link"` or
+  `onclick` element and no "log in", "login", "sign in", "website" or "dashboard" text; no
+  sideways scroll; one unauthenticated request. Overflow is checked
   against `document.documentElement.clientWidth` (390): with `isMobile` emulation Chromium
   widens `window.innerWidth` to fit wide content, so `scrollWidth <= innerWidth` cannot
   fail (found in review; a 600 px element read 616/616).
