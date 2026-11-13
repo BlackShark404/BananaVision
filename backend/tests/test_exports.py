@@ -200,7 +200,7 @@ async def test_csv_full_precision_and_special_values_remain_unchanged(logs_db):
     rows = list(csv.DictReader(io.StringIO("".join([c async for c in chunks]).lstrip("\ufeff"))))
     assert rows[0]["Scan ID"] == str(identifier)
     assert rows[0]["Source"] == source.strip()
-    assert rows[0]["Original Shelf Life (days)"] == prediction
+    assert rows[0]["Est. Original Shelf Life (days)"] == prediction
     assert rows[0]["Confidence (%)"] == "0.0"
     assert rows[0]["Operator"] == '\'=HYPERLINK("https://example.test")'
 
@@ -259,7 +259,7 @@ def test_xlsx_null_optional_values_are_blank_like_csv(export_app, logs_db):
         assert csv_row["Cultivar"] == ""
         assert csv_row["Ripeness"] == ""
         assert csv_row["Confidence (%)"] == ""
-        assert csv_row["Original Shelf Life (days)"] == ""
+        assert csv_row["Est. Original Shelf Life (days)"] == ""
 
         xlsx_result = client.get(
             "/api/v1/scan-logs/export", params={"format": "xlsx"},

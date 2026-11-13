@@ -45,6 +45,7 @@ import { collectScanPages, type ApiScan } from "@/lib/scanData"
 import { formatSpoilageDays } from "@/lib/spoilageDisplay"
 import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
 import { LIVE_RESUMED_EVENT, SCAN_UPDATED_EVENT, SCANS_ADDED_EVENT, newEventId, type ScanUpdateDetail } from "@/lib/liveEvents"
+import { fingersLabel } from "@/lib/estimates"
 
 type LogScan = Omit<ScanResult, "cultivar" | "ripeness" | "confidence"> & {
   cultivar: string
@@ -703,7 +704,7 @@ const columns: ColumnDef<LogScan>[] = [
               {scan.atRisk && <AlertTriangle role="img" aria-label="At-risk scan" className="h-3.5 w-3.5 shrink-0" />}
               {countdown ?? estimate}
             </span>
-            {countdown !== null && (
+            {countdown !== null && estimate !== "Unknown" && (
               <span className="block text-[10px] text-muted-foreground" title="Estimate when scanned">
                 Est. {estimate} from scan
               </span>
@@ -713,7 +714,7 @@ const columns: ColumnDef<LogScan>[] = [
       },
     },
     {
-      header: "Estimated Fingers",
+      header: fingersLabel(),
       sortable: true,
       sortKey: "finger_count",
       cell: (scan) => <span className="text-sm">{scan.fingerCount}</span>,

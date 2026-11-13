@@ -20,6 +20,7 @@ import {
   LogIn,
   ArrowRight,
 } from "lucide-react"
+import { fingersLabel } from "@/lib/estimates"
 
 const ripenessColor: Record<string, string> = {
   Unripe: "bg-emerald-500/15 text-emerald-700 border-emerald-200",
@@ -208,7 +209,7 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
               </div>
               <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
                 <Hand className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Finger Count</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider" title="Estimated finger count">{fingersLabel()}</p>
                 <p className="text-xl font-bold">{scan.finger_count}</p>
               </div>
               <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
@@ -219,7 +220,7 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
                     ? countdown
                     : <>{formatSpoilageDays(scan.spoilage_days, false)} <span className="text-xs text-muted-foreground font-normal">{spoilageDayUnit(scan.spoilage_days)}</span></>}
                 </p>
-                {countdown !== null && scan.spoilage_days != null && (
+                {countdown !== null && formatSpoilageDays(scan.spoilage_days) !== "Unknown" && (
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     Est. {formatSpoilageDays(scan.spoilage_days)} from scan
                   </p>
