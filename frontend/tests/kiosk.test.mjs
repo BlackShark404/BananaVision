@@ -92,9 +92,43 @@ for (const [raw, displayed] of [['0.9938128387987426', '1 day'], ['3.487', '3–
     const metric = page.getByText('Est. Spoilage', { exact: true }).locator('..')
     assert.match(await metric.innerText(), new RegExp(displayed))
     assert.equal(state.scans[0].spoilage_days, raw)
-    assert.equal(await page.getByText(displayed, { exact: true }).count(), 2)
+    // The result card shows the estimate under its "Est. Spoilage" label; the recent row says so itself.
+    assert.equal(await page.getByText(displayed, { exact: true }).count(), 1)
+    assert.equal(await page.getByText(`Est. ${displayed}`, { exact: true }).count(), 1)
   })
 }
+
+test('kiosk recent scans mark AI finger counts as estimates and show corrected counts plainly', async t => {
+  const history = [
+    { ...saved, id: scanId.replace(/1$/, '5'), finger_count: 1 },
+    // A person corrected the count from the AI's 7 to 9.
+    { ...saved, id: scanId.replace(/1$/, '6'), finger_count: 9, is_overridden: true,
+      original_ai_result: { cultivar: 'Lakatan', ripeness: 'Ripe', confidence: 95, finger_count: 7, spoilage_days: '3-5' } },
+    // Another field was corrected; the count is still the AI value.
+    { ...saved, id: scanId.replace(/1$/, '7'), finger_count: 4, is_overridden: true,
+      original_ai_result: { cultivar: 'Latundan', ripeness: 'Ripe', confidence: 95, finger_count: 4, spoilage_days: '3-5' } },
+  ]
+  const { page } = await setup(t, { history })
+  await page.getByText('Est. 1 finger', { exact: true }).waitFor()
+  await page.getByText('9 fingers', { exact: true }).waitFor()
+  await page.getByText('Est. 4 fingers', { exact: true }).waitFor()
+  assert.equal(await page.getByText('Est. 9 fingers', { exact: true }).count(), 0)
+})
+
+test('a later live update without the AI baseline keeps a corrected count un-estimated', async t => {
+  const corrected = { ...saved, id: scanId.replace(/1$/, '6'), finger_count: 9, is_overridden: true,
+    original_ai_result: { cultivar: 'Lakatan', ripeness: 'Ripe', confidence: 95, finger_count: 7, spoilage_days: '3-5' } }
+  const { page } = await setup(t, { history: [corrected] })
+  await page.getByText('9 fingers', { exact: true }).waitFor()
+  // Live events never carry original_ai_result; the baseline already read must survive them.
+  const { original_ai_result, ...withoutBaseline } = corrected
+  assert.ok(original_ai_result)
+  await page.evaluate(scan => window.dashboardSocket.emit('scan:changed', { event_id: 'evt-baseline', scan }),
+    { ...withoutBaseline, revision: 2, flagged: true })
+  await page.waitForTimeout(300)
+  await page.getByText('9 fingers', { exact: true }).waitFor()
+  assert.equal(await page.getByText('Est. 9 fingers', { exact: true }).count(), 0)
+})
 
 test('kiosk header clock shows Asia/Manila time in a Los Angeles browser', async t => {
   // 04:00 UTC is noon in Manila and 21:00 the evening before in Los Angeles.
@@ -114,10 +148,10 @@ test('kiosk recent scans count an old estimate down instead of repeating it', as
     aged('3', { inventory_status: 'Sold', shelf_life_window: week }),
   ]
   const { page } = await setup(t, { history })
-  await page.getByText('Overdue', { exact: true }).waitFor()
-  assert.equal(await page.getByText('Overdue', { exact: true }).count(), 1)
-  assert.equal(await page.getByText('0–2 days left', { exact: true }).count(), 1)
-  assert.equal(await page.getByText('1–3 days', { exact: true }).count(), 1)  // the sold scan keeps its estimate
+  await page.getByText('Est. Overdue', { exact: true }).waitFor()
+  assert.equal(await page.getByText('Est. Overdue', { exact: true }).count(), 1)
+  assert.equal(await page.getByText('Est. 0–2 days left', { exact: true }).count(), 1)
+  assert.equal(await page.getByText('Est. 1–3 days', { exact: true }).count(), 1)  // the sold scan keeps its estimate
   await page.screenshot({ path: 'node_modules/.tmp/bv-shelf-life-kiosk.png', fullPage: true })
   assert.equal(history[0].spoilage_days, '1-3')
 })
@@ -241,8 +275,9 @@ test('a live scan requiring review makes the flag visible to the operator', asyn
   await page.getByRole('button', { name: /Start.*Intake/i }).click()
   await page.getByRole('button', { name: 'Scan Now', exact: true }).click()
   await page.getByText('Scan Complete - Review Needed', { exact: true }).waitFor()
-  assert.equal(await page.getByText('Estimated Fingers', { exact: true }).locator('..').locator('p').last().innerText(), '13')
-  await page.getByText('13 fingers', { exact: true }).waitFor()
+  assert.equal(await page.getByText('Est. Fingers', { exact: true }).locator('..').locator('p').last().innerText(), '13')
+  await page.getByText('Est. 13 fingers', { exact: true }).waitFor()
+  assert.equal(await page.getByText('Estimated Fingers', { exact: true }).count(), 0)
   assert.deepEqual(state.scans[0].detections.map(view => view.finger_count), counts)
   assert.equal(writesTo(state, '/trigger').length, 1)
 })

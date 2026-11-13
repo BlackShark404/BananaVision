@@ -40,6 +40,7 @@ import { getImageUrl } from "@/lib/utils"
 import type { BoundingBox, ScanDetection } from "@/types"
 import { KioskPrintStatus } from "@/components/KioskPrintStatus"
 import { inManila } from "@/lib/manilaTime"
+import { estimateText, fingerCountIsEstimate, fingerCountText, fingersLabel } from "@/lib/estimates"
 
 const ripenessIcon: Record<string, string> = {
   Unripe: "🟢",
@@ -645,7 +646,7 @@ export default function Kiosk() {
                   envCards.push(
                     <div key="fingers" className="bg-muted/50 rounded-xl p-3 text-center border border-border">
                       <Hand className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider" title="Estimated finger count; confirm the physical total before accepting.">Estimated Fingers</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider" title={fingerCountIsEstimate(lastResult) ? "Estimated finger count; confirm the physical total before accepting." : "Finger count corrected by staff."}>{fingersLabel(fingerCountIsEstimate(lastResult))}</p>
                       <p className="text-lg font-bold">{lastResult.fingerCount}</p>
                     </div>
                   )
@@ -715,7 +716,7 @@ export default function Kiosk() {
                             </div>
                             {/* Detection count badge */}
                             {boxCount > 0 && (
-                              <div className="absolute top-1 right-1 bg-primary text-white min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[9px] font-bold shadow-sm">
+                              <div className="absolute top-1 right-1 bg-primary text-white min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[9px] font-bold shadow-sm" title="Estimated fingers detected in this camera view">
                                 {boxCount}
                               </div>
                             )}
@@ -765,7 +766,7 @@ export default function Kiosk() {
                                 >
                                   {det?.camera_label || img.camera_id}
                                   {det?.bounding_boxes && det.bounding_boxes.length > 0 && (
-                                    <span className={`min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold ${
+                                    <span title="Estimated fingers detected in this camera view" className={`min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold ${
                                       kioskActiveDetImg === idx ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'
                                     }`}>
                                       {det.finger_count || det.bounding_boxes.length}
@@ -940,9 +941,9 @@ export default function Kiosk() {
                         </div>
                         <div className="text-right shrink-0">
                           <div className="flex flex-col items-end">
-                            <p className="text-sm font-bold text-rose-500">{conflict ? "—" : (scan.inventoryStatus === "In Stock" ? liveShelfLifeLabel(scan, currentTime.getTime()) : null) ?? formatSpoilageDays(scan.spoilageDays)}</p>
+                            <p className="text-sm font-bold text-rose-500">{conflict ? "—" : estimateText((scan.inventoryStatus === "In Stock" ? liveShelfLifeLabel(scan, currentTime.getTime()) : null) ?? formatSpoilageDays(scan.spoilageDays))}</p>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">{scan.fingerCount} fingers</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{fingerCountText(scan.fingerCount, fingerCountIsEstimate(scan))}</p>
                         </div>
                       </CardContent>
                     </Card>

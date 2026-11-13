@@ -152,6 +152,34 @@ history and CSV. Read-only correction inputs and change previews format their la
 without replacing draft values. Dashboard/Analytics show aggregate counts and link to
 Scan Logs; they do not render a separate per-scan spoilage estimate.
 
+## "Est." on AI-estimated numbers (2026-11-13)
+
+Decision and reasons: [[Development Decisions]]. Helper: `src/lib/estimates.ts`.
+
+| Surface | Finger count | Shelf life |
+| --- | --- | --- |
+| Kiosk result card | `Est. Fingers` label, bare number | under `Est. Spoilage` (unchanged) |
+| Kiosk recent scans | `Est. 13 fingers` / `13 fingers` when corrected | `Est. 0–2 days left`, `Est. 1–3 days` |
+| Kiosk camera badges | title `Est. N fingers in this camera view` | — |
+| Scan Logs | column `Est. Fingers` (rows carry no per-field correction data) | `Est. Spoilage` column (unchanged) |
+| Scan Detail | `Est. Fingers` / `Fingers` when corrected | `Est. Spoilage` (unchanged) |
+| Quality Control dialog | `Est. Fingers` / `Fingers` when corrected | `Est. Spoilage` (unchanged) |
+| Correction inputs (Scan Detail, QC) | `Fingers` (a person types the count) | `Est. Spoilage (days)` (read-only, recomputed) |
+| Public QR | `Est. Fingers` always (no correction data) | `Est. Spoilage` (unchanged) |
+| Inventory | `Est. Total Fingers`, `Est. 28 fingers • …`, `(Est. 7 fingers)`; plain when every scan in the total was corrected | alert badges and `Earliest spoilage:` values prefixed `Est.` |
+| QC exports | `Est. Spoilage (days)`, `Est. Finger Count` headers | |
+
+- `fingerCountText` handles singular (`Est. 1 finger`), zero (`Est. 0 fingers`) and missing
+  values (`Fingers unknown`). `estimateText` leaves `Unknown` and `—` alone and never
+  doubles the prefix.
+- Unchanged on purpose: cultivar, ripeness, confidence, temperature, humidity, VPD, dates,
+  IDs, the "Changes from AI result" preview and Scan History entries, and the printed
+  label and its preview (they already say `PREDICTION` / `Saved prediction`).
+- Live `scan:changed` events omit `original_ai_result`; `ScanContext.acceptScan` keeps the
+  baseline it already has, so a corrected count does not turn back into `Est.`.
+- The `Est. … from scan` sub-line is hidden when the stored estimate cannot be displayed,
+  so the page never shows `Est. Unknown`. Empty Inventory reads `Total Fingers` / `No stock`.
+
 ## Asia/Manila time zone everywhere (2026-11-13)
 
 Every date and time the app shows, groups by day or puts in a file name is Asia/Manila,

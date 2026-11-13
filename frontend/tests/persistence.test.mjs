@@ -184,10 +184,30 @@ test("inventory uses authoritative eligibility and aged remaining life including
   assert.equal(await page.getByText("Ambiguous legacy — Lakatan", { exact: true }).count(), 0)
   await page.getByText(/2 hands have unknown remaining shelf life/).waitFor()
   assert.equal(await page.getByText("All stock is fresh", { exact: true }).count(), 0)
-  await page.getByText("Overdue", { exact: true }).first().waitFor()
-  await page.getByText("1–2 days left", { exact: true }).first().waitFor()
+  await page.getByText("Est. Overdue", { exact: true }).first().waitFor()
+  await page.getByText("Est. 1–2 days left", { exact: true }).first().waitFor()
+  // Finger totals are AI estimates and say so; the hand counts are record counts.
+  await page.getByText("Est. Total Fingers", { exact: true }).waitFor()
+  await page.getByText(/^1 hands \(Est\. 7 fingers\)$/).first().waitFor()
+  await page.getByText(/^Est\. \d+ fingers • /).first().waitFor()
+  // Only non-zero totals are estimates; an empty ripeness group is an exact zero.
+  assert.equal(await page.getByText(/(^|[^.] )[1-9]\d* fingers/).count(), 0)
+  await page.getByText("0 fingers • Store in controlled temperature", { exact: true }).waitFor()
   // Scope to the rendered product; the fixture's provider probe retains raw state.
   assert.doesNotMatch(await page.locator('main').innerText(), /1\.25/)
+})
+
+test("inventory finger totals drop Est. only when every counted scan was corrected by a person", async t => {
+  const corrected = rows(1).map(row => ({ ...row, intake_id: null, intake_provenance: "unlinked",
+    inventory_eligible: true, finger_count: 9, is_overridden: true, remaining_days: 1.5,
+    risk_as_of: new Date().toISOString(), source_text: "Counted standalone",
+    original_ai_result: { cultivar: row.cultivar, ripeness: row.ripeness, confidence: 90, finger_count: 7, spoilage_days: "2" } }))
+  const { page } = await setup(t, { screen: "inventory", scans: corrected })
+  await page.getByText("Total Fingers", { exact: true }).waitFor()
+  assert.equal(await page.getByText("Est. Total Fingers", { exact: true }).count(), 0)
+  await page.getByText(/^1 hands \(9 fingers\)$/).first().waitFor()
+  // The shelf-life badge is still a heuristic estimate.
+  await page.getByText(/^Est\. /).first().waitFor()
 })
 
 test("late intake read cannot undo a confirmed bulk update", async t => {

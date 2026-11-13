@@ -2,6 +2,25 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## "Est." wording on AI-estimated numbers — 2026-11-13
+
+Decision: [[Development Decisions]]; per-page table: [[Frontend]].
+
+- `frontend/tests/estimates.test.mjs`: singular, plural, zero and missing finger counts;
+  the per-field correction rule (another field corrected keeps "Est."; an override with no
+  AI baseline keeps "Est."); `estimateText` never prefixes `Unknown`/`—` and never doubles.
+- Browser tests: Kiosk result card and recent scans (AI, corrected and another-field-
+  corrected rows, `Est. 1 finger`), shelf-life values in recent scans; Scan Detail and
+  QC labels for AI and corrected counts and the `Fingers` correction inputs; Scan Logs
+  column `Est. Fingers`; public QR `Est. Fingers`; Inventory `Est. Total Fingers`,
+  `(Est. 7 fingers)`, ripeness rows, `Est.` shelf-life badges, and plain totals when every
+  scan was corrected.
+- `backend/tests/test_estimate_wording.py`: export headers and the notification/activity
+  wording (`Est. 13 fingers`, `Est. 1 finger`).
+- Kiosk test: a later `scan:changed` event (live events never carry `original_ai_result`)
+  keeps a corrected count plain; before the fix it turned back into `Est.`.
+- The new tests were also run against an untouched copy of the previous code, where they fail.
+
 ## Asia/Manila time zone guards — 2026-11-13
 
 Decision: [[Development Decisions]]; helper: [[Frontend]].

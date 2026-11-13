@@ -42,6 +42,10 @@ import { AppTableFilters } from "@/components/AppTableFilters"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import { inManila, manilaDayKey } from "@/lib/manilaTime"
+import { fingerCountIsEstimate, fingersLabel } from "@/lib/estimates"
+
+// Estimated columns say so; the cells stay plain numbers.
+const EXPORT_HEADERS = ["Scan ID", "Date/Time", "Operator", "Cultivar", "Ripeness", "Confidence (%)", "Temperature (°C)", "Humidity (%)", "Est. Spoilage (days)", "Est. Finger Count", "Source", "Flagged", "Status"]
 
 const PAGE_SIZE = 15
 
@@ -268,7 +272,7 @@ export default function QualityControl() {
       return
     }
     const filename = `quality-control-${manilaDayKey(Date.now())}.csv`
-    const headers = ["Scan ID", "Date/Time", "Operator", "Cultivar", "Ripeness", "Confidence (%)", "Temperature (°C)", "Humidity (%)", "Spoilage (days)", "Fingers", "Source", "Flagged", "Status"]
+    const headers = EXPORT_HEADERS
     const rows = sortedScansRef.current.map(scan => [
       scan.id,
       scan.dateTime,
@@ -296,7 +300,7 @@ export default function QualityControl() {
     setExporting(true)
     try {
       const filename = `quality-control-${manilaDayKey(Date.now())}.xlsx`
-      const headers = ["Scan ID", "Date/Time", "Operator", "Cultivar", "Ripeness", "Confidence (%)", "Temperature (°C)", "Humidity (%)", "Spoilage (days)", "Fingers", "Source", "Flagged", "Status"]
+      const headers = EXPORT_HEADERS
       const rows = sortedScansRef.current.map(scan => [
         scan.id,
         scan.dateTime,
@@ -746,7 +750,7 @@ export default function QualityControl() {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label htmlFor="fingers">Est. Finger Count</Label>
+                        <Label htmlFor="fingers">{fingersLabel(false)}</Label>
                         <NumberField
                           id="fingers"
                           min={1}
@@ -805,7 +809,7 @@ export default function QualityControl() {
                           return (
                             <>
                               <p className="text-lg font-bold mt-1">{countdown ?? estimate}</p>
-                              {countdown !== null && <p className="text-xs text-muted-foreground">Est. {estimate} from scan</p>}
+                              {countdown !== null && estimate !== "Unknown" && <p className="text-xs text-muted-foreground">Est. {estimate} from scan</p>}
                             </>
                           )
                         })()}
@@ -813,7 +817,7 @@ export default function QualityControl() {
                     </Card>
                     <Card className="bg-muted/50">
                       <CardContent className="p-4">
-                        <Label className="text-xs text-muted-foreground">Estimated Fingers</Label>
+                        <Label className="text-xs text-muted-foreground">{fingersLabel(fingerCountIsEstimate(selectedScan))}</Label>
                         <p className="text-lg font-bold mt-1">{selectedScan.fingerCount}</p>
                       </CardContent>
                     </Card>

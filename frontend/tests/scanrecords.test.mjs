@@ -251,6 +251,37 @@ test('Scan Detail and Quality Control show Asia/Manila dates and times in a Los 
   assert.doesNotMatch(await row.innerText(), /\bMay 4\b/)
 })
 
+test('finger counts read "Est." on Scan Detail, Quality Control and Scan Logs; corrected counts and correction inputs do not', async t => {
+  const detail = await setup(t, 200)
+  const metric = detail.page.getByText('Est. Fingers', { exact: true }).locator('..')
+  await metric.waitFor()
+  assert.equal(await metric.locator('p').last().innerText(), '7')
+  assert.equal(await detail.page.getByText('Finger Count', { exact: true }).count(), 0)
+  await detail.page.getByRole('button', { name: 'Edit', exact: true }).first().click()
+  // A person types the real count here, so the input is not labelled as an estimate.
+  assert.equal(await detail.page.locator('label[for="edit-fingers"]').innerText(), 'Fingers')
+
+  const corrected = { ...scan(), finger_count: 9, is_overridden: true,
+    original_ai_result: { cultivar: 'Lakatan', ripeness: 'Ripe', confidence: 92, finger_count: 7, spoilage_days: '3' } }
+  const fixed = await setup(t, 200, { record: corrected })
+  const plain = fixed.page.getByText('Fingers', { exact: true }).first().locator('..')
+  await plain.waitFor()
+  assert.equal(await plain.locator('p').last().innerText(), '9')
+  assert.equal(await fixed.page.getByText('Est. Fingers', { exact: true }).count(), 0)
+
+  const quality = await setup(t, 200, { screen: 'quality' })
+  await quality.page.locator('tbody tr').first().click()
+  const dialog = quality.page.getByRole('dialog')
+  await dialog.getByText('Est. Fingers', { exact: true }).waitFor()
+  assert.equal(await dialog.getByText('Estimated Fingers', { exact: true }).count(), 0)
+  await quality.page.getByRole('button', { name: 'Edit Data', exact: true }).click()
+  assert.equal(await dialog.locator('label[for="fingers"]').innerText(), 'Fingers')
+
+  const logs = await setup(t, 200, { screen: 'logs' })
+  await logs.page.getByRole('columnheader', { name: 'Est. Fingers' }).waitFor()
+  assert.equal(await logs.page.getByRole('columnheader', { name: 'Estimated Fingers' }).count(), 0)
+})
+
 test('Logs date picker marks today by the Asia/Manila calendar in a Los Angeles browser', async t => {
   // 04:00 UTC on 2 October is noon on 2 October in Manila and 21:00 on 1 October here.
   const { page } = await setup(t, 200, { screen: 'logs' })

@@ -54,6 +54,10 @@ test('public QR tracking shows a live countdown beside the original estimate', a
   await metric.getByText('4 days left', { exact: true }).waitFor()
   await metric.getByText('Est. 5–7 days from scan', { exact: true }).waitFor()
   assert.equal(await page.getByText('Pending quality review', { exact: true }).count(), 0)
+  // The public page cannot tell a corrected count apart, so every count is an estimate here.
+  const fingers = page.getByText('Est. Fingers', { exact: true }).locator('..')
+  assert.equal(await fingers.locator('p').last().innerText(), '7')
+  assert.equal(await page.getByText('Finger Count', { exact: true }).count(), 0)
   await page.clock.fastForward('24:00:00')
   await metric.getByText('3 days left', { exact: true }).waitFor()
 })

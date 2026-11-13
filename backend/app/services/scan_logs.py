@@ -39,7 +39,8 @@ from app.services.scan_snapshots import (
 EXPORT_HEADERS = [
     "Scan ID", "Scanned At (UTC+08:00)", "Operator", "Operator Username", "Source",
     "Cultivar", "Ripeness", "Confidence (%)", "Inventory Status", "Flagged",
-    "Original Shelf Life (days)", "Remaining Shelf Life (days)", "Finger Count",
+    "Est. Original Shelf Life (days)", "Est. Remaining Shelf Life (days)",
+    "Est. Finger Count",
     "Temperature (C)", "Humidity (%)", "Intake ID", "Overridden",
     "Status Updated At (UTC+08:00)", "VPD (kPa)",
 ]

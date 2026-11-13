@@ -234,7 +234,7 @@ async def test_risk_rows_counts_filters_and_export_share_unrounded_stock_rule(
         update={"snapshot_id": first.snapshot_id},
     ))
     assert {row["Scan ID"] for row in exported} == {str(identifier) for identifier in ids}
-    assert all("Remaining Shelf Life (days)" in row for row in exported)
+    assert all("Est. Remaining Shelf Life (days)" in row for row in exported)
     if stable:
         monkeypatch.setattr(dashboard, "now_manila", lambda: NOW + timedelta(days=1))
         frozen = await scan_logs.list_scan_logs(logs_db, operator, query.model_copy(

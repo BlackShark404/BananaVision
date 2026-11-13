@@ -13,7 +13,13 @@ import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { Progress } from "@/components/ui/progress"
 import { Package, AlertTriangle, TrendingDown, CheckCircle, Clock, Banana, ExternalLink } from "lucide-react"
-import { InventoryStatusEnum, RipenessEnum, CultivarEnum } from "@/types"
+import { InventoryStatusEnum, RipenessEnum, CultivarEnum, type ScanResult } from "@/types"
+import { estimateText, fingerCountIsEstimate, fingerCountText } from "@/lib/estimates"
+
+/** A group's finger total, marked as an estimate while any count in it is the AI value. */
+function fingersOf(list: ScanResult[]): string {
+  return fingerCountText(list.reduce((sum, s) => sum + s.fingerCount, 0), list.some(fingerCountIsEstimate))
+}
 
 export default function Inventory() {
   const navigate = useNavigate()
@@ -47,9 +53,11 @@ export default function Inventory() {
     // Calculate total hands and fingers
     const totalHands = inStock.length
     const totalFingers = inStock.reduce((sum, s) => sum + s.fingerCount, 0)
+    // A total reads as an estimate while any scan in it still has the AI count.
+    const fingersEstimated = inStock.some(fingerCountIsEstimate)
 
     // Spoilage alerts (will spoil in 2 days or less) - Grouped by intake, cultivar, and ripeness
-    const spoilageAlertsMap = new Map<string, { id: string; intakeId: string; source: string; cultivar: string; ripeness: string; spoilageDays: string; daysNum: number; count: number; fingers: number; oldestScanDate: Date }>()
+    const spoilageAlertsMap = new Map<string, { id: string; intakeId: string; source: string; cultivar: string; ripeness: string; spoilageDays: string; daysNum: number; count: number; fingers: number; fingersEstimated: boolean; oldestScanDate: Date }>()
 
     inStock.forEach(s => {
       const daysNum = remainingStockDays(s, asOf)
@@ -60,6 +68,7 @@ export default function Inventory() {
       if (existing) {
         existing.count += 1
         existing.fingers += s.fingerCount
+        existing.fingersEstimated ||= fingerCountIsEstimate(s)
         const scanDate = new Date(s.dateTime)
         if (scanDate < existing.oldestScanDate) existing.oldestScanDate = scanDate
         if (daysNum < existing.daysNum) {
@@ -77,6 +86,7 @@ export default function Inventory() {
           daysNum,
           count: 1,
           fingers: s.fingerCount,
+          fingersEstimated: fingerCountIsEstimate(s),
           oldestScanDate: new Date(s.dateTime)
         })
       }
@@ -92,7 +102,7 @@ export default function Inventory() {
     }
 
     // FIFO recommendations (oldest first, grouped by Intake)
-    const intakeGroups = new Map<string, { intakeId: string, source: string, date: Date, hands: number, fingers: number, earliestSpoilage: number, spoilageDays: string }>()
+    const intakeGroups = new Map<string, { intakeId: string, source: string, date: Date, hands: number, fingers: number, fingersEstimated: boolean, earliestSpoilage: number, spoilageDays: string }>()
 
     inStock.forEach(s => {
       const groupId = s.intakeId ?? `unlinked:${s.id}`
@@ -103,6 +113,7 @@ export default function Inventory() {
       if (existing) {
         existing.hands += 1
         existing.fingers += s.fingerCount
+        existing.fingersEstimated ||= fingerCountIsEstimate(s)
         if (scanDate < existing.date) existing.date = scanDate
         if (spoilageNum < existing.earliestSpoilage) {
           existing.earliestSpoilage = spoilageNum
@@ -115,6 +126,7 @@ export default function Inventory() {
           date: scanDate,
           hands: 1,
           fingers: s.fingerCount,
+          fingersEstimated: fingerCountIsEstimate(s),
           earliestSpoilage: spoilageNum,
           spoilageDays: shelfLifeLabel(Number.isFinite(spoilageNum) ? spoilageNum : null)
         })
@@ -133,6 +145,7 @@ export default function Inventory() {
     return {
       totalHands,
       totalFingers,
+      fingersEstimated,
       unripe,
       ripe,
       overripe,
@@ -210,13 +223,13 @@ export default function Inventory() {
           helpText="View all in-stock hands in Scan Logs"
         />
         <AppStatsCard
-          title="Total Fingers"
+          title={inventory.fingersEstimated ? "Est. Total Fingers" : "Total Fingers"}
           value={inventory.totalFingers}
           icon={Banana}
           iconColor="text-yellow-600"
           iconBgColor="bg-yellow-500/10"
           delay={100}
-          description="Estimated count"
+          description={inventory.totalHands === 0 ? "No stock" : inventory.fingersEstimated ? "Estimated count" : "Corrected counts"}
           onClick={() => navigate(scanLogsLink({ status: "In Stock", stock: "eligible" }))}
           helpText="View all in-stock bananas in Scan Logs"
         />
@@ -265,7 +278,7 @@ export default function Inventory() {
               </div>
               <Progress value={inventory.totalHands ? (inventory.unripe.length / inventory.totalHands) * 100 : 0} className="h-2" />
               <p className="text-xs text-muted-foreground mt-1">
-                {inventory.unripe.reduce((sum, s) => sum + s.fingerCount, 0)} fingers • Store in controlled temperature
+                {fingersOf(inventory.unripe)} • Store in controlled temperature
               </p>
             </div>
 
@@ -285,7 +298,7 @@ export default function Inventory() {
               </div>
               <Progress value={inventory.totalHands ? (inventory.semiRipe.length / inventory.totalHands) * 100 : 0} className="h-2" />
               <p className="text-xs text-muted-foreground mt-1">
-                {inventory.semiRipe.reduce((sum, s) => sum + s.fingerCount, 0)} fingers • Transitioning ripeness
+                {fingersOf(inventory.semiRipe)} • Transitioning ripeness
               </p>
             </div>
 
@@ -305,7 +318,7 @@ export default function Inventory() {
               </div>
               <Progress value={inventory.totalHands ? (inventory.ripe.length / inventory.totalHands) * 100 : 0} className="h-2" />
               <p className="text-xs text-muted-foreground mt-1">
-                {inventory.ripe.reduce((sum, s) => sum + s.fingerCount, 0)} fingers • Ready for distribution
+                {fingersOf(inventory.ripe)} • Ready for distribution
               </p>
             </div>
 
@@ -325,7 +338,7 @@ export default function Inventory() {
               </div>
               <Progress value={inventory.totalHands ? (inventory.overripe.length / inventory.totalHands) * 100 : 0} className="h-2" />
               <p className="text-xs text-muted-foreground mt-1">
-                {inventory.overripe.reduce((sum, s) => sum + s.fingerCount, 0)} fingers • Prioritize for immediate sale
+                {fingersOf(inventory.overripe)} • Prioritize for immediate sale
               </p>
             </div>
           </div>
@@ -411,7 +424,7 @@ export default function Inventory() {
                           <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover/alert:opacity-100 transition-opacity ml-auto shrink-0" />
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {group.count} hands ({group.fingers} fingers)
+                          {group.count} hands ({fingerCountText(group.fingers, group.fingersEstimated)})
                         </p>
                         <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
                           Scanned: {group.oldestScanDate.toLocaleDateString("en-US", { timeZone: "Asia/Manila", month: "short", day: "numeric" })}
@@ -428,7 +441,7 @@ export default function Inventory() {
                       >
                         <div className="flex items-center justify-center mb-0.5">
                           <Clock className="w-3 h-3 mr-1" />
-                          {group.spoilageDays}
+                          {estimateText(group.spoilageDays)}
                         </div>
                       </Badge>
                     </div>
@@ -474,7 +487,7 @@ export default function Inventory() {
                     <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover/fifo:opacity-100 transition-opacity shrink-0" />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Scanned: {intake.date.toLocaleDateString("en-US", { timeZone: "Asia/Manila" })} • {intake.hands} hands ({intake.fingers} fingers)
+                    Scanned: {intake.date.toLocaleDateString("en-US", { timeZone: "Asia/Manila" })} • {intake.hands} hands ({fingerCountText(intake.fingers, intake.fingersEstimated)})
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
@@ -485,7 +498,7 @@ export default function Inventory() {
                     {!Number.isFinite(intake.earliestSpoilage) ? "Risk unknown" : intake.earliestSpoilage <= 2 ? "Sell immediately" : "Stock is stable"}
                   </Badge>
                   <span className="text-[9px] sm:text-[10px] text-muted-foreground font-mono mt-1">
-                    Earliest spoilage: <span className="font-bold text-rose-600">{intake.spoilageDays}</span>
+                    Earliest spoilage: <span className="font-bold text-rose-600">{estimateText(intake.spoilageDays)}</span>
                   </span>
                 </div>
               </div>
