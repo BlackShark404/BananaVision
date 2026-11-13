@@ -82,6 +82,24 @@ class Settings(BaseSettings):
     yolo_top_overlap_refinement: bool = True
     yolo_top_rotation_fallback: bool = True
     yolo_peripheral_background_filter: bool = True
+    # YOLO26 checkpoints carry two detection heads. one_to_many_nms runs the head with
+    # NMS, which every count audit measured and which the IoU settings above act on;
+    # one_to_one is the NMS-free head (IoU settings and test-time augmentation have no
+    # effect there); checkpoint keeps whatever the file and Ultralytics version default to.
+    yolo_inference_head: Literal["one_to_many_nms", "one_to_one", "checkpoint"] = (
+        "one_to_many_nms"
+    )
+    # Finger-count rules (docs/knowledge/AI Models.md). Each restores the earlier
+    # behaviour when set to false.
+    yolo_axis_aware_rotation_dedup: bool = True
+    yolo_hand_box_split: bool = True
+    yolo_ripeness_outlier_filter: bool = True
+    # Low-threshold second pass: only fingers inside the hand, and the platter lip is
+    # filtered on every side camera (earlier: Rear only).
+    yolo_recovery_within_hand: bool = True
+    yolo_side_view_lip_filter: bool = True
+    # Measurement only: let the recovery pass admit fingers one ripeness stage away.
+    yolo_recovery_adjacent_ripeness: bool = False
     top_camera_cultivar_anchor: bool = True
     # Legacy setting retained for compatibility; counts no longer add cross-view sightings.
     multi_camera_finger_fusion: bool = True

@@ -1,87 +1,75 @@
-CURRENT RESUME HERE (2026-11-13) - QR SCAN PAGE SHOWS ONLY THE SCANNED DATA
+CURRENT RESUME HERE (2026-11-13) - FINGER-COUNT ACCURACY AND NON-BANANA BOXES
 
-The previous checkpoint ("Est." on AI-estimated numbers, merged to team main as b49ecca
-via PR #8) is archived byte-for-byte in
-docs/history/2026-11-13-before-public-qr-data-only.txt.
+The previous checkpoint (QR page shows only the scanned data, merged to team main as
+39a0e5d via PR #9) is archived byte-for-byte in docs/history/2026-11-13-before-finger-count-accuracy.txt.
 
-AUTHORIZED SCOPE / USER DECISIONS (2026-11-13)
-- A phone that scans a BananaVision QR code sees only the scanned banana data in a
-  clean, read-only page: no Log in / Sign in / website / navigation buttons, no redirect
-  to login. Login controls stay on the normal pages. Commit on the fork's main; the user
-  opens the pull request.
-- Decisions: (1) every QR scan shows the data-only page, signed in or not (the redirect of
-  signed-in viewers to /scans/<id> is removed). (2) The public API stops sending photo
-  references: GET /api/v1/scans/{id}/track always returns images: [] (field kept).
-  (3) Update the capstone storyboard's Figure 92 text (its screenshot still needs a new
-  capture by the team).
+AUTHORIZED SCOPE / USER REQUEST (2026-11-13)
+- "Enhance the code and YOLO26 AI to make the estimated finger count more accurate. Do
+  what must be done." Plus two station screenshots to fix ("remember this issue"):
+  (1) brown wood boxed "Cardaba Ripe 64%" beside a pale-green hand boxed cardaba_unripe;
+  (2) Left camera, Latundan hand: a bright window frame above the hand boxed
+  "Latundan Ripe 29%" and the wooden plate under it "Latundan Ripe 26%" (Left = 11).
+- Constraint: the user is phone-only (no laptop/PC, no Google account). The session has
+  no GPU, no banana weights, no dataset, no banana photos. Commit on the fork's main; the
+  user opens the pull request.
 
-ROOT CAUSE
-- Web QR codes open /track/<scan id> (frontend/src/lib/qrcode.ts). PublicScanView had a
-  header "Log in" button, a "Need more details?" login card, a "Log in" button on the
-  error and not-found screens, and redirected signed-in viewers to the staff page.
-- Found in review: App.tsx mounted /track inside AdminProvider, ScanProvider and
-  InventoryProvider. With a stored staff session those providers loaded staff data and
-  opened the staff socket on the QR page; an expired or revoked token then hit the 401
-  handler (lib/api.ts) or the 4001 socket close (useWebSocket.ts) and sent the phone to
-  /login.
-- The public track response listed internal capture paths and camera IDs.
-- Thermal printer labels hold a plain-text QR payload; not affected.
+FINDINGS
+- Ultralytics 8.4.40 (pinned) runs YOLO26 files that store no head choice on the NMS-free
+  one-to-one head: NMS, every iou= calibration and TTA are skipped, and the first predict
+  fuses the other head away. Proven on the COCO yolo26n.pt
+  (docs/audits/inference-head-check-2026-11-13.json: 10/10/10 boxes at IoU 0.3/0.7/0.95
+  vs 9/10/17 with NMS). The audited checkpoints ran with NMS; the V2 head is unrecorded.
+- Screenshot 2: both junk boxes came from the conf-0.25 occluded-finger second pass,
+  which ran on every view, checked label/size only, and filtered the platter lip on
+  Rear only. Screenshot 1: the wood box passed the OOD gate (evidence centre rule) and
+  nothing compared its ripeness with the hand.
+- Undercounts: a whole-hand box hid side-by-side fingers as "fragments"; the rotated
+  Top pass merged stacked lying fingers.
 
-DONE
-- frontend/src/pages/PublicScanView.tsx: login button, login card, error "Log in" and the
-  redirect removed; the page no longer reads the signed-in user. Error screen keeps
-  "Retry" only; not-found has no button. Data, layout and Asia/Manila times unchanged.
-- frontend/src/App.tsx: /track/:scanId in its own top-level route outside the staff
-  providers and toaster (StaffApp wraps every other route, unchanged).
-- backend/app/api/v1/scans.py public_scan_track: images=[], no longer loads Scan.images.
-- Tests: frontend/tests/public-scan.test.mjs (+5 at 390x844: data only, no controls or
-  login/website text, signed-in viewer, not-found, error with Retry, landing keeps its
-  login button), public-scan.fixture.tsx; new public-scan-app.test.mjs (+2, real App with
-  an expired staff session), public-scan-app.fixture.tsx, app.auth.tsx; harness serves
-  /track paths (dashboard.browser.mjs); backend/tests/test_public_scan_track.py (new).
-- Docs: docs/knowledge/Frontend.md, Development Decisions.md, Testing and Validation.md;
-  docs/bananavision-docs/docs/STORYBOARD_CAPSTONE1.md Figure 92 text and Main Actions.
+DONE (backend/app/services/classification.py, scan_service.py, config.py, .env.example)
+- YOLO_INFERENCE_HEAD=one_to_many_nms|one_to_one|checkpoint, fixed right after
+  YOLO(path), before warmup; inference_head reported (also in evaluate_ood_gate top_paths).
+- YOLO_AXIS_AWARE_ROTATION_DEDUP, YOLO_HAND_BOX_SPLIT, YOLO_RIPENESS_OUTLIER_FILTER,
+  YOLO_RECOVERY_WITHIN_HAND, YOLO_SIDE_VIEW_LIP_FILTER (all on; false restores the old
+  behaviour), YOLO_RECOVERY_ADJACENT_RIPENESS (off, measurement only).
+- Ripeness outliers flag the scan, are logged and appended to the activity entry.
+- backend/scripts/check_inference_head.py (static: no unpickling; runtime).
+- Tests: test_finger_count_rules.py (both screenshots as fixtures), test_inference_head.py,
+  test_inference_head_integration.py (real COCO weights), test_check_inference_head.py;
+  test_ood_gate.py hand-box cases updated + randomized hand gate-contract test;
+  test_evaluate_ood_gate.py top_paths head report.
+- Docs: docs/knowledge/AI Models.md (Finger counting section), Development Decisions.md,
+  Resolved Bugs.md, Testing and Validation.md.
 
 VERIFICATION
-- Backend with a throwaway PostgreSQL 16 cluster: 842 passed, 38 skipped; without
-  PostgreSQL 776 passed, 104 skipped. Backend code did not change after these runs.
-- Frontend: 347 of 348 passed in the full run. The one failure, kiosk-pin "back cancels
-  delayed PIN verification", was a clock race in that test's setup ("Cannot fast-forward
-  to the past") while review agents loaded the machine; it passed 15/15 in three runs on
-  its own and touches no changed file. Type check and production build pass.
-- Lint: ESLint 40 problems and Ruff (app tests) 635, both equal to HEAD; changed files
-  clean.
-- Before the fixes: the 4 new QR browser tests, the real-App test (navigated to /login)
-  and the backend test (capture path in the response) all failed.
-- Screenshots at 390 px: data, flagged, not-found, error (Retry only), landing (login
-  buttons kept), and the real App with a stored staff session (no staff requests, no
-  controls). All six measured with clientWidth 390 and no overflow.
-- Codex Security scoped scan (scans.py, PublicScanView.tsx, qrcode.ts; gpt-5.6-terra,
-  low effort): 0 findings. App.tsx was not in that scan; the review workflow covered it.
-- Review workflow (3 reviewers, 2 skeptics per finding): first round found the provider
-  boundary (fixed above) and the stale storyboard (updated). Final round on the whole
-  diff: routing and security lenses found nothing; the test lens found the phone overflow
-  check could not fail under isMobile (innerWidth grows with content). Confirmed in a
-  browser (a 600 px element read 616/616) and fixed: tests compare with clientWidth 390.
-  The two QR test files pass 14/14 after that test-only change.
-- Graphify refreshed. ICM and UI/UX Pro Max are not available in the cloud session.
+- Full backend: 903 passed / 38 skipped with a throwaway PostgreSQL 16 cluster; 837 / 104
+  without. Ruff app+tests 634 (baseline 635), new files clean. Frontend untouched.
+- Every new rule test was written first and failed on the previous code.
+- Independent review workflow (3 lenses, 2 skeptics per finding): 8 confirmed and fixed
+  (restored fingers vs rotated-pass repeats, two gate-accounting cases, warmup test that
+  could pass vacuously, two untested rule clauses, head-check parser errors/legacy
+  format/train_args scoping, memo test). Accepted trade-offs documented in AI Models.md:
+  strict along-axis second-pass extent; main-pass lip filter on Left/Right. Adopted a
+  suggested guard: a hand ripening across stages keeps its far fingers.
+- NOT measured: any count-accuracy effect on banana photos; the V2 checkpoints' head.
 
-NOT CHANGED (reported)
-- Thermal label QR text, the /track/:scanId URL, the staff Scan Detail page, landing and
-  login pages, API field names and types, the database. Staff open the full scan detail
-  from the dashboard.
+IN PROGRESS
+- Tooling workflow (new files only): backend/scripts/evaluate_finger_count.py,
+  train_finger_model.py, fetch_training_assets.py + tests. Commit separately when green.
 
 STILL OPEN
+- Teammate uploads to a GitHub release on RoronoaZoro1206/BananaVision: the station
+  weights (.pt), the Roboflow export zip, and station background photos (empty tray,
+  window, plate) for training negatives. Then: check_inference_head.py static on the
+  weights, evaluate_finger_count.py visible on the prepared VALID split, train with
+  negatives, re-evaluate, register the new SHA in TOP_CALIBRATED_CHECKPOINTS.
 - Team: re-capture the Figure 92 screenshot in the capstone storyboard.
-- From Khen (public HTTPS, not deployed): follow docs/remote-access.md on the Mini PC when
-  deployment is authorized; Mac tailnet scripts deploy/start-mac-tailnet.sh and
-  deploy/stop-mac-tailnet.sh.
+- From Khen (public HTTPS, not deployed): docs/remote-access.md on the Mini PC.
 - From the audit (team decisions): Non-Banana Detection Audit.md status line;
   .codex/config.toml default model and laptop paths; uncertain-cultivar estimate shown
   outside Kiosk; ModelInferenceError detail; missing [[System Architecture]] and
-  [[Backend]] notes; second kiosk shows a rejection; public QR countdown for every status;
-  Top-calibrated OOD rerun.
+  [[Backend]] notes; second kiosk shows a rejection; public QR countdown for every status.
 
 EXACT NEXT STEP
-- User opens the pull request from the fork's main to BlackShark404/BananaVision:
+- Finish and commit the tooling scripts; then the user opens the pull request:
   https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main

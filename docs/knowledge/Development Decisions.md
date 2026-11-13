@@ -2,6 +2,34 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-13: Finger-count accuracy without new training data
+
+- **User request:** make the YOLO26 finger count more accurate, and stop non-banana
+  objects being counted (two station screenshots: brown wood boxed "Cardaba Ripe 64 %"
+  beside an unripe hand; a window frame (29 %) and the wooden plate (26 %) boxed on the
+  Left camera). The user is phone-only, so no laptop, Colab, weights or dataset were
+  reachable; work was limited to code verifiable here plus tooling for later.
+- **Decisions:**
+  - Pin the YOLO26 head explicitly (`YOLO_INFERENCE_HEAD=one_to_many_nms`): the pinned
+    Ultralytics 8.4.40 otherwise runs the NMS-free head on files that do not store the
+    choice, which silently disables every IoU calibration. See [[AI Models]].
+  - Fix undercounts that contradict documented intent: the rotated-pass "same column"
+    rule now follows the finger's long axis; a whole-hand box gives way to the
+    side-by-side fingers it hid.
+  - Non-banana boxes: a ripeness-outlier rule (one hand ripens together), and the
+    low-threshold second pass only admits boxes within the hand and filters the platter
+    lip on every side camera. Both screenshots' false boxes came from rules that are now
+    covered; the wood box is only caught if it is not the most confident box or does not
+    touch the hand.
+  - Every rule has a setting that restores the earlier behaviour; the adjacent-ripeness
+    second pass stays off (measurement only).
+- **Rejected again (see earlier entries):** summing views, fixed bonuses, a stricter gate
+  overlap rule, an HSV peel-colour check (no data; brown wood resembles overripe peel), a
+  Top background filter (no position prior overhead), "train longer".
+- **Still needed:** station weights + dataset + background photos (as a GitHub release)
+  to measure every change with `scripts/evaluate_finger_count.py` and retrain with
+  negatives (`scripts/train_finger_model.py`).
+
 ## 2026-11-13: The QR page shows only the scanned data
 
 - **User request:** a phone that scans a BananaVision QR code sees only the scanned banana
