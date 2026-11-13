@@ -93,7 +93,8 @@ Lakatan/Latundan/Cardaba ripeness labels. The out-of-distribution (OOD) gate in
 `app/services/ood_gate.py` therefore requires independent banana evidence from the
 COCO pre-detector before a cultivar box is trusted:
 
-1. **Scan gate.** At least `OOD_MIN_BANANA_VIEWS` camera views must show a banana at
+1. **Scan gate.** At least `OOD_MIN_BANANA_VIEWS` captured camera views (never more than
+   were captured; a scan with a missing capture is flagged for review) must show a banana at
    `OOD_BANANA_CONFIDENCE`. Otherwise the scan is rejected before classification.
 2. **Box support.** In each view a cultivar box is kept only when banana evidence
    (confidence `OOD_SUPPORT_CONFIDENCE` or higher, grown by `OOD_SUPPORT_MARGIN` per

@@ -96,6 +96,13 @@ for (const [raw, displayed] of [['0.9938128387987426', '1 day'], ['3.487', '3–
   })
 }
 
+test('kiosk header clock shows Asia/Manila time in a Los Angeles browser', async t => {
+  // 04:00 UTC is noon in Manila and 21:00 the evening before in Los Angeles.
+  const { page } = await setup(t, { timezoneId: 'America/Los_Angeles' })
+  await page.getByText(/^12:0\d:\d\d PM$/).waitFor()
+  assert.equal(await page.getByText(/^09:0\d:\d\d PM$/).count(), 0)
+})
+
 test('kiosk recent scans count an old estimate down instead of repeating it', async t => {
   const aged = (suffix, extra) => ({ ...saved, id: scanId.replace(/1$/, suffix), spoilage_days: '1-3', ...extra })
   const week = { min_days: 1, max_days: 3, elapsed_days: 7, remaining_min_days: 0, remaining_max_days: 0,

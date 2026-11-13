@@ -130,8 +130,8 @@ async def _initialize_runtime():
     spoilage_predictor.load()
     if not banana_pre_detector.is_loaded and not settings.ood_gate_fail_open:
         logger.error(
-            "  Banana verifier is not loaded: scans will be refused until it loads "
-            "(the out-of-distribution gate fails closed)"
+            "  Banana verifier is not loaded: scans will be refused until the backend "
+            "restarts with a loadable verifier (the out-of-distribution gate fails closed)"
         )
     logger.info("  All ML models ready")
 

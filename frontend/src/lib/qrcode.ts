@@ -1,4 +1,5 @@
 import QRCode from "qrcode"
+import { inManila } from "@/lib/manilaTime"
 
 /**
  * Generates a QR code as a data URL (base64 PNG) from scan data.
@@ -45,10 +46,10 @@ export function printQRTag(scan: {
 }) {
   if (!scan.qrCode) return
 
-  const dateStr = new Date(scan.dateTime).toLocaleDateString("en-US", {
+  const dateStr = new Date(scan.dateTime).toLocaleDateString("en-US", inManila({
     month: "short",
     day: "numeric",
-  })
+  }))
 
   const printWindow = window.open("", "_blank", "width=300,height=400")
   if (!printWindow) return

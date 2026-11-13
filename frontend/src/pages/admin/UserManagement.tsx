@@ -26,6 +26,7 @@ import { AppPageHeader } from "@/components/AppPageHeader"
 import { Loader2, Users, Plus, Pencil, ShieldAlert, ShieldCheck, UserCheck, Filter, KeyRound, Key } from "lucide-react"
 import { toast } from "sonner"
 import type { Role, User } from "@/types"
+import { inManila } from "@/lib/manilaTime"
 
 const PAGE_SIZE = 10
 
@@ -173,7 +174,7 @@ export default function UserManagement() {
       className: "text-sm text-muted-foreground",
       sortable: true,
       sortKey: "lastActive",
-      cell: (user) => user.lastActive === "Never" ? "Never" : new Date(user.lastActive).toLocaleDateString(),
+      cell: (user) => user.lastActive === "Never" ? "Never" : new Date(user.lastActive).toLocaleDateString(undefined, inManila()),
     },
     {
       header: "Actions",

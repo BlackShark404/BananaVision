@@ -1,0 +1,130 @@
+CURRENT RESUME HERE (2026-11-13) - PUBLIC HTTPS ACCESS (OPTION 2) IMPLEMENTED,
+TAILNET-SMOKE-TESTED WITH MAC START/STOP SCRIPTS, NOT DEPLOYED
+
+The previous checkpoint (live shelf-life countdown) is archived byte-for-byte in
+docs/history/2026-11-13-before-public-https-access.txt.
+
+AUTHORIZED SCOPE / LATEST DECISIONS
+- User audited docs/remote-access.md and chose Option 2: a public HTTPS link with no
+  installs for users.
+- User decisions on 2026-11-13:
+  1. Tunnel: Tailscale Funnel with Caddy as the local reverse proxy.
+  2. Camera feeds: require a BananaVision login.
+  3. QR labels: add a configurable public base URL so printed labels resolve off-station.
+  4. Scope: code, proxy config and docs. No deployment.
+- Delivery: the implementation is committed and pushed as 434b3ff. The new macOS
+  start/stop scripts and the notes in this file and Testing and Validation.md are
+  uncommitted. No push, Funnel change, deployment or live station action was made during
+  the smoke test. A temporary Caddy binary and disposable PostgreSQL database were used
+  and removed, along with temp secrets and the Serve config. The user enabled Serve/HTTPS
+  certificates on the tailnet for that test; the tailnet setting remains, but no serve
+  config is left on this Mac.
+
+IMPLEMENTED
+- Frontend transport: an HTTPS page calls its own origin for HTTP and WebSocket traffic
+  (empty BASE_URL, wss on window.location.host). Plain HTTP keeps http://<host>:8000.
+  VITE_API_URL and VITE_WS_URL remain explicit overrides.
+- WebSocket: a ping event every 25 seconds while open, stopped on close, reconnect and
+  unmount. Ownership, backoff and room behavior are unchanged.
+- Media auth: withMediaToken adds the session as ?token= for Kiosk, Dashboard and camera
+  calibration previews; the backend accepts a bearer header or query token. Evidence
+  images under /captures remain bearer-only. Public QR tracking no longer renders camera
+  images and states that evidence stays behind staff authentication.
+- QR: VITE_PUBLIC_BASE_URL overrides the origin embedded in printed labels; trailing
+  slashes are removed. Without it, labels keep the kiosk origin.
+- Backend: get_media_user shares _resolve_user with get_current_user; the preview route
+  requires a session; invalid fps still fails before capture. Production refuses missing,
+  placeholder or shorter-than-32-byte APP_SECRET_KEY/JWT_SECRET_KEY and disables /docs,
+  /redoc and /openapi.json.
+- Proxy: deploy/Caddyfile serves frontend/dist and forwards /api, /captures and /health to
+  127.0.0.1:8000. It binds loopback, accepts any Host (Funnel sends its public name),
+  returns 404 for API docs and adds HSTS, CSP, X-Content-Type-Options, X-Frame-Options,
+  Referrer-Policy and no Server header.
+- Env/docs: backend/.env.example documents production secrets, trusted proxies and the
+  LAN-compatible CORS example; frontend env comments describe same-origin and the public
+  QR base. docs/remote-access.md now contains the full Option 2 procedure. Knowledge notes
+  Frontend.md, Development Decisions.md and Testing and Validation.md are updated.
+- Tests: backend/tests/test_camera_preview.py covers session requirement and header/query
+  token selection; backend/tests/test_settings_security.py is new; the connectivity browser
+  test covers the heartbeat.
+
+VERIFICATION
+- Backend full suite from a fresh temporary working directory: 764 passed, 104 skipped in
+  68.29s (PostgreSQL-only cases skipped; no disposable cluster).
+- Backend targeted camera/settings/connectivity/security tests after the final edit:
+  47 passed, 4 skipped in 4.46s.
+- Production startup: docs_url, redoc_url and openapi_url are None with strong secrets;
+  a placeholder secret raises ValidationError.
+- Frontend affected suites (connectivity, public scan, kiosk, dashboard, maintenance,
+  printing, scan records): 142/142 passed in 154s. Connectivity rerun on the final socket
+  code: 6/6 passed. `npm run typecheck` and `npm run build` pass.
+- Lint: ESLint 40 problems, with the changed files at 9, the same as HEAD; no new
+  diagnostics. Ruff 24 findings on the changed backend set, equal to HEAD.
+- QR wiring: a temporary frontend/.env.production.local produced the configured public
+  origin in the bundle, then was removed and the normal build restored.
+- `git diff --check` is clean. No live station database, captures, cameras, sensors, OS
+  power, deployment, commit or push was used.
+
+TAILNET SERVE SMOKE TEST (2026-11-13, MACBOOK AIR M1)
+- Ran deploy/Caddyfile with the official Caddy 2.11.9 binary in a temp directory (the
+  Homebrew build failed with "no space left on device") against uvicorn on
+  127.0.0.1:8000. The backend used APP_ENV=production, strong temporary secrets, a
+  disposable PostgreSQL 17 database, a temporary capture directory and
+  CAMERA_DEVICE_IDS=[99]. Models loaded; no physical camera or sensor was opened.
+- Caddy validated the config. On loopback: /health 200; / and /dashboard 200; /docs and
+  /openapi.json 404; preview without auth 401; HSTS, CSP, X-Content-Type-Options,
+  X-Frame-Options and Referrer-Policy present; no Server header.
+- Tailscale Serve HTTPS passed after the user enabled Serve/HTTPS certificates on the
+  tailnet. Over https://khens-macbook-air.tailae02f0.ts.net/: Chromium accepted the
+  certificate; window.isSecureContext was true; login (including first-time password
+  setup) reached the Admin Dashboard; all 22 API calls stayed same-origin; two wss
+  sockets connected; a manual ping returned pong; /api/v1/cameras 200; preview 401
+  without a token and 404 with a token because camera index 99 does not exist. The same
+  flow also passed through a localhost internal-TLS hop.
+- Cleanup: tailscale serve --https=443 off (status is "No serve config"), Caddy and
+  uvicorn stopped, disposable database dropped, temp env/secrets/screenshots/binary
+  removed, ports 8000/8080/8443 free. The smoke test added no commit or push; no Funnel
+  or deployment was used.
+
+MAC TAILNET START/STOP SCRIPTS (2026-11-13)
+- deploy/start-mac-tailnet.sh builds the frontend with VITE_PUBLIC_BASE_URL set to the
+  tailnet origin, starts uvicorn on 127.0.0.1:8000 and Caddy on 127.0.0.1:8080, enables
+  Tailscale Serve on 443, waits for HTTPS /health and prints the URL. It downloads Caddy
+  2.11.9 into ~/Library/Caches/bananavision when absent, verifies GitHub's published asset
+  digest (the release checksums.txt disagrees with the 2.11.9 assets), and validates the
+  Caddyfile. --skip-build reuses frontend/dist.
+- deploy/stop-mac-tailnet.sh removes the Serve mapping for 127.0.0.1:8080, kills only
+  stored PIDs whose commands match, and is idempotent.
+- Verified twice with a disposable PostgreSQL database, camera index 99, no sensor and a
+  temporary capture directory: start reached HTTPS /health 200; /docs 404; preview 401;
+  seeded-admin login 200 requires_password_change; the built bundle carries the tailnet QR
+  origin. Stop removed Serve, freed ports 8000/8080 and reported "No serve config". A
+  second start while running was refused. Test database and temp files were removed.
+- The Caddy binary and archive stay in the user cache for faster restarts.
+
+LIMITS / NOT VERIFIED
+- The public Tailscale Funnel path, public URL and Funnel WebSocket behavior were not
+  tested; only tailnet Serve over HTTPS was.
+- The helper scripts are macOS-only. They use backend/.env and local model weights as-is,
+  so that file must point at a development database, never the station database.
+- The Mini PC was unavailable: Windows Caddy, the station hostname, kiosk autostart, real
+  cameras and the sensor were not exercised. The smoke test used camera index 99 and a
+  nonexistent sensor port on macOS.
+- Browser tests use mocked HTTP/WebSocket transports and a Playwright module from another
+  installed project (PLAYWRIGHT_MODULE).
+- Graphify and ICM are not installed in this environment; graph and memory were not
+  refreshed.
+- CORS keeps the shipped wildcard so documented plain-HTTP LAN/Tailscale clients continue
+  to work. Port 8000 must stay off the public internet.
+- Homebrew's Go 1.27.4 remains installed after the failed Caddy build; remove it only with
+  user approval if unwanted.
+
+EXACT NEXT STEP
+- For temporary Mac tailnet access, run `deploy/start-mac-tailnet.sh`; stop it with
+  `deploy/stop-mac-tailnet.sh`. Review the uncommitted scripts and notes before committing.
+- When deployment is authorized, follow docs/remote-access.md on the Mini PC: install
+  Caddy, run `caddy validate --config deploy/Caddyfile`, start the backend and Caddy, then
+  enable Funnel. Verify the public URL, Funnel WebSocket traffic, the real cameras and the
+  sensor on the station.
+- The tailnet Serve/HTTPS certificate setting enabled for the smoke test can stay enabled
+  for that deployment; no Serve config remains on this Mac.

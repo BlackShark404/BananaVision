@@ -50,6 +50,7 @@ import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { inManila, manilaDayKey } from "@/lib/manilaTime"
 
 // Valid transitions: key = current status, value = allowed target statuses
 const VALID_TRANSITIONS: Record<string, InventoryStatus[]> = {
@@ -123,7 +124,7 @@ export default function DeliveryIntake() {
 
   const handleExportCsv = () => {
     if (dataUnavailable) return
-    const filename = `intakes-${new Date().toISOString().split('T')[0]}.csv`
+    const filename = `intakes-${manilaDayKey(Date.now())}.csv`
     const rows = sortedIntakesRef.current.map(intake => [
       intake.id,
       intake.source || "Unknown",
@@ -139,7 +140,7 @@ export default function DeliveryIntake() {
     if (dataUnavailable) return
     setExporting(true)
     try {
-      const filename = `intakes-${new Date().toISOString().split('T')[0]}.xlsx`
+      const filename = `intakes-${manilaDayKey(Date.now())}.xlsx`
       const rows = sortedIntakesRef.current.map(intake => [
         intake.id,
         intake.source || "Unknown",
@@ -205,7 +206,7 @@ export default function DeliveryIntake() {
       header: "Date",
       sortable: true,
       sortKey: "date",
-      cell: (intake) => intake.date ? new Date(intake.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—",
+      cell: (intake) => intake.date ? new Date(intake.date).toLocaleDateString("en-US", inManila({ month: "short", day: "numeric", year: "numeric" })) : "—",
     },
     {
       header: "Supplier",

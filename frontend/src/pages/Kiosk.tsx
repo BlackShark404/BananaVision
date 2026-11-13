@@ -39,6 +39,7 @@ import BoundingBoxOverlay from "@/components/BoundingBoxOverlay"
 import { getImageUrl } from "@/lib/utils"
 import type { BoundingBox, ScanDetection } from "@/types"
 import { KioskPrintStatus } from "@/components/KioskPrintStatus"
+import { inManila } from "@/lib/manilaTime"
 
 const ripenessIcon: Record<string, string> = {
   Unripe: "🟢",
@@ -335,7 +336,7 @@ export default function Kiosk() {
           <div className="hidden sm:flex items-center gap-2 text-muted-foreground">
             <Clock className="w-4 h-4" />
             <span className="text-sm font-mono">
-              {currentTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              {currentTime.toLocaleTimeString("en-US", inManila({ hour: "2-digit", minute: "2-digit", second: "2-digit" }))}
             </span>
           </div>
 

@@ -2,6 +2,50 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## Asia/Manila time zone guards — 2026-11-13
+
+Decision: [[Development Decisions]]; helper: [[Frontend]].
+
+- `frontend/tests/manilaTime.test.mjs` runs with `TZ=America/Los_Angeles`: helper output
+  at 15:59:59Z and 16:00:00Z (Manila midnight), the year boundary, the date-picker day,
+  and a source scan of `src/` that rejects any date formatting outside Asia/Manila.
+- Browser tests in non-Manila browsers: Kiosk header clock (Los Angeles), Scan Detail
+  footer and notes, QC list, Logs date-picker "today" (Los Angeles), and export file names
+  of Activity Log, Delivery Intake and Quality Control with the clock at
+  2026-10-01T16:30:00Z (New York; expects `…-2026-10-02`).
+- `backend/tests/test_manila_time_guard.py` runs with the process clock in Los Angeles:
+  log line time and `+08:00` marker, XLSX part and backup manifest zip times, and a
+  source scan of `backend/app`, `backend/scripts`, `backend/*.py` and root scripts for
+  `datetime.now()` without a zone, `utcnow`, `today()`, `time.localtime`/`strftime`,
+  `fromtimestamp` without a zone and `writestr` with a plain name.
+- Every new test was run first without the fix and failed.
+
+## Audit of the 2026-11-12/13 commits — 2026-11-13
+
+Scope: Caveman skills and MCP entry, the OOD gate (#3), its doc corrections (#4, #5) and
+the shelf-life countdown (#6), plus the merges with teammates' work. Decisions are in
+[[Development Decisions]]; model numbers in [[AI Models]].
+
+- **PostgreSQL tests ran for the first time in the cloud session.** A throwaway
+  PostgreSQL 16 cluster on a local socket (no TCP), with `BANANAVISION_TEST_DATABASE_URL`
+  set; every test creates and drops its own schema. Result: 830 passed, 38 skipped (37
+  Windows-only setup scripts, 1 missing RFR artifact). The real COCO verifier test
+  (`test_ood_gate_model.py`) ran with `backend/yolo26n.pt`.
+- **Contract fix with a parity check.** `prediction_bounds` now gives no window for a
+  value `spoilageDisplay.ts` shows as "Unknown". A script compared both rules on 1,396
+  generated strings: 218 disagreements before, 0 after.
+- **Lint baseline by `git archive`, not a worktree.** ESLint 40 problems repo-wide and
+  18 on the touched files, both equal to `0c74c73`; Ruff 634 equal.
+- **Screenshots** of every countdown and rejection state in light and dark, with the
+  repository's own browser harness (`tests/dashboard.browser.mjs`) and mocked API.
+- **Codex Security** scoped scan of the scan API and OOD files: 0 findings.
+- **MCP checks:** the Codex CLI 0.167.1 lists both entries of `.codex/config.toml`, and a
+  live MCP handshake with the Caveman server returned 4 tools. The Antigravity plugin
+  file now uses `serverUrl`, the documented key for remote servers.
+- **Known flaky test:** `kiosk-pin.test.mjs` "stalled swap …" pauses the browser clock
+  at a Node timestamp and fails under heavy CPU load ("Cannot fast-forward to the
+  past"). Idle: 0 failures in 6 runs before #3 and 6 at HEAD.
+
 ## Public HTTPS access — 2026-11-13
 
 Decision and topology are in [[Development Decisions]]; client behavior is in [[Frontend]].
@@ -632,7 +676,6 @@ See [[Development Decisions]] for the implemented conflict/count safeguards.
 - Kiosk browser: 17/17 passed, including estimated 13, review feedback and unchanged per-camera evidence. Typecheck and production build passed.
 - Frontend lint retains 36 errors / 5 warnings; backend Ruff reports 640 findings. Comparison against HEAD confirms no new diagnostics in affected backend files; the modified browser test passes scoped ESLint.
 - No station camera test, PostgreSQL run, detector retraining or physical-count accuracy validation performed. The user reports approximately 15 fingers; the fix prevents cross-view additions and does not claim to recover hidden fingers. See [[Development Decisions]].
-
 
 ## System Configuration layout verification (2026-10-21)
 

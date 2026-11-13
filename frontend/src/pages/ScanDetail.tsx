@@ -72,6 +72,7 @@ import { cultivarCameraConflict } from "@/lib/scanData"
 import { api } from "@/lib/api"
 import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
 import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
+import { inManila } from "@/lib/manilaTime"
 
 const EMPTY_DETECTIONS: ScanDetection[] = []
 
@@ -994,7 +995,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                         <div className="min-w-0">
                           <p className="text-foreground">{note.note}</p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {note.author} • {new Date(note.timestamp).toLocaleString()}
+                            {note.author} • {new Date(note.timestamp).toLocaleString(undefined, inManila())}
                           </p>
                         </div>
                       </div>
@@ -1065,7 +1066,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     <Calendar className="w-3.5 h-3.5" /> Date
                   </div>
                   <p className="font-semibold">
-                    {dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    {dateObj.toLocaleDateString("en-US", inManila({ month: "short", day: "numeric", year: "numeric" }))}
                   </p>
                 </div>
 
@@ -1075,7 +1076,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
                     <Clock className="w-3.5 h-3.5" /> Time
                   </div>
-                  <p className="font-semibold">{dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                  <p className="font-semibold">{dateObj.toLocaleTimeString([], inManila({ hour: '2-digit', minute: '2-digit' }))}</p>
                 </div>
 
               </div>

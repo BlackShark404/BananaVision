@@ -35,6 +35,7 @@ import {
   Line,
   ComposedChart,
 } from "recharts"
+import { inManila } from "@/lib/manilaTime"
 
 // --- Chart Configs ---
 
@@ -91,12 +92,12 @@ const metricLabels: Record<string, string> = {
   hourly: "Peak Scanning Hours",
   human_verified_accuracy: "Verified Accuracy",
 }
-const manilaDate = new Intl.DateTimeFormat("en-PH", {
-  timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric",
-})
-const manilaTime = new Intl.DateTimeFormat("en-PH", {
-  timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit",
-})
+const manilaDate = new Intl.DateTimeFormat("en-PH", inManila({
+  month: "short", day: "numeric", year: "numeric",
+}))
+const manilaTime = new Intl.DateTimeFormat("en-PH", inManila({
+  hour: "numeric", minute: "2-digit",
+}))
 
 const CULTIVAR_COLORS: Record<string, string> = {
   [CultivarEnum.LAKATAN]: "#f59e0b",

@@ -25,6 +25,7 @@ import { Loader2, Package, Plus, Building2, Phone, User, CheckCircle2, XCircle, 
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { toast } from "sonner"
 import type { Supplier } from "@/types"
+import { inManila } from "@/lib/manilaTime"
 
 export default function SupplierManagement() {
   const { suppliers, suppliersLoading, suppliersReady, suppliersError, addSupplier, updateSupplier, updateSupplierStatus } = useInventory()
@@ -190,7 +191,7 @@ export default function SupplierManagement() {
       header: "Date Added",
       sortable: true,
       sortKey: "dateAdded",
-      cell: (supplier) => <span className="text-sm">{supplier.dateAdded ? new Date(supplier.dateAdded).toLocaleDateString() : "—"}</span>
+      cell: (supplier) => <span className="text-sm">{supplier.dateAdded ? new Date(supplier.dateAdded).toLocaleDateString(undefined, inManila()) : "—"}</span>
     },
     {
       header: "Status",

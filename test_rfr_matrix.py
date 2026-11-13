@@ -2,7 +2,11 @@ import joblib
 import numpy as np
 import math
 import os
-from datetime import datetime
+import sys
+
+# The business clock is Asia/Manila (backend/app/core/time.py), whatever zone this machine uses.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "backend"))
+from app.core.time import now_manila  # noqa: E402
 
 MODEL_PATH = "backend/app/ml/weights/spoilage_rfr.joblib"
 
@@ -101,7 +105,7 @@ def run_matrix_test():
     log(f"Total Tests: {len(results)}")
 
     # Save to text file
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = now_manila().strftime("%Y%m%d_%H%M%S")
     out_file = f"matrix_results_{timestamp}.txt"
     with open(out_file, "w") as f:
         f.write("\n".join(output_lines))

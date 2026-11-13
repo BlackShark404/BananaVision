@@ -3,6 +3,7 @@ import { twMerge } from "tailwind-merge"
 import type { Cultivar, Ripeness, ScanResult } from "@/types"
 import { CULTIVARS, RIPENESS_LEVELS, CultivarEnum, RipenessEnum } from "@/types"
 import { BASE_URL } from "@/lib/api"
+import { inManila } from "@/lib/manilaTime"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -149,10 +150,10 @@ export function getAnalyticsData(scans: ScanResult[]) {
 
   const scansByDay: Record<string, number> = {}
   scans.forEach((s) => {
-    const day = new Date(s.dateTime).toLocaleDateString("en-US", {
+    const day = new Date(s.dateTime).toLocaleDateString("en-US", inManila({
       month: "short",
       day: "numeric",
-    })
+    }))
     scansByDay[day] = (scansByDay[day] || 0) + 1
   })
   const scanTrend = Object.entries(scansByDay)

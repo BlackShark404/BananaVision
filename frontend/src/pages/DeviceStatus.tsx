@@ -9,6 +9,7 @@ import { useEffect, useState, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { useWebSocket } from "@/hooks/useWebSocket"
+import { inManila } from "@/lib/manilaTime"
 
 interface SensorReading {
   temperature: number
@@ -245,7 +246,7 @@ export default function DeviceStatus() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Last Seen</span>
                 <span className="font-medium text-xs">
-                  {new Date(device.lastSeen).toLocaleDateString()}
+                  {device.lastSeen === "Never" ? "Never" : new Date(device.lastSeen).toLocaleDateString(undefined, inManila())}
                 </span>
               </div>
             </CardContent>
@@ -297,7 +298,7 @@ export default function DeviceStatus() {
             </CardTitle>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <RefreshCw className={`w-3.5 h-3.5 ${metricsLoading ? "animate-spin" : ""}`} />
-              <span>{metricsLoading ? "Refreshing metrics…" : systemMetrics ? `Updated ${lastUpdate.toLocaleTimeString()}` : "Metrics unavailable"}</span>
+              <span>{metricsLoading ? "Refreshing metrics…" : systemMetrics ? `Updated ${lastUpdate.toLocaleTimeString(undefined, inManila())}` : "Metrics unavailable"}</span>
             </div>
           </div>
         </CardHeader>

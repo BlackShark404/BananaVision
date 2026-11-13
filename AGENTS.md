@@ -3,7 +3,7 @@
 - When resuming work, read `TASK_PROGRESS.txt` and the current Git status first. Use its latest resume point; historical checkpoints are reference material, not pending work.
 - Trace the affected API, service, schema and UI before editing. Preserve explicit reverts, unrelated user changes, existing architecture and working behavior.
 - Preserve the existing UI layout, components, styling, spacing and typography unless the user requests a redesign. Keep frontend/backend field names and types synchronized.
-- Keep business timestamps and date boundaries consistent with the backend Asia/Manila helpers. Reuse existing conversions rather than adding competing timezone logic.
+- Keep business timestamps and date boundaries consistent with the backend Asia/Manila helpers. Reuse existing conversions rather than adding competing timezone logic. Every date, time, "today" and file-name date is Asia/Manila: backend through `backend/app/core/time.py`, frontend through `frontend/src/lib/manilaTime.ts`; `backend/tests/test_manila_time_guard.py` and `frontend/tests/manilaTime.test.mjs` reject anything else.
 - Never test against the live station database, captures, physical cameras or OS power. Use isolated fixtures and disposable PostgreSQL schemas; inspect test setup first.
 - Destructive live operations, deployment, history rewrites and shared-branch writes need explicit authorization. Do not read or print secrets to diagnose configuration.
 - Run targeted regressions while implementing. Before completion, run relevant backend and frontend tests, type checks, configured lint and build, then review the scoped diff.
@@ -24,6 +24,12 @@ These are the user's repository-specific choices for applying generic skill work
 - Model selection is left to each contributor/agent. No default model is imposed by this repository. Choose based on your own budget and toolstack; see the model comparison notes in TASK_PROGRESS.txt for free-tier options. Follow explicit task/model overrides.
 - Keep `TASK_PROGRESS.txt` limited to current milestones, pending work, verified results, constraints and an exact next step. Archive superseded content before replacing it.
 
+Read [the development workflow](docs/development-workflow.md) for verification commands and tooling details.
+
+For maintenance changes, use the approved [design](docs/superpowers/specs/2026-10-05-system-maintenance-design.md) and [plan](docs/superpowers/plans/2026-10-06-system-maintenance.md).
+
+Consult [backend documentation](backend/README.md) for deployment/migrations; do not load every document for unrelated changes.
+
 <!-- caveman-begin -->
 ## Caveman — Terse response style
 
@@ -42,7 +48,7 @@ Rules:
 - User's language: Compress the style, not the language.
 - Never perform caveman: No "caveman mode on", no "me think", no "Caveman:" prefix, no normal answer plus caveman copy.
 
-Switch: /caveman (default), /ultracave (fragments, each fact once), /megacave (Classical Chinese 文言文)
+Switch: /caveman (default), /ultracave (fragments, each fact once), /megacave (Classical Chinese 文言文); in Codex type `$caveman`, `$ultracave`, `$megacave`
 Stop: "stop caveman" or "normal mode"
 
 Auto-Clarity: plain prose for security warnings, irreversible actions, step order a fragment could scramble, user confused, questions you ask the user. Resume after.
@@ -50,12 +56,6 @@ Auto-Clarity: plain prose for security warnings, irreversible actions, step orde
 Boundaries: code, comments, commits, PRs, docs, `TASK_PROGRESS.txt`, Obsidian notes and ICM memories written normal; existing comments kept unless asked. Caveman style never overrides the completion-report requirements in this file.
 Floor: code, commands, paths, numbers and error strings verbatim; never drop not/never/no/only.
 <!-- caveman-end -->
-
-Read [the development workflow](docs/development-workflow.md) for verification commands and tooling details.
-
-For maintenance changes, use the approved [design](docs/superpowers/specs/2026-10-05-system-maintenance-design.md) and [plan](docs/superpowers/plans/2026-10-06-system-maintenance.md).
-
-Consult [backend documentation](backend/README.md) for deployment/migrations; do not load every document for unrelated changes.
 
 ## Automatic AI knowledge management
 

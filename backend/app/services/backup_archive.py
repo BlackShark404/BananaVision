@@ -439,7 +439,9 @@ async def create_archive(db, capture_root: Path, destination: Path) -> dict:
             encoded = _dump(manifest)
             if len(encoded) > MAX_MANIFEST_BYTES:
                 raise ArchiveError("Manifest size limit exceeded")
-            archive.writestr("manifest.json", encoded)
+            manifest_info = zipfile.ZipInfo("manifest.json", date_time=now_manila().timetuple()[:6])
+            manifest_info.compress_type = zipfile.ZIP_DEFLATED
+            archive.writestr(manifest_info, encoded)
         with partial.open("r+b") as stream:
             os.fsync(stream.fileno())
         validated = validate_archive(partial, owned / "verification")

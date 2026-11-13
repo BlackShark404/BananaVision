@@ -152,6 +152,29 @@ history and CSV. Read-only correction inputs and change previews format their la
 without replacing draft values. Dashboard/Analytics show aggregate counts and link to
 Scan Logs; they do not render a separate per-scan spoilage estimate.
 
+## Asia/Manila time zone everywhere (2026-11-13)
+
+Every date and time the app shows, groups by day or puts in a file name is Asia/Manila,
+whatever zone the viewing machine uses. Rule and reasons: [[Development Decisions]].
+
+- `src/lib/manilaTime.ts` is the only place that names the zone:
+  `MANILA_TIME_ZONE`, `inManila(options)` (adds the zone to `toLocale*String` and
+  `Intl.DateTimeFormat` options; it cannot be overridden), `manilaDayKey(time)` (Manila
+  `YYYY-MM-DD`) and `manilaToday()` (the Manila day as a local `Date` for date pickers).
+- Call sites keep their locale and format and only gain the zone, so screens look the
+  same: `x.toLocaleDateString("en-US", inManila({ month: "short", day: "numeric" }))`.
+- Export file names use `manilaDayKey(Date.now())`, so an export at 00:30 in Manila is
+  named with that day, not the UTC date.
+- `AppDateFilter` passes `today={manilaToday()}` to the calendar; the value stays a plain
+  `YYYY-MM-DD` calendar day. The picker's experimental `timeZone` prop is not used.
+- Dashboard, Analytics and `lib/shelfLifeWindow.ts` use the same helper instead of
+  private copies.
+- Guard: `tests/manilaTime.test.mjs` fails if any file in `src/` calls a
+  `toLocale*String` or `Intl.DateTimeFormat` without the Manila zone, takes a date from
+  `toISOString()`, or reads `getFullYear`/`getHours`-style local fields. Allowed by name:
+  `lib/isoDay.ts` and `components/ui/calendar.tsx` (local calendar days of the picker)
+  and `components/ui/chart.tsx` (numbers).
+
 ## Live shelf-life window (2026-11-13)
 
 A record's estimate no longer reads as today's value days after the scan. The server adds
@@ -191,7 +214,8 @@ Where the countdown shows, for In Stock records:
   its two-day rule uses, so a card under "≤2 days left" never shows a label above two days.
 
 Unchanged by decision: Sold, Spoiled and For Processing records keep the scan-time
-estimate. The Kiosk result card of the scan just taken, correction inputs, change
+estimate on staff pages; only the public QR page counts down for every status, as it did
+before. The Kiosk result card of the scan just taken, correction inputs, change
 previews, Scan History entries, printed labels, the label preview and CSV/XLSX exports
 keep the stored estimate.
 

@@ -5,6 +5,7 @@ import { CheckCircle2, Factory, BarChart3, ShieldCheck, Mail, ChevronRight, Menu
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { manilaDayKey } from "@/lib/manilaTime"
 
 const navLinks = [
   { label: "Home", id: "home" },
@@ -342,7 +343,7 @@ export default function Landing() {
       </main>
 
       <footer className="py-8 border-t bg-background text-center text-muted-foreground text-sm">
-        <p>© {new Date().getFullYear()} BananaVision. All rights reserved.</p>
+        <p>© {manilaDayKey().slice(0, 4)} BananaVision. All rights reserved.</p>
       </footer>
     </div>
   )

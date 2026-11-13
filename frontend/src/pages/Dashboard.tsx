@@ -30,11 +30,12 @@ import {
   Clock
 } from "lucide-react"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
+import { inManila, manilaDayKey } from "@/lib/manilaTime"
 
-const manilaTime = new Intl.DateTimeFormat("en-PH", {
-  timeZone: "Asia/Manila", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit",
-})
-const manilaDate = (time: number) => new Date(time + 28_800_000).toISOString().slice(0, 10)
+const manilaTime = new Intl.DateTimeFormat("en-PH", inManila({
+  month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit",
+}))
+const manilaDate = (time: number) => manilaDayKey(time)
 
 function legacyScanLogsUrl(params: URLSearchParams, selectedDate: string): string | null {
   const view = params.get("view")
