@@ -230,7 +230,7 @@ deploy/stop-mac-tailnet.sh               # stops both processes and removes Serv
 ```
 
 - The start script downloads Caddy into `~/Library/Caches/bananavision` when missing, checks GitHub's published asset digest, and validates `deploy/Caddyfile`.
-- Backend and Caddy bind loopback (`127.0.0.1:8000` and `127.0.0.1:8080`). Only Tailscale Serve is reachable by tailnet devices.
+- Backend and Caddy bind loopback (`127.0.0.1:8000` and `127.0.0.1:8080`). Only Tailscale Serve is reachable by tailnet devices. No macOS firewall rule is needed; the Windows firewall rule in Option 1 applies only to the Mini PC and direct ports `5173`/`8000`.
 - The build sets `VITE_PUBLIC_BASE_URL` to the printed `https://<host>.<tailnet>.ts.net` origin, so QR labels resolve during the dry run.
 - The script prints the URL. Logs and PID files live in `~/.local/state/bananavision-tailnet`.
 - The stop script removes the Serve mapping and kills only processes whose stored command matches. It is safe to run twice.
