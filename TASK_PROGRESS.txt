@@ -1,5 +1,5 @@
-CURRENT RESUME HERE (2026-11-13) - PUBLIC HTTPS ACCESS (OPTION 2) IMPLEMENTED AND
-TAILNET-SMOKE-TESTED, NOT DEPLOYED
+CURRENT RESUME HERE (2026-11-13) - PUBLIC HTTPS ACCESS (OPTION 2) IMPLEMENTED,
+TAILNET-SMOKE-TESTED WITH MAC START/STOP SCRIPTS, NOT DEPLOYED
 
 The previous checkpoint (live shelf-life countdown) is archived byte-for-byte in
 docs/history/2026-11-13-before-public-https-access.txt.
@@ -12,12 +12,13 @@ AUTHORIZED SCOPE / LATEST DECISIONS
   2. Camera feeds: require a BananaVision login.
   3. QR labels: add a configurable public base URL so printed labels resolve off-station.
   4. Scope: code, proxy config and docs. No deployment.
-- Delivery: the implementation is committed and pushed as 434b3ff. The smoke-test notes
-  in this file and Testing and Validation.md are uncommitted. No push, Funnel change,
-  deployment or live station action was made during the smoke test. A temporary Caddy
-  binary and disposable PostgreSQL database were used and removed, along with temp secrets
-  and the Serve config. The user enabled Serve/HTTPS certificates on the tailnet for that
-  test; the tailnet setting remains, but no serve config is left on this Mac.
+- Delivery: the implementation is committed and pushed as 434b3ff. The new macOS
+  start/stop scripts and the notes in this file and Testing and Validation.md are
+  uncommitted. No push, Funnel change, deployment or live station action was made during
+  the smoke test. A temporary Caddy binary and disposable PostgreSQL database were used
+  and removed, along with temp secrets and the Serve config. The user enabled Serve/HTTPS
+  certificates on the tailnet for that test; the tailnet setting remains, but no serve
+  config is left on this Mac.
 
 IMPLEMENTED
 - Frontend transport: an HTTPS page calls its own origin for HTTP and WebSocket traffic
@@ -85,9 +86,27 @@ TAILNET SERVE SMOKE TEST (2026-11-13, MACBOOK AIR M1)
   removed, ports 8000/8080/8443 free. The smoke test added no commit or push; no Funnel
   or deployment was used.
 
+MAC TAILNET START/STOP SCRIPTS (2026-11-13)
+- deploy/start-mac-tailnet.sh builds the frontend with VITE_PUBLIC_BASE_URL set to the
+  tailnet origin, starts uvicorn on 127.0.0.1:8000 and Caddy on 127.0.0.1:8080, enables
+  Tailscale Serve on 443, waits for HTTPS /health and prints the URL. It downloads Caddy
+  2.11.9 into ~/Library/Caches/bananavision when absent, verifies GitHub's published asset
+  digest (the release checksums.txt disagrees with the 2.11.9 assets), and validates the
+  Caddyfile. --skip-build reuses frontend/dist.
+- deploy/stop-mac-tailnet.sh removes the Serve mapping for 127.0.0.1:8080, kills only
+  stored PIDs whose commands match, and is idempotent.
+- Verified twice with a disposable PostgreSQL database, camera index 99, no sensor and a
+  temporary capture directory: start reached HTTPS /health 200; /docs 404; preview 401;
+  seeded-admin login 200 requires_password_change; the built bundle carries the tailnet QR
+  origin. Stop removed Serve, freed ports 8000/8080 and reported "No serve config". A
+  second start while running was refused. Test database and temp files were removed.
+- The Caddy binary and archive stay in the user cache for faster restarts.
+
 LIMITS / NOT VERIFIED
 - The public Tailscale Funnel path, public URL and Funnel WebSocket behavior were not
   tested; only tailnet Serve over HTTPS was.
+- The helper scripts are macOS-only. They use backend/.env and local model weights as-is,
+  so that file must point at a development database, never the station database.
 - The Mini PC was unavailable: Windows Caddy, the station hostname, kiosk autostart, real
   cameras and the sensor were not exercised. The smoke test used camera index 99 and a
   nonexistent sensor port on macOS.
@@ -101,10 +120,11 @@ LIMITS / NOT VERIFIED
   user approval if unwanted.
 
 EXACT NEXT STEP
-- User reviews the scoped diff. When deployment is authorized, follow
-  docs/remote-access.md on the Mini PC: install Caddy, run
-  `caddy validate --config deploy/Caddyfile`, start the backend and Caddy, then enable
-  Funnel. Verify the public URL, Funnel WebSocket traffic, the real cameras and the
+- For temporary Mac tailnet access, run `deploy/start-mac-tailnet.sh`; stop it with
+  `deploy/stop-mac-tailnet.sh`. Review the uncommitted scripts and notes before committing.
+- When deployment is authorized, follow docs/remote-access.md on the Mini PC: install
+  Caddy, run `caddy validate --config deploy/Caddyfile`, start the backend and Caddy, then
+  enable Funnel. Verify the public URL, Funnel WebSocket traffic, the real cameras and the
   sensor on the station.
 - The tailnet Serve/HTTPS certificate setting enabled for the smoke test can stay enabled
   for that deployment; no Serve config remains on this Mac.
