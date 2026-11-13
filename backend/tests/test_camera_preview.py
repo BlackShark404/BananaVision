@@ -8,7 +8,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.api import deps
 from app.api.v1 import cameras
+from app.core.exceptions import CredentialsException
 
 
 @pytest.fixture
@@ -100,8 +102,37 @@ async def test_preview_stops_if_mapping_changes_during_capture(preview):
 def test_preview_rejects_invalid_frame_rates_before_capture(preview, fps):
     app = FastAPI()
     app.include_router(cameras.router)
+    app.dependency_overrides[deps.get_media_user] = lambda: SimpleNamespace()
     with TestClient(app) as client:
         response = client.get(f'/cameras/preview/7?fps={fps}')
     assert response.status_code == 422
     preview.manager._capture_single.assert_not_called()
     preview.encoder.assert_not_called()
+
+
+def test_preview_requires_a_session(preview):
+    app = FastAPI()
+    app.include_router(cameras.router)
+    with TestClient(app) as client:
+        response = client.get('/cameras/preview/7')
+    assert response.status_code == 401
+    preview.manager._capture_single.assert_not_called()
+    preview.encoder.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_media_session_accepts_header_or_query_token(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    user = SimpleNamespace(id='user-1')
+    resolve = AsyncMock(return_value=user)
+    monkeypatch.setattr(deps, '_resolve_user', resolve)
+
+    assert await deps.get_media_user(
+        db=None, authorization='Bearer header-token', token=None
+    ) is user
+    assert await deps.get_media_user(db=None, authorization='', token='query-token') is user
+    assert [call.args[1] for call in resolve.await_args_list] == ['header-token', 'query-token']
+
+    with pytest.raises(CredentialsException):
+        await deps.get_media_user(db=None, authorization='', token=None)

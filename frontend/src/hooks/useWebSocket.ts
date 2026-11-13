@@ -12,8 +12,12 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import { getToken, clearAuth } from "@/lib/auth"
 
 const host = window.location.hostname
-const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
-const WS_BASE = import.meta.env.VITE_WS_URL || `${protocol}//${host}:8000`
+const secureContext = window.location.protocol === "https:"
+const protocol = secureContext ? "wss:" : "ws:"
+// An HTTPS page must use the same origin so a reverse proxy can forward the upgrade.
+const WS_BASE = import.meta.env.VITE_WS_URL || (secureContext ? `${protocol}//${window.location.host}` : `${protocol}//${host}:8000`)
+
+const HEARTBEAT_INTERVAL_MS = 25_000
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected"
 
@@ -40,9 +44,17 @@ export function useWebSocket({ rooms = [], onEvent, onReconnect, enabled = true 
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectAttempt = useRef(0)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const heartbeatTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const onEventRef = useRef(onEvent)
   const onReconnectRef = useRef(onReconnect)
   const hasConnected = useRef(false)
+
+  const stopHeartbeat = useCallback(() => {
+    if (heartbeatTimer.current) {
+      clearInterval(heartbeatTimer.current)
+      heartbeatTimer.current = null
+    }
+  }, [])
 
   // Keep callback refs up to date without re-triggering the connection effect.
   useEffect(() => {
@@ -71,6 +83,11 @@ export function useWebSocket({ rooms = [], onEvent, onReconnect, enabled = true 
       hasConnected.current = true
       setStatus("connected")
       reconnectAttempt.current = 0
+      stopHeartbeat()
+      // Proxies close idle WebSockets; the backend answers this with pong.
+      heartbeatTimer.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event: "ping" }))
+      }, HEARTBEAT_INTERVAL_MS)
       console.log("[WS] Connected", rooms)
       // The first connection uses initial fetches; only a resume can have
       // missed events while no socket was open.
@@ -90,6 +107,7 @@ export function useWebSocket({ rooms = [], onEvent, onReconnect, enabled = true 
 
     ws.onclose = (e) => {
       if (wsRef.current !== ws) return
+      stopHeartbeat()
       setStatus("disconnected")
       wsRef.current = null
 
@@ -112,13 +130,14 @@ export function useWebSocket({ rooms = [], onEvent, onReconnect, enabled = true 
     ws.onerror = () => {
       // onclose will fire after this, triggering reconnect
     }
-  }, [enabled, rooms.join(",")])
+  }, [enabled, rooms.join(","), stopHeartbeat])
 
   const reconnect = useCallback(() => {
     if (reconnectTimer.current) {
       clearTimeout(reconnectTimer.current)
       reconnectTimer.current = null
     }
+    stopHeartbeat()
     reconnectAttempt.current = 0
     if (wsRef.current) {
       const previous = wsRef.current
@@ -126,7 +145,7 @@ export function useWebSocket({ rooms = [], onEvent, onReconnect, enabled = true 
       previous.close(1000)
     }
     connect()
-  }, [connect])
+  }, [connect, stopHeartbeat])
 
   // Connect on mount / when deps change
   useEffect(() => {
@@ -135,6 +154,7 @@ export function useWebSocket({ rooms = [], onEvent, onReconnect, enabled = true 
     return () => {
       // Cleanup
       hasConnected.current = false
+      stopHeartbeat()
       if (reconnectTimer.current) {
         clearTimeout(reconnectTimer.current)
         reconnectTimer.current = null
@@ -145,7 +165,7 @@ export function useWebSocket({ rooms = [], onEvent, onReconnect, enabled = true 
         previous.close(1000) // Invalidate ownership before asynchronous close callbacks.
       }
     }
-  }, [connect])
+  }, [connect, stopHeartbeat])
 
   return { status, lastEvent, reconnect }
 }

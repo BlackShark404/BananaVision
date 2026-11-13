@@ -2,6 +2,19 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## Public HTTPS access — 2026-11-13
+
+Decision and topology are in [[Development Decisions]]; client behavior is in [[Frontend]].
+
+- **Backend cases.** `test_camera_preview.py` proves a preview returns `401` without a session, the media dependency accepts a bearer header or a `?token=` query value, and an invalid frame rate still returns `422` before any capture. `test_settings_security.py` proves production rejects missing, placeholder and short signing secrets, accepts two strong 48-byte values, and development keeps its placeholders.
+- **Backend results.** Full suite from a fresh temporary working directory: **764 passed, 104 skipped** (PostgreSQL-only cases; no disposable cluster). Targeted camera, settings, connectivity and security tests: **47 passed, 4 skipped**.
+- **Production startup.** A fresh process with `APP_ENV=production` and strong secrets reports `docs_url`, `redoc_url` and `openapi_url` as `None`; a placeholder secret raises `ValidationError` before the app starts.
+- **Frontend results.** The seven affected browser suites (connectivity, public scan, kiosk, dashboard, maintenance, printing, scan records) passed **142/142**. Connectivity was rerun alone on the final socket file: **6/6**. `npm run typecheck` and `npm run build` pass.
+- **Lint baseline.** ESLint reports **40 problems**; the changed frontend files account for **9**, the same count as their `HEAD` versions, so this change adds none. Ruff reports **24** findings on the changed backend set, equal to `HEAD`.
+- **QR build wiring.** A temporary `.env.production.local` with `VITE_PUBLIC_BASE_URL` produced the configured origin in the bundle; the file was removed and the normal build restored.
+- **Requires Playwright.** These browser tests need `PLAYWRIGHT_MODULE` when Playwright is not installed under `frontend/node_modules`.
+- **Not verified.** Caddy is not installed here, so `deploy/Caddyfile` was not parsed by `caddy validate`. No real Funnel, public URL, live browser-to-station run, camera, station database or deployment was used.
+
 ## Live shelf-life window — 2026-11-13
 
 Rule and reasons are in [[Development Decisions]]; what each page shows is in [[Frontend]].

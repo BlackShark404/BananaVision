@@ -5,14 +5,14 @@ BananaVision is an Edge Computing system: the backend, AI models, cameras, senso
 This guide explains how to grant **remote access** so administrators and managers can use the dashboard from home, another office, or mobile data. It covers:
 
 - [How the app behaves when accessed remotely](#how-the-app-behaves-when-accessed-remotely)
-- [Option 1 (recommended): Tailscale private network](#option-1-recommended-tailscale-private-network)
-- [Option 2: Public HTTPS link](#option-2-public-https-link-no-installs-for-users)
+- [Option 1: Tailscale private network](#option-1-tailscale-private-network)
+- [Option 2 (this deployment): Public HTTPS link](#option-2-this-deployment-public-https-link-no-installs-for-users)
 - [Troubleshooting](#troubleshooting)
 
 | Option | Users install anything? | Exposed to public internet? | App changes required? |
 |---|---|---|---|
 | Tailscale VPN | Yes, once per device | No — private tailnet only | No |
-| Public HTTPS link (Tailscale Funnel / Cloudflare Tunnel) | No | Yes | Yes |
+| Public HTTPS link (Tailscale Funnel / Cloudflare Tunnel) | No | Yes | Bundled: HTTPS build + Caddy proxy |
 
 ---
 
@@ -21,14 +21,16 @@ This guide explains how to grant **remote access** so administrators and manager
 Understanding this avoids most setup surprises:
 
 - The frontend is served on port `5173`, the FastAPI backend on port `8000` (API + WebSockets). Both bind `0.0.0.0` in [start.bat](../start.bat) and [start.sh](../start.sh).
-- The frontend derives the API address from the hostname in the browser address bar: `http://<hostname>:8000` (`frontend/src/lib/api.ts`). WebSockets use the same host on port `8000` (`frontend/src/hooks/useWebSocket.ts`).
-- **Consequence:** if a user opens `http://bananavision-pc:5173` through Tailscale, API and WebSocket calls automatically go to `http://bananavision-pc:8000` over the same Tailscale tunnel. No rebuild or reconfiguration is needed.
-- **Consequence:** an `https://` public link does **not** work as-is. The page would try to call `http://<host>:8000`, which is blocked by the browser as mixed content, and port `8000` is not exposed by a funnel anyway.
-- CORS: the current station `backend/.env` sets `APP_CORS_ORIGINS=["*"]`, so any origin is allowed. If that is ever tightened to a list, it must include the origin used remotely, e.g. `http://bananavision-pc:5173`.
+- On a plain-HTTP page the frontend derives the API address from the browser hostname: `http://<hostname>:8000` (`frontend/src/lib/api.ts`). WebSockets use the same host on port `8000` (`frontend/src/hooks/useWebSocket.ts`).
+- On an HTTPS page the frontend calls the **same origin** for both HTTP and WebSocket traffic. A reverse proxy must forward `/api`, `/captures` and `/health` to port `8000`. This is what the bundled [Caddyfile](../deploy/Caddyfile) does.
+- **Consequence:** Tailscale private-network access still works as before: opening `http://bananavision-pc:5173` sends API and WebSocket calls to `http://bananavision-pc:8000` through the tailnet. No rebuild is needed.
+- **Consequence:** a public `https://` link needs the proxy path below. Pointing a funnel directly at port `5173` cannot work: the page would call the HTTPS origin for `/api`, and the funnel does not expose port `8000`.
+- CORS: the built-in default is `http://localhost:5173` and `http://127.0.0.1:5173` (`backend/app/config.py`). Plain-HTTP LAN and Tailscale pages call the station hostname, so the shipped example keeps `["*"]`. The public setup is same-origin and needs no CORS entry. Never expose port `8000` to the internet.
+- WebSockets send a heartbeat every 25 seconds so proxies do not close idle connections.
 
 ---
 
-## Option 1 (recommended): Tailscale private network
+## Option 1: Tailscale private network
 
 Tailscale creates a private WireGuard network (a "tailnet") between the Mini PC and each authorized device. Only devices signed in to your tailnet can see the Mini PC, and no router ports are opened. All traffic is encrypted in transit.
 
@@ -117,29 +119,101 @@ Note: ACLs do not restrict nodes shared via **Share**. Choose the tailnet + ACL 
 
 ---
 
-## Option 2: Public HTTPS link (no installs for users)
+## Option 2 (this deployment): Public HTTPS link (no installs for users)
 
-This publishes the dashboard as a normal website, e.g. `https://bananavision.<tailnet>.ts.net` using Tailscale Funnel, or a custom domain using Cloudflare Tunnel. Users only click a link — no account, no install, no invite.
+Publishes the dashboard at a normal website such as `https://bananavision-pc.<tailnet>.ts.net`. Users click the link and sign in with their BananaVision account. They do not install Tailscale, join the tailnet, or accept an invite.
 
-**This does not work with the current build.** Because the frontend always calls `http://<hostname>:8000` for the API and WebSockets:
+Traffic path:
 
-- the funnel page (HTTPS) cannot call an HTTP API (mixed content is blocked by the browser), and
-- port `8000` is not exposed by a funnel of port `5173` anyway.
+```
+Internet -> Tailscale Funnel (TLS) -> Caddy 127.0.0.1:8080
+         -> frontend/dist and /api, /captures, /health -> uvicorn 127.0.0.1:8000
+```
 
-Making it work requires all of the following:
+The funnel exposes **one** HTTPS port. [Caddy](../deploy/Caddyfile) provides the single origin, serves the built frontend, forwards the API and WebSocket upgrade, and adds security headers. It does not listen on the LAN.
 
-1. Build the frontend with explicit URLs, e.g. `VITE_API_URL` and `VITE_WS_URL` pointing at an HTTPS/WSS endpoint (support exists in `frontend/src/lib/api.ts` and `frontend/src/hooks/useWebSocket.ts`).
-2. Expose the backend over HTTPS too, either with a second funnel (`tailscale funnel --bg --https=8443 8000`) or a single local reverse proxy (e.g. Caddy) that serves the frontend and forwards `/api` plus WebSocket upgrades to port `8000`, with the funnel pointed at the proxy.
-3. Set `APP_CORS_ORIGINS` in `backend/.env` to include the public origin if the current `["*"]` is ever tightened.
+### Prerequisites
 
-Security considerations before choosing this option:
+- Complete Option 1 steps 1–7 on the Mini PC (Tailscale, MagicDNS, machine name, no key expiry, firewall, power, auto-start). Skip the per-user device setup. The station must stay awake and online.
+- In the [Tailscale admin console](https://login.tailscale.com/admin) enable **HTTPS certificates** (DNS page) and allow **Funnel** for the tailnet.
+- Put `caddy.exe` on the Mini PC (single binary from <https://caddyserver.com/download>).
 
-- The login page becomes reachable by anyone on the internet. Protection depends entirely on BananaVision authentication: change the default `admin/admin` credentials first, and note the app already locks a username after 5 failed login attempts for 5 minutes (`backend/app/core/rate_limiter.py`).
-- Expect automated scanning and login attempts in the logs.
-- Cloudflare Tunnel with **Cloudflare Access** (email one-time PIN) can gate visitors without client installs, at the cost of a Cloudflare account and a domain.
+### 1. Production backend settings
+
+Edit `backend/.env` without mixing secrets into source control:
+
+```dotenv
+APP_ENV=production
+APP_DEBUG=false
+APP_SECRET_KEY=<48 random bytes, base64>
+JWT_SECRET_KEY=<different 48 random bytes, base64>
+APP_CORS_ORIGINS=["http://localhost:5173","http://127.0.0.1:5173"]
+TRUSTED_PROXIES=["127.0.0.1","::1"]
+```
+
+- Generate each secret once, for example in PowerShell: `[Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Max 256 }))`.
+- With `APP_ENV=production`, startup refuses placeholder or shorter-than-32-byte secrets, and Swagger, ReDoc and `/openapi.json` are disabled.
+- `TRUSTED_PROXIES` lets the backend record the visitor IP from Caddy instead of `127.0.0.1`.
+- Add `http://<station-host>:5173` to `APP_CORS_ORIGINS` only if operators must keep using the plain-HTTP LAN page while `APP_ENV=production`. The public HTTPS page is same-origin and needs no entry.
+- On an empty database, set `BOOTSTRAP_ADMIN_PASSWORD` (12–72 bytes) and remove it after the administrator replaces that temporary password at first login.
+
+### 2. Build the frontend for the public origin
+
+Create `frontend/.env.production`:
+
+```dotenv
+VITE_PUBLIC_BASE_URL=https://bananavision-pc.<tailnet>.ts.net
+```
+
+Do not set `VITE_API_URL` or `VITE_WS_URL`; the HTTPS build calls the same origin automatically.
+
+```powershell
+cd frontend
+npm run build
+```
+
+The launchers reuse an existing `frontend/dist`. Rebuild after any URL change, otherwise the old build keeps the old QR origin.
+
+### 3. Run Caddy
+
+From the repository root:
+
+```powershell
+caddy run --config deploy/Caddyfile
+```
+
+For unattended operation, add a Windows scheduled task that runs the same command at startup with the repository root as its working directory. Confirm the local hop works before publishing:
+
+```powershell
+curl http://127.0.0.1:8080/health
+```
+
+### 4. Publish with Tailscale Funnel
+
+```powershell
+tailscale funnel --bg --https=443 http://127.0.0.1:8080
+tailscale funnel status
+```
+
+The status output shows the public URL. Funnel accepts only ports `443`, `8443` and `10000`; `443` gives the clean link. `--bg` keeps the mapping across restarts. To stop publishing: `tailscale funnel reset`.
+
+### 5. Verify
+
+- `https://<public-url>/health` returns JSON.
+- The dashboard loads, login succeeds, and the connection indicator shows WebSocket activity.
+- A live camera preview appears after signing in. Previews now require a session; the kiosk gets one after operator PIN entry.
+- A QR label printed at the station opens `https://<public-url>/track/<scan-id>` from mobile data.
+- `https://<public-url>/docs`, `/redoc` and `/openapi.json` return 404.
+- Reboot the Mini PC and confirm Tailscale, Caddy and BananaVision return.
+
+### Security notes
+
+- The login page is reachable by anyone on the internet. Expect automated scanning. A username locks for 5 minutes after 5 failed attempts (`backend/app/core/rate_limiter.py`); this also means an attacker can temporarily lock the admin account. There is no MFA in the app.
+- For an outer identity gate without client installs, Cloudflare Tunnel with **Cloudflare Access** (email one-time PIN) is the alternative. It needs a Cloudflare account and a domain.
+- Camera previews, scan evidence and the operator list remain application-protected; the public tracking page shows scan data but not camera photos.
+- Caddy adds HSTS, CSP, frame protection and content-type protection. It does not log request URIs by default, which keeps WebSocket tokens out of access logs.
+- Tailscale's proxy has reported WebSocket drops and query-parameter issues. The client now sends a 25-second heartbeat and reconnects with backoff. If live updates remain unreliable, switch the tunnel to Cloudflare Tunnel.
 - Router port forwarding is not an acceptable substitute: it exposes the Mini PC directly, often does not work behind CGNAT, and offers no per-user access control.
-
-Recommendation: use Option 1 for a small team of managers. Choose Option 2 only if "users install nothing" is a hard requirement.
 
 ---
 
@@ -148,11 +222,14 @@ Recommendation: use Option 1 for a small team of managers. Choose Option 2 only 
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `bananavision-pc` does not resolve | MagicDNS off, wrong tailnet, or Tailscale disconnected on the client | Enable MagicDNS; confirm both devices show the same tailnet in the admin console; reconnect Tailscale |
-| Page loads, but data never loads / spinner forever | Backend not running, or port 8000 blocked | Start BananaVision; test `http://bananavision-pc:8000/docs`; re-check the firewall rule |
+| Page loads, but data never loads / spinner forever | Backend not running, or port 8000 blocked | Start BananaVision; test `http://bananavision-pc:8000/health`; re-check the firewall rule |
 | Works on the station LAN but not remotely | Mini PC asleep, app not started, or station key expired | Apply the power settings and auto-start steps above; disable key expiry and re-authenticate |
 | A phone loses access after a while | Battery saver paused the Tailscale VPN | Keep Tailscale connected / allow background activity |
 | Browser warns "Not secure" | Expected: the app is served over plain HTTP inside the encrypted Tailscale tunnel | No action; never use a public plain-HTTP URL |
-| Funnel/public link loads but login fails | Expected limitation described in Option 2 | Use Option 1, or implement the Option 2 changes |
+| Public link returns 502 or an empty page | Caddy is stopped, or uvicorn is not listening on `127.0.0.1:8000` | Start both services; check `curl -I http://127.0.0.1:8080/health` on the Mini PC |
+| `tailscale funnel` says Funnel is not enabled | Funnel disabled in the tailnet policy or HTTPS certificates are off | Enable Funnel and HTTPS certificates in the Tailscale admin console, then rerun the command |
+| Login says "Network error" on the public link | Caddy is not forwarding `/api`, or the frontend build predates the same-origin change | Confirm `/api/v1/...` reaches the backend; rebuild `frontend/dist` and redeploy it |
+| Live view reconnects every few seconds | Tailscale Funnel drops idle WebSockets | Confirm the 25s heartbeat is in the build; if drops persist, use the Cloudflare Tunnel fallback above |
 | Login fails with correct credentials | BananaVision account issue, or username temporarily locked after 5 failed attempts | Check the in-app Users page; wait 5 minutes for the lockout to expire |
 
 ---
@@ -160,5 +237,6 @@ Recommendation: use Option 1 for a small team of managers. Choose Option 2 only 
 ## Related documentation
 
 - [Kiosk Auto-Start Guide](kiosk-autostart-guide.md) — auto-login and app startup on the Mini PC.
+- [Caddyfile](../deploy/Caddyfile) — reverse proxy for the public HTTPS deployment.
 - [Installation Guide](INSTALLATION_GUIDE.md) — station hardware and software setup.
 - [User Guide](USER_GUIDE.md) — application roles and dashboard usage.
