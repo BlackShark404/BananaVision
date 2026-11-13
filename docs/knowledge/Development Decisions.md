@@ -2,6 +2,29 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-13: The QR page shows only the scanned data
+
+- **User request:** a phone that scans a BananaVision QR code sees only the scanned banana
+  data in a clean, read-only page: no "Log in", "Sign in", website or navigation buttons,
+  and no redirect to the login page.
+- **User decisions on 2026-11-13:** (1) every QR scan shows the data-only page, signed in
+  or not; the redirect of signed-in viewers to the staff Scan Detail page was removed.
+  (2) The public API stops sending photo references: `GET /api/v1/scans/{id}/track`
+  always returns `images: []`. The field stays in `PublicScanResponse`, so the response
+  shape does not change; staff endpoints still return images.
+- **Why the API change:** anyone with the link could read internal capture paths and
+  camera IDs. The page had already stopped showing photos, and `/captures` needs a staff
+  session.
+- **Provider boundary (found in review):** `/track/:scanId` is mounted outside the staff
+  data providers in `App.tsx`. Inside them, a phone holding an old staff session loaded
+  staff data on the QR page and was sent to `/login` when the token had expired or been
+  revoked. Removing the in-page redirect alone did not stop that.
+- **Kept:** the error screen's "Retry" button (it only reloads the same data), the
+  `/track/:scanId` route and URL, printed label formats, and the landing and login pages.
+- **Capstone storyboard:** Figure 92's text in
+  `docs/bananavision-docs/docs/STORYBOARD_CAPSTONE1.md` was updated on the user's
+  instruction; its screenshot still shows the old page and needs a new capture.
+
 ## 2026-11-13: AI-estimated numbers say "Est."
 
 - **User request:** label finger counts and other AI-estimated numbers "Est." everywhere so nobody reads a computer-vision estimate as an exact measurement. Raw values, API fields, database types, sorting, filters and thresholds stay numeric.

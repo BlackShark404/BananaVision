@@ -21,7 +21,6 @@ from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
 from app.models.scan_note import ScanNote
 from app.schemas.scan import (
-    PublicScanImageRef,
     PublicScanResponse,
     ScanDetailResponse,
     ScanFlagRequest,
@@ -45,7 +44,6 @@ from app.services.scan_records import (
     serialize_scan,
 )
 from app.services.inventory_policy import remaining_shelf_life, shelf_life_window
-from app.services.scan_evidence import evidence_url
 from app.services.ood_gate import REJECTION_CODE
 from app.services.scan_service import execute_scan_pipeline, rejection_payload
 from app.config import get_settings
@@ -192,7 +190,6 @@ async def public_scan_track(scan_id: uuid.UUID, db: DbSession):
         select(Scan).where(Scan.id == scan_id).options(
             selectinload(Scan.classification),
             selectinload(Scan.status_logs),
-            selectinload(Scan.images),
         )
     )).scalar_one_or_none()
     if scan is None:
@@ -222,13 +219,8 @@ async def public_scan_track(scan_id: uuid.UUID, db: DbSession):
         source_text=scan.source_text,
         inventory_status=latest.inventory_status if latest else "In Stock",
         flagged=scan.flagged,
-        images=[
-            PublicScanImageRef(
-                camera_id=img.camera_id,
-                file_path=evidence_url(img.file_path) or "",
-            )
-            for img in scan.images
-        ],
+        # Anyone with the QR link reads this; capture paths and camera IDs stay staff-only.
+        images=[],
     )
 
 

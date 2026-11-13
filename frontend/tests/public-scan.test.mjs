@@ -124,3 +124,108 @@ test('public QR tracking marks a flagged scan as pending quality review', async 
   await page.getByText('Pending quality review', { exact: true }).waitFor()
   await page.getByText(/classification and estimates shown are preliminary/i).waitFor()
 })
+
+// A phone scanning the printed QR code: the page must show only the scanned data.
+const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }
+const STAFF = { id: 'operator-1', username: 'fixture', fullName: 'Fixture Operator', role: 'Operator' }
+const CORS = { 'access-control-allow-origin': '*' }
+const scanned = () => ({
+  id: 'fixture-scan', date_time: '2026-09-30T12:00:00+08:00', cultivar: 'Lakatan',
+  ripeness: 'Ripe', spoilage_days: '5-7', remaining_days: 4, risk_as_of: '2026-10-02T12:00:00+08:00',
+  confidence: 90, finger_count: 7, temperature: 24, humidity: 80, vpd: 0.6,
+  treatment: 'Natural', source_text: 'Demo source', inventory_status: 'In Stock', images: [],
+})
+
+async function openOnPhone(t, path, { viewer = null, respond } = {}) {
+  const context = await runtime.browser.newContext(PHONE)
+  const page = await context.newPage()
+  const errors = [], requests = []
+  page.on('pageerror', error => errors.push(error.message))
+  t.after(async () => { await context.close(); assert.deepEqual(errors, []) })
+  await installEnvironment(page)
+  await page.addInitScript(viewer => { window.publicScanViewer = viewer }, viewer)
+  await page.route('**/api/v1/**', route => {
+    requests.push(route.request())
+    return route.fulfill(respond ? respond(requests.length) : { json: scanned(), headers: CORS })
+  })
+  await page.goto(`${runtime.url}${path}`)
+  return { page, requests }
+}
+
+async function assertNoWayOut(page) {
+  assert.equal(await page.locator('a, button, [role="button"], [role="link"], [onclick]').count(), 0)
+  assert.doesNotMatch(await page.locator('body').innerText(), /log\s*in|login|sign\s*in|website|dashboard/i)
+}
+
+async function assertScannedData(page) {
+  await page.getByText('Lakatan', { exact: true }).waitFor()
+  await page.getByText('fixture-scan', { exact: true }).waitFor()
+  await page.getByText('Ripe', { exact: true }).waitFor()
+  const fingers = page.getByText('Est. Fingers', { exact: true }).locator('..')
+  assert.equal(await fingers.locator('p').last().innerText(), '7')
+  const spoilage = page.getByText('Est. Spoilage', { exact: true }).locator('..')
+  await spoilage.getByText('4 days left', { exact: true }).waitFor()
+  await spoilage.getByText('Est. 5–7 days from scan', { exact: true }).waitFor()
+  await page.getByText('Sep 30, 2026', { exact: true }).waitFor()
+  await page.getByText('24°C', { exact: true }).waitFor()
+  await page.getByText(/Scan tracked at .*2026.*12:00:00/).waitFor()
+}
+
+test('a phone scanning the QR code sees only the scanned data, with no login or website buttons', async t => {
+  const { page, requests } = await openOnPhone(t, '/scans/fixture-scan/track')
+  await assertScannedData(page)
+  await assertNoWayOut(page)
+  assert.equal(new URL(page.url()).pathname, '/scans/fixture-scan/track')
+  assert.equal(requests.length, 1)
+  assert.equal(requests[0].headers().authorization, undefined)
+  // Fits the phone: no sideways scrolling. Mobile emulation widens window.innerWidth to fit
+  // wide content, so compare with the 390 px initial containing block instead.
+  assert.deepEqual(await page.evaluate(() => {
+    const root = document.documentElement
+    return { width: root.clientWidth, overflow: root.scrollWidth > root.clientWidth }
+  }), { width: 390, overflow: false })
+})
+
+test('a signed-in staff member scanning the QR code stays on the same data-only page', async t => {
+  const { page, requests } = await openOnPhone(t, '/scans/fixture-scan/track', { viewer: STAFF })
+  await assertScannedData(page)
+  await assertNoWayOut(page)
+  await page.clock.fastForward('00:05:00')
+  assert.equal(new URL(page.url()).pathname, '/scans/fixture-scan/track')
+  assert.equal(requests.length, 1)
+  assert.equal(requests[0].headers().authorization, undefined)
+})
+
+test('an unknown QR code shows a message and no buttons', async t => {
+  const { page } = await openOnPhone(t, '/scans/fixture-scan/track', {
+    respond: () => ({ status: 404, json: { detail: 'Scan not found' }, headers: CORS }),
+  })
+  await page.getByRole('alert').getByText('Scan not found', { exact: true }).waitFor()
+  await page.getByText('No scan record was found for this QR code.', { exact: true }).waitFor()
+  await assertNoWayOut(page)
+})
+
+test('a failed load offers only Retry, which then shows the data', async t => {
+  const { page, requests } = await openOnPhone(t, '/scans/fixture-scan/track', {
+    respond: count => count === 1
+      ? { status: 503, json: { detail: 'Service unavailable' }, headers: CORS }
+      : { json: scanned(), headers: CORS },
+  })
+  await page.getByRole('alert').getByText('Could not load scan', { exact: true }).waitFor()
+  const buttons = page.getByRole('button')
+  assert.deepEqual(await buttons.allInnerTexts(), ['Retry'])
+  assert.equal(await page.getByRole('link').count(), 0)
+  assert.doesNotMatch(await page.locator('body').innerText(), /log\s*in|login|sign\s*in|website|dashboard/i)
+  await buttons.click()
+  await assertScannedData(page)
+  await assertNoWayOut(page)
+  assert.equal(requests.length, 2)
+})
+
+test('the normal landing page keeps its login buttons', async t => {
+  const { page } = await openOnPhone(t, '/scans/landing-check')
+  const access = page.getByRole('button', { name: 'Access Dashboard' })
+  await access.waitFor()
+  await access.click()
+  assert.equal(new URL(page.url()).pathname, '/login')
+})
