@@ -2,7 +2,7 @@ CURRENT RESUME HERE (2026-11-13) - ASIA/MANILA TIME ZONE EVERYWHERE
 
 The previous checkpoint (audit of the recent commits, d1c65b2) is archived byte-for-byte
 in docs/history/2026-11-13-before-manila-everywhere.txt. Khen's parallel checkpoint from
-team main (public HTTPS access, 434b3ff and d27684d) is archived byte-for-byte in
+team main (public HTTPS access, 434b3ff to 52cd2f6) is archived byte-for-byte in
 docs/history/2026-11-13-public-https-access-checkpoint.txt; it is merged here.
 
 AUTHORIZED SCOPE
@@ -69,7 +69,8 @@ MERGED FROM TEAM MAIN (Khen, public HTTPS access, not deployed)
   JWT_SECRET_KEY and hides API docs; VITE_PUBLIC_BASE_URL sets the QR label origin;
   WebSocket ping every 25 s. Tailnet Serve smoke-tested on a Mac; Funnel, the Mini PC,
   real cameras and the sensor were not tested. Full notes in the archive above and in
-  docs/remote-access.md.
+  docs/remote-access.md. For temporary Mac tailnet access: deploy/start-mac-tailnet.sh,
+  stopped with deploy/stop-mac-tailnet.sh.
 - Pending (Khen): when deployment is authorized, follow docs/remote-access.md on the
   Mini PC (install Caddy, caddy validate --config deploy/Caddyfile, start backend and
   Caddy, enable Funnel) and verify the public URL, Funnel WebSockets, cameras and sensor.

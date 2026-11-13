@@ -217,6 +217,27 @@ The status output shows the public URL. Funnel accepts only ports `443`, `8443` 
 
 ---
 
+## macOS tailnet dry run (optional)
+
+Use the scripts on a Mac that is already in the tailnet to exercise the HTTPS path without Funnel, Windows or station hardware.
+
+Prerequisites: Tailscale connected, backend venv prepared, frontend `node_modules` installed, and HTTPS certificates/Serve enabled for the tailnet. The scripts use `backend/.env` and the local model weights as-is, so confirm that file points at a development database, not the station database.
+
+```bash
+deploy/start-mac-tailnet.sh              # builds frontend, starts backend + Caddy, enables Serve
+deploy/start-mac-tailnet.sh --skip-build # reuse the current frontend/dist
+deploy/stop-mac-tailnet.sh               # stops both processes and removes Serve
+```
+
+- The start script downloads Caddy into `~/Library/Caches/bananavision` when missing, checks GitHub's published asset digest, and validates `deploy/Caddyfile`.
+- Backend and Caddy bind loopback (`127.0.0.1:8000` and `127.0.0.1:8080`). Only Tailscale Serve is reachable by tailnet devices. No macOS firewall rule is needed; the Windows firewall rule in Option 1 applies only to the Mini PC and direct ports `5173`/`8000`.
+- The build sets `VITE_PUBLIC_BASE_URL` to the printed `https://<host>.<tailnet>.ts.net` origin, so QR labels resolve during the dry run.
+- The script prints the URL. Logs and PID files live in `~/.local/state/bananavision-tailnet`.
+- The stop script removes the Serve mapping and kills only processes whose stored command matches. It is safe to run twice.
+- This is a verification aid, not the public deployment. It does not enable Funnel.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
