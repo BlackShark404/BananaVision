@@ -7,6 +7,8 @@ from datetime import datetime
 
 # Add the app directory to path so we can import config if needed
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from app.core.time import now_manila  # noqa: E402  (Asia/Manila clock)
+
 try:
     from app.config import get_settings
     settings = get_settings()
@@ -105,9 +107,9 @@ def monitor_serial(port, baudrate):
         try:
             line = ser.readline().decode("utf-8").strip()
             if line:
-                print(f"[{datetime.now().strftime('%H:%M:%S')}] RAW: {line}")
+                print(f"[{now_manila().strftime('%H:%M:%S')}] RAW: {line}")
             else:
-                print(f"[{datetime.now().strftime('%H:%M:%S')}] No data...")
+                print(f"[{now_manila().strftime('%H:%M:%S')}] No data...")
         except Exception as e:
             print(f"❌ Serial read error: {e}")
             time.sleep(2)

@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "caveman": {
-      "url": "https://caveman.so/mcp"
+      "serverUrl": "https://caveman.so/mcp"
     }
   }
 }

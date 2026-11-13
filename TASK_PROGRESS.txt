@@ -1,26 +1,58 @@
-CURRENT RESUME HERE (2026-11-13) - PUBLIC HTTPS ACCESS (OPTION 2) IMPLEMENTED,
-TAILNET-SMOKE-TESTED WITH MAC START/STOP SCRIPTS, NOT DEPLOYED
+CURRENT RESUME HERE (2026-11-13) - QR SCAN PAGE SHOWS ONLY THE SCANNED DATA;
+PUBLIC HTTPS ACCESS MERGED LOCALLY, NOT DEPLOYED
 
-The previous checkpoint (live shelf-life countdown) is archived byte-for-byte in
-docs/history/2026-11-13-before-public-https-access.txt.
+The previous checkpoint ("Est." on AI-estimated numbers, merged to team main as b49ecca
+via PR #8) is archived byte-for-byte in
+docs/history/2026-11-13-before-public-qr-data-only.txt.
 
-AUTHORIZED SCOPE / LATEST DECISIONS
-- User audited docs/remote-access.md and chose Option 2: a public HTTPS link with no
-  installs for users.
-- User decisions on 2026-11-13:
-  1. Tunnel: Tailscale Funnel with Caddy as the local reverse proxy.
-  2. Camera feeds: require a BananaVision login.
-  3. QR labels: add a configurable public base URL so printed labels resolve off-station.
-  4. Scope: code, proxy config and docs. No deployment.
-- Delivery: the implementation is committed and pushed as 434b3ff, and the macOS
-  start/stop scripts plus their docs as 9bb968f. The production env templates, the
-  Windows Mini PC runbook and the edits in this file are uncommitted. No push, Funnel change, deployment or live station action was made during
-  the smoke test. A temporary Caddy binary and disposable PostgreSQL database were used
-  and removed, along with temp secrets and the Serve config. The user enabled Serve/HTTPS
-  certificates on the tailnet for that test; the tailnet setting remains, but no serve
-  config is left on this Mac.
+The public HTTPS checkpoint (Option 2 design, verification and Mac tailnet smoke test) is
+archived in docs/history/2026-11-13-public-https-access-checkpoint.txt. The env templates
+and Windows runbook followed in local commit 4ccf1ed. That commit and this merge are local
+and not pushed.
 
-IMPLEMENTED
+AUTHORIZED SCOPE / LATEST DECISIONS (2026-11-13)
+- QR page (team main, PR #9): a phone that scans a BananaVision QR code sees only the
+  scanned banana data in a clean, read-only page: no Log in / Sign in / website /
+  navigation buttons, no redirect to login. Login controls stay on the normal pages.
+- QR decisions: (1) every QR scan shows the data-only page, signed in or not (the
+  redirect of signed-in viewers to /scans/<id> is removed). (2) The public API stops
+  sending photo references: GET /api/v1/scans/{id}/track always returns images: []
+  (field kept). (3) Update the capstone storyboard's Figure 92 text (its screenshot still
+  needs a new capture by the team).
+- Public HTTPS (Khen, local main): Option 2, a public HTTPS link with no installs for
+  users. Decisions: Tailscale Funnel with Caddy; camera feeds require a BananaVision
+  login; QR labels use a configurable public base URL; scope is code, proxy config and
+  docs, with no deployment.
+
+ROOT CAUSE (QR PAGE)
+- Web QR codes open /track/<scan id> (frontend/src/lib/qrcode.ts). PublicScanView had a
+  header "Log in" button, a "Need more details?" login card, a "Log in" button on the
+  error and not-found screens, and redirected signed-in viewers to the staff page.
+- Found in review: App.tsx mounted /track inside AdminProvider, ScanProvider and
+  InventoryProvider. With a stored staff session those providers loaded staff data and
+  opened the staff socket on the QR page; an expired or revoked token then hit the 401
+  handler (lib/api.ts) or the 4001 socket close (useWebSocket.ts) and sent the phone to
+  /login.
+- The public track response listed internal capture paths and camera IDs.
+- Thermal printer labels hold a plain-text QR payload; not affected.
+
+DONE
+QR page:
+- frontend/src/pages/PublicScanView.tsx: login button, login card, error "Log in" and the
+  redirect removed; the page no longer reads the signed-in user. Error screen keeps
+  "Retry" only; not-found has no button. Data, layout and Asia/Manila times unchanged.
+- frontend/src/App.tsx: /track/:scanId in its own top-level route outside the staff
+  providers and toaster (StaffApp wraps every other route, unchanged).
+- backend/app/api/v1/scans.py public_scan_track: images=[], no longer loads Scan.images.
+- Tests: frontend/tests/public-scan.test.mjs (+5 at 390x844: data only, no controls or
+  login/website text, signed-in viewer, not-found, error with Retry, landing keeps its
+  login button), public-scan.fixture.tsx; new public-scan-app.test.mjs (+2, real App with
+  an expired staff session), public-scan-app.fixture.tsx, app.auth.tsx; harness serves
+  /track paths (dashboard.browser.mjs); backend/tests/test_public_scan_track.py (new).
+- Docs: docs/knowledge/Frontend.md, Development Decisions.md, Testing and Validation.md;
+  docs/bananavision-docs/docs/STORYBOARD_CAPSTONE1.md Figure 92 text and Main Actions.
+
+Public HTTPS:
 - Frontend transport: an HTTPS page calls its own origin for HTTP and WebSocket traffic
   (empty BASE_URL, wss on window.location.host). Plain HTTP keeps http://<host>:8000.
   VITE_API_URL and VITE_WS_URL remain explicit overrides.
@@ -28,8 +60,7 @@ IMPLEMENTED
   unmount. Ownership, backoff and room behavior are unchanged.
 - Media auth: withMediaToken adds the session as ?token= for Kiosk, Dashboard and camera
   calibration previews; the backend accepts a bearer header or query token. Evidence
-  images under /captures remain bearer-only. Public QR tracking no longer renders camera
-  images and states that evidence stays behind staff authentication.
+  images under /captures remain bearer-only.
 - QR: VITE_PUBLIC_BASE_URL overrides the origin embedded in printed labels; trailing
   slashes are removed. Without it, labels keep the kiosk origin.
 - Backend: get_media_user shares _resolve_user with get_current_user; the preview route
@@ -41,10 +72,9 @@ IMPLEMENTED
   returns 404 for API docs and adds HSTS, CSP, X-Content-Type-Options, X-Frame-Options,
   Referrer-Policy and no Server header.
 - Env/docs: backend/.env.example documents production secrets, trusted proxies and the
-  LAN-compatible CORS example; frontend env comments describe same-origin and the public
-  QR base. deploy/backend.env.production.example and frontend/.env.production.example are
-  ready-to-merge production templates with placeholders only, no secrets.
-  docs/remote-access.md now contains the full Option 2 procedure, and
+  LAN-compatible CORS example. deploy/backend.env.production.example and
+  frontend/.env.production.example are ready-to-merge production templates with
+  placeholders only, no secrets. docs/remote-access.md contains the Option 2 procedure;
   docs/windows-mini-pc-deployment.md is the linear Windows station runbook (not yet run
   on Windows). Knowledge notes Frontend.md, Development Decisions.md and Testing and
   Validation.md are updated.
@@ -53,6 +83,31 @@ IMPLEMENTED
   test covers the heartbeat.
 
 VERIFICATION
+QR page (team main, before this merge):
+- Backend with a throwaway PostgreSQL 16 cluster: 842 passed, 38 skipped; without
+  PostgreSQL 776 passed, 104 skipped. Backend code did not change after these runs.
+- Frontend: 347 of 348 passed in the full run. The one failure, kiosk-pin "back cancels
+  delayed PIN verification", was a clock race in that test's setup ("Cannot fast-forward
+  to the past") while review agents loaded the machine; it passed 15/15 in three runs on
+  its own and touches no changed file. Type check and production build pass.
+- Lint: ESLint 40 problems and Ruff (app tests) 635, both equal to HEAD; changed files
+  clean.
+- Before the fixes: the 4 new QR browser tests, the real-App test (navigated to /login)
+  and the backend test (capture path in the response) all failed.
+- Screenshots at 390 px: data, flagged, not-found, error (Retry only), landing (login
+  buttons kept), and the real App with a stored staff session (no staff requests, no
+  controls). All six measured with clientWidth 390 and no overflow.
+- Codex Security scoped scan (scans.py, PublicScanView.tsx, qrcode.ts; gpt-5.6-terra,
+  low effort): 0 findings. App.tsx was not in that scan; the review workflow covered it.
+- Review workflow (3 reviewers, 2 skeptics per finding): first round found the provider
+  boundary (fixed above) and the stale storyboard (updated). Final round on the whole
+  diff: routing and security lenses found nothing; the test lens found the phone overflow
+  check could not fail under isMobile (innerWidth grows with content). Confirmed in a
+  browser (a 600 px element read 616/616) and fixed: tests compare with clientWidth 390.
+  The two QR test files pass 14/14 after that test-only change.
+- Graphify refreshed. ICM and UI/UX Pro Max are not available in the cloud session.
+
+VERIFICATION — PUBLIC HTTPS (local main, before this merge)
 - Backend full suite from a fresh temporary working directory: 764 passed, 104 skipped in
   68.29s (PostgreSQL-only cases skipped; no disposable cluster).
 - Backend targeted camera/settings/connectivity/security tests after the final edit:
@@ -106,29 +161,44 @@ MAC TAILNET START/STOP SCRIPTS (2026-11-13)
   second start while running was refused. Test database and temp files were removed.
 - The Caddy binary and archive stay in the user cache for faster restarts.
 
-LIMITS / NOT VERIFIED
-- The public Tailscale Funnel path, public URL and Funnel WebSocket behavior were not
-  tested; only tailnet Serve over HTTPS was.
-- The helper scripts are macOS-only. They use backend/.env and local model weights as-is,
-  so that file must point at a development database, never the station database.
-- The Mini PC was unavailable: Windows Caddy, the station hostname, kiosk autostart, real
-  cameras and the sensor were not exercised. The smoke test used camera index 99 and a
-  nonexistent sensor port on macOS.
-- Browser tests use mocked HTTP/WebSocket transports and a Playwright module from another
-  installed project (PLAYWRIGHT_MODULE).
-- Graphify and ICM are not installed in this environment; graph and memory were not
-  refreshed.
-- CORS keeps the shipped wildcard so documented plain-HTTP LAN/Tailscale clients continue
-  to work. Port 8000 must stay off the public internet.
-- Homebrew's Go 1.27.4 remains installed after the failed Caddy build; remove it only with
-  user approval if unwanted.
+MERGE RESOLUTION (2026-11-13)
+- Only TASK_PROGRESS.txt conflicted. All source, test and documentation changes merged
+  without textual conflicts; the QR route, public HTTPS transport, media auth and public
+  base URL are all present in the merged tree.
+- This file combines both checkpoints. Full-resolution details remain in the two archived
+  history files.
+- Post-merge backend full suite from a fresh temporary directory: 776 passed, 104 skipped
+  in 76.47s. PostgreSQL-only cases were skipped; no disposable cluster was used.
+- Post-merge frontend targeted suites (public scan, real-App QR route, Manila time,
+  estimates, connectivity, shelf-life window, scan records): 130/130 passed in 91.0s.
+  `npm run typecheck` and `npm run build` pass.
+- ESLint: 40 problems (35 errors, 5 warnings), matching the recorded team baseline; no
+  new diagnostics. Ruff is not installed in the local venv, so it was not rerun.
+- `git diff --check` is clean. No live station database, captures, cameras, sensors, OS
+  power, deployment or push was used.
+
+NOT CHANGED (QR PAGE, reported)
+- Thermal label QR text, the /track/:scanId URL, the staff Scan Detail page, landing and
+  login pages, API field names and types, the database. Staff open the full scan detail
+  from the dashboard.
+
+STILL OPEN
+- Team: re-capture the Figure 92 screenshot in the capstone storyboard.
+- From Khen (public HTTPS, not pushed or deployed): local main has 434b3ff, 9bb968f,
+  4ccf1ed and this merge. When deployment is authorized, follow
+  docs/windows-mini-pc-deployment.md on the Mini PC; the Mac tailnet scripts remain
+  deploy/start-mac-tailnet.sh and deploy/stop-mac-tailnet.sh.
+- From the audit (team decisions): Non-Banana Detection Audit.md status line;
+  .codex/config.toml default model and laptop paths; uncertain-cultivar estimate shown
+  outside Kiosk; ModelInferenceError detail; missing [[System Architecture]] and
+  [[Backend]] notes; second kiosk shows a rejection; public QR countdown for every status;
+  Top-calibrated OOD rerun.
 
 EXACT NEXT STEP
-- For temporary Mac tailnet access, run `deploy/start-mac-tailnet.sh`; stop it with
-  `deploy/stop-mac-tailnet.sh`. Review the uncommitted env templates and notes before
-  committing.
-- When deployment is authorized, follow docs/windows-mini-pc-deployment.md on the Mini
-  PC. Verify the public URL, Funnel WebSocket traffic, the real cameras and the sensor on
-  the station.
-- The tailnet Serve/HTTPS certificate setting enabled for the smoke test can stay enabled
-  for that deployment; no Serve config remains on this Mac.
+- Push the merged local main only with explicit authorization; this is a shared-branch
+  write and has not been done.
+- Then deploy when authorized: follow docs/windows-mini-pc-deployment.md on the Mini PC
+  and verify the public URL, Funnel WebSocket traffic, the real cameras and the sensor.
+- For temporary Mac tailnet access, run deploy/start-mac-tailnet.sh; stop it with
+  deploy/stop-mac-tailnet.sh. The tailnet Serve/HTTPS certificate setting enabled for the
+  smoke test can stay enabled for that deployment; no Serve config remains on this Mac.

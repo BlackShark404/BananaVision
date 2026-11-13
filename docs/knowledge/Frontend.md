@@ -2,6 +2,30 @@
 
 BananaVision's frontend is a React 19 single-page application built with Vite, TypeScript, Tailwind CSS, and Radix UI primitives.
 
+## Public QR page shows only the scanned data (2026-11-13)
+
+Decision: [[Development Decisions]]; tests: [[Testing and Validation]].
+
+- Web QR codes open `/track/<scan id>` (`frontend/src/lib/qrcode.ts`), which renders
+  `PublicScanView` outside the staff layout. The page is read-only: logo and
+  "BananaVision · Scan Tracking" header (plain text), scan ID, pending-review notice,
+  cultivar, ripeness, confidence, `Est. Fingers`, `Est. Spoilage` with the Asia/Manila
+  countdown and `Est. … from scan`, scan date, sensor readings, source, treatment, stock
+  status and the footer time.
+- No link or button leaves the page: the header "Log in" button, the "Need more details?"
+  login card and the error-screen "Log in" button were removed. The not-found screen has
+  no button; the error screen keeps only "Retry".
+- A signed-in staff member who scans a QR code sees the same page. The former redirect to
+  `/scans/<id>` was removed and the page no longer reads the signed-in user.
+- `App.tsx` mounts `/track/:scanId` in its own top-level route, outside `AdminProvider`,
+  `ScanProvider`, `InventoryProvider` and the toaster (`StaffApp` holds them for every other
+  route). With a stored staff session those providers loaded staff data and opened the
+  staff socket on every page; an expired or revoked token then hit the 401 handler in
+  `lib/api.ts` or the 4001 socket close in `useWebSocket.ts` and sent the phone to `/login`.
+  The QR page now sends only its one public request.
+- Login controls stay on the normal pages (landing, `/login`, the staff layout). Thermal
+  printer labels hold a plain-text QR payload and are unaffected.
+
 ## Public HTTPS links (2026-11-13)
 
 - An HTTPS page uses its own origin for HTTP and WebSocket traffic: `BASE_URL` is empty and `WS_BASE` is `wss://<same host>`. A reverse proxy therefore serves the built SPA, `/api`, `/captures`, `/health` and the WebSocket upgrade from one origin. Plain-HTTP station pages keep the historical `http://<host>:8000` backend and direct `ws://<host>:8000` socket.
@@ -152,6 +176,57 @@ history and CSV. Read-only correction inputs and change previews format their la
 without replacing draft values. Dashboard/Analytics show aggregate counts and link to
 Scan Logs; they do not render a separate per-scan spoilage estimate.
 
+## "Est." on AI-estimated numbers (2026-11-13)
+
+Decision and reasons: [[Development Decisions]]. Helper: `src/lib/estimates.ts`.
+
+| Surface | Finger count | Shelf life |
+| --- | --- | --- |
+| Kiosk result card | `Est. Fingers` label, bare number | under `Est. Spoilage` (unchanged) |
+| Kiosk recent scans | `Est. 13 fingers` / `13 fingers` when corrected | `Est. 0–2 days left`, `Est. 1–3 days` |
+| Kiosk camera badges | title `Est. N fingers in this camera view` | — |
+| Scan Logs | column `Est. Fingers` (rows carry no per-field correction data) | `Est. Spoilage` column (unchanged) |
+| Scan Detail | `Est. Fingers` / `Fingers` when corrected | `Est. Spoilage` (unchanged) |
+| Quality Control dialog | `Est. Fingers` / `Fingers` when corrected | `Est. Spoilage` (unchanged) |
+| Correction inputs (Scan Detail, QC) | `Fingers` (a person types the count) | `Est. Spoilage (days)` (read-only, recomputed) |
+| Public QR | `Est. Fingers` always (no correction data) | `Est. Spoilage` (unchanged) |
+| Inventory | `Est. Total Fingers`, `Est. 28 fingers • …`, `(Est. 7 fingers)`; plain when every scan in the total was corrected | alert badges and `Earliest spoilage:` values prefixed `Est.` |
+| QC exports | `Est. Spoilage (days)`, `Est. Finger Count` headers | |
+
+- `fingerCountText` handles singular (`Est. 1 finger`), zero (`Est. 0 fingers`) and missing
+  values (`Fingers unknown`). `estimateText` leaves `Unknown` and `—` alone and never
+  doubles the prefix.
+- Unchanged on purpose: cultivar, ripeness, confidence, temperature, humidity, VPD, dates,
+  IDs, the "Changes from AI result" preview and Scan History entries, and the printed
+  label and its preview (they already say `PREDICTION` / `Saved prediction`).
+- Live `scan:changed` events omit `original_ai_result`; `ScanContext.acceptScan` keeps the
+  baseline it already has, so a corrected count does not turn back into `Est.`.
+- The `Est. … from scan` sub-line is hidden when the stored estimate cannot be displayed,
+  so the page never shows `Est. Unknown`. Empty Inventory reads `Total Fingers` / `No stock`.
+
+## Asia/Manila time zone everywhere (2026-11-13)
+
+Every date and time the app shows, groups by day or puts in a file name is Asia/Manila,
+whatever zone the viewing machine uses. Rule and reasons: [[Development Decisions]].
+
+- `src/lib/manilaTime.ts` is the only place that names the zone:
+  `MANILA_TIME_ZONE`, `inManila(options)` (adds the zone to `toLocale*String` and
+  `Intl.DateTimeFormat` options; it cannot be overridden), `manilaDayKey(time)` (Manila
+  `YYYY-MM-DD`) and `manilaToday()` (the Manila day as a local `Date` for date pickers).
+- Call sites keep their locale and format and only gain the zone, so screens look the
+  same: `x.toLocaleDateString("en-US", inManila({ month: "short", day: "numeric" }))`.
+- Export file names use `manilaDayKey(Date.now())`, so an export at 00:30 in Manila is
+  named with that day, not the UTC date.
+- `AppDateFilter` passes `today={manilaToday()}` to the calendar; the value stays a plain
+  `YYYY-MM-DD` calendar day. The picker's experimental `timeZone` prop is not used.
+- Dashboard, Analytics and `lib/shelfLifeWindow.ts` use the same helper instead of
+  private copies.
+- Guard: `tests/manilaTime.test.mjs` fails if any file in `src/` calls a
+  `toLocale*String` or `Intl.DateTimeFormat` without the Manila zone, takes a date from
+  `toISOString()`, or reads `getFullYear`/`getHours`-style local fields. Allowed by name:
+  `lib/isoDay.ts` and `components/ui/calendar.tsx` (local calendar days of the picker)
+  and `components/ui/chart.tsx` (numbers).
+
 ## Live shelf-life window (2026-11-13)
 
 A record's estimate no longer reads as today's value days after the scan. The server adds
@@ -191,7 +266,8 @@ Where the countdown shows, for In Stock records:
   its two-day rule uses, so a card under "≤2 days left" never shows a label above two days.
 
 Unchanged by decision: Sold, Spoiled and For Processing records keep the scan-time
-estimate. The Kiosk result card of the scan just taken, correction inputs, change
+estimate on staff pages; only the public QR page counts down for every status, as it did
+before. The Kiosk result card of the scan just taken, correction inputs, change
 previews, Scan History entries, printed labels, the label preview and CSV/XLSX exports
 keep the stored estimate.
 

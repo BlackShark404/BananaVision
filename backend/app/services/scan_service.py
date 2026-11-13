@@ -55,6 +55,11 @@ CAPTURE_UNAVAILABLE_MESSAGE = (
 )
 
 
+def estimated_fingers(count: int) -> str:
+    """Wording for an AI finger count in notifications and the activity log."""
+    return f"Est. {count} {'finger' if count == 1 else 'fingers'}"
+
+
 def rejection_payload(exc: ScanRejectedError) -> dict:
     """Machine-readable rejection fields shared by the HTTP and WebSocket contracts."""
     is_ood = exc.code == ood_gate.REJECTION_CODE
@@ -429,7 +434,7 @@ async def _execute_scan_pipeline(
             action="scan_created",
             details=(
                 f"Scanned {fused.cultivar} ({fused.ripeness}) — "
-                f"{fused.confidence}% confidence, {fused.finger_count} fingers"
+                f"{fused.confidence}% confidence, {estimated_fingers(fused.finger_count)}"
                 + (
                     f"; {ood_rejected_boxes} boxes without banana evidence dropped, "
                     "flagged for review"
@@ -445,7 +450,7 @@ async def _execute_scan_pipeline(
             title="Scan Completed",
             message=(
                 f"{fused.cultivar} · {fused.ripeness} · "
-                f"{fused.confidence}% confidence · {fused.finger_count} fingers"
+                f"{fused.confidence}% confidence · {estimated_fingers(fused.finger_count)}"
             ),
             href=f"/scans/{scan_id_str}",
             user_id=account_id,

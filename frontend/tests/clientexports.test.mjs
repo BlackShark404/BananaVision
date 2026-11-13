@@ -25,11 +25,11 @@ const intakes = Array.from({ length: 19 }, (_, index) => ({
   source: index === 18 ? "Excluded" : `${longText}${String(index).padStart(2, "0")}`,
 })).reverse()
 
-async function openScreen(t, screen, fail = false) {
+async function openScreen(t, screen, fail = false, now) {
   const context = await runtime.browser.newContext({ timezoneId: "America/New_York" })
   t.after(() => context.close())
   const page = await context.newPage()
-  await installEnvironment(page)
+  await installEnvironment(page, now ? { now } : {})
   const errors = []
   page.on("pageerror", error => errors.push(error.message))
   t.after(() => assert.deepEqual(errors, []))
@@ -62,14 +62,18 @@ async function openScreen(t, screen, fail = false) {
   return page
 }
 
-async function download(page, format) {
+async function startDownload(page, format) {
   const pending = page.waitForEvent("download")
   if (format === "csv") await page.getByRole("button", { name: "Export CSV", exact: true }).click()
   else {
     await page.getByRole("button", { name: "Export options", exact: true }).click()
     await page.getByRole("menuitem", { name: /Excel/ }).click()
   }
-  const file = await pending
+  return pending
+}
+
+async function download(page, format) {
+  const file = await startDownload(page, format)
   const chunks = []
   for await (const chunk of await file.createReadStream()) chunks.push(chunk)
   assert.ok(file.suggestedFilename().endsWith(`.${format}`))
@@ -92,6 +96,17 @@ function parseCsv(buffer) {
   }
   if (value || row.length) { row.push(value); rows.push(row) }
   return rows
+}
+
+for (const [screen, prefix] of [["activity", "activity-log"], ["intakes", "intakes"], ["quality", "quality-control"]]) {
+  test(`${screen} export file names carry the Asia/Manila date, not the UTC or browser date`, async t => {
+    // 16:30 UTC on 1 October is 00:30 on 2 October in Manila and 12:30 on 1 October in New York.
+    const page = await openScreen(t, screen, false, "2026-10-01T16:30:00Z")
+    for (const format of ["csv", "xlsx"]) {
+      const file = await startDownload(page, format)
+      assert.equal(file.suggestedFilename(), `${prefix}-2026-10-02.${format}`)
+    }
+  })
 }
 
 for (const screen of ["activity", "intakes", "quality"]) {

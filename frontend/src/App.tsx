@@ -67,7 +67,6 @@ function AppRoutes() {
         <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/kiosk" element={<Kiosk />} />
-        <Route path="/track/:scanId" element={<PublicScanView />} />
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/logs" element={<Logs />} />
@@ -90,19 +89,31 @@ function AppRoutes() {
   )
 }
 
+function StaffApp() {
+  return (
+    <AdminProvider>
+      <ScanProvider>
+        <InventoryProvider>
+          <AppRoutes />
+          <ResponsiveToaster />
+        </InventoryProvider>
+      </ScanProvider>
+    </AdminProvider>
+  )
+}
+
 function App() {
   return (
     <ThemeProvider defaultTheme="light" storageKey="bananavision-theme">
       <AuthProvider>
         <BrowserRouter>
-          <AdminProvider>
-            <ScanProvider>
-              <InventoryProvider>
-                <AppRoutes />
-                <ResponsiveToaster />
-              </InventoryProvider>
-            </ScanProvider>
-          </AdminProvider>
+          <Routes>
+            {/* QR tracking page: public scan data only. It sits outside the staff data
+                providers, so a phone holding a staff session never loads staff data, opens
+                the staff socket or gets sent to /login from here. */}
+            <Route path="/track/:scanId" element={<Suspense fallback={<PageLoader />}><PublicScanView /></Suspense>} />
+            <Route path="*" element={<StaffApp />} />
+          </Routes>
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>

@@ -225,7 +225,7 @@ async def test_seed_and_kiosk_records_agree_across_consumers(
         )))
         row = next(item for item in exported if item["Scan ID"] == saved["id"])
         assert row["VPD (kPa)"] == ("" if expected_vpd is None else f"{expected_vpd:.3f}")
-        assert row["Original Shelf Life (days)"] == saved["spoilage_days"]
+        assert row["Est. Original Shelf Life (days)"] == saved["spoilage_days"]
         assert row["Source"] == log.source_name
         assert row["Scanned At (UTC+08:00)"] == saved["date_time"]
         assert len(predictions) == 1  # Reads never rerun predictions.

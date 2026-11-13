@@ -2,6 +2,46 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-13: The QR page shows only the scanned data
+
+- **User request:** a phone that scans a BananaVision QR code sees only the scanned banana
+  data in a clean, read-only page: no "Log in", "Sign in", website or navigation buttons,
+  and no redirect to the login page.
+- **User decisions on 2026-11-13:** (1) every QR scan shows the data-only page, signed in
+  or not; the redirect of signed-in viewers to the staff Scan Detail page was removed.
+  (2) The public API stops sending photo references: `GET /api/v1/scans/{id}/track`
+  always returns `images: []`. The field stays in `PublicScanResponse`, so the response
+  shape does not change; staff endpoints still return images.
+- **Why the API change:** anyone with the link could read internal capture paths and
+  camera IDs. The page had already stopped showing photos, and `/captures` needs a staff
+  session.
+- **Provider boundary (found in review):** `/track/:scanId` is mounted outside the staff
+  data providers in `App.tsx`. Inside them, a phone holding an old staff session loaded
+  staff data on the QR page and was sent to `/login` when the token had expired or been
+  revoked. Removing the in-page redirect alone did not stop that.
+- **Kept:** the error screen's "Retry" button (it only reloads the same data), the
+  `/track/:scanId` route and URL, printed label formats, and the landing and login pages.
+- **Capstone storyboard:** Figure 92's text in
+  `docs/bananavision-docs/docs/STORYBOARD_CAPSTONE1.md` was updated on the user's
+  instruction; its screenshot still shows the old page and needs a new capture.
+
+## 2026-11-13: AI-estimated numbers say "Est."
+
+- **User request:** label finger counts and other AI-estimated numbers "Est." everywhere so nobody reads a computer-vision estimate as an exact measurement. Raw values, API fields, database types, sorting, filters and thresholds stay numeric.
+- **User decisions on 2026-11-13:** (1) one term on every page: labels `Est. Fingers`, values `Est. 13 fingers`; tooltips keep the full word "Estimated". This supersedes the `Estimated Fingers` wording in the Cardaba entry below. (2) A count a person corrected is not an estimate: it reads `Fingers` / `13 fingers`, and the correction inputs are labelled `Fingers`. (3) Numbers only: finger counts and shelf-life estimates; cultivar, ripeness and confidence keep their labels. (4) Exports, the scan-completed notification and new activity entries use the same wording; cells stay plain numbers.
+- **When a count is corrected:** `is_overridden` is scan-level (set when any of cultivar, ripeness, finger count or spoilage changes), so the rule is per field: corrected only when the scan is overridden, an AI baseline (`original_ai_result`) exists and the current count differs from it. Scan Logs rows and the public QR response carry no baseline, so those pages always say "Est.".
+- **Spoilage stays an estimate** even after a correction: its edit field is read-only and is recomputed from cultivar and ripeness.
+- **Live updates keep the baseline.** `scan:changed` events omit `original_ai_result`, so `ScanContext` keeps the one it already read; otherwise a corrected count turned back into an estimate on other open screens (found in review).
+- **One implementation:** `frontend/src/lib/estimates.ts` (`fingersLabel`, `fingerCountText`, `fingerCountIsEstimate`, `estimateText`) and `estimated_fingers` in `backend/app/services/scan_service.py`.
+
+## 2026-11-13: Asia/Manila for every timezone-related behaviour
+
+- **User rule:** "Always make sure the system uses Asia/Manila timezone in all timezone related functionalities."
+- **State found.** Business data already followed it: `backend/app/core/time.py`, `ManilaDateTime` columns (every timestamp loads as +08:00), the PostgreSQL session zone, analytics grouping and dashboard business days. What did not: 21 frontend places that used the browser's zone or the UTC date (Kiosk header clock, Scan Detail footer and notes, QC list, Profile activity, user/supplier/device dates, backup expiry, the printed QR tag date, export file names, the date picker's "today", the footer year), backend log timestamps, and the zip member times inside XLSX exports and the backup manifest.
+- **Decision.** One frontend helper, `frontend/src/lib/manilaTime.ts`, next to the backend's `app/core/time.py`. Call sites keep their locale and format and only gain the zone, so nothing looks different. Log lines use a Manila clock and end in `+08:00`; zip members are stamped from `now_manila()`.
+- **Guards.** `frontend/tests/manilaTime.test.mjs` and `backend/tests/test_manila_time_guard.py` scan the sources and fail on any new clock read outside the two helpers; browser tests run in Los Angeles and New York browsers; backend tests run with the process clock in Los Angeles.
+- **Not changed:** stored data and API contracts (already correct); `YYYY-MM-DD` values sent to the API (already Manila business days); the profile's "last 7 days" (a rolling 168-hour window that does not depend on a zone).
+
 ## 2026-11-13: Public HTTPS access uses one origin behind Tailscale Funnel and Caddy
 
 - **Topology.** `Internet -> Tailscale Funnel (TLS on 443) -> Caddy 127.0.0.1:8080 -> uvicorn 127.0.0.1:8000`. Caddy serves the built `frontend/dist`, forwards `/api`, `/captures` and `/health`, and adds HSTS, CSP, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and hides `Server`. Funnel exposes one HTTPS port and no LAN listener, so no router port forwarding is involved.
@@ -13,23 +53,22 @@ Documented architectural, technical, and operational decisions in BananaVision.
 - **Socket keepalive.** Tailscale Funnel drops idle WebSockets, so the client sends a `ping` event every 25 seconds. If Funnel still breaks long-lived sockets, the documented fallback is a Cloudflare Tunnel; the chosen setup keeps Caddy, so the fallback changes only the outer tunnel.
 - **Not performed here:** installing Caddy or Tailscale, enabling Funnel, rebuilding `frontend/dist`, or changing a live station. Those steps remain in [remote-access.md](../remote-access.md) and need explicit authorization.
 
-
 ## 2026-11-13: Shelf-life countdown counts Asia/Manila calendar days; nothing is rewritten
 
 - **Problem.** An estimate stored as `1-3` still read "1–3 days" a week later. The stored string was shown as it was written on Kiosk recent scans, Quality Control and the Scan Logs main cell. The existing countdown was one number (range midpoint minus elapsed seconds), so it was not a range and did not follow calendar days.
 - **Rule.** `elapsed_days` is the Manila calendar date of now minus the Manila calendar date of `scan.date_time`, never below zero. The remaining bounds are the whole-day bounds of the stored estimate minus `elapsed_days`, never below zero. The state is `final_day` when the elapsed days equal the upper bound and `expired` when they exceed it. One implementation: `shelf_life_window` in `backend/app/services/inventory_policy.py`, using the existing `as_manila` helper. No second timezone path was added.
 - **Storage stays immutable.** `scan_classification.spoilage_days` and `scan.date_time` are never written by a read, and no job rewrites them. The window is derived on every read, so there is no migration and old records work as they are.
-- **Whole-day bounds match the display.** A decimal estimate such as `4.86` is shown as `4–5 days`, so its window starts as 4 to 5. A known zero stays zero and a positive value below one day counts as one day, the same rule as `frontend/src/lib/spoilageDisplay.ts`. Day 0 of the countdown therefore equals the estimate the user saw at the scan.
+- **Whole-day bounds match the display.** A decimal estimate such as `4.86` is shown as `4–5 days`, so its window starts as 4 to 5. A known zero stays zero and a positive value below one day counts as one day, the same rule as `frontend/src/lib/spoilageDisplay.ts`. Day 0 of the countdown therefore equals the estimate the user saw at the scan. A value that page shows as "Unknown" (a number without a leading digit such as `.5`, or above `Number.MAX_SAFE_INTEGER`) has no window, so a countdown never sits beside an unknown estimate (audit fix, 2026-11-13). The reverse stays: the page can display an en dash `1–3` that the stored-value parser does not read; such a record shows its estimate without a countdown.
 - **The risk number did not change.** `remaining_days`, `risk_as_of`, the two-day at-risk rule and all SQL keep their meaning, because sorting, snapshot membership, counts and exports depend on them and tests pin Python and SQL parity. The window is a separate optional object. The two can differ near the end of a range; that is documented in [[Frontend]].
 - **Server time is authoritative.** The server computes the window from its own clock and sends the scan's Manila date and its own Manila date (`scan_date`, `as_of_date`). The page counts from the scan date to the later of the server's date and its own Manila date, so a wrong browser clock can change that browser's display and nothing else, and a scan dated after the server's date stays at zero. No request parameter influences the result.
 - **Frozen list snapshots do not store the window.** It is derived, so `save_snapshot` drops it before the size check and `slice_snapshot` rebuilds it for the instant the row was frozen (the row's `risk_as_of`, or the snapshot's `generated_at`). A snapshot therefore reads the same at any later time, the 20 MiB limit holds as many rows as before, and snapshots saved before this change get a window too.
 - **Rejected:** a background job that rewrites the stored value (destroys the audit value); a SQL-side calendar expression (needs a second timezone path and SQLite shims); parsing the stored string in the browser (rejected before, see the 2026-10-10 audit); changing what `remaining_days` means.
-- **User decisions on 2026-11-13:** Scan Logs leads with the countdown and shows the estimate beneath, replacing the earlier estimate-first cell; Sold, Spoiled and For Processing records keep the scan-time estimate; wording is `N days left`, `Final day`, `Overdue`.
+- **User decisions on 2026-11-13:** Scan Logs leads with the countdown and shows the estimate beneath, replacing the earlier estimate-first cell; Sold, Spoiled and For Processing records keep the scan-time estimate on staff pages (the public QR page counts down for every status, as it did before); wording is `N days left`, `Final day`, `Overdue`.
 
 ## 2026-11-13: Out-of-distribution rejection uses an independent banana verifier
 
 - The cultivar detector is closed-set, and its weights and dataset are not in the repository, so the rejection mechanism had to work without retraining. The COCO pre-detector became a banana-vs-OOD verifier: a scan needs banana evidence, and a cultivar box is trusted only where that evidence covers it. Details and measurements are in [[AI Models]].
-- A cultivar box without banana evidence is treated as if the model had never emitted it. It is skipped in the first pass, the rotated Top pass and the occluded-finger recovery pass before any other rule sees it, so the gate's result is exactly what the classifier reports for the remaining boxes, and the classifier's own rules are not modified. Two richer variants were tried and withdrawn after review: filtering after the suppression rules let an unsupported box swallow real fingers, and showing the set-aside boxes to the cluster rule let two of them remove the only supported box of a real banana view. The plain contract is pinned by tests on 300 random frames.
+- A cultivar box without banana evidence is treated as if the model had never emitted it. It is skipped in the first pass, the rotated Top pass and the occluded-finger recovery pass before any rule that compares it with other boxes (only filters that judge a box on its own run first: position, and in the recovery pass also size and label), so the gate's result is exactly what the classifier reports for the remaining boxes, and the classifier's own rules are not modified. Two richer variants were tried and withdrawn after review: filtering after the suppression rules let an unsupported box swallow real fingers, and showing the set-aside boxes to the cluster rule let two of them remove the only supported box of a real banana view. The plain contract is pinned by tests on 300 random frames.
 - Every scan the gate altered is flagged; there is no silent change. In the first pass and the recovery pass a skipped box counts unless that pass would have dropped it anyway as a repeat of an accepted detection. In the rotated Top pass every skipped box counts: a repeat there still feeds the orientation decision, the sub-box filter and the label-conflict check, so an exemption let the Top cultivar change unflagged (found by a randomized check, about 146,000 cases). The price is that a Top scan can be flagged for a skipped box that changed nothing.
 - The gate may not change an accepted scan silently. Any dropped box flags the saved scan for review, and a rejected scan writes a `scan_rejected` activity row with per-view banana scores, because its captures are removed like any failed scan.
 - The verifier fails closed (HTTP 503). `OOD_GATE_FAIL_OPEN=true` and `OOD_BOX_SUPPORT_FILTER=false` are the documented ways back to the earlier behaviour.
@@ -39,7 +78,7 @@ Documented architectural, technical, and operational decisions in BananaVision.
 - Partly checked on 2026-11-13 on a team laptop: on 416 labeled test photos the gate kept a cultivar on 408, against 409 for the earlier gate, with no wrong cultivar and the extra loss in the Rear view only (see [[AI Models]]). No threshold was changed. Still open: neither checkpoint used was Top-calibrated, so the Top refinement, rotated pass and finger recovery were not exercised.
 ## 2026-11-13: Cardaba Canonical Orientation, Radial Flank Deduplication, and Multi-Tier Finger Estimation
 
-- **UI clarity (`Estimated Fingers`):** Replaced `"Est. Fingers"` with `"Estimated Fingers"` across `Kiosk.tsx`, `Logs.tsx`, `QualityControl.tsx`, and `kiosk.test.mjs` so operators immediately understand the metric is an estimate.
+- **UI clarity (`Estimated Fingers`):** Replaced `"Est. Fingers"` with `"Estimated Fingers"` across `Kiosk.tsx`, `Logs.tsx`, `QualityControl.tsx`, and `kiosk.test.mjs` so operators immediately understand the metric is an estimate. (Superseded on 2026-11-13: the user chose `Est. Fingers` everywhere; see "AI-estimated numbers say Est." above.)
 - **Active V2 checkpoint calibration (`TOP_CALIBRATED_CHECKPOINTS`):** Registered `banana_yolovn26V2.pt` (`dc171845fe353a2147f6c9219b27fa66df88902eb566eb141670cf4ee5d2b204`, `imgsz=640`) and `banana_yolovsV2.pt` (`9e21668e272bae8ea387d836bbc2b087b5fbb3ae90d375353f49105681e2f478`, `imgsz=640`) so the station's configured V2 models activate Top overlap refinement (`iou=0.65`) and 180-degree rotation fallback.
 - **Canonical 180-degree orientation selection for Top view:** Because all Roboflow Top-view training images have the crown at the top of the frame, placing a Cardaba (or Latundan) hand with the crown at the bottom of the Top camera frame inverted the longitudinal morphology and caused Pass 1 (`0°`) to misclassify Cardaba as Lakatan (`82.7%`). When Pass 2 (`180°` rotated) produces an unconflicted cultivar consensus (`>= 3` fingers, `>= 60%` weight share) with strictly higher peak confidence than Pass 1, `BananaClassifier.predict` promotes Pass 2 as the canonical primary orientation and merges non-duplicate Pass 1 flank boxes under the canonical cultivar.
 - **Axial sub-box deduplication and TTA occluded flank recovery:** `_is_same_class_sub_box`, `_unique_box_detections`, and `_is_duplicate_detection` now require longitudinal axis alignment (`_is_axially_aligned_or_enclosed`) before suppressing contained boxes, and `_is_cluster_box` requires `det_area >= 1.6 * median(other_areas)`. For calibrated multi-finger bunches (`>= 5` primary fingers), a guarded TTA recovery pass (`augment=True, conf=0.25, iou=0.70` with `_is_recovery_duplicate`) recovers partially occluded flank/second-tier fingers matching the primary `(cultivar, ripeness)` without diluting primary confidence votes.

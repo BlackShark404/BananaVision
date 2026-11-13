@@ -22,6 +22,7 @@ import { Loader2, User, Shield, Calendar, Activity, TrendingUp, Target, Moon, Su
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
+import { inManila } from "@/lib/manilaTime"
 
 export default function Profile() {
   const { user, changePassword, changePin } = useAuth()
@@ -572,8 +573,8 @@ export default function Profile() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{activity.details}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(activity.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })} at{" "}
-                        {new Date(activity.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                        {new Date(activity.timestamp).toLocaleDateString("en-US", inManila({ month: "short", day: "numeric" }))} at{" "}
+                        {new Date(activity.timestamp).toLocaleTimeString("en-US", inManila({ hour: "2-digit", minute: "2-digit" }))}
                       </p>
                     </div>
                   </div>

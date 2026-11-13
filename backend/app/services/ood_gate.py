@@ -94,7 +94,8 @@ class ViewEvidence:
     """Banana evidence for one camera frame."""
     camera_id: str
     camera_label: str
-    # None means the detector exposed no boxes (legacy result): nothing can be filtered.
+    # None means nothing is filtered: the detector exposed no boxes (legacy result)
+    # or OOD_BOX_SUPPORT_FILTER is off.
     evidence: list[EvidenceBox] | None
     banana_score: float
     has_banana: bool
@@ -128,7 +129,8 @@ def is_supported(box: Box, evidence: list[EvidenceBox], margin: float) -> bool:
 def decide_scan(views: list[ViewEvidence], policy: GatePolicy) -> ScanGateDecision:
     """Accept the scan only when enough captured views show a banana."""
     banana_views = sum(1 for view in views if view.has_banana)
-    # A station with fewer cameras cannot be asked for more views than it has.
+    # Only captured frames count: a camera that produced no frame cannot be asked
+    # for a view. The fusion engine flags such a scan for review (missing capture).
     required = max(1, min(policy.min_banana_views, len(views)))
     accepted = banana_views >= required
     return ScanGateDecision(

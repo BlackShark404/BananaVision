@@ -103,6 +103,9 @@ function ScanStore({ children }: { children: React.ReactNode }) {
       detections: raw.detections === undefined ? known?.detections : incoming.detections,
       notes: raw.notes === undefined ? known?.notes : incoming.notes,
       history: raw.history === undefined ? known?.history : incoming.history,
+      // Live events omit the AI baseline; keep the one already read so a corrected count
+      // is not shown as an estimate again.
+      originalAiResult: raw.original_ai_result === undefined ? known?.originalAiResult : incoming.originalAiResult,
     }
     if (!mounted.current) return saved
     knownScans.current.set(saved.id, saved)

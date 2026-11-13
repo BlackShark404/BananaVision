@@ -1,7 +1,6 @@
 import { DetailSkeleton } from "@/components/LoadingState"
 import { useState, useEffect } from "react"
-import { useParams, useNavigate } from "react-router-dom"
-import { useAuth } from "@/context/AuthContext"
+import { useParams } from "react-router-dom"
 import { api } from "@/lib/api"
 import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
 import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
@@ -17,9 +16,8 @@ import {
   Target,
   ScanLine,
   Loader2,
-  LogIn,
-  ArrowRight,
 } from "lucide-react"
+import { fingersLabel } from "@/lib/estimates"
 
 const ripenessColor: Record<string, string> = {
   Unripe: "bg-emerald-500/15 text-emerald-700 border-emerald-200",
@@ -42,10 +40,9 @@ export default function PublicScanView() {
   return <PublicScanRecord key={scanId} scanId={scanId} />
 }
 
+// The page a phone opens from a scan's QR code. It shows only the scanned data: no login,
+// navigation or website links, and a signed-in staff member sees the same page.
 function PublicScanRecord({ scanId }: { scanId?: string }) {
-  const { user } = useAuth()
-  const navigate = useNavigate()
-
   const [retry, setRetry] = useState(0)
   const [scan, setScan] = useState<PublicScan | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -53,16 +50,9 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
   const [loading, setLoading] = useState(true)
   const [now, setNow] = useState(() => Date.now())
 
-  // Authenticated users get redirected to the full detail page
-  useEffect(() => {
-    if (user && scanId) {
-      navigate(`/scans/${scanId}`, { replace: true })
-    }
-  }, [user, scanId, navigate])
-
   // Fetch public scan data
   useEffect(() => {
-    if (!scanId || user) return
+    if (!scanId) return
     const controller = new AbortController()
     let cancelled = false
     let timedOut = false
@@ -89,7 +79,7 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
       }).finally(() => window.clearTimeout(timeout))
 
     return () => { cancelled = true; window.clearTimeout(timeout); controller.abort() }
-  }, [scanId, user, retry])
+  }, [scanId, retry])
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000)
@@ -126,11 +116,6 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
             </EmptyDescription>
           </EmptyHeader>
           {!loading && !notFound && <Button className="mt-4" onClick={handleRetry}>Retry</Button>}
-          {!loading && (
-            <Button variant="outline" className="mt-4 gap-2" onClick={() => navigate("/login")}>
-              <LogIn className="w-4 h-4" /> Log in
-            </Button>
-          )}
         </Empty>
       </div>
     )
@@ -154,9 +139,6 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
               <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Scan Tracking</p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={() => navigate("/login")}>
-            <LogIn className="w-3.5 h-3.5" /> Log in
-          </Button>
         </div>
       </header>
 
@@ -208,7 +190,7 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
               </div>
               <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
                 <Hand className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Finger Count</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider" title="Estimated finger count">{fingersLabel()}</p>
                 <p className="text-xl font-bold">{scan.finger_count}</p>
               </div>
               <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
@@ -219,7 +201,7 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
                     ? countdown
                     : <>{formatSpoilageDays(scan.spoilage_days, false)} <span className="text-xs text-muted-foreground font-normal">{spoilageDayUnit(scan.spoilage_days)}</span></>}
                 </p>
-                {countdown !== null && scan.spoilage_days != null && (
+                {countdown !== null && formatSpoilageDays(scan.spoilage_days) !== "Unknown" && (
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     Est. {formatSpoilageDays(scan.spoilage_days)} from scan
                   </p>
@@ -289,19 +271,6 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
         </Card>
 
         {/* Camera evidence stays behind staff authentication. */}
-
-        {/* Login CTA */}
-        <Card className="rounded-2xl bg-primary/5 border-primary/20">
-          <CardContent className="p-5 text-center space-y-3">
-            <p className="text-sm font-semibold">Need more details?</p>
-            <p className="text-xs text-muted-foreground">
-              Log in to access full scan details, detection overlays, quality control, and editing.
-            </p>
-            <Button className="gap-2" onClick={() => navigate("/login")}>
-              Log in to BananaVision <ArrowRight className="w-4 h-4" />
-            </Button>
-          </CardContent>
-        </Card>
 
         {/* Footer */}
         <p className="text-center text-[10px] text-muted-foreground pb-4">

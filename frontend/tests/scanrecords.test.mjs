@@ -237,6 +237,60 @@ test('QC shows the live countdown for in-stock scans', async t => {
   assert.equal(state.record.spoilage_days, '1-3')
 })
 
+test('Scan Detail and Quality Control show Asia/Manila dates and times in a Los Angeles browser', async t => {
+  // The scan is 08:10 on 5 May in Manila: 17:10 on 4 May in this browser's zone.
+  const detail = await setup(t, 200)
+  await detail.page.getByText('May 5, 2024', { exact: true }).waitFor()
+  await detail.page.getByText('08:10 AM', { exact: true }).waitFor()
+  await detail.page.getByText(/Former Admin • 5\/5\/2024, 8:10:00 AM/).waitFor()
+  assert.equal(await detail.page.getByText('May 4, 2024', { exact: true }).count(), 0)
+  const quality = await setup(t, 200, { screen: 'quality' })
+  const row = quality.page.locator('tbody tr').first()
+  await row.getByText('8:10:00 AM', { exact: true }).waitFor()
+  assert.match(await row.innerText(), /\bMay 5\b/)
+  assert.doesNotMatch(await row.innerText(), /\bMay 4\b/)
+})
+
+test('finger counts read "Est." on Scan Detail, Quality Control and Scan Logs; corrected counts and correction inputs do not', async t => {
+  const detail = await setup(t, 200)
+  const metric = detail.page.getByText('Est. Fingers', { exact: true }).locator('..')
+  await metric.waitFor()
+  assert.equal(await metric.locator('p').last().innerText(), '7')
+  assert.equal(await detail.page.getByText('Finger Count', { exact: true }).count(), 0)
+  await detail.page.getByRole('button', { name: 'Edit', exact: true }).first().click()
+  // A person types the real count here, so the input is not labelled as an estimate.
+  assert.equal(await detail.page.locator('label[for="edit-fingers"]').innerText(), 'Fingers')
+
+  const corrected = { ...scan(), finger_count: 9, is_overridden: true,
+    original_ai_result: { cultivar: 'Lakatan', ripeness: 'Ripe', confidence: 92, finger_count: 7, spoilage_days: '3' } }
+  const fixed = await setup(t, 200, { record: corrected })
+  const plain = fixed.page.getByText('Fingers', { exact: true }).first().locator('..')
+  await plain.waitFor()
+  assert.equal(await plain.locator('p').last().innerText(), '9')
+  assert.equal(await fixed.page.getByText('Est. Fingers', { exact: true }).count(), 0)
+
+  const quality = await setup(t, 200, { screen: 'quality' })
+  await quality.page.locator('tbody tr').first().click()
+  const dialog = quality.page.getByRole('dialog')
+  await dialog.getByText('Est. Fingers', { exact: true }).waitFor()
+  assert.equal(await dialog.getByText('Estimated Fingers', { exact: true }).count(), 0)
+  await quality.page.getByRole('button', { name: 'Edit Data', exact: true }).click()
+  assert.equal(await dialog.locator('label[for="fingers"]').innerText(), 'Fingers')
+
+  const logs = await setup(t, 200, { screen: 'logs' })
+  await logs.page.getByRole('columnheader', { name: 'Est. Fingers' }).waitFor()
+  assert.equal(await logs.page.getByRole('columnheader', { name: 'Estimated Fingers' }).count(), 0)
+})
+
+test('Logs date picker marks today by the Asia/Manila calendar in a Los Angeles browser', async t => {
+  // 04:00 UTC on 2 October is noon on 2 October in Manila and 21:00 on 1 October here.
+  const { page } = await setup(t, 200, { screen: 'logs' })
+  await page.getByRole('button', { name: 'Scan date', exact: true }).click()
+  const today = page.locator('[role="gridcell"][data-today]')
+  await today.waitFor()
+  assert.equal(await today.getAttribute('data-day'), '2026-10-02')
+})
+
 test('decimal spoilage displays a readable range in Logs and Details without changing stored values', async t => {
   const raw = '4.861489519142744'
   const record = { ...scan(), spoilage_days: raw,

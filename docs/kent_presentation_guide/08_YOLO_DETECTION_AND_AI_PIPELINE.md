@@ -55,8 +55,8 @@ To solve this, Kent's team engineered a **Two-Stage Gate Pipeline**:
                                      - 180° Rotation Fallback (Top)
                                      - Table Lip Suppression (Rear)
                                      - Upper Background Suppression
-                                     - Cluster & Sub-Box Elimination
                                      - Banana-Evidence Box Support (OOD)
+                                     - Cluster & Sub-Box Elimination
                                                     │
                                                     ▼
                                   ┌───────────────────────────────────┐
@@ -80,7 +80,8 @@ In [`backend/app/services/banana_detector.py`](file:///d:/KENT%20EDUCATION%20PRO
 BANANA_CLASS_ID = 46  # Standard COCO dataset index for "banana"
 
 class BananaPreDetector:
-    CONFIDENCE_THRESHOLD = 0.30  # default; OOD_BANANA_CONFIDENCE overrides it
+    # Thresholds come from Settings: OOD_BANANA_CONFIDENCE (0.30) and
+    # OOD_SUPPORT_CONFIDENCE (0.05).
     _COCO_MODEL = "yolo26n.pt"
 
     def detect(self, image, *, accept_confidence=None, support_confidence=None):

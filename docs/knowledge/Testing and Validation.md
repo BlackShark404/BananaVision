@@ -2,6 +2,101 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## Public QR page shows only scanned data — 2026-11-13
+
+Decision: [[Development Decisions]]; page notes: [[Frontend]].
+
+- `frontend/tests/public-scan.test.mjs` at a 390×844 phone viewport: the data renders
+  (scan ID, cultivar, ripeness, `Est. Fingers`, countdown and `Est. 5–7 days from scan`,
+  scan date, temperature, footer time); the page has no link, button, `role="button"`,
+  `role="link"` or `onclick` element and no "log in", "login", "sign in", "website" or
+  "dashboard" text; no sideways scroll; one unauthenticated request. Overflow is checked
+  against `document.documentElement.clientWidth` (390): with `isMobile` emulation Chromium
+  widens `window.innerWidth` to fit wide content, so `scrollWidth <= innerWidth` cannot
+  fail (found in review; a 600 px element read 616/616).
+- A signed-in staff viewer (`window.publicScanViewer`) stays on `/track` with the same
+  page. Not-found shows no button; a failed load shows only "Retry", which then loads the
+  data. The landing page (test-only route `/scans/landing-check`) keeps "Access
+  Dashboard", which still opens `/login`.
+- `backend/tests/test_public_scan_track.py`: a scan with a `ScanImage` row returns the
+  same public field set with `images == []` and no camera ID or file name in the body;
+  the staff detail response still lists the image.
+- `frontend/tests/public-scan-app.test.mjs` mounts the real `App` (real routes,
+  providers, `AuthProvider` through `tests/app.auth.tsx`, 401 handling) with a stored staff
+  session whose staff requests all answer 401. On `/track/fixture-scan` the data shows, no
+  staff request or app WebSocket is made, the URL and stored session stay unchanged after
+  5 minutes and a focus/visibility event, and there are no controls. On `/dashboard` the
+  same session still loads staff data and still goes to `/login`. The harness serves
+  `/track` paths (`dashboard.browser.mjs`). The real app lazy-loads pages and React reveals
+  Suspense content on a timer, so this file lets the test clock run; StrictMode may fetch
+  `/track` twice in development (the first is cancelled).
+- The four new browser tests and the backend test fail on the previous code (two login
+  buttons, the staff redirect, an extra "Log in", a leaked capture path). The real-App QR
+  test fails on the previous `App.tsx` (navigated to `/login`).
+
+## "Est." wording on AI-estimated numbers — 2026-11-13
+
+Decision: [[Development Decisions]]; per-page table: [[Frontend]].
+
+- `frontend/tests/estimates.test.mjs`: singular, plural, zero and missing finger counts;
+  the per-field correction rule (another field corrected keeps "Est."; an override with no
+  AI baseline keeps "Est."); `estimateText` never prefixes `Unknown`/`—` and never doubles.
+- Browser tests: Kiosk result card and recent scans (AI, corrected and another-field-
+  corrected rows, `Est. 1 finger`), shelf-life values in recent scans; Scan Detail and
+  QC labels for AI and corrected counts and the `Fingers` correction inputs; Scan Logs
+  column `Est. Fingers`; public QR `Est. Fingers`; Inventory `Est. Total Fingers`,
+  `(Est. 7 fingers)`, ripeness rows, `Est.` shelf-life badges, and plain totals when every
+  scan was corrected.
+- `backend/tests/test_estimate_wording.py`: export headers and the notification/activity
+  wording (`Est. 13 fingers`, `Est. 1 finger`).
+- Kiosk test: a later `scan:changed` event (live events never carry `original_ai_result`)
+  keeps a corrected count plain; before the fix it turned back into `Est.`.
+- The new tests were also run against an untouched copy of the previous code, where they fail.
+
+## Asia/Manila time zone guards — 2026-11-13
+
+Decision: [[Development Decisions]]; helper: [[Frontend]].
+
+- `frontend/tests/manilaTime.test.mjs` runs with `TZ=America/Los_Angeles`: helper output
+  at 15:59:59Z and 16:00:00Z (Manila midnight), the year boundary, the date-picker day,
+  and a source scan of `src/` that rejects any date formatting outside Asia/Manila.
+- Browser tests in non-Manila browsers: Kiosk header clock (Los Angeles), Scan Detail
+  footer and notes, QC list, Logs date-picker "today" (Los Angeles), and export file names
+  of Activity Log, Delivery Intake and Quality Control with the clock at
+  2026-10-01T16:30:00Z (New York; expects `…-2026-10-02`).
+- `backend/tests/test_manila_time_guard.py` runs with the process clock in Los Angeles:
+  log line time and `+08:00` marker, XLSX part and backup manifest zip times, and a
+  source scan of `backend/app`, `backend/scripts`, `backend/*.py` and root scripts for
+  `datetime.now()` without a zone, `utcnow`, `today()`, `time.localtime`/`strftime`,
+  `fromtimestamp` without a zone and `writestr` with a plain name.
+- Every new test was run first without the fix and failed.
+
+## Audit of the 2026-11-12/13 commits — 2026-11-13
+
+Scope: Caveman skills and MCP entry, the OOD gate (#3), its doc corrections (#4, #5) and
+the shelf-life countdown (#6), plus the merges with teammates' work. Decisions are in
+[[Development Decisions]]; model numbers in [[AI Models]].
+
+- **PostgreSQL tests ran for the first time in the cloud session.** A throwaway
+  PostgreSQL 16 cluster on a local socket (no TCP), with `BANANAVISION_TEST_DATABASE_URL`
+  set; every test creates and drops its own schema. Result: 830 passed, 38 skipped (37
+  Windows-only setup scripts, 1 missing RFR artifact). The real COCO verifier test
+  (`test_ood_gate_model.py`) ran with `backend/yolo26n.pt`.
+- **Contract fix with a parity check.** `prediction_bounds` now gives no window for a
+  value `spoilageDisplay.ts` shows as "Unknown". A script compared both rules on 1,396
+  generated strings: 218 disagreements before, 0 after.
+- **Lint baseline by `git archive`, not a worktree.** ESLint 40 problems repo-wide and
+  18 on the touched files, both equal to `0c74c73`; Ruff 634 equal.
+- **Screenshots** of every countdown and rejection state in light and dark, with the
+  repository's own browser harness (`tests/dashboard.browser.mjs`) and mocked API.
+- **Codex Security** scoped scan of the scan API and OOD files: 0 findings.
+- **MCP checks:** the Codex CLI 0.167.1 lists both entries of `.codex/config.toml`, and a
+  live MCP handshake with the Caveman server returned 4 tools. The Antigravity plugin
+  file now uses `serverUrl`, the documented key for remote servers.
+- **Known flaky test:** `kiosk-pin.test.mjs` "stalled swap …" pauses the browser clock
+  at a Node timestamp and fails under heavy CPU load ("Cannot fast-forward to the
+  past"). Idle: 0 failures in 6 runs before #3 and 6 at HEAD.
+
 ## Public HTTPS access — 2026-11-13
 
 Decision and topology are in [[Development Decisions]]; client behavior is in [[Frontend]].
@@ -632,7 +727,6 @@ See [[Development Decisions]] for the implemented conflict/count safeguards.
 - Kiosk browser: 17/17 passed, including estimated 13, review feedback and unchanged per-camera evidence. Typecheck and production build passed.
 - Frontend lint retains 36 errors / 5 warnings; backend Ruff reports 640 findings. Comparison against HEAD confirms no new diagnostics in affected backend files; the modified browser test passes scoped ESLint.
 - No station camera test, PostgreSQL run, detector retraining or physical-count accuracy validation performed. The user reports approximately 15 fingers; the fix prevents cross-view additions and does not claim to recover hidden fingers. See [[Development Decisions]].
-
 
 ## System Configuration layout verification (2026-10-21)
 

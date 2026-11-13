@@ -94,9 +94,26 @@ def test_estimate_too_large_for_a_number_has_no_window_instead_of_an_error():
     huge = "9" * 400
     assert prediction_bounds(huge) is None and prediction_bounds("1-" + huge) is None
     assert shelf_life_window(huge, SCANNED, SCANNED) is None
-    # Twenty digits is the longest value the column can hold; it still counts down.
-    assert prediction_bounds("9" * 20) == (10 ** 20, 10 ** 20)
-    assert shelf_life_window("9" * 20, SCANNED, SCANNED)["state"] == "active"
+    # The page displays whole days only up to Number.MAX_SAFE_INTEGER
+    # (frontend lib/spoilageDisplay.ts); a larger value has no window either.
+    assert prediction_bounds("9007199254740991") == (9007199254740991, 9007199254740991)
+    assert prediction_bounds("9007199254740992") is None
+    assert prediction_bounds("9" * 20) is None
+    assert shelf_life_window("9" * 20, SCANNED, SCANNED) is None
+
+
+@pytest.mark.parametrize("stored", [".5", ".5-1.5", "0-.5", " .5 - 1.5 "])
+def test_estimate_the_page_cannot_display_has_no_window(stored):
+    """A countdown must never sit beside "Est. Unknown": the page shows "Unknown" for a
+    number without a leading digit (frontend lib/spoilageDisplay.ts)."""
+    assert prediction_bounds(stored) is None
+    assert shelf_life_window(stored, SCANNED, SCANNED) is None
+
+
+def test_display_rule_does_not_change_the_stock_risk_rule():
+    # The at-risk midpoint is a separate, older rule; it still reads these values.
+    assert remaining_shelf_life(".5-1.5", SCANNED, SCANNED) == 1.0
+    assert remaining_shelf_life("9" * 20, SCANNED, SCANNED) == 1e20
 
 
 def test_one_to_three_days_is_not_frozen_a_week_later():

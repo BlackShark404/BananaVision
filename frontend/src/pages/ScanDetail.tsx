@@ -72,6 +72,8 @@ import { cultivarCameraConflict } from "@/lib/scanData"
 import { api } from "@/lib/api"
 import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
 import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
+import { inManila } from "@/lib/manilaTime"
+import { fingerCountIsEstimate, fingersLabel } from "@/lib/estimates"
 
 const EMPTY_DETECTIONS: ScanDetection[] = []
 
@@ -718,7 +720,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="edit-fingers" className="text-xs">Est. Finger Count</Label>
+                      <Label htmlFor="edit-fingers" className="text-xs">{fingersLabel(false)}</Label>
                       <NumberField
                         id="edit-fingers"
                         min={1}
@@ -813,7 +815,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-4 rounded-xl bg-muted/40 space-y-1">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Hand className="w-3.5 h-3.5" /> Finger Count
+                    <Hand className="w-3.5 h-3.5" /> {fingersLabel(fingerCountIsEstimate(scan))}
                   </div>
                   <p className="text-2xl font-bold">{scan.fingerCount}</p>
                 </div>
@@ -826,7 +828,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                       ? countdown
                       : <>{formatSpoilageDays(scan.spoilageDays, false)} <span className="text-sm font-normal text-muted-foreground">{spoilageDayUnit(scan.spoilageDays)}</span></>}
                   </p>
-                  {countdown !== null && (
+                  {countdown !== null && formatSpoilageDays(scan.spoilageDays) !== "Unknown" && (
                     <p className="text-xs text-muted-foreground">Est. {formatSpoilageDays(scan.spoilageDays)} from scan</p>
                   )}
                 </div>
@@ -994,7 +996,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                         <div className="min-w-0">
                           <p className="text-foreground">{note.note}</p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {note.author} • {new Date(note.timestamp).toLocaleString()}
+                            {note.author} • {new Date(note.timestamp).toLocaleString(undefined, inManila())}
                           </p>
                         </div>
                       </div>
@@ -1065,7 +1067,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     <Calendar className="w-3.5 h-3.5" /> Date
                   </div>
                   <p className="font-semibold">
-                    {dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    {dateObj.toLocaleDateString("en-US", inManila({ month: "short", day: "numeric", year: "numeric" }))}
                   </p>
                 </div>
 
@@ -1075,7 +1077,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
                     <Clock className="w-3.5 h-3.5" /> Time
                   </div>
-                  <p className="font-semibold">{dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                  <p className="font-semibold">{dateObj.toLocaleTimeString([], inManila({ hour: '2-digit', minute: '2-digit' }))}</p>
                 </div>
 
               </div>

@@ -1,0 +1,107 @@
+CURRENT RESUME HERE (2026-11-13) - AUDIT OF LAWRENCE S. RAMIREZ'S RECENT COMMITS
+
+The previous checkpoint (live shelf-life countdown, merged to team main as 768b658, PR #6)
+is archived byte-for-byte in docs/history/2026-11-13-before-commit-audit.txt.
+
+AUTHORIZED SCOPE
+- User request 2026-11-13: end-to-end audit, verification and finalization of the recent
+  commits by Lawrence S. Ramirez on team main (synced fork, 768b658). Fix only confirmed
+  defects in those commits, test first; report everything else. No live database,
+  captures, cameras or deployment. Commit on the fork's main; the user opens the PR.
+
+COMMITS AUDITED (verdict)
+- 9683e66 Caveman response style skills: sound. Vendored files are byte-identical to
+  upstream; LICENSE and NOTICE kept. AGENTS.md block fixed (see FIXES).
+- 3ee6af6 #3 out-of-distribution banana verifier gate: sound. Production and the
+  evaluation script call the same ood_gate.decide_scan. Lakatan, Latundan and Cardaba
+  keep precision 1.0 on the labeled split; Cardaba carries most of the loss (129/134).
+  Comment and doc inaccuracies fixed (see FIXES).
+- f035917 #4 docs: numbers match the audit JSON. 3dd755b #5 is an empty commit (tree
+  identical to #4); harmless, nothing to fix without a history rewrite.
+- ddbf7f0 Caveman MCP integration: valid JSON and TOML. The Codex CLI 0.167.1 lists both
+  MCP entries (caveman, icm) from .codex/config.toml. Live MCP handshake with
+  https://caveman.so/mcp succeeded (4 tools). Antigravity loads .agents/plugins/caveman
+  per workspace; its mcp_config.json used the legacy "url" key, fixed (see FIXES).
+- 768b658 #6 shelf-life countdown: sound. One contract mismatch fixed (see FIXES).
+- Merges fc2650b, dfbd2c8, 030e48b: empty remerge-diff; no code dropped. Kent's Cardaba
+  and finger-count lines (e8825a5, 0c74c73) are all present at HEAD.
+
+FIXES (this audit)
+- backend/app/services/inventory_policy.py: prediction_bounds gives no window for a value
+  the page shows as "Unknown" (no leading digit such as ".5", or above
+  Number.MAX_SAFE_INTEGER). Before, a countdown could sit beside "Est. Unknown". Tests:
+  backend/tests/test_shelf_life_window.py (5 new), rule table case ".5 - 1.5" became
+  "0.5 - 1.5". The at-risk midpoint rule is unchanged (pinned by a test). Parity check on
+  1,396 generated strings: 218 mismatches before, 0 after.
+- OOD gate wording: ood_gate.py (captured views; None evidence also when the filter is
+  off), banana_detector.py (fail-closed comment and log; unused CONFIDENCE_THRESHOLD
+  removed; docstring example), classification.py (where the box-support skip runs),
+  core/startup.py (log no longer promises a reload that never happens), backend/README.md
+  and .env.example (OOD_MIN_BANANA_VIEWS counts captured views), the presentation guide
+  08_YOLO_DETECTION_AND_AI_PIPELINE.md (diagram order, threshold snippet).
+- docs/knowledge: AI Models.md (per-cultivar results, download gaps behind 708 vs 707,
+  box-support order, link to Non-Banana Detection Audit), Development Decisions.md
+  (display-rule edge cases, public QR exception, box-support order), Frontend.md (public
+  QR exception), Testing and Validation.md (this audit).
+- AGENTS.md: the workflow, maintenance and backend pointer lines moved back above the
+  Caveman block, unchanged; the switch line adds the Codex form ($caveman, Codex calls
+  skills with "$").
+- .agents/plugins/caveman/mcp_config.json: "url" became "serverUrl", the key Antigravity
+  documents for remote MCP servers ("url" is its legacy key; antigravity.google docs via
+  Context7).
+
+VERIFICATION
+- Backend with a throwaway PostgreSQL 16 cluster (local socket, schema per test):
+  830 passed, 38 skipped (37 Windows-only scripts, 1 missing RFR artifact). Before the
+  fixes: 825 passed, 38 skipped. Without PostgreSQL: 764 passed, 104 skipped (759 before the fixes).
+- Frontend: 319 of 319 passed after the fixes (318 of 319 in the first run under heavy
+  CPU load; see the flaky test below). Type check and production build pass.
+- Lint: ESLint 40 problems repo-wide before #3 (0c74c73) and now; 18 = 18 on the touched
+  files. Ruff 634 before and now; new files clean.
+- Codex Security (gpt-5.6-terra, low effort): scans.py, ood_gate.py, scan_service.py,
+  banana_detector.py, scan_snapshots.py at 768b658: 0 findings. An earlier scan of
+  backend/app/core reported 2 (default JWT key "change-me" if JWT_SECRET_KEY is unset;
+  username-only login lockout); both predate these commits.
+- Screenshots (light and dark): Scan Logs, Scan Detail (final day, Sold), public QR
+  (day +1, overdue), Kiosk OOD rejection and recent scans. All match the decisions.
+- Flaky test, not from these commits: kiosk-pin.test.mjs "stalled swap ..." fails under
+  heavy CPU load ("Cannot fast-forward to the past": the test pauses the browser clock at
+  a Node timestamp). 0 failures in 6 idle runs before #3 and 6 at HEAD.
+
+FOUND, NOT FIXED (outside these commits or a team decision)
+- Non-Banana Detection Audit.md (Khen) says nothing is implemented; #3 implements its
+  fail-closed verifier and every-view check. Its line references predate #3.
+- .codex/config.toml (Khen) sets model "gpt-6-astra" although AGENTS.md says no default
+  model; it holds laptop-only Windows paths for icm; docs/development-workflow.md
+  describes the file as Astra/Medium with no MCP servers.
+- Scan Detail footer date and time use the browser's zone (ScanDetail.tsx:1068, 1078).
+- Uncertain-cultivar scans hide the estimate only on Kiosk; other pages show it.
+- ModelInferenceError returns raw exception text (api/v1/scans.py:84-85).
+- Home.md links [[System Architecture]] and [[Backend]], which do not exist.
+- Not in the requested scope, not audited: Lawrence's older commits 808d3ff to 0964ea9
+  (2026-10-22 to 11-01). One item seen in passing: client export file names use the
+  UTC date (ActivityLog.tsx:77,95, DeliveryIntake.tsx:126,142, QualityControl.tsx:297),
+  so an export made before 08:00 Manila time carries yesterday's date.
+- Rejections are broadcast per account, so a second kiosk on the same account also shows
+  the rejection card until its next scan. Accept or change: team decision.
+- Public QR counts down for Sold, Spoiled and For Processing records too (since
+  2a8b8c6). Documented as is; the user may decide to limit it to In Stock.
+- docs/audits/ood-gate-evaluation-2026-11-13.json is a hand-merged summary of several
+  runs; its not_measured list still names per-cultivar recall, which the labeled-split
+  report now measures. Left unedited as a historical record.
+- Unmeasured interaction: Kent's Top-anchor rule (fusion_engine.py:186-192) needs a Top
+  finger count of 4 or more. If box support drops a real Top finger, a scan can turn
+  into a cultivar conflict. Covered by the optional Top-calibrated rerun below.
+
+TOOLS
+- Graphify (graphify-out is git-ignored; queried, then refreshed: 5,102 -> 5,139 nodes,
+  14,627 -> 14,667 edges), Superpowers skills,
+  Context7 (earlier, Intl.DateTimeFormat), Codex Security, Playwright. ICM is not
+  available in the cloud session (no MCP, no binary, .icm absent): no memory written.
+  UI/UX Pro Max points to a laptop path; Playwright screenshots used instead.
+
+EXACT NEXT STEP
+- User opens the pull request from the fork's main to BlackShark404/BananaVision.
+- Optional, for the OOD gate: rerun evaluate_ood_gate.py pipeline with a registered
+  Top-calibrated checkpoint (top_paths.active true) and a Cardaba-heavy station capture
+  set; count flagged scans and dropped boxes per view.

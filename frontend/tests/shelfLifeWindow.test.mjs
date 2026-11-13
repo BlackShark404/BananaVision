@@ -1,13 +1,16 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { readFile } from 'node:fs/promises'
-import { transform } from 'esbuild'
+import { build } from 'esbuild'
 
 // Asia/Manila must come from the code, never from the machine that renders the page.
 process.env.TZ = 'America/Los_Angeles'
 
-const source = await readFile(new URL('../src/lib/shelfLifeWindow.ts', import.meta.url), 'utf8')
-const { code } = await transform(source, { loader: 'ts', format: 'esm' })
+// Bundled so the module's own import of lib/manilaTime.ts is included.
+const { outputFiles: [{ text: code }] } = await build({
+  entryPoints: [new URL('../src/lib/shelfLifeWindow.ts', import.meta.url).pathname],
+  bundle: true, format: 'esm', write: false, logLevel: 'silent',
+})
 const { liveShelfLife, manilaDayNumber, shelfLifeWindowDetail, shelfLifeWindowLabel } =
   await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
 // The same rule table drives backend/tests/test_shelf_life_window.py.

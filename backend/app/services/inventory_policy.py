@@ -9,6 +9,11 @@ from app.core.time import as_manila
 WHITESPACE = " \t\r\n\v\f\u00a0"
 NUMBER = r"([0-9]+([.][0-9]+)?|[.][0-9]+)"
 PREDICTION_PATTERN = rf"^{NUMBER}([ \t\r\n]*-[ \t\r\n]*{NUMBER})?$"
+# What the page can display (frontend lib/spoilageDisplay.ts): every number starts with
+# a digit, and whole days stay within Number.MAX_SAFE_INTEGER.
+DISPLAY_NUMBER = r"[0-9]+([.][0-9]+)?"
+DISPLAY_PATTERN = rf"^{DISPLAY_NUMBER}([ \t\r\n]*-[ \t\r\n]*{DISPLAY_NUMBER})?$"
+MAX_DISPLAY_DAYS = 2**53 - 1
 
 
 def eligible_stock(scans):
@@ -52,14 +57,17 @@ def prediction_bounds(raw: str | None) -> tuple[int, int] | None:
 
     These are the bounds the estimate is displayed with (frontend
     lib/spoilageDisplay.ts): a decimal spans floor to ceiling, a known zero stays
-    zero, and a positive estimate below one day counts as one day.
+    zero, and a positive estimate below one day counts as one day. A value that
+    page shows as "Unknown" (a number without a leading digit, or above its
+    largest exact whole number) has no window, so a countdown never sits beside
+    an unknown estimate.
     """
     values = _prediction_values(raw)
-    if values is None:
+    if values is None or not re.fullmatch(DISPLAY_PATTERN, raw.strip(WHITESPACE)):
         return None
     low, high = values[0], values[-1]
-    if not math.isfinite(high):
-        # Hundreds of digits overflow a float; such a value is not an estimate.
+    if not high <= MAX_DISPLAY_DAYS:
+        # Also rejects the infinity of hundreds of digits overflowing a float.
         return None
     return (0 if low == 0 else max(1, math.floor(low))), math.ceil(high)
 

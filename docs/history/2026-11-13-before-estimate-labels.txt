@@ -1,0 +1,81 @@
+CURRENT RESUME HERE (2026-11-13) - ASIA/MANILA TIME ZONE EVERYWHERE
+
+The previous checkpoint (audit of the recent commits, d1c65b2) is archived byte-for-byte
+in docs/history/2026-11-13-before-manila-everywhere.txt. Khen's parallel checkpoint from
+team main (public HTTPS access, 434b3ff to 52cd2f6) is archived byte-for-byte in
+docs/history/2026-11-13-public-https-access-checkpoint.txt; it is merged here.
+
+AUTHORIZED SCOPE
+- User rule 2026-11-13: "Always make sure the system uses Asia/Manila timezone in all
+  timezone related functionalities." Keep how every screen looks; change only the zone.
+  No live database, captures, cameras or deployment. Commit on the fork's main; the user
+  opens the pull request.
+
+FOUND (read-only inventory of every clock read, 3 agents, checked in the source)
+- Backend business data was already Manila: backend/app/core/time.py, ManilaDateTime
+  columns (+08:00 on load), the PostgreSQL session zone, analytics and dashboard days,
+  intake dates. Gaps: log timestamps (server zone), zip member times inside XLSX exports
+  and the backup manifest (server zone), backend/debug_sensor.py and test_rfr_matrix.py.
+- Frontend: 21 places used the browser zone or the UTC date: Kiosk header clock, Scan
+  Detail footer and notes, QC list, Profile activity, user last active, supplier date
+  added, device last seen and refresh time, backup expiry, printed QR tag date, day
+  grouping in lib/utils.ts, intake date column, export file names (Activity Log,
+  Delivery Intake, Quality Control), date-picker "today", footer year. Device last seen
+  also showed "Invalid Date" for a device never seen.
+
+DONE
+- frontend/src/lib/manilaTime.ts (new): MANILA_TIME_ZONE, inManila, manilaDayKey,
+  manilaToday. All 21 sites use it with their existing locale and format. Dashboard,
+  DashboardRecords, Analytics and lib/shelfLifeWindow.ts use it instead of private copies.
+  AppDateFilter passes today={manilaToday()}. DeviceStatus shows "Never".
+- backend/app/core/time.py: manila_struct_time. backend/app/main.py: log lines use the
+  Manila clock and end in "+08:00" (LOG_DATE_FORMAT). backend/app/core/xlsx.py and
+  services/backup_archive.py stamp zip members from now_manila(). debug_sensor.py and
+  test_rfr_matrix.py use now_manila().
+- Guards: frontend/tests/manilaTime.test.mjs (helper under TZ=America/Los_Angeles and a
+  source scan of src/), browser tests in Los Angeles/New York browsers (Kiosk clock,
+  Scan Detail, QC list, date picker, export file names), backend/tests/
+  test_manila_time_guard.py (process clock in Los Angeles; logs, zip times, source scan).
+  Each new test failed before its fix.
+- AGENTS.md: the Asia/Manila bullet names the two helpers and the guards.
+- Docs: docs/knowledge/Frontend.md, Development Decisions.md, Testing and Validation.md.
+
+VERIFICATION
+- Backend with a throwaway PostgreSQL 16 cluster (local socket, schema per test):
+  834 passed, 38 skipped (37 Windows-only scripts, 1 missing RFR artifact). Without
+  PostgreSQL: 768 passed, 104 skipped. Before this change: 830 and 764.
+- Frontend: 331 of 331 tests passed (12 new). Type check and production build pass.
+- Lint: ESLint 40 problems, Ruff 634, both equal to before; the new files are clean.
+- Screenshots in a Los Angeles browser: Kiosk clock 12:00 PM for 04:00 UTC (noon in
+  Manila), Scan Detail footer in Manila date and time; layouts unchanged.
+- Graphify refreshed: 5,139 -> 5,171 nodes, 14,667 -> 14,781 edges; 5,202 nodes and
+  14,842 edges after merging team main. ICM is not
+  available in the cloud session; no memory written.
+
+NOT CHANGED (reported)
+- Stored data and API contracts (already correct). YYYY-MM-DD values sent to the API are
+  already Manila business days. The profile's "last 7 days" is a rolling 168-hour window.
+  Migrations 0009/0010 bind plain DateTime on SQLite (tests only); PostgreSQL is correct.
+
+STILL OPEN FROM THE AUDIT (team decisions, details in the archived checkpoint)
+- Non-Banana Detection Audit.md status line; .codex/config.toml default model and laptop
+  paths; uncertain-cultivar estimate shown outside Kiosk; ModelInferenceError detail;
+  missing [[System Architecture]] and [[Backend]] notes; second kiosk shows a rejection;
+  public QR countdown for every status; Top-calibrated OOD rerun.
+
+MERGED FROM TEAM MAIN (Khen, public HTTPS access, not deployed)
+- Tailscale Funnel -> Caddy (deploy/Caddyfile) -> uvicorn; an HTTPS page calls its own
+  origin; camera previews need a session; production refuses weak APP_SECRET_KEY /
+  JWT_SECRET_KEY and hides API docs; VITE_PUBLIC_BASE_URL sets the QR label origin;
+  WebSocket ping every 25 s. Tailnet Serve smoke-tested on a Mac; Funnel, the Mini PC,
+  real cameras and the sensor were not tested. Full notes in the archive above and in
+  docs/remote-access.md. For temporary Mac tailnet access: deploy/start-mac-tailnet.sh,
+  stopped with deploy/stop-mac-tailnet.sh.
+- Pending (Khen): when deployment is authorized, follow docs/remote-access.md on the
+  Mini PC (install Caddy, caddy validate --config deploy/Caddyfile, start backend and
+  Caddy, enable Funnel) and verify the public URL, Funnel WebSockets, cameras and sensor.
+
+EXACT NEXT STEP
+- User merges pull request #7 (fork main -> BlackShark404/BananaVision main). The
+  temporary pull request #1 inside the fork closes by itself once its commits are in
+  the fork's main.
