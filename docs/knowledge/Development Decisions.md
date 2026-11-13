@@ -47,6 +47,11 @@ Documented architectural, technical, and operational decisions in BananaVision.
   data providers in `App.tsx`. Inside them, a phone holding an old staff session loaded
   staff data on the QR page and was sent to `/login` when the token had expired or been
   revoked. Removing the in-page redirect alone did not stop that.
+- **Public page hierarchy (2026-11-13 follow-up):** the first screen keeps ripeness,
+  cultivar, the shelf-life countdown, the scan date and the review notice. Confidence,
+  `Est. Fingers`, sensor readings, source, treatment and the scan ID are collapsed under
+  "Scan details"; `inventory_status` is staff-only and no longer renders publicly. The API
+  response shape is unchanged.
 - **Kept:** the error screen's "Retry" button (it only reloads the same data), the
   `/track/:scanId` route and URL, printed label formats, and the landing and login pages.
 - **Capstone storyboard:** Figure 92's text in

@@ -104,9 +104,37 @@ done
 port_busy 8000 && fail "port 8000 is already in use"
 port_busy 8080 && fail "port 8080 is already in use"
 
-if tailscale serve status 2>/dev/null | grep -q '|--'; then
-	fail "Tailscale Serve already has a configuration; run 'tailscale serve status' and clear it first"
-fi
+# A previous run, or a machine rename, can leave Serve configured after its
+# processes are gone. Reuse our own 443 proxy, replace a stale copy of it, and
+# refuse to overwrite anything else.
+SERVE_MODE="$(
+	tailscale serve status --json 2>/dev/null | python3 -c '
+import json, sys
+try:
+	data = json.load(sys.stdin)
+except Exception:
+	print("none")
+	sys.exit()
+web = data.get("Web") or {}
+tcp = data.get("TCP") or {}
+current = ((web.get(sys.argv[1] + ":443") or {}).get("Handlers") or {})
+proxies = [h.get("Proxy") for entry in web.values() for h in (entry.get("Handlers") or {}).values()]
+if not web:
+	print("none")
+elif (current.get("/") or {}).get("Proxy") == "http://127.0.0.1:8080":
+	print("reuse")
+elif proxies and all(proxy == "http://127.0.0.1:8080" for proxy in proxies) and set(tcp) <= {"443"} and not data.get("AllowFunnel"):
+	print("stale")
+else:
+	print("other")
+' "$DNS_NAME" || true
+)"
+case "$SERVE_MODE" in
+	reuse|stale) ;;
+	none) ;;
+	other) fail "Tailscale Serve is configured for something else; run 'tailscale serve status' and clear it with 'tailscale serve --https=443 off'" ;;
+	*) fail "could not read Tailscale Serve status" ;;
+esac
 
 mkdir -p "$STATE_DIR/caddy/data" "$STATE_DIR/caddy/config" "$(dirname "$CADDY_BIN")"
 
@@ -164,9 +192,22 @@ if ! curl -fsS --retry 30 --retry-delay 1 --retry-all-errors http://127.0.0.1:80
 	fail "Caddy did not become healthy; see $CADDY_LOG"
 fi
 
-echo "enabling Tailscale Serve..."
-tailscale serve --bg --https=443 http://127.0.0.1:8080 >/dev/null
-STARTED_SERVE=1
+case "$SERVE_MODE" in
+	reuse)
+		echo "reusing existing Tailscale Serve configuration"
+		;;
+	stale)
+		echo "replacing stale Tailscale Serve configuration for a previous machine name..."
+		tailscale serve reset >/dev/null
+		tailscale serve --bg --https=443 http://127.0.0.1:8080 >/dev/null
+		STARTED_SERVE=1
+		;;
+	none)
+		echo "enabling Tailscale Serve..."
+		tailscale serve --bg --https=443 http://127.0.0.1:8080 >/dev/null
+		STARTED_SERVE=1
+		;;
+esac
 if ! curl -fsS --retry 30 --retry-delay 1 --retry-all-errors "$PUBLIC_URL/health" >/dev/null 2>&1; then
 	fail "HTTPS check failed; confirm HTTPS certificates are enabled for the tailnet"
 fi

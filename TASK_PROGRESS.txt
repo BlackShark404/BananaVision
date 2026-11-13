@@ -1,7 +1,11 @@
-CURRENT RESUME HERE (2026-11-13) - FINGER-COUNT ACCURACY AND NON-BANANA BOXES
+CURRENT RESUME HERE (2026-11-13) - FINGER-COUNT ACCURACY AND NON-BANANA BOXES;
+MERGED WITH TEAM MAIN (WINDOWS RUNBOOK, PUBLIC PAGE DETAILS DISCLOSURE)
 
 The previous checkpoint (QR page shows only the scanned data, merged to team main as
 39a0e5d via PR #9) is archived byte-for-byte in docs/history/2026-11-13-before-finger-count-accuracy.txt.
+The team's checkpoint at merge time (QR page, public HTTPS, Mac tailnet smoke test,
+Windows runbook) is archived byte-for-byte in
+docs/history/2026-11-13-team-qr-and-https-checkpoint.txt.
 
 AUTHORIZED SCOPE / USER REQUEST (2026-11-13)
 - "Enhance the code and YOLO26 AI to make the estimated finger count more accurate. Do
@@ -64,6 +68,24 @@ TOOLING (second commit)
   synthetic images only; no live GitHub download was tried.
 - The first counting commit is on the fork's main as 923b568.
 
+TEAM MAIN MERGED INTO THE FORK (2026-11-13, via temporary fork PR #2)
+- Team commits after PR #9: 4ccf1ed Windows Mini PC deployment runbook and production
+  env templates (deploy/backend.env.production.example, frontend/.env.production.example,
+  docs/windows-mini-pc-deployment.md); 3d7f7f3 start-mac-tailnet.sh handles stale or
+  existing Tailscale Serve configs; 15fe7db sample QR image; 6c0b0c1 public scan page puts
+  confidence, Est. Fingers, sensor readings, source, treatment and scan ID in a collapsed
+  "Scan details" disclosure and no longer shows inventory_status (tests updated).
+- Merge: only TASK_PROGRESS.txt conflicted (this file combines both); the knowledge notes
+  merged with both sides' entries. The team also committed .tmp/*.png screenshots.
+- Post-merge verification is recorded under MERGE VERIFICATION below.
+
+MERGE VERIFICATION
+- Backend full suite: 1091 passed / 38 skipped with a throwaway PostgreSQL 16 cluster,
+  1025 / 104 without. Ruff app+tests 634 (baseline 635).
+- Frontend (the team changed PublicScanView and its tests): public-scan, real-App QR route,
+  Manila time and estimates suites 25/25; type check and production build pass; ESLint 40
+  problems, equal to the baseline.
+
 STILL OPEN
 - Teammate uploads to a GitHub release on RoronoaZoro1206/BananaVision: the station
   weights (.pt), the Roboflow export zip, and station background photos (empty tray,
@@ -71,12 +93,16 @@ STILL OPEN
   weights, evaluate_finger_count.py visible on the prepared VALID split, train with
   negatives, re-evaluate, register the new SHA in TOP_CALIBRATED_CHECKPOINTS.
 - Team: re-capture the Figure 92 screenshot in the capstone storyboard.
-- From Khen (public HTTPS, not deployed): docs/remote-access.md on the Mini PC.
+- From Khen (public HTTPS, not deployed): when deployment is authorized, follow
+  docs/windows-mini-pc-deployment.md on the Mini PC and verify the public URL, Funnel
+  WebSocket traffic, the real cameras and the sensor. Mac tailnet access:
+  deploy/start-mac-tailnet.sh / deploy/stop-mac-tailnet.sh.
 - From the audit (team decisions): Non-Banana Detection Audit.md status line;
   .codex/config.toml default model and laptop paths; uncertain-cultivar estimate shown
   outside Kiosk; ModelInferenceError detail; missing [[System Architecture]] and
   [[Backend]] notes; second kiosk shows a rejection; public QR countdown for every status.
 
 EXACT NEXT STEP
-- User opens the pull request from the fork's main (both commits):
+- The team PR from the fork's main (BlackShark404/BananaVision main <- RoronoaZoro1206
+  main) should now merge cleanly; close the temporary fork PR #2 without merging.
   https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main

@@ -54,6 +54,7 @@ test('public QR tracking shows a live countdown beside the original estimate', a
   await metric.getByText('4 days left', { exact: true }).waitFor()
   await metric.getByText('Est. 5–7 days from scan', { exact: true }).waitFor()
   assert.equal(await page.getByText('Pending quality review', { exact: true }).count(), 0)
+  await page.getByText('Scan details', { exact: true }).click()
   // The public page cannot tell a corrected count apart, so every count is an estimate here.
   const fingers = page.getByText('Est. Fingers', { exact: true }).locator('..')
   assert.equal(await fingers.locator('p').last().innerText(), '7')
@@ -159,16 +160,20 @@ async function assertNoWayOut(page) {
 
 async function assertScannedData(page) {
   await page.getByText('Lakatan', { exact: true }).waitFor()
-  await page.getByText('fixture-scan', { exact: true }).waitFor()
   await page.getByText('Ripe', { exact: true }).waitFor()
-  const fingers = page.getByText('Est. Fingers', { exact: true }).locator('..')
-  assert.equal(await fingers.locator('p').last().innerText(), '7')
   const spoilage = page.getByText('Est. Spoilage', { exact: true }).locator('..')
   await spoilage.getByText('4 days left', { exact: true }).waitFor()
   await spoilage.getByText('Est. 5–7 days from scan', { exact: true }).waitFor()
   await page.getByText('Sep 30, 2026', { exact: true }).waitFor()
-  await page.getByText('24°C', { exact: true }).waitFor()
   await page.getByText(/Scan tracked at .*2026.*12:00:00/).waitFor()
+  // Secondary values are present but collapsed until asked for.
+  assert.equal(await page.getByText('24°C', { exact: true }).isVisible(), false)
+  await page.getByText('Scan details', { exact: true }).click()
+  await page.getByText('fixture-scan', { exact: true }).waitFor()
+  const fingers = page.getByText('Est. Fingers', { exact: true }).locator('..')
+  assert.equal(await fingers.locator('p').last().innerText(), '7')
+  await page.getByText('24°C', { exact: true }).waitFor()
+  assert.equal(await page.getByText('In Stock', { exact: true }).count(), 0)
 }
 
 test('a phone scanning the QR code sees only the scanned data, with no login or website buttons', async t => {

@@ -57,6 +57,7 @@ async function openWithExpiredSession(t, path) {
 test('a phone with an old staff session stays on the QR data page and loads no staff data', async t => {
   const { page, publicRequests, staffRequests } = await openWithExpiredSession(t, '/track/fixture-scan')
   await page.getByText('Lakatan', { exact: true }).waitFor()
+  await page.getByText('Scan details', { exact: true }).click()
   await page.getByText('Est. Fingers', { exact: true }).waitFor()
   // Exact countdown wording is covered in public-scan.test.mjs with a frozen clock.
   await page.getByText('Est. 5–7 days from scan', { exact: true }).waitFor()
