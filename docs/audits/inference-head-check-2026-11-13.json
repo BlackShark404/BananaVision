@@ -1,0 +1,67 @@
+{
+  "created_at": "2026-11-14T00:09:03.546078+08:00",
+  "purpose": "Mechanism check only: which YOLO26 detection head Ultralytics 8.4.40 runs and whether IoU and test-time augmentation act on it. Uses the COCO yolo26n.pt banana-verifier weights and a bundled sample photo, not the banana cultivar weights; it says nothing about finger-count accuracy.",
+  "weights": "backend/yolo26n.pt",
+  "weights_sha256": "9b09cc8bf347f0fc8a5f7657480587f25db09b34bf33b0652110fb03a8ad4fef",
+  "versions": {
+    "python": "3.13.18",
+    "ultralytics": "8.4.40",
+    "torch": "2.11.0+cu130"
+  },
+  "static": {
+    "ultralytics_version": "8.3.222",
+    "date": "2025-12-15T06:36:05.381708",
+    "train_end2end": true,
+    "train_nms": false,
+    "has_one_to_one_branch": true,
+    "stored_head_choice": "absent",
+    "expected_checkpoint_head_8_4_40": "one_to_one under Ultralytics 8.4.40 (no stored choice)"
+  },
+  "runtime": {
+    "image": "ultralytics/assets/bus.jpg (bundled sample photo)",
+    "confidence": 0.05,
+    "modes": {
+      "checkpoint": {
+        "head": "one_to_one",
+        "head_after_first_prediction": "one_to_one",
+        "boxes_by_iou": {
+          "0.3": 10,
+          "0.7": 10,
+          "0.95": 10
+        },
+        "iou_changes_boxes": false,
+        "augment_changes_boxes": false
+      },
+      "one_to_many_nms": {
+        "head": "one_to_many_nms",
+        "head_after_first_prediction": "one_to_many_nms",
+        "boxes_by_iou": {
+          "0.3": 9,
+          "0.7": 10,
+          "0.95": 17
+        },
+        "iou_changes_boxes": true,
+        "augment_changes_boxes": true
+      },
+      "one_to_one": {
+        "head": "one_to_one",
+        "head_after_first_prediction": "one_to_one",
+        "boxes_by_iou": {
+          "0.3": 10,
+          "0.7": 10,
+          "0.95": 10
+        },
+        "iou_changes_boxes": false,
+        "augment_changes_boxes": false
+      }
+    },
+    "late_predict_argument": {
+      "head_before": "one_to_one",
+      "head_after_end2end_false": "one_to_one"
+    }
+  },
+  "commands": [
+    "python scripts/check_inference_head.py static --weights yolo26n.pt",
+    "python scripts/check_inference_head.py runtime --weights yolo26n.pt"
+  ]
+}

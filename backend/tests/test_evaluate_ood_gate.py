@@ -195,6 +195,27 @@ def test_top_path_status_requires_every_calibration_condition():
     assert evaluation.top_paths(classifier, module, 0.50)["active"] is False
 
 
+def test_top_paths_report_whether_the_calibrated_iou_can_act():
+    module = SimpleNamespace(
+        TOP_CALIBRATED_CHECKPOINTS={"abc": 640}, TOP_OVERLAP_CONFIDENCE=0.50,
+        TOP_OVERLAP_BASE_IOU=0.45,
+        settings=SimpleNamespace(yolo_iou_threshold=0.45, yolo_top_overlap_refinement=True,
+                                 yolo_top_rotation_fallback=True),
+    )
+    nms = SimpleNamespace(_checkpoint_sha256="abc", _image_size=640,
+                          inference_head="one_to_many_nms")
+    report = evaluation.top_paths(nms, module, 0.50)
+    assert report["inference_head"] == "one_to_many_nms"
+    assert report["overlap_refinement_effective"] is True
+    # The NMS-free head keeps "active" (the paths run) but the IoU setting cannot act.
+    free = SimpleNamespace(_checkpoint_sha256="abc", _image_size=640, inference_head="one_to_one")
+    report = evaluation.top_paths(free, module, 0.50)
+    assert report["active"] is True and report["overlap_refinement_effective"] is False
+    legacy = evaluation.top_paths(SimpleNamespace(_checkpoint_sha256="abc", _image_size=640),
+                                  module, 0.50)
+    assert legacy["inference_head"] == "unknown"
+
+
 def test_existing_output_stops_the_run_before_any_evaluation(tmp_path, monkeypatch, capsys):
     ran = []
     monkeypatch.setattr(evaluation, "run_gate", lambda args: ran.append("gate") or {})

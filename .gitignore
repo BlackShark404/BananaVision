@@ -44,6 +44,8 @@ venv/
 .venv/
 backend/captures/*
 !backend/captures/.gitkeep
+# Training runs from backend/scripts/train_finger_model.py (weights, plots, records).
+backend/runs/
 backend/app/ml/weights/*.pt
 backend/app/ml/weights/*.joblib
 !backend/app/ml/weights/.gitkeep

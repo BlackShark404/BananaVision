@@ -241,6 +241,7 @@ async def _execute_scan_pipeline(
         device_map: dict[str, uuid.UUID] = {row.camera_id: row.id for row in device_rows}
 
         ood_rejected_boxes = 0
+        ripeness_outlier_boxes = 0
         for cap, view in zip(captures, view_evidence, strict=True):
             # The cultivar model still sees every view. With evidence, only boxes
             # that banana evidence covers survive and the dropped count is kept;
@@ -255,6 +256,7 @@ async def _execute_scan_pipeline(
                 **gate_arguments,
             )
             ood_rejected_boxes += getattr(result, "ood_rejected_boxes", 0)
+            ripeness_outlier_boxes += getattr(result, "ripeness_outlier_boxes", 0)
             classification_results.append((cap.camera_id, cap.camera_label, result))
 
             # Store per-camera detection record
@@ -321,12 +323,21 @@ async def _execute_scan_pipeline(
             )
         # The gate never changes an accepted scan silently: dropped boxes can be a
         # foreign object or a missed finger, so a person confirms the result.
-        auto_flagged = bool(fused.auto_flagged) or ood_rejected_boxes > 0
+        # A box whose ripeness disagrees with the rest of the hand is usually another
+        # object (wood read as a ripe finger), but a person confirms that too.
+        auto_flagged = (
+            bool(fused.auto_flagged) or ood_rejected_boxes > 0 or ripeness_outlier_boxes > 0
+        )
         if ood_rejected_boxes:
             logger.info(
                 "OOD gate dropped %s cultivar boxes without banana evidence in scan %s; "
                 "flagged for review (banana scores: %s)",
                 ood_rejected_boxes, scan_id_str, view_scores,
+            )
+        if ripeness_outlier_boxes:
+            logger.info(
+                "Dropped %s boxes with inconsistent ripeness in scan %s; flagged for review",
+                ripeness_outlier_boxes, scan_id_str,
             )
 
         # Cross-view cultivar harmonization:
@@ -439,6 +450,11 @@ async def _execute_scan_pipeline(
                     f"; {ood_rejected_boxes} boxes without banana evidence dropped, "
                     "flagged for review"
                     if ood_rejected_boxes else ""
+                )
+                + (
+                    f"; {ripeness_outlier_boxes} boxes with inconsistent ripeness dropped, "
+                    "flagged for review"
+                    if ripeness_outlier_boxes else ""
                 )
             ),
             ip_address=client_ip,
