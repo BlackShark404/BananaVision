@@ -2,6 +2,32 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## Audit of the 2026-11-12/13 commits — 2026-11-13
+
+Scope: Caveman skills and MCP entry, the OOD gate (#3), its doc corrections (#4, #5) and
+the shelf-life countdown (#6), plus the merges with teammates' work. Decisions are in
+[[Development Decisions]]; model numbers in [[AI Models]].
+
+- **PostgreSQL tests ran for the first time in the cloud session.** A throwaway
+  PostgreSQL 16 cluster on a local socket (no TCP), with `BANANAVISION_TEST_DATABASE_URL`
+  set; every test creates and drops its own schema. Result: 830 passed, 38 skipped (37
+  Windows-only setup scripts, 1 missing RFR artifact). The real COCO verifier test
+  (`test_ood_gate_model.py`) ran with `backend/yolo26n.pt`.
+- **Contract fix with a parity check.** `prediction_bounds` now gives no window for a
+  value `spoilageDisplay.ts` shows as "Unknown". A script compared both rules on 1,396
+  generated strings: 218 disagreements before, 0 after.
+- **Lint baseline by `git archive`, not a worktree.** ESLint 40 problems repo-wide and
+  18 on the touched files, both equal to `0c74c73`; Ruff 634 equal.
+- **Screenshots** of every countdown and rejection state in light and dark, with the
+  repository's own browser harness (`tests/dashboard.browser.mjs`) and mocked API.
+- **Codex Security** scoped scan of the scan API and OOD files: 0 findings.
+- **MCP checks:** the Codex CLI 0.167.1 lists both entries of `.codex/config.toml`, and a
+  live MCP handshake with the Caveman server returned 4 tools. The Antigravity plugin
+  file now uses `serverUrl`, the documented key for remote servers.
+- **Known flaky test:** `kiosk-pin.test.mjs` "stalled swap …" pauses the browser clock
+  at a Node timestamp and fails under heavy CPU load ("Cannot fast-forward to the
+  past"). Idle: 0 failures in 6 runs before #3 and 6 at HEAD.
+
 ## Live shelf-life window — 2026-11-13
 
 Rule and reasons are in [[Development Decisions]]; what each page shows is in [[Frontend]].

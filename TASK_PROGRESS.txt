@@ -1,112 +1,107 @@
-CURRENT RESUME HERE (2026-11-13) - LIVE SHELF-LIFE COUNTDOWN IN ASIA/MANILA CALENDAR DAYS
+CURRENT RESUME HERE (2026-11-13) - AUDIT OF LAWRENCE S. RAMIREZ'S RECENT COMMITS
 
-The previous checkpoint (out-of-distribution rejection, merged to main as 3ee6af6) is
-archived byte-for-byte in docs/history/2026-11-13-before-live-shelf-life-window.txt.
+The previous checkpoint (live shelf-life countdown, merged to team main as 768b658, PR #6)
+is archived byte-for-byte in docs/history/2026-11-13-before-commit-audit.txt.
 
-AUTHORIZED SCOPE / LATEST DECISIONS
-- User reported that a record's estimate (for example "1-3 days") stays frozen days or
-  a week after the scan. Required: keep the database value and the scan time immutable,
-  and compute the remaining range at read time from whole Asia/Manila calendar days.
-- User decisions on 2026-11-13:
-  1. Scan Logs leads with the countdown; the scan-time estimate sits beneath it. This
-     replaces the estimate-first cell and the earlier revert of a countdown-first cell.
-  2. Sold, Spoiled and For Processing records keep the scan-time estimate, no countdown.
-  3. Wording: "1-3 days left", "0-2 days left", "0-1 days left", "Final day", "Overdue"
-     (shown with an en dash).
-- Delivery: commit on main of the fork RoronoaZoro1206/BananaVision after checks pass.
-  The pull request to BlackShark404/BananaVision is opened by the user. Not deployed.
+AUTHORIZED SCOPE
+- User request 2026-11-13: end-to-end audit, verification and finalization of the recent
+  commits by Lawrence S. Ramirez on team main (synced fork, 768b658). Fix only confirmed
+  defects in those commits, test first; report everything else. No live database,
+  captures, cameras or deployment. Commit on the fork's main; the user opens the PR.
 
-ROOT CAUSE (code reading + tests)
-- The stored value is the string "1-3" in scan_classification.spoilage_days; the word
-  "days" is added only for display. Nothing recomputed it, by design.
-- Kiosk recent scans and Quality Control showed only that stored estimate. Scan Logs
-  showed it as the main cell text.
-- The existing countdown was one number: the range midpoint minus elapsed seconds. It
-  was not a range and did not follow calendar days, so "1-3" read "Overdue" after two
-  days and nothing ever showed "0-2 days".
+COMMITS AUDITED (verdict)
+- 9683e66 Caveman response style skills: sound. Vendored files are byte-identical to
+  upstream; LICENSE and NOTICE kept. AGENTS.md block fixed (see FIXES).
+- 3ee6af6 #3 out-of-distribution banana verifier gate: sound. Production and the
+  evaluation script call the same ood_gate.decide_scan. Lakatan, Latundan and Cardaba
+  keep precision 1.0 on the labeled split; Cardaba carries most of the loss (129/134).
+  Comment and doc inaccuracies fixed (see FIXES).
+- f035917 #4 docs: numbers match the audit JSON. 3dd755b #5 is an empty commit (tree
+  identical to #4); harmless, nothing to fix without a history rewrite.
+- ddbf7f0 Caveman MCP integration: valid JSON and TOML. The Codex CLI 0.167.1 lists both
+  MCP entries (caveman, icm) from .codex/config.toml. Live MCP handshake with
+  https://caveman.so/mcp succeeded (4 tools). Antigravity loads .agents/plugins/caveman
+  per workspace; its mcp_config.json used the legacy "url" key, fixed (see FIXES).
+- 768b658 #6 shelf-life countdown: sound. One contract mismatch fixed (see FIXES).
+- Merges fc2650b, dfbd2c8, 030e48b: empty remerge-diff; no code dropped. Kent's Cardaba
+  and finger-count lines (e8825a5, 0c74c73) are all present at HEAD.
 
-RULE (one implementation: backend/app/services/inventory_policy.py)
-- elapsed_days = ManilaDate(now) - ManilaDate(scan.date_time), never below zero. Dates
-  come from the existing as_manila helper (backend/app/core/time.py).
-- Whole-day bounds of the stored estimate: a range keeps its ends; a decimal spans
-  floor to ceiling; zero stays zero; a positive value below one day counts as one day.
-  This is the rule the estimate is displayed with (frontend/src/lib/spoilageDisplay.ts).
-- remaining_min = max(0, min - elapsed_days); remaining_max = max(0, max - elapsed_days).
-- state: "final_day" when elapsed_days equals the upper bound, "expired" when it is
-  greater, otherwise "active". days_past = max(0, elapsed_days - max).
-- Nothing is stored or rewritten. No migration. Unreadable estimates and missing
-  timestamps give no window and never raise.
-
-DONE
-- backend/app/services/inventory_policy.py: prediction_bounds, elapsed_manila_days,
-  shelf_life_window; inventory_facts adds "shelf_life_window". remaining_shelf_life is
-  unchanged for every string and None (a reviewer compared 800,000 random cases).
-- backend/app/schemas/shelf_life.py (new): ShelfLifeWindow with min_days, max_days,
-  elapsed_days, remaining_min_days, remaining_max_days, days_past, state, scan_date,
-  as_of_date. Optional field shelf_life_window on ScanResponse, PublicScanResponse and
-  DashboardScan (so ScanLogRow), and in the bulk-status event payload.
-- backend/app/api/v1/scans.py (public track), services/dashboard.py and scan_logs.py
-  (rows take the request's now), services/scan_records.py (partial event).
-- backend/app/services/scan_snapshots.py: frozen list snapshots do not store the window.
-  save_snapshot drops it before the size check; slice_snapshot rebuilds it for the instant
-  the row was frozen. The 20 MiB limit holds as many rows as before.
-- Unchanged on purpose: remaining_days, risk_as_of, the at-risk rule (two days or less
-  by the midpoint number), all SQL, sorting, exports, printed labels.
-- frontend/src/lib/shelfLifeWindow.ts (new): turns the window into text and rolls it
-  forward from scan_date to the later of as_of_date and the page's Manila date
-  (Intl.DateTimeFormat with timeZone "Asia/Manila"). It never parses the stored estimate.
-- frontend/src/lib/inventoryRisk.ts: liveShelfLifeLabel (window, else the older aged
-  number, else nothing). Types and mappers: src/types/index.ts, src/types/dashboard.ts,
-  src/lib/scanData.ts, src/lib/api.ts, src/context/ScanContext.tsx.
-- Pages, In Stock records only: ScanDetail.tsx and PublicScanView.tsx (countdown with
-  the estimate beneath; the public page for every status as before), Logs.tsx (countdown
-  first, estimate beneath, at-risk tooltip names the midpoint), Kiosk.tsx recent scans,
-  admin/QualityControl.tsx (countdown, estimate beneath, one-minute clock).
-- Inventory.tsx is unchanged: its labels use the same number as its two-day rule.
-- Tests: backend/tests/test_shelf_life_window.py, backend/tests/data/
-  shelf_life_window_cases.json (one rule table read by both test suites),
-  frontend/tests/shelfLifeWindow.test.mjs, and cases added to public-scan, scanrecords
-  and kiosk browser tests.
-- Docs: docs/knowledge/Frontend.md, Development Decisions.md, Testing and Validation.md.
+FIXES (this audit)
+- backend/app/services/inventory_policy.py: prediction_bounds gives no window for a value
+  the page shows as "Unknown" (no leading digit such as ".5", or above
+  Number.MAX_SAFE_INTEGER). Before, a countdown could sit beside "Est. Unknown". Tests:
+  backend/tests/test_shelf_life_window.py (5 new), rule table case ".5 - 1.5" became
+  "0.5 - 1.5". The at-risk midpoint rule is unchanged (pinned by a test). Parity check on
+  1,396 generated strings: 218 mismatches before, 0 after.
+- OOD gate wording: ood_gate.py (captured views; None evidence also when the filter is
+  off), banana_detector.py (fail-closed comment and log; unused CONFIDENCE_THRESHOLD
+  removed; docstring example), classification.py (where the box-support skip runs),
+  core/startup.py (log no longer promises a reload that never happens), backend/README.md
+  and .env.example (OOD_MIN_BANANA_VIEWS counts captured views), the presentation guide
+  08_YOLO_DETECTION_AND_AI_PIPELINE.md (diagram order, threshold snippet).
+- docs/knowledge: AI Models.md (per-cultivar results, download gaps behind 708 vs 707,
+  box-support order, link to Non-Banana Detection Audit), Development Decisions.md
+  (display-rule edge cases, public QR exception, box-support order), Frontend.md (public
+  QR exception), Testing and Validation.md (this audit).
+- AGENTS.md: the workflow, maintenance and backend pointer lines moved back above the
+  Caveman block, unchanged; the switch line adds the Codex form ($caveman, Codex calls
+  skills with "$").
+- .agents/plugins/caveman/mcp_config.json: "url" became "serverUrl", the key Antigravity
+  documents for remote MCP servers ("url" is its legacy key; antigravity.google docs via
+  Context7).
 
 VERIFICATION
-- Backend: 759 passed, 104 skipped (PostgreSQL-only; no disposable cluster here). Main
-  at 3dd755b alone gives 685 passed, 104 skipped; 74 tests are new.
-- Frontend: 319 of 319 tests passed (418 s). 39 are new: 28 unit tests of the page rule
-  and 11 browser tests. Five existing Scan Logs assertions were updated for decision 1.
-  Type check and production build pass. Lint on changed files: 14 existing problems in
-  Kiosk.tsx, Logs.tsx, QualityControl.tsx and ScanContext.tsx, the same as before; the
-  new file has none.
-- Ruff: new files clean; changed backend files 11 findings, the same as at 3dd755b.
-- Required cases covered: day 0, +1, +2, +3, +7; created 23:50 PHT and read 00:05 PHT;
-  no change at UTC midnight; single-day and zero estimates; unreadable values; missing
-  timestamps; clock skew before the scan; a scan dated after the server date; reads at
-  five ages leave the stored string, timestamp, revision and updated_at unchanged.
-- Independent review in four lenses (date math, API contracts, what the user sees, tests
-  and security), each finding checked by a second reviewer. Eleven findings. Two
-  questioned the Scan Logs layout, which is user decision 1. The other nine were fixed or
-  covered: the page miscounted a scan dated after the server date (now counts from
-  scan_date); frozen snapshots stored the window and reached their size limit sooner (no
-  longer stored); the Quality Control dialog had no clock and hid the estimate; an
-  Inventory label change contradicted its own two-day rule (withdrawn); a value of 309 or
-  more digits raised an error (guarded; the column holds 20); two test gaps (dates for
-  UTC inputs, window for Sold records); and unfilled result lines in these notes.
-- Mutation check on a scratch copy: 10 of 10 planted defects make the backend tests fail.
-- No live station database, captures, cameras, sensors or OS power were used.
+- Backend with a throwaway PostgreSQL 16 cluster (local socket, schema per test):
+  830 passed, 38 skipped (37 Windows-only scripts, 1 missing RFR artifact). Before the
+  fixes: 825 passed, 38 skipped. Without PostgreSQL: 764 passed, 104 skipped (759 before the fixes).
+- Frontend: 319 of 319 passed after the fixes (318 of 319 in the first run under heavy
+  CPU load; see the flaky test below). Type check and production build pass.
+- Lint: ESLint 40 problems repo-wide before #3 (0c74c73) and now; 18 = 18 on the touched
+  files. Ruff 634 before and now; new files clean.
+- Codex Security (gpt-5.6-terra, low effort): scans.py, ood_gate.py, scan_service.py,
+  banana_detector.py, scan_snapshots.py at 768b658: 0 findings. An earlier scan of
+  backend/app/core reported 2 (default JWT key "change-me" if JWT_SECRET_KEY is unset;
+  username-only login lockout); both predate these commits.
+- Screenshots (light and dark): Scan Logs, Scan Detail (final day, Sold), public QR
+  (day +1, overdue), Kiosk OOD rejection and recent scans. All match the decisions.
+- Flaky test, not from these commits: kiosk-pin.test.mjs "stalled swap ..." fails under
+  heavy CPU load ("Cannot fast-forward to the past": the test pauses the browser clock at
+  a Node timestamp). 0 failures in 6 idle runs before #3 and 6 at HEAD.
 
-LIMITS / KNOWLEDGE
-- The at-risk icon, counts and Inventory labels use the midpoint number; the countdown on
-  the other pages counts calendar days over the whole range. They can differ near the
-  ends of a range (examples in docs/knowledge/Frontend.md).
-- The Scan Logs column still sorts by the stored estimate, now the small line of the cell.
-- After an admin correction the count still starts at the scan date, as the midpoint
-  number always did.
-- A browser with a wrong clock can show a later day than the server until the next read.
-  It cannot move the count backwards and it changes nothing on the server.
-- Graphify and ICM are not installed in this environment; graph and memory not refreshed.
-  Context7 was used for the Intl.DateTimeFormat API. No Codex Security service scan was
-  run; the security check is the review above.
+FOUND, NOT FIXED (outside these commits or a team decision)
+- Non-Banana Detection Audit.md (Khen) says nothing is implemented; #3 implements its
+  fail-closed verifier and every-view check. Its line references predate #3.
+- .codex/config.toml (Khen) sets model "gpt-6-astra" although AGENTS.md says no default
+  model; it holds laptop-only Windows paths for icm; docs/development-workflow.md
+  describes the file as Astra/Medium with no MCP servers.
+- Scan Detail footer date and time use the browser's zone (ScanDetail.tsx:1068, 1078).
+- Uncertain-cultivar scans hide the estimate only on Kiosk; other pages show it.
+- ModelInferenceError returns raw exception text (api/v1/scans.py:84-85).
+- Home.md links [[System Architecture]] and [[Backend]], which do not exist.
+- Not in the requested scope, not audited: Lawrence's older commits 808d3ff to 0964ea9
+  (2026-10-22 to 11-01). One item seen in passing: client export file names use the
+  UTC date (ActivityLog.tsx:77,95, DeliveryIntake.tsx:126,142, QualityControl.tsx:297),
+  so an export made before 08:00 Manila time carries yesterday's date.
+- Rejections are broadcast per account, so a second kiosk on the same account also shows
+  the rejection card until its next scan. Accept or change: team decision.
+- Public QR counts down for Sold, Spoiled and For Processing records too (since
+  2a8b8c6). Documented as is; the user may decide to limit it to In Stock.
+- docs/audits/ood-gate-evaluation-2026-11-13.json is a hand-merged summary of several
+  runs; its not_measured list still names per-cultivar recall, which the labeled-split
+  report now measures. Left unedited as a historical record.
+- Unmeasured interaction: Kent's Top-anchor rule (fusion_engine.py:186-192) needs a Top
+  finger count of 4 or more. If box support drops a real Top finger, a scan can turn
+  into a cultivar conflict. Covered by the optional Top-calibrated rerun below.
+
+TOOLS
+- Graphify (graphify-out is git-ignored; queried, then refreshed: 5,102 -> 5,139 nodes,
+  14,627 -> 14,667 edges), Superpowers skills,
+  Context7 (earlier, Intl.DateTimeFormat), Codex Security, Playwright. ICM is not
+  available in the cloud session (no MCP, no binary, .icm absent): no memory written.
+  UI/UX Pro Max points to a laptop path; Playwright screenshots used instead.
 
 EXACT NEXT STEP
 - User opens the pull request from the fork's main to BlackShark404/BananaVision.
-- Optional: PostgreSQL-only tests (104 skipped here) on a disposable cluster.
+- Optional, for the OOD gate: rerun evaluate_ood_gate.py pipeline with a registered
+  Top-calibrated checkpoint (top_paths.active true) and a Cardaba-heavy station capture
+  set; count flagged scans and dropped boxes per view.

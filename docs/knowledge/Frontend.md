@@ -182,7 +182,8 @@ Where the countdown shows, for In Stock records:
   its two-day rule uses, so a card under "≤2 days left" never shows a label above two days.
 
 Unchanged by decision: Sold, Spoiled and For Processing records keep the scan-time
-estimate. The Kiosk result card of the scan just taken, correction inputs, change
+estimate on staff pages; only the public QR page counts down for every status, as it did
+before. The Kiosk result card of the scan just taken, correction inputs, change
 previews, Scan History entries, printed labels, the label preview and CSV/XLSX exports
 keep the stored estimate.
 

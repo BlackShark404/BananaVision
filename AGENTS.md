@@ -24,6 +24,12 @@ These are the user's repository-specific choices for applying generic skill work
 - Model selection is left to each contributor/agent. No default model is imposed by this repository. Choose based on your own budget and toolstack; see the model comparison notes in TASK_PROGRESS.txt for free-tier options. Follow explicit task/model overrides.
 - Keep `TASK_PROGRESS.txt` limited to current milestones, pending work, verified results, constraints and an exact next step. Archive superseded content before replacing it.
 
+Read [the development workflow](docs/development-workflow.md) for verification commands and tooling details.
+
+For maintenance changes, use the approved [design](docs/superpowers/specs/2026-10-05-system-maintenance-design.md) and [plan](docs/superpowers/plans/2026-10-06-system-maintenance.md).
+
+Consult [backend documentation](backend/README.md) for deployment/migrations; do not load every document for unrelated changes.
+
 <!-- caveman-begin -->
 ## Caveman — Terse response style
 
@@ -42,7 +48,7 @@ Rules:
 - User's language: Compress the style, not the language.
 - Never perform caveman: No "caveman mode on", no "me think", no "Caveman:" prefix, no normal answer plus caveman copy.
 
-Switch: /caveman (default), /ultracave (fragments, each fact once), /megacave (Classical Chinese 文言文)
+Switch: /caveman (default), /ultracave (fragments, each fact once), /megacave (Classical Chinese 文言文); in Codex type `$caveman`, `$ultracave`, `$megacave`
 Stop: "stop caveman" or "normal mode"
 
 Auto-Clarity: plain prose for security warnings, irreversible actions, step order a fragment could scramble, user confused, questions you ask the user. Resume after.
@@ -50,12 +56,6 @@ Auto-Clarity: plain prose for security warnings, irreversible actions, step orde
 Boundaries: code, comments, commits, PRs, docs, `TASK_PROGRESS.txt`, Obsidian notes and ICM memories written normal; existing comments kept unless asked. Caveman style never overrides the completion-report requirements in this file.
 Floor: code, commands, paths, numbers and error strings verbatim; never drop not/never/no/only.
 <!-- caveman-end -->
-
-Read [the development workflow](docs/development-workflow.md) for verification commands and tooling details.
-
-For maintenance changes, use the approved [design](docs/superpowers/specs/2026-10-05-system-maintenance-design.md) and [plan](docs/superpowers/plans/2026-10-06-system-maintenance.md).
-
-Consult [backend documentation](backend/README.md) for deployment/migrations; do not load every document for unrelated changes.
 
 ## Automatic AI knowledge management
 

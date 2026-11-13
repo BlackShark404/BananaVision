@@ -1,7 +1,10 @@
 # AI Models
 
 Verified against the source on 2026-11-13. Related: [[Frontend]], [[Testing and Validation]],
-[[Development Decisions]].
+[[Development Decisions]], [[Non-Banana Detection Audit]] (a proposal written before the
+OOD gate merged; the gate already covers its fail-closed verifier and checks every view,
+but one banana view still admits a scan by default, so its "Top plus one other view"
+proposal stays open).
 
 ## Scan pipeline
 
@@ -29,12 +32,18 @@ Verified against the source on 2026-11-13. Related: [[Frontend]], [[Testing and 
 ### What the gate does (`backend/app/services/ood_gate.py`)
 
 1. **Scan gate.** `OOD_MIN_BANANA_VIEWS` views (default 1) must show a banana at
-   `OOD_BANANA_CONFIDENCE` (0.30). Otherwise the scan is rejected before Stage 2.
+   `OOD_BANANA_CONFIDENCE` (0.30). Otherwise the scan is rejected before Stage 2. Only
+   captured frames count, so a camera without a frame lowers the requirement; the fusion
+   engine flags such a scan for review as a missing capture.
 2. **Box support.** A cultivar box is kept only when banana evidence at
    `OOD_SUPPORT_CONFIDENCE` (0.05), grown by `OOD_SUPPORT_MARGIN` (25 % per side), covers
    its centre in the same frame. An unsupported box is treated as if the model had
    never emitted it: it is skipped in the first pass, the rotated Top pass and the
-   occluded-finger recovery pass before any other rule sees it. The result is exactly
+   occluded-finger recovery pass before any rule that compares it with other boxes
+   (duplicates, sub-boxes, clusters, orientation). Only filters that judge a box on its
+   own run first (Rear table lip and upper background; in the recovery pass also the
+   minimum size and the primary label), and a box they drop is not counted as a gate
+   change. The result is exactly
    what the classifier reports for the remaining boxes. Tests pin that contract on
    300 random frames.
 3. **No silent change.** If any box was dropped, the saved scan is flagged for review.
@@ -109,6 +118,9 @@ Full report: `docs/audits/ood-gate-evaluation-2026-11-13.json`.
 `evaluate_ood_gate.py pipeline` on a team laptop, default policy, confidence 0.50, each
 OOD image scored as a one-camera Top scan. Report:
 `docs/audits/ood-pipeline-ood-pool-2026-11-13.json`; the counts follow from its rates.
+The manifest's benchmark pool lists 672 near-OOD and 710 far-OOD images. Downloads that
+failed were skipped: 2 near and 3 far on the laptop (670 and 707 here), 2 near and 2 far
+on the machine of the held-out benchmark above (670 and 708).
 
 | OOD images that end with a cultivar | No gate | Earlier gate | OOD gate |
 | --- | --- | --- | --- |
@@ -138,12 +150,19 @@ Lakatan 155, Latundan 127) in 337 scans. Weights: `best.pt` of training run
 | End with a cultivar | 416/416 (100 %) | 409/416 (98.32 %) | 408/416 (98.08 %) |
 | Finger boxes | 3 534 | 3 467 | 3 453 |
 | Wrong cultivar | 0 | 0 | 0 |
+| Cardaba with a cultivar | 134/134 | 130/134 | 129/134 |
+| Lakatan with a cultivar | 155/155 | 153/155 | 153/155 |
+| Latundan with a cultivar | 127/127 | 126/127 | 126/127 |
 
 | Rear view only (95 photos) | No gate | Earlier gate | OOD gate |
 | --- | --- | --- | --- |
 | End with a cultivar | 95/95 | 92/95 | 91/95 |
 | Finger boxes | 973 | 939 | 925 |
 
+- **Per cultivar:** precision stays 1.0 for all three. Cardaba carries most of the loss
+  (5 of the 8 photos without a cultivar; 4 of 7 under the earlier gate). The gate never
+  reads the cultivar label; the difference comes from the verifier's banana scores on
+  those photos. Green or atypical Cardaba hands on the station have not been measured.
 - **Scan gate:** 330 of 337 scans accepted. The 7 rejected scans hold one photo each,
   and the earlier gate rejects them too, because both use the same verifier rule.
 - **Cost of the OOD gate over the earlier gate:** 1 more photo without a cultivar

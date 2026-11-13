@@ -418,8 +418,10 @@ class BananaClassifier:
         class_votes: dict[tuple[str | None, str | None], list[float]] = {}
         duplicate_label_conflict = False
         # OOD gate: a cultivar box that no banana evidence covers is treated as if the
-        # model had never emitted it. It is skipped in every pass before any other
-        # rule sees it, so it cannot vote, count as a finger or influence another box.
+        # model had never emitted it. In every pass it is skipped right after the
+        # filters that judge a box on its own (position, size, label) and before any
+        # rule that compares it with other boxes, so it cannot vote, count as a finger
+        # or influence another box.
         # `off_banana` only counts the distinct boxes the gate actually removed.
         off_banana: list[Detection] = []
 

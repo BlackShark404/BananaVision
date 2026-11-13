@@ -55,13 +55,12 @@ class BananaPreDetector:
         detector = BananaPreDetector()
         detector.load()   # once at boot
         result = detector.detect(image_array)
-        if result.banana_detected:
-            # proceed with custom classification
+        if result.available and result.banana_detected:
+            # proceed with custom classification (scan_service applies ood_gate)
     """
 
-    # Default acceptance confidence; OOD_BANANA_CONFIDENCE overrides it.
-    CONFIDENCE_THRESHOLD = 0.30
-
+    # Thresholds come from Settings: OOD_BANANA_CONFIDENCE (a view shows a banana)
+    # and OOD_SUPPORT_CONFIDENCE (weaker boxes kept as evidence).
     _COCO_MODEL = "yolo26n.pt"
 
     def __init__(self):
@@ -124,10 +123,10 @@ class BananaPreDetector:
         start = time.time()
 
         if self._model is None:
-            # If the pre-detector failed to load, pass through to avoid
-            # blocking the pipeline (graceful degradation).
+            # Without the verifier the result is marked unavailable. The scan
+            # pipeline then refuses the scan unless OOD_GATE_FAIL_OPEN=true.
             logger.warning(
-                "Banana pre-detector not loaded — skipping pre-detection check"
+                "Banana pre-detector not loaded — banana verification unavailable"
             )
             return PreDetectionResult(
                 banana_detected=True,  # Legacy pass-through; see `available`
