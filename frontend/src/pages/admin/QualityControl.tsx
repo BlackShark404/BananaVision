@@ -33,6 +33,7 @@ import { Loader2, ShieldCheck, Flag, MessageSquare, Edit, AlertTriangle, CheckCi
 import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
 import { formatSpoilageDays } from "@/lib/spoilageDisplay"
+import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
 import { CULTIVARS, RIPENESS_LEVELS, type ScanResult, type Cultivar, type Ripeness } from "@/types"
 import { AppChangePreview } from "@/components/AppChangePreview"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -59,6 +60,12 @@ export default function QualityControl() {
   const [pendingWrite, setPendingWrite] = useState(false)
   const [writeFailure, setWriteFailure] = useState<{ message: string; action?: { label: string; onClick: () => Promise<void> } } | null>(null)
   const [recoveringWrite, setRecoveringWrite] = useState(false)
+  // The countdown changes at Manila midnight; re-read the clock so an open dialog follows it.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   // Detail reads also enrich list rows with camera detections at the same revision.
   // Refresh the displayed record, preserving the user's correction draft and baseline.
@@ -791,7 +798,16 @@ export default function QualityControl() {
                     <Card className="bg-muted/50">
                       <CardContent className="p-4">
                         <Label className="text-xs text-muted-foreground">Est. Spoilage</Label>
-                        <p className="text-lg font-bold mt-1">{formatSpoilageDays(selectedScan.spoilageDays)}</p>
+                        {(() => {
+                          const countdown = selectedScan.inventoryStatus === "In Stock" ? liveShelfLifeLabel(selectedScan, now) : null
+                          const estimate = formatSpoilageDays(selectedScan.spoilageDays)
+                          return (
+                            <>
+                              <p className="text-lg font-bold mt-1">{countdown ?? estimate}</p>
+                              {countdown !== null && <p className="text-xs text-muted-foreground">Est. {estimate} from scan</p>}
+                            </>
+                          )
+                        })()}
                       </CardContent>
                     </Card>
                     <Card className="bg-muted/50">

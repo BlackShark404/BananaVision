@@ -44,7 +44,7 @@ from app.services.scan_records import (
     serialize_detail,
     serialize_scan,
 )
-from app.services.inventory_policy import remaining_shelf_life
+from app.services.inventory_policy import remaining_shelf_life, shelf_life_window
 from app.services.scan_evidence import evidence_url
 from app.services.ood_gate import REJECTION_CODE
 from app.services.scan_service import execute_scan_pipeline, rejection_payload
@@ -211,6 +211,9 @@ async def public_scan_track(scan_id: uuid.UUID, db: DbSession):
             classification.spoilage_days if classification else None, scan.date_time, now
         ),
         risk_as_of=now,
+        shelf_life_window=shelf_life_window(
+            classification.spoilage_days if classification else None, scan.date_time, now
+        ),
         finger_count=classification.finger_count if classification else 0,
         temperature=classification.temperature if classification else None,
         humidity=classification.humidity if classification else None,

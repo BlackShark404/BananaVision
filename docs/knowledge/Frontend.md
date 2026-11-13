@@ -135,12 +135,64 @@ and adds the aged label beneath it for In Stock rows only; it anchors the as-of 
 browse snapshot or reconciliation `generated_at`, because frozen rows carry
 `remaining_days` computed at that instant. Logs sorting, snapshot membership and
 CSV/XLSX exports remain static and unchanged. Sold/Spoiled records keep their existing
-static estimate.
+static estimate. (Superseded in part on 2026-11-13: the countdown now counts calendar days
+and leads the Scan Logs cell. See "Live shelf-life window" below.)
 
 Raw `spoilage_days` stays intact in API responses, provider state, correction drafts,
 history and CSV. Read-only correction inputs and change previews format their labels
 without replacing draft values. Dashboard/Analytics show aggregate counts and link to
 Scan Logs; they do not render a separate per-scan spoilage estimate.
+
+## Live shelf-life window (2026-11-13)
+
+A record's estimate no longer reads as today's value days after the scan. The server adds
+`shelf_life_window` to scan responses, the public track response, dashboard and scan-log
+rows and the bulk-status event (rule and reasons in [[Development Decisions]]). It holds
+the whole-day bounds of the stored estimate, the Asia/Manila calendar days elapsed, the
+remaining bounds, `days_past`, a `state` (`active`, `final_day`, `expired`), the scan's
+Manila `scan_date` and the server's Manila `as_of_date`. `spoilage_days`, `remaining_days`
+and `risk_as_of` are unchanged, and nothing is written on read.
+
+`lib/shelfLifeWindow.ts` turns the window into text and rolls it forward: it counts from
+`scan_date` to the later of `as_of_date` and the page's own Manila date, so it never moves
+backwards and a scan dated after the server's date stays at zero. An open tab, a frozen
+browse snapshot and a replayed write therefore stay correct across Manila midnight
+without a re-read. The date comes from `Intl.DateTimeFormat` with
+`timeZone: "Asia/Manila"`, not from the browser's zone, and the page still never parses
+`spoilage_days`. `liveShelfLifeLabel` in `lib/inventoryRisk.ts` uses the window when it is
+present, then the older aged number (payloads saved before the field existed), then nothing.
+
+Wording for a `1-3` estimate: `1–3 days left` on the scan day, then `0–2 days left`,
+`0–1 days left`, `Final day` on day 3 and `Overdue` from day 4.
+
+Where the countdown shows, for In Stock records:
+
+- **Scan Detail and public QR:** the countdown is the main value with
+  `Est. 1–3 days from scan` beneath. The public page shows it for every status, as before.
+- **Scan Logs:** the countdown is now the main cell text and the estimate sits beneath as
+  `Est. … from scan`. The user chose this on 2026-11-13; it replaces the estimate-first
+  cell and the earlier revert of a countdown-first cell. Sorting, snapshot membership, the
+  at-risk icon and exports are unchanged: they still use the stored estimate and the
+  server's risk decision.
+- **Kiosk Recent Scans:** the countdown replaces the stored estimate.
+- **Quality Control dialog:** the countdown is the main value with `Est. … from scan`
+  beneath, so the estimate under review stays visible. The dialog re-reads the clock every
+  minute like the other pages.
+- **Inventory is unchanged.** Its labels still come from the aged number, the same number
+  its two-day rule uses, so a card under "≤2 days left" never shows a label above two days.
+
+Unchanged by decision: Sold, Spoiled and For Processing records keep the scan-time
+estimate. The Kiosk result card of the scan just taken, correction inputs, change
+previews, Scan History entries, printed labels, the label preview and CSV/XLSX exports
+keep the stored estimate.
+
+Known difference: the at-risk icon, the counts and every Inventory label use the continuous
+midpoint number (two days or less), while the countdown on the other pages counts calendar
+days over the whole range. A fresh `1-3` scan is at risk from the start (midpoint 2.0)
+while Scan Logs reads `1–3 days left`, and two days later Inventory reads `Overdue` while
+Scan Detail reads `0–1 days left`. The Scan Logs at-risk tooltip says that it uses the
+estimate midpoint. The Scan Logs column still sorts by the stored estimate, which is now
+the small line of the cell.
 
 ## Uncertain cultivar presentation (2026-11-12)
 
@@ -179,7 +231,8 @@ prediction field is needed. The numeric remaining estimate is the scalar or vali
 historical range midpoint minus elapsed days since the stored scan timestamp. The static
 estimate labels used by Kiosk, Quality Control, correction inputs and the primary
 Logs/Details value describe the estimate at capture, not an aged range; the separate
-countdown labels are the aged view. `1-4` at capture is 2.5 days and is not at risk, while
+countdown labels are the aged view (since 2026-11-13 the countdown is the calendar-day
+window above, and it leads those views for In Stock records). `1-4` at capture is 2.5 days and is not at risk, while
 `3-6` after three days is 1.5 days and is at risk if stock eligible.
 No model calculations, historical predictions or Manila date rules changed.
 See [[Testing and Validation]] for boundary and seed/Kiosk parity coverage.

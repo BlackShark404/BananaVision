@@ -179,6 +179,7 @@ def partial_scan_event_payload(scan) -> dict:
         "inventory_eligible": facts["inventory_eligible"],
         "remaining_days": facts["remaining_days"],
         "risk_as_of": facts["risk_as_of"].isoformat(),
+        "shelf_life_window": facts["shelf_life_window"],
     }
 
 

@@ -8,6 +8,7 @@ import { getToken, clearAuth } from "@/lib/auth"
 import type { DashboardScanPage, DashboardScanParams, DashboardSummary } from "@/types/dashboard"
 import type { ScanLogPage, ScanLogParams, ScanLogPending, ScanLogReconciliation } from "@/types/scanLogs"
 import type { ApiScan, ApiScanNote, RecordPage } from "@/lib/scanData"
+import type { ShelfLifeWindow } from "@/lib/shelfLifeWindow"
 import type { LabelPreview, PrintJob } from "@/types/printing"
 import type { CameraDiscovery } from "@/types/cameras"
 import type { InventoryStatus, IntakeStatus } from "@/types"
@@ -236,6 +237,7 @@ export const api = {
         spoilage_days: string | null
         remaining_days: number | null
         risk_as_of: string | null
+        shelf_life_window?: ShelfLifeWindow | null
         finger_count: number
         temperature: number | null
         humidity: number | null

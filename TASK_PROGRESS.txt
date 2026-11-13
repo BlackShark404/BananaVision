@@ -1,174 +1,112 @@
-CURRENT RESUME HERE (2026-11-13) - OUT-OF-DISTRIBUTION (OOD) REJECTION FOR LAKATAN / LATUNDAN / CARDABA
+CURRENT RESUME HERE (2026-11-13) - LIVE SHELF-LIFE COUNTDOWN IN ASIA/MANILA CALENDAR DAYS
+
+The previous checkpoint (out-of-distribution rejection, merged to main as 3ee6af6) is
+archived byte-for-byte in docs/history/2026-11-13-before-live-shelf-life-window.txt.
 
 AUTHORIZED SCOPE / LATEST DECISIONS
-- User asked for OOD detection and rejection backed by open-source negative data, so the
-  system reports only Lakatan, Latundan and Cardaba and rejects unrelated inputs.
-- Delivery decided on 2026-11-13: one commit on main of the fork
-  RoronoaZoro1206/BananaVision after checks pass, then a pull request to
-  BlackShark404/BananaVision from GitHub. The cultivar-accuracy evaluation runs on the
-  laptop, because the trained weights and labeled dataset are not in the repository.
-- Delivered on 2026-11-13: pull request #3 was squash-merged into
-  BlackShark404/BananaVision main as 3ee6af6. Not deployed.
-- Built on top of the team commits e8825a5 (Cardaba recognition and finger estimates)
-  and 0c74c73 (genuine finger counts and recovery), merged in on 2026-11-13. The team
-  checkpoint of 0c74c73 is archived byte-for-byte in
-  docs/history/2026-11-13-before-ood-rejection.txt.
+- User reported that a record's estimate (for example "1-3 days") stays frozen days or
+  a week after the scan. Required: keep the database value and the scan time immutable,
+  and compute the remaining range at read time from whole Asia/Manila calendar days.
+- User decisions on 2026-11-13:
+  1. Scan Logs leads with the countdown; the scan-time estimate sits beneath it. This
+     replaces the estimate-first cell and the earlier revert of a countdown-first cell.
+  2. Sold, Spoiled and For Processing records keep the scan-time estimate, no countdown.
+  3. Wording: "1-3 days left", "0-2 days left", "0-1 days left", "Final day", "Overdue"
+     (shown with an en dash).
+- Delivery: commit on main of the fork RoronoaZoro1206/BananaVision after checks pass.
+  The pull request to BlackShark404/BananaVision is opened by the user. Not deployed.
 
-ROOT CAUSE (code reading + measurement)
-- Stage 2 (12-class cultivar YOLO) is closed-set and was trained without background
-  images: any box it emits is a supported cultivar.
-- The COCO banana pre-detector passed a scan when any one camera saw a banana, then
-  Stage 2 ran on all views and every box voted and counted.
-- The pre-detector failed open when it could not run.
-- Measured single-frame leak of the earlier gate on the held-out benchmark: near-OOD
-  3.28 % (22/670), far-OOD 0.14 % (1/708). Four unrelated views compound this to 6.55 %.
-- Stage 2's own false-cultivar rate, measured on the laptop on 2026-11-13 (details under
-  LAPTOP EVALUATION): with no gate it names a cultivar on 76.42 % of near-OOD and
-  61.24 % of far-OOD photos.
+ROOT CAUSE (code reading + tests)
+- The stored value is the string "1-3" in scan_classification.spoilage_days; the word
+  "days" is added only for display. Nothing recomputed it, by design.
+- Kiosk recent scans and Quality Control showed only that stored estimate. Scan Logs
+  showed it as the main cell text.
+- The existing countdown was one number: the range midpoint minus elapsed seconds. It
+  was not a range and did not follow calendar days, so "1-3" read "Overdue" after two
+  days and nothing ever showed "0-2 days".
+
+RULE (one implementation: backend/app/services/inventory_policy.py)
+- elapsed_days = ManilaDate(now) - ManilaDate(scan.date_time), never below zero. Dates
+  come from the existing as_manila helper (backend/app/core/time.py).
+- Whole-day bounds of the stored estimate: a range keeps its ends; a decimal spans
+  floor to ceiling; zero stays zero; a positive value below one day counts as one day.
+  This is the rule the estimate is displayed with (frontend/src/lib/spoilageDisplay.ts).
+- remaining_min = max(0, min - elapsed_days); remaining_max = max(0, max - elapsed_days).
+- state: "final_day" when elapsed_days equals the upper bound, "expired" when it is
+  greater, otherwise "active". days_past = max(0, elapsed_days - max).
+- Nothing is stored or rewritten. No migration. Unreadable estimates and missing
+  timestamps give no window and never raise.
 
 DONE
-- backend/app/services/ood_gate.py: pure gate logic, policy, rejection codes.
-- banana_detector.py: banana evidence boxes at 0.05, `available` flag.
-- classification.py: a cultivar box whose centre is not covered by banana evidence
-  (grown 25 %) is treated as if the model never emitted it. It is skipped in the first
-  pass, the rotated Top pass and the occluded-finger recovery pass before any other rule
-  sees it; the team's rules (V2 checkpoints, canonical rotation, TTA recovery, cluster
-  and duplicate rules, genuine max-view counting) are not modified, and nothing changes
-  when no evidence is given. Every scan the gate altered is flagged: in the first and
-  recovery passes a skipped box counts unless that pass would have dropped it anyway;
-  in the rotated Top pass every skipped box counts, because a repeat there still steers
-  the orientation and label-conflict logic. A Top scan can so be flagged for a skipped
-  box that changed nothing; the reverse (a silent change) does not happen.
-- scan_service.py / api/v1/scans.py: gate on every view; rejection 422 with detail +
-  code/status/is_ood/reason; same fields on scan:failed; any scan that lost a box is
-  saved flagged; scan_rejected activity row with per-view banana scores. Faults answer
-  503 with is_ood false: verifier unavailable (fail closed) and no camera frame.
-- config.py / .env.example: OOD_BANANA_CONFIDENCE 0.30, OOD_SUPPORT_CONFIDENCE 0.05,
-  OOD_SUPPORT_MARGIN 0.25, OOD_BOX_SUPPORT_FILTER true, OOD_MIN_BANANA_VIEWS 1,
-  OOD_GATE_FAIL_OPEN false. No database migration.
-- backend/scripts/prepare_ood_dataset.py + scripts/ood/open_images_ood_manifest.json:
-  Open Images V7 pools (train_negatives 998, calibration 1284, benchmark 1654), disjoint
-  by image ID and file hash; benchmark negatives also come from a different official
-  split. merge-negatives copies a prepared YOLO dataset and adds background images to
-  train only. backend/ood-data/ is git-ignored.
-- backend/scripts/evaluate_ood_gate.py: `gate` mode (run here) and `pipeline` mode
-  (needs trained weights + labeled split). Pipeline mode groups the prepared files of
-  one capture into a scan and scores it as the station does (scan gate over the views,
-  then each view with its own camera label and banana evidence), reports each view, and
-  says under `top_paths` whether the Top refinement, rotated pass and recovery ran.
-  Fusion across views is not simulated.
-- Frontend: api.ts error code/reason; ScanContext refusal state with one notice per
-  scan; Kiosk status card "No Lakatan, Latundan, or Cardaba detected" and an alert card
-  "Scan could not run" for 503 faults; Activity Log badge and full detail; Profile label.
-- Docs: backend/README.md, docs/knowledge/AI Models.md (new), Frontend.md, Testing and
-  Validation.md, Development Decisions.md, the gate passages of the presentation guide
-  (docs/kent_presentation_guide 00 and 08), docs/audits/ood-gate-evaluation-2026-11-13.json.
+- backend/app/services/inventory_policy.py: prediction_bounds, elapsed_manila_days,
+  shelf_life_window; inventory_facts adds "shelf_life_window". remaining_shelf_life is
+  unchanged for every string and None (a reviewer compared 800,000 random cases).
+- backend/app/schemas/shelf_life.py (new): ShelfLifeWindow with min_days, max_days,
+  elapsed_days, remaining_min_days, remaining_max_days, days_past, state, scan_date,
+  as_of_date. Optional field shelf_life_window on ScanResponse, PublicScanResponse and
+  DashboardScan (so ScanLogRow), and in the bulk-status event payload.
+- backend/app/api/v1/scans.py (public track), services/dashboard.py and scan_logs.py
+  (rows take the request's now), services/scan_records.py (partial event).
+- backend/app/services/scan_snapshots.py: frozen list snapshots do not store the window.
+  save_snapshot drops it before the size check; slice_snapshot rebuilds it for the instant
+  the row was frozen. The 20 MiB limit holds as many rows as before.
+- Unchanged on purpose: remaining_days, risk_as_of, the at-risk rule (two days or less
+  by the midpoint number), all SQL, sorting, exports, printed labels.
+- frontend/src/lib/shelfLifeWindow.ts (new): turns the window into text and rolls it
+  forward from scan_date to the later of as_of_date and the page's Manila date
+  (Intl.DateTimeFormat with timeZone "Asia/Manila"). It never parses the stored estimate.
+- frontend/src/lib/inventoryRisk.ts: liveShelfLifeLabel (window, else the older aged
+  number, else nothing). Types and mappers: src/types/index.ts, src/types/dashboard.ts,
+  src/lib/scanData.ts, src/lib/api.ts, src/context/ScanContext.tsx.
+- Pages, In Stock records only: ScanDetail.tsx and PublicScanView.tsx (countdown with
+  the estimate beneath; the public page for every status as before), Logs.tsx (countdown
+  first, estimate beneath, at-risk tooltip names the midpoint), Kiosk.tsx recent scans,
+  admin/QualityControl.tsx (countdown, estimate beneath, one-minute clock).
+- Inventory.tsx is unchanged: its labels use the same number as its two-day rule.
+- Tests: backend/tests/test_shelf_life_window.py, backend/tests/data/
+  shelf_life_window_cases.json (one rule table read by both test suites),
+  frontend/tests/shelfLifeWindow.test.mjs, and cases added to public-scan, scanrecords
+  and kiosk browser tests.
+- Docs: docs/knowledge/Frontend.md, Development Decisions.md, Testing and Validation.md.
 
 VERIFICATION
-- Held-out benchmark (gate only): near-OOD frame rejection 96.72 % -> 97.31 %, far-OOD
-  99.86 % -> 100 %, generic banana frames accepted 90.07 %, AUROC 0.976, AUPR 0.936,
-  FPR at 95 % TPR 2.83 %. Box support keeps 94.92 % of banana boxes; 7.3 % of near-OOD
-  and 0.16 % of far-OOD object boxes pass. One banana view plus three unrelated views:
-  OOD boxes admitted 11069 -> 475.
-- Backend: 685 passed, 104 skipped (PostgreSQL-only; no disposable cluster here);
-  the team main (0c74c73) alone gives 582 passed, 104 skipped. 103 new tests.
-- Frontend: 280 browser tests, 5 new kiosk cases. Full run 279 passed, 1 failed
-  (397.1 s): kiosk-pin "PIN verification sends once..." stopped in its own setup with
-  "clock.pauseAt: Cannot fast-forward to the past". That test, its fixture and the
-  harness are unchanged, and the file passed 15/15 on three reruns, so it is a
-  Node-versus-browser clock race, not a regression. Typecheck and build passed; lint
-  40 problems (35 errors, 5 warnings), unchanged baseline.
-- Ruff: new files clean; changed backend files 43 findings, the same as at 0c74c73.
-- Reviews: a design review, then four separate reviews of the finished change
-  (correctness, security, API/UI contract, tests and documentation) raised 20 concrete
-  points. All were addressed: suppression by unsupported boxes, votes of removed boxes,
-  camera fault shown as a rejection, incomplete downloads, link write-through, data.yaml
-  relocation, line cap, unignored example paths, notice merging, fault display, contrast,
-  hidden audit detail, and six tests that could not fail for the defect they named.
-  Seven tests were confirmed by mutating the code they guard, including each of the
-  three places where the classifier applies the gate.
-- A further review after merging 0c74c73 raised 8 points, all addressed: a tight-evidence
-  case that emptied a real banana view, a set-aside box changing the cluster size check,
-  scans flagged although the gate changed nothing (these three led to the simpler
-  "never emitted" design), the laptop evaluation not passing the camera view, the wrong
-  weights file in the command, and an inaccurate "disjoint by split" statement.
-- A randomized confirmation of about 146,000 cases found the gate-off path identical to
-  0c74c73 and the gate result identical to the classifier on the supported boxes, but
-  2,044 Top cases where a skipped rotated-pass box changed the result uncounted. Fixed
-  by counting every skipped rotated-pass box; rerun of about 61,000 cases: 0 violations.
-  It also led to scan-level scoring, the `top_paths` status and an early output check in
-  the evaluation script.
+- Backend: 759 passed, 104 skipped (PostgreSQL-only; no disposable cluster here). Main
+  at 3dd755b alone gives 685 passed, 104 skipped; 74 tests are new.
+- Frontend: 319 of 319 tests passed (418 s). 39 are new: 28 unit tests of the page rule
+  and 11 browser tests. Five existing Scan Logs assertions were updated for decision 1.
+  Type check and production build pass. Lint on changed files: 14 existing problems in
+  Kiosk.tsx, Logs.tsx, QualityControl.tsx and ScanContext.tsx, the same as before; the
+  new file has none.
+- Ruff: new files clean; changed backend files 11 findings, the same as at 3dd755b.
+- Required cases covered: day 0, +1, +2, +3, +7; created 23:50 PHT and read 00:05 PHT;
+  no change at UTC midnight; single-day and zero estimates; unreadable values; missing
+  timestamps; clock skew before the scan; a scan dated after the server date; reads at
+  five ages leave the stored string, timestamp, revision and updated_at unchanged.
+- Independent review in four lenses (date math, API contracts, what the user sees, tests
+  and security), each finding checked by a second reviewer. Eleven findings. Two
+  questioned the Scan Logs layout, which is user decision 1. The other nine were fixed or
+  covered: the page miscounted a scan dated after the server date (now counts from
+  scan_date); frozen snapshots stored the window and reached their size limit sooner (no
+  longer stored); the Quality Control dialog had no clock and hid the estimate; an
+  Inventory label change contradicted its own two-day rule (withdrawn); a value of 309 or
+  more digits raised an error (guarded; the column holds 20); two test gaps (dates for
+  UTC inputs, window for Sold records); and unfilled result lines in these notes.
+- Mutation check on a scratch copy: 10 of 10 planted defects make the backend tests fail.
 - No live station database, captures, cameras, sensors or OS power were used.
 
 LIMITS / KNOWLEDGE
-- NOT measured: any result on a registered Top-calibrated checkpoint (Top refinement,
-  rotated pass, finger recovery), how many real scans the gate would flag for review,
-  and four-camera fusion. No retraining with negatives was run.
-- Unsupported banana cultivars pass the gate (COCO "banana" covers all varieties).
-- Strong lookalikes pass the verifier (yellow watermelon 0.90, mango slice 0.89, yellow
-  squash 0.84); retraining Stage 2 with the hard negatives is the remedy.
-- Green or peeled bananas score low (0.09-0.21); unripe station hands are unmeasured.
-  If valid scans are flagged or lose fingers, set OOD_BOX_SUPPORT_FILTER=false and report.
-- Thresholds come from open-source photos, not station captures.
-- Graphify CLI/graph, ICM and Context7 were unavailable; graph and memory not refreshed.
-  No Codex Security service scan was run; source review only.
-
-LAPTOP EVALUATION (2026-11-13, user's laptop; `evaluate_ood_gate.py pipeline`)
-Both runs: default policy, confidence 0.50. Neither checkpoint is a registered
-Top-calibrated file, so `top_paths.active` was false: the Top refinement, rotated pass
-and finger recovery did not run. The report files are in docs/audits/ with their
-content unchanged (line endings converted to LF).
-
-Run 1 - non-banana photos (docs/audits/ood-pipeline-ood-pool-2026-11-13.json)
-- Weights: banana_yolo26s.pt, 20,341,509 bytes, SHA-256 starting d1acd351.
-- Pool: benchmark, 670 near-OOD and 707 far-OOD images (5 of 1,654 downloads failed:
-  2 near-OOD and 3 far-OOD), each scored as a one-camera Top scan.
-- Share of OOD images that end with a cultivar (counts follow from the rates):
-    near-OOD  no gate 76.42 % (512)   earlier gate 3.28 % (22)   OOD gate 2.99 % (20)
-    far-OOD   no gate 61.24 % (433)   earlier gate 0.14 % (1)    OOD gate 0.00 % (0)
-    total     no gate 68.63 % (945)   earlier gate 1.67 % (23)   OOD gate 1.45 % (20)
-- Reading: the banana verifier does almost all of the rejection; box support removes
-  3 more images. The 20 remaining near-OOD images pass the verifier as bananas.
-
-Run 2 - real bananas (docs/audits/ood-pipeline-labeled-split-2026-11-13.json)
-- Weights: best.pt of training run v26s_run2_zick, SHA-256 starting fe9359d5.
-- Data: test split of the Roboflow export Banana_Ripeness.v17i.yolo26; 416 photos with
-  one labeled cultivar (Cardaba 134, Lakatan 155, Latundan 127), grouped into 337 scans.
-- Photos that end with a cultivar, and finger boxes:
-    no gate       416/416 (100 %)     3,534 boxes
-    earlier gate  409/416 (98.32 %)   3,467 boxes
-    OOD gate      408/416 (98.08 %)   3,453 boxes
-  No photo received a wrong cultivar in any variant (precision 1.0 throughout).
-- Scan gate: 330 of 337 scans accepted. The 7 rejected scans hold one photo each and
-  are rejected by the earlier gate as well (same verifier rule).
-- OOD gate against the earlier gate: 1 more photo without a cultivar (a Cardaba) and
-  14 fewer finger boxes (0.40 %), all in the Rear view. The totals for Top, Left and
-  Right are identical in both.
-- Verifier below acceptance (0.30): Top 0/99, Left 2/94, Right 2/128, Rear 6/95. The
-  3 such frames that sit inside an accepted scan are all Rear frames.
-- Limits of run 2: the test photos may overlap this checkpoint's training data, so the
-  perfect no-gate score may read high. The scan-gate decisions use only the COCO
-  verifier and are unaffected by that; the box-level differences (photos without a
-  cultivar, finger boxes) are counted on this checkpoint's boxes for these photos and
-  may differ on unseen photos. Most scans are a single photo and fusion is not
-  simulated. The report does not count flagged scans (at least one accepted scan lost
-  boxes: one Rear photo lost all of them). If that photo were the only view of its
-  scan, the station would reject the scan instead of flagging it; the report cannot
-  tell. The finger-box figures are totals, so they show the net change only.
-- Against the criteria set before the run: NOT met. They asked that recall and
-  `finger_boxes` do not drop and that `scans_accepted` equals `scans`. Measured: 330
-  of 337 scans accepted (the earlier gate rejects the same 7), one more photo without
-  a cultivar, 14 fewer finger boxes.
-- Decision: no code or threshold change, because the extra cost is small, limited to
-  the Rear totals, and thresholds are not tuned on a test split. Whether that cost is
-  acceptable on the station is the team's call.
+- The at-risk icon, counts and Inventory labels use the midpoint number; the countdown on
+  the other pages counts calendar days over the whole range. They can differ near the
+  ends of a range (examples in docs/knowledge/Frontend.md).
+- The Scan Logs column still sorts by the stored estimate, now the small line of the cell.
+- After an admin correction the count still starts at the scan date, as the midpoint
+  number always did.
+- A browser with a wrong clock can show a later day than the server until the next read.
+  It cannot move the count backwards and it changes nothing on the server.
+- Graphify and ICM are not installed in this environment; graph and memory not refreshed.
+  Context7 was used for the Intl.DateTimeFormat API. No Codex Security service scan was
+  run; the security check is the review above.
 
 EXACT NEXT STEP
-- Nothing is pending for delivery: the change is on BlackShark404/BananaVision main
-  (3ee6af6). Deployment to the station is a separate, explicit decision.
-- Optional, for the Top-tuned paths: repeat run 2 with a registered Top-calibrated
-  checkpoint (the station's backend/app/ml/weights should hold one), from backend/:
-    python scripts/evaluate_ood_gate.py pipeline --weights <registered checkpoint> --id-split <dataset>/test --output <new report file>
-  `top_paths.active` must then be true. Compare `legacy_gate` with `ood_gate` in total
-  and under `in_distribution_by_view`.
-- Optional: make the evaluation script count flagged scans and dropped boxes per view.
+- User opens the pull request from the fork's main to BlackShark404/BananaVision.
+- Optional: PostgreSQL-only tests (104 skipped here) on a disposable cluster.

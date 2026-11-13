@@ -265,6 +265,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
             inventoryEligible: incoming.inventory_eligible ?? previous.inventoryEligible,
             remainingDays: incoming.remaining_days ?? previous.remainingDays,
             riskAsOf: incoming.risk_as_of ?? previous.riskAsOf,
+            shelfLifeWindow: incoming.shelf_life_window ?? previous.shelfLifeWindow,
           }
           knownScans.current.set(incoming.id, updated)
           setScans(current => current.map(scan => scan.id === incoming.id ? updated : scan))

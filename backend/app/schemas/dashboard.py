@@ -7,6 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.schemas.shelf_life import ShelfLifeWindow
+
 DashboardView = Literal["today", "review", "expiring", "all"]
 DashboardSort = Literal["date", "confidence"]
 
@@ -25,6 +27,8 @@ class DashboardScan(BaseModel):
     flagged: bool
     spoilage_days: str | None
     remaining_days: float | None
+    # Optional so rows frozen in a browse snapshot before this field existed still load.
+    shelf_life_window: ShelfLifeWindow | None = None
 
 
 class DashboardSource(BaseModel):

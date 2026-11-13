@@ -71,7 +71,7 @@ import { scanWrite, scanRevision, isScanConflict } from "@/lib/scanWrites"
 import { cultivarCameraConflict } from "@/lib/scanData"
 import { api } from "@/lib/api"
 import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
-import { remainingStockDays, shelfLifeLabel } from "@/lib/inventoryRisk"
+import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
 
 const EMPTY_DETECTIONS: ScanDetection[] = []
 
@@ -132,7 +132,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const scan = currentDetail?.scan
   const scanDetections = scan?.detections ?? EMPTY_DETECTIONS
   const cultivarConflict = scan ? cultivarCameraConflict(scan) : null
-  const remaining = scan && scan.inventoryStatus === "In Stock" ? remainingStockDays(scan, now) : null
+  const countdown = scan && scan.inventoryStatus === "In Stock" ? liveShelfLifeLabel(scan, now) : null
   const notes = scan ? getScanNotes(scan.id) : []
   const isAdmin = user?.role === "Admin"
 
@@ -822,11 +822,11 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     <AlertTriangle className="w-3.5 h-3.5" /> Est. Spoilage
                   </div>
                   <p className="text-2xl font-bold">
-                    {remaining !== null
-                      ? shelfLifeLabel(remaining)
+                    {countdown !== null
+                      ? countdown
                       : <>{formatSpoilageDays(scan.spoilageDays, false)} <span className="text-sm font-normal text-muted-foreground">{spoilageDayUnit(scan.spoilageDays)}</span></>}
                   </p>
-                  {remaining !== null && (
+                  {countdown !== null && (
                     <p className="text-xs text-muted-foreground">Est. {formatSpoilageDays(scan.spoilageDays)} from scan</p>
                   )}
                 </div>

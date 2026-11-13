@@ -33,7 +33,12 @@ from app.schemas.dashboard import (
     DashboardView,
 )
 from app.schemas.enums import InventoryStatusEnum, RoleEnum
-from app.services.inventory_policy import PREDICTION_PATTERN, WHITESPACE, eligible_stock
+from app.services.inventory_policy import (
+    PREDICTION_PATTERN,
+    WHITESPACE,
+    eligible_stock,
+    shelf_life_window,
+)
 
 DEFAULT_CONFIDENCE_THRESHOLD = 85.0
 
@@ -148,7 +153,7 @@ def _source(row) -> tuple[str, str]:
     return "unknown", "Unknown"
 
 
-def _scan(row) -> DashboardScan:
+def _scan(row, now: datetime) -> DashboardScan:
     source_key, source_name = _source(row)
     return DashboardScan(
         id=row.id,
@@ -164,6 +169,8 @@ def _scan(row) -> DashboardScan:
         flagged=bool(row.flagged),
         spoilage_days=row.spoilage_days,
         remaining_days=None if row.remaining_days is None else round(float(row.remaining_days), 4),
+        # Derived here from the stored string and scan time; the SQL risk rule is untouched.
+        shelf_life_window=shelf_life_window(row.spoilage_days, row.date_time, now),
     )
 
 
@@ -270,7 +277,7 @@ async def get_summary(
             operator_id=r.operator_id, name=r.operator_name, username=r.username,
             scan_count=r.scan_count, avg_confidence=_mean(r.avg_confidence),
         ) for r in operator_rows],
-        recent_scans=[_scan(r) for r in recent],
+        recent_scans=[_scan(r, now) for r in recent],
         pending_review_count=alerts.review, expiring_stock_count=alerts.expiring,
         confidence_threshold=threshold,
     )
@@ -305,6 +312,6 @@ async def list_scans(
         .offset((page - 1) * page_size).limit(page_size)
     )).all()
     return DashboardScanList(
-        items=[_scan(row) for row in rows], total=total or 0, page=page, page_size=page_size,
+        items=[_scan(row, now) for row in rows], total=total or 0, page=page, page_size=page_size,
         generated_at=now, business_date=day,
     )

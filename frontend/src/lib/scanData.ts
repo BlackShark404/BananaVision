@@ -1,4 +1,5 @@
 import type { ScanResult, ScanNote } from "@/types"
+import type { ShelfLifeWindow } from "@/lib/shelfLifeWindow"
 
 /** Stored records never receive a client-generated timestamp. */
 export interface ApiScan {
@@ -30,6 +31,7 @@ export interface ApiScan {
   inventory_eligible?: boolean
   remaining_days?: number | null
   risk_as_of?: string | null
+  shelf_life_window?: ShelfLifeWindow | null
   inventory_status?: ScanResult["inventoryStatus"]
   status_updated_at?: string | null
   flagged?: boolean
@@ -80,6 +82,7 @@ export function mapApiScan(scan: ApiScan, imageUrl: (path: string) => string = p
     inventoryEligible: scan.inventory_eligible === true,
     remainingDays: scan.remaining_days ?? null,
     riskAsOf: scan.risk_as_of ?? undefined,
+    shelfLifeWindow: scan.shelf_life_window ?? null,
     inventoryStatus: scan.inventory_status,
     statusUpdatedAt: scan.status_updated_at ? storedTimestamp(scan.status_updated_at) : undefined,
     flagged: scan.flagged,

@@ -12,7 +12,7 @@ const saved = {
   inventory_status: 'In Stock', images: [], detections: [],
 }
 
-async function setup(t, { offline = false, empty = false, flagged = false, scanOverrides = {}, timezoneId, intakes = [] } = {}) {
+async function setup(t, { offline = false, empty = false, flagged = false, scanOverrides = {}, timezoneId, intakes = [], history } = {}) {
   const context = await runtime.browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId })
   const page = await context.newPage()
   page.setDefaultTimeout(10000)
@@ -24,7 +24,7 @@ async function setup(t, { offline = false, empty = false, flagged = false, scanO
   const errors = []
   page.on('pageerror', e => errors.push(e.message))
   t.after(() => assert.deepEqual(errors, []))
-  const state = { writes: [], jobs: new Map(), scans: empty ? [] : [saved] }
+  const state = { writes: [], jobs: new Map(), scans: empty ? [] : history ?? [saved] }
   await page.route('**/api/v1/**', async route => {
     const req = route.request(), path = new URL(req.url()).pathname, method = req.method()
     const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' }
@@ -95,6 +95,25 @@ for (const [raw, displayed] of [['0.9938128387987426', '1 day'], ['3.487', '3–
     assert.equal(await page.getByText(displayed, { exact: true }).count(), 2)
   })
 }
+
+test('kiosk recent scans count an old estimate down instead of repeating it', async t => {
+  const aged = (suffix, extra) => ({ ...saved, id: scanId.replace(/1$/, suffix), spoilage_days: '1-3', ...extra })
+  const week = { min_days: 1, max_days: 3, elapsed_days: 7, remaining_min_days: 0, remaining_max_days: 0,
+    days_past: 4, state: 'expired', scan_date: '2026-09-25', as_of_date: '2026-10-02' }
+  const history = [
+    aged('1', { remaining_days: -5, risk_as_of: '2026-10-02T12:00:00+08:00', shelf_life_window: week }),
+    aged('2', { remaining_days: 1, risk_as_of: '2026-10-02T12:00:00+08:00', shelf_life_window: {
+      ...week, elapsed_days: 1, remaining_max_days: 2, days_past: 0, state: 'active', scan_date: '2026-10-01' } }),
+    aged('3', { inventory_status: 'Sold', shelf_life_window: week }),
+  ]
+  const { page } = await setup(t, { history })
+  await page.getByText('Overdue', { exact: true }).waitFor()
+  assert.equal(await page.getByText('Overdue', { exact: true }).count(), 1)
+  assert.equal(await page.getByText('0–2 days left', { exact: true }).count(), 1)
+  assert.equal(await page.getByText('1–3 days', { exact: true }).count(), 1)  // the sold scan keeps its estimate
+  await page.screenshot({ path: 'node_modules/.tmp/bv-shelf-life-kiosk.png', fullPage: true })
+  assert.equal(history[0].spoilage_days, '1-3')
+})
 
 for (const vpd of [0, 1.2, null]) {
   test(`stored kiosk result keeps Manila time and VPD ${vpd} without live-reading fallback`, async t => {

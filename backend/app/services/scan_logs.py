@@ -105,9 +105,9 @@ def _ordering(scans, query: ScanLogQuery):
     return [primary.nulls_last(), scans.c.date_time.desc(), scans.c.id.desc()]
 
 
-def _row(row) -> ScanLogRow:
+def _row(row, now: datetime) -> ScanLogRow:
     return ScanLogRow(
-        **dashboard._scan(row).model_dump(),
+        **dashboard._scan(row, now).model_dump(),
         revision=row.revision,
         temperature=None if row.temperature is None else float(row.temperature),
         humidity=None if row.humidity is None else float(row.humidity),
@@ -288,7 +288,7 @@ async def reconcile_scan_logs(
     current = {row.id: row for row in rows if row.id is not None}
     ordered = [current[identifier] for identifier in identifiers if identifier in current]
     return ScanLogReconciliation(
-        snapshot_id=saved.id, items=[_row(row) for row in ordered],
+        snapshot_id=saved.id, items=[_row(row, now) for row in ordered],
         at_risk_ids=[row.id for row in ordered if row.at_risk],
         total=metrics.live_total, avg_confidence=dashboard._mean(metrics.live_avg_confidence),
         at_risk_count=metrics.live_at_risk, review_count=metrics.live_review,
@@ -320,7 +320,7 @@ async def list_scan_logs(
                 .limit(MAX_ROWS + 1)
             )
         ).all()
-        rows = [_row(row) for row in raw]
+        rows = [_row(row, now) for row in raw]
         scores = [row.confidence for row in rows if row.confidence is not None]
         watermark_row = max(
             raw, key=lambda row: (as_manila(row.date_time), row.id.int), default=None
@@ -377,7 +377,7 @@ async def list_scan_logs(
         .offset((query.page - 1) * query.page_size).limit(query.page_size)
     )).all()
     return ScanLogList(
-        items=[_row(row) for row in rows], total=metrics.total,
+        items=[_row(row, now) for row in rows], total=metrics.total,
         page=query.page, page_size=query.page_size,
         avg_confidence=dashboard._mean(metrics.avg_confidence),
         at_risk_count=metrics.at_risk, review_count=metrics.review, flagged_count=metrics.flagged,
@@ -439,7 +439,7 @@ async def export_scan_logs(db: AsyncSession, user: UserAccount, query: ScanLogQu
                 output.seek(0)
                 output.truncate(0)
                 for raw in batch:
-                    row = ScanLogRow.model_validate(raw) if query.snapshot_id else _row(raw)
+                    row = ScanLogRow.model_validate(raw) if query.snapshot_id else _row(raw, now)
                     username = raw["username"] if query.snapshot_id else raw.username
                     writer.writerow([_safe_cell(cell) for cell in [
                         str(row.id), row.date_time.isoformat(), row.operator_name, username,
@@ -485,7 +485,7 @@ async def export_scan_logs_xlsx(db: AsyncSession, user: UserAccount, query: Scan
     try:
         async for batch in result.partitions(200):
             for raw in batch:
-                row = ScanLogRow.model_validate(raw) if query.snapshot_id else _row(raw)
+                row = ScanLogRow.model_validate(raw) if query.snapshot_id else _row(raw, now)
                 username = raw["username"] if query.snapshot_id else raw.username
                 xlsx_rows.append([
                     (str(row.id), "inlineStr"),
