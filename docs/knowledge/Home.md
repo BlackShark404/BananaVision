@@ -13,6 +13,7 @@ Centralized documentation and project knowledge for BananaVision: An Intelligent
 - [[Development Decisions]]
 - [[Resolved Bugs]]
 - [[Testing and Validation]]
+- [[Non-Banana Detection Audit]] — proposal; not implemented
 
 ## Tools
 - Graphify — source-code knowledge graph and relationships
