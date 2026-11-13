@@ -121,6 +121,8 @@ Note: ACLs do not restrict nodes shared via **Share**. Choose the tailnet + ACL 
 
 ## Option 2 (this deployment): Public HTTPS link (no installs for users)
 
+> **Windows Mini PC runbook:** [windows-mini-pc-deployment.md](windows-mini-pc-deployment.md) is the linear, copy-paste checklist version of this section, written for the station computer. This section explains the design and the alternatives.
+
 Publishes the dashboard at a normal website such as `https://bananavision-pc.<tailnet>.ts.net`. Users click the link and sign in with their BananaVision account. They do not install Tailscale, join the tailnet, or accept an invite.
 
 Traffic path:
@@ -140,7 +142,7 @@ The funnel exposes **one** HTTPS port. [Caddy](../deploy/Caddyfile) provides the
 
 ### 1. Production backend settings
 
-Edit `backend/.env` without mixing secrets into source control:
+Merge [deploy/backend.env.production.example](../deploy/backend.env.production.example) into `backend/.env`. It lists every key that differs between the development and public deployment configs; the rest keep their current values. Never commit `backend/.env` or real secrets.
 
 ```dotenv
 APP_ENV=production
@@ -151,7 +153,12 @@ APP_CORS_ORIGINS=["http://localhost:5173","http://127.0.0.1:5173"]
 TRUSTED_PROXIES=["127.0.0.1","::1"]
 ```
 
-- Generate each secret once, for example in PowerShell: `[Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Max 256 }))`.
+- Generate each secret once in PowerShell, and run this twice to get two different values:
+  ```powershell
+  $bytes = New-Object byte[] 48
+  [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+  [Convert]::ToBase64String($bytes)
+  ```
 - With `APP_ENV=production`, startup refuses placeholder or shorter-than-32-byte secrets, and Swagger, ReDoc and `/openapi.json` are disabled.
 - `TRUSTED_PROXIES` lets the backend record the visitor IP from Caddy instead of `127.0.0.1`.
 - Add `http://<station-host>:5173` to `APP_CORS_ORIGINS` only if operators must keep using the plain-HTTP LAN page while `APP_ENV=production`. The public HTTPS page is same-origin and needs no entry.
@@ -159,7 +166,7 @@ TRUSTED_PROXIES=["127.0.0.1","::1"]
 
 ### 2. Build the frontend for the public origin
 
-Create `frontend/.env.production`:
+Copy [frontend/.env.production.example](../frontend/.env.production.example) to `frontend/.env.production` and set the final public origin:
 
 ```dotenv
 VITE_PUBLIC_BASE_URL=https://bananavision-pc.<tailnet>.ts.net
@@ -257,6 +264,7 @@ deploy/stop-mac-tailnet.sh               # stops both processes and removes Serv
 
 ## Related documentation
 
+- [Windows Mini PC Deployment](windows-mini-pc-deployment.md) — linear public HTTPS runbook for the station.
 - [Kiosk Auto-Start Guide](kiosk-autostart-guide.md) — auto-login and app startup on the Mini PC.
 - [Caddyfile](../deploy/Caddyfile) — reverse proxy for the public HTTPS deployment.
 - [Installation Guide](INSTALLATION_GUIDE.md) — station hardware and software setup.

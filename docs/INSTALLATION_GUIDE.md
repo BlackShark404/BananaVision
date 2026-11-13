@@ -2,6 +2,8 @@
 
 The following guide provides step-by-step installation instructions for BananaVision, an intelligent vision-based banana ripeness classification and post-harvest monitoring system. Ensure that all hardware components, inspection station peripherals, and software environment requirements are prepared before installation. The current version of BananaVision supports station deployment on Windows and Linux systems with web browser access across connected devices.
 
+For publishing the dashboard from a Windows Mini PC over public HTTPS, use the dedicated [Windows Mini PC Deployment](windows-mini-pc-deployment.md) runbook after completing the station installation below.
+
 ### Inspection Station Hardware Installation
 
 1. Assemble the inspection station frame and securely mount the camera mounting brackets, lighting enclosure, and fruit placement tray.

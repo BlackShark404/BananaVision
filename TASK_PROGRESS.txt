@@ -12,9 +12,9 @@ AUTHORIZED SCOPE / LATEST DECISIONS
   2. Camera feeds: require a BananaVision login.
   3. QR labels: add a configurable public base URL so printed labels resolve off-station.
   4. Scope: code, proxy config and docs. No deployment.
-- Delivery: the implementation is committed and pushed as 434b3ff. The new macOS
-  start/stop scripts and the notes in this file and Testing and Validation.md are
-  uncommitted. No push, Funnel change, deployment or live station action was made during
+- Delivery: the implementation is committed and pushed as 434b3ff, and the macOS
+  start/stop scripts plus their docs as 9bb968f. The production env templates, the
+  Windows Mini PC runbook and the edits in this file are uncommitted. No push, Funnel change, deployment or live station action was made during
   the smoke test. A temporary Caddy binary and disposable PostgreSQL database were used
   and removed, along with temp secrets and the Serve config. The user enabled Serve/HTTPS
   certificates on the tailnet for that test; the tailnet setting remains, but no serve
@@ -42,8 +42,12 @@ IMPLEMENTED
   Referrer-Policy and no Server header.
 - Env/docs: backend/.env.example documents production secrets, trusted proxies and the
   LAN-compatible CORS example; frontend env comments describe same-origin and the public
-  QR base. docs/remote-access.md now contains the full Option 2 procedure. Knowledge notes
-  Frontend.md, Development Decisions.md and Testing and Validation.md are updated.
+  QR base. deploy/backend.env.production.example and frontend/.env.production.example are
+  ready-to-merge production templates with placeholders only, no secrets.
+  docs/remote-access.md now contains the full Option 2 procedure, and
+  docs/windows-mini-pc-deployment.md is the linear Windows station runbook (not yet run
+  on Windows). Knowledge notes Frontend.md, Development Decisions.md and Testing and
+  Validation.md are updated.
 - Tests: backend/tests/test_camera_preview.py covers session requirement and header/query
   token selection; backend/tests/test_settings_security.py is new; the connectivity browser
   test covers the heartbeat.
@@ -121,10 +125,10 @@ LIMITS / NOT VERIFIED
 
 EXACT NEXT STEP
 - For temporary Mac tailnet access, run `deploy/start-mac-tailnet.sh`; stop it with
-  `deploy/stop-mac-tailnet.sh`. Review the uncommitted scripts and notes before committing.
-- When deployment is authorized, follow docs/remote-access.md on the Mini PC: install
-  Caddy, run `caddy validate --config deploy/Caddyfile`, start the backend and Caddy, then
-  enable Funnel. Verify the public URL, Funnel WebSocket traffic, the real cameras and the
-  sensor on the station.
+  `deploy/stop-mac-tailnet.sh`. Review the uncommitted env templates and notes before
+  committing.
+- When deployment is authorized, follow docs/windows-mini-pc-deployment.md on the Mini
+  PC. Verify the public URL, Funnel WebSocket traffic, the real cameras and the sensor on
+  the station.
 - The tailnet Serve/HTTPS certificate setting enabled for the smoke test can stay enabled
   for that deployment; no Serve config remains on this Mac.
