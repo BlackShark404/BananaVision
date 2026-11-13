@@ -240,7 +240,9 @@ deploy/stop-mac-tailnet.sh               # stops both processes and removes Serv
 - Backend and Caddy bind loopback (`127.0.0.1:8000` and `127.0.0.1:8080`). Only Tailscale Serve is reachable by tailnet devices. No macOS firewall rule is needed; the Windows firewall rule in Option 1 applies only to the Mini PC and direct ports `5173`/`8000`.
 - The build sets `VITE_PUBLIC_BASE_URL` to the printed `https://<host>.<tailnet>.ts.net` origin, so QR labels resolve during the dry run.
 - The script prints the URL. Logs and PID files live in `~/.local/state/bananavision-tailnet`.
+- The start script reuses its own existing Serve proxy when the processes were stopped without removing it. If the machine was renamed, the old Serve entry no longer matches the node's DNS name; the script replaces that stale entry with one for the current name. It refuses to overwrite any other Serve configuration.
 - The stop script removes the Serve mapping and kills only processes whose stored command matches. It is safe to run twice.
+- Renaming the machine changes the URL. Rerun the start script without `--skip-build` so `VITE_PUBLIC_BASE_URL` and the printed QR URLs use the new name.
 - This is a verification aid, not the public deployment. It does not enable Funnel.
 
 ---
