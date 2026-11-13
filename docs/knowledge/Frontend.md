@@ -2,6 +2,30 @@
 
 BananaVision's frontend is a React 19 single-page application built with Vite, TypeScript, Tailwind CSS, and Radix UI primitives.
 
+## Public QR page shows only the scanned data (2026-11-13)
+
+Decision: [[Development Decisions]]; tests: [[Testing and Validation]].
+
+- Web QR codes open `/track/<scan id>` (`frontend/src/lib/qrcode.ts`), which renders
+  `PublicScanView` outside the staff layout. The page is read-only: logo and
+  "BananaVision · Scan Tracking" header (plain text), scan ID, pending-review notice,
+  cultivar, ripeness, confidence, `Est. Fingers`, `Est. Spoilage` with the Asia/Manila
+  countdown and `Est. … from scan`, scan date, sensor readings, source, treatment, stock
+  status and the footer time.
+- No link or button leaves the page: the header "Log in" button, the "Need more details?"
+  login card and the error-screen "Log in" button were removed. The not-found screen has
+  no button; the error screen keeps only "Retry".
+- A signed-in staff member who scans a QR code sees the same page. The former redirect to
+  `/scans/<id>` was removed and the page no longer reads the signed-in user.
+- `App.tsx` mounts `/track/:scanId` in its own top-level route, outside `AdminProvider`,
+  `ScanProvider`, `InventoryProvider` and the toaster (`StaffApp` holds them for every other
+  route). With a stored staff session those providers loaded staff data and opened the
+  staff socket on every page; an expired or revoked token then hit the 401 handler in
+  `lib/api.ts` or the 4001 socket close in `useWebSocket.ts` and sent the phone to `/login`.
+  The QR page now sends only its one public request.
+- Login controls stay on the normal pages (landing, `/login`, the staff layout). Thermal
+  printer labels hold a plain-text QR payload and are unaffected.
+
 ## Public HTTPS links (2026-11-13)
 
 - An HTTPS page uses its own origin for HTTP and WebSocket traffic: `BASE_URL` is empty and `WS_BASE` is `wss://<same host>`. A reverse proxy therefore serves the built SPA, `/api`, `/captures`, `/health` and the WebSocket upgrade from one origin. Plain-HTTP station pages keep the historical `http://<host>:8000` backend and direct `ws://<host>:8000` socket.

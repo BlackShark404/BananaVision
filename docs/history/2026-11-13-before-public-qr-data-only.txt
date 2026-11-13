@@ -1,0 +1,86 @@
+CURRENT RESUME HERE (2026-11-13) - "EST." ON AI-ESTIMATED NUMBERS
+
+The previous checkpoint (Asia/Manila everywhere, merged to team main as 9634152 via
+PR #7) is archived byte-for-byte in docs/history/2026-11-13-before-estimate-labels.txt.
+
+AUTHORIZED SCOPE / USER DECISIONS (2026-11-13)
+- Label finger counts and other AI-estimated numbers "Est." so they are not read as exact
+  measurements. Raw values, API fields, database types, sorting, filters and thresholds
+  stay numeric. Commit on the fork's main; the user opens the pull request.
+- Decisions: (1) "Est." everywhere: labels "Est. Fingers", values "Est. 13 fingers";
+  tooltips keep "Estimated". Supersedes Kent's "Estimated Fingers" wording (e8825a5).
+  (2) Counts a person corrected read "Fingers"/"13 fingers"; correction inputs read
+  "Fingers". (3) Numbers only: finger counts and shelf-life estimates; cultivar,
+  ripeness and confidence unchanged. (4) Exports, the scan-completed notification and new
+  activity entries use the same wording; cells stay numbers.
+
+AUDIT (3 read-only agents, every site checked in the source)
+- Finger count was "Estimated Fingers" on the Kiosk card, Scan Logs header and QC dialog;
+  plain "Finger Count"/"N fingers" on Scan Detail, public QR, Kiosk recent scans,
+  Inventory (total, ripeness rows, alerts, FIFO), QC and backend exports, notification
+  and activity text; "Est. Finger Count" on the correction inputs (a human value).
+  "1 fingers" was shown for one finger. Printed labels carry no finger count.
+- Correction data: is_overridden is scan-level; original_ai_result gives the AI
+  baseline per field. Kiosk, Scan Detail, QC and Inventory have both; Scan Logs rows and
+  the public QR response do not. Spoilage is never typed by a person (read-only,
+  recomputed), so it stays an estimate.
+
+DONE
+- frontend/src/lib/estimates.ts (new): ESTIMATE_PREFIX, fingersLabel,
+  fingerCountText (singular/plural, 0, missing), fingerCountIsEstimate (per-field rule),
+  estimateText.
+- Pages: Kiosk.tsx (card label and tooltip, recent scans fingers and shelf life, camera
+  badge titles), Logs.tsx (column "Est. Fingers"), ScanDetail.tsx (metric label,
+  correction input), PublicScanView.tsx ("Est. Fingers"), admin/QualityControl.tsx
+  (dialog label, correction input, export headers "Est. Spoilage (days)" and
+  "Est. Finger Count"), Inventory.tsx (totals, ripeness rows, alert groups, FIFO rows,
+  shelf-life badges; plain only when every scan in a total was corrected; empty stock
+  reads "No stock"), context/ScanContext.tsx (live updates keep the AI baseline, found
+  in review), Logs/ScanDetail/QC/PublicScanView (no "Est. Unknown from scan" sub-line).
+- Backend: scan_service.estimated_fingers ("Est. 13 fingers") for the notification and
+  activity text;
+  scan_logs.EXPORT_HEADERS "Est. Original Shelf Life (days)", "Est. Remaining Shelf
+  Life (days)", "Est. Finger Count".
+- Tests: frontend/tests/estimates.test.mjs (new); kiosk, scanrecords, persistence and
+  public-scan browser tests; backend/tests/test_estimate_wording.py (new); header
+  names in test_exports.py, test_scan_logs.py, test_seed_kiosk_contract.py.
+- Docs: AGENTS.md (one convention line), docs/knowledge/Frontend.md (per-page table),
+  Development Decisions.md, Testing and Validation.md.
+
+VERIFICATION
+- Backend with a throwaway PostgreSQL 16 cluster: 841 passed, 38 skipped (37
+  Windows-only, 1 missing RFR artifact); without PostgreSQL 775 passed, 104 skipped.
+- Frontend: 341 of 341 tests passed (9 new). Type check and production build pass.
+- Lint: ESLint 40 problems and Ruff 635, both equal to team main before this change.
+- The new and changed browser tests were run against an untouched copy of the previous
+  code: 9 of 11 fail there (the other 2 are existing checks). The live-update test fails
+  before the ScanContext fix and passes after it.
+- Two independent reviewers: the live-update baseline bug (fixed), lowercase "est." in
+  backend text (fixed), "Corrected counts" on empty stock (fixed), a possible
+  "Est. Unknown from scan" sub-line (fixed), camera-badge tooltip wording (fixed). Left as
+  documented: the printed label and its preview (they say PREDICTION / Saved
+  prediction), and the QC export header covering corrected rows.
+- Screenshots: public QR at 390 px ("EST. FINGERS 7"), Kiosk recent scans
+  ("Est. 0–2 days left", "Est. 7 fingers"), Scan Logs header "Est. Fingers"; no overflow.
+- Graphify refreshed. Codex Security skipped: wording and display-only change.
+  UI/UX Pro Max is a laptop-only workflow file; screenshots used instead. ICM is not
+  available in the cloud session.
+
+NOT CHANGED (reported)
+- Cultivar, ripeness, confidence, sensor readings, dates, IDs; the "Changes from AI
+  result" preview and Scan History entries (they describe changes); old activity rows;
+  the printed label (it already says PREDICTION and has no finger count).
+
+STILL OPEN
+- From Khen (public HTTPS, not deployed): follow docs/remote-access.md on the Mini PC when
+  deployment is authorized; Mac tailnet scripts deploy/start-mac-tailnet.sh and
+  deploy/stop-mac-tailnet.sh.
+- From the audit (team decisions): Non-Banana Detection Audit.md status line;
+  .codex/config.toml default model and laptop paths; uncertain-cultivar estimate shown
+  outside Kiosk; ModelInferenceError detail; missing [[System Architecture]] and
+  [[Backend]] notes; second kiosk shows a rejection; public QR countdown for every status;
+  Top-calibrated OOD rerun.
+
+EXACT NEXT STEP
+- User opens the pull request from the fork's main to BlackShark404/BananaVision:
+  https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main

@@ -21,7 +21,7 @@ export async function startBrowser({ fixture = "dashboard.fixture.tsx", auth = "
       name: "isolated-dashboard-fixture",
       configureServer(vite) {
         vite.middlewares.use(async (req, res, next) => {
-          if (!(req.url ?? "").match(/^\/(dashboard|logs|devices|scans)(\?|\/|$)/)) return next()
+          if (!(req.url ?? "").match(/^\/(dashboard|logs|devices|scans|track)(\?|\/|$)/)) return next()
           const html = await vite.transformIndexHtml(req.url, `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1" /></head><body><div id="root"></div><script type="module" src="/tests/${fixture}"></script></body></html>`)
           res.setHeader("Content-Type", "text/html")
           res.end(html)

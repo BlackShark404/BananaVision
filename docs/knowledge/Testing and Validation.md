@@ -2,6 +2,38 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## Public QR page shows only scanned data — 2026-11-13
+
+Decision: [[Development Decisions]]; page notes: [[Frontend]].
+
+- `frontend/tests/public-scan.test.mjs` at a 390×844 phone viewport: the data renders
+  (scan ID, cultivar, ripeness, `Est. Fingers`, countdown and `Est. 5–7 days from scan`,
+  scan date, temperature, footer time); the page has no link, button, `role="button"`,
+  `role="link"` or `onclick` element and no "log in", "login", "sign in", "website" or
+  "dashboard" text; no sideways scroll; one unauthenticated request. Overflow is checked
+  against `document.documentElement.clientWidth` (390): with `isMobile` emulation Chromium
+  widens `window.innerWidth` to fit wide content, so `scrollWidth <= innerWidth` cannot
+  fail (found in review; a 600 px element read 616/616).
+- A signed-in staff viewer (`window.publicScanViewer`) stays on `/track` with the same
+  page. Not-found shows no button; a failed load shows only "Retry", which then loads the
+  data. The landing page (test-only route `/scans/landing-check`) keeps "Access
+  Dashboard", which still opens `/login`.
+- `backend/tests/test_public_scan_track.py`: a scan with a `ScanImage` row returns the
+  same public field set with `images == []` and no camera ID or file name in the body;
+  the staff detail response still lists the image.
+- `frontend/tests/public-scan-app.test.mjs` mounts the real `App` (real routes,
+  providers, `AuthProvider` through `tests/app.auth.tsx`, 401 handling) with a stored staff
+  session whose staff requests all answer 401. On `/track/fixture-scan` the data shows, no
+  staff request or app WebSocket is made, the URL and stored session stay unchanged after
+  5 minutes and a focus/visibility event, and there are no controls. On `/dashboard` the
+  same session still loads staff data and still goes to `/login`. The harness serves
+  `/track` paths (`dashboard.browser.mjs`). The real app lazy-loads pages and React reveals
+  Suspense content on a timer, so this file lets the test clock run; StrictMode may fetch
+  `/track` twice in development (the first is cancelled).
+- The four new browser tests and the backend test fail on the previous code (two login
+  buttons, the staff redirect, an extra "Log in", a leaked capture path). The real-App QR
+  test fails on the previous `App.tsx` (navigated to `/login`).
+
 ## "Est." wording on AI-estimated numbers — 2026-11-13
 
 Decision: [[Development Decisions]]; per-page table: [[Frontend]].
