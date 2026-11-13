@@ -1,0 +1,51 @@
+{
+  "_comment": "One rule table for the live shelf-life window. backend/tests/test_shelf_life_window.py checks bounds, invalid, progression and roll_forward against app/services/inventory_policy.py; frontend/tests/shelfLifeWindow.test.mjs checks progression, roll_forward and labels against src/lib/shelfLifeWindow.ts. In roll_forward the server answered on served_date and the page is read on page_date: the page must show what the server would say on the later of the two dates.",
+  "bounds": [
+    {"stored": "1-3", "min": 1, "max": 3},
+    {"stored": "3", "min": 3, "max": 3},
+    {"stored": "2", "min": 2, "max": 2},
+    {"stored": "0", "min": 0, "max": 0},
+    {"stored": "0-0", "min": 0, "max": 0},
+    {"stored": "0-2", "min": 0, "max": 2},
+    {"stored": "1-1", "min": 1, "max": 1},
+    {"stored": " 3 - 6 ", "min": 3, "max": 6},
+    {"stored": "00-07", "min": 0, "max": 7},
+    {"stored": "9-13", "min": 9, "max": 13},
+    {"stored": "4.861489519142744", "min": 4, "max": 5},
+    {"stored": "11.00982880647441", "min": 11, "max": 12},
+    {"stored": "2.00001", "min": 2, "max": 3},
+    {"stored": "1.9999", "min": 1, "max": 2},
+    {"stored": "0.9938128387987426", "min": 1, "max": 1},
+    {"stored": "0.0000001", "min": 1, "max": 1},
+    {"stored": ".5 - 1.5", "min": 1, "max": 2},
+    {"stored": "1.2-3.4", "min": 1, "max": 4}
+  ],
+  "invalid": [null, "", " ", "N/A", "Unknown", "NaN", "Infinity", "-1", "3-1", "1-2-3", "1 day", "1-3 days", "1\u20133", "--", "1e3", "1."],
+  "progression": [
+    {"min": 1, "max": 3, "elapsed": 0, "remaining_min": 1, "remaining_max": 3, "days_past": 0, "state": "active", "label": "1\u20133 days left"},
+    {"min": 1, "max": 3, "elapsed": 1, "remaining_min": 0, "remaining_max": 2, "days_past": 0, "state": "active", "label": "0\u20132 days left"},
+    {"min": 1, "max": 3, "elapsed": 2, "remaining_min": 0, "remaining_max": 1, "days_past": 0, "state": "active", "label": "0\u20131 days left"},
+    {"min": 1, "max": 3, "elapsed": 3, "remaining_min": 0, "remaining_max": 0, "days_past": 0, "state": "final_day", "label": "Final day"},
+    {"min": 1, "max": 3, "elapsed": 4, "remaining_min": 0, "remaining_max": 0, "days_past": 1, "state": "expired", "label": "Overdue"},
+    {"min": 1, "max": 3, "elapsed": 7, "remaining_min": 0, "remaining_max": 0, "days_past": 4, "state": "expired", "label": "Overdue"},
+    {"min": 2, "max": 2, "elapsed": 0, "remaining_min": 2, "remaining_max": 2, "days_past": 0, "state": "active", "label": "2 days left"},
+    {"min": 2, "max": 2, "elapsed": 1, "remaining_min": 1, "remaining_max": 1, "days_past": 0, "state": "active", "label": "1 day left"},
+    {"min": 2, "max": 2, "elapsed": 2, "remaining_min": 0, "remaining_max": 0, "days_past": 0, "state": "final_day", "label": "Final day"},
+    {"min": 2, "max": 2, "elapsed": 3, "remaining_min": 0, "remaining_max": 0, "days_past": 1, "state": "expired", "label": "Overdue"},
+    {"min": 0, "max": 0, "elapsed": 0, "remaining_min": 0, "remaining_max": 0, "days_past": 0, "state": "final_day", "label": "Final day"},
+    {"min": 0, "max": 0, "elapsed": 1, "remaining_min": 0, "remaining_max": 0, "days_past": 1, "state": "expired", "label": "Overdue"},
+    {"min": 5, "max": 7, "elapsed": 2, "remaining_min": 3, "remaining_max": 5, "days_past": 0, "state": "active", "label": "3\u20135 days left"},
+    {"min": 5, "max": 7, "elapsed": 6, "remaining_min": 0, "remaining_max": 1, "days_past": 0, "state": "active", "label": "0\u20131 days left"},
+    {"min": 4, "max": 5, "elapsed": 4, "remaining_min": 0, "remaining_max": 1, "days_past": 0, "state": "active", "label": "0\u20131 days left"}
+  ],
+  "roll_forward": [
+    {"name": "left open for a week", "min": 1, "max": 3, "scan_date": "2026-11-06", "served_date": "2026-11-06", "page_date": "2026-11-13", "elapsed": 7, "state": "expired", "label": "Overdue"},
+    {"name": "left open overnight", "min": 1, "max": 3, "scan_date": "2026-11-06", "served_date": "2026-11-06", "page_date": "2026-11-07", "elapsed": 1, "state": "active", "label": "0\u20132 days left"},
+    {"name": "page clock behind the server", "min": 1, "max": 3, "scan_date": "2026-11-06", "served_date": "2026-11-08", "page_date": "2026-11-01", "elapsed": 2, "state": "active", "label": "0\u20131 days left"},
+    {"name": "scan dated after the server date, read before the scan date", "min": 1, "max": 3, "scan_date": "2026-11-10", "served_date": "2026-11-08", "page_date": "2026-11-09", "elapsed": 0, "state": "active", "label": "1\u20133 days left"},
+    {"name": "scan dated after the server date, read on the scan date", "min": 1, "max": 3, "scan_date": "2026-11-10", "served_date": "2026-11-08", "page_date": "2026-11-10", "elapsed": 0, "state": "active", "label": "1\u20133 days left"},
+    {"name": "scan dated after the server date, read two days after the scan date", "min": 1, "max": 3, "scan_date": "2026-11-10", "served_date": "2026-11-08", "page_date": "2026-11-12", "elapsed": 2, "state": "active", "label": "0\u20131 days left"},
+    {"name": "seconds of skew across Manila midnight", "min": 1, "max": 3, "scan_date": "2026-11-07", "served_date": "2026-11-06", "page_date": "2026-11-07", "elapsed": 0, "state": "active", "label": "1\u20133 days left"},
+    {"name": "final day reached while open", "min": 2, "max": 2, "scan_date": "2026-11-06", "served_date": "2026-11-07", "page_date": "2026-11-08", "elapsed": 2, "state": "final_day", "label": "Final day"}
+  ]
+}

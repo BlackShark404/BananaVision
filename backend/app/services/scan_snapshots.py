@@ -1,7 +1,7 @@
 """Bounded, expiring, account/session/filter-bound immutable browse results."""
 import hashlib
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from fastapi import HTTPException
 from sqlalchemy import delete, select
@@ -10,12 +10,14 @@ from app.core.time import now_manila
 from app.models.maintenance_state import MaintenanceState
 from app.models.scan_snapshot import ScanSnapshot
 from app.services.auth_service import lock_current_account
+from app.services.inventory_policy import shelf_life_window
 from app.services.scan_records import scan_scope
 
 MAX_ROWS = 50_000
 MAX_BYTES = 20 * 1024 * 1024
 LIFETIME = timedelta(minutes=10)
 PER_ACCOUNT = 4
+WINDOW = "shelf_life_window"
 
 
 def binding(kind, filters):
@@ -52,6 +54,11 @@ async def save_snapshot(db, user, key, payload):
     scan_scope(user)
     user = await lock_current_account(db, user)
     scan_scope(user)
+    # The window is derived from fields each row already holds. It is rebuilt on read
+    # (slice_snapshot), so storing it would only spend the size budget.
+    payload = {**payload, "items": [
+        {key: value for key, value in row.items() if key != WINDOW} for row in payload["items"]
+    ]}
     if len(payload["items"]) > MAX_ROWS or len(json.dumps(payload).encode()) > MAX_BYTES:
         raise HTTPException(
             413,
@@ -71,11 +78,35 @@ async def save_snapshot(db, user, key, payload):
     return snapshot
 
 
+def _instant(value):
+    try:
+        return datetime.fromisoformat(value) if isinstance(value, str) else None
+    except ValueError:
+        return None
+
+
+def _with_window(row, generated_at):
+    """Rebuild the window for the instant the row was frozen.
+
+    That instant is the row's own `risk_as_of`, or the snapshot's `generated_at`. A
+    frozen page therefore reads the same at any later time, and the page that shows
+    it counts forward from `as_of_date`.
+    """
+    return {**row, WINDOW: shelf_life_window(
+        row.get("spoilage_days"), _instant(row.get("date_time")),
+        _instant(row.get("risk_as_of") or generated_at),
+    )}
+
+
 def slice_snapshot(snapshot, page, page_size):
     start = (page - 1) * page_size
+    generated_at = snapshot.payload.get("meta", {}).get("generated_at")
     return {
         **snapshot.payload.get("meta", {}),
-        "items": snapshot.payload["items"][start : start + page_size],
+        "items": [
+            _with_window(row, generated_at)
+            for row in snapshot.payload["items"][start : start + page_size]
+        ],
         "page": page,
         "page_size": page_size,
         "total": len(snapshot.payload["items"]),

@@ -1,3 +1,5 @@
+import type { ShelfLifeWindow } from "@/lib/shelfLifeWindow"
+
 export type DashboardView = "sources" | "operators"
 
 export interface DashboardScan {
@@ -14,6 +16,8 @@ export interface DashboardScan {
   flagged: boolean
   spoilage_days: string | null
   remaining_days: number | null
+  /** Absent on rows frozen before the server sent it. */
+  shelf_life_window?: ShelfLifeWindow | null
 }
 
 export interface DashboardSummary {

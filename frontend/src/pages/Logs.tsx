@@ -43,7 +43,7 @@ import type { Cultivar, Ripeness, InventoryStatus, ScanResult } from "@/types"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import { collectScanPages, type ApiScan } from "@/lib/scanData"
 import { formatSpoilageDays } from "@/lib/spoilageDisplay"
-import { remainingStockDays, shelfLifeLabel } from "@/lib/inventoryRisk"
+import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
 import { LIVE_RESUMED_EVENT, SCAN_UPDATED_EVENT, SCANS_ADDED_EVENT, newEventId, type ScanUpdateDetail } from "@/lib/liveEvents"
 
 type LogScan = Omit<ScanResult, "cultivar" | "ripeness" | "confidence"> & {
@@ -65,7 +65,7 @@ async function mapScan(row: ScanLogRow, atRisk: boolean, asOf: string): Promise<
     source: row.source_name, intakeId: row.intake_id ?? undefined, inventoryStatus: row.inventory_status as InventoryStatus,
     statusUpdatedAt: row.status_updated_at ?? undefined, flagged: row.flagged, isOverridden: row.is_overridden,
     thumbnailUrl: row.thumbnail_url ? getImageUrl(row.thumbnail_url) : undefined, remainingDays: row.remaining_days,
-    riskAsOf: asOf, atRisk, operatorId: row.operator_id, sourceKey: row.source_key,
+    riskAsOf: asOf, shelfLifeWindow: row.shelf_life_window ?? null, atRisk, operatorId: row.operator_id, sourceKey: row.source_key,
   }
   // A QR rendering failure must not hide the scan history.
   try { scan.qrCode = await generateQRCodeDataUrl(scan) } catch { /* Thumbnail fallback remains available. */ }
@@ -119,6 +119,7 @@ function mergeScanRow(row: LogScan, detail: ScanUpdateDetail): LogScan {
   if ("remaining_days" in raw) next.remainingDays = raw.remaining_days ?? null
   if ("inventory_eligible" in raw) next.inventoryEligible = raw.inventory_eligible === true
   if ("risk_as_of" in raw) next.riskAsOf = raw.risk_as_of ?? undefined
+  if ("shelf_life_window" in raw) next.shelfLifeWindow = raw.shelf_life_window ?? null
   if ("has_notes" in raw) next.hasNotes = raw.has_notes === true
   if ("thumbnail_url" in raw) next.thumbnailUrl = raw.thumbnail_url ? getImageUrl(raw.thumbnail_url) : undefined
   // remaining_days is rounded for transport. The reconciliation response owns
@@ -689,22 +690,22 @@ const columns: ColumnDef<LogScan>[] = [
       sortable: true,
       sortKey: "spoilage_days",
       cell: (scan) => {
-        const remaining = scan.inventoryStatus === "In Stock" ? remainingStockDays(scan, now) : null
+        // In-stock rows lead with the live countdown; the stored estimate stays beneath it.
+        const countdown = scan.inventoryStatus === "In Stock" ? liveShelfLifeLabel(scan, now) : null
+        const estimate = formatSpoilageDays(scan.spoilageDays)
+        const meaning = countdown !== null ? "Live remaining shelf life from the scan's prediction" : "Estimate when scanned"
         return (
           <div className="text-sm">
             <span
               className={scan.atRisk ? "inline-flex items-center gap-1 text-orange-600" : undefined}
-              title={scan.atRisk ? "At risk: eligible stock with ≤2 days remaining, including overdue, at this snapshot. Range is the estimate when scanned." : "Estimate when scanned"}
+              title={scan.atRisk ? `At risk: eligible stock whose estimate midpoint is 2 days or less away, or already passed, at this snapshot. ${meaning}.` : meaning}
             >
               {scan.atRisk && <AlertTriangle role="img" aria-label="At-risk scan" className="h-3.5 w-3.5 shrink-0" />}
-              {formatSpoilageDays(scan.spoilageDays)}
+              {countdown ?? estimate}
             </span>
-            {remaining !== null && (
-              <span
-                className="block text-[10px] text-muted-foreground"
-                title="Live remaining shelf life from the scan's prediction"
-              >
-                {shelfLifeLabel(remaining)}
+            {countdown !== null && (
+              <span className="block text-[10px] text-muted-foreground" title="Estimate when scanned">
+                Est. {estimate} from scan
               </span>
             )}
           </div>

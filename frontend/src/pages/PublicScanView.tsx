@@ -4,7 +4,7 @@ import { useParams, useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import { api, BASE_URL } from "@/lib/api"
 import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
-import { remainingStockDays, shelfLifeLabel } from "@/lib/inventoryRisk"
+import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -146,8 +146,8 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
   }
 
   const dateObj = new Date(scan.date_time)
-  const remaining = remainingStockDays(
-    { remainingDays: scan.remaining_days, riskAsOf: scan.risk_as_of ?? undefined },
+  const countdown = liveShelfLifeLabel(
+    { remainingDays: scan.remaining_days, riskAsOf: scan.risk_as_of ?? undefined, shelfLifeWindow: scan.shelf_life_window },
     now,
   )
 
@@ -224,11 +224,11 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
                 <p className="text-xl mx-auto mb-1">⏳</p>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Spoilage</p>
                 <p className="text-xl font-bold">
-                  {remaining !== null
-                    ? shelfLifeLabel(remaining)
+                  {countdown !== null
+                    ? countdown
                     : <>{formatSpoilageDays(scan.spoilage_days, false)} <span className="text-xs text-muted-foreground font-normal">{spoilageDayUnit(scan.spoilage_days)}</span></>}
                 </p>
-                {remaining !== null && scan.spoilage_days != null && (
+                {countdown !== null && scan.spoilage_days != null && (
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     Est. {formatSpoilageDays(scan.spoilage_days)} from scan
                   </p>

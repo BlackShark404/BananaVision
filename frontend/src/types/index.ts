@@ -1,4 +1,5 @@
 import type { PrintJob } from "./printing"
+import type { ShelfLifeWindow } from "@/lib/shelfLifeWindow"
 
 export const CultivarEnum = {
   LAKATAN: "Lakatan",
@@ -131,6 +132,7 @@ export interface ScanResult {
   inventoryEligible?: boolean
   remainingDays?: number | null
   riskAsOf?: string
+  shelfLifeWindow?: ShelfLifeWindow | null
   qrCode?: string
   hasNotes?: boolean
   images?: { camera_id: string; file_path: string }[]

@@ -2,6 +2,7 @@ import { scanRetryAction } from "@/lib/scanWriteFeedback"
 import { ScanImage } from "@/components/ScanImage"
 import { cultivarCameraConflict } from "@/lib/scanData"
 import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
+import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
 import { useState, useEffect, useCallback, useRef } from "react"
 import KioskOperatorSwap from "@/components/KioskOperatorSwap"
 import { useAuth } from "@/context/AuthContext"
@@ -938,7 +939,7 @@ export default function Kiosk() {
                         </div>
                         <div className="text-right shrink-0">
                           <div className="flex flex-col items-end">
-                            <p className="text-sm font-bold text-rose-500">{conflict ? "—" : formatSpoilageDays(scan.spoilageDays)}</p>
+                            <p className="text-sm font-bold text-rose-500">{conflict ? "—" : (scan.inventoryStatus === "In Stock" ? liveShelfLifeLabel(scan, currentTime.getTime()) : null) ?? formatSpoilageDays(scan.spoilageDays)}</p>
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">{scan.fingerCount} fingers</p>
                         </div>

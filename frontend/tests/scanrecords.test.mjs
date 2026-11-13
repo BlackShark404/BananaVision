@@ -114,11 +114,13 @@ test('Logs keep readable ranges and risk snapshot membership while showing a liv
   }
   const { page } = await setup(t, 200, { screen: 'logs', logResponse })
   const table = page.getByRole('table')
-  await table.getByText('3–6 days', { exact: true }).waitFor()
-  await table.getByText('2–3 days', { exact: true }).waitFor()
+  await table.getByText('Est. 3–6 days from scan', { exact: true }).waitFor()
+  await table.getByText('Est. 2–3 days from scan', { exact: true }).waitFor()
   assert.equal(await table.getByText('1–2 days left', { exact: true }).count(), 1)
   assert.equal(await table.getByText('2 days left', { exact: true }).count(), 1)
   assert.equal(await table.getByText(/days left/).count(), 2)  // Sold and unknown rows stay static.
+  assert.equal(await table.getByText('1–2 days', { exact: true }).count(), 1)  // the Sold row keeps its estimate
+  assert.equal(await table.getByText(/from scan/).count(), 2)
   assert.equal(await table.getByRole('img', { name: 'At-risk scan', exact: true }).count(), 1)
   assert.equal(await table.getByText('Unknown days', { exact: true }).count(), 0)
   await table.getByText('Unknown', { exact: true }).waitFor()
@@ -139,7 +141,7 @@ test('Logs keep readable ranges and risk snapshot membership while showing a liv
   await until(() => queries.length > before)
   assert.equal(queries.at(-1).snapshot_id, retainedSnapshot)
   assert.equal(queries.at(-1).attention, 'at-risk')
-  await table.getByText('3–6 days', { exact: true }).waitFor()
+  await table.getByText('Est. 3–6 days from scan', { exact: true }).waitFor()
   assert.equal(await table.getByRole('img', { name: 'At-risk scan', exact: true }).count(), 1)
 })
 
@@ -154,8 +156,85 @@ test('Logs ages the live days-left label from the snapshot time without changing
   })
   const { page } = await setup(t, 200, { screen: 'logs', logResponse })
   const table = page.getByRole('table')
-  await table.getByText('5–7 days', { exact: true }).waitFor()
   await table.getByText('3 days left', { exact: true }).waitFor()
+  await table.getByText('Est. 5–7 days from scan', { exact: true }).waitFor()
+})
+
+const shelfWindow = (min, max, elapsed, asOf = '2026-10-02') => ({
+  min_days: min, max_days: max, elapsed_days: elapsed,
+  remaining_min_days: Math.max(0, min - elapsed), remaining_max_days: Math.max(0, max - elapsed),
+  days_past: Math.max(0, elapsed - max),
+  state: elapsed > max ? 'expired' : elapsed === max ? 'final_day' : 'active',
+  scan_date: new Date(Date.parse(`${asOf}T00:00:00Z`) - elapsed * 86_400_000).toISOString().slice(0, 10),
+  as_of_date: asOf,
+})
+
+test('Logs leads with the countdown in Manila calendar days and keeps the scan-time estimate beneath', async t => {
+  const records = [
+    { ...scan(), id, spoilage_days: '1-3', remaining_days: -5, shelf_life_window: shelfWindow(1, 3, 7) },
+    { ...scan(), id: id.replace(/1$/, '2'), spoilage_days: '1-3', remaining_days: 1, shelf_life_window: shelfWindow(1, 3, 1) },
+    { ...scan(), id: id.replace(/1$/, '3'), spoilage_days: '2', remaining_days: -3, inventory_status: 'Sold', shelf_life_window: shelfWindow(2, 2, 5) },
+    // A row frozen before the window existed still shows the older aged number.
+    { ...scan(), id: id.replace(/1$/, '4'), spoilage_days: '5-7', remaining_days: 4 },
+    { ...scan(), id: id.replace(/1$/, '5'), spoilage_days: '4', remaining_days: 0, shelf_life_window: shelfWindow(4, 4, 4) },
+  ]
+  const logResponse = params => ({
+    items: records.map(row => ({ ...row, source_name: 'Stored source' })), total: records.length,
+    page: Number(params.page), page_size: Number(params.page_size || 10),
+    at_risk_count: 0, avg_confidence: 92, review_count: 0, flagged_count: 0, at_risk_ids: [],
+    generated_at: '2026-10-02T04:00:00Z', snapshot_id: 'snapshot-window',
+    options: { sources: [], operators: [] },
+  })
+  const { page } = await setup(t, 200, { screen: 'logs', logResponse })
+  const table = page.getByRole('table')
+  await table.getByText('Overdue', { exact: true }).waitFor()
+  assert.equal(await table.getByText('Overdue', { exact: true }).count(), 1)  // not the Sold row
+  assert.equal(await table.getByText('0–2 days left', { exact: true }).count(), 1)
+  assert.equal(await table.getByText('Final day', { exact: true }).count(), 1)
+  assert.equal(await table.getByText('4 days left', { exact: true }).count(), 1)
+  assert.equal(await table.getByText('Est. 1–3 days from scan', { exact: true }).count(), 2)
+  assert.equal(await table.getByText('1–3 days', { exact: true }).count(), 0)  // never shown as today's value
+  assert.equal(await table.getByText('2 days', { exact: true }).count(), 1)  // the Sold row keeps its estimate
+  await page.screenshot({ path: 'node_modules/.tmp/bv-shelf-life-logs.png', fullPage: true })
+  // Past Manila midnight the open list rolls over without waiting for new values.
+  await page.clock.fastForward('12:01:00')
+  await table.getByText('0–1 days left', { exact: true }).waitFor()
+  assert.equal(await table.getByText('Overdue', { exact: true }).count(), 2)  // the 4-day estimate too
+  assert.equal(await table.getByText('Est. 1–3 days from scan', { exact: true }).count(), 2)
+})
+
+for (const [elapsed, label] of [[0, '1–3 days left'], [1, '0–2 days left'], [2, '0–1 days left'], [3, 'Final day'], [4, 'Overdue'], [7, 'Overdue']]) {
+  test(`ScanDetail shows ${label} for a 1-3 day estimate on day +${elapsed}`, async t => {
+    const record = { ...scan(), spoilage_days: '1-3', remaining_days: 2 - elapsed,
+      risk_as_of: '2026-10-02T04:00:00Z', inventory_eligible: true, shelf_life_window: shelfWindow(1, 3, elapsed) }
+    const { page, state } = await setup(t, 200, { record })
+    const metric = page.getByText('Est. Spoilage', { exact: true }).locator('..')
+    await metric.getByText(label, { exact: true }).waitFor()
+    await metric.getByText('Est. 1–3 days from scan', { exact: true }).waitFor()
+    assert.equal(await metric.getByText('1–3 days', { exact: true }).count(), 0)
+    assert.equal(state.record.spoilage_days, '1-3')
+    assert.deepEqual(state.writes, [])
+  })
+}
+
+test('ScanDetail keeps the scan-time estimate for sold stock even when a window is sent', async t => {
+  const record = { ...scan(), spoilage_days: '1-3', remaining_days: -5, inventory_status: 'Sold',
+    risk_as_of: '2026-10-02T04:00:00Z', shelf_life_window: shelfWindow(1, 3, 7) }
+  const { page } = await setup(t, 200, { record })
+  const metric = page.getByText('Est. Spoilage', { exact: true }).locator('..')
+  await metric.getByText('1–3 days', { exact: true }).waitFor()
+  assert.equal(await metric.getByText(/days left|Final day|Overdue/).count(), 0)
+})
+
+test('QC shows the live countdown for in-stock scans', async t => {
+  const record = { ...scan(), spoilage_days: '1-3', remaining_days: -5, shelf_life_window: shelfWindow(1, 3, 7) }
+  const { page, state } = await setup(t, 200, { screen: 'quality', record })
+  await page.locator('tbody tr').first().click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByText('Overdue', { exact: true }).waitFor()
+  await dialog.getByText('Est. 1–3 days from scan', { exact: true }).waitFor()
+  assert.equal(await dialog.getByText('1–3 days', { exact: true }).count(), 0)
+  assert.equal(state.record.spoilage_days, '1-3')
 })
 
 test('decimal spoilage displays a readable range in Logs and Details without changing stored values', async t => {
@@ -177,7 +256,7 @@ test('decimal spoilage displays a readable range in Logs and Details without cha
   assert.equal(state.writes[0].spoilage_days, undefined)
   assert.equal(state.record.spoilage_days, raw)
   await page.getByRole('link', { name: 'Test logs link' }).click()
-  await page.getByRole('table').getByText('4–5 days', { exact: true }).waitFor()
+  await page.getByRole('table').getByText('Est. 4–5 days from scan', { exact: true }).waitFor()
   assert.doesNotMatch(await page.getByRole('table').innerText(), /4\.861489519142744/)
 })
 

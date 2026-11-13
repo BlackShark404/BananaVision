@@ -2,6 +2,38 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## Live shelf-life window — 2026-11-13
+
+Rule and reasons are in [[Development Decisions]]; what each page shows is in [[Frontend]].
+
+- **One rule table, two suites.** `backend/tests/data/shelf_life_window_cases.json` holds
+  the whole-day bounds, the unreadable values, the day-by-day progression and the
+  roll-forward cases. `backend/tests/test_shelf_life_window.py` checks it against
+  `inventory_policy.py`, and `frontend/tests/shelfLifeWindow.test.mjs` checks the
+  progression, roll-forward and labels against `src/lib/shelfLifeWindow.ts`.
+- **Backend cases:** day 0, +1, +2, +3 and +7 for `1-3`; created 23:50 PHT and read
+  00:05 PHT counts one day; no change at UTC midnight; zone-less stored instants are UTC;
+  single-day and zero estimates; unreadable values and missing timestamps give no window;
+  a clock before the scan never goes negative. Detail, public track and list responses at
+  five ages leave the stored string, timestamp, revision and `updated_at` unchanged. The
+  bulk-status event carries the window. Sold records receive it on every response.
+  Frozen snapshots do not store it, read the same two days later, and fit the size limit
+  exactly as before. A value too large for a number gives no window instead of an error.
+- **Frontend cases:** the unit test runs with `TZ=America/Los_Angeles` to prove the date
+  comes from Asia/Manila. Browser tests cover the public page rolling over at Manila
+  midnight with no new request, Scan Logs (countdown first, estimate beneath, Sold row
+  unchanged, a row saved before the field existed), Scan Detail on day 0 to +7, Sold
+  stock, Quality Control and Kiosk recent scans.
+- **Results:** backend **759 passed, 104 skipped**, against **685 passed, 104 skipped**
+  on `3dd755b`. Frontend **319 of 319** tests passed, 39 of them new. Type check and build
+  pass; lint (14) and Ruff (11) show the same existing findings on the changed files as
+  before, none new.
+- **Review:** four independent lenses, each finding checked by a second reviewer. Nine
+  findings were fixed or covered by new tests and two questioned the user-chosen Scan
+  Logs layout. Details are in `TASK_PROGRESS.txt`. Ten planted defects on a scratch copy
+  each made the backend tests fail.
+- **Not covered here:** the 104 PostgreSQL-only tests, and the live station.
+
 ## Out-of-distribution rejection — 2026-11-13
 
 Design, thresholds and limits are in [[AI Models]]; the kiosk state is in [[Frontend]].
