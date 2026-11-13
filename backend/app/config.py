@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     bananavision_label_width_mm: float = Field(40, ge=20, le=110)
     bananavision_label_height_mm: float = Field(30, ge=20, le=300)
     bananavision_auto_print: bool = False
+    public_base_url: str = ""
 
     # ── Database ─────────────────────────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://bv_user:bv_pass@localhost:5432/bananavision"

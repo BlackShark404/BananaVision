@@ -27,7 +27,8 @@ export function ScanLabelPrint({ scanId, children }: { scanId: string; children?
     let active = true
     setPreviewLoading(true); setPreview(null); setQr(""); setError("")
     api.scans.label(scanId).then(async data => {
-      const image = await QRCode.toDataURL(data.payload, { margin: 4, errorCorrectionLevel: "M", width: 256 })
+      const qrTarget = data.qr_data || data.payload
+      const image = await QRCode.toDataURL(qrTarget, { margin: 4, errorCorrectionLevel: "M", width: 256 })
       if (active) { setPreview(data); setQr(image) }
     }).catch(err => { if (active) setError(err instanceof Error ? err.message : "Label preview unavailable") }).finally(() => { if (active) setPreviewLoading(false) })
     return () => { active = false }
@@ -96,7 +97,7 @@ export function ScanLabelPrint({ scanId, children }: { scanId: string; children?
     {children}
     {preview && <p className="text-xs text-muted-foreground">
       {preview.width_mm} × {preview.height_mm} mm · {preview.printer_name}<br />
-      Saved prediction · {preview.panel[2]} · {preview.panel[3]} · {preview.panel[4]}
+      Saved label · {preview.panel[1]} · {preview.panel[2]} · {preview.panel[3]} · {preview.panel[4]}
     </p>}
     <div className="flex items-center justify-between gap-3">
       <Label htmlFor="label-quantity">Labels (1–10)</Label>

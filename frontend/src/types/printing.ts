@@ -1,5 +1,6 @@
 export interface LabelPreview {
   payload: string
+  qr_data?: string
   panel: string[]
   printer_name: string
   max_quantity: number

@@ -223,7 +223,7 @@ def _qr_matrix(prediction: PredictionData) -> list[list[bool]]:
         box_size=1,
         border=4,
     )
-    qr.add_data(prediction.payload())
+    qr.add_data(prediction.qr_data())
     qr.make(fit=True)
     return qr.get_matrix()
 

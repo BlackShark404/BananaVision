@@ -38,6 +38,7 @@ class RetryPrintRequest(BaseModel):
 
 class LabelPreviewResponse(BaseModel):
     payload: str
+    qr_data: str | None = None
     panel: tuple[str, ...]
     printer_name: str
     max_quantity: int

@@ -125,6 +125,20 @@ def test_qr_quiet_zone_and_whole_pixel_layout():
     assert [call.args[0] for call in dc.DrawText.call_args_list] == list(data.panel())
 
 
+def test_prediction_qr_data_uses_public_tracking_url():
+    scan_id = str(uuid4())
+    data_with_url = PredictionData(
+        scan_id, "Semi Ripe", "3-5", 95.25, 28, 75,
+        tracking_url=f"https://desktop-sk6blp7.taila99747.ts.net/track/{scan_id}"
+    )
+    assert data_with_url.qr_data() == f"https://desktop-sk6blp7.taila99747.ts.net/track/{scan_id}"
+    matrix = windows_printer._qr_matrix(data_with_url)
+    assert len(matrix) > 0
+
+    data_without_url = PredictionData(scan_id, "Semi Ripe", "3-5", 95.25, 28, 75)
+    assert data_without_url.qr_data() == data_without_url.payload()
+
+
 def test_gdi_three_argument_createdc_quantity_and_abort(monkeypatch):
     # Only remove the physical-print guard AFTER substituting every Windows module.
     printer = SimpleNamespace(name="TP870 S")

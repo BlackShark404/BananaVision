@@ -26,7 +26,7 @@ router = APIRouter(tags=["Printing"])
 def label_preview(data):
     settings = get_settings()
     return LabelPreviewResponse(
-        payload=data.payload(), panel=data.panel(),
+        payload=data.payload(), qr_data=data.qr_data(), panel=data.panel(),
         printer_name=settings.bananavision_printer_name, max_quantity=10,
         width_mm=settings.bananavision_label_width_mm,
         height_mm=settings.bananavision_label_height_mm,
