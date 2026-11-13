@@ -1,214 +1,108 @@
-CURRENT RESUME HERE (2026-11-13) - QR SCAN PAGE SHOWS ONLY THE SCANNED DATA;
-PUBLIC HTTPS ACCESS MERGED LOCALLY, NOT DEPLOYED
+CURRENT RESUME HERE (2026-11-13) - FINGER-COUNT ACCURACY AND NON-BANANA BOXES;
+MERGED WITH TEAM MAIN (WINDOWS RUNBOOK, PUBLIC PAGE DETAILS DISCLOSURE)
 
-The previous checkpoint ("Est." on AI-estimated numbers, merged to team main as b49ecca
-via PR #8) is archived byte-for-byte in
-docs/history/2026-11-13-before-public-qr-data-only.txt.
+The previous checkpoint (QR page shows only the scanned data, merged to team main as
+39a0e5d via PR #9) is archived byte-for-byte in docs/history/2026-11-13-before-finger-count-accuracy.txt.
+The team's checkpoint at merge time (QR page, public HTTPS, Mac tailnet smoke test,
+Windows runbook) is archived byte-for-byte in
+docs/history/2026-11-13-team-qr-and-https-checkpoint.txt.
 
-The public HTTPS checkpoint (Option 2 design, verification and Mac tailnet smoke test) is
-archived in docs/history/2026-11-13-public-https-access-checkpoint.txt. The env templates
-and Windows runbook followed in local commit 4ccf1ed. That commit and this merge are local
-and not pushed.
+AUTHORIZED SCOPE / USER REQUEST (2026-11-13)
+- "Enhance the code and YOLO26 AI to make the estimated finger count more accurate. Do
+  what must be done." Plus two station screenshots to fix ("remember this issue"):
+  (1) brown wood boxed "Cardaba Ripe 64%" beside a pale-green hand boxed cardaba_unripe;
+  (2) Left camera, Latundan hand: a bright window frame above the hand boxed
+  "Latundan Ripe 29%" and the wooden plate under it "Latundan Ripe 26%" (Left = 11).
+- Constraint: the user is phone-only (no laptop/PC, no Google account). The session has
+  no GPU, no banana weights, no dataset, no banana photos. Commit on the fork's main; the
+  user opens the pull request.
 
-AUTHORIZED SCOPE / LATEST DECISIONS (2026-11-13)
-- QR page (team main, PR #9): a phone that scans a BananaVision QR code sees only the
-  scanned banana data in a clean, read-only page: no Log in / Sign in / website /
-  navigation buttons, no redirect to login. Login controls stay on the normal pages.
-- QR decisions: (1) every QR scan shows the data-only page, signed in or not (the
-  redirect of signed-in viewers to /scans/<id> is removed). (2) The public API stops
-  sending photo references: GET /api/v1/scans/{id}/track always returns images: []
-  (field kept). (3) Update the capstone storyboard's Figure 92 text (its screenshot still
-  needs a new capture by the team).
-- Public HTTPS (Khen, local main): Option 2, a public HTTPS link with no installs for
-  users. Decisions: Tailscale Funnel with Caddy; camera feeds require a BananaVision
-  login; QR labels use a configurable public base URL; scope is code, proxy config and
-  docs, with no deployment.
+FINDINGS
+- Ultralytics 8.4.40 (pinned) runs YOLO26 files that store no head choice on the NMS-free
+  one-to-one head: NMS, every iou= calibration and TTA are skipped, and the first predict
+  fuses the other head away. Proven on the COCO yolo26n.pt
+  (docs/audits/inference-head-check-2026-11-13.json: 10/10/10 boxes at IoU 0.3/0.7/0.95
+  vs 9/10/17 with NMS). The audited checkpoints ran with NMS; the V2 head is unrecorded.
+- Screenshot 2: both junk boxes came from the conf-0.25 occluded-finger second pass,
+  which ran on every view, checked label/size only, and filtered the platter lip on
+  Rear only. Screenshot 1: the wood box passed the OOD gate (evidence centre rule) and
+  nothing compared its ripeness with the hand.
+- Undercounts: a whole-hand box hid side-by-side fingers as "fragments"; the rotated
+  Top pass merged stacked lying fingers.
 
-ROOT CAUSE (QR PAGE)
-- Web QR codes open /track/<scan id> (frontend/src/lib/qrcode.ts). PublicScanView had a
-  header "Log in" button, a "Need more details?" login card, a "Log in" button on the
-  error and not-found screens, and redirected signed-in viewers to the staff page.
-- Found in review: App.tsx mounted /track inside AdminProvider, ScanProvider and
-  InventoryProvider. With a stored staff session those providers loaded staff data and
-  opened the staff socket on the QR page; an expired or revoked token then hit the 401
-  handler (lib/api.ts) or the 4001 socket close (useWebSocket.ts) and sent the phone to
-  /login.
-- The public track response listed internal capture paths and camera IDs.
-- Thermal printer labels hold a plain-text QR payload; not affected.
-
-DONE
-QR page:
-- frontend/src/pages/PublicScanView.tsx: login button, login card, error "Log in" and the
-  redirect removed; the page no longer reads the signed-in user. Error screen keeps
-  "Retry" only; not-found has no button. Data, layout and Asia/Manila times unchanged.
-- frontend/src/App.tsx: /track/:scanId in its own top-level route outside the staff
-  providers and toaster (StaffApp wraps every other route, unchanged).
-- backend/app/api/v1/scans.py public_scan_track: images=[], no longer loads Scan.images.
-- Tests: frontend/tests/public-scan.test.mjs (+5 at 390x844: data only, no controls or
-  login/website text, signed-in viewer, not-found, error with Retry, landing keeps its
-  login button), public-scan.fixture.tsx; new public-scan-app.test.mjs (+2, real App with
-  an expired staff session), public-scan-app.fixture.tsx, app.auth.tsx; harness serves
-  /track paths (dashboard.browser.mjs); backend/tests/test_public_scan_track.py (new).
-- Docs: docs/knowledge/Frontend.md, Development Decisions.md, Testing and Validation.md;
-  docs/bananavision-docs/docs/STORYBOARD_CAPSTONE1.md Figure 92 text and Main Actions.
-- Public page hierarchy (2026-11-13, uncommitted): the first screen keeps ripeness,
-  cultivar, the shelf-life countdown, scan date and review notice. Confidence,
-  Est. Fingers, temperature, humidity, VPD, source, treatment and scan ID sit in a
-  collapsed native "Scan details" disclosure. inventory_status is no longer rendered
-  publicly. API fields and staff pages are unchanged.
-
-Public HTTPS:
-- Frontend transport: an HTTPS page calls its own origin for HTTP and WebSocket traffic
-  (empty BASE_URL, wss on window.location.host). Plain HTTP keeps http://<host>:8000.
-  VITE_API_URL and VITE_WS_URL remain explicit overrides.
-- WebSocket: a ping event every 25 seconds while open, stopped on close, reconnect and
-  unmount. Ownership, backoff and room behavior are unchanged.
-- Media auth: withMediaToken adds the session as ?token= for Kiosk, Dashboard and camera
-  calibration previews; the backend accepts a bearer header or query token. Evidence
-  images under /captures remain bearer-only.
-- QR: VITE_PUBLIC_BASE_URL overrides the origin embedded in printed labels; trailing
-  slashes are removed. Without it, labels keep the kiosk origin.
-- Backend: get_media_user shares _resolve_user with get_current_user; the preview route
-  requires a session; invalid fps still fails before capture. Production refuses missing,
-  placeholder or shorter-than-32-byte APP_SECRET_KEY/JWT_SECRET_KEY and disables /docs,
-  /redoc and /openapi.json.
-- Proxy: deploy/Caddyfile serves frontend/dist and forwards /api, /captures and /health to
-  127.0.0.1:8000. It binds loopback, accepts any Host (Funnel sends its public name),
-  returns 404 for API docs and adds HSTS, CSP, X-Content-Type-Options, X-Frame-Options,
-  Referrer-Policy and no Server header.
-- Env/docs: backend/.env.example documents production secrets, trusted proxies and the
-  LAN-compatible CORS example. deploy/backend.env.production.example and
-  frontend/.env.production.example are ready-to-merge production templates with
-  placeholders only, no secrets. docs/remote-access.md contains the Option 2 procedure;
-  docs/windows-mini-pc-deployment.md is the linear Windows station runbook (not yet run
-  on Windows). Knowledge notes Frontend.md, Development Decisions.md and Testing and
-  Validation.md are updated.
-- Tests: backend/tests/test_camera_preview.py covers session requirement and header/query
-  token selection; backend/tests/test_settings_security.py is new; the connectivity browser
-  test covers the heartbeat.
+DONE (backend/app/services/classification.py, scan_service.py, config.py, .env.example)
+- YOLO_INFERENCE_HEAD=one_to_many_nms|one_to_one|checkpoint, fixed right after
+  YOLO(path), before warmup; inference_head reported (also in evaluate_ood_gate top_paths).
+- YOLO_AXIS_AWARE_ROTATION_DEDUP, YOLO_HAND_BOX_SPLIT, YOLO_RIPENESS_OUTLIER_FILTER,
+  YOLO_RECOVERY_WITHIN_HAND, YOLO_SIDE_VIEW_LIP_FILTER (all on; false restores the old
+  behaviour), YOLO_RECOVERY_ADJACENT_RIPENESS (off, measurement only).
+- Ripeness outliers flag the scan, are logged and appended to the activity entry.
+- backend/scripts/check_inference_head.py (static: no unpickling; runtime).
+- Tests: test_finger_count_rules.py (both screenshots as fixtures), test_inference_head.py,
+  test_inference_head_integration.py (real COCO weights), test_check_inference_head.py;
+  test_ood_gate.py hand-box cases updated + randomized hand gate-contract test;
+  test_evaluate_ood_gate.py top_paths head report.
+- Docs: docs/knowledge/AI Models.md (Finger counting section), Development Decisions.md,
+  Resolved Bugs.md, Testing and Validation.md.
 
 VERIFICATION
-QR page (team main, before this merge):
-- Backend with a throwaway PostgreSQL 16 cluster: 842 passed, 38 skipped; without
-  PostgreSQL 776 passed, 104 skipped. Backend code did not change after these runs.
-- Frontend: 347 of 348 passed in the full run. The one failure, kiosk-pin "back cancels
-  delayed PIN verification", was a clock race in that test's setup ("Cannot fast-forward
-  to the past") while review agents loaded the machine; it passed 15/15 in three runs on
-  its own and touches no changed file. Type check and production build pass.
-- Lint: ESLint 40 problems and Ruff (app tests) 635, both equal to HEAD; changed files
-  clean.
-- Before the fixes: the 4 new QR browser tests, the real-App test (navigated to /login)
-  and the backend test (capture path in the response) all failed.
-- Screenshots at 390 px: data, flagged, not-found, error (Retry only), landing (login
-  buttons kept), and the real App with a stored staff session (no staff requests, no
-  controls). All six measured with clientWidth 390 and no overflow.
-- Codex Security scoped scan (scans.py, PublicScanView.tsx, qrcode.ts; gpt-5.6-terra,
-  low effort): 0 findings. App.tsx was not in that scan; the review workflow covered it.
-- Review workflow (3 reviewers, 2 skeptics per finding): first round found the provider
-  boundary (fixed above) and the stale storyboard (updated). Final round on the whole
-  diff: routing and security lenses found nothing; the test lens found the phone overflow
-  check could not fail under isMobile (innerWidth grows with content). Confirmed in a
-  browser (a 600 px element read 616/616) and fixed: tests compare with clientWidth 390.
-  The two QR test files pass 14/14 after that test-only change.
-- Graphify refreshed. ICM and UI/UX Pro Max are not available in the cloud session.
-- Public QR hierarchy (2026-11-13, uncommitted): public-scan.test.mjs and
-  public-scan-app.test.mjs pass 14/14; typecheck and production build pass; ESLint on
-  the changed files is clean. The live HTTPS page at 390, 360 and 320 px has no
-  sideways scroll, zero <button> elements, and the disclosure opens correctly.
-  Screenshots: .tmp/public-scan-collapsed.png and .tmp/public-scan-expanded.png.
+- Full backend: 903 passed / 38 skipped with a throwaway PostgreSQL 16 cluster; 837 / 104
+  without. Ruff app+tests 634 (baseline 635), new files clean. Frontend untouched.
+- Every new rule test was written first and failed on the previous code.
+- Independent review workflow (3 lenses, 2 skeptics per finding): 8 confirmed and fixed
+  (restored fingers vs rotated-pass repeats, two gate-accounting cases, warmup test that
+  could pass vacuously, two untested rule clauses, head-check parser errors/legacy
+  format/train_args scoping, memo test). Accepted trade-offs documented in AI Models.md:
+  strict along-axis second-pass extent; main-pass lip filter on Left/Right. Adopted a
+  suggested guard: a hand ripening across stages keeps its far fingers.
+- NOT measured: any count-accuracy effect on banana photos; the V2 checkpoints' head.
 
-VERIFICATION — PUBLIC HTTPS (local main, before this merge)
-- Backend full suite from a fresh temporary working directory: 764 passed, 104 skipped in
-  68.29s (PostgreSQL-only cases skipped; no disposable cluster).
-- Backend targeted camera/settings/connectivity/security tests after the final edit:
-  47 passed, 4 skipped in 4.46s.
-- Production startup: docs_url, redoc_url and openapi_url are None with strong secrets;
-  a placeholder secret raises ValidationError.
-- Frontend affected suites (connectivity, public scan, kiosk, dashboard, maintenance,
-  printing, scan records): 142/142 passed in 154s. Connectivity rerun on the final socket
-  code: 6/6 passed. `npm run typecheck` and `npm run build` pass.
-- Lint: ESLint 40 problems, with the changed files at 9, the same as HEAD; no new
-  diagnostics. Ruff 24 findings on the changed backend set, equal to HEAD.
-- QR wiring: a temporary frontend/.env.production.local produced the configured public
-  origin in the bundle, then was removed and the normal build restored.
-- `git diff --check` is clean. No live station database, captures, cameras, sensors, OS
-  power, deployment, commit or push was used.
+TOOLING (second commit)
+- backend/scripts/fetch_training_assets.py (GitHub release or local archive, SHA256SUMS,
+  safe extraction, token only in a header), evaluate_finger_count.py (visible and
+  physical modes, paired bootstrap, warns when a configuration cannot act, refuses the
+  TEST split), train_finger_model.py (CPU fine-tune, hue augmentation off, resume and
+  dry-run, prints SHA and the next evaluation command). backend/runs/ is git-ignored.
+- Built by a workflow; each script independently reviewed (6, 6 and 11 findings) and
+  fixed; 192 tests pass (tooling tests + Manila guard). Smoke-run with real Ultralytics on
+  synthetic images only; no live GitHub download was tried.
+- The first counting commit is on the fork's main as 923b568.
 
-TAILNET SERVE SMOKE TEST (2026-11-13, MACBOOK AIR M1)
-- Ran deploy/Caddyfile with the official Caddy 2.11.9 binary in a temp directory (the
-  Homebrew build failed with "no space left on device") against uvicorn on
-  127.0.0.1:8000. The backend used APP_ENV=production, strong temporary secrets, a
-  disposable PostgreSQL 17 database, a temporary capture directory and
-  CAMERA_DEVICE_IDS=[99]. Models loaded; no physical camera or sensor was opened.
-- Caddy validated the config. On loopback: /health 200; / and /dashboard 200; /docs and
-  /openapi.json 404; preview without auth 401; HSTS, CSP, X-Content-Type-Options,
-  X-Frame-Options and Referrer-Policy present; no Server header.
-- Tailscale Serve HTTPS passed after the user enabled Serve/HTTPS certificates on the
-  tailnet. Over https://khens-macbook-air.tailae02f0.ts.net/: Chromium accepted the
-  certificate; window.isSecureContext was true; login (including first-time password
-  setup) reached the Admin Dashboard; all 22 API calls stayed same-origin; two wss
-  sockets connected; a manual ping returned pong; /api/v1/cameras 200; preview 401
-  without a token and 404 with a token because camera index 99 does not exist. The same
-  flow also passed through a localhost internal-TLS hop.
-- Cleanup: tailscale serve --https=443 off (status is "No serve config"), Caddy and
-  uvicorn stopped, disposable database dropped, temp env/secrets/screenshots/binary
-  removed, ports 8000/8080/8443 free. The smoke test added no commit or push; no Funnel
-  or deployment was used.
+TEAM MAIN MERGED INTO THE FORK (2026-11-13, via temporary fork PR #2)
+- Team commits after PR #9: 4ccf1ed Windows Mini PC deployment runbook and production
+  env templates (deploy/backend.env.production.example, frontend/.env.production.example,
+  docs/windows-mini-pc-deployment.md); 3d7f7f3 start-mac-tailnet.sh handles stale or
+  existing Tailscale Serve configs; 15fe7db sample QR image; 6c0b0c1 public scan page puts
+  confidence, Est. Fingers, sensor readings, source, treatment and scan ID in a collapsed
+  "Scan details" disclosure and no longer shows inventory_status (tests updated).
+- Merge: only TASK_PROGRESS.txt conflicted (this file combines both); the knowledge notes
+  merged with both sides' entries. The team also committed .tmp/*.png screenshots.
+- Post-merge verification is recorded under MERGE VERIFICATION below.
 
-MAC TAILNET START/STOP SCRIPTS (2026-11-13)
-- deploy/start-mac-tailnet.sh builds the frontend with VITE_PUBLIC_BASE_URL set to the
-  tailnet origin, starts uvicorn on 127.0.0.1:8000 and Caddy on 127.0.0.1:8080, enables
-  Tailscale Serve on 443, waits for HTTPS /health and prints the URL. It downloads Caddy
-  2.11.9 into ~/Library/Caches/bananavision when absent, verifies GitHub's published asset
-  digest (the release checksums.txt disagrees with the 2.11.9 assets), and validates the
-  Caddyfile. --skip-build reuses frontend/dist.
-- deploy/stop-mac-tailnet.sh removes the Serve mapping for 127.0.0.1:8080, kills only
-  stored PIDs whose commands match, and is idempotent.
-- Verified twice with a disposable PostgreSQL database, camera index 99, no sensor and a
-  temporary capture directory: start reached HTTPS /health 200; /docs 404; preview 401;
-  seeded-admin login 200 requires_password_change; the built bundle carries the tailnet QR
-  origin. Stop removed Serve, freed ports 8000/8080 and reported "No serve config". A
-  second start while running was refused. Test database and temp files were removed.
-- The Caddy binary and archive stay in the user cache for faster restarts.
-
-MERGE RESOLUTION (2026-11-13)
-- Only TASK_PROGRESS.txt conflicted. All source, test and documentation changes merged
-  without textual conflicts; the QR route, public HTTPS transport, media auth and public
-  base URL are all present in the merged tree.
-- This file combines both checkpoints. Full-resolution details remain in the two archived
-  history files.
-- Post-merge backend full suite from a fresh temporary directory: 776 passed, 104 skipped
-  in 76.47s. PostgreSQL-only cases were skipped; no disposable cluster was used.
-- Post-merge frontend targeted suites (public scan, real-App QR route, Manila time,
-  estimates, connectivity, shelf-life window, scan records): 130/130 passed in 91.0s.
-  `npm run typecheck` and `npm run build` pass.
-- ESLint: 40 problems (35 errors, 5 warnings), matching the recorded team baseline; no
-  new diagnostics. Ruff is not installed in the local venv, so it was not rerun.
-- `git diff --check` is clean. No live station database, captures, cameras, sensors, OS
-  power, deployment or push was used.
-
-NOT CHANGED (QR PAGE, reported)
-- Thermal label QR text, the /track/:scanId URL, the staff Scan Detail page, landing and
-  login pages, API field names and types, the database. Staff open the full scan detail
-  from the dashboard.
+MERGE VERIFICATION
+- Backend full suite: 1091 passed / 38 skipped with a throwaway PostgreSQL 16 cluster,
+  1025 / 104 without. Ruff app+tests 634 (baseline 635).
+- Frontend (the team changed PublicScanView and its tests): public-scan, real-App QR route,
+  Manila time and estimates suites 25/25; type check and production build pass; ESLint 40
+  problems, equal to the baseline.
 
 STILL OPEN
+- Teammate uploads to a GitHub release on RoronoaZoro1206/BananaVision: the station
+  weights (.pt), the Roboflow export zip, and station background photos (empty tray,
+  window, plate) for training negatives. Then: check_inference_head.py static on the
+  weights, evaluate_finger_count.py visible on the prepared VALID split, train with
+  negatives, re-evaluate, register the new SHA in TOP_CALIBRATED_CHECKPOINTS.
 - Team: re-capture the Figure 92 screenshot in the capstone storyboard.
-- From Khen (public HTTPS, not pushed or deployed): local main has 434b3ff, 9bb968f,
-  4ccf1ed and this merge. When deployment is authorized, follow
-  docs/windows-mini-pc-deployment.md on the Mini PC; the Mac tailnet scripts remain
-  deploy/start-mac-tailnet.sh and deploy/stop-mac-tailnet.sh.
+- From Khen (public HTTPS, not deployed): when deployment is authorized, follow
+  docs/windows-mini-pc-deployment.md on the Mini PC and verify the public URL, Funnel
+  WebSocket traffic, the real cameras and the sensor. Mac tailnet access:
+  deploy/start-mac-tailnet.sh / deploy/stop-mac-tailnet.sh.
 - From the audit (team decisions): Non-Banana Detection Audit.md status line;
   .codex/config.toml default model and laptop paths; uncertain-cultivar estimate shown
   outside Kiosk; ModelInferenceError detail; missing [[System Architecture]] and
-  [[Backend]] notes; second kiosk shows a rejection; public QR countdown for every status;
-  Top-calibrated OOD rerun.
+  [[Backend]] notes; second kiosk shows a rejection; public QR countdown for every status.
 
 EXACT NEXT STEP
-- Push the merged local main only with explicit authorization; this is a shared-branch
-  write and has not been done.
-- Then deploy when authorized: follow docs/windows-mini-pc-deployment.md on the Mini PC
-  and verify the public URL, Funnel WebSocket traffic, the real cameras and the sensor.
-- For temporary Mac tailnet access, run deploy/start-mac-tailnet.sh; stop it with
-  deploy/stop-mac-tailnet.sh. The tailnet Serve/HTTPS certificate setting enabled for the
-  smoke test can stay enabled for that deployment; no Serve config remains on this Mac.
+- The team PR from the fork's main (BlackShark404/BananaVision main <- RoronoaZoro1206
+  main) should now merge cleanly; close the temporary fork PR #2 without merging.
+  https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main

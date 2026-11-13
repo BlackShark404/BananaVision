@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import math
 import time
+from collections import defaultdict
 from dataclasses import dataclass, field
+from itertools import combinations
 
 import numpy as np
 
@@ -41,6 +44,70 @@ TOP_ROTATION_DEDUP_IOU = 0.40
 OCCLUDED_FINGER_RECOVERY_CONF = 0.25
 OCCLUDED_FINGER_MIN_PRIMARY = 5
 OCCLUDED_FINGER_MIN_AREA_RATIO = 0.22
+# A box at least this many times longer than wide has a clear long axis (a finger seen
+# from the side or from above); squarer boxes are tips, ends or whole hands.
+FINGER_MIN_ELONGATION = 2.0
+# One hand ripens together: its fingers sit within one stage of each other.
+RIPENESS_STAGE = {"Unripe": 0, "Semi Ripe": 1, "Ripe": 2, "Overripe": 3}
+# Table/platter lip seen from a side camera: a low, wide, weak box (Resolved Bugs #9).
+PLATTER_LIP_TOP = 0.55
+PLATTER_LIP_MAX_CONFIDENCE = 0.60
+
+
+def _detection_head(yolo) -> object | None:
+    """The Detect layer of an Ultralytics YOLO object, or None for anything else."""
+    inner = getattr(yolo, "model", None)
+    layers = getattr(inner, "model", None)
+    if inner is None or not hasattr(inner, "end2end") or layers is None:
+        return None
+    try:
+        return layers[-1]
+    except (IndexError, KeyError, TypeError):
+        return None
+
+
+def _apply_inference_head(yolo, mode: str) -> str:
+    """Fix which YOLO26 head runs, before the first prediction; return the head in use.
+
+    Ultralytics 8.4.40 turns on the NMS-free one-to-one head of a YOLO26 checkpoint unless
+    the file stores it off. NMS, `iou` and test-time augmentation are then skipped, and the
+    first prediction fuses the one-to-many head away, so the choice cannot wait for a
+    predict argument. "checkpoint" leaves the file's own behaviour untouched.
+    Returns "one_to_many_nms", "one_to_one" or "unknown" (no Ultralytics detection head).
+    """
+    head = _detection_head(yolo)
+    if head is None:
+        return "unknown"
+    inner = yolo.model
+    if mode == "one_to_many_nms":
+        if getattr(head, "cv2", None) is None:
+            logger.error(
+                "The one-to-many detection head was already fused away; reload the model "
+                "to run it with NMS. Continuing with the NMS-free one-to-one head."
+            )
+        else:
+            inner.end2end = False
+    elif mode == "one_to_one":
+        if getattr(head, "one2one_cv2", None) is None:
+            logger.warning(
+                "This checkpoint has no one-to-one head; it keeps running with NMS."
+            )
+        else:
+            inner.end2end = True
+    return "one_to_one" if bool(getattr(inner, "end2end", False)) else "one_to_many_nms"
+
+
+def _head_predict_kwargs(head: str, mode: str) -> dict[str, bool]:
+    """Repeat the chosen head on every predict call where this Ultralytics accepts it."""
+    if mode == "checkpoint" or head == "unknown":
+        return {}
+    try:
+        from ultralytics.cfg import DEFAULT_CFG_DICT
+    except Exception:
+        return {}
+    if "end2end" not in DEFAULT_CFG_DICT:
+        return {}
+    return {"end2end": head == "one_to_one"}
 
 
 def _checkpoint_digest(path: str) -> str:
@@ -73,6 +140,11 @@ class ClassificationResult:
     cultivar_conflict: bool = False
     # Cultivar boxes discarded because no banana evidence covered them.
     ood_rejected_boxes: int = 0
+    # Boxes dropped because their ripeness is two or more stages away from the rest of
+    # the hand (e.g. brown wood read as a ripe finger beside an unripe hand).
+    ripeness_outlier_boxes: int = 0
+    # Whole-hand boxes replaced by the side-by-side fingers they had hidden.
+    hand_box_splits: int = 0
 
 
 # ── Class label parsing ─────────────────────────────────────────────────────
@@ -258,6 +330,18 @@ def _is_duplicate_detection(
         return True
 
     if cont >= 0.45:
+        # "Same finger column": the centres must line up across the finger, i.e. along
+        # x for an upright finger. For a finger lying sideways that is y; comparing x
+        # there merged a lying finger with the one stacked on it.
+        larger = candidate if candidate.w * candidate.h >= existing.w * existing.h else existing
+        if (
+            getattr(settings, "yolo_axis_aware_rotation_dedup", True)
+            and _long_axis(larger) == "horizontal"
+        ):
+            min_h = min(candidate.h, existing.h)
+            cy_cand = candidate.y + candidate.h / 2
+            cy_exist = existing.y + existing.h / 2
+            return min_h > 0 and abs(cy_cand - cy_exist) <= 0.25 * min_h
         min_w = min(candidate.w, existing.w)
         if min_w > 0:
             cx_cand = candidate.x + candidate.w / 2
@@ -266,6 +350,102 @@ def _is_duplicate_detection(
                 return True
 
     return False
+
+
+def _long_axis(det: Detection) -> str | None:
+    """'vertical' or 'horizontal' for a clearly elongated box, None for a squarish one."""
+    if det.w <= 0 or det.h <= 0:
+        return None
+    if det.h >= FINGER_MIN_ELONGATION * det.w:
+        return "vertical"
+    if det.w >= FINGER_MIN_ELONGATION * det.h:
+        return "horizontal"
+    return None
+
+
+def _side_by_side(a: Detection, b: Detection) -> bool:
+    """Two separate fingers lying parallel next to each other (not one finger in pieces)."""
+    axis = _long_axis(a)
+    if axis is None or axis != _long_axis(b) or _box_iou(a, b) >= 0.40:
+        return False
+    dx = abs((a.x + a.w / 2) - (b.x + b.w / 2))
+    dy = abs((a.y + a.h / 2) - (b.y + b.h / 2))
+    return dx > dy if axis == "vertical" else dy > dx
+
+
+def _hides_fingers(parent: Detection, children: list[Detection], others: list[Detection]) -> bool:
+    """A whole-hand box that swallowed two or more side-by-side fingers as 'fragments'."""
+    if len(children) < 2:
+        return False
+    if not any(_side_by_side(a, b) for a, b in combinations(children, 2)):
+        return False
+    return _is_cluster_box(parent, others + children)
+
+
+def _is_platter_lip(x1: float, y1: float, x2: float, y2: float, conf: float,
+                    img_h: int) -> bool:
+    """Low, wide, weak box: the table or platter edge seen from a side camera."""
+    return (
+        y1 > PLATTER_LIP_TOP * img_h and (x2 - x1) > 2.0 * (y2 - y1)
+        and conf < PLATTER_LIP_MAX_CONFIDENCE
+    )
+
+
+def _ripeness_stage(det: Detection) -> int | None:
+    return RIPENESS_STAGE.get(_parse_class_label(det.cls)[1] or "")
+
+
+def _ripeness_outliers(detections: list[Detection]) -> list[Detection]:
+    """Boxes two or more ripeness stages away from a clear majority of the hand.
+
+    One hand ripens together, so an "unripe" hand with one "ripe" box most likely holds a
+    non-banana object (brown wood read as a ripe finger, for example). Acts only when the
+    majority is a clear, coherent hand: one stage holds the most confidence, at least two
+    separate boxes lie within one stage of it, they outnumber the far boxes, carry at least
+    60 % of the confidence, and at least 60 % of their weight names one cultivar. A far
+    box is dropped when it is less confident than the best majority box, or when it
+    touches none of the majority's boxes, unless the hand also has fingers at the stage in
+    between (a hand ripening across stages keeps all of them).
+    """
+    staged = [(d, stage) for d in detections if (stage := _ripeness_stage(d)) is not None]
+    weight: dict[int, float] = defaultdict(float)
+    for d, stage in staged:
+        weight[stage] += d.confidence
+    if not weight:
+        return []
+    top = max(weight.values())
+    anchors = [stage for stage, w in weight.items() if math.isclose(w, top)]
+    if len(anchors) != 1:
+        return []
+    anchor = anchors[0]
+    near = [d for d, stage in staged if abs(stage - anchor) <= 1]
+    far = [d for d, stage in staged if abs(stage - anchor) >= 2]
+    if not far:
+        return []
+    near_count = len(_unique_box_detections(near))
+    if near_count < 2 or near_count <= len(_unique_box_detections(far)):
+        return []
+    near_weight = sum(d.confidence for d in near)
+    if near_weight < VOTE_CONFLICT_THRESHOLD * sum(weight.values()):
+        return []
+    by_cultivar: dict[str, float] = defaultdict(float)
+    for d in near:
+        by_cultivar[_parse_class_label(d.cls)[0] or ""] += d.confidence
+    if max(by_cultivar.values()) < VOTE_CONFLICT_THRESHOLD * near_weight:
+        return []
+    best = max(d.confidence for d, stage in staged if stage == anchor)
+    present = {stage for _, stage in staged}
+    outliers = []
+    for d in far:
+        stage = _ripeness_stage(d)
+        # A hand with fingers at the stage in between is ripening across stages, not
+        # holding a foreign object: its far fingers are real.
+        between = range(min(stage, anchor) + 1, max(stage, anchor))
+        if any(s in present for s in between):
+            continue
+        if d.confidence < best or not any(_box_iou(d, n) > 0 for n in near):
+            outliers.append(d)
+    return outliers
 
 
 def _is_recovery_duplicate(cand: Detection, existing: Detection) -> bool:
@@ -298,14 +478,24 @@ class BananaClassifier:
         self._loaded = False
         self._checkpoint_sha256: str | None = None
         self._image_size = 640
+        self._inference_head = "unknown"
+        # Sent with every predict call; empty for test doubles and "checkpoint" mode.
+        self._head_kwargs: dict[str, bool] = {}
 
     @property
     def is_loaded(self) -> bool:
         return self._loaded
 
+    @property
+    def inference_head(self) -> str:
+        """Detection head in use: one_to_many_nms, one_to_one or unknown."""
+        return self._inference_head
+
     def load(self) -> None:
         """Load YOLO model from disk. Call once at startup."""
         self._checkpoint_sha256 = None
+        self._inference_head = "unknown"
+        self._head_kwargs = {}
         try:
             from ultralytics import YOLO
 
@@ -313,6 +503,10 @@ class BananaClassifier:
             self._model_name = _model_name_from_path(model_path)
             logger.info(f"Loading {self._model_name} model from {model_path}")
             self._model = YOLO(model_path)
+            # Before warmup: the first prediction fixes the head for this model object.
+            mode = getattr(settings, "yolo_inference_head", "one_to_many_nms")
+            self._inference_head = _apply_inference_head(self._model, mode)
+            self._head_kwargs = _head_predict_kwargs(self._inference_head, mode)
             self._loaded = True
             # Preserve the saved resolution of custom checkpoints as well.
             self._image_size = getattr(self._model, "overrides", {}).get("imgsz", 640)
@@ -321,6 +515,16 @@ class BananaClassifier:
             except OSError:
                 logger.warning(
                     "Checkpoint fingerprint unavailable; using standard overlap filtering"
+                )
+            logger.info(f"{self._model_name} detection head: {self._inference_head}")
+            if (
+                self._inference_head == "one_to_one"
+                and self._checkpoint_sha256 in TOP_CALIBRATED_CHECKPOINTS
+            ):
+                logger.warning(
+                    "Registered checkpoint runs the NMS-free one-to-one head: the calibrated "
+                    "IoU settings and the recovery pass's test-time augmentation have no "
+                    "effect. Set YOLO_INFERENCE_HEAD=one_to_many_nms to run it as measured."
                 )
 
             # Try to read extra info from the loaded model
@@ -336,17 +540,21 @@ class BananaClassifier:
             )
             self._model = None
             self._loaded = False
+            self._inference_head = "unknown"
+            self._head_kwargs = {}
         except Exception as exc:
             logger.error(f"Failed to load YOLO model: {exc}")
             self._model = None
             self._loaded = False
+            self._inference_head = "unknown"
+            self._head_kwargs = {}
 
     def warmup(self) -> None:
         """Run a dummy inference to warm up the model (reduces first-call latency)."""
         if self._model is not None:
             try:
                 dummy = np.zeros((640, 640, 3), dtype=np.uint8)
-                self._model.predict(dummy, verbose=False)
+                self._model.predict(dummy, verbose=False, **self._head_kwargs)
                 logger.info(f"{self._model_name} warmup complete")
             except Exception as exc:
                 logger.warning(f"{self._model_name} warmup failed: {exc}")
@@ -383,6 +591,7 @@ class BananaClassifier:
         if not 0 < confidence_threshold <= 1:
             raise ValueError("Confidence threshold must be in (0, 1]")
 
+        head_kwargs = getattr(self, "_head_kwargs", {})
         iou_threshold = settings.yolo_iou_threshold
         expected_imgsz = TOP_CALIBRATED_CHECKPOINTS.get(self._checkpoint_sha256 or "")
         is_calibrated_top = (
@@ -407,6 +616,7 @@ class BananaClassifier:
                 agnostic_nms=False,
                 max_det=300,
                 verbose=False,
+                **head_kwargs,
             )
         except Exception as exc:
             raise ModelInferenceError(model_name, str(exc))
@@ -424,6 +634,23 @@ class BananaClassifier:
         # or influence another box.
         # `off_banana` only counts the distinct boxes the gate actually removed.
         off_banana: list[Detection] = []
+        norm_cam = (camera_label or "").strip().casefold()
+        lip_views = (
+            ("left", "right", "rear")
+            if getattr(settings, "yolo_side_view_lip_filter", True) else ("rear",)
+        )
+        hand_split = getattr(settings, "yolo_hand_box_split", True)
+        # Pass-1 boxes dropped as "fragments" of a kept box, by parent: those on banana
+        # evidence (`swallowed`) and those the gate set aside without counting (`exempt`).
+        swallowed: dict[int, list[Detection]] = {}
+        exempt: dict[int, list[Detection]] = {}
+
+        def count_off_banana(box: Detection) -> None:
+            if not any(
+                _is_same_class_sub_box(box, seen) or _is_duplicate_detection(box, seen)
+                for seen in off_banana
+            ):
+                off_banana.append(box)
 
         def rejected_by_gate(box: Detection, dropped_anyway=None) -> bool:
             """dropped_anyway(box, kept): the pass's own rule for repeats of a kept box.
@@ -436,15 +663,9 @@ class BananaClassifier:
                 return False
             # Not an intervention when this pass would have dropped the box anyway as
             # a repeat of an accepted detection, or when the object is already counted.
-            if not (
-                (dropped_anyway is not None
-                 and any(dropped_anyway(box, kept) for kept in detections))
-                or any(
-                    _is_same_class_sub_box(box, seen) or _is_duplicate_detection(box, seen)
-                    for seen in off_banana
-                )
-            ):
-                off_banana.append(box)
+            if not (dropped_anyway is not None
+                    and any(dropped_anyway(box, kept) for kept in detections)):
+                count_off_banana(box)
             return True
 
         if results and len(results) > 0:
@@ -461,16 +682,16 @@ class BananaClassifier:
                         x=x1, y=y1, w=x2 - x1, h=y2 - y1,
                         cls=cls_name, confidence=conf,
                     )
-                    # Suppress table lip / saucer edge false positives on Rear view
-                    if (camera_label or "").strip().casefold() == "rear" and image is not None:
-                        img_h = image.shape[0]
-                        if y1 > 0.55 * img_h and (x2 - x1) > 2.0 * (y2 - y1) and conf < 0.60:
-                            continue
+                    # Suppress the table lip / platter edge seen by the side cameras
+                    if (
+                        norm_cam in lip_views and image is not None
+                        and _is_platter_lip(x1, y1, x2, y2, conf, image.shape[0])
+                    ):
+                        continue
 
                     # Suppress upper background fixtures (door frames, window jambs, ceiling)
                     # on peripheral side and rear cameras. Real banana fingers on the inspection
                     # platter sit in the middle-to-lower portion of the frame.
-                    norm_cam = (camera_label or "").strip().casefold()
                     if (
                         getattr(settings, "yolo_peripheral_background_filter", True)
                         and norm_cam in ("left", "right", "rear")
@@ -492,10 +713,18 @@ class BananaClassifier:
                             continue
 
                     if rejected_by_gate(det, _is_same_class_sub_box):
+                        if hand_split:
+                            for parent in detections:
+                                if _is_same_class_sub_box(det, parent):
+                                    exempt.setdefault(id(parent), []).append(det)
                         continue
 
                     # Suppress same-class nested duplicate boxes or severe IoU duplicates.
-                    if any(_is_same_class_sub_box(det, existing) for existing in detections):
+                    parents = [p for p in detections if _is_same_class_sub_box(det, p)]
+                    if parents:
+                        if hand_split:
+                            for parent in parents:
+                                swallowed.setdefault(id(parent), []).append(det)
                         continue
 
                     detections.append(det)
@@ -508,6 +737,8 @@ class BananaClassifier:
 
         # ── Rotation fallback: recover fingers missed in the original orientation ──
         rot_is_canonical = False
+        # Boxes the rotated pass added beside the pass-1 boxes (not a canonical swap).
+        rotated_added: set[int] = set()
         rotated: np.ndarray | None = None
         if is_calibrated_top and getattr(settings, "yolo_top_rotation_fallback", False):
             img_h, img_w = image.shape[:2]
@@ -522,6 +753,7 @@ class BananaClassifier:
                     agnostic_nms=False,
                     max_det=300,
                     verbose=False,
+                    **head_kwargs,
                 )
             except Exception:
                 rot_results = None
@@ -621,12 +853,96 @@ class BananaClassifier:
                                 )
                                 continue
                             detections.append(candidate)
+                            rotated_added.add(id(candidate))
                             cultivar, ripeness = _parse_class_label(candidate.cls)
                             if cultivar:
                                 cultivar_votes.setdefault(cultivar, []).append(candidate.confidence)
                             if cultivar or ripeness:
                                 class_votes.setdefault((cultivar, ripeness), []).append(candidate.confidence)
             elapsed_ms = (time.time() - start) * 1000
+
+        # ── Whole-hand box hiding side-by-side fingers ──
+        # Pass 1 drops a box inside a more confident same-label box as a fragment. A
+        # whole-hand box therefore hid its fingers before the cluster rule could see
+        # them. Replace such a box with the fingers it hid (they count, they do not vote).
+        restored: list[Detection] = []
+        hand_box_splits = 0
+
+        def plan_split(hidden: dict[int, list[Detection]]):
+            """Hand boxes to dissolve and the fingers to restore, in confidence order."""
+            dissolved = {
+                id(parent) for parent in detections
+                if _hides_fingers(parent, hidden.get(id(parent), []),
+                                  [d for d in detections if d is not parent])
+            }
+            remaining = [d for d in detections if id(d) not in dissolved]
+            kept: list[Detection] = []
+            candidates = sorted(
+                {id(k): k for pid in dissolved for k in hidden.get(pid, [])}.values(),
+                key=lambda d: d.confidence, reverse=True,
+            )
+            for kid in candidates:
+                if any(
+                    pid not in dissolved and any(k is kid for k in kids)
+                    for pid, kids in hidden.items()
+                ):
+                    continue  # still inside a box that stays
+                if any(_is_same_class_sub_box(kid, d) for d in remaining + kept):
+                    continue
+                # The rotated Top pass may already hold this finger (checked against
+                # the hand box only); use that pass's own repeat rule.
+                if any(
+                    _is_duplicate_detection(kid, d, TOP_ROTATION_DEDUP_IOU)
+                    for d in remaining if id(d) in rotated_added
+                ):
+                    continue
+                kept.append(kid)
+            return dissolved, kept
+
+        if hand_split and (swallowed or exempt):
+            dissolved, restored = plan_split(swallowed)
+            if exempt:
+                # Without the gate the off-evidence fragments would have been ordinary
+                # fragments. When that changes the split, the gate changed the count:
+                # an intervention, so the scan is flagged.
+                merged = {
+                    pid: swallowed.get(pid, []) + exempt.get(pid, [])
+                    for pid in set(swallowed) | set(exempt)
+                }
+                ungated_dissolved, ungated_restored = plan_split(merged)
+                if (ungated_dissolved != dissolved
+                        or [id(k) for k in ungated_restored] != [id(k) for k in restored]):
+                    gated_kids = [k for kids in exempt.values() for k in kids]
+                    changed = [k for k in ungated_restored if any(k is g for g in gated_kids)]
+                    for kid in changed or [
+                        k for pid in ungated_dissolved ^ dissolved for k in exempt.get(pid, [])
+                    ] or gated_kids:
+                        count_off_banana(kid)
+            if dissolved:
+                detections = [d for d in detections if id(d) not in dissolved] + restored
+                hand_box_splits = len(dissolved)
+
+        # ── Ripeness outliers: a non-banana object read as a finger of another stage ──
+        outliers: list[Detection] = []
+        if getattr(settings, "yolo_ripeness_outlier_filter", True):
+            outliers = _ripeness_outliers(detections)
+            for det in outliers:
+                detections = [d for d in detections if d is not det]
+                if any(det is r for r in restored):
+                    continue  # restored fingers never voted
+                cultivar, ripeness = _parse_class_label(det.cls)
+                for votes, key in ((cultivar_votes, cultivar), (class_votes, (cultivar, ripeness))):
+                    confs = votes.get(key) if (cultivar or ripeness) else None
+                    if confs and det.confidence in confs:
+                        confs.remove(det.confidence)
+                        if not confs:
+                            del votes[key]
+            if outliers:
+                logger.info(
+                    "Dropped %s box(es) with inconsistent ripeness on %s: %s",
+                    len(outliers), camera_label or "camera",
+                    [(d.cls, round(d.confidence, 2)) for d in outliers],
+                )
 
         # ── Occluded flank / second-tier finger recovery for multi-finger bunches ──
         if (
@@ -652,9 +968,23 @@ class BananaClassifier:
                 and primary_win_w >= primary_total_w * VOTE_CONFLICT_THRESHOLD
             ):
                 median_area = float(np.median([d.w * d.h for d in detections]))
+                # Hidden fingers lie within the hand: along the fingers' length inside the
+                # span of the confident fingers, across it at most one finger beside them.
+                # (A box above the tips of upright fingers is background, e.g. a window.)
+                upright = float(np.median(
+                    [d.h / d.w for d in detections if d.w > 0] or [1.0]
+                )) >= 1.0
+                beside_x = float(np.median([d.w for d in detections])) if upright else 0.0
+                beside_y = 0.0 if upright else float(np.median([d.h for d in detections]))
+                hand_x1 = min(d.x for d in detections) - beside_x
+                hand_y1 = min(d.y for d in detections) - beside_y
+                hand_x2 = max(d.x + d.w for d in detections) + beside_x
+                hand_y2 = max(d.y + d.h for d in detections) + beside_y
+                within_hand = getattr(settings, "yolo_recovery_within_hand", True)
+                adjacent = getattr(settings, "yolo_recovery_adjacent_ripeness", False)
+                primary_stage = RIPENESS_STAGE.get(primary_ripeness)
                 recovery_frame = rotated if (rot_is_canonical and rotated is not None) else image
                 img_h, img_w = image.shape[:2]
-                norm_cam = (camera_label or "").strip().casefold()
                 try:
                     rec_results = self._model.predict(
                         recovery_frame,
@@ -665,6 +995,7 @@ class BananaClassifier:
                         agnostic_nms=False,
                         max_det=300,
                         verbose=False,
+                        **head_kwargs,
                     )
                 except Exception:
                     rec_results = None
@@ -685,9 +1016,21 @@ class BananaClassifier:
                         det_w, det_h = x2 - x1, y2 - y1
                         if det_w * det_h < OCCLUDED_FINGER_MIN_AREA_RATIO * median_area:
                             continue
-                        if _parse_class_label(cls_name) != (primary_cultivar, primary_ripeness):
+                        label = _parse_class_label(cls_name)
+                        if label != (primary_cultivar, primary_ripeness):
+                            stage = RIPENESS_STAGE.get(label[1] or "")
+                            if not (
+                                adjacent and label[0] == primary_cultivar
+                                and stage is not None and primary_stage is not None
+                                and abs(stage - primary_stage) == 1
+                            ):
+                                continue
+                        if within_hand and not (
+                            hand_x1 <= x1 + det_w / 2 <= hand_x2
+                            and hand_y1 <= y1 + det_h / 2 <= hand_y2
+                        ):
                             continue
-                        if norm_cam == "rear" and y1 > 0.55 * img_h and det_w > 2.0 * det_h and conf < 0.60:
+                        if norm_cam in lip_views and _is_platter_lip(x1, y1, x2, y2, conf, img_h):
                             continue
                         if (
                             getattr(settings, "yolo_peripheral_background_filter", True)
@@ -761,6 +1104,8 @@ class BananaClassifier:
             conflict_detected=conflict_detected,
             cultivar_conflict=cultivar_conflict,
             ood_rejected_boxes=len(off_banana),
+            ripeness_outlier_boxes=len(_unique_box_detections(outliers)),
+            hand_box_splits=hand_box_splits,
         )
 
     def _best_vote(self, votes: dict[str, list[float]]) -> str | None:

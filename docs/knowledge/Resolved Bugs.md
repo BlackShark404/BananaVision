@@ -2,6 +2,30 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-11-13: Background objects counted as fingers, IoU calibration bypassed by the YOLO26 head
+
+- **Symptoms:** brown wood boxed "Cardaba Ripe 64 %" beside a pale-green hand boxed
+  `cardaba_unripe`; on the Left camera a bright window frame ("Latundan Ripe 29 %") and
+  the wooden plate under the hand ("Latundan Ripe 26 %") counted as fingers (Left 11).
+- **Root causes:**
+  - Both low-confidence boxes came from the occluded-finger second pass (conf 0.25, runs
+    on every view with five or more fingers). It checked label and size only: the window
+    sat above the fingers' tips, and the platter-lip filter ran on the Rear camera only.
+  - The wood box passed the OOD gate because the COCO banana evidence (grown 25 %)
+    covered its centre, and nothing compared its ripeness with the rest of the hand.
+  - Separately, Ultralytics 8.4.40 runs YOLO26 files that store no head choice on the
+    NMS-free head, so the calibrated IoU settings and the second pass's TTA had no
+    effect; a whole-hand box could also hide side-by-side fingers, and the rotated
+    pass merged stacked lying fingers.
+- **Fix:** `YOLO_INFERENCE_HEAD`, `YOLO_RECOVERY_WITHIN_HAND`, `YOLO_SIDE_VIEW_LIP_FILTER`,
+  `YOLO_RIPENESS_OUTLIER_FILTER`, `YOLO_HAND_BOX_SPLIT`, `YOLO_AXIS_AWARE_ROTATION_DEDUP`
+  (details in [[AI Models]]). Ripeness drops flag the scan for review.
+- **Tests:** `backend/tests/test_finger_count_rules.py` (both screenshots as fixtures),
+  `test_inference_head.py`, `test_inference_head_integration.py` (real COCO weights),
+  `test_check_inference_head.py`; updated `test_ood_gate.py` hand-box cases and a new
+  randomized hand gate-contract test.
+- **Not verified on real banana photos** (none available in the session).
+
 ## 2026-11-13: Cardaba misclassification, V2 checkpoint Top profile bypass, and radial flank undercounting
 
 - **Symptoms:**

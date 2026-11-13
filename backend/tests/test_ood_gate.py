@@ -235,9 +235,59 @@ def test_random_frames_obey_the_gate_contract():
     assert rejected > 100 and unchanged > 0
 
 
+def test_random_hands_obey_the_gate_contract():
+    # A confident whole-hand box over a row of upright fingers, with mixed ripeness and
+    # random evidence: the hand-box split and the ripeness rule must keep the contract.
+    rng = np.random.default_rng(20261114)
+    rejected = unchanged = splits = 0
+    for _ in range(300):
+        fingers = int(rng.integers(1, 6))
+        x0, y0 = float(rng.integers(0, 200)), float(rng.integers(0, 100))
+        width, gap = float(rng.integers(25, 50)), float(rng.integers(5, 40))
+        rows = [(x0 - 5, y0 - 5, x0 + fingers * (width + gap), y0 + 170,
+                 round(float(rng.uniform(0.9, 0.99)), 3), 0)]
+        for index in range(fingers):
+            x = x0 + index * (width + gap)
+            label = 0 if rng.random() < 0.8 else int(rng.integers(1, 3))
+            rows.append((x, y0, x + width, y0 + 160,
+                         round(float(rng.uniform(0.5, 0.89)), 3), label))
+        evidence = [
+            EvidenceBox(float(rng.integers(0, 400)), float(rng.integers(0, 150)),
+                        float(rng.integers(40, 300)), float(rng.integers(40, 250)), 0.5)
+            for _ in range(int(rng.integers(0, 3)))
+        ]
+        gated = assert_gate_equals_deleting_unsupported_boxes(rows, evidence)
+        ungated = classifier_for(rows).predict(None, confidence_threshold=0.50)
+        splits += ungated.hand_box_splits
+        if gated.ood_rejected_boxes == 0:
+            assert summary(gated) == summary(ungated)
+            unchanged += any(not on_banana(row, evidence) for row in rows)
+        rejected += gated.ood_rejected_boxes
+    assert splits > 50 and rejected > 50 and unchanged > 0
+
+
 def test_real_banana_view_keeps_its_fingers_when_evidence_is_tight():
     # A confident same-class hand box with its fingers; evidence covers the middle
     # only. The team's classifier keeps the hand box; the gate must not empty the view.
+    evidence = [EvidenceBox(x=126.67, y=0, w=46.67, h=200, confidence=0.3)]
+    hand = (55, 15, 245, 185, 0.95, 0)
+    fingers = [(60, 20, 100, 180, 0.90, 0), (130, 20, 170, 180, 0.88, 0),
+               (200, 20, 240, 180, 0.86, 0)]
+    legacy = classifier_for([hand, *fingers]).predict(None, confidence_threshold=0.50)
+    gated = assert_gate_equals_deleting_unsupported_boxes([hand, *fingers], evidence)
+    # Without the gate the hand box gives way to its three fingers. With it, the outer
+    # fingers are off the evidence, so the hand box stays: that changes the count, so
+    # it counts as two gate interventions and the scan is flagged.
+    assert legacy.finger_count == 3 and gated.finger_count == 1
+    assert gated.ood_rejected_boxes == 2
+
+
+def test_hand_box_with_tight_evidence_matches_the_earlier_behaviour_when_split_is_off(
+    monkeypatch,
+):
+    monkeypatch.setattr(classification, "settings", classification.settings.model_copy(
+        update={"yolo_hand_box_split": False},
+    ))
     evidence = [EvidenceBox(x=126.67, y=0, w=46.67, h=200, confidence=0.3)]
     hand = (55, 15, 245, 185, 0.95, 0)
     fingers = [(60, 20, 100, 180, 0.90, 0), (130, 20, 170, 180, 0.88, 0),
@@ -249,6 +299,8 @@ def test_real_banana_view_keeps_its_fingers_when_evidence_is_tight():
     # The outer fingers only repeat the accepted hand box: no intervention, no flag.
     assert gated.ood_rejected_boxes == 0
 
+
+def test_tight_evidence_keeps_one_finger_with_its_fragments():
     # One finger with nested fragments whose centres lie outside the evidence.
     evidence = [EvidenceBox(x=90, y=150, w=80, h=100, confidence=0.3)]
     rows = [(100, 50, 160, 350, 0.90, 0), (100, 50, 160, 120, 0.80, 0),
@@ -410,7 +462,8 @@ def test_box_without_banana_evidence_cannot_suppress_fingers_on_the_banana():
         (*finger, score, 0) for finger, score in zip(FINGERS, (0.80, 0.78, 0.75), strict=True)
     ]
     legacy = classifier_for(rows).predict(None, confidence_threshold=0.50)
-    assert [(d.x, d.w) for d in legacy.detections] == [(0, 640)]
+    # Without the gate the container gives way to the fingers it hid (hand-box split).
+    assert [(d.x, d.w) for d in legacy.detections] == [(10, 40), (70, 40), (130, 40)]
 
     gated = classifier_for(rows).predict(
         None, confidence_threshold=0.50, banana_evidence=EVIDENCE,
@@ -465,10 +518,13 @@ def test_rotated_pass_keeps_a_finger_that_overlaps_a_box_without_banana_evidence
     assert (gated.cultivar, gated.finger_count, gated.ood_rejected_boxes) == ("Lakatan", 1, 1)
 
 
-def test_occluded_finger_recovery_pass_admits_only_boxes_on_banana_evidence(monkeypatch):
+@pytest.mark.parametrize("within_hand", [False, True])
+def test_occluded_finger_recovery_pass_admits_only_boxes_on_banana_evidence(
+    monkeypatch, within_hand,
+):
     monkeypatch.setattr(classification, "settings", SimpleNamespace(
         yolo_iou_threshold=0.45, yolo_top_overlap_refinement=True,
-        yolo_top_rotation_fallback=True,
+        yolo_top_rotation_fallback=True, yolo_recovery_within_hand=within_hand,
     ))
     fingers = [(40 + 70 * index, 100, 90 + 70 * index, 380, 0.90, 0) for index in range(5)]
     recovered = (390, 100, 440, 380, 0.35, 0)
@@ -491,11 +547,17 @@ def test_occluded_finger_recovery_pass_admits_only_boxes_on_banana_evidence(monk
         return result
 
     legacy = run()
-    assert legacy.finger_count == 7 and 560 in [d.x for d in legacy.detections]
     gated = run(banana_evidence=evidence)
-    assert gated.finger_count == 6 and gated.ood_rejected_boxes == 1
     assert sorted(d.x for d in gated.detections) == [40, 110, 180, 250, 320, 390]
     assert (gated.cultivar, gated.ripeness) == ("Lakatan", "Ripe")
+    if within_hand:
+        # The object lies more than one finger beyond the hand, so the recovery pass
+        # never admits it; the gate has nothing left to remove.
+        assert legacy.finger_count == gated.finger_count == 6
+        assert gated.ood_rejected_boxes == 0
+    else:
+        assert legacy.finger_count == 7 and 560 in [d.x for d in legacy.detections]
+        assert gated.finger_count == 6 and gated.ood_rejected_boxes == 1
 
 
 def test_gate_changes_nothing_when_every_box_is_on_banana_evidence(monkeypatch):

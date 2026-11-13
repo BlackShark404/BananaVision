@@ -384,7 +384,13 @@ def top_paths(classifier, classification, confidence: float) -> dict:
         "overlap_refinement_setting": bool(settings.yolo_top_overlap_refinement),
         "rotation_fallback_setting": bool(getattr(settings, "yolo_top_rotation_fallback", False)),
     }
-    return {**status, "active": all(status.values())}
+    active = all(status.values())
+    # The calibrated IoU only acts with NMS; the NMS-free YOLO26 head skips it.
+    head = getattr(classifier, "inference_head", "unknown")
+    return {
+        **status, "active": active, "inference_head": head,
+        "overlap_refinement_effective": active and head == "one_to_many_nms",
+    }
 
 
 def run_pipeline(args: argparse.Namespace) -> dict:

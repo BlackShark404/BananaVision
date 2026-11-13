@@ -18,6 +18,93 @@ proposal stays open).
 `backend/app/services/scan_service.py` runs the stages. The trained cultivar weights
 (`backend/app/ml/weights/*.pt`) and their dataset are not in the repository.
 
+## Finger counting (2026-11-13)
+
+Each camera view counts its unique finger boxes; the scan stores the largest view count
+(`fusion_engine.py`, unchanged). Decision record: [[Development Decisions]]; bug history:
+[[Resolved Bugs]]; tests: [[Testing and Validation]].
+
+### Which YOLO26 head runs (`YOLO_INFERENCE_HEAD`)
+
+A YOLO26 checkpoint carries two detection heads. Ultralytics 8.4.40 (pinned) runs the
+NMS-free one-to-one head unless the file stores the choice. NMS and every `iou=` setting
+(the calibrated Top 0.65, base 0.45, recovery 0.70) are then skipped, test-time
+augmentation does nothing, and the first prediction fuses the other head away. The
+audited checkpoints (`e6f4…`, `9680…`) ran with NMS (`model_end2end: false` in their
+audit files); the head of the V2 checkpoints is not recorded.
+
+- `one_to_many_nms` (default): the head every count audit measured; IoU settings act.
+- `one_to_one`: NMS-free. `checkpoint`: the file's own default (the earlier behaviour).
+- `BananaClassifier.load()` fixes the head right after `YOLO(path)`, before warmup, and
+  logs it; `inference_head` reports it and `evaluate_ood_gate.py` records it.
+- Mechanism proof on the COCO weights:
+  `docs/audits/inference-head-check-2026-11-13.json`. Checkpoint default: one-to-one,
+  10/10/10 boxes at IoU 0.3/0.7/0.95. NMS head: 9/10/17. A later `end2end=False`
+  predict argument cannot switch back. Run `scripts/check_inference_head.py static`
+  (safe, no unpickling) or `runtime` on the station weights to see their head.
+
+### Counting rules (each setting `false` restores the earlier behaviour)
+
+| Setting | Problem | Rule |
+| --- | --- | --- |
+| `YOLO_AXIS_AWARE_ROTATION_DEDUP` | The rotated Top pass merged a lying finger with the one stacked on it | The "same finger column" check compares centres across the finger's long axis |
+| `YOLO_HAND_BOX_SPLIT` | A confident whole-hand box hid the side-by-side fingers inside it as "fragments" | A box that hid at least two side-by-side fingers and passes the cluster rule is replaced by them (they count, they do not vote) |
+| `YOLO_RIPENESS_OUTLIER_FILTER` | Brown wood boxed "Cardaba Ripe 64 %" next to an unripe hand | A box two or more ripeness stages from a clear, single-cultivar majority is dropped if it is less confident than the best majority box or touches none of its boxes; the scan is flagged. A hand that also has fingers at the stage in between (unripe + semi ripe + ripe) is ripening, so none is dropped |
+| `YOLO_RECOVERY_WITHIN_HAND` | The low-threshold second pass (conf 0.25) added a window frame above the hand (29 %) | Second-pass boxes must lie within the hand along the fingers' length, and at most one finger-width beside it |
+| `YOLO_SIDE_VIEW_LIP_FILTER` | The second pass added the wooden plate under the hand (26 %) on the Left camera | The low, wide, weak platter-lip filter runs on Left, Right and Rear (was Rear only), in both passes |
+| `YOLO_RECOVERY_ADJACENT_RIPENESS` (off) | Mixed-ripeness hands get no second-pass fingers of the neighbouring stage | Measurement only: admit second-pass fingers one stage away |
+
+Fingers restored from a hand box are checked against the rotated Top pass's own repeat
+rule, so a finger that pass already found is not counted twice. Off-evidence fragments of
+a hand box count as gate interventions only when they change the split's outcome.
+
+Accepted trade-offs (independent review, 2026-11-13): the second pass never admits a box
+whose centre lies beyond the confident fingers along their length, so a hidden finger
+found only by that pass and hanging lower than every confident finger is missed; the
+platter-lip filter can drop a real lying finger scored 0.50–0.60 low in a Left or Right
+view (the stored count is the largest view, so another view usually still counts it).
+
+Dropped ripeness outliers are counted in `ClassificationResult.ripeness_outlier_boxes`,
+logged, appended to the scan's activity entry ("N boxes with inconsistent ripeness
+dropped, flagged for review") and flag the scan, like gate-dropped boxes. Hand-box splits
+are counted in `hand_box_splits`. The OOD gate contract still holds (randomized tests).
+
+**Not measured.** No banana weights, photos or GPU were available, so none of these
+changes has a measured effect on count accuracy yet. The only real-weights check is the
+head mechanism above. The ripeness rule can miss a wood box that overlaps the hand and is
+the most confident box; that case needs station background photos as training negatives.
+
+### Measuring and retraining when data arrives
+
+All three run from `backend/` with the backend requirements installed; each `--help` lists
+every option.
+
+1. **Get the data.** A teammate attaches the weights (`.pt`), the Roboflow export zip and
+   station background photos to a GitHub release, ideally with a `SHA256SUMS` file:
+   `python scripts/fetch_training_assets.py github --repo RoronoaZoro1206/BananaVision
+   --tag <tag> --dest <new empty dir>` (a private repository needs a token in
+   `GITHUB_TOKEN`, sent only as a header and never printed). `local --archive <zip>
+   --dest <dir>` handles a file already on disk. Archives are checked against
+   `SHA256SUMS` and extracted safely (no absolute paths, `..`, links or special files).
+   The script prints the next commands. Roboflow downloads are not built in, because
+   Roboflow takes the key in the URL.
+2. **Prepare** the export with `scripts/prepare_yolo_dataset.py` (grouped 70/15/15 split).
+3. **Measure** visible counts: `python scripts/evaluate_finger_count.py visible --weights W
+   --split <prepared>/valid --configs baseline head=one_to_one hand_box_split=off
+   ripeness_outlier=off recovery_within_hand=off side_view_lip=off --output report.json`
+   (`--gate` adds the banana verifier). It reports MAE, exact, ±1 and bias overall and per
+   view, cultivar and size, and paired comparisons with a seeded bootstrap 95 % interval.
+   It warns when a configuration cannot act (for example an unregistered checkpoint turns
+   the recovery pass off) and refuses the TEST split unless `--frozen-test` is given with
+   one configuration. `physical --scans <dir>/<scan>/<View>.jpg --counts counts.csv`
+   runs whole scans through the real fusion against counted bunches.
+4. **Retrain** on CPU: `python scripts/train_finger_model.py --data <prepared or merged
+   negatives> --weights W [--epochs 30 --time HOURS]`, `--resume <last.pt>` to continue
+   (refused for a finished run), `--dry-run` to check first. Hue augmentation is off
+   (ripeness is colour). Runs go to `backend/runs/` (git-ignored). It prints the new
+   weights' SHA-256 and the evaluation command; register the checkpoint in
+   `TOP_CALIBRATED_CHECKPOINTS` only after evaluating it.
+
 ## Out-of-distribution (OOD) rejection
 
 ### Why it was needed

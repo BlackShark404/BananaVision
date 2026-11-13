@@ -2,6 +2,39 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## Finger-count rules and YOLO26 head — 2026-11-13
+
+Decision: [[Development Decisions]]; rules: [[AI Models]].
+
+- `backend/tests/test_finger_count_rules.py`: stacked lying fingers stay two (axis-aware
+  rotated dedup, unit and rotated Top pass); a hand box gives way to 3 upright or 3 lying
+  fingers, fragments of one finger stay one; the wood-beside-an-unripe-hand case, ties,
+  adjacent stages, weak or mixed-cultivar majorities, two labels on one finger; the
+  second pass keeps a hidden and a flank finger but not the window frame or the plate on
+  Left/Right/Rear; each rule's setting restores the earlier count; a station scan with a
+  ripeness outlier is flagged and its activity entry says so.
+- `test_inference_head.py` (fake 8.4.40 head: the head is fixed before warmup, every
+  call carries it, `checkpoint` sends nothing, fused/absent heads, settings validation) and
+  `test_inference_head_integration.py` (real COCO `yolo26n.pt` + Ultralytics sample
+  photo: IoU changes the boxes only on the NMS head).
+- `test_ood_gate.py`: the hand-box cases now expect the split (and a flag when the gate
+  is the reason it did not happen); the recovery-gate test runs with and without the
+  within-hand rule; new `test_random_hands_obey_the_gate_contract`.
+- Review follow-ups (independent review, 2026-11-13): restored fingers vs the rotated
+  Top pass's repeats, the confident detached outlier, near boxes that do not outnumber
+  far ones, a ripening (unripe + semi + ripe) hand, a lying hand's second-pass extent, a
+  finger still inside a box that stays, and two gate-contract cases (an off-evidence
+  fragment that decides the split is flagged; one that changes nothing is not). The real
+  COCO test now proves warmup set up the predictor and runs a full prediction.
+- Full backend after these changes: 903 passed / 38 skipped with a throwaway
+  PostgreSQL 16 cluster, 837 / 104 without; Ruff `app tests` 634 (baseline 635).
+- Tooling tests (synthetic data, fakes, no network): `test_evaluate_finger_count.py`,
+  `test_train_finger_model.py`, `test_fetch_training_assets.py` (checksums, zip-slip,
+  links, special files, size ratio, token never printed). Each script was also
+  smoke-run with real Ultralytics on synthetic images.
+- Every count change is unmeasured on banana photos; use
+  `scripts/evaluate_finger_count.py` once a teammate uploads the weights and dataset.
+
 ## Public QR page shows only scanned data — 2026-11-13
 
 Decision: [[Development Decisions]]; page notes: [[Frontend]].
