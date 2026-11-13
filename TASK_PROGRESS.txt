@@ -1,7 +1,9 @@
 CURRENT RESUME HERE (2026-11-13) - ASIA/MANILA TIME ZONE EVERYWHERE
 
 The previous checkpoint (audit of the recent commits, d1c65b2) is archived byte-for-byte
-in docs/history/2026-11-13-before-manila-everywhere.txt.
+in docs/history/2026-11-13-before-manila-everywhere.txt. Khen's parallel checkpoint from
+team main (public HTTPS access, 434b3ff and d27684d) is archived byte-for-byte in
+docs/history/2026-11-13-public-https-access-checkpoint.txt; it is merged here.
 
 AUTHORIZED SCOPE
 - User rule 2026-11-13: "Always make sure the system uses Asia/Manila timezone in all
@@ -46,7 +48,8 @@ VERIFICATION
 - Lint: ESLint 40 problems, Ruff 634, both equal to before; the new files are clean.
 - Screenshots in a Los Angeles browser: Kiosk clock 12:00 PM for 04:00 UTC (noon in
   Manila), Scan Detail footer in Manila date and time; layouts unchanged.
-- Graphify refreshed: 5,139 -> 5,171 nodes, 14,667 -> 14,781 edges. ICM is not
+- Graphify refreshed: 5,139 -> 5,171 nodes, 14,667 -> 14,781 edges; 5,202 nodes and
+  14,842 edges after merging team main. ICM is not
   available in the cloud session; no memory written.
 
 NOT CHANGED (reported)
@@ -60,5 +63,18 @@ STILL OPEN FROM THE AUDIT (team decisions, details in the archived checkpoint)
   missing [[System Architecture]] and [[Backend]] notes; second kiosk shows a rejection;
   public QR countdown for every status; Top-calibrated OOD rerun.
 
+MERGED FROM TEAM MAIN (Khen, public HTTPS access, not deployed)
+- Tailscale Funnel -> Caddy (deploy/Caddyfile) -> uvicorn; an HTTPS page calls its own
+  origin; camera previews need a session; production refuses weak APP_SECRET_KEY /
+  JWT_SECRET_KEY and hides API docs; VITE_PUBLIC_BASE_URL sets the QR label origin;
+  WebSocket ping every 25 s. Tailnet Serve smoke-tested on a Mac; Funnel, the Mini PC,
+  real cameras and the sensor were not tested. Full notes in the archive above and in
+  docs/remote-access.md.
+- Pending (Khen): when deployment is authorized, follow docs/remote-access.md on the
+  Mini PC (install Caddy, caddy validate --config deploy/Caddyfile, start backend and
+  Caddy, enable Funnel) and verify the public URL, Funnel WebSockets, cameras and sensor.
+
 EXACT NEXT STEP
-- User opens the pull request from the fork's main to BlackShark404/BananaVision.
+- User merges pull request #7 (fork main -> BlackShark404/BananaVision main). The
+  temporary pull request #1 inside the fork closes by itself once its commits are in
+  the fork's main.

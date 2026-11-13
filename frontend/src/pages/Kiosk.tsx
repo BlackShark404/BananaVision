@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { BASE_URL, api } from "@/lib/api"
+import { BASE_URL, api, withMediaToken } from "@/lib/api"
 import {
   Banana,
   ScanLine,
@@ -413,7 +413,7 @@ export default function Kiosk() {
                     {cameras.length > 0 && (
                       <img
                         key={`cam-feed-${activeCameraIndex}`}
-                        src={`${BASE_URL}/api/v1/cameras/preview/${cameras[activeCameraIndex]?.deviceId ?? activeCameraIndex}`}
+                        src={withMediaToken(`${BASE_URL}/api/v1/cameras/preview/${cameras[activeCameraIndex]?.deviceId ?? activeCameraIndex}`)}
                         alt={`Live Camera Feed - ${cameras[activeCameraIndex]?.label}`}
                         className="inset-0 w-full h-full object-contain z-0 absolute animate-fade-in"
                         onError={(e) => {

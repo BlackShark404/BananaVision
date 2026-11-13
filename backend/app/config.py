@@ -181,6 +181,22 @@ class Settings(BaseSettings):
             raise ValueError("Bootstrap password must contain 12 to 72 UTF-8 bytes")
         return password
 
+    @model_validator(mode="after")
+    def validate_production_secrets(self) -> Settings:
+        if not self.is_production:
+            return self
+        markers = ("change-me", "your-jwt-secret-key-here")
+        for name in ("app_secret_key", "jwt_secret_key"):
+            value = getattr(self, name).strip()
+            if len(value.encode("utf-8")) < 32 or any(
+                marker in value.lower() for marker in markers
+            ):
+                raise ValueError(
+                    f"{name.upper()} must be a unique secret of at least 32 UTF-8 bytes "
+                    "when APP_ENV=production"
+                )
+        return self
+
     # ── Derived Properties ───────────────────────────────────────────────────
     @property
     def capture_path(self) -> Path:

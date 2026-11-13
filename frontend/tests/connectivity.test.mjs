@@ -49,6 +49,15 @@ test('StrictMode keeps one active socket per hook with the current query-token p
   assert.deepEqual(await page.evaluate(() => window.sockets.flatMap(s => s.sent)), [])
 })
 
+test('idle sockets send a heartbeat for proxy keepalive', async t => {
+  const page = await setup(t)
+  await page.evaluate(() => window.sockets.filter(s => s.readyState !== 3).forEach(s => s.open()))
+  await page.clock.runFor(25000)
+  const sent = await page.evaluate(() => window.sockets.flatMap(s => s.sent))
+  assert.equal(sent.length, 2)
+  assert.ok(sent.every(message => message.event === 'ping'))
+})
+
 test('disconnect retries once, session swap replaces socket, logout cancels retries', async t => {
   const page = await setup(t)
   const initial = await page.evaluate(() => window.sockets.length)

@@ -21,7 +21,7 @@ settings = get_settings()
 router = APIRouter(prefix="/cameras", tags=["Cameras"])
 
 
-from app.api.deps import DbSession, AdminUser
+from app.api.deps import DbSession, AdminUser, MediaUser
 from sqlalchemy.future import select
 from app.services import configuration
 from app.models.admin_profile import AdminProfile
@@ -125,7 +125,11 @@ async def generate_frames(camera_index: int, fps: int = 15):
             await asyncio.sleep(0.001)
 
 @router.get("/preview/{camera_index}")
-async def video_feed(camera_index: int, fps: Annotated[int, Query(ge=1, le=30)] = 15):
+async def video_feed(
+    camera_index: int,
+    user: MediaUser,
+    fps: Annotated[int, Query(ge=1, le=30)] = 15,
+):
     """
     Returns an MJPEG stream for a specific camera.
     """

@@ -76,6 +76,9 @@ async def lifespan(app: FastAPI):
 
 # ── App Factory ──────────────────────────────────────────────────────────────
 
+# API docs describe every route and are not published with the public dashboard.
+_docs_enabled = not settings.is_production
+
 app = CorsFastAPI(
     title="BananaVision API",
     description=(
@@ -84,8 +87,9 @@ app = CorsFastAPI(
     ),
     version="0.1.0",
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
 )
 
 # ── CORS ─────────────────────────────────────────────────────────────────────

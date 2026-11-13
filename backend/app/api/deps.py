@@ -7,7 +7,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,15 +18,7 @@ from app.models.user_account import UserAccount
 from sqlalchemy.orm import selectinload
 from app.schemas.enums import ActiveStatusEnum, RoleEnum
 
-async def get_current_user(
-    db: Annotated[AsyncSession, Depends(get_db, scope="function")],
-    authorization: str = Header(default=""),
-) -> UserAccount:
-    """Extract and validate the current user from the Authorization header."""
-    if not authorization.startswith("Bearer "):
-        raise CredentialsException("Missing or invalid Authorization header")
-
-    token = authorization.removeprefix("Bearer ").strip()
+async def _resolve_user(db: AsyncSession, token: str) -> UserAccount:
     payload = decode_access_token(token)
 
     if not payload or "sub" not in payload or payload.get("scope", "access") != "access":
@@ -63,6 +55,32 @@ async def get_current_user(
     return user
 
 
+async def get_current_user(
+    db: Annotated[AsyncSession, Depends(get_db, scope="function")],
+    authorization: str = Header(default=""),
+) -> UserAccount:
+    """Extract and validate the current user from the Authorization header."""
+    if not authorization.startswith("Bearer "):
+        raise CredentialsException("Missing or invalid Authorization header")
+    return await _resolve_user(db, authorization.removeprefix("Bearer ").strip())
+
+
+async def get_media_user(
+    db: Annotated[AsyncSession, Depends(get_db, scope="function")],
+    authorization: str = Header(default=""),
+    token: str | None = Query(default=None),
+) -> UserAccount:
+    """Media elements cannot send headers, so they may pass the session as a query token."""
+    raw = (
+        authorization.removeprefix("Bearer ").strip()
+        if authorization.startswith("Bearer ")
+        else (token or "").strip()
+    )
+    if not raw:
+        raise CredentialsException("Missing or invalid session token")
+    return await _resolve_user(db, raw)
+
+
 async def require_admin(
     user: Annotated[UserAccount, Depends(get_current_user)],
 ) -> UserAccount:
@@ -77,3 +95,4 @@ DbSession = Annotated[AsyncSession, Depends(get_db, scope="function")]
 StreamDbSession = Annotated[AsyncSession, Depends(get_stream_db, scope="request")]
 CurrentUser = Annotated[UserAccount, Depends(get_current_user)]
 AdminUser = Annotated[UserAccount, Depends(require_admin)]
+MediaUser = Annotated[UserAccount, Depends(get_media_user)]

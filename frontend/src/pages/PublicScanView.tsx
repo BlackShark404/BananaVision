@@ -2,7 +2,7 @@ import { DetailSkeleton } from "@/components/LoadingState"
 import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
-import { api, BASE_URL } from "@/lib/api"
+import { api } from "@/lib/api"
 import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
 import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
 import { Card, CardContent } from "@/components/ui/card"
@@ -51,7 +51,6 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [activeImage, setActiveImage] = useState(0)
   const [now, setNow] = useState(() => Date.now())
 
   // Authenticated users get redirected to the full detail page
@@ -102,14 +101,6 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
     setError(null)
     setNotFound(false)
     setRetry(value => value + 1)
-  }
-
-  // Build image URL from backend path
-  const getImageUrl = (path: string) => {
-    if (!path) return ""
-    if (path.startsWith("http://") || path.startsWith("https://")) return path
-    const normalizedPath = path.startsWith("/") ? path : `/${path}`
-    return `${BASE_URL}${normalizedPath}`
   }
 
   if (loading) return <div className="max-w-2xl mx-auto p-4"><DetailSkeleton /></div>
@@ -297,54 +288,7 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
           </CardContent>
         </Card>
 
-        {/* Camera Images */}
-        {scan.images.length > 0 && (
-          <Card className="rounded-2xl">
-            <CardContent className="p-5 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Camera Images</p>
-
-              {/* Main image */}
-              <div className="rounded-xl overflow-hidden border border-border bg-muted/50">
-                <img
-                  src={getImageUrl(scan.images[activeImage]?.file_path)}
-                  alt={`Camera ${scan.images[activeImage]?.camera_id}`}
-                  className="w-full aspect-[4/3] object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none"
-                  }}
-                />
-              </div>
-
-              {/* Thumbnails */}
-              {scan.images.length > 1 && (
-                <div className="grid grid-cols-4 gap-2">
-                  {scan.images.map((img, idx) => (
-                    <button
-                      key={img.camera_id}
-                      onClick={() => setActiveImage(idx)}
-                      className={`relative rounded-lg overflow-hidden border-2 transition-all duration-200 ${
-                        activeImage === idx
-                          ? "border-primary ring-2 ring-primary/20"
-                          : "border-transparent hover:border-muted-foreground/30"
-                      }`}
-                    >
-                      <div className="aspect-square bg-muted/50">
-                        <img
-                          src={getImageUrl(img.file_path)}
-                          alt={img.camera_id}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] font-medium py-0.5 text-center">
-                        {img.camera_id}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+        {/* Camera evidence stays behind staff authentication. */}
 
         {/* Login CTA */}
         <Card className="rounded-2xl bg-primary/5 border-primary/20">

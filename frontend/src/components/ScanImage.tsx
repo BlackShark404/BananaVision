@@ -13,8 +13,10 @@ export function ScanImage(props: Props) {
 }
 
 function ImageEvidence({ src, alt, className, onUnavailable, ...props }: Props) {
-  const url = src ? new URL(src, BASE_URL) : null
-  const protectedImage = url?.origin === new URL(BASE_URL).origin && url.pathname.startsWith('/captures/')
+  // An empty BASE_URL means same-origin behind the HTTPS reverse proxy.
+  const base = BASE_URL || window.location.origin
+  const url = src ? new URL(src, base) : null
+  const protectedImage = url?.origin === new URL(base).origin && url.pathname.startsWith('/captures/')
   const [resolved, setResolved] = useState<string | undefined>(protectedImage ? undefined : src)
   const [failed, setFailed] = useState(!src)
   useEffect(() => {

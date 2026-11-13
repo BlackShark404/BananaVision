@@ -18,7 +18,17 @@ import type { ApiConfigUpdate, MaintenanceOperation, MaintenanceStatus, RestoreV
 export interface ScanMutationEnvelope { request_id: string; expected_revision: number }
 
 const host = window.location.hostname
-export const BASE_URL = import.meta.env.VITE_API_URL || `http://${host}:8000`
+const secureContext = window.location.protocol === "https:"
+// An HTTPS page must call the same origin so a reverse proxy can forward /api.
+// Plain-HTTP LAN pages keep the historical direct backend port.
+export const BASE_URL = import.meta.env.VITE_API_URL || (secureContext ? "" : `http://${host}:8000`)
+
+/** Adds the session token to URLs loaded by <img>, which cannot send Authorization headers. */
+export function withMediaToken(url: string): string {
+  const token = getToken()
+  if (!token) return url
+  return `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`
+}
 
 // ── Core Fetch Wrapper ──────────────────────────────────────────────────────
 

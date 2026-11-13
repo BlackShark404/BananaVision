@@ -2,6 +2,15 @@
 
 BananaVision's frontend is a React 19 single-page application built with Vite, TypeScript, Tailwind CSS, and Radix UI primitives.
 
+## Public HTTPS links (2026-11-13)
+
+- An HTTPS page uses its own origin for HTTP and WebSocket traffic: `BASE_URL` is empty and `WS_BASE` is `wss://<same host>`. A reverse proxy therefore serves the built SPA, `/api`, `/captures`, `/health` and the WebSocket upgrade from one origin. Plain-HTTP station pages keep the historical `http://<host>:8000` backend and direct `ws://<host>:8000` socket.
+- The socket sends `{"event":"ping"}` every 25 seconds while open, so a proxy does not drop an idle live connection. Reconnect logic, ownership checks and room handling are unchanged.
+- Camera previews require a session. `<img>` cannot send headers, so `withMediaToken` appends the stored token as `?token=` for Kiosk, Dashboard and calibration previews; the backend accepts a bearer header or that query token.
+- Authenticated evidence images are loaded through `ScanImage` with a bearer `fetch` and an object URL. Public QR tracking no longer renders camera evidence, because `/captures` is staff-only.
+- `VITE_PUBLIC_BASE_URL` overrides the origin embedded in printed QR labels, so a label scanned off-station resolves to the public HTTPS link. When unset, labels keep the kiosk origin.
+- `VITE_API_URL`, `VITE_WS_URL` and `VITE_PUBLIC_BASE_URL` are build-time values; a production build written to `frontend/dist` is what Caddy serves. See [remote-access.md](../remote-access.md).
+
 ## Loading State Conventions
 
 The UI distinguishes between initial loads, continuous/hardware actions, and background refreshes to prevent UI flicker, premature zero/empty states, and unexpected layout shifts:

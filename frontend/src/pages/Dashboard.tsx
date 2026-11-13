@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext"
 import { useDashboardResource } from "@/hooks/useDashboardResource"
 import { DashboardRecords } from "@/components/DashboardRecords"
 import { useWebSocket } from "@/hooks/useWebSocket"
-import { api, BASE_URL } from "@/lib/api"
+import { api, BASE_URL, withMediaToken } from "@/lib/api"
 import { buildScanLogsUrl } from "@/lib/scanLogFilters"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -379,7 +379,7 @@ function DashboardCamera({ camera, cameraId, stale }: { camera: CameraInfo; came
     <Card className="rounded-lg sm:rounded-xl overflow-hidden group">
       <div className={`aspect-video relative flex items-center justify-center ${camera.online ? "bg-black" : "bg-destructive/5"}`}>
         {camera.online && !failed ? <>
-          <img src={`${BASE_URL}/api/v1/cameras/preview/${camera.device_id}?fps=5&retry=${attempt}`} alt={`Live Camera Feed - ${cameraId}: ${camera.label}`}
+          <img src={withMediaToken(`${BASE_URL}/api/v1/cameras/preview/${camera.device_id}?fps=5&retry=${attempt}`)} alt={`Live Camera Feed - ${cameraId}: ${camera.label}`}
             className="inset-0 w-full h-full object-cover z-0 absolute animate-fade-in" onError={() => setFailed(true)} />
           <div className="absolute inset-0 bg-linear-to-b from-transparent to-black/40 z-0 pointer-events-none" />
         </> : <div className="text-center space-y-1.5 sm:space-y-2 relative z-10 p-2">

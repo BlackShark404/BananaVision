@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useAdmin } from "@/context/AdminContext"
 import type { ApiConfig } from "@/types/api"
-import { api, BASE_URL } from "@/lib/api"
+import { api, BASE_URL, withMediaToken } from "@/lib/api"
 import { getToken } from "@/lib/auth"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -132,7 +132,7 @@ export function CameraCalibrationModal({ disabled = false }: { disabled?: boolea
                 <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
                   {cam.online ? (
                     <img 
-                      src={`${BASE_URL}/api/v1/cameras/preview/${cam.device_id}`} 
+                      src={withMediaToken(`${BASE_URL}/api/v1/cameras/preview/${cam.device_id}`)}
                       className="w-full h-full object-cover" 
                       alt={`Camera ${cam.device_id}`}
                       onError={(e) => {

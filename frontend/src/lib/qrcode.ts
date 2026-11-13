@@ -16,8 +16,9 @@ export async function generateQRCodeDataUrl(scanData: {
   operator: string
   intakeId?: string
 }): Promise<string> {
-  // Encode a URL that links to the scan detail page
-  const baseUrl = window.location.origin
+  // Printed labels must resolve off-station, so a public URL overrides the kiosk origin.
+  const configuredBase = import.meta.env.VITE_PUBLIC_BASE_URL
+  const baseUrl = (configuredBase || window.location.origin).replace(/\/+$/, "")
   const trackingUrl = `${baseUrl}/track/${scanData.id}`
 
   return QRCode.toDataURL(trackingUrl, {
