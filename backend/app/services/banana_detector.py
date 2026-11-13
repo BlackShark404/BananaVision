@@ -7,6 +7,10 @@ custom cultivar/ripeness classification model.
 
 This prevents the pipeline from producing nonsensical results on images that
 don't contain any bananas at all.
+
+Each result also carries the banana boxes found at the lower support confidence.
+The out-of-distribution gate (app.services.ood_gate) uses them to reject cultivar
+boxes that no banana evidence covers.
 """
 
 from __future__ import annotations
@@ -16,6 +20,9 @@ import time
 from dataclasses import dataclass
 
 import numpy as np
+
+from app.config import get_settings
+from app.services.ood_gate import EvidenceBox
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +37,11 @@ class PreDetectionResult:
     banana_count: int = 0
     best_confidence: float = 0.0
     inference_time_ms: float = 0.0
+    # False when the detector could not run; banana_detected is then a legacy
+    # pass-through value and the scan pipeline decides whether to fail closed.
+    available: bool = True
+    # Banana boxes at the support confidence; None when the detector did not run.
+    boxes: list[EvidenceBox] | None = None
 
 
 class BananaPreDetector:
@@ -47,7 +59,7 @@ class BananaPreDetector:
             # proceed with custom classification
     """
 
-    # Minimum confidence to consider a banana detection valid
+    # Default acceptance confidence; OOD_BANANA_CONFIDENCE overrides it.
     CONFIDENCE_THRESHOLD = 0.30
 
     _COCO_MODEL = "yolo26n.pt"
@@ -93,12 +105,18 @@ class BananaPreDetector:
             except Exception as exc:
                 logger.warning(f"Banana pre-detector warmup failed: {exc}")
 
-    def detect(self, image: np.ndarray) -> PreDetectionResult:
+    def detect(
+        self, image: np.ndarray, *,
+        accept_confidence: float | None = None,
+        support_confidence: float | None = None,
+    ) -> PreDetectionResult:
         """
         Check if at least one banana is present in the image.
 
         Args:
             image: BGR numpy array (from OpenCV)
+            accept_confidence: Overrides OOD_BANANA_CONFIDENCE (offline evaluation).
+            support_confidence: Overrides OOD_SUPPORT_CONFIDENCE (offline evaluation).
 
         Returns:
             PreDetectionResult indicating whether a banana was found.
@@ -112,33 +130,40 @@ class BananaPreDetector:
                 "Banana pre-detector not loaded — skipping pre-detection check"
             )
             return PreDetectionResult(
-                banana_detected=True,  # Assume banana present to not block
+                banana_detected=True,  # Legacy pass-through; see `available`
                 banana_count=0,
                 best_confidence=0.0,
                 inference_time_ms=0.0,
+                available=False,
             )
+
+        settings = get_settings()
+        accept_conf = accept_confidence or settings.ood_banana_confidence
+        # Weaker boxes are kept only as spatial support for cultivar boxes.
+        support_conf = min(accept_conf, support_confidence or settings.ood_support_confidence)
 
         try:
             results = self._model.predict(
                 image,
-                conf=self.CONFIDENCE_THRESHOLD,
+                conf=support_conf,
                 classes=[BANANA_CLASS_ID],  # Only detect bananas
                 verbose=False,
             )
         except Exception as exc:
             logger.error(f"Banana pre-detection failed: {exc}")
-            # Graceful degradation — let the pipeline continue
             return PreDetectionResult(
-                banana_detected=True,
+                banana_detected=True,  # Legacy pass-through; see `available`
                 banana_count=0,
                 best_confidence=0.0,
                 inference_time_ms=(time.time() - start) * 1000,
+                available=False,
             )
 
         elapsed_ms = (time.time() - start) * 1000
 
         banana_count = 0
         best_conf = 0.0
+        boxes: list[EvidenceBox] = []
 
         if results and len(results) > 0:
             result = results[0]
@@ -146,8 +171,13 @@ class BananaPreDetector:
                 for box in result.boxes:
                     cls_id = int(box.cls[0])
                     if cls_id == BANANA_CLASS_ID:
-                        banana_count += 1
                         conf = float(box.conf[0])
+                        x1, y1, x2, y2 = (float(v) for v in box.xyxy[0].tolist())
+                        boxes.append(EvidenceBox(
+                            x=x1, y=y1, w=x2 - x1, h=y2 - y1, confidence=conf,
+                        ))
+                        if conf >= accept_conf:
+                            banana_count += 1
                         best_conf = max(best_conf, conf)
 
         detected = banana_count > 0
@@ -167,6 +197,7 @@ class BananaPreDetector:
             banana_count=banana_count,
             best_confidence=best_conf,
             inference_time_ms=elapsed_ms,
+            boxes=boxes,
         )
 
 

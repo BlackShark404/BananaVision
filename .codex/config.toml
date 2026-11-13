@@ -9,3 +9,6 @@ args = ["serve"]
 [mcp_servers.icm.env]
 ICM_DB = "C:/Users/Roronoa Zoro/Documents/GitHub/BananaVision/.icm/memories.db"
 ICM_NO_EMBEDDINGS = "1"
+
+[mcp_servers.caveman]
+url = "https://caveman.so/mcp"

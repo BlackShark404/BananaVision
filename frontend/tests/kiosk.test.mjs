@@ -41,6 +41,8 @@ async function setup(t, { offline = false, empty = false, flagged = false, scanO
       }
       if (path === '/api/v1/intakes') return reply({ id: 'fixture-intake', supplier_id: 'supplier-1', supplier_name: 'Fixture Supplier', batch_number: 'BCH-FIXTURE', status: 'Active', intake_date: '2026-10-14' })
       if (path === '/api/v1/scans/trigger') {
+        if (state.triggerHold) await state.triggerHold
+        if (state.triggerFailure) return route.fulfill({ status: state.triggerStatus ?? 422, headers, json: state.triggerFailure })
         const job = { id: 'live-job', quantity: 1, printer_name: 'TP870 S', attempt_count: 1,
           status: offline ? 'FAILED' : 'SUBMITTED', windows_job_id: 713,
           error: offline ? 'TP870 S is OFFLINE' : null }
@@ -308,4 +310,120 @@ test('kiosk detection lightbox modal separates the Hide Boxes button from the cl
 
   await closeBtn.click()
   await dialog.waitFor({ state: 'hidden' })
+})
+
+const rejection = {
+  detail: 'No Lakatan, Latundan, or Cardaba detected. Place a supported banana hand on the tray and scan again.',
+  code: 'ood_rejected', status: 'rejected', is_ood: true, reason: 'no_banana',
+}
+const rejectionHeading = 'No Lakatan, Latundan, or Cardaba detected'
+
+async function scanFromNewIntake(page) {
+  await page.getByRole('button', { name: 'Select Source', exact: false }).click()
+  await page.getByText('Fixture Supplier', { exact: true }).click()
+  await page.getByRole('button', { name: /Start.*Intake/i }).click()
+  await page.getByRole('button', { name: 'Scan Now', exact: true }).click()
+}
+
+test('rejected scan shows the no-cultivar state once, saves nothing and clears on the next scan', async t => {
+  const { page, state } = await setup(t)
+  state.triggerFailure = rejection
+  await scanFromNewIntake(page)
+  const card = page.getByRole('status').filter({ hasText: 'Nothing was saved.' })
+  await card.waitFor()
+  assert.equal(await card.getByText(rejectionHeading, { exact: true }).count(), 1)
+  assert.match(await card.innerText(), /Place a supported banana hand on the tray and scan again\./)
+  // The same refusal also arrives over the WebSocket; the operator sees one notice.
+  await page.evaluate(data => window.dashboardSocket.emit('scan:failed', data), {
+    scan_id: 'rejected-scan', error: rejection.detail, stage: 'pipeline',
+    code: rejection.code, status: rejection.status, is_ood: true, reason: rejection.reason,
+  })
+  const notices = page.locator('[data-sonner-toast]').filter({ hasText: rejection.detail })
+  await notices.first().waitFor()
+  assert.equal(await notices.count(), 1)
+  assert.equal(await card.count(), 1)
+  // No cultivar, confidence or spoilage estimate is presented for a rejected scan.
+  assert.equal(await page.getByText('Scan Complete', { exact: false }).count(), 0)
+  assert.equal(await page.getByText('Est. Spoilage', { exact: true }).count(), 0)
+  assert.deepEqual(JSON.parse(await page.getByTestId('persisted-scans').textContent()), { ids: [scanId] })
+  assert.equal(state.scans.length, 1)
+  // The station is ready again. Starting the next scan clears the rejected state
+  // while that scan is still running, before any result exists.
+  state.triggerFailure = null
+  let release
+  state.triggerHold = new Promise(resolve => { release = resolve })
+  await page.getByRole('button', { name: 'Scan Now', exact: true }).click()
+  await page.getByRole('button', { name: /Scanning/ }).waitFor()
+  assert.equal(await page.getByText(rejectionHeading, { exact: true }).count(), 0)
+  assert.equal(await page.getByText('Scan Complete', { exact: false }).count(), 0)
+  release()
+  await page.getByText('Scan Complete', { exact: true }).waitFor()
+  assert.equal(await page.getByText(rejectionHeading, { exact: true }).count(), 0)
+  assert.equal(writesTo(state, '/trigger').length, 2)
+})
+
+test('each rejected scan gets its own notice', async t => {
+  const { page, state } = await setup(t)
+  state.triggerFailure = rejection
+  await scanFromNewIntake(page)
+  const notices = page.locator('[data-sonner-toast]').filter({ hasText: rejection.detail })
+  await notices.first().waitFor()
+  await page.getByRole('button', { name: 'Scan Now', exact: true }).click()
+  // The second refusal is not merged into the first scan's notice.
+  await page.waitForFunction(text => [...document.querySelectorAll('[data-sonner-toast]')]
+    .filter(toast => toast.textContent.includes(text)).length === 2, rejection.detail)
+  assert.equal(writesTo(state, '/trigger').length, 2)
+})
+
+test('a station fault stays on screen as an alert, not as a banana rejection', async t => {
+  const { page, state } = await setup(t)
+  const fault = {
+    detail: 'Banana verification is unavailable, so the scan was not classified. Ask an administrator to check the detection models.',
+    code: 'ood_gate_unavailable', status: 'unavailable', is_ood: false, reason: 'ood_gate_unavailable',
+  }
+  state.triggerStatus = 503
+  state.triggerFailure = fault
+  await scanFromNewIntake(page)
+  const card = page.getByRole('alert').filter({ hasText: 'Scan could not run' })
+  await card.waitFor()
+  assert.match(await card.innerText(), /Banana verification is unavailable/)
+  assert.match(await card.innerText(), /Nothing was saved\./)
+  assert.equal(await page.getByText(rejectionHeading, { exact: true }).count(), 0)
+  assert.equal(await page.getByText('No scans yet', { exact: true }).count(), 0)
+  // The WebSocket report of the same fault does not add a second notice.
+  await page.evaluate(data => window.dashboardSocket.emit('scan:failed', data), {
+    scan_id: 'refused-scan', error: fault.detail, stage: 'pipeline', code: fault.code, reason: fault.reason,
+  })
+  assert.equal(await page.locator('[data-sonner-toast]').filter({ hasText: fault.detail }).count(), 1)
+  assert.equal(await page.getByRole('button', { name: 'Scan Now', exact: true }).isEnabled(), true)
+})
+
+test('rejection delivered only over the WebSocket shows the same state', async t => {
+  const { page } = await setup(t)
+  await page.getByText('No scans yet', { exact: true }).waitFor()
+  await page.evaluate(data => window.dashboardSocket.emit('scan:failed', data), {
+    scan_id: 'rejected-scan', error: rejection.detail, stage: 'pipeline',
+    code: rejection.code, reason: 'no_target_cultivar',
+  })
+  await page.getByText(rejectionHeading, { exact: true }).waitFor()
+  assert.equal(await page.getByText('No scans yet', { exact: true }).count(), 0)
+})
+
+test('ordinary scan failure keeps the empty state and reports only the error', async t => {
+  const { page, state } = await setup(t)
+  // A legacy or unrelated failure has no rejection code, and a text `status` in the
+  // body must not turn it into one.
+  state.triggerFailure = { detail: 'BananaClassifier: Model not loaded.', status: 'rejected' }
+  await scanFromNewIntake(page)
+  await page.locator('[data-sonner-toast]').filter({ hasText: 'BananaClassifier: Model not loaded.' }).waitFor()
+  // The operator wording sent over the WebSocket is not replaced by the HTTP wording.
+  await page.evaluate(() => window.dashboardSocket.emit('scan:failed', {
+    scan_id: 'failed-scan', error: 'Model not loaded. Ask an administrator.', stage: 'pipeline',
+  }))
+  await page.locator('[data-sonner-toast]').filter({ hasText: 'Model not loaded. Ask an administrator.' }).waitFor()
+  assert.equal(await page.locator('[data-sonner-toast]').filter({ hasText: 'BananaClassifier: Model not loaded.' }).count(), 1)
+  assert.equal(await page.getByText(rejectionHeading, { exact: true }).count(), 0)
+  assert.equal(await page.getByRole('alert').filter({ hasText: 'Scan could not run' }).count(), 0)
+  assert.equal(await page.getByText('No scans yet', { exact: true }).count(), 1)
+  assert.equal(await page.getByRole('button', { name: 'Scan Now', exact: true }).isEnabled(), true)
 })

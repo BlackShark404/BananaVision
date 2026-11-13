@@ -24,6 +24,7 @@ const actionTypeColors: Record<string, string> = {
   user_deleted: "bg-red-50 text-red-700 border-red-200",
   config_changed: "bg-orange-50 text-orange-700 border-orange-200",
   scan_flagged: "bg-pink-50 text-pink-700 border-pink-200",
+  scan_rejected: "bg-amber-50 text-amber-700 border-amber-200",
 }
 
 const PAGE_SIZE = 15
@@ -154,7 +155,8 @@ export default function ActivityLog() {
     {
       header: "Details",
       className: "text-sm max-w-md truncate",
-      cell: (log) => log.details,
+      // The full text stays reachable: rejection rows end with the per-view scores.
+      cell: (log) => <span title={log.details}>{log.details}</span>,
     },
     {
       header: "IP Address",

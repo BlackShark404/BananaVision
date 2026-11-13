@@ -43,9 +43,9 @@ To solve this, Kent's team engineered a **Two-Stage Gate Pipeline**:
                  /                 \
              [No]                  [Yes]
               │                      │
-     Abort Scan with Warning:        ▼
-  "No banana found — place banana ┌───────────────────────────────────┐
-      on tray and try again"      │   Stage 2: Custom YOLOv26 Model   │
+     Reject Scan with Notice:        ▼
+  "No Lakatan, Latundan, or       ┌───────────────────────────────────┐
+      Cardaba detected"           │   Stage 2: Custom YOLOv26 Model   │
                                   │       (classification.py)         │
                                   │   Lakatan, Latundan, Cardaba      │
                                   │ Unripe, Semi Ripe, Ripe, Overripe │
@@ -56,6 +56,7 @@ To solve this, Kent's team engineered a **Two-Stage Gate Pipeline**:
                                      - Table Lip Suppression (Rear)
                                      - Upper Background Suppression
                                      - Cluster & Sub-Box Elimination
+                                     - Banana-Evidence Box Support (OOD)
                                                     │
                                                     ▼
                                   ┌───────────────────────────────────┐
@@ -79,34 +80,36 @@ In [`backend/app/services/banana_detector.py`](file:///d:/KENT%20EDUCATION%20PRO
 BANANA_CLASS_ID = 46  # Standard COCO dataset index for "banana"
 
 class BananaPreDetector:
-    CONFIDENCE_THRESHOLD = 0.30
+    CONFIDENCE_THRESHOLD = 0.30  # default; OOD_BANANA_CONFIDENCE overrides it
     _COCO_MODEL = "yolo26n.pt"
 
-    def detect(self, image: np.ndarray) -> PreDetectionResult:
-        # Predict strictly filtering on COCO class 46
+    def detect(self, image, *, accept_confidence=None, support_confidence=None):
+        # Predict strictly filtering on COCO class 46. Boxes from 0.05 are kept
+        # as banana evidence; a view "shows a banana" at 0.30 or higher.
         results = self._model.predict(
             image,
-            conf=self.CONFIDENCE_THRESHOLD,
+            conf=support_conf,
             classes=[BANANA_CLASS_ID],  # Only detect bananas!
             verbose=False,
         )
         ...
 ```
-- In `scan_service.py:140`, before spending CPU/GPU time running custom classification, the pipeline runs this fast pre-detector across the frames:
+- In `scan_service.py`, before spending CPU/GPU time running custom classification, the pipeline runs this fast pre-detector on every frame and keeps each view's banana evidence:
   ```python
-  any_banana_found = False
+  view_evidence = []
   for cap in captures:
       pre_result = await run_blocking(banana_pre_detector.detect, cap.frame)
-      if pre_result.banana_detected:
-          any_banana_found = True
-          break
+      view_evidence.append(ood_gate.ViewEvidence(
+          camera_id=cap.camera_id, camera_label=cap.camera_label,
+          evidence=boxes, banana_score=..., has_banana=bool(pre_result.banana_detected),
+      ))
 
-  if not any_banana_found:
-      raise ModelInferenceError(
-          "BananaPreDetector",
-          "🍌 No banana found — please place the banana on the tray and try again.",
-      )
+  gate_decision = ood_gate.decide_scan(view_evidence, gate_policy)
+  if not gate_decision.accepted:
+      raise ScanRejectedError(ood_gate.REASON_NO_BANANA, ood_gate.REJECTION_MESSAGE, ...)
   ```
+  The operator sees: *"No Lakatan, Latundan, or Cardaba detected. Place a supported banana hand on the tray and scan again."*
+- **Out-of-distribution rejection (added 2026-11-13):** in Stage 2 a cultivar box is kept only where that banana evidence covers its centre, so a foreign object beside the banana neither votes nor counts as a finger. A scan that lost any box is flagged for review; a scan left with no supported cultivar is rejected and nothing is saved. If the verifier cannot run, the scan is refused instead of being classified blindly. Design, measurements and limits: `docs/knowledge/AI Models.md`.
 - **Panel Talking Point:** This prevents false positive scans, saves database storage from junk records, and guarantees clean telemetry.
 
 ---
