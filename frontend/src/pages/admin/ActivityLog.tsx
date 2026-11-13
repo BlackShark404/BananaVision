@@ -12,6 +12,7 @@ import { ExportDropdown } from "@/components/ExportDropdown"
 import { downloadCsv, downloadXlsx } from "@/lib/exportUtils"
 import { ScrollText, Filter, Activity, UserCheck, AlertCircle, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { toast } from "sonner"
+import { manilaDayKey } from "@/lib/manilaTime"
 
 const actionTypeColors: Record<string, string> = {
   login: "bg-blue-50 text-blue-700 border-blue-200",
@@ -74,7 +75,7 @@ export default function ActivityLog() {
   const handleExportCsv = () => {
     if (activityLoading || !!activityError || !activityReady) return
     const logs = sortedLogsRef.current
-    const filename = `activity-log-${new Date().toISOString().split('T')[0]}.csv`
+    const filename = `activity-log-${manilaDayKey(Date.now())}.csv`
     const headers = ["Timestamp", "User", "Action", "Details", "IP Address"]
     const rows = logs.map(log => [
       log.timestamp,
@@ -92,7 +93,7 @@ export default function ActivityLog() {
     setExporting(true)
     try {
       const logs = sortedLogsRef.current
-      const filename = `activity-log-${new Date().toISOString().split('T')[0]}.xlsx`
+      const filename = `activity-log-${manilaDayKey(Date.now())}.xlsx`
       const headers = ["Timestamp", "User", "Action", "Details", "IP Address"]
       const rows = logs.map(log => [
         log.timestamp,

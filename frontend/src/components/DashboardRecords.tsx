@@ -5,6 +5,7 @@ import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { DashboardSummary, DashboardView } from "@/types/dashboard"
+import { manilaDayKey } from "@/lib/manilaTime"
 
 interface DashboardRecordsProps {
   summary: DashboardSummary | null
@@ -20,7 +21,7 @@ const TIMEOUT_MESSAGE = "Loading took too long. Check your connection and try ag
 
 function GroupRecords({ summary, view, onClose, onSelectView, businessDate, revision = 0 }: Omit<DashboardRecordsProps, "view"> & { view: DashboardView }) {
   // Keep the selected day even if the live dashboard crosses midnight.
-  const [selectedDate] = useState(() => businessDate ?? summary?.business_date ?? new Date(Date.now() + 28_800_000).toISOString().slice(0, 10))
+  const [selectedDate] = useState(() => businessDate ?? summary?.business_date ?? manilaDayKey(Date.now()))
   const [retry, setRetry] = useState(0)
   const [loaded, setLoaded] = useState<{ key: string; data: DashboardSummary | null; error: string | null } | null>(null)
   const key = `${selectedDate}:${revision}:${retry}`

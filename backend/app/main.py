@@ -20,6 +20,7 @@ from app.config import get_settings
 from app.api.v1.router import v1_router
 from app.ws.handlers import websocket_endpoint
 from app.core.startup import run_startup, run_shutdown, start_background_tasks
+from app.core.time import manila_struct_time
 from app.services.runtime_operations import StationAdmissionMiddleware
 
 settings = get_settings()
@@ -30,11 +31,14 @@ os.makedirs(LOG_DIR, exist_ok=True)
 
 log_format = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
 log_level = logging.DEBUG if settings.app_debug else logging.INFO
+# Every log line is stamped in Asia/Manila, whatever zone the server or container uses.
+LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S +08:00"
+logging.Formatter.converter = staticmethod(manila_struct_time)
 
 logging.basicConfig(
     level=log_level,
     format=log_format,
-    datefmt="%Y-%m-%d %H:%M:%S",
+    datefmt=LOG_DATE_FORMAT,
     handlers=[
         logging.StreamHandler(),                          # Console output
         RotatingFileHandler(                              # File output → logs/bananavision.log

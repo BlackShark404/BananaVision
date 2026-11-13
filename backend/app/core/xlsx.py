@@ -18,7 +18,9 @@ import xml.sax.saxutils as saxutils
 from collections.abc import Sequence
 from decimal import Decimal
 from typing import Any
-from zipfile import ZIP_DEFLATED, ZipFile
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+
+from app.core.time import now_manila
 
 NS_SPREADSHEET = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 MAX_ROW_HEIGHT = 409.0
@@ -268,13 +270,22 @@ def build_xlsx(
         '</styleSheet>'
     )
 
+    # Zip members carry a modification time; stamp it with the Manila clock rather than
+    # the server's local zone.
+    stamp = now_manila().timetuple()[:6]
+
+    def part(name: str) -> ZipInfo:
+        info = ZipInfo(name, date_time=stamp)
+        info.compress_type = ZIP_DEFLATED
+        return info
+
     buf = io.BytesIO()
     with ZipFile(buf, mode="w", compression=ZIP_DEFLATED) as zf:
-        zf.writestr("[Content_Types].xml", content_types_xml)
-        zf.writestr("_rels/.rels", rels_xml)
-        zf.writestr("xl/workbook.xml", workbook_xml)
-        zf.writestr("xl/_rels/workbook.xml.rels", workbook_rels_xml)
-        zf.writestr("xl/styles.xml", styles_xml)
-        zf.writestr(f"xl/worksheets/{sheet_name}.xml", worksheet_xml)
+        zf.writestr(part("[Content_Types].xml"), content_types_xml)
+        zf.writestr(part("_rels/.rels"), rels_xml)
+        zf.writestr(part("xl/workbook.xml"), workbook_xml)
+        zf.writestr(part("xl/_rels/workbook.xml.rels"), workbook_rels_xml)
+        zf.writestr(part("xl/styles.xml"), styles_xml)
+        zf.writestr(part(f"xl/worksheets/{sheet_name}.xml"), worksheet_xml)
 
     return buf.getvalue()

@@ -2,6 +2,24 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## Asia/Manila time zone guards — 2026-11-13
+
+Decision: [[Development Decisions]]; helper: [[Frontend]].
+
+- `frontend/tests/manilaTime.test.mjs` runs with `TZ=America/Los_Angeles`: helper output
+  at 15:59:59Z and 16:00:00Z (Manila midnight), the year boundary, the date-picker day,
+  and a source scan of `src/` that rejects any date formatting outside Asia/Manila.
+- Browser tests in non-Manila browsers: Kiosk header clock (Los Angeles), Scan Detail
+  footer and notes, QC list, Logs date-picker "today" (Los Angeles), and export file names
+  of Activity Log, Delivery Intake and Quality Control with the clock at
+  2026-10-01T16:30:00Z (New York; expects `…-2026-10-02`).
+- `backend/tests/test_manila_time_guard.py` runs with the process clock in Los Angeles:
+  log line time and `+08:00` marker, XLSX part and backup manifest zip times, and a
+  source scan of `backend/app`, `backend/scripts`, `backend/*.py` and root scripts for
+  `datetime.now()` without a zone, `utcnow`, `today()`, `time.localtime`/`strftime`,
+  `fromtimestamp` without a zone and `writestr` with a plain name.
+- Every new test was run first without the fix and failed.
+
 ## Audit of the 2026-11-12/13 commits — 2026-11-13
 
 Scope: Caveman skills and MCP entry, the OOD gate (#3), its doc corrections (#4, #5) and

@@ -1,3 +1,5 @@
+import { manilaDayKey } from "./manilaTime"
+
 /**
  * Live shelf-life window. The server derives it from the stored estimate and the scan
  * time in whole Asia/Manila calendar days; the page never parses a prediction itself.
@@ -29,15 +31,10 @@ export interface LiveShelfLife {
 }
 
 const DAY = 86_400_000
-const manilaDate = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit",
-})
 
 /** Day number of the Asia/Manila calendar date of an instant, whatever the browser's zone. */
 export function manilaDayNumber(time: number): number {
-  const parts: Record<string, string> = {}
-  for (const part of manilaDate.formatToParts(new Date(time))) parts[part.type] = part.value
-  return Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)) / DAY
+  return Date.parse(`${manilaDayKey(time)}T00:00:00Z`) / DAY
 }
 
 const dayOf = (value: unknown): number =>

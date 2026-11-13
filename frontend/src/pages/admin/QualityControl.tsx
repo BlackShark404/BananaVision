@@ -41,6 +41,7 @@ import { AppActionButton } from "@/components/AppActionButton"
 import { AppTableFilters } from "@/components/AppTableFilters"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
+import { inManila, manilaDayKey } from "@/lib/manilaTime"
 
 const PAGE_SIZE = 15
 
@@ -266,7 +267,7 @@ export default function QualityControl() {
       toast.error("Wait for the complete scan history to load before exporting.")
       return
     }
-    const filename = `quality-control-${new Date().toISOString().split('T')[0]}.csv`
+    const filename = `quality-control-${manilaDayKey(Date.now())}.csv`
     const headers = ["Scan ID", "Date/Time", "Operator", "Cultivar", "Ripeness", "Confidence (%)", "Temperature (°C)", "Humidity (%)", "Spoilage (days)", "Fingers", "Source", "Flagged", "Status"]
     const rows = sortedScansRef.current.map(scan => [
       scan.id,
@@ -294,7 +295,7 @@ export default function QualityControl() {
     }
     setExporting(true)
     try {
-      const filename = `quality-control-${new Date().toISOString().split('T')[0]}.xlsx`
+      const filename = `quality-control-${manilaDayKey(Date.now())}.xlsx`
       const headers = ["Scan ID", "Date/Time", "Operator", "Cultivar", "Ripeness", "Confidence (%)", "Temperature (°C)", "Humidity (%)", "Spoilage (days)", "Fingers", "Source", "Flagged", "Status"]
       const rows = sortedScansRef.current.map(scan => [
         scan.id,
@@ -344,9 +345,9 @@ export default function QualityControl() {
       sortKey: "dateTime",
       cell: (scan) => (
         <div className="text-sm">
-          {new Date(scan.dateTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          {new Date(scan.dateTime).toLocaleDateString("en-US", inManila({ month: "short", day: "numeric" }))}
           <br />
-          <span className="text-xs text-muted-foreground">{new Date(scan.dateTime).toLocaleTimeString()}</span>
+          <span className="text-xs text-muted-foreground">{new Date(scan.dateTime).toLocaleTimeString(undefined, inManila())}</span>
         </div>
       ),
     },

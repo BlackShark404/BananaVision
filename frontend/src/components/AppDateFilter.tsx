@@ -7,6 +7,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { formatIsoDay, parseIsoDay } from "@/lib/isoDay"
+import { manilaToday } from "@/lib/manilaTime"
 
 export interface AppDateFilterProps {
   /** Selected calendar day as a YYYY-MM-DD string, or empty/undefined when unset. */
@@ -20,8 +21,8 @@ export interface AppDateFilterProps {
 
 /**
  * Popover calendar picker that replaces the native browser date input.
- * The grid shows the viewer's local calendar days and the value stays a plain
- * YYYY-MM-DD string, so URL params survive any device time zone.
+ * The grid shows calendar days and the value stays a plain YYYY-MM-DD string, so URL
+ * params survive any device time zone. "Today" is the Asia/Manila calendar day.
  */
 export function AppDateFilter({ value = "", onChange, label = "Date", title, className }: AppDateFilterProps) {
   const [open, setOpen] = useState(false)
@@ -45,7 +46,9 @@ export function AppDateFilter({ value = "", onChange, label = "Date", title, cla
         <Calendar
           mode="single"
           selected={selected}
-          defaultMonth={selected}
+          // "Today" and the opening month follow Asia/Manila, not the device clock.
+          today={manilaToday()}
+          defaultMonth={selected ?? manilaToday()}
           onSelect={date => {
             if (date) onChange?.(formatIsoDay(date))
             setOpen(false)

@@ -2,6 +2,14 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-13: Asia/Manila for every timezone-related behaviour
+
+- **User rule:** "Always make sure the system uses Asia/Manila timezone in all timezone related functionalities."
+- **State found.** Business data already followed it: `backend/app/core/time.py`, `ManilaDateTime` columns (every timestamp loads as +08:00), the PostgreSQL session zone, analytics grouping and dashboard business days. What did not: 21 frontend places that used the browser's zone or the UTC date (Kiosk header clock, Scan Detail footer and notes, QC list, Profile activity, user/supplier/device dates, backup expiry, the printed QR tag date, export file names, the date picker's "today", the footer year), backend log timestamps, and the zip member times inside XLSX exports and the backup manifest.
+- **Decision.** One frontend helper, `frontend/src/lib/manilaTime.ts`, next to the backend's `app/core/time.py`. Call sites keep their locale and format and only gain the zone, so nothing looks different. Log lines use a Manila clock and end in `+08:00`; zip members are stamped from `now_manila()`.
+- **Guards.** `frontend/tests/manilaTime.test.mjs` and `backend/tests/test_manila_time_guard.py` scan the sources and fail on any new clock read outside the two helpers; browser tests run in Los Angeles and New York browsers; backend tests run with the process clock in Los Angeles.
+- **Not changed:** stored data and API contracts (already correct); `YYYY-MM-DD` values sent to the API (already Manila business days); the profile's "last 7 days" (a rolling 168-hour window that does not depend on a zone).
+
 ## 2026-11-13: Shelf-life countdown counts Asia/Manila calendar days; nothing is rewritten
 
 - **Problem.** An estimate stored as `1-3` still read "1–3 days" a week later. The stored string was shown as it was written on Kiosk recent scans, Quality Control and the Scan Logs main cell. The existing countdown was one number (range midpoint minus elapsed seconds), so it was not a range and did not follow calendar days.

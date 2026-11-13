@@ -26,6 +26,12 @@ def input_manila(value: datetime) -> datetime:
     return value.astimezone(MANILA)
 
 
+def manila_struct_time(seconds: float | None = None):
+    """Manila wall clock as a time.struct_time, for logging and zip member stamps."""
+    instant = now_manila() if seconds is None else datetime.fromtimestamp(seconds, MANILA)
+    return instant.timetuple()
+
+
 def business_day_bounds(day: date) -> tuple[datetime, datetime]:
     start = datetime.combine(day, time.min, tzinfo=MANILA)
     return start, start + timedelta(days=1)

@@ -237,6 +237,29 @@ test('QC shows the live countdown for in-stock scans', async t => {
   assert.equal(state.record.spoilage_days, '1-3')
 })
 
+test('Scan Detail and Quality Control show Asia/Manila dates and times in a Los Angeles browser', async t => {
+  // The scan is 08:10 on 5 May in Manila: 17:10 on 4 May in this browser's zone.
+  const detail = await setup(t, 200)
+  await detail.page.getByText('May 5, 2024', { exact: true }).waitFor()
+  await detail.page.getByText('08:10 AM', { exact: true }).waitFor()
+  await detail.page.getByText(/Former Admin • 5\/5\/2024, 8:10:00 AM/).waitFor()
+  assert.equal(await detail.page.getByText('May 4, 2024', { exact: true }).count(), 0)
+  const quality = await setup(t, 200, { screen: 'quality' })
+  const row = quality.page.locator('tbody tr').first()
+  await row.getByText('8:10:00 AM', { exact: true }).waitFor()
+  assert.match(await row.innerText(), /\bMay 5\b/)
+  assert.doesNotMatch(await row.innerText(), /\bMay 4\b/)
+})
+
+test('Logs date picker marks today by the Asia/Manila calendar in a Los Angeles browser', async t => {
+  // 04:00 UTC on 2 October is noon on 2 October in Manila and 21:00 on 1 October here.
+  const { page } = await setup(t, 200, { screen: 'logs' })
+  await page.getByRole('button', { name: 'Scan date', exact: true }).click()
+  const today = page.locator('[role="gridcell"][data-today]')
+  await today.waitFor()
+  assert.equal(await today.getAttribute('data-day'), '2026-10-02')
+})
+
 test('decimal spoilage displays a readable range in Logs and Details without changing stored values', async t => {
   const raw = '4.861489519142744'
   const record = { ...scan(), spoilage_days: raw,

@@ -3,7 +3,7 @@
 - When resuming work, read `TASK_PROGRESS.txt` and the current Git status first. Use its latest resume point; historical checkpoints are reference material, not pending work.
 - Trace the affected API, service, schema and UI before editing. Preserve explicit reverts, unrelated user changes, existing architecture and working behavior.
 - Preserve the existing UI layout, components, styling, spacing and typography unless the user requests a redesign. Keep frontend/backend field names and types synchronized.
-- Keep business timestamps and date boundaries consistent with the backend Asia/Manila helpers. Reuse existing conversions rather than adding competing timezone logic.
+- Keep business timestamps and date boundaries consistent with the backend Asia/Manila helpers. Reuse existing conversions rather than adding competing timezone logic. Every date, time, "today" and file-name date is Asia/Manila: backend through `backend/app/core/time.py`, frontend through `frontend/src/lib/manilaTime.ts`; `backend/tests/test_manila_time_guard.py` and `frontend/tests/manilaTime.test.mjs` reject anything else.
 - Never test against the live station database, captures, physical cameras or OS power. Use isolated fixtures and disposable PostgreSQL schemas; inspect test setup first.
 - Destructive live operations, deployment, history rewrites and shared-branch writes need explicit authorization. Do not read or print secrets to diagnose configuration.
 - Run targeted regressions while implementing. Before completion, run relevant backend and frontend tests, type checks, configured lint and build, then review the scoped diff.

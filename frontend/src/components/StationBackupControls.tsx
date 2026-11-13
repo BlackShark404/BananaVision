@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import type { MaintenanceOperation, RestoreValidation } from "@/types/api"
+import { inManila } from "@/lib/manilaTime"
 
 export function StationBackupControls({ disabled, onBusy }: { disabled: boolean; onBusy: (busy: boolean) => void }) {
   const [restoreOpen, setRestoreOpen] = useState(false)
@@ -117,7 +118,7 @@ export function StationBackupControls({ disabled, onBusy }: { disabled: boolean;
             </Button>}
           </div>
           {validation && <div className="space-y-3 border-t pt-4">
-            <p className="text-xs text-muted-foreground">Archive validated. Confirmation expires {new Date(validation.expires_at).toLocaleString()}.</p>
+            <p className="text-xs text-muted-foreground">Archive validated. Confirmation expires {new Date(validation.expires_at).toLocaleString(undefined, inManila())}.</p>
             <Label htmlFor="restore-password">Administrator password</Label>
             <Input id="restore-password" type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} disabled={busy} />
             <Label htmlFor="restore-confirm">Type REPLACE to confirm</Label>
