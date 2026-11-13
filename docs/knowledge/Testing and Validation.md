@@ -28,6 +28,10 @@ Decision: [[Development Decisions]]; rules: [[AI Models]].
   COCO test now proves warmup set up the predictor and runs a full prediction.
 - Full backend after these changes: 903 passed / 38 skipped with a throwaway
   PostgreSQL 16 cluster, 837 / 104 without; Ruff `app tests` 634 (baseline 635).
+- Tooling tests (synthetic data, fakes, no network): `test_evaluate_finger_count.py`,
+  `test_train_finger_model.py`, `test_fetch_training_assets.py` (checksums, zip-slip,
+  links, special files, size ratio, token never printed). Each script was also
+  smoke-run with real Ultralytics on synthetic images.
 - Every count change is unmeasured on banana photos; use
   `scripts/evaluate_finger_count.py` once a teammate uploads the weights and dataset.
 

@@ -76,19 +76,34 @@ the most confident box; that case needs station background photos as training ne
 
 ### Measuring and retraining when data arrives
 
-(The three scripts below are being added in a follow-up commit; see `TASK_PROGRESS.txt`.)
+All three run from `backend/` with the backend requirements installed; each `--help` lists
+every option.
 
-
-- `scripts/fetch_training_assets.py github --repo RoronoaZoro1206/BananaVision --tag T
-  --dest DIR`: download a GitHub release (dataset export zip + `.pt` weights), verify
-  `SHA256SUMS`, extract safely. `local --archive` does the same for a file on disk.
-- `scripts/evaluate_finger_count.py visible --weights W --split <prepared>/valid
-  --configs baseline head=one_to_one hand_box_split=off …`: visible-count MAE, exact,
-  ±1 and bias per view, cultivar and size, with paired bootstrap comparisons; refuses
-  the TEST split. `physical` mode compares fused counts with counted bunches.
-- `scripts/train_finger_model.py --data <prepared> --weights W`: CPU fine-tune (hue
-  augmentation off; `--time` / `--resume` for long runs). Register a new checkpoint in
-  `TOP_CALIBRATED_CHECKPOINTS` only after evaluating it.
+1. **Get the data.** A teammate attaches the weights (`.pt`), the Roboflow export zip and
+   station background photos to a GitHub release, ideally with a `SHA256SUMS` file:
+   `python scripts/fetch_training_assets.py github --repo RoronoaZoro1206/BananaVision
+   --tag <tag> --dest <new empty dir>` (a private repository needs a token in
+   `GITHUB_TOKEN`, sent only as a header and never printed). `local --archive <zip>
+   --dest <dir>` handles a file already on disk. Archives are checked against
+   `SHA256SUMS` and extracted safely (no absolute paths, `..`, links or special files).
+   The script prints the next commands. Roboflow downloads are not built in, because
+   Roboflow takes the key in the URL.
+2. **Prepare** the export with `scripts/prepare_yolo_dataset.py` (grouped 70/15/15 split).
+3. **Measure** visible counts: `python scripts/evaluate_finger_count.py visible --weights W
+   --split <prepared>/valid --configs baseline head=one_to_one hand_box_split=off
+   ripeness_outlier=off recovery_within_hand=off side_view_lip=off --output report.json`
+   (`--gate` adds the banana verifier). It reports MAE, exact, ±1 and bias overall and per
+   view, cultivar and size, and paired comparisons with a seeded bootstrap 95 % interval.
+   It warns when a configuration cannot act (for example an unregistered checkpoint turns
+   the recovery pass off) and refuses the TEST split unless `--frozen-test` is given with
+   one configuration. `physical --scans <dir>/<scan>/<View>.jpg --counts counts.csv`
+   runs whole scans through the real fusion against counted bunches.
+4. **Retrain** on CPU: `python scripts/train_finger_model.py --data <prepared or merged
+   negatives> --weights W [--epochs 30 --time HOURS]`, `--resume <last.pt>` to continue
+   (refused for a finished run), `--dry-run` to check first. Hue augmentation is off
+   (ripeness is colour). Runs go to `backend/runs/` (git-ignored). It prints the new
+   weights' SHA-256 and the evaluation command; register the checkpoint in
+   `TOP_CALIBRATED_CHECKPOINTS` only after evaluating it.
 
 ## Out-of-distribution (OOD) rejection
 

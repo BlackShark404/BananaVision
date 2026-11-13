@@ -53,9 +53,16 @@ VERIFICATION
   suggested guard: a hand ripening across stages keeps its far fingers.
 - NOT measured: any count-accuracy effect on banana photos; the V2 checkpoints' head.
 
-IN PROGRESS
-- Tooling workflow (new files only): backend/scripts/evaluate_finger_count.py,
-  train_finger_model.py, fetch_training_assets.py + tests. Commit separately when green.
+TOOLING (second commit)
+- backend/scripts/fetch_training_assets.py (GitHub release or local archive, SHA256SUMS,
+  safe extraction, token only in a header), evaluate_finger_count.py (visible and
+  physical modes, paired bootstrap, warns when a configuration cannot act, refuses the
+  TEST split), train_finger_model.py (CPU fine-tune, hue augmentation off, resume and
+  dry-run, prints SHA and the next evaluation command). backend/runs/ is git-ignored.
+- Built by a workflow; each script independently reviewed (6, 6 and 11 findings) and
+  fixed; 192 tests pass (tooling tests + Manila guard). Smoke-run with real Ultralytics on
+  synthetic images only; no live GitHub download was tried.
+- The first counting commit is on the fork's main as 923b568.
 
 STILL OPEN
 - Teammate uploads to a GitHub release on RoronoaZoro1206/BananaVision: the station
@@ -71,5 +78,5 @@ STILL OPEN
   [[Backend]] notes; second kiosk shows a rejection; public QR countdown for every status.
 
 EXACT NEXT STEP
-- Finish and commit the tooling scripts; then the user opens the pull request:
+- User opens the pull request from the fork's main (both commits):
   https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main
