@@ -44,6 +44,9 @@ venv/
 .venv/
 backend/captures/*
 !backend/captures/.gitkeep
+# Station backups (Admin -> System Config -> Station Backup) are written next to the
+# capture folder and include credential hashes. Never commit them, at any depth.
+.bananavision-maintenance/
 # Training runs from backend/scripts/train_finger_model.py (weights, plots, records).
 backend/runs/
 backend/app/ml/weights/*.pt

@@ -1,67 +1,70 @@
-CURRENT RESUME HERE (2026-11-14) - CULTIVAR, FINGER COUNT AND RFR FIXES READY LOCALLY
+CURRENT RESUME HERE (2026-11-14) - TEAM FIXES MERGED; WAITING FOR STATION DATA
 
-Previous checkpoint archived byte-for-byte in
-  docs/history/2026-11-14-before-consensus-count-rfr-fix.txt.
+Archived byte-for-byte before this merge:
+- docs/history/2026-11-14-team-checkpoint-before-merge.txt: Kent's checkpoint, the scan
+  consensus, finger-count and RFR fixes in 6bd4eac.
+- docs/history/2026-11-14-before-teammate-guide.txt: the colour-check checkpoint.
+- docs/history/2026-11-14-before-consensus-count-rfr-fix.txt: the earlier checkpoint
+  Kent archived.
 
-AUTHORIZED SCOPE
-- Investigate Lawrence S. Ramirez's aa53e7a crown-filter update and fix false cultivar
-  uncertainty, natural-unripe shelf-life estimates, and 14-finger hands reported as 11.
-- Work stays on main. No staging, commits, pushes, deployments, live DB/captures/cameras,
-  or OS power operations were authorized or performed.
+STATE OF MAIN
+- Fork main = aa53e7a (PR #11, colour check) + 2df42eb (.gitignore for station backups,
+  team PR #12) + a merge of team main 6bd4eac (Kent, "Fix scan consensus and RFR model
+  loading"), brought in through temp PR #3 in the fork. The merge conflicted only in
+  TASK_PROGRESS.txt and docs/knowledge/Resolved Bugs.md; both sides were kept.
 
-CONFIRMED ROOT CAUSES / CHANGES
-- Crown/background colour filtering remains unchanged. Rotation code treated ripeness
-  disagreement on one finger as cultivar disagreement, disabling the Top anchor and
-  recovery. classification.py separates those signals; fusion_engine.py retains general
-  review flags without marking cultivar uncertain. Real cultivar conflict still needs review.
-- Same-cultivar mixed-stage boxes used stricter duplicate geometry than same-stage boxes.
-  Proven synthetic case: 14 boxes became 11. Both now use the same geometry; coincident
-  hypotheses/fragments still count once. Fusion still takes the largest camera count.
-- scan_service.py writes optional counts_as_finger JSON markers before cultivar label
-  harmonization. API BoundingBox and frontend types agree; the overlay trusts complete
-  marker sets and falls back to matching geometry for old records. Raw hypotheses remain.
-  No database migration is needed. Existing stored scans are not rewritten.
-- RFR default named missing app/ml/weights/spoilage_rfr.joblib, while tracked bundle is
-  app/ml/spoilage_rfr.joblib. Shared resolver preserves existing configured artifacts,
-  resolves only the missing historical default, and supplies backup prerequisite hashes.
-  Missing/invalid models now report is_loaded=False instead of claiming healthy fallback.
-- test_rfr_matrix.py uses runtime feature maps/VPD/model mean instead of independent
-  hardcoded vectors and tree-quantile ranges. Two frontend test URL loaders now work on Windows.
+TEAM FIXES IN 6bd4eac (Kent; details in his archived checkpoint)
+- classification.py: cultivar conflict is tracked apart from ripeness disagreement, so the
+  Top anchor and recovery pass stay on. Same-cultivar mixed-stage boxes use the same
+  duplicate geometry as same-stage boxes (a synthetic 14-finger hand had counted as 11).
+  fusion_engine.py keeps the review flag without marking the cultivar uncertain.
+- scan_service.py stores counts_as_finger markers in the box JSON. The API BoundingBox,
+  frontend types and the overlay (frontend/src/lib/detectionBoxes.ts) use them, and fall
+  back to geometry for old records. No migration.
+- spoilage.py resolves the packaged RFR model (app/ml/spoilage_rfr.joblib) when the
+  historical default path is missing. A missing model now reports is_loaded=False. Backup
+  prerequisites hash the resolved path.
+- Kent's Windows run: backend 1159 passed, 6 skipped, 12 failed and 11 errors. He reported
+  the failures in the export, training-asset and OOD preparation tool tests (the same on
+  unchanged HEAD). Which tests failed is not recorded.
 
-VERIFICATION
-- Final affected backend suite: 445 passed, 3 skipped, fresh temporary cwd.
-- Broad backend with disposable PostgreSQL 18: 1159 passed, 6 skipped, 12 failed, 11 errors.
-  Failing modules are unchanged Windows export/training asset/OOD preparation tools.
-  Unchanged-HEAD reproduction: 12 failed, 153 passed, 1 skipped, 12 errors (parallel OOD
-  preparation errors vary by case). Full suite is not all green.
-- Disposable cluster C:/Users/Kent/AppData/Local/Temp/bv-full-hlo6yox9/postgres, port 53156,
-  stopped and entire generated test directory removed; no live station database used.
-- Frontend broad run: 323 passed, 2 test files failed from existing Windows URL handling.
-  Both repaired; corrected files plus geometry: 40 passed. Kiosk/scan-page regressions:
-  40 passed. Broad frontend suite not repeated after the focused harness fixes.
-- Frontend typecheck and build passed; existing large-chunk warning. Full frontend lint:
-  35 existing errors, 5 warnings; scoped lint clean. Backend Ruff: 634 diagnostics, same as
-  unchanged HEAD; no new diagnostic keys. Scoped diff check passed.
-- Real packaged RFR at 36.4 C / 52.6% RH, Natural Unripe: Lakatan 11.046, Latundan 9.982,
-  Cardaba 14.049 days; Ethephon: 6.111, 5.926, 6.660. At matrix 31 C / 60.8% RH, Natural:
-  13.115, 9.426, 14.469 days. Model means are estimates, not observed storage outcomes.
-- Artifact SHA256 2cb497bffaf72389792ac925625b1d8541e4eb7802b2922a36e3b0264ba53886.
-  Local sklearn warns training 1.6.1 versus runtime 1.8.0; no dependency/model changes.
-- Independent review findings addressed: general review propagation, count identity after
-  harmonization, and resolved RFR identity in backup metadata. Follow-up review found no
-  essential new issue.
+DONE BY THIS SESSION (2026-11-14)
+- Teammate guide (PDF, English, sent to the user, not committed). It covers: updating the
+  Mini PC, a hand-count session (hand_counts.csv), the training backup after the update,
+  export_station_training_set.py --include-flagged, the station .pt and Roboflow zip, an
+  optional SHA256SUMS, and a private release station-data-YYYY-MM-DD on
+  RoronoaZoro1206/BananaVision. Fork collaborators Azanykho03, Bagohay and BlackShark404 can
+  create it.
+- .gitignore: .bananavision-maintenance/ (station backups hold credential hashes).
 
-KNOWLEDGE / LIMITS
-- Updated Obsidian AI Models, Resolved Bugs, Testing and Validation notes.
-- Graphify CLI/graph and project ICM tools/database absent here. No graph/memory update
-  was possible; no integration was installed, recreated, or replaced.
-- Physical finger-count accuracy, raw frames, station treatment selection and actual
-  station-loaded model remain unverified. Code fixes alone do not prove every hand is 14.
+VERIFICATION OF THIS MERGE (Linux cloud session, merged tree)
+- Backend full suite without PostgreSQL: 1087 passed, 104 skipped.
+- Frontend typecheck passes.
+- Frontend tests (detectionBoxes, estimates, shelfLifeWindow, kiosk, printing, manilaTime):
+  77/77 passed.
+- git diff --check is clean. git check-ignore still ignores
+  backend/.bananavision-maintenance/. The local Graphify graph is refreshed (not tracked).
 
-PENDING / EXACT NEXT STEP
-- Review local scoped changes. Before station use, obtain explicit authorization for any
-  commit/push/deployment, then update/restart the station and retest counted hands and
-  Natural/Ethephon batches. Confirm real RFR loaded and capture corrected count evidence.
-- Existing Windows training-tool failures and lint debt remain separate follow-up work.
-- Prior retraining/data export, Figure 92, deployment and audit decisions remain in the
-  archived checkpoint; none was silently completed or authorized by this task.
+FOLLOW-UPS (reported, not changed)
+- Find out which export/fetch/OOD-prep tests fail on Windows (Kent's run). The teammate
+  guide runs export_station_training_set.py on the Windows Mini PC: if the script itself
+  fails there, the guide's Troubleshooting asks for a photo of the error.
+- prediction_label.py reads a hard-coded laptop file
+  C:\Users\Kent\AppData\Local\BananaVision\laptop-host\public-url.txt.
+- PUBLIC_BASE_URL is missing from backend/.env.example.
+- Re-capture the storyboard Figure 92 screenshot. Deployment follows
+  docs/windows-mini-pc-deployment.md when authorized. Audit items are listed in the
+  archived checkpoints.
+- Station checks from Kent: retest hand counts and Natural/Ethephon shelf life on the
+  Mini PC, and confirm the real RFR model is loaded.
+
+EXACT NEXT STEP
+- User merges team PR #12, closes temp PR #3 if it is still open, and presses Sync fork.
+  Then realign this session to the fork's main.
+- When the release tag arrives:
+  1. fetch_training_assets.py github --repo RoronoaZoro1206/BananaVision --tag <tag>.
+  2. check_inference_head.py static on the .pt.
+  3. Match hand_counts.csv to counts.csv, then evaluate_finger_count.py physical, with
+     configs including colour_check=off.
+  4. prepare_yolo_dataset.py on the Roboflow zip, then evaluate visible on VALID.
+  5. Retrain on CPU, compare with the current model, and give the PR link.

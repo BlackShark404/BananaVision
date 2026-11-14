@@ -1,0 +1,67 @@
+CURRENT RESUME HERE (2026-11-14) - CULTIVAR, FINGER COUNT AND RFR FIXES READY LOCALLY
+
+Previous checkpoint archived byte-for-byte in
+  docs/history/2026-11-14-before-consensus-count-rfr-fix.txt.
+
+AUTHORIZED SCOPE
+- Investigate Lawrence S. Ramirez's aa53e7a crown-filter update and fix false cultivar
+  uncertainty, natural-unripe shelf-life estimates, and 14-finger hands reported as 11.
+- Work stays on main. No staging, commits, pushes, deployments, live DB/captures/cameras,
+  or OS power operations were authorized or performed.
+
+CONFIRMED ROOT CAUSES / CHANGES
+- Crown/background colour filtering remains unchanged. Rotation code treated ripeness
+  disagreement on one finger as cultivar disagreement, disabling the Top anchor and
+  recovery. classification.py separates those signals; fusion_engine.py retains general
+  review flags without marking cultivar uncertain. Real cultivar conflict still needs review.
+- Same-cultivar mixed-stage boxes used stricter duplicate geometry than same-stage boxes.
+  Proven synthetic case: 14 boxes became 11. Both now use the same geometry; coincident
+  hypotheses/fragments still count once. Fusion still takes the largest camera count.
+- scan_service.py writes optional counts_as_finger JSON markers before cultivar label
+  harmonization. API BoundingBox and frontend types agree; the overlay trusts complete
+  marker sets and falls back to matching geometry for old records. Raw hypotheses remain.
+  No database migration is needed. Existing stored scans are not rewritten.
+- RFR default named missing app/ml/weights/spoilage_rfr.joblib, while tracked bundle is
+  app/ml/spoilage_rfr.joblib. Shared resolver preserves existing configured artifacts,
+  resolves only the missing historical default, and supplies backup prerequisite hashes.
+  Missing/invalid models now report is_loaded=False instead of claiming healthy fallback.
+- test_rfr_matrix.py uses runtime feature maps/VPD/model mean instead of independent
+  hardcoded vectors and tree-quantile ranges. Two frontend test URL loaders now work on Windows.
+
+VERIFICATION
+- Final affected backend suite: 445 passed, 3 skipped, fresh temporary cwd.
+- Broad backend with disposable PostgreSQL 18: 1159 passed, 6 skipped, 12 failed, 11 errors.
+  Failing modules are unchanged Windows export/training asset/OOD preparation tools.
+  Unchanged-HEAD reproduction: 12 failed, 153 passed, 1 skipped, 12 errors (parallel OOD
+  preparation errors vary by case). Full suite is not all green.
+- Disposable cluster C:/Users/Kent/AppData/Local/Temp/bv-full-hlo6yox9/postgres, port 53156,
+  stopped and entire generated test directory removed; no live station database used.
+- Frontend broad run: 323 passed, 2 test files failed from existing Windows URL handling.
+  Both repaired; corrected files plus geometry: 40 passed. Kiosk/scan-page regressions:
+  40 passed. Broad frontend suite not repeated after the focused harness fixes.
+- Frontend typecheck and build passed; existing large-chunk warning. Full frontend lint:
+  35 existing errors, 5 warnings; scoped lint clean. Backend Ruff: 634 diagnostics, same as
+  unchanged HEAD; no new diagnostic keys. Scoped diff check passed.
+- Real packaged RFR at 36.4 C / 52.6% RH, Natural Unripe: Lakatan 11.046, Latundan 9.982,
+  Cardaba 14.049 days; Ethephon: 6.111, 5.926, 6.660. At matrix 31 C / 60.8% RH, Natural:
+  13.115, 9.426, 14.469 days. Model means are estimates, not observed storage outcomes.
+- Artifact SHA256 2cb497bffaf72389792ac925625b1d8541e4eb7802b2922a36e3b0264ba53886.
+  Local sklearn warns training 1.6.1 versus runtime 1.8.0; no dependency/model changes.
+- Independent review findings addressed: general review propagation, count identity after
+  harmonization, and resolved RFR identity in backup metadata. Follow-up review found no
+  essential new issue.
+
+KNOWLEDGE / LIMITS
+- Updated Obsidian AI Models, Resolved Bugs, Testing and Validation notes.
+- Graphify CLI/graph and project ICM tools/database absent here. No graph/memory update
+  was possible; no integration was installed, recreated, or replaced.
+- Physical finger-count accuracy, raw frames, station treatment selection and actual
+  station-loaded model remain unverified. Code fixes alone do not prove every hand is 14.
+
+PENDING / EXACT NEXT STEP
+- Review local scoped changes. Before station use, obtain explicit authorization for any
+  commit/push/deployment, then update/restart the station and retest counted hands and
+  Natural/Ethephon batches. Confirm real RFR loaded and capture corrected count evidence.
+- Existing Windows training-tool failures and lint debt remain separate follow-up work.
+- Prior retraining/data export, Figure 92, deployment and audit decisions remain in the
+  archived checkpoint; none was silently completed or authorized by this task.
