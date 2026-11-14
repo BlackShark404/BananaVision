@@ -29,6 +29,37 @@ TEAM FIXES IN 6bd4eac (Kent; details in his archived checkpoint)
   unchanged HEAD). Which tests failed is not recorded.
 
 DONE BY THIS SESSION (2026-11-14)
+- Finger-counting post-processing and two-tier multi-camera fusion fixes in
+  backend/app/services/classification.py, backend/app/services/fusion_engine.py, and
+  frontend/src/lib/detectionBoxes.ts:
+  1. _is_axially_aligned_or_enclosed checks orientation-aware longitudinal alignment and
+     preserves stacked horizontal flank fingers and narrow protruding second-tier fingers
+     while keeping whole-hand box splits and small fragment suppression.
+  2. _is_cluster_box requires containment >= 0.82 and matching child orientation
+     ((a.w > a.h) == (b.w > b.h)) so 45-degree diagonal fingers in radial fans are not
+     dropped when their bounding-box corners overlap a horizontal and a vertical neighbor.
+  3. _is_duplicate_detection treats sideways/diagonal pairs (w > h on both boxes) as
+     horizontal at cont >= 0.45, preserves parallel horizontal/vertical fingers separated
+     by > 0.30 * min_dim at 0.40 < IoU < 0.65 in the rotated Top pass, and
+     _is_recovery_duplicate suppresses TTA strip repeats.
+  4. _ripeness_outliers preserves connected groups of >= 2 unique far boxes touching the
+     hand so adjacent stage-straddling fingers are kept; _hides_fingers includes same-cultivar
+     cross-stage sub-boxes when splitting whole-hand boxes.
+  5. yolo_peripheral_background_filter preserves slender upper fingers clipped by the
+     left/right frame edge (x1 <= 0.04 * img_w or x2 >= 0.96 * img_w) or overlapping the
+     accepted hand.
+  6. Pass 3 recovery runs when cultivar or ripeness consensus >= 60% holds, admitting
+     candidates whose (cultivar, ripeness) label was already observed in Pass 1/2 or
+     adjacent-stage same-cultivar candidates on multi-stage hands.
+  7. FusionEngine._estimate_multi_camera_fingers reconstructs occluded lower-tier fingers on
+     verified two-tier 4-camera hands using 2D vertical tier separation
+     (_split_horizontal_tiers and _count_top_second_tier) while keeping single-tier hands at
+     max(finger_counts).
+  - Verified on valid split (n=137, banana_yolovsV2.pt): MAE 0.8540 -> 0.7664, exact
+    40.15% (55/137) -> 47.45% (65/137), within1 84.67% -> 85.40%, undercounts 34 -> 20
+    (Top MAE 0.8710 -> 0.6452, Top undercounts 11 -> 2, Right MAE 0.8095 -> 0.7381).
+    Focused backend suites: 293 passed, 3 skipped. Frontend unit tests, typecheck, and
+    production build passed.
 - Teammate guide (PDF, English, sent to the user, not committed). It covers: updating the
   Mini PC, a hand-count session (hand_counts.csv), the training backup after the update,
   export_station_training_set.py --include-flagged, the station .pt and Roboflow zip, an

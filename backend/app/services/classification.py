@@ -250,7 +250,37 @@ def _is_axially_aligned_or_enclosed(
     cx_b, cy_b = b.x + b.w / 2.0, b.y + b.h / 2.0
     rel_dx = abs(cx_a - cx_b) / min_w
     rel_dy = abs(cy_a - cy_b) / min_h
-    return min(rel_dx, rel_dy) <= axis_tol
+    if min(rel_dx, rel_dy) > axis_tol:
+        return False
+    if max(rel_dx, rel_dy) <= axis_tol:
+        return True
+    smaller, larger = (a, b) if (a.w * a.h) <= (b.w * b.h) else (b, a)
+    if smaller.w < 0.45 * larger.w and smaller.h < 0.45 * larger.h:
+        return True
+    if larger.w > larger.h and smaller.w > smaller.h:
+        if rel_dy > axis_tol:
+            return False
+        if smaller.h < 0.50 * larger.h and smaller.w < 0.75 * larger.w:
+            return False
+        return True
+    if (
+        smaller.h > smaller.w
+        and smaller.h >= 0.80 * larger.h
+        and larger.w >= 1.8 * smaller.w
+        and rel_dy <= axis_tol
+    ):
+        return True
+    if larger.h >= larger.w and smaller.h >= smaller.w:
+        if rel_dx > axis_tol:
+            return False
+        if smaller.w < 0.50 * larger.w and smaller.h < 0.75 * larger.h:
+            return False
+        return True
+    if larger.h >= larger.w and smaller.w >= 0.80 * larger.w and rel_dx <= axis_tol:
+        return True
+    if larger.w > larger.h and smaller.h >= 0.80 * larger.h and rel_dy <= axis_tol:
+        return True
+    return False
 
 
 def _unique_box_detections(detections: list[Detection]) -> list[Detection]:
@@ -324,11 +354,12 @@ def _is_cluster_box(det: Detection, others: list[Detection]) -> bool:
         o_area = o.w * o.h
         if o_area <= 0:
             continue
-        if det_area >= 1.6 * o_area and _box_containment(det, o) >= 0.70:
+        if det_area >= 1.6 * o_area and _box_containment(det, o) >= 0.82:
             contained.append(o)
     for i in range(len(contained)):
         for j in range(i + 1, len(contained)):
-            if _box_iou(contained[i], contained[j]) < 0.40:
+            a, b = contained[i], contained[j]
+            if _box_iou(a, b) < 0.40 and (a.w > a.h) == (b.w > b.h):
                 return True
     return False
 
@@ -344,7 +375,23 @@ def _is_duplicate_detection(
     to prevent partial, shifted, or nested bounding boxes from double-counting
     elongated banana fingers.
     """
-    if _box_iou(candidate, existing) > iou_thresh:
+    iou = _box_iou(candidate, existing)
+    if iou >= TOP_OVERLAP_IOU:
+        return True
+    if iou > iou_thresh:
+        if getattr(settings, "yolo_axis_aware_rotation_dedup", True) and not _is_axially_aligned_or_enclosed(candidate, existing):
+            if candidate.w > candidate.h and existing.w > existing.h:
+                min_h = min(candidate.h, existing.h)
+                cy_cand = candidate.y + candidate.h / 2
+                cy_exist = existing.y + existing.h / 2
+                if min_h > 0 and abs(cy_cand - cy_exist) > 0.30 * min_h:
+                    return False
+            elif candidate.h >= candidate.w and existing.h >= existing.w:
+                min_w = min(candidate.w, existing.w)
+                cx_cand = candidate.x + candidate.w / 2
+                cx_exist = existing.x + existing.w / 2
+                if min_w > 0 and abs(cx_cand - cx_exist) > 0.30 * min_w:
+                    return False
         return True
 
     cont = _box_containment(candidate, existing)
@@ -356,10 +403,10 @@ def _is_duplicate_detection(
         # x for an upright finger. For a finger lying sideways that is y; comparing x
         # there merged a lying finger with the one stacked on it.
         larger = candidate if candidate.w * candidate.h >= existing.w * existing.h else existing
-        if (
-            getattr(settings, "yolo_axis_aware_rotation_dedup", True)
-            and _long_axis(larger) == "horizontal"
-        ):
+        is_horiz = _long_axis(larger) == "horizontal" or (
+            larger.w > larger.h and candidate.w > candidate.h and existing.w > existing.h
+        )
+        if getattr(settings, "yolo_axis_aware_rotation_dedup", True) and is_horiz:
             min_h = min(candidate.h, existing.h)
             cy_cand = candidate.y + candidate.h / 2
             cy_exist = existing.y + existing.h / 2
@@ -397,9 +444,19 @@ def _side_by_side(a: Detection, b: Detection) -> bool:
 
 def _hides_fingers(parent: Detection, children: list[Detection], others: list[Detection]) -> bool:
     """A whole-hand box that swallowed two or more side-by-side fingers as 'fragments'."""
-    if len(children) < 2:
+    parent_cult, _ = _parse_class_label(parent.cls)
+    cross_stage_children = [
+        o for o in others
+        if o is not parent
+        and parent_cult is not None
+        and _parse_class_label(o.cls)[0] == parent_cult
+        and (parent.w * parent.h) >= 1.6 * (o.w * o.h)
+        and _is_nested_or_duplicate_box(o, parent)
+    ]
+    all_children = children + cross_stage_children
+    if len(all_children) < 2:
         return False
-    if not any(_side_by_side(a, b) for a, b in combinations(children, 2)):
+    if not any(_side_by_side(a, b) for a, b in combinations(all_children, 2)):
         return False
     return _is_cluster_box(parent, others + children)
 
@@ -504,6 +561,16 @@ def _ripeness_outliers(detections: list[Detection]) -> list[Detection]:
             continue
         if d.confidence < best or not any(_box_iou(d, n) > 0 for n in near):
             outliers.append(d)
+    if outliers:
+        direct = [d for d in outliers if any(_box_iou(d, n) > 0 for n in near)]
+        connected = [
+            d for d in outliers
+            if any(_box_iou(d, n) > 0 for n in near)
+            or any(_box_iou(d, t) > 0 for t in direct)
+        ]
+        if len(_unique_box_detections(connected)) >= 2:
+            conn_ids = {id(d) for d in connected}
+            outliers = [d for d in outliers if id(d) not in conn_ids]
     return outliers
 
 
@@ -513,11 +580,18 @@ def _is_recovery_duplicate(cand: Detection, existing: Detection) -> bool:
         return True
     if _is_same_class_sub_box(cand, existing) or _is_same_class_sub_box(existing, cand):
         return True
-    if _box_containment(cand, existing) >= 0.80:
+    cont = _box_containment(cand, existing)
+    if cont >= 0.80:
         min_w, min_h = min(cand.w, existing.w), min(cand.h, existing.h)
+        max_w, max_h = max(cand.w, existing.w), max(cand.h, existing.h)
         cx_c, cy_c = cand.x + cand.w / 2.0, cand.y + cand.h / 2.0
         cx_e, cy_e = existing.x + existing.w / 2.0, existing.y + existing.h / 2.0
         if abs(cx_c - cx_e) <= 0.25 * min_w and abs(cy_c - cy_e) <= 0.25 * min_h:
+            return True
+        if cont >= 0.95 and (
+            (min_w >= 0.90 * max_w and abs(cx_c - cx_e) <= 0.15 * min_w)
+            or (min_h >= 0.90 * max_h and abs(cy_c - cy_e) <= 0.15 * min_h)
+        ):
             return True
     return False
 
@@ -785,18 +859,26 @@ class BananaClassifier:
                         and norm_cam in ("left", "right", "rear")
                         and image is not None
                     ):
-                        img_h = image.shape[0]
+                        img_h, img_w = image.shape[:2]
                         det_h = y2 - y1
                         det_w = x2 - x1
                         # 1. Boxes entirely in the upper background (sky / ceiling):
                         if y2 < 0.22 * img_h:
                             continue
-                        # 2. Slender background pillars or door frames ending in the upper/mid area:
-                        if (
-                            det_w > 0 and (det_h / det_w) >= 2.2 and y2 <= 0.55 * img_h
-                        ) or (
-                            y1 < 0.08 * img_h and det_w > 0
-                            and (det_h / det_w) >= 2.5 and y2 < 0.65 * img_h
+                        # 2. Slender background pillars or door frames ending in the upper/mid area
+                        # (unless clipped by the left/right frame edge or overlapping the banana hand):
+                        is_edge_clipped = x1 <= 0.04 * img_w or x2 >= 0.96 * img_w
+                        touches_hand = any(
+                            _box_iou(det, d) > 0.05
+                            for d in detections
+                            if d.w > 0 and (d.h / d.w) < 2.2
+                        )
+                        if not is_edge_clipped and not touches_hand and (
+                            (det_w > 0 and (det_h / det_w) >= 2.2 and y2 <= 0.55 * img_h)
+                            or (
+                                y1 < 0.08 * img_h and det_w > 0
+                                and (det_h / det_w) >= 2.5 and y2 < 0.65 * img_h
+                            )
                         ):
                             continue
 
@@ -1047,22 +1129,38 @@ class BananaClassifier:
             and self._image_size == expected_imgsz
             and confidence_threshold == TOP_OVERLAP_CONFIDENCE
             and len(detections) >= OCCLUDED_FINGER_MIN_PRIMARY
-            and not duplicate_cultivar_conflict
+            and (not duplicate_cultivar_conflict or len(cultivar_votes) > 1)
             and image is not None
         ):
             primary_cultivar = self._best_vote(cultivar_votes)
+            all_ripeness_votes: dict[str, list[float]] = {}
+            for (_, ripeness), confs in class_votes.items():
+                if ripeness:
+                    all_ripeness_votes.setdefault(ripeness, []).extend(confs)
             primary_ripeness_votes = {
                 ripeness: confs for (cultivar, ripeness), confs in class_votes.items()
                 if cultivar == primary_cultivar and ripeness
             }
-            primary_ripeness = self._best_vote(primary_ripeness_votes)
+            primary_ripeness = (
+                self._best_vote(primary_ripeness_votes)
+                or self._best_vote(all_ripeness_votes)
+            )
             primary_total_w = sum(sum(v) for v in cultivar_votes.values())
             primary_win_w = sum(cultivar_votes.get(primary_cultivar or "", []))
+            ripeness_total_w = sum(sum(v) for v in all_ripeness_votes.values())
+            ripeness_win_w = sum(all_ripeness_votes.get(primary_ripeness or "", []))
+            cultivar_unconflicted = (
+                primary_total_w > 0
+                and primary_win_w >= primary_total_w * VOTE_CONFLICT_THRESHOLD
+            )
+            ripeness_unconflicted = (
+                ripeness_total_w > 0
+                and ripeness_win_w >= ripeness_total_w * VOTE_CONFLICT_THRESHOLD
+            )
             if (
                 primary_cultivar
                 and primary_ripeness
-                and primary_total_w > 0
-                and primary_win_w >= primary_total_w * VOTE_CONFLICT_THRESHOLD
+                and (cultivar_unconflicted or ripeness_unconflicted)
             ):
                 median_area = float(np.median([d.w * d.h for d in detections]))
                 # Hidden fingers lie within the hand: along the fingers' length inside the
@@ -1117,9 +1215,22 @@ class BananaClassifier:
                         if label != (primary_cultivar, primary_ripeness):
                             stage = RIPENESS_STAGE.get(label[1] or "")
                             if not (
-                                adjacent and label[0] == primary_cultivar
-                                and stage is not None and primary_stage is not None
-                                and abs(stage - primary_stage) == 1
+                                (
+                                    (adjacent or len(all_ripeness_votes) >= 2)
+                                    and label[0] == primary_cultivar
+                                    and stage is not None and primary_stage is not None
+                                    and abs(stage - primary_stage) == 1
+                                )
+                                or (
+                                    label in class_votes
+                                    and (
+                                        label[0] == primary_cultivar
+                                        or (
+                                            conf >= 0.40
+                                            and (not cultivar_unconflicted or norm_cam == "top")
+                                        )
+                                    )
+                                )
                             ):
                                 continue
                         if within_hand and not (
@@ -1129,23 +1240,30 @@ class BananaClassifier:
                             continue
                         if norm_cam in lip_views and _is_platter_lip(x1, y1, x2, y2, conf, img_h):
                             continue
+                        cand = Detection(
+                            x=x1, y=y1, w=det_w, h=det_h,
+                            cls=cls_name, confidence=conf,
+                        )
                         if (
                             getattr(settings, "yolo_peripheral_background_filter", True)
                             and norm_cam in ("left", "right", "rear")
                         ):
                             if y2 < 0.22 * img_h:
                                 continue
-                            if (
-                                det_w > 0 and (det_h / det_w) >= 2.2 and y2 <= 0.55 * img_h
-                            ) or (
-                                y1 < 0.08 * img_h and det_w > 0
-                                and (det_h / det_w) >= 2.5 and y2 < 0.65 * img_h
+                            is_edge_clipped = x1 <= 0.04 * img_w or x2 >= 0.96 * img_w
+                            touches_hand = any(
+                                _box_iou(cand, d) > 0.05
+                                for d in detections
+                                if d.w > 0 and (d.h / d.w) < 2.2
+                            )
+                            if not is_edge_clipped and not touches_hand and (
+                                (det_w > 0 and (det_h / det_w) >= 2.2 and y2 <= 0.55 * img_h)
+                                or (
+                                    y1 < 0.08 * img_h and det_w > 0
+                                    and (det_h / det_w) >= 2.5 and y2 < 0.65 * img_h
+                                )
                             ):
                                 continue
-                        cand = Detection(
-                            x=x1, y=y1, w=det_w, h=det_h,
-                            cls=cls_name, confidence=conf,
-                        )
                         if off_colour(cand, _is_recovery_duplicate):
                             continue
                         if rejected_by_gate(cand, _is_recovery_duplicate):

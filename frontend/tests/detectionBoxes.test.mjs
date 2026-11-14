@@ -58,3 +58,9 @@ test('legacy or incomplete counting markers use geometric fallback', () => {
   const boxes = [{ ...box(0, 0), counts_as_finger: false }, box(15, 0)]
   assert.deepEqual(deduplicateDisplayBoxes(boxes), boxes)
 })
+
+test('stacked horizontal flank fingers inside a diagonal neighbor box remain distinct', () => {
+  const upperDiagonal = box(839, 276, 423, 417, 'latundan_ripe', 0.92)
+  const lowerHorizontal = box(853, 499, 415, 201, 'latundan_ripe', 0.63)
+  assert.equal(deduplicateDisplayBoxes([upperDiagonal, lowerHorizontal]).length, 2)
+})

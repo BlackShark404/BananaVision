@@ -742,3 +742,103 @@ def test_multi_finger_top_anchor_prevails_over_lower_confidence_peripheral_tips(
     assert fused.cultivar_conflict is False
     assert fused.finger_count == 11
 
+
+def _two_tier_view(cultivar: str, ripeness: str, conf: float, upper_n: int, lower_n: int) -> ClassificationResult:
+    cls_name = f"{cultivar.lower()}_{ripeness.lower().replace(' ', '_')}"
+    span = max(upper_n, lower_n, 1) * 110
+    u_step = span / max(upper_n, 1)
+    l_step = span / max(lower_n, 1)
+    dets = [
+        *(Detection(40 + i * u_step, 180, 140, 170, cls_name, conf) for i in range(upper_n)),
+        *(Detection(40 + i * l_step, 380, 140, 170, cls_name, conf) for i in range(lower_n)),
+    ]
+    return ClassificationResult(
+        cultivar=cultivar,
+        ripeness=ripeness,
+        confidence=round(conf * 100, 1),
+        finger_count=upper_n + lower_n,
+        detections=dets,
+    )
+
+
+def _top_fan_view(
+    cultivar: str,
+    ripeness: str,
+    conf: float,
+    primary_n: int,
+    recovered_n: int = 0,
+    short_tip_n: int = 0,
+) -> ClassificationResult:
+    cls_name = f"{cultivar.lower()}_{ripeness.lower().replace(' ', '_')}"
+    dets: list[Detection] = []
+    idx = 0
+    for _ in range(primary_n):
+        dets.append(Detection(20 + idx * 120, 120, 100, 260, cls_name, conf))
+        idx += 1
+    for _ in range(recovered_n):
+        dets.append(Detection(20 + idx * 120, 80, 95, 240, cls_name, 0.42))
+        idx += 1
+    for _ in range(short_tip_n):
+        dets.append(Detection(20 + idx * 120, 90, 60, 110, cls_name, conf))
+        idx += 1
+    return ClassificationResult(
+        cultivar=cultivar,
+        ripeness=ripeness,
+        confidence=round(conf * 100, 1),
+        finger_count=primary_n + recovered_n + short_tip_n,
+        detections=dets,
+    )
+
+
+def test_two_tier_hand_fusion_reconstructs_occluded_lower_tier_fingers():
+    engine = FusionEngine()
+
+    # 1. Ripe Latundan 14-finger two-tier hand (Top=10 upper, Left=7, Right=9, Rear=9)
+    latundan_ripe = engine.fuse([
+        ("CAM-001", "Top", _top_fan_view("Latundan", "Ripe", 0.85, 10)),
+        ("CAM-002", "Left", _two_tier_view("Latundan", "Ripe", 0.89, 4, 3)),
+        ("CAM-003", "Right", _two_tier_view("Latundan", "Ripe", 0.81, 4, 5)),
+        ("CAM-004", "Rear", _two_tier_view("Latundan", "Ripe", 0.88, 5, 4)),
+    ], expected_camera_count=4)
+    assert latundan_ripe.finger_count == 14
+    assert latundan_ripe.auto_flagged is True
+
+    # 2. Unripe Cardaba 14-finger two-tier hand (Top=13 with 2 inner/recovered tips, Left=9, Right=11, Rear=11)
+    cardaba_unripe = engine.fuse([
+        ("CAM-001", "Top", _top_fan_view("Cardaba", "Unripe", 0.81, 11, recovered_n=1, short_tip_n=1)),
+        ("CAM-002", "Left", _two_tier_view("Cardaba", "Unripe", 0.80, 6, 3)),
+        ("CAM-003", "Right", _two_tier_view("Cardaba", "Unripe", 0.80, 7, 4)),
+        ("CAM-004", "Rear", _two_tier_view("Cardaba", "Unripe", 0.81, 8, 3)),
+    ], expected_camera_count=4)
+    assert cardaba_unripe.finger_count == 14
+
+    # 3. Unripe Latundan 15-finger two-tier hand (Top=12 with 2 recovered tips, Left=7, Right=10, Rear=11)
+    latundan_unripe = engine.fuse([
+        ("CAM-001", "Top", _top_fan_view("Latundan", "Unripe", 0.85, 10, recovered_n=2)),
+        ("CAM-002", "Left", _two_tier_view("Latundan", "Unripe", 0.82, 4, 3)),
+        ("CAM-003", "Right", _two_tier_view("Latundan", "Unripe", 0.84, 5, 5)),
+        ("CAM-004", "Rear", _two_tier_view("Latundan", "Unripe", 0.85, 4, 7)),
+    ], expected_camera_count=4)
+    assert latundan_unripe.finger_count == 15
+
+    # 4. Wide Ripe Lakatan 21-finger two-tier hand (Top=10, Left=10, Right=9, Rear=13)
+    lakatan_21 = engine.fuse([
+        ("CAM-001", "Top", _top_fan_view("Lakatan", "Ripe", 0.86, 10)),
+        ("CAM-002", "Left", _two_tier_view("Lakatan", "Ripe", 0.84, 5, 5)),
+        ("CAM-003", "Right", _two_tier_view("Lakatan", "Ripe", 0.83, 4, 5)),
+        ("CAM-004", "Rear", _two_tier_view("Lakatan", "Ripe", 0.85, 6, 7)),
+    ], expected_camera_count=4)
+    assert lakatan_21.finger_count == 21
+
+
+def test_single_tier_hand_fusion_keeps_single_view_maximum():
+    # Single-tier 10-finger Lakatan hand (Top=10, Left=7, Right=10, Rear=6):
+    # Rear < max(Left, Right) so no second tier is added.
+    fused = FusionEngine().fuse([
+        ("CAM-001", "Top", _top_fan_view("Lakatan", "Unripe", 0.84, 10)),
+        ("CAM-002", "Left", _two_tier_view("Lakatan", "Unripe", 0.82, 5, 2)),
+        ("CAM-003", "Right", _two_tier_view("Lakatan", "Unripe", 0.84, 7, 3)),
+        ("CAM-004", "Rear", _two_tier_view("Lakatan", "Unripe", 0.83, 6, 0)),
+    ], expected_camera_count=4)
+    assert fused.finger_count == 10
+

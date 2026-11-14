@@ -2,6 +2,25 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-11-14: Radial-fan post-processing drops, stage-straddling finger pairs, split-cultivar recovery, and two-tier multi-camera fusion
+
+- **Symptoms:**
+  - On 14–21 finger hands (Cardaba 14 actual -> 13; Green Latundan 15 actual -> 12; Ripe Latundan 14 actual -> 10; Ripe Lakatan 21 actual -> 13; Mixed-stage 15-finger hand -> 9; 1-tier Lakatan 10 actual -> `Top` 9), YOLO detected valid fingers across the 4 cameras, but per-view post-processing dropped flank/rotated/multi-stage boxes and `FusionEngine.fuse` took `max(finger_counts)` from a single camera even when the overhead `Top` view could only see the upper tier while `Left`, `Right`, and `Rear` boxed the lower tier sitting underneath.
+- **Root causes:**
+  1. `_is_axially_aligned_or_enclosed` checked `min(rel_dx, rel_dy) <= 0.08` without checking finger orientation, so two horizontal flank fingers stacked vertically (`rel_dx <= 0.08`, `rel_dy = 0.35–0.57`) or narrow protruding inner-tier fingers were dropped as sub-box fragments when a diagonal neighbor's bounding rectangle overlapped them (`containment >= 0.80`).
+  2. `_is_cluster_box` used `_box_containment >= 0.70` without checking whether contained boxes shared orientation (`(a.w > a.h) == (b.w > b.h)`), deleting real 45°-diagonal fingers in radial fans whose bounding-box corners overlapped one horizontal neighbor and one vertical neighbor.
+  3. `_ripeness_outliers` dropped connected pairs of `>= 2` adjacent fingers on the hand whose peel colour straddled `Unripe`/`Ripe`.
+  4. `_is_duplicate_detection` unconditionally suppressed rotated `Top` boxes at `0.40 < IoU < 0.65` even when two parallel horizontal fingers had vertically separated centres (`rel_dy = 0.39 > 0.30` on the 10th finger of the 10-finger Lakatan hand).
+  5. `yolo_peripheral_background_filter` dropped real upright upper-tier fingers on peripheral views when their width was clipped by the frame edge (`x2 >= 0.96 * img_w`, making `h/w >= 2.2`), and Pass 3 (`augment=True`) rejected high-confidence (`0.86–0.88`) recovery fingers on multi-stage hands (`Ripe` + `Semi Ripe` or `Unripe` + `Semi Ripe` + `Ripe`) even when that `(cultivar, ripeness)` label was already voted in Pass 1.
+  6. `FusionEngine.fuse` used `max(finger_counts)`, which caps any two-tier hand at the single largest view (`10–13`) because `Top` is physically blocked from seeing the lower tier underneath the upper tier while `Left`, `Right`, and `Rear` each see only one side or the front arc.
+- **Fixes:**
+  - Updated `_is_axially_aligned_or_enclosed`, `_is_cluster_box`, `_is_duplicate_detection`, `_is_recovery_duplicate`, `_hides_fingers`, `_ripeness_outliers`, `yolo_peripheral_background_filter`, and Pass 3 recovery in `backend/app/services/classification.py`, and synchronized geometric fallback in `frontend/src/lib/detectionBoxes.ts`.
+  - Added `_estimate_multi_camera_fingers`, `_split_horizontal_tiers`, and `_count_top_second_tier` in `backend/app/services/fusion_engine.py` to reconstruct occluded lower-tier fingers on verified two-tier 4-camera scans while keeping single-tier hands at `max(finger_counts)`.
+- **Verification:**
+  - `evaluate_finger_count.py visible` on `valid` (`n=137`): MAE `0.8540 -> 0.7664`, exact `40.15% (55/137) -> 47.45% (65/137)`, `within1` `84.67% -> 85.40%`, undercounts `34 -> 20` (`Top` MAE `0.8710 -> 0.6452`, `Right` MAE `0.8095 -> 0.7381`, `Rear` MAE `1.0000 -> 0.9333`).
+  - Station 4-camera scans: Green Latundan (`15` actual) `12 -> 15`; Green Lakatan 1-tier (`10` actual) `Top 9 -> 10`, fused `10 -> 10`; Cardaba Unripe (`14` actual) `13 -> 14`; Latundan Ripe (`14` actual) `10 -> 14`; Lakatan Ripe (`21` actual) `13 -> 20–21`; Mixed 15-finger hand (`15` actual) `9 -> 14–15`.
+  - Focused backend suites: **293 passed, 3 skipped**. Frontend unit tests (`detectionBoxes`, `manilaTime`): **14/14 passed**; `npm run typecheck` and `npm run build` passed.
+
 ## 2026-11-14: Station backups could be committed to Git
 
 - **Symptoms:** after a backup (Admin → System Config → Data & Backups → Station Backup),

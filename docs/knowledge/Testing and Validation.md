@@ -1,5 +1,16 @@
 # Testing and Validation
 
+## Radial-fan geometry, connected outliers, split-cultivar recovery, and two-tier fusion — 2026-11-14
+
+- **Benchmark (`evaluate_finger_count.py visible` on `v13-yolov8-20261016/dataset/valid`, `n=137`, `banana_yolovsV2.pt`):**
+  - Baseline: `MAE=0.8540`, `exact=0.4015 (55/137)`, `within1=0.8467`, `bias=+0.2555` (`undercount=34`, `overcount=48`; `Top` `MAE=0.8710`, `undercount=11`).
+  - After Round 1 + Round 2 fixes: `MAE=0.7664`, `exact=0.4745 (65/137)`, `within1=0.8540`, `bias=+0.4015` (`undercount=20`, `overcount=52`; `Top` `MAE=0.6452`, `undercount=2`; `Right` `MAE=0.7381`, `undercount=9`; `Rear` `MAE=0.9333`, `undercount=6`; `Left` `MAE=0.7647`, `undercount=3`).
+- **Station 4-camera scans and Kiosk crops:**
+  - 6 station scans: Scan 1 Green Latundan (`15` actual) `12 -> 15`; Scan 2 Green Lakatan 1-tier (`10` actual) `Top 9 -> 10`, fused `10 -> 10`; Scan 3 Cardaba Unripe (`14` actual) `13 -> 14`; Scan 4 Latundan Ripe (`14` actual) `10 -> 14`; Scan 5 Lakatan Ripe (`21` actual) `13 -> 20–21`; Scan 6 Mixed 15-finger hand (`15` actual) `9 -> 14–15`.
+  - Earlier Kiosk main-preview crops (`finger-count-chat-images`, `1280x900`, CPU inference `~305–523 ms`): `036 Top` `10 -> 13`, `052 Rear` `10 -> 11`, `057 Top` `8 -> 10`, `059 Rear` `5 -> 9`, `015 Right` `11 -> 13`.
+- **Backend tests:** `test_finger_count_rules.py` (including 8 new regression tests), `test_rotation_consensus.py`, `test_top_view_inference.py`, `test_colour_check.py`, `test_classification_fusion.py` (including two-tier and single-tier multi-camera fusion tests), `test_evaluate_finger_count.py`, `test_ood_gate.py`, and `test_manila_time_guard.py` from a fresh temporary working directory: **293 passed, 3 skipped**.
+- **Frontend tests & build:** `node --test` (`detectionBoxes.test.mjs`, `manilaTime.test.mjs`): **14/14 passed**. `npm run typecheck` and `npm run build` passed. `npx eslint src/lib/detectionBoxes.ts` passed with 0 problems (repo-wide lint retains 40 pre-existing problems).
+
 ## Cultivar, counting, and RFR corrections — 2026-11-14
 
 - Final affected backend suite: **445 passed, 3 skipped**, run from a fresh temporary

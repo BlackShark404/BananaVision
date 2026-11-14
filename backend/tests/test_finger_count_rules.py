@@ -377,3 +377,157 @@ def test_gate_does_not_flag_a_split_that_ends_the_same_without_it():
     gated, ungated = gate_contract(rows, [EvidenceBox(0, 80, 200, 120, 0.5)])
     assert gated.finger_count == ungated.finger_count == 3
     assert gated.ood_rejected_boxes == 0
+
+
+# ── Radial-fan geometry, connected stage-straddling pairs, and split-cultivar recovery ──
+def test_stacked_horizontal_finger_inside_diagonal_neighbor_box_is_preserved():
+    # Two horizontal flank fingers sharing x-span (rel_dx <= 0.08) but separated vertically
+    # (rel_dy > 0.50), where the upper diagonal finger's rectangle overlaps the lower one.
+    rows = [
+        (839, 276, 1262, 693, 0.92, 0),  # upper diagonal finger (w=423, h=417)
+        (853, 499, 1268, 700, 0.63, 0),  # lower horizontal finger (w=415, h=201)
+    ]
+    result = predict(rows, names=LATUNDAN)
+    assert result.finger_count == 2 and len(result.detections) == 2
+
+
+def test_narrow_protruding_second_tier_finger_inside_diagonal_neighbor_is_preserved():
+    # A narrow upright inner-tier finger protruding above/below a wide diagonal neighbor
+    # (rel_dx <= 0.08, rel_dy > 0.35, smaller.w < 0.50 * larger.w, smaller.h < 0.75 * larger.h).
+    rows = [
+        (100, 100, 256, 280, 0.92, 0),   # wide diagonal neighbor (w=156, h=180)
+        (151, 177, 209, 275, 0.79, 0),   # narrow inner-tier finger (w=58, h=98)
+    ]
+    result = predict(rows, names=LATUNDAN)
+    assert result.finger_count == 2 and len(result.detections) == 2
+
+
+def test_diagonal_finger_in_radial_fan_is_not_dropped_as_cluster_box():
+    # A 45-degree diagonal finger (478x485) whose empty bounding-box corners overlap one
+    # horizontal neighbor (415x165) and one vertical neighbor (312x558) is a real finger,
+    # not a whole-hand cluster box covering parallel fingers of the same orientation.
+    rows = [
+        (96, 65, 574, 550, 0.74, UNRIPE),    # diagonal finger (w=478, h=485)
+        (7, 305, 422, 470, 0.85, UNRIPE),    # horizontal neighbor (w=415, h=165)
+        (107, 31, 467, 355, 0.75, UNRIPE),   # upper diagonal neighbor (w=360, h=324)
+        (324, 2, 636, 560, 0.87, UNRIPE),    # vertical neighbor (w=312, h=558)
+        (737, 11, 1072, 505, 0.93, UNRIPE),  # right vertical finger (w=335, h=494)
+    ]
+    result = predict(rows)
+    assert result.finger_count == 5 and len(result.detections) == 5
+
+
+def test_connected_pair_of_stage_straddling_fingers_touching_hand_is_kept():
+    # Two adjacent fingers on the flank of an unripe hand whose peel colour straddles
+    # Unripe/Ripe (d1 touches near, d2 touches d1): two connected fingers are part of
+    # the hand, whereas a single weak box touching the hand is still dropped.
+    near_hand = [
+        (324, 2, 636, 560, 0.93, UNRIPE),
+        (7, 305, 422, 470, 0.85, UNRIPE),
+        (49, 405, 567, 604, 0.77, UNRIPE),
+    ]
+    connected_pair = [
+        (17, 552, 526, 701, 0.69, RIPE),   # touches (49, 405, 567, 604)
+        (0, 629, 593, 856, 0.66, RIPE),    # touches (17, 552, 526, 701)
+    ]
+    result = predict([*near_hand, *connected_pair])
+    assert result.finger_count == 5 and result.ripeness_outlier_boxes == 0
+
+
+def test_second_pass_recovers_fingers_when_cultivar_votes_split_across_uniform_ripeness():
+    # Foreshortened Rear view where Pass 1 agrees 100% on Unripe but splits cultivar votes
+    # across Cardaba, Lakatan, and Latundan (< 60% for any single cultivar).
+    names = {0: "cardaba_unripe", 1: "lakatan_unripe", 2: "latundan_unripe"}
+    pass1 = [
+        (59, 384, 427, 780, 0.65, 0),
+        (704, 80, 1244, 493, 0.55, 0),
+        (592, 486, 1028, 854, 0.69, 1),
+        (43, 0, 335, 454, 0.52, 1),
+        (501, 41, 924, 426, 0.59, 2),
+    ]
+    recovered = [
+        (170, 224, 470, 590, 0.56, 1),
+        (450, 247, 710, 611, 0.48, 1),
+    ]
+    classifier = BananaClassifier()
+    classifier._model = SequencePredictor([pass1, pass1 + recovered], names)
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+    result = classifier.predict(
+        np.zeros((900, 1280, 3), np.uint8),
+        confidence_threshold=0.50, camera_label="Rear",
+    )
+    assert result.finger_count == 7 and len(result.detections) == 7
+
+
+def test_rotated_top_pass_preserves_parallel_horizontal_finger_with_moderate_iou():
+    # Two adjacent horizontal fingers on the right flank of a 10-finger single-tier hand:
+    # IoU is ~0.43 (> TOP_ROTATION_DEDUP_IOU 0.40, < TOP_OVERLAP_IOU 0.65), but their
+    # vertical centres are separated by ~0.40 * min_h (> 0.30 * min_h).
+    img_h, img_w = 260, 420
+    pass1 = [
+        (30, 40, 100, 220, 0.92, 0),
+        (110, 30, 180, 220, 0.91, 0),
+        (190, 35, 260, 220, 0.90, 0),
+        (252, 103, 407, 225, 0.94, 0),  # 9th horizontal finger (w=155, h=122, cy=164)
+    ]
+    # 10th horizontal finger below it: canonical (264, 154, 397, 250) -> rotated 180 coords:
+    rx1, ry1 = img_w - 397, img_h - 250
+    rx2, ry2 = img_w - 264, img_h - 154
+    pass2_rot = [
+        (rx1, ry1, rx2, ry2, 0.78, 0),
+    ]
+    classifier = BananaClassifier()
+    classifier._model = SequencePredictor([pass1, pass2_rot, pass1], LATUNDAN)
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+    result = classifier.predict(
+        np.zeros((img_h, img_w, 3), np.uint8),
+        confidence_threshold=0.50, camera_label="Top",
+    )
+    assert result.finger_count == 5 and len(result.detections) == 5
+
+
+def test_second_pass_recovers_multi_stage_hand_fingers_matching_voted_labels():
+    # Hand ripening across Semi Ripe and Ripe where both stages appear in Pass 1:
+    # Pass 3 (augment=True) must recover occluded Semi Ripe fingers even when Ripe has
+    # slightly higher Pass 1 weight.
+    names = {0: "lakatan_ripe", 1: "lakatan_semi_ripe"}
+    pass1 = [
+        (40, 40, 140, 220, 0.85, 0),
+        (150, 40, 250, 220, 0.82, 0),
+        (260, 40, 360, 220, 0.78, 0),
+        (50, 140, 160, 240, 0.80, 1),
+        (170, 140, 280, 240, 0.76, 1),
+        (290, 140, 390, 240, 0.75, 1),
+    ]
+    recovered = [
+        (310, 138, 418, 223, 0.86, 1),
+        (388, 121, 467, 220, 0.88, 1),
+    ]
+    classifier = BananaClassifier()
+    classifier._model = SequencePredictor([pass1, pass1 + recovered], names)
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+    result = classifier.predict(
+        np.zeros((300, 500, 3), np.uint8),
+        confidence_threshold=0.50, camera_label="Left",
+    )
+    assert result.finger_count == 8 and len(result.detections) == 8
+
+
+def test_peripheral_filter_preserves_frame_edge_clipped_upper_finger():
+    # An upright upper-tier finger clipped by the right frame edge (x2 >= 0.96 * img_w)
+    # on a peripheral camera is kept, while an isolated interior door frame is filtered.
+    names = {0: "lakatan_ripe"}
+    rows = [
+        (120, 140, 260, 250, 0.90, 0),  # main tray finger
+        (200, 10, 240, 130, 0.75, 0),   # isolated interior door frame (h/w=3.0, dropped)
+        (454, 10, 498, 129, 0.80, 0),   # right-edge clipped upper finger (x2=498 >= 0.96*500, kept)
+    ]
+    classifier = BananaClassifier()
+    classifier._model = SequencePredictor([rows, rows], names)
+    classifier._checkpoint_sha256 = VERIFIED_CHECKPOINT
+    result = classifier.predict(
+        np.zeros((300, 500, 3), np.uint8),
+        confidence_threshold=0.50, camera_label="Left",
+    )
+    assert result.finger_count == 2
+    assert sorted( int(d.x) for d in result.detections ) == [120, 454]
