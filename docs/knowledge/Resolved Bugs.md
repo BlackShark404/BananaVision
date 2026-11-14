@@ -2,6 +2,20 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-11-14: Crown and dark curtain counted as fingers
+
+- **Symptoms:** on the newest code, the crown at the bottom of Top views was boxed as
+  "Lakatan Unripe" (68 %, 76 %) and counted; a dark curtain in a Left Cardaba view was boxed
+  "Cardaba Unripe 61 %".
+- **Root cause:** a model error (the crown and dark background look like fingers to the
+  12-class model). The boxes passed every rule: confident main-pass boxes, same label as the
+  hand, inside the COCO banana evidence and the hand.
+- **Fix:** `YOLO_COLOUR_CHECK` (see [[AI Models]]); the scan is flagged and the activity
+  entry says how many boxes were dropped. Real fix still pending: retrain with station
+  photos (draft set from a backup via `export_station_training_set.py`).
+- **Tests:** `backend/tests/test_colour_check.py` (measured station profiles, crown/curtain
+  dropped, real peel colours kept, Overripe exempt, all three passes, station scan flagged).
+
 ## 2026-11-13: Background objects counted as fingers, IoU calibration bypassed by the YOLO26 head
 
 - **Symptoms:** brown wood boxed "Cardaba Ripe 64 %" beside a pale-green hand boxed

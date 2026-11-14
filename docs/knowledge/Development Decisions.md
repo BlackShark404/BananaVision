@@ -2,6 +2,27 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-14: Colour check for crown and background boxes
+
+- **User request:** 16 station screenshots (newest code) still showed non-finger boxes: the
+  crown (cut stalk end) in Top views ("Lakatan Unripe 68 %", "76 %") and a dark curtain in a
+  Left view ("Cardaba Unripe 61 %"). These come from the main pass, carry the hand's own
+  label and sit inside the banana evidence, so no geometric or ripeness rule could tell them
+  apart. A crown box in Top raised a stored count by one (e.g. 14 instead of 13).
+- **User decision:** add a colour check now (drop and flag, switchable), retrain with
+  station photos later.
+- **Design:** judge a box on its own pixels before the OOD gate (gate contract unchanged):
+  share of dark or bluish/violet pixels in the box centre; drop at >= 0.55; Overripe exempt;
+  scan flagged with an activity note. Thresholds measured on the screenshots ([[AI Models]]);
+  the dark cut is value < 40, not 60, because shaded fingers under the hand reach ~45-55
+  (found by the independent review). A box the pass would drop anyway as a fragment or
+  repeat is skipped without counting, so it cannot flag a scan.
+- **Rejected:** a "peel fraction" minimum (pale overexposed Cardaba fingers scored as low as
+  the crowns); position rules for the crown (fitted to two examples, would drop real fingers).
+- **Next:** `backend/scripts/export_station_training_set.py` turns an admin backup into a
+  draft training set (station photos, stored boxes as draft labels) so the model can learn
+  crowns and backgrounds properly.
+
 ## 2026-11-13: Finger-count accuracy without new training data
 
 - **User request:** make the YOLO26 finger count more accurate, and stop non-banana

@@ -52,6 +52,17 @@ RIPENESS_STAGE = {"Unripe": 0, "Semi Ripe": 1, "Ripe": 2, "Overripe": 3}
 # Table/platter lip seen from a side camera: a low, wide, weak box (Resolved Bugs #9).
 PLATTER_LIP_TOP = 0.55
 PLATTER_LIP_MAX_CONFIDENCE = 0.60
+# Colour check (OpenCV HSV units: hue 0-179, saturation/value 0-255). Measured on the
+# 16 station screenshots of 2026-11-14 with the overlay tint removed: finger peel had hue
+# 28-80; the cut crown was bluish-grey (hue ~115, saturation ~55); the curtain behind the
+# Left camera was dark (value ~30). Shaded fingers under the hand reach value ~45-55, so
+# only value < 40 counts as dark background.
+COLOUR_DARK_MAX_VALUE = 40
+COLOUR_BLUE_MIN_HUE = 100
+COLOUR_BLUE_MAX_HUE = 165
+COLOUR_BLUE_MIN_SATURATION = 25
+COLOUR_CENTRE_SHRINK = 0.20
+COLOUR_SAMPLE_SIZE = 48
 
 
 def _detection_head(yolo) -> object | None:
@@ -145,6 +156,8 @@ class ClassificationResult:
     ripeness_outlier_boxes: int = 0
     # Whole-hand boxes replaced by the side-by-side fingers they had hidden.
     hand_box_splits: int = 0
+    # Boxes whose centre was mostly dark background or the bluish-grey cut crown.
+    colour_rejected_boxes: int = 0
 
 
 # ── Class label parsing ─────────────────────────────────────────────────────
@@ -389,6 +402,43 @@ def _is_platter_lip(x1: float, y1: float, x2: float, y2: float, conf: float,
         y1 > PLATTER_LIP_TOP * img_h and (x2 - x1) > 2.0 * (y2 - y1)
         and conf < PLATTER_LIP_MAX_CONFIDENCE
     )
+
+
+def _non_banana_fraction(image: np.ndarray, x1: float, y1: float, x2: float,
+                         y2: float) -> float:
+    """Share of the box centre that is clearly not banana peel: dark, or bluish/violet.
+
+    Only the central region is read (20 % trimmed from each side), so the background in
+    the corners of a diagonal finger's box does not count. Peel of every stage is
+    green-to-yellow and bright; the station's dark curtain and the bluish-grey cut end of
+    the crown are not.
+    """
+    import cv2
+
+    if image is None or image.ndim != 3 or image.shape[2] != 3:
+        return 0.0
+    img_h, img_w = image.shape[:2]
+    w, h = x2 - x1, y2 - y1
+    cx1 = min(max(0, int(x1 + COLOUR_CENTRE_SHRINK * w)), img_w)
+    cy1 = min(max(0, int(y1 + COLOUR_CENTRE_SHRINK * h)), img_h)
+    cx2 = min(max(0, int(round(x2 - COLOUR_CENTRE_SHRINK * w))), img_w)
+    cy2 = min(max(0, int(round(y2 - COLOUR_CENTRE_SHRINK * h))), img_h)
+    crop = image[cy1:cy2, cx1:cx2]
+    if crop.size == 0:
+        return 0.0
+    if crop.shape[0] > COLOUR_SAMPLE_SIZE or crop.shape[1] > COLOUR_SAMPLE_SIZE:
+        crop = cv2.resize(
+            crop, (min(COLOUR_SAMPLE_SIZE, crop.shape[1]), min(COLOUR_SAMPLE_SIZE, crop.shape[0])),
+            interpolation=cv2.INTER_AREA,
+        )
+    hsv = cv2.cvtColor(np.ascontiguousarray(crop, dtype=np.uint8), cv2.COLOR_BGR2HSV)
+    hue, saturation, value = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    dark = value < COLOUR_DARK_MAX_VALUE
+    bluish = (
+        (hue >= COLOUR_BLUE_MIN_HUE) & (hue <= COLOUR_BLUE_MAX_HUE)
+        & (saturation >= COLOUR_BLUE_MIN_SATURATION) & ~dark
+    )
+    return float((dark | bluish).mean())
 
 
 def _ripeness_stage(det: Detection) -> int | None:
@@ -640,6 +690,34 @@ class BananaClassifier:
             if getattr(settings, "yolo_side_view_lip_filter", True) else ("rear",)
         )
         hand_split = getattr(settings, "yolo_hand_box_split", True)
+        # A minimal settings object without the field keeps the earlier behaviour (off).
+        colour_check = getattr(settings, "yolo_colour_check", False) and image is not None
+        max_non_banana = getattr(settings, "yolo_colour_check_max_non_banana", 0.55)
+        # Distinct boxes dropped because their centre is not banana colour.
+        colour_rejected: list[Detection] = []
+
+        def off_colour(box: Detection, dropped_anyway=None) -> bool:
+            """A box over the crown or dark background: judged on its own pixels.
+
+            dropped_anyway(box, kept): the pass's own repeat rule. A box the pass would drop
+            anyway is skipped without counting, so it cannot flag a scan for nothing (as
+            with the OOD gate).
+            """
+            if not colour_check or _parse_class_label(box.cls)[1] == "Overripe":
+                return False  # overripe peel really is dark brown
+            fraction = _non_banana_fraction(image, box.x, box.y, box.x + box.w, box.y + box.h)
+            if fraction < max_non_banana:
+                return False
+            if not (
+                (dropped_anyway is not None
+                 and any(dropped_anyway(box, kept) for kept in detections))
+                or any(
+                    _is_same_class_sub_box(box, seen) or _is_duplicate_detection(box, seen)
+                    for seen in colour_rejected
+                )
+            ):
+                colour_rejected.append(box)
+            return True
         # Pass-1 boxes dropped as "fragments" of a kept box, by parent: those on banana
         # evidence (`swallowed`) and those the gate set aside without counting (`exempt`).
         swallowed: dict[int, list[Detection]] = {}
@@ -712,6 +790,9 @@ class BananaClassifier:
                         ):
                             continue
 
+                    if off_colour(det, _is_same_class_sub_box):
+                        continue
+
                     if rejected_by_gate(det, _is_same_class_sub_box):
                         if hand_split:
                             for parent in detections:
@@ -775,6 +856,8 @@ class BananaClassifier:
                             x=ox1, y=oy1, w=ox2 - ox1, h=oy2 - oy1,
                             cls=cls_name, confidence=conf,
                         )
+                        if off_colour(candidate):
+                            continue
                         if rejected_by_gate(candidate):
                             continue
                         if any(_is_same_class_sub_box(candidate, existing) for existing in rot_candidates):
@@ -1049,6 +1132,8 @@ class BananaClassifier:
                             x=x1, y=y1, w=det_w, h=det_h,
                             cls=cls_name, confidence=conf,
                         )
+                        if off_colour(cand, _is_recovery_duplicate):
+                            continue
                         if rejected_by_gate(cand, _is_recovery_duplicate):
                             continue
                         if any(_is_recovery_duplicate(cand, existing) for existing in detections):
@@ -1106,6 +1191,7 @@ class BananaClassifier:
             ood_rejected_boxes=len(off_banana),
             ripeness_outlier_boxes=len(_unique_box_detections(outliers)),
             hand_box_splits=hand_box_splits,
+            colour_rejected_boxes=len(colour_rejected),
         )
 
     def _best_vote(self, votes: dict[str, list[float]]) -> str | None:
