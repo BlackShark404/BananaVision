@@ -1,6 +1,8 @@
 """RFR artifact contracts using disposable joblib files and synthetic features."""
 
 import copy
+import importlib.util
+from pathlib import Path
 
 import joblib
 import numpy as np
@@ -44,6 +46,13 @@ class RecordingRegressor:
             raise ValueError("Unexpected feature count")
         self.seen.append(features.copy())
         return np.full(len(features), 9.0)
+
+
+class TreatmentColumnRegressor:
+    n_features_in_ = 6
+
+    def predict(self, features):
+        return 14.5 + features[:, 1]
 
 
 def load_artifact(monkeypatch, tmp_path, artifact):
@@ -177,8 +186,101 @@ def test_reload_missing_model_clears_previous_bundle_metadata(monkeypatch, tmp_p
     predictor.load()
 
     assert predictor._model is None
+    assert not predictor.is_loaded
     assert not predictor.uses_enhanced_features
     assert predictor.predict("Lakatan", "Ripe", 25, 65) == "2-4"
+
+
+def test_historical_default_loads_packaged_model_instead_of_short_fallback(
+    monkeypatch, tmp_path,
+):
+    app_dir = tmp_path / "app"
+    (app_dir / "services").mkdir(parents=True)
+    (app_dir / "ml").mkdir()
+    monkeypatch.setattr(spoilage, "__file__", str(app_dir / "services" / "spoilage.py"))
+    monkeypatch.setattr(spoilage.settings, "rfr_model_path", "app/ml/weights/spoilage_rfr.joblib")
+    monkeypatch.chdir(tmp_path)
+    joblib.dump({"model": RecordingRegressor(), "metadata": METADATA},
+                app_dir / "ml" / "spoilage_rfr.joblib")
+
+    predictor = spoilage.SpoilagePredictor()
+    predictor.load()
+    forbid_fallback(monkeypatch, predictor)
+
+    assert predictor.is_loaded and predictor.uses_enhanced_features
+    assert predictor.predict("Lakatan", "Unripe", 36.4, 52.6, treatment="Natural") == "9"
+    assert predictor._model.seen[-1][0, -1] == 0
+
+
+@pytest.mark.parametrize("relative", [True, False])
+def test_existing_station_artifact_takes_priority_over_packaged_bundle(
+    monkeypatch, tmp_path, relative,
+):
+    app_dir = tmp_path / "app"
+    (app_dir / "services").mkdir(parents=True)
+    (app_dir / "ml" / "weights").mkdir(parents=True)
+    monkeypatch.setattr(spoilage, "__file__", str(app_dir / "services" / "spoilage.py"))
+    monkeypatch.chdir(tmp_path)
+    station_path = app_dir / "ml" / "weights" / "spoilage_rfr.joblib"
+    joblib.dump(RecordingRegressor(4), station_path)
+    joblib.dump(RecordingRegressor(6), app_dir / "ml" / "spoilage_rfr.joblib")
+    monkeypatch.setattr(spoilage.settings, "rfr_model_path",
+                        "app/ml/weights/spoilage_rfr.joblib" if relative else str(station_path))
+
+    predictor = spoilage.SpoilagePredictor()
+    predictor.load()
+
+    assert predictor.is_loaded
+    assert not predictor.uses_enhanced_features
+
+
+def test_missing_custom_artifact_does_not_silently_load_packaged_model(monkeypatch, tmp_path):
+    app_dir = tmp_path / "app"
+    (app_dir / "services").mkdir(parents=True)
+    (app_dir / "ml").mkdir()
+    monkeypatch.setattr(spoilage, "__file__", str(app_dir / "services" / "spoilage.py"))
+    joblib.dump(RecordingRegressor(), app_dir / "ml" / "spoilage_rfr.joblib")
+    monkeypatch.setattr(spoilage.settings, "rfr_model_path", str(tmp_path / "custom.joblib"))
+
+    predictor = spoilage.SpoilagePredictor()
+    predictor.load()
+
+    assert not predictor.is_loaded
+    assert predictor._model is None
+
+
+def test_invalid_artifact_does_not_report_rfr_loaded(monkeypatch, tmp_path):
+    predictor = load_artifact(monkeypatch, tmp_path, {"model": {}})
+    assert not predictor.is_loaded
+    assert predictor.predict("Lakatan", "Ripe", 25, 65) == "2-4"
+
+
+def test_matrix_audit_uses_runtime_metadata_and_model_mean(monkeypatch, tmp_path, capsys):
+    script = Path(__file__).resolve().parents[2] / "test_rfr_matrix.py"
+    spec = importlib.util.spec_from_file_location("rfr_matrix_audit", script)
+    audit = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(audit)
+    metadata = copy.deepcopy(METADATA)
+    metadata["feature_columns"] = [
+        "temperature", "treatment_encoded", "humidity", "cultivar_encoded",
+        "vpd", "ripeness_encoded",
+    ]
+    metadata["treatment_map"] = {1: "Natural", 0: "Ethephon"}
+    path = tmp_path / "audit.joblib"
+    joblib.dump({"model": TreatmentColumnRegressor(), "metadata": metadata}, path)
+    monkeypatch.setattr(audit, "MODEL_PATH", path)
+    monkeypatch.chdir(tmp_path)
+
+    audit.run_matrix_test()
+
+    output = capsys.readouterr().out
+    natural = [line for line in output.splitlines() if "Natural" in line]
+    ethephon = [line for line in output.splitlines() if "Ethephon" in line]
+    assert len(natural) == len(ethephon) == 60
+    assert all(line.endswith("15.5 days") for line in natural)
+    assert all(line.endswith("14.5 days") for line in ethephon)
+    assert "Matrix ref" in output and "Station" in output
+    assert "results are model means" in output
 
 
 @pytest.mark.parametrize("point", [0, 1, 1.9999, 2, 2.00001, 5.123456789012345, 0.0000001])

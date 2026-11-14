@@ -17,6 +17,27 @@ Documented log of confirmed bug root causes, verified solutions, and test covera
   rule. A station that already committed a backup must remove it from history; ignoring
   only stops new commits.
 
+## 2026-11-14: False cultivar uncertainty, mixed-stage undercounts, and RFR fallback
+
+- **Cultivar uncertainty:** the rotated Top pass treated a different ripeness label on
+  the same finger as cultivar disagreement. This disabled the existing overhead cultivar
+  anchor and the low-threshold recovery pass. Cultivar conflict is now tracked separately;
+  stage and duplicate ambiguity still flags review through fusion.
+- **14 boxes counted as 11:** three neighboring Ripe/Semi Ripe pairs used stricter
+  cross-class suppression than same-stage pairs. Matching geometry now counts those
+  fingers consistently. New `counts_as_finger` JSON markers preserve counting decisions
+  when scan persistence harmonizes cultivar labels; the overlay uses those markers.
+- **Short shelf life:** the default RFR path named a nonexistent `weights/` file although
+  the model bundle ships under `app/ml/`. The loader now finds that packaged model while
+  preserving explicit station artifacts. Fallback no longer claims the model loaded.
+  Backup model identity uses the resolved path too.
+- **Coverage:** rotation consensus/recovery, mixed-ripeness duplicate geometry, unchanged
+  crown rejection, persisted/API/WebSocket box markers, resolved Kiosk display, model path
+  precedence, model health, matrix feature parity, and backup model hashing. See
+  [[Testing and Validation]] and [[AI Models]] for conditions and limits.
+- **Limits:** these code defects are reproduced with isolated fixtures. Physical counting
+  accuracy and the station's actual RFR configuration still need station validation.
+
 ## 2026-11-14: Crown and dark curtain counted as fingers
 
 - **Symptoms:** on the newest code, the crown at the bottom of Top views was boxed as

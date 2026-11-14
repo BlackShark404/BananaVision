@@ -164,6 +164,47 @@ def test_four_camera_count_estimate_is_persisted_and_broadcast_without_additions
         }
 
 
+def test_counted_box_identity_survives_cultivar_harmonization(scan_station, monkeypatch):
+    from app.services.classification import ClassificationResult, Detection, _unique_box_detections
+    from app.services.fusion_engine import FusionEngine
+
+    app, _submit = scan_station
+    app.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id=app.ids.operator, full_name="Fixture Operator", role=SimpleNamespace(name="Operator"),
+        operator_profile=SimpleNamespace(id=app.ids.profile),
+    )
+    boxes = [Detection(i * 150, 0, 100, 140, "latundan_ripe", 0.95) for i in range(5)]
+    # A competing class hypothesis on the first finger is retained as review evidence.
+    boxes.append(Detection(15, 0, 100, 140, "lakatan_ripe", 0.85))
+    result = ClassificationResult(
+        cultivar="Latundan", ripeness="Ripe", confidence=95,
+        finger_count=len(_unique_box_detections(boxes)), detections=boxes,
+    )
+    monkeypatch.setattr(scan_service, "banana_classifier", SimpleNamespace(
+        predict=lambda _, **kwargs: result,
+    ))
+    monkeypatch.setattr(scan_service, "fusion_engine", FusionEngine())
+    completed = []
+
+    async def capture_event(_room, event, data, **_kwargs):
+        if event == "scan:completed":
+            completed.append(data)
+
+    monkeypatch.setattr(scan_service.ws_manager, "send_to_room", capture_event)
+    response = app.client.post("/api/v1/scans/trigger", json={"intake_id": str(app.ids.intake)})
+    assert response.status_code == 200, response.text
+    detail = app.client.get(f"/api/v1/scans/{response.json()['id']}")
+    assert detail.status_code == 200, detail.text
+    assert response.json()["finger_count"] == 5
+    assert completed
+    for payload in [detail.json(), *completed]:
+        assert payload["finger_count"] == 5
+        for view in payload["detections"]:
+            assert len(view["bounding_boxes"]) == 6
+            assert {box["cls"] for box in view["bounding_boxes"]} == {"latundan_ripe"}
+            assert sum(box["counts_as_finger"] for box in view["bounding_boxes"]) == 5
+
+
 def test_missing_requested_intake_does_not_create_unlinked_scan_or_label(scan_station):
     app, submit = scan_station
     app.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(

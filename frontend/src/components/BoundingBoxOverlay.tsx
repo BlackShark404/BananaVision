@@ -8,6 +8,7 @@
 
 import { useState, useRef, useCallback } from "react"
 import { ScanImage } from "@/components/ScanImage"
+import { deduplicateDisplayBoxes } from "@/lib/detectionBoxes"
 import type { BoundingBox } from "@/types"
 
 // ── Class label color mapping ───────────────────────────────────────────────
@@ -67,44 +68,6 @@ interface BoundingBoxOverlayProps {
 
 export default function BoundingBoxOverlay(props: BoundingBoxOverlayProps) {
   return <BoundingBoxImage key={props.src} {...props} />
-}
-
-function deduplicateDisplayBoxes(boxes: BoundingBox[]): BoundingBox[] {
-  if (boxes.length <= 1) return boxes
-  const sorted = [...boxes].sort((a, b) => b.conf - a.conf)
-  const result: BoundingBox[] = []
-
-  for (const box of sorted) {
-    const isDuplicate = result.some((existing) => {
-      const ax2 = box.x + box.w
-      const ay2 = box.y + box.h
-      const bx2 = existing.x + existing.w
-      const by2 = existing.y + existing.h
-
-      const interW = Math.max(0, Math.min(ax2, bx2) - Math.max(box.x, existing.x))
-      const interH = Math.max(0, Math.min(ay2, by2) - Math.max(box.y, existing.y))
-      const interArea = interW * interH
-      if (interArea <= 0) return false
-
-      const boxArea = box.w * box.h
-      const existArea = existing.w * existing.h
-      const union = boxArea + existArea - interArea
-      const iou = union > 0 ? interArea / union : 0
-      const containment = Math.min(boxArea, existArea) > 0
-        ? interArea / Math.min(boxArea, existArea)
-        : 0
-
-      // Only suppress genuine ghost/coincident duplicate boxes on the same finger,
-      // preserving distinct adjacent or overlapping fingers in a dense banana bunch.
-      return iou >= 0.80 || containment >= 0.88
-    })
-
-    if (!isDuplicate) {
-      result.push(box)
-    }
-  }
-
-  return result
 }
 
 function BoundingBoxImage({

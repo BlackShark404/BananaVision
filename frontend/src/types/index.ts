@@ -75,6 +75,7 @@ export interface BoundingBox {
   h: number
   cls: string
   conf: number
+  counts_as_finger?: boolean | null
 }
 
 export interface ScanDetection {

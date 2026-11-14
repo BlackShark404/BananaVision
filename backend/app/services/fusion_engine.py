@@ -143,6 +143,8 @@ class FusionEngine:
                 else result.conflict_detected
             )
             per_view_conflict = per_view_conflict or view_has_cultivar_conflict
+            # Keep stage/duplicate review signals without making the cultivar uncertain.
+            per_view_conflict = per_view_conflict or result.conflict_detected
 
         # Check for authoritative Top view anchor:
         # Top camera is mounted overhead looking directly down at the flat inspection

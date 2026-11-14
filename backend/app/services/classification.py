@@ -261,9 +261,13 @@ def _unique_box_detections(detections: list[Detection]) -> list[Detection]:
     """
     unique: list[Detection] = []
     for detection in detections:
+        cultivar, _ = _parse_class_label(detection.cls)
         if not any(
-            _is_same_class_sub_box(detection, existing)
-            if detection.cls == existing.cls
+            _is_nested_or_duplicate_box(detection, existing)
+            if (
+                detection.cls == existing.cls
+                or (cultivar is not None and cultivar == _parse_class_label(existing.cls)[0])
+            )
             else (
                 (detection.x == existing.x and detection.y == existing.y
                  and detection.w == existing.w and detection.h == existing.h)
@@ -287,6 +291,11 @@ def _is_same_class_sub_box(det: Detection, existing: Detection) -> bool:
     """
     if det.cls != existing.cls:
         return False
+    return _is_nested_or_duplicate_box(det, existing)
+
+
+def _is_nested_or_duplicate_box(det: Detection, existing: Detection) -> bool:
+    """Judge finger geometry consistently across one cultivar's ripeness stages."""
     if _box_iou(det, existing) >= 0.80:
         return True
     det_area = det.w * det.h
@@ -677,6 +686,7 @@ class BananaClassifier:
         cultivar_votes: dict[str, list[float]] = {}
         class_votes: dict[tuple[str | None, str | None], list[float]] = {}
         duplicate_label_conflict = False
+        duplicate_cultivar_conflict = False
         # OOD gate: a cultivar box that no banana evidence covers is treated as if the
         # model had never emitted it. In every pass it is skipped right after the
         # filters that judge a box on its own (position, size, label) and before any
@@ -934,6 +944,10 @@ class BananaClassifier:
                                     candidate_label != _parse_class_label(existing.cls)
                                     for existing in duplicates
                                 )
+                                duplicate_cultivar_conflict = duplicate_cultivar_conflict or any(
+                                    candidate_label[0] != _parse_class_label(existing.cls)[0]
+                                    for existing in duplicates
+                                )
                                 continue
                             detections.append(candidate)
                             rotated_added.add(id(candidate))
@@ -1033,7 +1047,7 @@ class BananaClassifier:
             and self._image_size == expected_imgsz
             and confidence_threshold == TOP_OVERLAP_CONFIDENCE
             and len(detections) >= OCCLUDED_FINGER_MIN_PRIMARY
-            and not duplicate_label_conflict
+            and not duplicate_cultivar_conflict
             and image is not None
         ):
             primary_cultivar = self._best_vote(cultivar_votes)
@@ -1176,7 +1190,7 @@ class BananaClassifier:
                 total_cultivar_weight > 0
                 and winning_cultivar_weight < total_cultivar_weight * VOTE_CONFLICT_THRESHOLD
             )
-            or duplicate_label_conflict
+            or duplicate_cultivar_conflict
         )
 
         return ClassificationResult(

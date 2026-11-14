@@ -1,62 +1,70 @@
-CURRENT RESUME HERE (2026-11-14) - WAITING FOR STATION DATA; BACKUPS NOW GIT-IGNORED
+CURRENT RESUME HERE (2026-11-14) - TEAM FIXES MERGED; WAITING FOR STATION DATA
 
-The previous checkpoint (colour check for the crown and dark background, merged to team main
-as aa53e7a via PR #11) is archived byte-for-byte in
-docs/history/2026-11-14-before-teammate-guide.txt.
+Archived byte-for-byte before this merge:
+- docs/history/2026-11-14-team-checkpoint-before-merge.txt: Kent's checkpoint, the scan
+  consensus, finger-count and RFR fixes in 6bd4eac.
+- docs/history/2026-11-14-before-teammate-guide.txt: the colour-check checkpoint.
+- docs/history/2026-11-14-before-consensus-count-rfr-fix.txt: the earlier checkpoint
+  Kent archived.
 
 STATE OF MAIN
-- Team main and the fork's main were identical at aa53e7a (PR #11, squash) on top of b065891
-  (Kent's merge of 694f52d "Add public tracking URLs to label QR codes").
-- Checked on that merged code: backend full suite without PostgreSQL 1070 passed / 104
-  skipped; targeted printing, colour check, export, fetch and Manila guard tests 147 passed;
-  frontend typecheck passes; frontend printing tests 3/3 (PLAYWRIGHT_MODULE set to the global
-  playwright/index.mjs).
+- Fork main = aa53e7a (PR #11, colour check) + 2df42eb (.gitignore for station backups,
+  team PR #12) + a merge of team main 6bd4eac (Kent, "Fix scan consensus and RFR model
+  loading"), brought in through temp PR #3 in the fork. The merge conflicted only in
+  TASK_PROGRESS.txt and docs/knowledge/Resolved Bugs.md; both sides were kept.
 
-DONE (2026-11-14)
-- Teammate guide (PDF, English, sent to the user, not committed): update the Mini PC, a
-  hand-count session (hand_counts.csv), training backup after the update, export with
-  scripts/export_station_training_set.py --include-flagged, collect the station .pt and the
-  Roboflow zip, optional SHA256SUMS, and a private release station-data-YYYY-MM-DD on
-  RoronoaZoro1206/BananaVision. Optional later part: review the station photos in Roboflow.
-  It was reviewed against the code by 5 reviewers with skeptics; 44 confirmed fixes. Key
-  station facts:
-  - the backup downloads as station.zip;
-  - the kiosk shares one sign-in with every Chrome window, so Admin, GitHub and Roboflow
-    work goes in an Edge InPrivate window;
-  - PowerShell needs npm.cmd;
-  - Windows hides the .zip extension, so files are renamed with Rename-Item;
-  - free disk space should be about 7x the captures folder plus 5 GB.
-- .gitignore: .bananavision-maintenance/ (station backups with credential hashes were
-  untracked inside backend/ and could be committed). Resolved Bugs note added.
-- Fork collaborators already include Azanykho03, Bagohay and BlackShark404, so they can
-  create the release.
+TEAM FIXES IN 6bd4eac (Kent; details in his archived checkpoint)
+- classification.py: cultivar conflict is tracked apart from ripeness disagreement, so the
+  Top anchor and recovery pass stay on. Same-cultivar mixed-stage boxes use the same
+  duplicate geometry as same-stage boxes (a synthetic 14-finger hand had counted as 11).
+  fusion_engine.py keeps the review flag without marking the cultivar uncertain.
+- scan_service.py stores counts_as_finger markers in the box JSON. The API BoundingBox,
+  frontend types and the overlay (frontend/src/lib/detectionBoxes.ts) use them, and fall
+  back to geometry for old records. No migration.
+- spoilage.py resolves the packaged RFR model (app/ml/spoilage_rfr.joblib) when the
+  historical default path is missing. A missing model now reports is_loaded=False. Backup
+  prerequisites hash the resolved path.
+- Kent's Windows run: backend 1159 passed, 6 skipped, 12 failed and 11 errors. He reported
+  the failures in the export, training-asset and OOD preparation tool tests (the same on
+  unchanged HEAD). Which tests failed is not recorded.
 
-TEAM FOLLOW-UPS (reported, not changed)
-- backend/app/services/prediction_label.py reads a hard-coded laptop file
+DONE BY THIS SESSION (2026-11-14)
+- Teammate guide (PDF, English, sent to the user, not committed). It covers: updating the
+  Mini PC, a hand-count session (hand_counts.csv), the training backup after the update,
+  export_station_training_set.py --include-flagged, the station .pt and Roboflow zip, an
+  optional SHA256SUMS, and a private release station-data-YYYY-MM-DD on
+  RoronoaZoro1206/BananaVision. Fork collaborators Azanykho03, Bagohay and BlackShark404 can
+  create it.
+- .gitignore: .bananavision-maintenance/ (station backups hold credential hashes).
+
+VERIFICATION OF THIS MERGE (Linux cloud session, merged tree)
+- Backend full suite without PostgreSQL: 1087 passed, 104 skipped.
+- Frontend typecheck passes.
+- Frontend tests (detectionBoxes, estimates, shelfLifeWindow, kiosk, printing, manilaTime):
+  77/77 passed.
+- git diff --check is clean. git check-ignore still ignores
+  backend/.bananavision-maintenance/. The local Graphify graph is refreshed (not tracked).
+
+FOLLOW-UPS (reported, not changed)
+- Find out which export/fetch/OOD-prep tests fail on Windows (Kent's run). The teammate
+  guide runs export_station_training_set.py on the Windows Mini PC: if the script itself
+  fails there, the guide's Troubleshooting asks for a photo of the error.
+- prediction_label.py reads a hard-coded laptop file
   C:\Users\Kent\AppData\Local\BananaVision\laptop-host\public-url.txt.
-- PUBLIC_BASE_URL (backend, printed label QR links) is missing from backend/.env.example and
-  deploy/backend.env.production.example.
-- Re-capture the Figure 92 screenshot in the capstone storyboard.
-- From Khen (public HTTPS, not deployed): follow docs/windows-mini-pc-deployment.md when
-  deployment is authorized.
-- From the audit (team decisions):
-  - Non-Banana Detection Audit.md status line;
-  - .codex/config.toml default model and laptop paths;
-  - uncertain-cultivar estimate shown outside Kiosk;
-  - ModelInferenceError detail;
-  - missing [[System Architecture]] and [[Backend]] notes;
-  - second kiosk shows a rejection;
-  - public QR countdown for every status.
+- PUBLIC_BASE_URL is missing from backend/.env.example.
+- Re-capture the storyboard Figure 92 screenshot. Deployment follows
+  docs/windows-mini-pc-deployment.md when authorized. Audit items are listed in the
+  archived checkpoints.
+- Station checks from Kent: retest hand counts and Natural/Ethephon shelf life on the
+  Mini PC, and confirm the real RFR model is loaded.
 
 EXACT NEXT STEP
-- Wait for the user to send the release tag (station-data-YYYY-MM-DD). Then:
-  1. scripts/fetch_training_assets.py github --repo RoronoaZoro1206/BananaVision --tag <tag>
-     --dest <new dir> (private repo: token in GITHUB_TOKEN).
+- User merges team PR #12, closes temp PR #3 if it is still open, and presses Sync fork.
+  Then realign this session to the fork's main.
+- When the release tag arrives:
+  1. fetch_training_assets.py github --repo RoronoaZoro1206/BananaVision --tag <tag>.
   2. check_inference_head.py static on the .pt.
-  3. Match hand_counts.csv to the export's counts.csv (scan_id, or scan_time and cultivar).
-     Build physical/<scan_id>/<view> folders from train/images, then run
-     evaluate_finger_count.py physical with configs including colour_check=off.
-  4. prepare_yolo_dataset.py on the Roboflow zip (--exclude-captures for the hand-counted
-     scans once station photos are in it), then evaluate_finger_count.py visible on VALID.
-  5. Retrain on CPU with train_finger_model.py. Compare with the current model, commit, and
-     give the PR link.
+  3. Match hand_counts.csv to counts.csv, then evaluate_finger_count.py physical, with
+     configs including colour_check=off.
+  4. prepare_yolo_dataset.py on the Roboflow zip, then evaluate visible on VALID.
+  5. Retrain on CPU, compare with the current model, and give the PR link.

@@ -613,7 +613,8 @@ def test_rotated_pass_disagreement_on_a_foreign_object_is_not_a_banana_conflict(
         return classifier.predict(frame, confidence_threshold=0.50, camera_label="Top", **gate)
 
     legacy = run()
-    assert legacy.finger_count == 2 and legacy.cultivar_conflict is True
+    assert legacy.finger_count == 2 and legacy.conflict_detected is True
+    assert legacy.cultivar_conflict is False  # only ripeness differs between rotations
     gated = run(banana_evidence=evidence)
     assert (gated.cultivar, gated.ripeness, gated.finger_count) == ("Lakatan", "Ripe", 1)
     assert gated.cultivar_conflict is False and gated.conflict_detected is False

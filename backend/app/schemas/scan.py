@@ -77,6 +77,7 @@ class BoundingBox(BaseModel):
     h: float
     cls: str
     conf: float
+    counts_as_finger: bool | None = None
 
 
 class ScanDetectionResponse(BaseModel):

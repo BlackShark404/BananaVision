@@ -282,6 +282,32 @@ test('a live scan requiring review makes the flag visible to the operator', asyn
   assert.equal(writesTo(state, '/trigger').length, 1)
 })
 
+test('a resolved cultivar remains visible when ripeness or count differences require review', async t => {
+  // Fusion harmonizes cultivar labels after the overhead anchor resolves the vote.
+  // A ripeness/count review flag must not turn that cultivar back into uncertainty.
+  const detections = ['Top', 'Left', 'Right', 'Rear'].map((camera_label, index) => ({
+    camera_id: `CAM-00${index + 1}`, camera_label, detected_cultivar: 'Latundan',
+    detected_ripeness: index % 2 === 0 ? 'Ripe' : 'Semi Ripe',
+    confidence: 88, finger_count: [14, 9, 11, 10][index],
+    bounding_boxes: [], inference_time_ms: 1,
+  }))
+  const { page } = await setup(t, { flagged: true, scanOverrides: {
+    cultivar: 'Latundan', confidence: 88, finger_count: 14, detections,
+  } })
+  await page.getByRole('button', { name: 'Select Source', exact: false }).click()
+  await page.getByText('Fixture Supplier', { exact: true }).click()
+  await page.getByRole('button', { name: /Start.*Intake/i }).click()
+  await page.getByRole('button', { name: 'Scan Now', exact: true }).click()
+  await page.getByText('Scan Complete - Review Needed', { exact: true }).waitFor()
+  assert.match(await page.getByText('Cultivar', { exact: true }).locator('..').textContent(), /Latundan/)
+  assert.match(await page.getByText('Confidence', { exact: true }).locator('..').textContent(), /88%/)
+  assert.match(await page.getByText('Est. Spoilage', { exact: true }).locator('..').textContent(), /3\u20135.*days/)
+  assert.equal(await page.getByText('Est. Fingers', { exact: true }).locator('..').locator('p').last().innerText(), '14')
+  assert.equal(await page.getByText('Cultivar uncertain', { exact: true }).count(), 0)
+  assert.equal(await page.getByText(/Cameras disagree/).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Accept', exact: true }).isEnabled(), true)
+})
+
 const opposingViews = ['Top', 'Left', 'Right', 'Rear'].map((camera_label, index) => ({
   camera_id: `CAM-00${index + 1}`, camera_label,
   detected_cultivar: index % 2 === 0 ? 'Lakatan' : 'Latundan',
