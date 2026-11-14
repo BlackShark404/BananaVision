@@ -11,7 +11,8 @@ import pytest
 from app.config import Settings
 from app.services import classification
 from app.services.classification import ClassificationResult
-from app.services.ood_gate import EvidenceBox
+from app.services.fusion_engine import FusionEngine
+from app.services.ood_gate import EvidenceBox, GatePolicy
 from scripts import evaluate_finger_count as evaluation
 from scripts.evaluate_finger_count import ConfigError, EvaluationError
 
@@ -30,7 +31,7 @@ def base_settings(**values):
     )
 
 
-# ── Fakes: a photo file holds "<model count>[ nobanana][ outlier]" ──────────
+# ── Fakes: a photo file holds "<model count>[ nobanana][ outlier][ crown]" ──
 
 
 def fake_reader(path: Path):
@@ -39,6 +40,7 @@ def fake_reader(path: Path):
     image[0, 0, 0] = int(words[0])
     image[0, 0, 1] = 0 if "nobanana" in words else 1
     image[0, 0, 2] = 1 if "outlier" in words else 0
+    image[1, 0, 0] = 1 if "crown" in words else 0
     return image
 
 
@@ -72,6 +74,7 @@ class FakeClassifier:
             cultivar="Lakatan", ripeness="Ripe", confidence=90.0, finger_count=count,
             hand_box_splits=int(count >= 10 and self.settings.yolo_hand_box_split),
             ripeness_outlier_boxes=2 if image[0, 0, 2] else 0,
+            colour_rejected_boxes=int(bool(image[1, 0, 0]) and self.settings.yolo_colour_check),
         )
 
 
@@ -300,12 +303,13 @@ def test_rule_summary_counts_totals_and_images():
         ClassificationResult(hand_box_splits=2),
         ClassificationResult(ripeness_outlier_boxes=1, ood_rejected_boxes=3),
         None,
-        ClassificationResult(hand_box_splits=1),
+        ClassificationResult(hand_box_splits=1, colour_rejected_boxes=1),
     ]
     assert evaluation.rule_summary(results) == {
         "ood_rejected_boxes": {"total": 3, "images": 1},
         "ripeness_outlier_boxes": {"total": 1, "images": 1},
         "hand_box_splits": {"total": 3, "images": 2},
+        "colour_rejected_boxes": {"total": 1, "images": 1},
     }
 
 
@@ -825,3 +829,25 @@ def test_main_refuses_missing_weights(split, tmp_path, capsys):
             "--output", str(tmp_path / "r.json"),
         ], reader=fake_reader, classifier_factory=fake_factory([]))
     assert "Cultivar weights not found" in capsys.readouterr().err
+
+
+def test_colour_check_config_and_physical_review_flag(tmp_path):
+    [config] = evaluation.parse_configs(["colour_check=off"])
+    assert config.overrides == {"yolo_colour_check": False}
+    views = []
+    for view, text in (("Top", "3 crown"), ("Left", "3"), ("Right", "3"), ("Rear", "3")):
+        path = tmp_path / f"{view}.jpg"
+        path.write_text(text, encoding="utf-8")
+        views.append((view, path))
+    scan = evaluation.Scan(scan_id="s1", physical=3, views=views)
+
+    def flagged(settings):
+        outcome, _ = evaluation.score_physical_scan(
+            scan, FakeClassifier(settings), fake_reader, FusionEngine(), gate=None,
+            policy=GatePolicy(), confidence=0.5, review_confidence=0.85, expected_cameras=4,
+        )
+        return outcome["review_flagged"]
+
+    # Same counts in every view: only the colour drop flags the scan for review.
+    assert flagged(base_settings()) is True
+    assert flagged(base_settings(yolo_colour_check=False)) is False

@@ -242,6 +242,7 @@ async def _execute_scan_pipeline(
 
         ood_rejected_boxes = 0
         ripeness_outlier_boxes = 0
+        colour_rejected_boxes = 0
         for cap, view in zip(captures, view_evidence, strict=True):
             # The cultivar model still sees every view. With evidence, only boxes
             # that banana evidence covers survive and the dropped count is kept;
@@ -257,6 +258,7 @@ async def _execute_scan_pipeline(
             )
             ood_rejected_boxes += getattr(result, "ood_rejected_boxes", 0)
             ripeness_outlier_boxes += getattr(result, "ripeness_outlier_boxes", 0)
+            colour_rejected_boxes += getattr(result, "colour_rejected_boxes", 0)
             classification_results.append((cap.camera_id, cap.camera_label, result))
 
             # Store per-camera detection record
@@ -318,21 +320,29 @@ async def _execute_scan_pipeline(
                 ood_gate.REASON_NO_TARGET_CULTIVAR, ood_gate.REJECTION_MESSAGE,
                 audit=(
                     f"no supported cultivar; {ood_rejected_boxes} cultivar boxes had no "
-                    f"banana evidence; banana scores: {view_scores}"
+                    f"banana evidence; {colour_rejected_boxes} boxes over non-banana "
+                    f"colours dropped; banana scores: {view_scores}"
                 ),
             )
         # The gate never changes an accepted scan silently: dropped boxes can be a
         # foreign object or a missed finger, so a person confirms the result.
         # A box whose ripeness disagrees with the rest of the hand is usually another
         # object (wood read as a ripe finger), but a person confirms that too.
+        # Boxes over the crown or dark background are dropped by colour; flagged as well.
         auto_flagged = (
             bool(fused.auto_flagged) or ood_rejected_boxes > 0 or ripeness_outlier_boxes > 0
+            or colour_rejected_boxes > 0
         )
         if ood_rejected_boxes:
             logger.info(
                 "OOD gate dropped %s cultivar boxes without banana evidence in scan %s; "
                 "flagged for review (banana scores: %s)",
                 ood_rejected_boxes, scan_id_str, view_scores,
+            )
+        if colour_rejected_boxes:
+            logger.info(
+                "Dropped %s boxes over non-banana colours (crown or dark background) in "
+                "scan %s; flagged for review", colour_rejected_boxes, scan_id_str,
             )
         if ripeness_outlier_boxes:
             logger.info(
@@ -455,6 +465,11 @@ async def _execute_scan_pipeline(
                     f"; {ripeness_outlier_boxes} boxes with inconsistent ripeness dropped, "
                     "flagged for review"
                     if ripeness_outlier_boxes else ""
+                )
+                + (
+                    f"; {colour_rejected_boxes} boxes over non-banana colours (crown or dark "
+                    "background) dropped, flagged for review"
+                    if colour_rejected_boxes else ""
                 )
             ),
             ip_address=client_ip,

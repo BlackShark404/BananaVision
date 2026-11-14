@@ -53,6 +53,7 @@ audit files); the head of the V2 checkpoints is not recorded.
 | `YOLO_RECOVERY_WITHIN_HAND` | The low-threshold second pass (conf 0.25) added a window frame above the hand (29 %) | Second-pass boxes must lie within the hand along the fingers' length, and at most one finger-width beside it |
 | `YOLO_SIDE_VIEW_LIP_FILTER` | The second pass added the wooden plate under the hand (26 %) on the Left camera | The low, wide, weak platter-lip filter runs on Left, Right and Rear (was Rear only), in both passes |
 | `YOLO_RECOVERY_ADJACENT_RIPENESS` (off) | Mixed-ripeness hands get no second-pass fingers of the neighbouring stage | Measurement only: admit second-pass fingers one stage away |
+| `YOLO_COLOUR_CHECK` (2026-11-14), `YOLO_COLOUR_CHECK_MAX_NON_BANANA=0.55` | The model boxed the crown (cut stalk end) in Top views and a dark curtain in a Left view, labelled like the hand and inside the banana evidence | A box whose centre (20 % trimmed per side) is at least 55 % dark (value < 40) or bluish/violet (hue 100-165, saturation >= 25) is dropped in every pass and the scan flagged. Overripe boxes are exempt (their peel is dark) |
 
 Fingers restored from a hand box are checked against the rotated Top pass's own repeat
 rule, so a finger that pass already found is not counted twice. Off-evidence fragments of
@@ -63,6 +64,18 @@ whose centre lies beyond the confident fingers along their length, so a hidden f
 found only by that pass and hanging lower than every confident finger is missed; the
 platter-lip filter can drop a real lying finger scored 0.50–0.60 low in a Left or Right
 view (the stored count is the largest view, so another view usually still counts it).
+
+The colour-check numbers come from 16 station screenshots of 2026-11-14 (scanned with
+e734431), with every overlay fill removed: the two crowns scored 0.72 and 0.86 and the curtain
+0.80 non-banana colour; 103 cleanly traced finger boxes scored at most 0.32 (95 % at or below
+0.20), pale overexposed Cardaba, fingers in dark corners and shaded fingers under the hand
+included. An independent review found that a first measurement left neighbouring boxes'
+fills on, which hid shadows; with the earlier dark cut (value < 60) a shaded second-pass
+finger scored 0.78, so the cut is value < 40 (that finger now scores 0.19). The measured profiles are in
+`backend/tests/data/station_colour_profiles_2026-11-14.json` (numbers only, no photos).
+Limits: rendered screenshots from one station's cameras, not raw frames; a crown that looks
+brown rather than bluish-grey, or another dark background colour, is not covered; tests use
+`tests/conftest.py` to keep the check off on blank placeholder frames.
 
 Dropped ripeness outliers are counted in `ClassificationResult.ripeness_outlier_boxes`,
 logged, appended to the scan's activity entry ("N boxes with inconsistent ripeness
@@ -89,6 +102,15 @@ every option.
    The script prints the next commands. Roboflow downloads are not built in, because
    Roboflow takes the key in the URL.
 2. **Prepare** the export with `scripts/prepare_yolo_dataset.py` (grouped 70/15/15 split).
+   **Station photos (2026-11-14):** `python scripts/export_station_training_set.py --backup
+   <admin backup .zip> --output <new dir>` reads a backup archive offline (validated, never the
+   live database) and writes the station's photos with the boxes the app kept as **draft**
+   labels (crowns and background are not boxes, because the app dropped them), `data.yaml`,
+   a README, `counts.csv` (AI vs corrected counts) and a `physical/` folder of corrected scans
+   for `evaluate_finger_count.py physical`. Review the labels (e.g. in Roboflow: add missed
+   fingers, remove any crown/background box), export a version with a split, then prepare and
+   train. Files are named `<scan_id>_<Manila timestamp>_<view>.jpg` so all views of a scan stay
+   in one split.
 3. **Measure** visible counts: `python scripts/evaluate_finger_count.py visible --weights W
    --split <prepared>/valid --configs baseline head=one_to_one hand_box_split=off
    ripeness_outlier=off recovery_within_hand=off side_view_lip=off --output report.json`

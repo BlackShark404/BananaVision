@@ -2,6 +2,27 @@
 
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
+## Colour check — 2026-11-14
+
+- `backend/tests/test_colour_check.py`: synthetic frames painted with the HSV profiles
+  measured on the station screenshots (`tests/data/station_colour_profiles_2026-11-14.json`):
+  the two crowns and the curtain are dropped; unripe, pale overexposed, washed-out,
+  semi-ripe and dark-corner fingers are kept; a spotted finger with a dark-cornered box is
+  kept; Overripe is exempt; no frame means no check; the threshold setting acts; the
+  second (recovery) and rotated passes are covered; a station scan with a crown box is
+  flagged with the activity note; shaded fingers (value ~45-50) are kept; a dark fragment of
+  a kept finger is skipped without flagging; a scan whose only boxes are crowns is rejected
+  and the rejection note counts the colour drops. `test_evaluate_finger_count.py` covers the
+  `colour_check=off` config and the physical-mode review flag.
+- `backend/tests/test_export_station_training_set.py`: archives built with the real
+  `create_archive` from in-memory SQLite stations; labels, clamping, class index, flagged and
+  corrected-only filters, counts.csv, the physical folder read back by the evaluator, refused
+  output folders, tampered archives, Manila timestamps, no database access.
+- `backend/tests/conftest.py` turns the check off for modules that use blank placeholder
+  frames (np.zeros), unless the module sets `COLOUR_CHECK = True`.
+- Measurement method (scratch, photos not stored): boxes traced from overlay strokes and
+  label tags, the 18 % fill removed, central-region HSV per box.
+
 ## Finger-count rules and YOLO26 head — 2026-11-13
 
 Decision: [[Development Decisions]]; rules: [[AI Models]].

@@ -25,7 +25,7 @@ physical  Fused per-scan counts against hand-counted totals. <scans>/<scan_id>/ 
           later entry is compared with it photo by photo (or scan by scan), with a seeded
           bootstrap 95% interval of the MAE difference (negative means fewer errors).
           Names: head (one_to_many_nms, one_to_one, checkpoint); axis_dedup,
-          hand_box_split, ripeness_outlier, recovery_within_hand, side_view_lip,
+          hand_box_split, ripeness_outlier, recovery_within_hand, side_view_lip, colour_check,
           recovery_adjacent, top_overlap, top_rotation, peripheral_background (on/off);
           iou (0-1).
           Some passes run only for a checkpoint in TOP_CALIBRATED_CHECKPOINTS at its
@@ -101,7 +101,10 @@ BASELINE = "baseline"
 UNKNOWN_VIEW = "unknown"
 HEADS = ("one_to_many_nms", "one_to_one", "checkpoint")
 SIZE_BUCKETS = ("0", "1-4", "5-8", "9-12", "13+")
-RULE_COUNTERS = ("ood_rejected_boxes", "ripeness_outlier_boxes", "hand_box_splits")
+RULE_COUNTERS = (
+    "ood_rejected_boxes", "ripeness_outlier_boxes", "hand_box_splits",
+    "colour_rejected_boxes",
+)
 # Station default of the saved review threshold (system_config.confidence_threshold).
 DEFAULT_REVIEW_CONFIDENCE = 0.85
 # Bootstrap resamples drawn per block; fixed so a seed always gives the same interval.
@@ -163,6 +166,7 @@ OVERRIDES: dict[str, tuple[str, Callable[[str], object]]] = {
     "ripeness_outlier": ("yolo_ripeness_outlier_filter", _on_off),
     "recovery_within_hand": ("yolo_recovery_within_hand", _on_off),
     "side_view_lip": ("yolo_side_view_lip_filter", _on_off),
+    "colour_check": ("yolo_colour_check", _on_off),
     "recovery_adjacent": ("yolo_recovery_adjacent_ripeness", _on_off),
     "top_overlap": ("yolo_top_overlap_refinement", _on_off),
     "top_rotation": ("yolo_top_rotation_fallback", _on_off),
@@ -860,6 +864,7 @@ def score_physical_scan(
         fused.auto_flagged
         or any(getattr(result, "ood_rejected_boxes", 0) for result in view_results)
         or any(getattr(result, "ripeness_outlier_boxes", 0) for result in view_results)
+        or any(getattr(result, "colour_rejected_boxes", 0) for result in view_results)
     )
     return outcome, view_results
 

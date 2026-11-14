@@ -1,0 +1,118 @@
+{
+  "source": "16 station scan screenshots sent by the user on 2026-11-14 (Kiosk 'Enlarged scan image' dialogs, CAM-001..004, Lakatan, Latundan and Cardaba hands), scanned with commit e734431. The photos are not stored in the repository.",
+  "method": "Boxes were found from their overlay strokes and label tags; the 18 % overlay fill of every covering box was removed (a first pass that removed only each box's own fill left neighbours' fills on, which brightened shadows; the independent review caught it); each box's central region (20 % trimmed per side) was converted to OpenCV HSV. 'non_banana' is the share of pixels that are dark (value < 40) or bluish/violet (hue 100-165, saturation >= 25).",
+  "units": "OpenCV HSV: hue 0-179, saturation and value 0-255",
+  "non_finger_boxes": [
+    {
+      "screenshot": 10,
+      "view": "Top",
+      "label": "Lakatan Unripe 68%",
+      "what": "crown (cut stalk end)",
+      "hue": 125,
+      "saturation": 40,
+      "value": 118,
+      "non_banana": 0.72
+    },
+    {
+      "screenshot": 12,
+      "view": "Top",
+      "label": "Lakatan Unripe 76%",
+      "what": "crown (cut stalk end)",
+      "hue": 114,
+      "saturation": 76,
+      "value": 121,
+      "non_banana": 0.86,
+      "note": "own fill removed only (its bottom edge is cut by the frame, so the full removal could not trace it)"
+    },
+    {
+      "screenshot": 16,
+      "view": "Left",
+      "label": "Cardaba Unripe 61%",
+      "what": "dark curtain",
+      "hue": 100,
+      "saturation": 77,
+      "value": 30,
+      "non_banana": 0.8
+    }
+  ],
+  "finger_examples": [
+    {
+      "screenshot": 10,
+      "view": "Top",
+      "what": "unripe Lakatan",
+      "hue": 71,
+      "saturation": 72,
+      "value": 210
+    },
+    {
+      "screenshot": 12,
+      "view": "Top",
+      "what": "unripe Lakatan",
+      "hue": 64,
+      "saturation": 88,
+      "value": 176
+    },
+    {
+      "screenshot": 16,
+      "view": "Left",
+      "what": "pale overexposed Cardaba",
+      "hue": 47,
+      "saturation": 65,
+      "value": 146
+    },
+    {
+      "screenshot": 6,
+      "view": "Left",
+      "what": "pale Cardaba",
+      "hue": 71,
+      "saturation": 52,
+      "value": 197
+    },
+    {
+      "screenshot": 5,
+      "view": "Right",
+      "what": "washed-out Cardaba near the window",
+      "hue": 45,
+      "saturation": 43,
+      "value": 198
+    },
+    {
+      "screenshot": 4,
+      "view": "Rear",
+      "what": "semi-ripe Cardaba",
+      "hue": 28,
+      "saturation": 89,
+      "value": 211
+    },
+    {
+      "screenshot": 2,
+      "view": "Left",
+      "what": "Lakatan in the dark corner",
+      "hue": 43,
+      "saturation": 104,
+      "value": 182
+    },
+    {
+      "screenshot": 9,
+      "view": "Right",
+      "what": "shaded underside of the hand (low-confidence second-pass box)",
+      "hue": 88,
+      "saturation": 62,
+      "value": 45
+    }
+  ],
+  "finger_boxes_non_banana": {
+    "boxes": 103,
+    "p90": 0.17,
+    "p95": 0.2,
+    "highest_real_box": 0.32,
+    "note": "Only boxes whose four edges were traced cleanly. One more finger-labelled box scored 0.73: 'Cardaba Unripe 79%' at the left edge of screenshot 16, which is mostly the dark curtain plus the tip of a finger another box already counts; dropping it is intended. With value < 60 as the dark cut, a shaded second-pass box in screenshot 9 scored 0.78 and would have been dropped; with value < 40 it scores 0.19."
+  },
+  "threshold": {
+    "setting": "YOLO_COLOUR_CHECK_MAX_NON_BANANA",
+    "value": 0.55,
+    "dark_value_below": 40,
+    "why": "Above every cleanly measured finger box (0.32) and below every crown/curtain box (0.72-0.86)."
+  },
+  "limits": "Measured on rendered screenshots, not raw camera frames, on one station's cameras and lighting. A crown cut that looks brown rather than bluish-grey, or a different background, is not covered; retrain with station photos for that."
+}

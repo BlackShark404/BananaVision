@@ -98,6 +98,10 @@ class Settings(BaseSettings):
     # filtered on every side camera (earlier: Rear only).
     yolo_recovery_within_hand: bool = True
     yolo_side_view_lip_filter: bool = True
+    # Drop boxes whose centre is mostly not banana colour: dark background or the
+    # bluish-grey cut crown (measured on station screenshots, docs/knowledge/AI Models.md).
+    yolo_colour_check: bool = True
+    yolo_colour_check_max_non_banana: float = Field(0.55, gt=0, le=1)
     # Measurement only: let the recovery pass admit fingers one ripeness stage away.
     yolo_recovery_adjacent_ripeness: bool = False
     top_camera_cultivar_anchor: bool = True
