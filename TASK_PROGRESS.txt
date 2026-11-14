@@ -1,68 +1,62 @@
-CURRENT RESUME HERE (2026-11-14) - COLOUR CHECK: CROWN AND DARK BACKGROUND NOT COUNTED
+CURRENT RESUME HERE (2026-11-14) - WAITING FOR STATION DATA; BACKUPS NOW GIT-IGNORED
 
-The previous checkpoint (finger-count accuracy, merged to team main as e734431 via PR #10)
-is archived byte-for-byte in docs/history/2026-11-14-before-colour-check.txt.
+The previous checkpoint (colour check for the crown and dark background, merged to team main
+as aa53e7a via PR #11) is archived byte-for-byte in
+docs/history/2026-11-14-before-teammate-guide.txt.
 
-AUTHORIZED SCOPE / USER DECISIONS (2026-11-14)
-- The user sent 16 station screenshots (4 cameras; Lakatan, Latundan, Cardaba hands)
-  scanned with the newest code (e734431, user confirmed) and asked: check the finger count,
-  do not count the crown, stop non-banana boxes. Decision: add a colour check now (drop and
-  flag, switchable), retrain with station photos later. No Mini PC, raw photos or GPU here.
+STATE OF MAIN
+- Team main and the fork's main were identical at aa53e7a (PR #11, squash) on top of b065891
+  (Kent's merge of 694f52d "Add public tracking URLs to label QR codes").
+- Checked on that merged code: backend full suite without PostgreSQL 1070 passed / 104
+  skipped; targeted printing, colour check, export, fetch and Manila guard tests 147 passed;
+  frontend typecheck passes; frontend printing tests 3/3 (PLAYWRIGHT_MODULE set to the global
+  playwright/index.mjs).
 
-FINDINGS (from the screenshots)
-- Non-finger boxes: the crown (cut stalk end) at the bottom of Top views ("Lakatan Unripe
-  68%" in a 14-box Top view, "76%" in a 10-box Top view) and a dark curtain at the top-left
-  of a Left Cardaba view ("Cardaba Unripe 61%"). All main-pass boxes with the hand's own
-  label, inside the banana evidence and the hand, so no earlier rule could catch them.
-- Effect: the stored count is the largest view; the crown made Top 14 instead of 13 for the
-  green Lakatan hand (other views 11/11/8).
-- Measured (overlay tint removed, box centre): crowns 0.72/0.86 and curtain 0.80 non-banana
-  colour; 103 cleanly traced finger boxes at most 0.32 (p95 0.20).
+DONE (2026-11-14)
+- Teammate guide (PDF, English, sent to the user, not committed): update the Mini PC, a
+  hand-count session (hand_counts.csv), training backup after the update, export with
+  scripts/export_station_training_set.py --include-flagged, collect the station .pt and the
+  Roboflow zip, optional SHA256SUMS, and a private release station-data-YYYY-MM-DD on
+  RoronoaZoro1206/BananaVision. Optional later part: review the station photos in Roboflow.
+  It was reviewed against the code by 5 reviewers with skeptics; 44 confirmed fixes. Key
+  station facts:
+  - the backup downloads as station.zip;
+  - the kiosk shares one sign-in with every Chrome window, so Admin, GitHub and Roboflow
+    work goes in an Edge InPrivate window;
+  - PowerShell needs npm.cmd;
+  - Windows hides the .zip extension, so files are renamed with Rename-Item;
+  - free disk space should be about 7x the captures folder plus 5 GB.
+- .gitignore: .bananavision-maintenance/ (station backups with credential hashes were
+  untracked inside backend/ and could be committed). Resolved Bugs note added.
+- Fork collaborators already include Azanykho03, Bagohay and BlackShark404, so they can
+  create the release.
 
-DONE
-- backend/app/services/classification.py: _non_banana_fraction (dark value < 40, or bluish/
-  violet hue 100-165 with saturation >= 25, on the box centre); off_colour in pass 1, the
-  rotated pass and the recovery pass, before the OOD gate; Overripe exempt; boxes a pass
-  would drop anyway are skipped without counting; ClassificationResult.colour_rejected_boxes.
-- scan_service.py: flags the scan, logs, activity note "N boxes over non-banana colours
-  (crown or dark background) dropped, flagged for review", and the no-cultivar rejection
-  note counts them. config.py/.env.example: YOLO_COLOUR_CHECK=true,
-  YOLO_COLOUR_CHECK_MAX_NON_BANANA=0.55. evaluate_finger_count.py: colour_check config and
-  counter.
-- backend/scripts/export_station_training_set.py (+ tests): admin backup -> draft YOLO
-  training set from station photos (offline, validated archive), counts.csv and physical/.
-- Tests: test_colour_check.py (measured station profiles in
-  tests/data/station_colour_profiles_2026-11-14.json), test_export_station_training_set.py,
-  evaluator colour tests; tests/conftest.py keeps the check off on blank placeholder frames.
-- Docs: AI Models, Development Decisions, Resolved Bugs, Testing and Validation.
-
-VERIFICATION
-- On the 16 screenshots the production function drops exactly the two crowns and the
-  curtain; every other box is kept.
-- Backend full suite: 1135 passed / 38 skipped with a throwaway PostgreSQL 16 cluster,
-  1069 / 104 without. Ruff app+tests 634 (baseline 635), new files clean.
-- Independent review (3 lenses, 2 skeptics per finding): 4 confirmed and fixed (first
-  measurement left neighbouring fills on and hid shadows -> dark cut 60 -> 40 and numbers
-  re-measured with every fill removed; colour drops of boxes the pass would drop anyway no
-  longer flag a scan; rejection note counts colour drops; evaluator colour tests).
-- NOT measured: raw camera frames (screenshots only); other lighting or a brown-looking crown.
-
-STILL OPEN
-- When the station is available: update the Mini PC to the latest main; make an admin
-  backup and attach it (plus the station weights .pt and the Roboflow export zip) to a
-  GitHub release on RoronoaZoro1206/BananaVision. Then: check_inference_head.py static,
-  export_station_training_set.py, review labels in Roboflow, prepare, train_finger_model.py,
-  evaluate_finger_count.py (A/B including colour_check=off), register the new SHA.
-- Team: re-capture the Figure 92 screenshot in the capstone storyboard.
-- From Khen (public HTTPS, not deployed): when deployment is authorized, follow
-  docs/windows-mini-pc-deployment.md on the Mini PC and verify the public URL, Funnel
-  WebSocket traffic, the real cameras and the sensor. Mac tailnet access:
-  deploy/start-mac-tailnet.sh / deploy/stop-mac-tailnet.sh.
-- From the audit (team decisions): Non-Banana Detection Audit.md status line;
-  .codex/config.toml default model and laptop paths; uncertain-cultivar estimate shown
-  outside Kiosk; ModelInferenceError detail; missing [[System Architecture]] and
-  [[Backend]] notes; second kiosk shows a rejection; public QR countdown for every status.
+TEAM FOLLOW-UPS (reported, not changed)
+- backend/app/services/prediction_label.py reads a hard-coded laptop file
+  C:\Users\Kent\AppData\Local\BananaVision\laptop-host\public-url.txt.
+- PUBLIC_BASE_URL (backend, printed label QR links) is missing from backend/.env.example and
+  deploy/backend.env.production.example.
+- Re-capture the Figure 92 screenshot in the capstone storyboard.
+- From Khen (public HTTPS, not deployed): follow docs/windows-mini-pc-deployment.md when
+  deployment is authorized.
+- From the audit (team decisions):
+  - Non-Banana Detection Audit.md status line;
+  - .codex/config.toml default model and laptop paths;
+  - uncertain-cultivar estimate shown outside Kiosk;
+  - ModelInferenceError detail;
+  - missing [[System Architecture]] and [[Backend]] notes;
+  - second kiosk shows a rejection;
+  - public QR countdown for every status.
 
 EXACT NEXT STEP
-- User opens the pull request from the fork's main to BlackShark404/BananaVision:
-  https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main
+- Wait for the user to send the release tag (station-data-YYYY-MM-DD). Then:
+  1. scripts/fetch_training_assets.py github --repo RoronoaZoro1206/BananaVision --tag <tag>
+     --dest <new dir> (private repo: token in GITHUB_TOKEN).
+  2. check_inference_head.py static on the .pt.
+  3. Match hand_counts.csv to the export's counts.csv (scan_id, or scan_time and cultivar).
+     Build physical/<scan_id>/<view> folders from train/images, then run
+     evaluate_finger_count.py physical with configs including colour_check=off.
+  4. prepare_yolo_dataset.py on the Roboflow zip (--exclude-captures for the hand-counted
+     scans once station photos are in it), then evaluate_finger_count.py visible on VALID.
+  5. Retrain on CPU with train_finger_model.py. Compare with the current model, commit, and
+     give the PR link.

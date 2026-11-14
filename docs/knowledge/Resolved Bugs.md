@@ -2,6 +2,21 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-11-14: Station backups could be committed to Git
+
+- **Symptoms:** after a backup (Admin → System Config → Data & Backups → Station Backup),
+  `git status` on the station listed `backend/.bananavision-maintenance/` as untracked, and
+  GitHub Desktop offered it under Changes next to Commit.
+- **Root cause:** `MaintenanceService` writes backups and rollback archives to
+  `<capture folder's parent>/.bananavision-maintenance/<operation id>/station.zip`
+  (`backend/app/services/backup_restore.py`). With the default `CAPTURE_DIR=captures` that is
+  inside the repository, and no ignore rule covered it. The archives include every account's
+  password and PIN hashes.
+- **Fix:** `.gitignore` ignores `.bananavision-maintenance/` at any depth.
+- **Check:** `git check-ignore -v backend/.bananavision-maintenance/<id>/station.zip` names the
+  rule. A station that already committed a backup must remove it from history; ignoring
+  only stops new commits.
+
 ## 2026-11-14: Crown and dark curtain counted as fingers
 
 - **Symptoms:** on the newest code, the crown at the bottom of Top views was boxed as
