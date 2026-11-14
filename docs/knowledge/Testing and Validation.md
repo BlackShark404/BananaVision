@@ -1,5 +1,16 @@
 # Testing and Validation
 
+## Multi-camera top-tier and wide two-tier fusion fix — 2026-11-15
+
+- **New unit/regression coverage (`backend/tests/test_classification_fusion.py`):**
+  - `_radial_top_fan_detections`, `test_top_radial_wings_and_slender_primary_fingers_stay_in_primary_tier`, `test_radial_latundan_ripe_fan_reconstructs_fourteen_not_ten`, `test_wide_two_tier_hand_with_top_wing_fans_and_inner_tips_avoids_collapse`, and `test_rear_capture_collapse_recovers_from_both_stacked_sides`.
+- **Targeted backend suites (temp dir outside repo):** `test_classification_fusion.py`, `test_finger_count_rules.py`, `test_rotation_consensus.py`, `test_top_view_inference.py`, `test_colour_check.py`, `test_evaluate_finger_count.py`, `test_ood_gate.py`, `test_manila_time_guard.py`, `test_scan_trigger.py`, `test_assigned_fixes.py`, `test_detection_sensitivity.py` — **344 passed, 3 skipped** in `20.99 s`.
+- **Full backend suite (without `BANANAVISION_TEST_DATABASE_URL`):** **1112 passed, 74 skipped, 11 failed, 8 errors** (`134.10 s`); all failures/errors were confined to Windows path/temp-symlink assertions in the four helper-script test suites (`test_export_station_training_set.py`, `test_fetch_training_assets.py`, `test_prepare_ood_dataset.py`, `test_train_finger_model.py`). Targeted suites ran cleanly after the final newline edit.
+- **Single-view validation (`evaluate_finger_count.py visible` on `v13-yolov8-20261016/dataset/valid`, `n=137`, `banana_yolovsV2.pt`):** `MAE=0.7664`, `exact=0.4745` (`65/137`), `within1=0.854`, `bias=+0.4015`, `undercount=20`, `overcount=52` (`Top` `n=31 MAE=0.6452 under=2`; `Left` `n=34 MAE=0.7647 under=3`; `Right` `n=42 MAE=0.7381 under=9`; `Rear` `n=30 MAE=0.9333 under=6`; `warnings=[]`).
+- **Processing latency:** `FusionEngine.fuse` measured at `731.06 ms` over `1000` calls (`~0.73 ms/scan`), adding no extra inference pass.
+- **Frontend & lint:** 10 non-browser test files (`104 tests`) **passed** (`253` browser-based `.test.mjs` cases failed without Playwright installed); `npm run typecheck` and `npm run build` **passed**; `npm run lint` retained `40` pre-existing baseline issues (`35` errors, `5` warnings); `uv tool run ruff check` found `0` new diagnostics in modified lines (`14` pre-existing `E501` lines across both edited files; `644` repo baseline diagnostics).
+- **Environment limits:** `graphify` CLI and `graphify-out/` are absent in this checkout; no disposable PostgreSQL cluster was started so PostgreSQL-only tests were skipped.
+
 ## Radial-fan geometry, connected outliers, split-cultivar recovery, and two-tier fusion — 2026-11-14
 
 - **Benchmark (`evaluate_finger_count.py visible` on `v13-yolov8-20261016/dataset/valid`, `n=137`, `banana_yolovsV2.pt`):**

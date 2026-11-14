@@ -10,7 +10,7 @@ from app.services.classification import (
     ClassificationResult,
     Detection,
 )
-from app.services.fusion_engine import FusionEngine
+from app.services.fusion_engine import FusionEngine, _count_top_second_tier
 
 
 def classify(*labels_and_scores: tuple[str, float]) -> ClassificationResult:
@@ -842,3 +842,96 @@ def test_single_tier_hand_fusion_keeps_single_view_maximum():
     ], expected_camera_count=4)
     assert fused.finger_count == 10
 
+
+def _radial_top_fan_detections(cls_name: str) -> list[Detection]:
+    """Build a radial overhead hand with splayed horizontal outer wings (w > h)."""
+    # 3 left wings (w > h), 4 central vertical fingers (including 0.52 slender primary),
+    # and 3 right wings (w > h). Median box area ~= 280*150 = 42000; smallest primary ~= 0.52*med.
+    return [
+        Detection(10, 480, 290, 155, cls_name, 0.88),
+        Detection(40, 320, 280, 160, cls_name, 0.83),
+        Detection(80, 180, 250, 150, cls_name, 0.53),
+        Detection(290, 20, 150, 280, cls_name, 0.78),
+        Detection(420, 40, 115, 200, cls_name, 0.88),  # 23000 ~= 0.52 * 44000
+        Detection(510, 20, 155, 285, cls_name, 0.90),
+        Detection(610, 100, 165, 270, cls_name, 0.84),
+        Detection(640, 200, 280, 160, cls_name, 0.86),
+        Detection(660, 360, 290, 155, cls_name, 0.82),
+        Detection(640, 520, 260, 145, cls_name, 0.51),
+    ]
+
+
+def test_top_radial_wings_and_slender_primary_fingers_stay_in_primary_tier():
+    radial = _radial_top_fan_detections("latundan_unripe")
+    assert _count_top_second_tier(radial) == 0
+
+    with_peeking_tips = [
+        *radial,
+        Detection(210, 10, 75, 170, "lakatan_ripe", 0.59),   # ~0.32 * med_area
+        Detection(770, 70, 130, 105, "lakatan_ripe", 0.85),  # ~0.35 * med_area
+        Detection(560, 800, 130, 110, "lakatan_ripe", 0.42),  # < TOP_OVERLAP_CONFIDENCE
+    ]
+    assert _count_top_second_tier(with_peeking_tips) == 3
+
+
+def test_radial_latundan_ripe_fan_reconstructs_fourteen_not_ten():
+    radial_top = _radial_top_fan_detections("latundan_ripe")
+    top = ClassificationResult(
+        cultivar="Latundan",
+        ripeness="Ripe",
+        confidence=85.0,
+        finger_count=len(radial_top),
+        detections=radial_top,
+    )
+    fused = FusionEngine().fuse([
+        ("CAM-001", "Top", top),
+        ("CAM-002", "Left", _two_tier_view("Latundan", "Ripe", 0.89, 3, 4)),
+        ("CAM-003", "Right", _two_tier_view("Latundan", "Ripe", 0.81, 4, 5)),
+        ("CAM-004", "Rear", _two_tier_view("Latundan", "Ripe", 0.88, 5, 4)),
+    ], expected_camera_count=4)
+    assert fused.finger_count == 14
+
+
+def test_wide_two_tier_hand_with_top_wing_fans_and_inner_tips_avoids_collapse():
+    # Reproduces 21-finger Ripe Lakatan geometry: Top=11 (8 full radial fingers + 3 tiny
+    # inner/perimeter peeking tips), Left=11 (5u, 6l), Right=9 (4u, 5l), Rear=13 (6u, 7l).
+    top_dets = [
+        Detection(10, 460, 390, 270, "lakatan_ripe", 0.86),
+        Detection(50, 300, 380, 260, "lakatan_ripe", 0.83),
+        Detection(80, 150, 320, 240, "lakatan_ripe", 0.53),
+        Detection(290, 10, 220, 420, "lakatan_ripe", 0.75),
+        Detection(490, 10, 220, 410, "lakatan_ripe", 0.82),
+        Detection(510, 310, 370, 270, "lakatan_ripe", 0.83),
+        Detection(560, 570, 320, 230, "lakatan_ripe", 0.51),
+        Detection(20, 740, 250, 220, "lakatan_ripe", 0.79),
+        # Three genuine tiny peeking tips (< 0.42 * med_area ~ 36k)
+        Detection(450, 40, 95, 290, "lakatan_ripe", 0.59),
+        Detection(610, 220, 200, 140, "lakatan_ripe", 0.85),
+        Detection(560, 800, 190, 140, "lakatan_ripe", 0.75),
+    ]
+    top = ClassificationResult(
+        cultivar="Lakatan",
+        ripeness="Ripe",
+        confidence=76.5,
+        finger_count=len(top_dets),
+        detections=top_dets,
+    )
+    fused = FusionEngine().fuse([
+        ("CAM-001", "Top", top),
+        ("CAM-002", "Left", _two_tier_view("Lakatan", "Ripe", 0.84, 5, 6)),
+        ("CAM-003", "Right", _two_tier_view("Lakatan", "Ripe", 0.83, 4, 5)),
+        ("CAM-004", "Rear", _two_tier_view("Lakatan", "Ripe", 0.85, 6, 7)),
+    ], expected_camera_count=4)
+    assert 20 <= fused.finger_count <= 21
+
+
+def test_rear_capture_collapse_recovers_from_both_stacked_sides():
+    # Severe Rear capture failure (2 detections) while both Left and Right establish two
+    # stacked vertical rows should recover conservatively without changing single-tier hands.
+    fused = FusionEngine().fuse([
+        ("CAM-001", "Top", _top_fan_view("Cardaba", "Unripe", 0.81, 11, short_tip_n=1)),
+        ("CAM-002", "Left", _two_tier_view("Cardaba", "Unripe", 0.85, 5, 4)),
+        ("CAM-003", "Right", _two_tier_view("Cardaba", "Unripe", 0.85, 6, 5)),
+        ("CAM-004", "Rear", _two_tier_view("Cardaba", "Unripe", 0.60, 2, 0)),
+    ], expected_camera_count=4)
+    assert fused.finger_count == 15

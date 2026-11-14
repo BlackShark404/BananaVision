@@ -324,27 +324,49 @@ class FusionEngine:
         r_cnt = r_res.finger_count
         re_cnt = re_res.finger_count
 
+        l_upper, l_lower = _split_horizontal_tiers(l_res.detections)
+        r_upper, r_lower = _split_horizontal_tiers(r_res.detections)
+        re_upper, re_lower = _split_horizontal_tiers(re_res.detections)
+
+        top_second_tier = _count_top_second_tier(t_res.detections)
+        u_primary = max(1, t_cnt - top_second_tier)
+
+        # If Rear suffered a severe single-frame capture/detection collapse while both
+        # lateral views independently observe two stacked vertical tiers, reconstruct
+        # conservatively from Top's primary row plus the smaller observed lower tier.
+        if re_cnt <= 4:
+            if l_cnt >= 8 and r_cnt >= 8 and min(l_lower, r_lower) >= 3:
+                fused_estimate = u_primary + min(l_lower, r_lower)
+                return max(baseline_max, min(sum(finger_counts), fused_estimate))
+            return baseline_max
+
         # Single-tier hands fan out horizontally: Left/Right see across the row
         # while Rear only sees the outer arc tips (re_cnt < max(l_cnt, r_cnt)).
         # Two-tier hands present both upper and lower rows toward Rear.
         if not (re_cnt >= max(l_cnt, r_cnt) and re_cnt >= 8 and min(l_cnt, r_cnt) >= 5):
             return baseline_max
 
-        _, l_lower = _split_horizontal_tiers(l_res.detections)
-        _, r_lower = _split_horizontal_tiers(r_res.detections)
-        _, re_lower = _split_horizontal_tiers(re_res.detections)
-
         # Require verified 2D vertical tier stacking across at least two horizontal views.
         if sum(1 for low in (l_lower, r_lower, re_lower) if low >= 2) < 2:
             return baseline_max
 
-        top_second_tier = _count_top_second_tier(t_res.detections)
-        u_primary = max(1, t_cnt - top_second_tier)
         u_est = u_primary + (1 if re_cnt > t_cnt else 0)
+        wide_bilateral = (
+            re_cnt >= 12
+            and re_cnt >= t_cnt + 2
+            and min(l_cnt, r_cnt) >= 8
+            and min(l_lower, r_lower) >= 4
+            and re_lower >= max(l_lower, r_lower)
+        )
+        if wide_bilateral:
+            # Wide curved two-tier hands foreshorten or tuck inner upper fingers in Top
+            # while Left and Right capture opposite lateral wings around Rear's center arc.
+            side_upper_union = min(l_upper + r_upper, re_upper + min(l_upper, r_upper))
+            u_est = max(u_est, side_upper_union)
 
-        if re_lower > max(l_lower, r_lower) and top_second_tier == 0:
-            # Rear sees strictly more lower-tier fingers than either side view alone,
-            # indicating Left and Right capture opposite lateral halves of the lower tier.
+        if (re_lower > max(l_lower, r_lower) and top_second_tier == 0) or wide_bilateral:
+            # Left and Right capture opposite lateral halves of the lower tier while
+            # Rear spans the central overlap.
             l_est = min(l_lower + r_lower, re_lower + min(l_lower, r_lower))
         else:
             # Standard two-tier hand: Left, Right, and Rear observe the shared lower tier.
@@ -392,29 +414,13 @@ def _count_top_second_tier(dets: list[Detection]) -> int:
     if not areas:
         return 0
     med_area = float(np.median(areas))
-    min_x = min(d.x for d in unique)
-    max_x = max(d.x + d.w for d in unique)
-    mid_x = (min_x + max_x) / 2.0
-
-    left_horiz = sorted(
-        [d for d in unique if d.w > d.h and (d.x + d.w / 2) < mid_x],
-        key=lambda d: d.y + d.h / 2,
+    # Only Pass-2 low-confidence recoveries or genuinely small peeking inner/perimeter tips
+    # belong to the second tier; splayed radial upper wings (w > h) stay in the primary row.
+    return sum(
+        1
+        for d in unique
+        if d.confidence < TOP_OVERLAP_CONFIDENCE or (d.w * d.h) < 0.42 * med_area
     )
-    right_horiz = sorted(
-        [d for d in unique if d.w > d.h and (d.x + d.w / 2) >= mid_x],
-        key=lambda d: d.y + d.h / 2,
-    )
-    stacked_flank_ids = {id(d) for d in left_horiz[2:]} | {id(d) for d in right_horiz[2:]}
-
-    second_tier = 0
-    for d in unique:
-        if (
-            d.confidence < TOP_OVERLAP_CONFIDENCE
-            or (d.w * d.h) < 0.58 * med_area
-            or id(d) in stacked_flank_ids
-        ):
-            second_tier += 1
-    return second_tier
 
 
 # Singleton instance

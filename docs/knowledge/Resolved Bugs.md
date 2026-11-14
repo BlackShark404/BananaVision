@@ -2,6 +2,20 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-11-15: Radial-wing Top subtraction and wide/rear-collapsed two-tier fusion
+
+- **Symptoms:**
+  - After deploying `79b7c5f` to the 4-camera station, two-tier hands still collapsed toward `max(finger_counts)`: `Latundan Ripe` (`14` actual, `Top 10 / Left 7 / Right 9 / Rear 9`) returned `10`; `Latundan Unripe` (`15` actual, `9 / 7 / 10 / 10`) returned `12`; `Lakatan Ripe` (`21` actual, `11 / 11 / 9 / 13`) returned `13`; `Cardaba Ripe` (`11 / 8 / 9 / 11`) returned `12`; `Cardaba Unripe` (`14` actual) with a single-frame `Rear` detection collapse (`12 / 9 / 11 / 2`) returned `12`.
+- **Root causes:**
+  1. `_count_top_second_tier` in `backend/app/services/fusion_engine.py` treated `left_horiz[2:] | right_horiz[2:]` (`w > h`) and boxes `< 0.58 * med_area` as lower-tier detections. On radial overhead banana fans (`Latundan`, `Cardaba`, `Lakatan`), splayed outer horizontal wing fingers (`0.51–0.93` confidence) and narrow upright primary fingers (`0.52 * med_area`) were falsely subtracted from `Top`, collapsing `u_primary` and setting `top_second_tier > 0`, which also blocked bilateral lower-tier fusion.
+  2. `_estimate_multi_camera_fingers` disabled wide bilateral union whenever `top_second_tier > 0` or `re_lower <= max(l_lower, r_lower)` even on wide curved 21-finger hands (`re_cnt >= 12`, `re_cnt >= t_cnt + 2`, `min(l_cnt, r_cnt) >= 8`), and aborted two-tier reconstruction completely when `Rear` suffered a transient collapse (`re_cnt <= 4`) while both `Left` and `Right` still verified vertical tier stacking.
+- **Fix:**
+  - In `backend/app/services/fusion_engine.py`, removed `stacked_flank_ids` from `_count_top_second_tier` and tightened the small peeking-tip threshold to `< 0.42 * med_area` (alongside `< TOP_OVERLAP_CONFIDENCE` = `0.50`).
+  - Updated `_estimate_multi_camera_fingers` to compute wide bilateral upper/lower unions when `re_cnt >= 12`, `re_cnt >= t_cnt + 2`, `min(l_cnt, r_cnt) >= 8`, `min(l_lower, r_lower) >= 4`, and `re_lower >= max(l_lower, r_lower)`, and to recover `u_primary + min(l_lower, r_lower)` on severe `Rear` collapses (`re_cnt <= 4`) when `l_cnt >= 8`, `r_cnt >= 8`, and `min(l_lower, r_lower) >= 3`.
+- **Limits (model/camera coverage, not fusion drops):**
+  - Single-view merged boxes (e.g., `530b1a91` `Latundan Top` `93%` box covering two tight fingers), heavy shadow/occlusion in one side view (`ee4aa487` `Lakatan 19` `Left 6`), and the transient `Cardaba Unripe Rear 2` capture drop (`dcffe85e`, where re-running the trained YOLO weights on the clean modal crop returns 9–11 boxes) remain detector/capture-quality constraints rather than post-filter or fusion bugs.
+- **Verification:** See [[Testing and Validation]].
+
 ## 2026-11-14: Radial-fan post-processing drops, stage-straddling finger pairs, split-cultivar recovery, and two-tier multi-camera fusion
 
 - **Symptoms:**

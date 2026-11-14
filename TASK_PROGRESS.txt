@@ -1,4 +1,49 @@
-CURRENT RESUME HERE (2026-11-14) - TEAM FIXES MERGED; WAITING FOR STATION DATA
+CURRENT RESUME HERE (2026-11-15) - MULTI-CAMERA TWO-TIER FUSION & TOP SECOND-TIER FIXES; READY FOR STATION RE-TEST
+
+DONE BY THIS SESSION (2026-11-15)
+- Investigated Round-3 4-camera station screenshots (79b7c5f) covering Lakatan Ripe 21
+  (11/11/9/13 -> 13), Latundan Unripe 15 (9/7/10/10 -> 12), Cardaba Unripe 14
+  (12/9/11/2 -> 12), Cardaba Ripe (11/8/9/11 -> 12), Lakatan Unripe 19 (10/6/9/11 -> 16),
+  plus Round-2 Latundan Ripe 14 (10/7/9/9 -> 10) and Lakatan 1-tier 10 (9/7/10/6 -> 10):
+  1. Verified that Cardaba Unripe Rear 2 (dcffe85e) is not caused by classification or OOD
+     filters (banana_yolovsV2.pt one_to_many_nms detects 9-11 fingers on the clean modal crop
+     and another capture b5fabfe1 saw Rear 11).
+  2. Verified on Top screenshots (07a071ac, 530b1a91, c0307db9, ae3799a0, 4ec530f9) that
+     classification filters are not dropping detected fingers; unboxed squeezed inner tips
+     (e.g., 530b1a91 93% double box) and Left 6 shadow occlusion (ee4aa487) are single-view
+     detector/camera coverage limits.
+  3. Identified root cause in backend/app/services/fusion_engine.py:
+     - _count_top_second_tier marked left_horiz[2:] | right_horiz[2:] (w > h radial wings)
+       and boxes < 0.58 * med_area as lower-tier detections, subtracting 2-7 full upper
+       fingers on real radial hands and forcing top_second_tier > 0.
+     - _estimate_multi_camera_fingers disabled bilateral union whenever top_second_tier > 0
+       or re_lower <= max(l_lower, r_lower), and dropped two-tier reconstruction when Rear
+       collapsed (<= 4) while Left and Right still stacked vertically.
+- Fixes applied:
+  - backend/app/services/fusion_engine.py: removed stacked_flank_ids and tightened the small
+    peeking-tip cut in _count_top_second_tier to < 0.42 * med_area (keeping < 0.50 conf);
+    updated _estimate_multi_camera_fingers with wide_bilateral upper/lower union
+    (re_cnt >= 12, re_cnt >= t_cnt + 2, min(l_cnt, r_cnt) >= 8, min(l_lower, r_lower) >= 4,
+    re_lower >= max(l_lower, r_lower)) and conservative Rear-collapse recovery
+    (re_cnt <= 4 with l_cnt >= 8, r_cnt >= 8, min(l_lower, r_lower) >= 3). Fusion runtime
+    remains ~0.73 ms/scan (1000 calls in 731.06 ms) with zero extra YOLO inference.
+  - backend/tests/test_classification_fusion.py: added 4 regression tests reproducing
+    radial wing Top fans, Latundan Ripe 14, wide Lakatan 21, and Rear=2 collapse recovery.
+- Verification after final edit:
+  - Focused backend suites (11 modules): 344 passed, 3 skipped (20.99 s, temp cwd).
+  - Full backend run (without BANANAVISION_TEST_DATABASE_URL): 1112 passed, 74 skipped,
+    11 failed, 8 errors (Windows path/temp-symlink checks in export/fetch/OOD/train script
+    tests only).
+  - Single-view valid eval (banana_yolovsV2.pt, n=137): MAE=0.7664, exact=47.45% (65/137),
+    within1=85.4%, undercount=20, overcount=52.
+  - Frontend: 10 non-browser test files 104/104 passed (253 Playwright browser cases failed
+    without playwright installed); typecheck and build passed; eslint retained 40 baseline
+    issues; uv ruff check added 0 new diagnostics on modified lines.
+  - Updated docs/knowledge/Resolved Bugs.md, Testing and Validation.md, and AI Models.md.
+  - Graphify CLI and graphify-out/ are absent in this workspace. No live DB/cameras touched;
+    no commit/push/deploy run.
+
+PREVIOUS RESUME (2026-11-14) - TEAM FIXES MERGED; WAITING FOR STATION DATA
 
 Archived byte-for-byte before this merge:
 - docs/history/2026-11-14-team-checkpoint-before-merge.txt: Kent's checkpoint, the scan
