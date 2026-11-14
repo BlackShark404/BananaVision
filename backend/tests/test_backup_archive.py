@@ -373,6 +373,27 @@ def test_backup_records_model_identity_without_including_weights(station, archiv
         assert not any(n.endswith('.pt') for n in z.namelist())
 
 
+def test_backup_hashes_resolved_packaged_rfr_bundle(archive_module, tmp_path, monkeypatch):
+    from app.config import get_settings
+    from app.services import spoilage
+
+    app_dir = tmp_path / "app"
+    (app_dir / "services").mkdir(parents=True)
+    (app_dir / "ml").mkdir()
+    bundle = app_dir / "ml" / "spoilage_rfr.joblib"
+    bundle.write_bytes(b"packaged RFR identity")
+    monkeypatch.setattr(spoilage, "__file__", str(app_dir / "services" / "spoilage.py"))
+    monkeypatch.setattr(get_settings(), "rfr_model_path", "app/ml/weights/spoilage_rfr.joblib")
+    monkeypatch.chdir(tmp_path)
+
+    models = archive_module.model_prerequisites()
+
+    assert models["spoilage"] == {
+        "filename": bundle.name,
+        "sha256": hashlib.sha256(bundle.read_bytes()).hexdigest(),
+    }
+
+
 @pytest.mark.parametrize('cost', ['00', '99'])
 def test_archive_rejects_unusable_administrator_bcrypt_cost(station, archive_module, tmp_path, cost):
     result = backup(archive_module, station, tmp_path)

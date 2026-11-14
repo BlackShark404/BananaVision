@@ -357,10 +357,15 @@ def _descriptor(size, digest, count=None):
 
 def model_prerequisites():
     from app.config import get_settings
+    from app.services.spoilage import SpoilagePredictor
+
     settings = get_settings()
     result = {}
     for name, configured in [('classifier', settings.yolo_model_path), ('spoilage', settings.rfr_model_path)]:
-        path = Path(configured)
+        path = (
+            SpoilagePredictor.resolve_model_path(configured)
+            if name == "spoilage" else Path(configured)
+        )
         result[name] = {'filename': path.name, 'sha256': _hash_file(path) if path.is_file() else None}
     return result
 

@@ -1,5 +1,38 @@
 # Testing and Validation
 
+## Cultivar, counting, and RFR corrections — 2026-11-14
+
+- Final affected backend suite: **445 passed, 3 skipped**, run from a fresh temporary
+  working directory. Covered classification, rotation, fusion, crown colours, OOD,
+  scan trigger/persistence, spoilage, backup archives, count evaluation, and Manila guards.
+- A broader run with disposable PostgreSQL 18 on loopback port 53156 produced
+  **1159 passed, 6 skipped, 12 failed, 11 errors**. The cluster was stopped and its
+  temporary directory removed. Failures concern existing export/training asset/OOD
+  preparation tools and Windows paths. Running the four failing modules from a temporary
+  copy of unchanged HEAD reproduced **12 failed, 153 passed, 1 skipped, 12 errors**;
+  parallel OOD preparation failures vary by case. This is not an all-green full suite.
+- Frontend broad run: **323 passed, 2 failed test files**. Both failures were existing
+  Windows URL-path conversion errors in `estimates.test.mjs` and
+  `shelfLifeWindow.test.mjs`; both now use `fileURLToPath`. The corrected files plus
+  counting geometry passed **40 tests**. Kiosk/scan-page browser regressions separately
+  passed **40 tests**. The broad frontend suite was not rerun after these focused fixes.
+- Typecheck and production build passed. Build retains the existing large-chunk warning.
+  Full frontend lint has **35 errors, 5 warnings** in existing files; changed files pass
+  scoped lint. Backend Ruff has **634 diagnostics**, equal to unchanged HEAD, with no
+  added diagnostic keys. No broad autofixes were applied.
+- New `test_rotation_consensus.py` reproduces both 11-primary-to-14 recovery and the
+  14-box-to-11 mixed-ripeness counting bug. `test_scan_trigger.py` verifies that optional
+  `counts_as_finger` decisions survive label harmonization through HTTP and WebSocket
+  responses while keeping raw hypotheses. Frontend geometry/marker tests mirror this.
+- Real packaged RFR loaded successfully from a temporary working directory. Natural
+  Unripe outputs at 36.4°C/52.6% RH were 11.046/9.982/14.049 days for
+  Lakatan/Latundan/Cardaba; treatment and matrix details are in [[AI Models]].
+- Physical station counts, live camera images, the station's selected treatment and
+  loaded RFR artifact were not inspected. No deployment or live data changes occurred.
+- Graphify CLI/graph and project ICM tools/database are absent in this checkout;
+  source inspection and existing Obsidian notes supplied the context. No integrations
+  were initialized or replaced.
+
 Comprehensive guide to testing strategies, verification requirements, test runners, and isolation boundaries across BananaVision.
 
 ## Colour check — 2026-11-14

@@ -36,7 +36,9 @@ from app.core.exceptions import (
 )
 from app.schemas.enums import IntakeStatusEnum
 from app.services.camera_manager import camera_manager
-from app.services.classification import banana_classifier, _parse_class_label
+from app.services.classification import (
+    banana_classifier, _parse_class_label, _unique_box_detections,
+)
 from app.services.banana_detector import banana_pre_detector
 from app.services import ood_gate
 from app.services.fusion_engine import fusion_engine
@@ -262,6 +264,7 @@ async def _execute_scan_pipeline(
             classification_results.append((cap.camera_id, cap.camera_label, result))
 
             # Store per-camera detection record
+            counted_boxes = {id(d) for d in _unique_box_detections(result.detections)}
             db_detections.append(ScanDetection(
                 scan_id=scan_id,
                 device_id=device_map.get(cap.camera_id),
@@ -272,7 +275,8 @@ async def _execute_scan_pipeline(
                 confidence=result.confidence,
                 finger_count=result.finger_count,
                 bounding_boxes=[
-                    {"x": d.x, "y": d.y, "w": d.w, "h": d.h, "cls": d.cls, "conf": d.confidence}
+                    {"x": d.x, "y": d.y, "w": d.w, "h": d.h, "cls": d.cls,
+                     "conf": d.confidence, "counts_as_finger": id(d) in counted_boxes}
                     for d in result.detections
                 ],
                 inference_time_ms=result.inference_time_ms,

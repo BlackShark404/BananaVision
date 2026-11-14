@@ -666,8 +666,9 @@ def test_top_camera_with_duplicate_boxes_still_anchors():
     ], expected_camera_count=4)
 
     assert fused.cultivar == "Lakatan"
-    assert fused.conflict_detected is False
-    assert fused.auto_flagged is False
+    assert fused.cultivar_conflict is False
+    assert fused.conflict_detected is True
+    assert fused.auto_flagged is True
 
 
 def test_peripheral_background_filter_suppresses_upper_door_frame():

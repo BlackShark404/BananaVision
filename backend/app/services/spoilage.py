@@ -79,6 +79,26 @@ class SpoilagePredictor:
         return self._n_features == ENHANCED_FEATURE_COUNT
 
     @staticmethod
+    def resolve_model_path(configured: str) -> Path:
+        """Keep explicit station artifacts; resolve the historical default to our bundle.
+
+        The default used to name a file under ``weights/``, while Git ships the
+        RFR bundle directly under ``app/ml/``. Only that relative default gets
+        this compatibility lookup: a missing custom artifact must stay visible.
+        """
+        path = Path(configured)
+        if path.exists() or path.is_absolute():
+            return path
+        if path.as_posix() != "app/ml/weights/spoilage_rfr.joblib":
+            return path
+        app_dir = Path(__file__).resolve().parents[1]
+        station_path = app_dir / "ml" / "weights" / "spoilage_rfr.joblib"
+        if station_path.exists():
+            return station_path
+        packaged_path = app_dir / "ml" / "spoilage_rfr.joblib"
+        return packaged_path if packaged_path.exists() else path
+
+    @staticmethod
     def _training_encoding(metadata: dict, key: str, default: dict) -> dict:
         """Convert training's code-to-label maps to the app's label-to-code maps."""
         raw_map = metadata.get(key)
@@ -142,11 +162,12 @@ class SpoilagePredictor:
     def load(self) -> None:
         """Load RFR model from .joblib file. Call once at startup."""
         self._model = None
+        self._loaded = False
         self._reset_feature_metadata()
         try:
             import joblib
 
-            model_path = settings.rfr_model_path
+            model_path = self.resolve_model_path(settings.rfr_model_path)
             logger.info(f"Loading RFR spoilage model from {model_path}")
 
             if not Path(model_path).exists():
@@ -155,7 +176,6 @@ class SpoilagePredictor:
                     "Running in fallback mode with rule-based estimation."
                 )
                 self._model = None
-                self._loaded = True
                 return
 
             self._configure_artifact(joblib.load(model_path))
@@ -168,7 +188,8 @@ class SpoilagePredictor:
         except Exception as exc:
             logger.error(f"Failed to load RFR model: {exc}")
             self._model = None
-            self._loaded = True  # Allow fallback
+            # Fallback remains usable, but health must not report a loaded RFR.
+            self._loaded = False
 
     def predict(
         self,

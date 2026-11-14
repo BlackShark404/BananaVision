@@ -24,6 +24,21 @@ Each camera view counts its unique finger boxes; the scan stores the largest vie
 (`fusion_engine.py`, unchanged). Decision record: [[Development Decisions]]; bug history:
 [[Resolved Bugs]]; tests: [[Testing and Validation]].
 
+### Counting and consensus corrections (2026-11-14)
+
+- Neighboring fingers of one cultivar use the same duplicate geometry across ripeness
+  labels. Previously a Ripe/Semi Ripe pair was merged at IoU 0.70, while two Ripe boxes
+  required 0.80. A synthetic 14-box hand with three such pairs therefore counted as 11.
+- Rotation disagreement about ripeness no longer marks the cultivar conflicted or disables
+  finger recovery. Actual cultivar disagreement still blocks the overhead anchor and
+  recovery. General ambiguity still reaches fusion's review flag.
+- New scan bounding boxes carry optional `counts_as_finger` booleans, assigned before
+  cultivar harmonization. The overlay uses these decisions, retaining raw hypotheses in
+  storage. Older records without complete markers use matching geometric duplicate rules.
+  No database migration is required; the marker lives in existing bounding-box JSON.
+- Counts remain the maximum observed camera count. These fixes do not add unseen fingers
+  or sum overlapping camera views. Crown/background colour filtering is unchanged.
+
 ### Which YOLO26 head runs (`YOLO_INFERENCE_HEAD`)
 
 A YOLO26 checkpoint carries two detection heads. Ultralytics 8.4.40 (pinned) runs the
@@ -126,6 +141,33 @@ every option.
    (ripeness is colour). Runs go to `backend/runs/` (git-ignored). It prints the new
    weights' SHA-256 and the evaluation command; register the checkpoint in
    `TOP_CALIBRATED_CHECKPOINTS` only after evaluating it.
+
+## RFR model loading and matrix audit (2026-11-14)
+
+The historical default `app/ml/weights/spoilage_rfr.joblib` did not match the tracked
+bundle at `backend/app/ml/spoilage_rfr.joblib`. Missing models silently used short
+rule-based estimates and incorrectly reported `is_loaded=True`. The loader now resolves
+that missing historical default relative to the application package. Existing configured
+artifacts keep priority; a missing custom path still reports unavailable model health.
+Backup model prerequisites use the same resolver to record the actual artifact hash.
+
+Measured with the packaged model, Unripe at the screenshot conditions (36.4°C, 52.6% RH):
+
+| Cultivar | Natural model mean, days | Ethephon model mean, days |
+| --- | ---: | ---: |
+| Lakatan | 11.046 | 6.111 |
+| Latundan | 9.982 | 5.926 |
+| Cardaba | 14.049 | 6.660 |
+
+At the supplied matrix conditions (31°C, 60.8% RH), Natural means were 13.115, 9.426 and
+14.469 days respectively. These are model outputs, not measured storage outcomes.
+The active intake supplies treatment; no treatment-transfer bug was found. The station's
+actual loaded artifact and selected treatment were not inspected.
+
+`test_rfr_matrix.py` now uses the predictor's feature metadata, treatment maps, VPD and
+model mean. Its previous independent tree-quantile range did not match the app's current
+decimal-mean output. Existing estimates are not rewritten. The local artifact emits a
+scikit-learn version warning (training 1.6.1, local runtime 1.8.0); dependencies were unchanged.
 
 ## Out-of-distribution (OOD) rejection
 

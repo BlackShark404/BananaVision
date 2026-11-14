@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 
 const { outputFiles: [{ text: code }] } = await build({
-  entryPoints: [new URL('../src/lib/estimates.ts', import.meta.url).pathname],
+  entryPoints: [fileURLToPath(new URL('../src/lib/estimates.ts', import.meta.url))],
   bundle: true, format: 'esm', write: false, logLevel: 'silent',
 })
 const { estimateText, fingerCountIsEstimate, fingerCountText, fingersLabel, ESTIMATE_PREFIX } =
