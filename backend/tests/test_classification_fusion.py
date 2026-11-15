@@ -935,3 +935,112 @@ def test_rear_capture_collapse_recovers_from_both_stacked_sides():
         ("CAM-004", "Rear", _two_tier_view("Cardaba", "Unripe", 0.60, 2, 0)),
     ], expected_camera_count=4)
     assert fused.finger_count == 15
+
+
+def test_eleven_rear_lakatan_unripe_does_not_inflate_by_summing_lower_flanks():
+    # Reproduces 10-lakatan-unripe-overview where Top had 0 second-tier boxes and
+    # Rear=11 (<12) triggered legacy re_lower > max(l_lower, r_lower) lower-tier summation.
+    engine = FusionEngine()
+    fused_balanced = engine.fuse([
+        ("CAM-001", "Top", _top_fan_view("Lakatan", "Unripe", 0.84, 10)),
+        ("CAM-002", "Left", _two_tier_view("Lakatan", "Unripe", 0.82, 4, 4)),
+        ("CAM-003", "Right", _two_tier_view("Lakatan", "Unripe", 0.83, 5, 4)),
+        ("CAM-004", "Rear", _two_tier_view("Lakatan", "Unripe", 0.85, 6, 5)),
+    ], expected_camera_count=4)
+    assert fused_balanced.finger_count == 15
+
+    # Even with skewed vertical splits (Rear=11: 5u/6l, Left=8: 3u/5l, Right=9: 3u/6l),
+    # 11 Rear detections must not enter wide_bilateral/lower-summation and inflate to 22.
+    fused_skewed = engine.fuse([
+        ("CAM-001", "Top", _top_fan_view("Lakatan", "Unripe", 0.84, 10)),
+        ("CAM-002", "Left", _two_tier_view("Lakatan", "Unripe", 0.82, 3, 5)),
+        ("CAM-003", "Right", _two_tier_view("Lakatan", "Unripe", 0.83, 3, 6)),
+        ("CAM-004", "Rear", _two_tier_view("Lakatan", "Unripe", 0.85, 5, 6)),
+    ], expected_camera_count=4)
+    assert fused_skewed.finger_count == 17
+
+
+def test_wide_ripe_lakatan_recovers_once_right_flank_lower_tier_is_detected():
+    # Matches 15-lakatan-ripe-overview with recovered Right detections (10 total: 5u, 5l)
+    # alongside Top=11 (10 primary + 1 tiny inner tip), Left=8 (5u, 3l), Rear=12 (6u, 6l).
+    fused = FusionEngine().fuse([
+        ("CAM-001", "Top", _top_fan_view("Lakatan", "Ripe", 0.84, 10, short_tip_n=1)),
+        ("CAM-002", "Left", _two_tier_view("Lakatan", "Ripe", 0.83, 5, 3)),
+        ("CAM-003", "Right", _two_tier_view("Lakatan", "Ripe", 0.82, 5, 5)),
+        ("CAM-004", "Rear", _two_tier_view("Lakatan", "Ripe", 0.85, 6, 6)),
+    ], expected_camera_count=4)
+    assert fused.finger_count == 19
+
+
+def test_compact_rear_recovers_higher_lower_tier_without_inflating_eleven_rear():
+    engine = FusionEngine()
+
+    # 11:54 PM Latundan Ripe: Top=10, Left=7 (4u/3l), Right=7 (4u/3l), Rear=9 (5u/4l) -> 14.
+    compact_nine_rear = engine.fuse([
+        ("CAM-001", "Top", _top_fan_view("Latundan", "Ripe", 0.82, 10)),
+        ("CAM-002", "Left", _two_tier_view("Latundan", "Ripe", 0.81, 4, 3)),
+        ("CAM-003", "Right", _two_tier_view("Latundan", "Ripe", 0.80, 4, 3)),
+        ("CAM-004", "Rear", _two_tier_view("Latundan", "Ripe", 0.84, 5, 4)),
+    ], expected_camera_count=4)
+    assert compact_nine_rear.finger_count == 14
+
+    # 12:07 AM Cardaba Ripe: Top=10, Left=7 (4u/3l), Right=8 (5u/3l), Rear=10 (6u/4l) -> 14.
+    compact_ten_rear = engine.fuse([
+        ("CAM-001", "Top", _top_fan_view("Cardaba", "Ripe", 0.83, 10)),
+        ("CAM-002", "Left", _two_tier_view("Cardaba", "Ripe", 0.81, 4, 3)),
+        ("CAM-003", "Right", _two_tier_view("Cardaba", "Ripe", 0.82, 5, 3)),
+        ("CAM-004", "Rear", _two_tier_view("Cardaba", "Ripe", 0.85, 6, 4)),
+    ], expected_camera_count=4)
+    assert compact_ten_rear.finger_count == 14
+
+    # 01-latundan-unripe: Rear=11 (>10) stays on median lower tier (4) instead of re_lower (5).
+    eleven_rear_hand = engine.fuse([
+        ("CAM-001", "Top", _top_fan_view("Latundan", "Unripe", 0.85, 11)),
+        ("CAM-002", "Left", _two_tier_view("Latundan", "Unripe", 0.84, 5, 4)),
+        ("CAM-003", "Right", _two_tier_view("Latundan", "Unripe", 0.84, 6, 4)),
+        ("CAM-004", "Rear", _two_tier_view("Latundan", "Unripe", 0.85, 6, 5)),
+    ], expected_camera_count=4)
+    assert eleven_rear_hand.finger_count == 15
+
+
+def test_side_collapse_and_partial_rear_recovery():
+    engine = FusionEngine()
+
+    # 12:16 AM Latundan Ripe: Right collapses to 3 while Top=10, Left=8, Rear=9 -> 14.
+    collapsed_side = engine.fuse([
+        ("CAM-001", "Top", _top_fan_view("Latundan", "Ripe", 0.83, 10)),
+        ("CAM-002", "Left", _two_tier_view("Latundan", "Ripe", 0.82, 4, 4)),
+        ("CAM-003", "Right", _two_tier_view("Latundan", "Ripe", 0.75, 3, 0)),
+        ("CAM-004", "Rear", _two_tier_view("Latundan", "Ripe", 0.84, 5, 4)),
+    ], expected_camera_count=4)
+    assert collapsed_side.finger_count == 14
+
+    # 10:38 PM Lakatan Unripe: Rear drops to 6 while both Left/Right show two tiers -> 12.
+    partial_rear = engine.fuse([
+        ("CAM-001", "Top", _top_fan_view("Lakatan", "Unripe", 0.84, 9)),
+        ("CAM-002", "Left", _two_tier_view("Lakatan", "Unripe", 0.82, 4, 3)),
+        ("CAM-003", "Right", _two_tier_view("Lakatan", "Unripe", 0.83, 6, 4)),
+        ("CAM-004", "Rear", _two_tier_view("Lakatan", "Unripe", 0.78, 4, 2)),
+    ], expected_camera_count=4)
+    assert partial_rear.finger_count == 12
+
+
+def test_wide_ripe_lakatan_below_twelve_rear_recovers_flank_split():
+    # 12:01 AM Lakatan Ripe: Top=10 (0 second-tier), Left=8 (5u/3l), Right=8 (5u/3l),
+    # Rear=11 (5u/6l -> re_lower >= max(l_lower, r_lower) + 2) recovers lower-tier split -> 17.
+    fused = FusionEngine().fuse([
+        ("CAM-001", "Top", _top_fan_view("Lakatan", "Ripe", 0.80, 10)),
+        ("CAM-002", "Left", _two_tier_view("Lakatan", "Ripe", 0.78, 5, 3)),
+        ("CAM-003", "Right", _two_tier_view("Lakatan", "Ripe", 0.79, 5, 3)),
+        ("CAM-004", "Rear", _two_tier_view("Lakatan", "Ripe", 0.81, 5, 6)),
+    ], expected_camera_count=4)
+    assert fused.finger_count == 17
+
+
+def test_top_second_tier_preserves_horizontal_wing_detections():
+    base = [Detection(20 + i * 120, 120, 100, 260, "latundan_unripe", 0.85) for i in range(8)]
+    splayed_wing = Detection(20, 320, 260, 140, "latundan_unripe", 0.35)
+    vertical_overlap = Detection(20, 90, 95, 240, "latundan_unripe", 0.40)
+
+    assert _count_top_second_tier([*base, splayed_wing]) == 0
+    assert _count_top_second_tier([*base, vertical_overlap]) == 1

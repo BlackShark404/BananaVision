@@ -1,5 +1,31 @@
 # Testing and Validation
 
+## Fusion collapse recovery, compact-Rear split, and bottom-left platform trim — 2026-11-16
+
+- **New regression tests:**
+  - `backend/tests/test_classification_fusion.py`: `test_compact_rear_recovers_higher_lower_tier_without_inflating_eleven_rear`, `test_side_collapse_and_partial_rear_recovery`, `test_wide_ripe_lakatan_below_twelve_rear_recovers_flank_split`, and `test_top_second_tier_preserves_horizontal_wing_detections`.
+  - `backend/tests/test_colour_check.py`: `test_top_platform_edge_drops_bottom_left_trim_only`.
+- **Targeted backend suites (10 modules, fresh temp cwd):** `test_classification_fusion.py`, `test_finger_count_rules.py`, `test_colour_check.py`, `test_top_view_inference.py`, `test_evaluate_finger_count.py`, `test_ood_gate.py`, `test_manila_time_guard.py`, `test_scan_trigger.py`, `test_scan_logs.py`, `test_time_and_writes.py` — **383 passed, 3 skipped** in `45.75 s`.
+- **Full backend suite (fresh temp cwd, without `BANANAVISION_TEST_DATABASE_URL`):** **1120 passed, 71 skipped, 12 failed, 13 errors** (`392.76 s`); all 12 failures / 13 errors confined to pre-existing Windows path/symlink/quote assertions in `test_export_station_training_set.py` (`1`), `test_fetch_training_assets.py` (`6`), `test_prepare_ood_dataset.py` (`4` failed, `13` errors), and `test_train_finger_model.py` (`1`).
+- **Offline single-view benchmark (`run_visible`, `gate=True` on `v13-yolov8-20261016/dataset/valid`, `n=137`, `banana_yolovsV2.pt`):** **`MAE=0.8832`**, **`exact=0.4891`**, **`within1=0.8613`**, **`bias=+0.1971`** (`Top` `n=31 MAE=0.5806 exact=0.6129`; `Left` `n=34 MAE=0.7941 exact=0.4706`; `Right` `n=42 MAE=0.6429 exact=0.5238`; `Rear` `n=30 MAE=1.6333 exact=0.3333`) — preserving pre-edit `curr_working_tree` (`0.8832`) vs `d2d1aa1` (`0.9270 MAE`, `0.4745 exact`, `0.8540 within1`).
+- **Frontend & lint:** 10 non-browser test files (`105 tests`) **passed** (`node --test`); `npm run typecheck` and `npm run build` (`3073` modules) **passed**; `npm run lint` retained `40` pre-existing issues (`35` errors, `5` warnings, `0` frontend edits in this round); `uvx ruff check` confirmed `test_colour_check.py` clean and **0 new diagnostics** on edited backend lines (`647` repo baseline untouched).
+- **Limits:** `graphify` / `tree-sitter` wheel build and ICM MCP are unavailable in this Windows session; Playwright browser suites and PostgreSQL-only tests did not run.
+
+## Post-screenshot box/filter/fusion fixes — 2026-11-15
+
+- **New regression tests:**
+  - `backend/tests/test_finger_count_rules.py`: `test_centered_sub_box_inside_horizontal_parent_deduplicates_both_passes`, `test_pass3_drops_far_ripeness_doorway_box_and_recovers_four_box_rear`, `test_side_view_horizontal_hand_recovers_right_flank_and_high_conf_small_tip`, and `test_top_bottom_left_trim_overhang_duplicate_dropped_but_real_bl_finger_kept`.
+  - `backend/tests/test_classification_fusion.py`: `test_eleven_rear_lakatan_unripe_does_not_inflate_by_summing_lower_flanks` and `test_wide_ripe_lakatan_recovers_once_right_flank_lower_tier_is_detected`.
+  - `frontend/tests/detectionBoxes.test.mjs`: `centered square or portrait tip inside wide horizontal parent deduplicates cleanly`.
+- **Targeted backend suites (temp dir outside repo):** 11 modules (`test_classification_fusion.py`, `test_finger_count_rules.py`, `test_rotation_consensus.py`, `test_top_view_inference.py`, `test_colour_check.py`, `test_evaluate_finger_count.py`, `test_ood_gate.py`, `test_manila_time_guard.py`, `test_scan_trigger.py`, `test_assigned_fixes.py`, `test_detection_sensitivity.py`) — **350 passed, 3 skipped** in `56.83 s`.
+- **Full backend suite (without `BANANAVISION_TEST_DATABASE_URL`, temp dir):** **1119 passed, 71 skipped, 12 failed, 9 errors** (`246.15 s`); all 12 failures / 9 errors confined to the pre-existing Windows path/symlink checks in `test_export_station_training_set.py` (1), `test_fetch_training_assets.py` (6), `test_prepare_ood_dataset.py` (4 failed, 9 errors), `test_train_finger_model.py` (1).
+- **Offline single-view benchmark (`evaluate_finger_count.py visible --gate` on `v13-yolov8-20261016/dataset/valid`, `n=137`, `banana_yolovsV2.pt`):**
+  - Before -> After: `MAE` **`0.9124 -> 0.8832`**, `exact_rate` **`47.45% -> 48.91%`**, `within_one_rate` **`85.40% -> 86.13%`**, `bias` **`+0.2117 -> +0.1971`**, `overcount` **`51 -> 49`**, `undercount` `21 -> 21`; `Right` MAE `0.7381 -> 0.6429` (`45.24% -> 52.38%` exact), `Top` MAE `0.6452 -> 0.5806` (`58.06% -> 61.29%` exact).
+  - Stage trace (`trace_valid_stages.py`, `645.2 s`): gated `TP=1142, FP=80, FN=41`, precision `0.932 -> 0.935`, recall `0.964 -> 0.965`.
+- **Processing latency:** `FusionEngine.fuse` measured at `523.26 ms` over `1000` calls (`0.52 ms/scan`); `_suppress_trim_overhang_duplicates` measured at `193.14 ms` over `100` `1280x900` frames (`1.93 ms/frame`); zero additional YOLO inference passes.
+- **Frontend & lint:** 10 non-browser test files (`105 tests`) **passed** (`node --test`); `npm run typecheck` and `npm run build` **passed**; `npx eslint src/lib/detectionBoxes.ts tests/detectionBoxes.test.mjs` **0 problems** (`40` pre-existing repo lint issues untouched); `uv tool run ruff check` found **0 new diagnostics** on edited files (`28` pre-existing across the 4 backend files; `649` repo baseline untouched).
+- **Limits:** `debug-screenshots/2026-11-15/` lacks raw unannotated camera frames and manually verified physical totals; Playwright browser tests and PostgreSQL-only tests did not run in this environment.
+
 ## Multi-camera top-tier and wide two-tier fusion fix — 2026-11-15
 
 - **New unit/regression coverage (`backend/tests/test_classification_fusion.py`):**

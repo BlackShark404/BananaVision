@@ -340,10 +340,31 @@ class FusionEngine:
                 return max(baseline_max, min(sum(finger_counts), fused_estimate))
             return baseline_max
 
-        # Single-tier hands fan out horizontally: Left/Right see across the row
-        # while Rear only sees the outer arc tips (re_cnt < max(l_cnt, r_cnt)).
-        # Two-tier hands present both upper and lower rows toward Rear.
-        if not (re_cnt >= max(l_cnt, r_cnt) and re_cnt >= 8 and min(l_cnt, r_cnt) >= 5):
+        # When Rear partially under-detects (< 8 or < max(Left, Right)), still recover
+        # the stacked lower tier if both Left and Right confirm two-tier stacking.
+        if re_cnt < 8 or re_cnt < max(l_cnt, r_cnt):
+            if (
+                min(l_cnt, r_cnt) >= 7
+                and max(l_cnt, r_cnt) >= 8
+                and min(l_lower, r_lower) >= 3
+            ):
+                side_lower = (
+                    sorted([l_lower, r_lower, re_lower])[1]
+                    if re_lower >= 2
+                    else min(l_lower, r_lower)
+                )
+                fused_estimate = u_primary + side_lower
+                return max(baseline_max, min(sum(finger_counts), fused_estimate))
+            return baseline_max
+
+        # If one side view collapses (<= 4 boxes) while the surviving side (>= 7) and Rear
+        # (>= 8) both confirm vertical stacking, recover from the surviving pair.
+        if min(l_cnt, r_cnt) <= 4:
+            surv_lower = max(l_lower, r_lower)
+            if max(l_cnt, r_cnt) >= 7 and min(surv_lower, re_lower) >= 3:
+                u_est = u_primary + (1 if re_cnt > t_cnt else 0)
+                fused_estimate = u_est + min(surv_lower, re_lower)
+                return max(baseline_max, min(sum(finger_counts), fused_estimate))
             return baseline_max
 
         # Require verified 2D vertical tier stacking across at least two horizontal views.
@@ -353,9 +374,11 @@ class FusionEngine:
         u_est = u_primary + (1 if re_cnt > t_cnt else 0)
         wide_bilateral = (
             re_cnt >= 12
-            and re_cnt >= t_cnt + 2
-            and min(l_cnt, r_cnt) >= 8
-            and min(l_lower, r_lower) >= 4
+            and re_cnt >= u_primary + 2
+            and max(l_cnt, r_cnt) >= 8
+            and min(l_cnt, r_cnt) >= 7
+            and min(l_lower, r_lower) >= 3
+            and max(l_lower, r_lower) >= 4
             and re_lower >= max(l_lower, r_lower)
         )
         if wide_bilateral:
@@ -364,10 +387,27 @@ class FusionEngine:
             side_upper_union = min(l_upper + r_upper, re_upper + min(l_upper, r_upper))
             u_est = max(u_est, side_upper_union)
 
-        if (re_lower > max(l_lower, r_lower) and top_second_tier == 0) or wide_bilateral:
+        if (
+            (re_cnt >= 12 and re_lower > max(l_lower, r_lower) and top_second_tier == 0)
+            or (
+                re_cnt < 12
+                and re_lower >= max(l_lower, r_lower) + 2
+                and top_second_tier == 0
+            )
+            or wide_bilateral
+        ):
             # Left and Right capture opposite lateral halves of the lower tier while
             # Rear spans the central overlap.
             l_est = min(l_lower + r_lower, re_lower + min(l_lower, r_lower))
+        elif (
+            re_cnt <= 10
+            and re_cnt <= t_cnt
+            and re_lower > max(l_lower, r_lower)
+            and top_second_tier == 0
+        ):
+            # Compact Rear view did not add an upper finger beyond Top, yet directly sees
+            # more lower-tier fingers than either side view alone.
+            l_est = min(l_lower + r_lower, re_lower)
         else:
             # Standard two-tier hand: Left, Right, and Rear observe the shared lower tier.
             l_est = sorted([l_lower, r_lower, re_lower])[1]
@@ -414,12 +454,14 @@ def _count_top_second_tier(dets: list[Detection]) -> int:
     if not areas:
         return 0
     med_area = float(np.median(areas))
-    # Only Pass-2 low-confidence recoveries or genuinely small peeking inner/perimeter tips
-    # belong to the second tier; splayed radial upper wings (w > h) stay in the primary row.
+    # Only Pass-2 low-confidence recoveries (vertical overlaps) or genuinely small peeking
+    # inner/perimeter tips belong to the second tier; splayed radial upper wings (w > h)
+    # stay in the primary row.
     return sum(
         1
         for d in unique
-        if d.confidence < TOP_OVERLAP_CONFIDENCE or (d.w * d.h) < 0.42 * med_area
+        if (d.confidence < TOP_OVERLAP_CONFIDENCE and d.w <= d.h)
+        or (d.w * d.h) < 0.42 * med_area
     )
 
 

@@ -2,6 +2,42 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-11-16: Horizontal radial-wing subtraction, <12-Rear / single-side two-tier collapses, and bottom-right Top peel safety
+
+- **Symptoms (2026-11-15/16 4-camera station screenshots):**
+  - After deploying Round 2 changes, two-tier hands still undercounted by `-1` to `-6`: `11:54 PM Latundan Ripe` (`10/7/7/9` vs `14`) returned `13`; `12:16 AM Latundan Ripe` with collapsed `Right=3` (`10/8/3/9`) returned `10`; `12:07 AM Cardaba Ripe` (`10/7/8/10`) returned `13`; `12:01 AM Lakatan Ripe` (`10/8/8/11` vs `20–21`) dropped to `14`; `10:38 PM Lakatan Unripe` (`9/7/10/6` vs `15`) returned `10`; `10:36 PM Latundan Unripe` (`12/7/10/11`) and `11:52 PM Cardaba Ripe` (`11/8/9/11`) dropped splayed wings.
+- **Root causes:**
+  1. `_count_top_second_tier` in `backend/app/services/fusion_engine.py` treated `< 0.50` confidence splayed horizontal wing fingers (`w > h`) as lower-tier detections, subtracting them from `u_primary` and disabling `top_second_tier == 0` flank union.
+  2. `FusionEngine._estimate_multi_camera_fingers` gated lower-tier flank union at `re_cnt >= 12` (blocking `11`-Rear split hands and `9–10`-Rear compact hands where `re_cnt <= t_cnt` and `re_lower > max(l_lower, r_lower)`), and aborted two-tier reconstruction when `Rear < 8` or `Rear < max(Left, Right)` (`10:38 PM`) or when one side collapsed `<= 4` (`12:16 AM`).
+  3. `_is_top_platform_edge_box` in `backend/app/services/classification.py` applied `at_bottom` (`y2 >= 0.90 * ih`) across the whole image width instead of restricting it to the bottom-left platform trim (`x1 <= 0.15 * iw and cx <= 0.50 * iw`).
+- **Fixes:**
+  - `backend/app/services/fusion_engine.py`: required `d.w <= d.h` for `< 0.50` boxes in `_count_top_second_tier`; added partial-Rear and single-side collapse recovery (`min(l_cnt, r_cnt) <= 4` and `re_cnt < 8 or re_cnt < max(l_cnt, r_cnt)`); added `< 12` wide lower-flank split (`re_lower >= max(l_lower, r_lower) + 2` when `top_second_tier == 0`) and compact `Rear` substitution (`re_cnt <= 10 and re_cnt <= t_cnt and re_lower > max(l_lower, r_lower) and top_second_tier == 0`).
+  - `backend/app/services/classification.py`: narrowed `_is_top_platform_edge_box` `at_bottom` check to bottom-left (`x1 <= 0.15 * iw and cx <= 0.50 * iw`).
+- **Remaining limits:**
+  - Single-view detector misses on dim/sideways captures (e.g., `12:16 AM Right=3` where `cls@0.50` emits `2` boxes and `raw@0.25` sees `6–7`) still require retraining YOLO on exported station data.
+- **Verification:** See [[Testing and Validation]].
+
+## 2026-11-15: Sub-box fragments, Top bottom-left trim overhangs, side-view flank recovery, doorway outlier, and 11-Rear fusion inflation
+
+- **Symptoms (`debug-screenshots/2026-11-15/`):**
+  - `10-lakatan-unripe-overview` (`Top 10, Left 8, Right 9, Rear 11`) inflated to `EST. FINGERS = 22`.
+  - `15-lakatan-ripe-overview` / `17-lakatan-ripe-right` (`Right 7`) dropped lower-right flank fingers and foreshortened end-on tips, keeping fused count collapsed at `14`.
+  - `18-lakatan-ripe-rear` and `19-cardaba-unripe-top` retained portrait/square sub-box duplicates nested vertically centered inside wide horizontal finger parents.
+  - `03-latundan-unripe-left` admitted a `38%` `Latundan Ripe` doorway candidate grazing a finger corner.
+  - `22-cardaba-unripe-rear` stopped at `4` detections without triggering Pass-3 recovery.
+  - `06-latundan-ripe-top`, `14-lakatan-ripe-top`, `19-cardaba-unripe-top`, `23-cardaba-ripe-top` counted shifted bottom-left boxes extending over empty pale-tan tray trim / dark shadow gap alongside clean inner banana siblings (`IoU < 0.80`).
+- **Root causes:**
+  1. `FusionEngine._estimate_multi_camera_fingers` lacked a `re_cnt >= 12` guard on `(re_lower > max(l_lower, r_lower) and top_second_tier == 0)` and used overly permissive `wide_bilateral` gates, summing both lower flanks when `Rear=11`.
+  2. `BananaClassifier.predict` Pass 3 set `beside_x = 0.0` whenever `upright=False`, blocking missed lateral flanks in `Right`/`Left`/`Rear`, and required `>= 0.22 * median_area` even for `>= 0.50` confidence end-on tips.
+  3. `_is_axially_aligned_or_enclosed` (and `deduplicateDisplayBoxes` in `frontend/src/lib/detectionBoxes.ts`) skipped centered portrait/square children (`0.50 <= h/H < 0.80`) inside wide horizontal parents (`w >= 1.6 * h`, `w >= 2.0 * sub_w`).
+  4. Pass 3 admitted `< 0.50` candidates `>= 2` ripeness stages away on ripeness-unconflicted hands and lacked a `within_hand` upper-margin peripheral grazing guard; `OCCLUDED_FINGER_MIN_PRIMARY = 5` skipped Pass 3 on 4-box detections (`22-cardaba-unripe-rear`).
+  5. No check existed for shifted Top bottom-left duplicates whose non-overlapping left/bottom margin consists primarily of pale-tan trim / dark shadow (`27-empty-platform-top-reference.png`) while overlapping a clean sibling on the peel.
+- **Fixes:**
+  - Updated `backend/app/services/classification.py`, `backend/app/services/fusion_engine.py`, and `frontend/src/lib/detectionBoxes.ts` as summarized in `TASK_PROGRESS.txt` and [[Development Decisions]].
+- **Remaining limits:**
+  - COCO `banana_pre_detector` fails to emit strong banana evidence on some stubby/foreshortened Cardaba Rear views (`valid` `001_back`, `03682_back`), and raw Pass-1/Pass-2 inference can still merge touching stacked side-view fingers; screenshots in `debug-screenshots/2026-11-15/` lack clean raw camera frames and physically counted ground truth.
+- **Verification:** See [[Testing and Validation]].
+
 ## 2026-11-15: Radial-wing Top subtraction and wide/rear-collapsed two-tier fusion
 
 - **Symptoms:**

@@ -531,3 +531,130 @@ def test_peripheral_filter_preserves_frame_edge_clipped_upper_finger():
     )
     assert result.finger_count == 2
     assert sorted( int(d.x) for d in result.detections ) == [120, 454]
+
+
+def test_centered_sub_box_inside_horizontal_parent_deduplicates_both_passes():
+    # Reproduces 18-lakatan-ripe-rear / 19-cardaba-unripe-top: portrait/square sub-box
+    # (0.50 <= h/H < 0.80) centered horizontally inside a wide horizontal finger parent
+    # (W >= 1.6 * H and W >= 2.0 * w) deduplicates in both Pass 1 and Pass 3.
+    names = {0: "cardaba_unripe"}
+    parent = (40, 200, 440, 410, 0.85, 0)         # w=400, h=210 (ratio 1.90)
+    centered_sub = (185, 235, 295, 375, 0.67, 0)   # w=110, h=140 (0.67*H, centered)
+    stacked_child = (185, 205, 295, 300, 0.62, 0)  # offset above centerline (rel_dy > 0.08)
+
+    res_pass1 = predict([parent, centered_sub], names=names, camera_label="Rear")
+    assert res_pass1.finger_count == 1
+
+    # Pass 3 recovers parent around existing Pass-1 sub-box: both directions dedup.
+    anchors = [
+        (500, 60, 600, 260, 0.90, 0),
+        (620, 60, 720, 260, 0.89, 0),
+        (740, 60, 840, 260, 0.88, 0),
+    ]
+    p1_with_sub = [centered_sub, *anchors]
+    clf = BananaClassifier()
+    clf._model = SequencePredictor([p1_with_sub, [*p1_with_sub, parent]], names)
+    clf._checkpoint_sha256 = VERIFIED_CHECKPOINT
+    res_rec = clf.predict(
+        np.zeros((500, 900, 3), np.uint8),
+        confidence_threshold=0.50, camera_label="Left",
+    )
+    assert res_rec.finger_count == 4
+
+    # Off-axis stacked neighbor remains distinct.
+    assert predict([parent, stacked_child], names=names, camera_label="Rear").finger_count == 2
+
+
+def test_pass3_drops_far_ripeness_doorway_box_and_recovers_four_box_rear():
+    # 1. Reproduces 03-latundan-unripe-left: a 0.38 Ripe doorway candidate (2 stages away
+    # from Unripe) grazing an Unripe corner is dropped even in Pass 3, while an Unripe
+    # neighbor inside the hand is kept.
+    names_lat = {0: "latundan_unripe", 1: "latundan_ripe"}
+    p1_lat = [
+        (180, 120, 360, 220, 0.90, 0),
+        (190, 230, 370, 330, 0.88, 0),
+        (200, 340, 380, 440, 0.86, 0),
+        (210, 450, 390, 540, 0.84, 0),
+        (400, 180, 560, 280, 0.50, 0),
+    ]
+    doorway_ripe = (515, 0, 595, 195, 0.38, 1)  # 2 stages away + upper-margin peripheral
+    inner_unripe = (220, 280, 380, 380, 0.41, 0)
+    clf_lat = BananaClassifier()
+    clf_lat._model = SequencePredictor([p1_lat, [*p1_lat, doorway_ripe, inner_unripe]], names_lat)
+    clf_lat._checkpoint_sha256 = VERIFIED_CHECKPOINT
+    res_lat = clf_lat.predict(
+        np.zeros((640, 800, 3), np.uint8),
+        confidence_threshold=0.50, camera_label="Left",
+    )
+    assert res_lat.finger_count == 6
+    assert all(d.cls == "latundan_unripe" for d in res_lat.detections)
+
+    # 2. Reproduces 22-cardaba-unripe-rear: 4 confident Pass-1 detections trigger Pass 3
+    # recovery instead of skipping it below 5 detections.
+    names_car = {0: "cardaba_unripe"}
+    p1_rear4 = [
+        (180, 220, 340, 380, 0.85, 0),
+        (350, 220, 510, 380, 0.82, 0),
+        (200, 390, 360, 540, 0.78, 0),
+        (370, 390, 530, 540, 0.74, 0),
+    ]
+    rec_fifth = (280, 310, 430, 460, 0.42, 0)
+    clf_rear = BananaClassifier()
+    clf_rear._model = SequencePredictor([p1_rear4, [*p1_rear4, rec_fifth]], names_car)
+    clf_rear._checkpoint_sha256 = VERIFIED_CHECKPOINT
+    res_rear = clf_rear.predict(
+        np.zeros((640, 800, 3), np.uint8),
+        confidence_threshold=0.50, camera_label="Rear",
+    )
+    assert res_rear.finger_count == 5
+
+
+def test_side_view_horizontal_hand_recovers_right_flank_and_high_conf_small_tip():
+    # Reproduces 17-lakatan-ripe-right: horizontal (not upright) side-view hand recovers
+    # a flanking body within 0.75 * med_w outside Pass-1 x-span plus a >=0.50 small end-on
+    # tip (0.14 * median_area), while still dropping a <0.50 fragment of that same small area.
+    names = {0: "lakatan_ripe"}
+    p1_right = [
+        (120, 180, 320, 290, 0.90, 0),  # 200x110 (med_w=200, med_h=110, med_area=22000)
+        (130, 300, 330, 410, 0.88, 0),
+        (330, 180, 530, 290, 0.86, 0),
+        (340, 300, 540, 410, 0.85, 0),
+        (220, 240, 420, 350, 0.84, 0),
+    ]
+    right_flank = (560, 290, 740, 400, 0.40, 0)       # center x=650 inside 540 + 0.75*200=690
+    high_conf_tip = (380, 250, 442, 300, 0.58, 0)     # 62x50=3100 (~0.141 * med_area)
+    low_conf_tiny = (180, 340, 242, 390, 0.35, 0)     # 62x50=3100 (<0.50 conf, <0.22 area)
+
+    clf = BananaClassifier()
+    clf._model = SequencePredictor(
+        [p1_right, [*p1_right, right_flank, high_conf_tip, low_conf_tiny]], names,
+    )
+    clf._checkpoint_sha256 = VERIFIED_CHECKPOINT
+    res = clf.predict(
+        np.zeros((640, 900, 3), np.uint8),
+        confidence_threshold=0.50, camera_label="Right",
+    )
+    assert res.finger_count == 7
+
+
+def test_top_bottom_left_trim_overhang_duplicate_dropped_but_real_bl_finger_kept():
+    # Reproduces 06/14/19/23 bottom-left trim overhang duplicate vs real bottom-left finger.
+    img = np.zeros((480, 640, 3), np.uint8)
+    img[:, :] = (165, 195, 205)              # pale tan table & front trim outside banana
+    img[100:435, 110:500] = (40, 200, 160)   # bright green/yellow banana peel interior
+    img[450:480, 0:640] = (15, 20, 15)       # dark shadow gap below trim
+
+    names = {0: "cardaba_unripe"}
+    clean_bl = (110, 345, 430, 435, 0.87, 0)
+    trim_dup = (10, 345, 430, 475, 0.78, 0)  # overhangs tan left + dark bottom strip
+
+    clf_dup = BananaClassifier()
+    clf_dup._model = SequencePredictor([[clean_bl, trim_dup], []], names)
+    clf_dup._checkpoint_sha256 = VERIFIED_CHECKPOINT
+    assert clf_dup.predict(img, confidence_threshold=0.50, camera_label="Top").finger_count == 1
+
+    # Single genuine bottom-left finger reaching the trim/gap with no clean inner partner survives.
+    clf_real = BananaClassifier()
+    clf_real._model = SequencePredictor([[trim_dup], []], names)
+    clf_real._checkpoint_sha256 = VERIFIED_CHECKPOINT
+    assert clf_real.predict(img, confidence_threshold=0.50, camera_label="Top").finger_count == 1

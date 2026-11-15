@@ -35,7 +35,14 @@ export function deduplicateDisplayBoxes(boxes: BoundingBox[]): BoundingBox[] {
           aligned = true
         } else if (larger.w > larger.h && smaller.w > smaller.h) {
           aligned = relDy <= 0.08 && !(smaller.h < 0.50 * larger.h && smaller.w < 0.75 * larger.w)
-        } else if (smaller.h > smaller.w && smaller.h >= 0.80 * larger.h && larger.w >= 1.8 * smaller.w && relDy <= 0.08) {
+        } else if (
+          smaller.h >= smaller.w &&
+          smaller.h >= 0.5 * larger.h &&
+          (smaller.h >= 0.8 * larger.h ||
+            (larger.w >= 1.6 * larger.h && larger.w >= 2.0 * smaller.w)) &&
+          larger.w >= 1.8 * smaller.w &&
+          relDy <= 0.08
+        ) {
           aligned = true
         } else if (larger.h >= larger.w && smaller.h >= smaller.w) {
           aligned = relDx <= 0.08 && !(smaller.w < 0.50 * larger.w && smaller.h < 0.75 * larger.h)
