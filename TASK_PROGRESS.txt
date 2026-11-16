@@ -57,7 +57,21 @@ VERIFICATION
   build pass. Ruff app+tests 634 (= baseline).
 - Screenshots (scratchpad logs-screens): plain today, review Flagged + banner, expiring
   "All dates", at 1280 and 390 px.
-- Independent review workflow (3 lenses + skeptics): see the follow-up commit, if any.
+- Independent review workflow (3 lenses, a skeptic per lens): 14 findings, 10 confirmed (6
+  distinct). All fixed in the follow-up commit:
+  - only an admin may remove a flag (operators get 403; they can still raise one);
+  - Quality Control and Scan Detail show a neutral "Low confidence" instead of
+    "Review"/"Needs Review" for unflagged low-confidence scans (Scan Detail keeps "Needs
+    Review" for a camera cultivar conflict); the export Status follows;
+  - the at-risk subset of a snapshot counts review as flagged;
+  - the dashboard API docstring;
+  - the sidebar Logs link goes straight to ?date=<today> (no reload or duplicate history);
+  - an open default view moves to the new Manila day at midnight.
+- After the follow-up:
+  - backend 1155 passed, 38 skipped with PostgreSQL;
+  - frontend 366/367 (the only failure was an analytics.test.mjs clock-setup race, "Cannot
+    fast-forward to the past"; that file passes 9/9 alone and the change does not touch it);
+  - ESLint 40 and Ruff 634, both baseline; tsc passes.
 
 STILL OPEN (from earlier checkpoints)
 - Station data: when the release tag (station-data-YYYY-MM-DD) arrives:

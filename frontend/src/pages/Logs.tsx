@@ -32,7 +32,7 @@ import { scanWrite, scanRevision, isScanConflict } from "@/lib/scanWrites"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { normalizeScanLogSearch, scanLogParams, selectedScanLogDay, VALID_PAGE_SIZES } from "@/lib/scanLogFilters"
+import { isDefaultScanLogView, normalizeScanLogSearch, scanLogParams, selectedScanLogDay, VALID_PAGE_SIZES } from "@/lib/scanLogFilters"
 import { manilaDayKey } from "@/lib/manilaTime"
 import { useDashboardResource } from "@/hooks/useDashboardResource"
 import type { ScanLogRow, ScanLogParams, ScanLogReconciliation } from "@/types/scanLogs"
@@ -195,6 +195,19 @@ function LogsContent() {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000)
     return () => window.clearInterval(timer)
   }, [])
+  // The default view follows the Asia/Manila day: at midnight an open "today" view moves
+  // to the new day. A chosen past day or any filtered view stays as it is.
+  const dayKey = manilaDayKey(now)
+  const previousDay = useRef(dayKey)
+  useEffect(() => {
+    const before = previousDay.current
+    previousDay.current = dayKey
+    if (before === dayKey || searchParams.get("date") !== before || !isDefaultScanLogView(searchParams)) return
+    const next = new URLSearchParams(searchParams)
+    next.set("date", dayKey)
+    next.delete("page")
+    setSearchParams(next, { replace: true })
+  }, [dayKey, searchParams, setSearchParams])
   const [pendingScans, setPendingScans] = useState<Set<string>>(new Set())
   const inFlight = useRef(new Set<string>())
   const [statusAction, setStatusAction] = useState<{ scan: LogScan; status: InventoryStatus } | null>(null)
@@ -901,7 +914,7 @@ const columns: ColumnDef<LogScan>[] = [
         searchQuery={search}
         onSearchChange={(value) => { setSearch(value) }}
         searchPlaceholder="Search by cultivar, operator, or ID..."
-        hasActiveFilters={search !== "" || cultivarFilter !== "all" || ripenessFilter !== "all" || sourceFilter !== "all" || operatorFilter !== "all" || statusFilter !== "all" || intakeFilter !== "all" || cardFilter !== null || dateFilter !== manilaDayKey(now) || requestParams.stock_eligible}
+        hasActiveFilters={search !== "" || cultivarFilter !== "all" || ripenessFilter !== "all" || sourceFilter !== "all" || operatorFilter !== "all" || statusFilter !== "all" || intakeFilter !== "all" || cardFilter !== null || dateFilter !== dayKey || requestParams.stock_eligible}
         onClearFilters={clearAllFilters}
       >
         <Select value={cultivarFilter} onValueChange={(v) => { setCultivarFilter(v) }}>

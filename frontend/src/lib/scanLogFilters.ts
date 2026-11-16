@@ -29,6 +29,11 @@ export const VALID_PAGE_SIZES = [10, 25, 50, 100] as const
 /** URL keys that only page or order the list; they never narrow it. */
 const LAYOUT_KEYS = new Set(["page", "limit", "page_size", "sort", "direction"])
 
+/** The default view: no filters, only a date and paging or sorting. */
+export function isDefaultScanLogView(params: URLSearchParams): boolean {
+  return [...params.keys()].every(key => key === "date" || LAYOUT_KEYS.has(key))
+}
+
 /** A real YYYY-MM-DD calendar day (2026-02-30 is not). */
 function isCalendarDay(value: string | null): value is string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false

@@ -34,8 +34,9 @@ async def dashboard_scans(
 ):
     """Filter within account scope; confidence sort is ascending, nulls last.
 
-    business_date selects a Manila calendar day only for view=today. Review is
-    flagged-or-low-confidence, as no independent review-resolution state exists.
+    business_date selects a Manila calendar day only for view=today. Review is the
+    flagged scans: new scans below the confidence threshold are flagged when saved,
+    and an admin removing the flag takes a scan out of review.
     """
     return await list_scans(
         db, user, view=view, page=page, page_size=page_size, business_date=business_date,

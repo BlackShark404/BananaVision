@@ -5,7 +5,7 @@ import { transform } from 'esbuild'
 
 const source = await readFile(new URL('../src/lib/scanLogFilters.ts', import.meta.url), 'utf8')
 const { code } = await transform(source, { loader: 'ts', format: 'esm' })
-const { buildScanLogsUrl, scanLogParams, normalizeScanLogSearch, selectedScanLogDay } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
+const { buildScanLogsUrl, scanLogParams, normalizeScanLogSearch, selectedScanLogDay, isDefaultScanLogView } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
 
 const TODAY = '2026-10-02'
 const normalized = query => {
@@ -64,6 +64,15 @@ test('plain Scan Logs opens on the Manila day; page and sort are kept and are no
 test('filtered links keep all dates, and explicit dates are left alone', () => {
   for (const query of ['attention=at-risk', 'status=Flagged', 'date=all', 'date=2026-10-01', 'source_key=supplier:1', 'stock=eligible&status=In+Stock', 'intake=intake-1', 'search=alex']) {
     assert.equal(normalized(query), null, query)
+  }
+})
+
+test('the default view is a date with only paging or sorting', () => {
+  for (const query of ['date=2026-10-02', 'date=2026-10-02&page=2&sort=confidence&direction=asc', '']) {
+    assert.equal(isDefaultScanLogView(new URLSearchParams(query)), true, query)
+  }
+  for (const query of ['date=2026-10-02&status=Sold', 'date=2026-10-02&attention=at-risk', 'date=all&search=x']) {
+    assert.equal(isDefaultScanLogView(new URLSearchParams(query)), false, query)
   }
 })
 

@@ -18,6 +18,7 @@ from app.models.intake import Intake
 from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
 from app.models.supplier import Supplier
+from app.models.system_config import SystemConfig
 from app.models.user_account import UserAccount
 from app.schemas.enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
 from app.schemas.scan_logs import ScanLogQuery
@@ -619,6 +620,45 @@ async def test_success_drilldown_matches_dashboard_numerator_and_full_export(log
         row["Scan ID"]
         for row in await csv_rows(db, own, ScanLogQuery(attention="success", page=7, page_size=1))
     } == {str(sid) for sid in expected}
+
+
+@pytest.mark.asyncio
+async def test_at_risk_subset_of_a_snapshot_counts_review_as_flagged(logs_db, monkeypatch):
+    from app.services import auth_service
+
+    db = logs_db  # noqa: F811 - pytest fixture injection
+    operator = account(db)
+    stored = {}
+
+    async def lock(_db, user):
+        return user
+
+    async def save(_db, _user, key, payload):
+        stored.update(key=key, saved=SimpleNamespace(
+            id=uuid4(), payload=payload, expires_at=NOW + timedelta(minutes=10),
+        ))
+        return stored["saved"]
+
+    async def load(_db, _user, _token, key):
+        if key != stored["key"]:
+            raise HTTPException(409, "Browse filters changed.")
+        return stored["saved"]
+
+    monkeypatch.setattr(auth_service, "lock_current_account", lock)
+    monkeypatch.setattr(scan_logs, "save_snapshot", save)
+    monkeypatch.setattr(scan_logs, "load_snapshot", load)
+    db.add(SystemConfig, confidence_threshold=85, data_retention_enabled=False)
+    scan(db, operator, confidence=60, prediction="1")  # Flag removed after a check.
+    scan(db, operator, confidence=95, prediction="1", flagged=True)
+    parent = await scan_logs.list_scan_logs(db, operator, ScanLogQuery(stable=True))
+    subset = await scan_logs.list_scan_logs(
+        db, operator, ScanLogQuery(attention="at-risk", snapshot_id=parent.snapshot_id)
+    )
+    direct = await scan_logs.list_scan_logs(db, operator, ScanLogQuery(attention="at-risk"))
+    summary = await dashboard.get_summary(db, operator)
+    assert subset.total == direct.total == 2
+    assert subset.review_count == subset.flagged_count == direct.review_count == 1
+    assert summary.pending_review_count == 1
 
 
 @pytest.mark.asyncio

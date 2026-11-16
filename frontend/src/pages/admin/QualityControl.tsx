@@ -252,6 +252,10 @@ export default function QualityControl() {
   }
 
   const lowConfidenceCount = scans.filter(s => s.confidence !== null && s.confidence < config.confidenceThreshold).length
+  // Review is the flag alone. An unflagged low-confidence scan was checked (or predates a
+  // threshold raise), so it is labelled for information, never as pending review.
+  const reviewLabel = (s: { flagged: boolean; confidence: number | null }) =>
+    s.flagged ? "Flagged" : s.confidence !== null && s.confidence < config.confidenceThreshold ? "Low confidence" : "Verified"
   const flaggedCount = scans.filter(s => s.flagged).length
   const sourcesWithIssues = useMemo(() => {
     const sourceNames = new Set(
@@ -286,7 +290,7 @@ export default function QualityControl() {
       scan.fingerCount !== null && scan.fingerCount !== undefined ? String(scan.fingerCount) : "",
       scan.source || "",
       scan.flagged ? "Yes" : "No",
-      scan.flagged ? "Flagged" : scan.confidence !== null && scan.confidence < config.confidenceThreshold ? "Review" : "Verified"
+      reviewLabel(scan)
     ])
     downloadCsv(filename, headers, rows)
     toast.success("Export successful", { description: `${rows.length} scans exported to CSV` })
@@ -314,7 +318,7 @@ export default function QualityControl() {
         scan.fingerCount !== null && scan.fingerCount !== undefined ? Number(scan.fingerCount) : null,
         scan.source || null,
         scan.flagged ? "Yes" : "No",
-        scan.flagged ? "Flagged" : scan.confidence !== null && scan.confidence < config.confidenceThreshold ? "Review" : "Verified"
+        reviewLabel(scan)
       ])
       await downloadXlsx(filename, "Quality Control", headers, rows)
       toast.success("Export successful", { description: `${rows.length} scans exported to Excel` })
@@ -444,9 +448,9 @@ export default function QualityControl() {
               Flagged
             </Badge>
           ) : scan.confidence !== null && scan.confidence < config.confidenceThreshold ? (
-            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs">
+            <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 text-xs">
               <AlertTriangle className="w-3 h-3 mr-1" />
-              Review
+              Low confidence
             </Badge>
           ) : (
             <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
@@ -601,8 +605,8 @@ export default function QualityControl() {
                       Overridden
                     </Badge>
                   )}
-                  <Badge variant="outline" className={`text-xs ${selectedScan.flagged ? 'bg-red-50 text-red-700 border-red-200' : selectedScan.confidence !== null && selectedScan.confidence < config.confidenceThreshold ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-                    {selectedScan.flagged ? 'Flagged' : selectedScan.confidence !== null && selectedScan.confidence < config.confidenceThreshold ? 'Review' : 'Verified'}
+                  <Badge variant="outline" className={`text-xs ${selectedScan.flagged ? 'bg-red-50 text-red-700 border-red-200' : selectedScan.confidence !== null && selectedScan.confidence < config.confidenceThreshold ? 'bg-slate-50 text-slate-700 border-slate-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                    {reviewLabel(selectedScan)}
                   </Badge>
                 </div>
               )}

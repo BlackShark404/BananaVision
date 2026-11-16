@@ -37,6 +37,17 @@ Documented architectural, technical, and operational decisions in BananaVision.
      - **Reset** and the Total Scans card go to the default view: today, no filters.
      - Dashboard "View All Logs" and Recent Scans rows open `?date=all`.
      - An explicit date in the URL does not roll over at midnight.
+- **Follow-ups from the independent review (same day):**
+  - Only an admin may remove a flag: `PATCH /scans/{id}/flag` with `flagged=false` returns 403
+    for operators, who can still raise flags (Kiosk "Flag for Review").
+  - Quality Control (badges and CSV/XLSX Status) and Scan Detail no longer call an unflagged
+    low-confidence scan "Review" or "Needs Review". They show a neutral **Low confidence**,
+    and Scan Detail keeps "Needs Review" for a camera cultivar conflict.
+  - The at-risk subset of a browse snapshot counts review as flagged.
+  - The sidebar Logs link goes straight to `?date=<today>`, so an open default view is not
+    reloaded.
+  - An open default view moves to the new day at Manila midnight; a chosen day or a
+    filtered view does not.
 - **Not changed:**
   - The Expiring-stock rule and all count definitions other than review and success.
   - The backend default (no `business_date` = all history) and the API fields.

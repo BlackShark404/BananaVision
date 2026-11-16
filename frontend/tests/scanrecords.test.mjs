@@ -343,6 +343,36 @@ test('legacy review links become Status Flagged before the first request', async
   assert.ok(listRequests(state).every(r => r.query.attention !== 'review' && r.query.flagged_only === 'true'), JSON.stringify(listRequests(state)))
 })
 
+test('the default Scan Logs view moves to the new Manila day at midnight; a filtered day stays', async t => {
+  const { page, state } = await setup(t, 200, { screen: 'logs' })
+  await page.waitForURL('**/logs?date=2026-10-02')
+  await until(() => listRequests(state).length > 0)
+  // Noon in Manila plus 12 hours and a minute is 00:01 on 3 October in Manila.
+  await page.clock.fastForward('12:01:00')
+  await page.waitForURL('**/logs?date=2026-10-03')
+  await until(() => listRequests(state).at(-1).query.business_date === '2026-10-03')
+
+  const filtered = await setup(t, 200, { screen: 'logs', path: '/logs?date=2026-10-02&status=Sold' })
+  await until(() => listRequests(filtered.state).length > 0)
+  await filtered.page.clock.fastForward('12:01:00')
+  await filtered.page.clock.runFor(1000)
+  assert.deepEqual(urlQuery(filtered.page), { date: '2026-10-02', status: 'Sold' })
+})
+
+test('an unflagged low-confidence scan reads Low confidence, not pending review, in Details and Quality Control', async t => {
+  // A person removed the flag after checking it; the threshold is 85 (mocked /config).
+  const record = { ...scan(), confidence: 60, flagged: false }
+  const detail = await setup(t, 200, { record })
+  await detail.page.getByText('Low confidence', { exact: true }).first().waitFor()
+  assert.equal(await detail.page.getByText('Needs Review', { exact: true }).count(), 0)
+  assert.equal(await detail.page.getByText('Verified', { exact: true }).count(), 0)
+
+  const quality = await setup(t, 200, { screen: 'quality', listRecord: record, record })
+  const table = quality.page.getByRole('table')
+  await table.getByText('Low confidence', { exact: true }).waitFor()
+  assert.equal(await table.getByText('Review', { exact: true }).count(), 0)
+})
+
 test('decimal spoilage displays a readable range in Logs and Details without changing stored values', async t => {
   const raw = '4.861489519142744'
   const record = { ...scan(), spoilage_days: raw,

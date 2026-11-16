@@ -472,7 +472,11 @@ See [[Testing and Validation]].
   **All dates**. `date=all` is the explicit form. Clearing the date sets it, and every filter
   change writes it when no date is set, so a backlog view never falls back to today.
 - **Reset** and the Total Scans card return to the default view: today, no filters.
-  Dashboard "View All Logs" and Recent Scans rows use `?date=all`.
+  Dashboard "View All Logs" and Recent Scans rows use `?date=all`. The sidebar Logs link goes
+  straight to `?date=<today>`. At Manila midnight an open default view (`isDefaultScanLogView`)
+  moves to the new day; a chosen day or a filtered view stays.
+- **Labels:** Quality Control and Scan Detail show **Low confidence** (neutral) for an unflagged
+  scan below the threshold. Only a flag means pending review; only an admin removes a flag.
 - **Review queue = Status: Flagged.** The Dashboard "Pending quality reviews" chip opens
   `?status=Flagged`. The Pending Quality Reviews banner shows for Status Flagged, and "Clear
   review filter" removes it. A legacy `attention=review` link is rewritten to `status=Flagged`.
