@@ -1,0 +1,70 @@
+CURRENT RESUME HERE (2026-11-14) - TEAM FIXES MERGED; WAITING FOR STATION DATA
+
+Archived byte-for-byte before this merge:
+- docs/history/2026-11-14-team-checkpoint-before-merge.txt: Kent's checkpoint, the scan
+  consensus, finger-count and RFR fixes in 6bd4eac.
+- docs/history/2026-11-14-before-teammate-guide.txt: the colour-check checkpoint.
+- docs/history/2026-11-14-before-consensus-count-rfr-fix.txt: the earlier checkpoint
+  Kent archived.
+
+STATE OF MAIN
+- Fork main = aa53e7a (PR #11, colour check) + 2df42eb (.gitignore for station backups,
+  team PR #12) + a merge of team main 6bd4eac (Kent, "Fix scan consensus and RFR model
+  loading"), brought in through temp PR #3 in the fork. The merge conflicted only in
+  TASK_PROGRESS.txt and docs/knowledge/Resolved Bugs.md; both sides were kept.
+
+TEAM FIXES IN 6bd4eac (Kent; details in his archived checkpoint)
+- classification.py: cultivar conflict is tracked apart from ripeness disagreement, so the
+  Top anchor and recovery pass stay on. Same-cultivar mixed-stage boxes use the same
+  duplicate geometry as same-stage boxes (a synthetic 14-finger hand had counted as 11).
+  fusion_engine.py keeps the review flag without marking the cultivar uncertain.
+- scan_service.py stores counts_as_finger markers in the box JSON. The API BoundingBox,
+  frontend types and the overlay (frontend/src/lib/detectionBoxes.ts) use them, and fall
+  back to geometry for old records. No migration.
+- spoilage.py resolves the packaged RFR model (app/ml/spoilage_rfr.joblib) when the
+  historical default path is missing. A missing model now reports is_loaded=False. Backup
+  prerequisites hash the resolved path.
+- Kent's Windows run: backend 1159 passed, 6 skipped, 12 failed and 11 errors. He reported
+  the failures in the export, training-asset and OOD preparation tool tests (the same on
+  unchanged HEAD). Which tests failed is not recorded.
+
+DONE BY THIS SESSION (2026-11-14)
+- Teammate guide (PDF, English, sent to the user, not committed). It covers: updating the
+  Mini PC, a hand-count session (hand_counts.csv), the training backup after the update,
+  export_station_training_set.py --include-flagged, the station .pt and Roboflow zip, an
+  optional SHA256SUMS, and a private release station-data-YYYY-MM-DD on
+  RoronoaZoro1206/BananaVision. Fork collaborators Azanykho03, Bagohay and BlackShark404 can
+  create it.
+- .gitignore: .bananavision-maintenance/ (station backups hold credential hashes).
+
+VERIFICATION OF THIS MERGE (Linux cloud session, merged tree)
+- Backend full suite without PostgreSQL: 1087 passed, 104 skipped.
+- Frontend typecheck passes.
+- Frontend tests (detectionBoxes, estimates, shelfLifeWindow, kiosk, printing, manilaTime):
+  77/77 passed.
+- git diff --check is clean. git check-ignore still ignores
+  backend/.bananavision-maintenance/. The local Graphify graph is refreshed (not tracked).
+
+FOLLOW-UPS (reported, not changed)
+- Find out which export/fetch/OOD-prep tests fail on Windows (Kent's run). The teammate
+  guide runs export_station_training_set.py on the Windows Mini PC: if the script itself
+  fails there, the guide's Troubleshooting asks for a photo of the error.
+- prediction_label.py reads a hard-coded laptop file
+  C:\Users\Kent\AppData\Local\BananaVision\laptop-host\public-url.txt.
+- PUBLIC_BASE_URL is missing from backend/.env.example.
+- Re-capture the storyboard Figure 92 screenshot. Deployment follows
+  docs/windows-mini-pc-deployment.md when authorized. Audit items are listed in the
+  archived checkpoints.
+- Station checks from Kent: retest hand counts and Natural/Ethephon shelf life on the
+  Mini PC, and confirm the real RFR model is loaded.
+
+EXACT NEXT STEP
+- User merges team PR #12, closes temp PR #3 if it is still open, and presses Sync fork.
+  Then realign this session to the fork's main.
+- When the release tag arrives:
+  1. fetch_training_assets.py github --repo RoronoaZoro1206/BananaVision --tag <tag>.
+  2. check_inference_head.py static on the .pt.
+  3. Match hand_counts.csv to counts.csv, then evaluate_finger_count.py physical, with
+     configs including colour_check=off.
+  4. prepare_yolo_dataset.py on the Roboflow zip, then evaluate visible on VALID.
+  5. Retrain on CPU, compare with the current model, and give the PR link.

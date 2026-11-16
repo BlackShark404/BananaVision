@@ -461,3 +461,23 @@ uses the ready-state green styling.
 single save controls, immediate-cleanup draft preservation, reset/discard, pending-dialog
 guards, validation invalidation after file changes, and backup results across tabs.
 See [[Testing and Validation]].
+
+## Scan Logs date default and review queue (2026-11-16)
+
+- **Plain Scan Logs opens on today.** A `/logs` with no filters (only paging or sorting) is
+  replaced before the first request with `?date=<today>`, using `manilaDayKey()`. Helpers:
+  `normalizeScanLogSearch` and `selectedScanLogDay` in `src/lib/scanLogFilters.ts`.
+- **Filtered links keep all dates.** The Dashboard chips, Inventory, intake and source links
+  have no `date`, so they show all dates, and the date box (`AppDateFilter` `emptyText`) reads
+  **All dates**. `date=all` is the explicit form. Clearing the date sets it, and every filter
+  change writes it when no date is set, so a backlog view never falls back to today.
+- **Reset** and the Total Scans card return to the default view: today, no filters.
+  Dashboard "View All Logs" and Recent Scans rows use `?date=all`. The sidebar Logs link goes
+  straight to `?date=<today>`. At Manila midnight an open default view (`isDefaultScanLogView`)
+  moves to the new day; a chosen day or a filtered view stays.
+- **Labels:** Quality Control and Scan Detail show **Low confidence** (neutral) for an unflagged
+  scan below the threshold. Only a flag means pending review; only an admin removes a flag.
+- **Review queue = Status: Flagged.** The Dashboard "Pending quality reviews" chip opens
+  `?status=Flagged`. The Pending Quality Reviews banner shows for Status Flagged, and "Clear
+  review filter" removes it. A legacy `attention=review` link is rewritten to `status=Flagged`.
+  See [[Development Decisions]] (2026-11-16).

@@ -413,10 +413,16 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
               <Flag className="w-3 h-3 fill-current" />
               Flagged
             </Badge>
-          ) : cultivarConflict || (scan.confidence !== null && scan.confidence < config.confidenceThreshold) ? (
+          ) : cultivarConflict ? (
             <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs gap-1">
               <AlertTriangle className="w-3 h-3" />
               Needs Review
+            </Badge>
+          ) : scan.confidence !== null && scan.confidence < config.confidenceThreshold ? (
+            // Not in the review queue (that is the flag); shown for information only.
+            <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 text-xs gap-1">
+              <AlertTriangle className="w-3 h-3" />
+              Low confidence
             </Badge>
           ) : (
             <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs gap-1">

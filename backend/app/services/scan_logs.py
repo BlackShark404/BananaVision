@@ -177,12 +177,8 @@ async def _snapshot(db, user, query):
                 **meta,
                 "at_risk_count": len(rows),
                 "avg_confidence": dashboard._mean(sum(scores) / len(scores)) if scores else None,
-                "review_count": sum(
-                    row["flagged"] or (
-                        row["confidence"] is not None
-                        and row["confidence"] < meta["confidence_threshold"]
-                    ) for row in rows
-                ),
+                # The review queue is the flagged scans (dashboard._review).
+                "review_count": sum(bool(row["flagged"]) for row in rows),
                 "flagged_count": sum(row["flagged"] for row in rows),
             },
         })
@@ -353,10 +349,7 @@ async def list_scan_logs(
                     if scores
                     else None,
                     "at_risk_count": sum(bool(row.at_risk) for row in raw),
-                    "review_count": sum(
-                        row.flagged or (row.confidence is not None and row.confidence < threshold)
-                        for row in rows
-                    ),
+                    "review_count": sum(bool(row.flagged) for row in rows),
                     "flagged_count": sum(row.flagged for row in rows),
                     "options": (await _options(db, scans)).model_dump(mode="json"),
                 },

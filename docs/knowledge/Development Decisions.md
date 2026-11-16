@@ -2,6 +2,60 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-16: Review queue is the flagged scans; Scan Logs opens on today
+
+- **User request:** the Dashboard "Pending quality reviews" link should select **Flagged** in the
+  Scan Logs Status menu, not leave it on "All Statuses". Today's date should be the Scan Logs
+  default. The user asked for the situation to be analysed first.
+- **Analysis:**
+  - The old review rule was `flagged OR confidence < threshold`, all-time.
+  - New low-confidence scans are already flagged when saved: `fusion_engine.py` sets
+    `auto_flagged` when the final confidence is below the same SystemConfig threshold. So the
+    only unflagged members were scans whose flag a person removed after checking them, or old
+    scans after the threshold was raised. Those could never leave the queue.
+  - The Dashboard alert counts (pending reviews, expiring stock) are all-time backlogs. A
+    today-only date on those lists would hide most of them (all 15 expiring scans on the
+    station were from 21 October).
+- **User decisions:**
+  1. **Review = flagged.** `dashboard._review` is `flagged = true`, used by the Dashboard
+     count, the `/dashboard/scans` review view and Scan Logs `attention=review` with its
+     counts. The queue is reached with **Status: Flagged** (`/logs?status=Flagged`), and
+     **Remove Flag** takes a scan out of it.
+     - `_successful` is "not flagged, with a recorded confidence": unknown confidence is still
+       never auto-approved.
+     - The legacy `attention=review` link becomes `status=Flagged` in the browser, unless
+       another status is already selected.
+     - This supersedes "Review Queue Scope" (2026-10-16 §3) and the "Dashboard Review Link
+       Predicate Truncation" fix, which were written for the old rule.
+  2. **Today for plain Scan Logs only.**
+     - A plain `/logs` (the sidebar; only paging or sorting) is replaced before the first
+       request with `?date=<today in Asia/Manila>`.
+     - Any filter link (the Dashboard chips, Inventory, intakes, sources) keeps all dates, and
+       the date box reads **All dates**.
+     - `date=all` means all dates explicitly. Clearing the date sets it, and removing the last
+       filter keeps it, so a backlog view never jumps to today.
+     - **Reset** and the Total Scans card go to the default view: today, no filters.
+     - Dashboard "View All Logs" and Recent Scans rows open `?date=all`.
+     - An explicit date in the URL does not roll over at midnight.
+- **Follow-ups from the independent review (same day):**
+  - Only an admin may remove a flag: `PATCH /scans/{id}/flag` with `flagged=false` returns 403
+    for operators, who can still raise flags (Kiosk "Flag for Review").
+  - Quality Control (badges and CSV/XLSX Status) and Scan Detail no longer call an unflagged
+    low-confidence scan "Review" or "Needs Review". They show a neutral **Low confidence**,
+    and Scan Detail keeps "Needs Review" for a camera cultivar conflict.
+  - The at-risk subset of a browse snapshot counts review as flagged.
+  - The sidebar Logs link goes straight to `?date=<today>`, so an open default view is not
+    reloaded.
+  - An open default view moves to the new day at Manila midnight; a chosen day or a
+    filtered view does not.
+- **Not changed:**
+  - The Expiring-stock rule and all count definitions other than review and success.
+  - The backend default (no `business_date` = all history) and the API fields.
+  - Scans already stored: no migration. An old unflagged low-confidence scan now counts as
+    checked. Flag it again if it still needs review.
+- **Tests:** `backend/tests/test_dashboard.py`, `test_scan_logs.py`;
+  `frontend/tests/scanlogfilters.test.mjs`, `dashboard.test.mjs`, `scanrecords.test.mjs`.
+
 ## 2026-11-16: Horizontal radial wings in `_count_top_second_tier`, side/Rear collapse recovery, and bottom-left Top trim scoping
 
 - **Orientation check in `_count_top_second_tier` (`fusion_engine.py`):** Kept `d.w <= d.h` on `< TOP_OVERLAP_CONFIDENCE` (`0.50`) Top detections rather than adding an area cutoff (`< 0.70 * med_area`), preserving the synthetic equal-area overlap test (`test_two_tier_hand_fusion_reconstructs_occluded_lower_tier_fingers`) while keeping splayed radial upper wings (`w > h`) in `u_primary`.
@@ -278,6 +332,7 @@ Documented architectural, technical, and operational decisions in BananaVision.
 - **Rationale**: Operators and supervisors can still reference active scan details and inventory while attempting recovery.
 
 ### 3. Review Queue Scope
+- **Superseded 2026-11-16:** the review queue is now the flagged scans, reached with `status=Flagged` (see the 2026-11-16 entry).
 - **Decision**: Review links must not pre-filter by `status=Flagged`. They must navigate using `attention=review` alone.
 - **Rationale**: Low-confidence or unclassified scans require manual inspection even if not yet formally marked as "Flagged". Filtering by `status=Flagged` inadvertently hid scans that needed review.
 

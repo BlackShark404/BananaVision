@@ -1,221 +1,73 @@
-CURRENT RESUME HERE (2026-11-16) - POST-REGRESSION FUSION & PLATFORM-EDGE FIXES VERIFIED; READY FOR STATION RE-TEST
-
-DONE BY THIS SESSION (2026-11-16, regression fix after 2026-11-15/16 station screenshots)
-- Root-caused undercount regressions (`-1` to `-6` vs `d2d1aa1` on 4-camera two-tier hands) and bottom-right yellow-banana risk in Top platform filtering without reverting `RECOVERY_DUPLICATE_CONTAINMENT = 0.85`, `ROTATED_DUPLICATE_AXIS_RATIO = 0.35`, `OCCLUDED_FINGER_MIN_PRIMARY = 4`, or the `10-lakatan-unripe` non-inflation guard:
-  1. `_count_top_second_tier` (`backend/app/services/fusion_engine.py`) counted `< 0.50` confidence horizontal splayed wing fingers (`w > h`) as lower-tier detections, subtracting them from `u_primary` and disabling `top_second_tier == 0` flank union (`10:36 PM` `Latundan Unripe`, `11:52 PM` `Cardaba Ripe`).
-  2. The `re_cnt >= 12` gate in `FusionEngine._estimate_multi_camera_fingers` blocked legitimate lower-tier flank unions when `Rear` detected `8–11` fingers (`12:01 AM` `Lakatan Ripe` `10/8/8/11 -> 14`, `11:54 PM` `Latundan Ripe` `10/7/7/9 -> 13`, `12:07 AM` `Cardaba Ripe` `10/7/8/10 -> 13`).
-  3. Two-tier reconstruction aborted completely whenever one side camera collapsed `<= 4` (`12:16 AM` `Latundan Ripe` `10/8/3/9 -> 10`) or `Rear` partially under-detected (`5 <= re_cnt < max(l_cnt, r_cnt)`, e.g. `10:38 PM` `Lakatan Unripe` `9/7/10/6 -> 10`).
-  4. `_is_top_platform_edge_box` (`backend/app/services/classification.py`) checked `y2 >= 0.90 * ih` across the full image width instead of restricting `at_bottom` to the bottom-left platform trim (`x1 <= 0.15 * iw and cx <= 0.50 * iw`).
-- Fixes applied:
-  - `backend/app/services/fusion_engine.py`: restricted `< 0.50` confidence `_count_top_second_tier` classification to vertical boxes (`d.w <= d.h`) so horizontal radial wings remain in `u_primary`; added partial-Rear recovery (`re_cnt < 8 or re_cnt < max(l_cnt, r_cnt)` with two-tier `Left`/`Right`) and single-side collapse recovery (`min(l_cnt, r_cnt) <= 4` with surviving side + `Rear` stacking); added `< 12` wide lower-flank split (`re_lower >= max(l_lower, r_lower) + 2` with `top_second_tier == 0`) and compact `Rear` substitution (`re_cnt <= 10 and re_cnt <= t_cnt and re_lower > max(l_lower, r_lower) and top_second_tier == 0`) while keeping `re_cnt = 11` standard hands on median lower tier.
-  - `backend/app/services/classification.py`: narrowed `_is_top_platform_edge_box` `at_bottom` check to `x1 <= 0.15 * iw and cx <= 0.50 * iw` to preserve bottom-right ripe yellow peel boxes.
-  - Added regression tests in `backend/tests/test_classification_fusion.py` (`4` tests) and `backend/tests/test_colour_check.py` (`1` test).
-- Verification after final code edit:
-  - Targeted backend suites (10 modules, temp cwd): **383 passed, 3 skipped** (`45.75 s`; 3 skipped require `BANANAVISION_TEST_DATABASE_URL`).
-  - Full backend suite (temp cwd, without PostgreSQL): **1120 passed, 71 skipped, 12 failed, 13 errors** (`392.76 s`); all 12 failures / 13 errors confined to pre-existing Windows path/symlink/quote assertions in `test_export_station_training_set.py`, `test_fetch_training_assets.py`, `test_prepare_ood_dataset.py`, and `test_train_finger_model.py`.
-  - Offline `v13/valid` (`n=137`, `banana_yolovsV2.pt`, `run_visible` with `gate=True`): **`MAE=0.8832`**, **`exact=0.4891` (`48.91%`)**, **`within1=0.8613` (`86.13%`)**, **`bias=+0.1971`** (`Top` `MAE=0.5806`, `exact=0.6129`), matching pre-edit `curr_working_tree` (`0.8832`) and outperforming `d2d1aa1` (`0.9270 MAE`, `0.4745 exact`, `0.8540 within1`).
-  - Scenario checks after final `fusion_engine.py` edit: `11:54pm` `14`, `12:16am Right=3` `14`, `12:07am` `14`, `01-latundan-unripe` `15`, `10-lakatan-unripe` `15`/`17`, `12:01am` `17`, `15-lakatan-ripe` `19`, `10:38pm Rear=6` `12`, `11:47pm` `16`, `10:36pm` `16`, `11:52pm` `15`, `12:04am` `15`, `Image4 Rear=2` `15`.
-  - Frontend: 10 non-browser `.test.mjs` files **105/105 passed** (browser suites require Playwright); `npm run typecheck` and `npm run build` (`3073` modules) **passed**; `npm run lint` retained 40 baseline issues (`0` frontend changes here); `uvx ruff check` **0 new diagnostics** on edited lines (`647` repo baseline).
-  - Graphify (`graphify` binary absent; `uvx --from graphifyy` fails building `tree-sitter==0.25.2` on Windows) and ICM MCP are unavailable in this session; no live DB/cameras touched; no commit/push/deploy run.
-
-EXACT NEXT STEP
-- Re-test the 4-camera station on unripe and ripe `Latundan`, `Cardaba`, and `Lakatan` bunches, export flagged/corrected scans with `export_station_training_set.py --include-flagged` for YOLO retraining on low-confidence horizontal side/rear views (`Right=3` / `Rear=6` raw model misses), and review/stage/commit when ready.
-
-PREVIOUS RESUME (2026-11-15, round 2) - POST-SCREENSHOT BOX/FILTER/FUSION FIXES VERIFIED; READY FOR STATION RE-TEST
-
-DONE BY THIS SESSION (2026-11-15, round 2: debug-screenshots/2026-11-15 audit)
-- Inspected all 27 Kiosk/YOLO screenshots (`01`..`27`) in `debug-screenshots/2026-11-15/` and traced raw YOLO, Pass 1/2/3 filtering, fusion, stored `counts_as_finger`, and frontend overlay dedup:
-  1. `10-lakatan-unripe-overview` (`Top=10, Left=8, Right=9, Rear=11 -> 22`): `re_cnt = 11 < 12` entered legacy `re_lower > max(l_lower, r_lower)` (`top_second_tier == 0`) or `wide_bilateral` lower-tier summation (`11 + 11 = 22`).
-  2. `15-lakatan-ripe-overview` / `17-lakatan-ripe-right` (`Top=11, Left=8, Right=7, Rear=12 -> 14`): Pass 3 `upright=False` set `beside_x = 0.0` (blocking missed right-flank bodies) and `0.22 * median_area` dropped small foreshortened end-on Right tips (`0.11–0.20 * median_area`).
-  3. `18-lakatan-ripe-rear` & `19-cardaba-unripe-top`: square/portrait sub-boxes (`0.50 <= h/H < 0.80`) centered vertically inside wide horizontal parents (`w >= 1.6 * h`, `w >= 2.0 * sub_w`) fell into a geometry gap in `_is_axially_aligned_or_enclosed` / `detectionBoxes.ts`.
-  4. `03-latundan-unripe-left`: Pass 3 (`< 0.50`) admitted a `38%` `Latundan Ripe` doorway candidate (2 stages from primary `Unripe`) grazing a finger corner in the upper-right margin.
-  5. `22-cardaba-unripe-rear`: `Rear=4` fell below `OCCLUDED_FINGER_MIN_PRIMARY = 5`, skipping Pass 3 completely; additionally COCO `banana_pre_detector` misses some stubby Cardaba Rear views (`valid` `001_back`, `03682_back`).
-  6. `06-latundan-ripe-top`, `14-lakatan-ripe-top`, `19-cardaba-unripe-top`, `23-cardaba-ripe-top`: shifted bottom-left boxes extended over pale-tan tray trim / dark shadow gap (`27-empty-platform-top-reference.png`), pulling `IoU < 0.80` against overlapping clean banana siblings.
-- Fixes applied:
-  - `backend/app/services/classification.py`: updated `_is_axially_aligned_or_enclosed`; added `_region_trim_or_dark_fraction` and `_suppress_trim_overhang_duplicates` for `Top`; lowered `OCCLUDED_FINGER_MIN_PRIMARY = 4`; added `OCCLUDED_FINGER_HIGH_CONF_AREA_RATIO = 0.10` for `>= 0.50` Pass-3 tips; allowed `beside_x = 0.75 * med_w` for horizontal side views (`Left`/`Right`/`Rear`); blocked low-conf Pass-3 candidates `>= 2` ripeness stages away under unconflicted ripeness and `within_hand` upper-margin peripheral grazing (`y1 <= 0.04h, y2 <= 0.28h, max_iou < 0.15`).
-  - `backend/app/services/fusion_engine.py`: gated `wide_bilateral` and lower-tier summation at `re_cnt >= 12`, `re_cnt >= u_primary + 2`, `min(l_cnt, r_cnt) >= 7`, `max(l_lower, r_lower) >= 4`.
-  - `frontend/src/lib/detectionBoxes.ts`: synchronized horizontal-parent sub-box deduplication rule with Python.
-  - Added regression tests in `backend/tests/test_finger_count_rules.py`, `backend/tests/test_classification_fusion.py`, and `frontend/tests/detectionBoxes.test.mjs`.
-- Verification after final edit:
-  - Targeted backend suites (11 modules, temp cwd): **350 passed, 3 skipped** (`56.83 s`).
-  - Full backend suite (without `BANANAVISION_TEST_DATABASE_URL`, temp cwd): **1119 passed, 71 skipped, 12 failed, 9 errors** (`246.15 s`); all 12 failures / 9 errors confined to the pre-existing Windows path/symlink checks in `test_export_station_training_set.py` (1), `test_fetch_training_assets.py` (6), `test_prepare_ood_dataset.py` (4 failed, 9 errors), `test_train_finger_model.py` (1).
-  - Offline `evaluate_finger_count.py visible --gate` on `valid` (`n=137`, `banana_yolovsV2.pt`): MAE **`0.9124 -> 0.8832`**, exact **`47.45% (65/137) -> 48.91% (67/137)`**, within-1 **`85.40% -> 86.13%`**, bias **`+0.2117 -> +0.1971`**, overcount **`51 -> 49`**, undercount `21 -> 21` (`Right` MAE `0.7381 -> 0.6429`, `Top` MAE `0.6452 -> 0.5806`); stage trace (`trace_valid_stages.py`, `645.2 s`): gated precision `0.932 -> 0.935`, recall `0.964 -> 0.965`.
-  - Runtime: `FusionEngine.fuse` `0.52 ms/scan` (`523.26 ms` / 1000 calls); `_suppress_trim_overhang_duplicates` `1.93 ms/frame` on `1280x900` (`193.14 ms` / 100 calls); zero extra YOLO inference passes.
-  - Frontend & lint: 10 non-browser test files **105/105 passed** (253 browser `.test.mjs` cases require Playwright); `npm run typecheck` and `npm run build` **passed**; `npx eslint` on changed frontend files **0 problems** (`40` pre-existing repo lint issues untouched); Ruff **0 new diagnostics** on edited files (`28` pre-existing across those 4 files; `649` repo baseline untouched).
-  - Updated `docs/knowledge/Resolved Bugs.md`, `Testing and Validation.md`, and `Development Decisions.md`. Graphify CLI / `graphify-out/` and ICM MCP are absent in this checkout; no live DB/cameras touched; no commit/push/deploy run.
-
-EARLIER 2026-11-15 SESSION (MULTI-CAMERA TWO-TIER FUSION & TOP SECOND-TIER FIXES)
-
-DONE BY THIS SESSION (2026-11-15 Round 4)
-- Investigated Round 4 4-camera station screenshots (4542cb56..328aa33f) and earlier clean Top frames:
-  1. Top camera boxed the bottom-left smooth tan platform / shelf overhang (e.g. Cardaba Unripe 78%, Lakatan Ripe 72-73%), which evaded _non_banana_fraction because warm beige-tan wood sits below dark value < 40 and outside blue hue >= 100 while falling inside banana_evidence.
-  2. Top camera Pass 3 (recovery) admitted swallowed oblique duplicates inside already-kept fingers (containment >= 0.85, across adjacent stages or diagonal shifts), and Pass 2 (rotated Top) kept slightly shifted lying duplicates at rdy ~ 0.33 (> 0.30).
-  3. Wide arched 21-finger Lakatan Ripe (2b688c76: Top 12, Left 11, Right 12, Rear 14) overflowed Rear's midpoint because drooping outer upper-whorl wing fingers fell into re_lower=9, inflating wide_bilateral lower-tier estimation to Est. Fingers = 25.
-- Fixes applied:
-  - backend/app/services/classification.py:
-    - Added _is_top_platform_edge_box (called in off_colour when norm_cam == "top" and ripeness != "Overripe") to drop bottom/bottom-left smooth beige-tan or dark-rim platform and shelf-overhang boxes via HSV + Sobel gradient without harming real peel fingers or side views.
-    - Added RECOVERY_DUPLICATE_CONTAINMENT = 0.85 in _is_recovery_duplicate to suppress swallowed recovery duplicates while keeping cont=0.833 crown test coverage and cont=0.723 peeking tips.
-    - Raised rotated axis duplicate tolerance ROTATED_DUPLICATE_AXIS_RATIO from 0.30 to 0.35 in _is_duplicate_detection.
-  - backend/app/services/fusion_engine.py:
-    - Capped l_est on wide_bilateral when re_lower >= 8 (min(l_est, re_lower + (1 if re_lower >= 9 else 2), u_est)) to prevent curved upper-wing spillover in Rear from inflating lower-tier counts (2b688c76: 25 -> 21-22; 21 exact when Top=10 or Top=10+1 tip).
-  - Regression tests added in backend/tests/test_colour_check.py, test_finger_count_rules.py, and test_classification_fusion.py.
-- Verification after final edit:
-  - Targeted backend suites (6 modules, fresh temp cwd, -p no:cacheprovider): 250 passed in 5.62 s.
-  - Full non-PostgreSQL backend suite (fresh temp cwd): 1115 passed, 71 skipped, 11 failed, 12 errors in 164.67 s (PostgreSQL tests skipped without BANANAVISION_TEST_DATABASE_URL; failures/errors only in pre-existing Windows temp/path checks in test_export_station_training_set.py, test_fetch_training_assets.py, test_prepare_ood_dataset.py, test_train_finger_model.py).
-  - Gate-enabled visible eval (evaluate_finger_count.py visible --gate on v13-yolov8-20261016/dataset/valid, n=137, banana_yolovsV2.pt):
-    - Before: MAE=0.9124, exact=0.4745 (65/137), within1=0.8540, bias=+0.2117 (under=21, over=51); Top (n=31) MAE=0.6452, exact=0.5806, bias=+0.3871 (under=2, over=11).
-    - After: MAE=0.8905, exact=0.4891 (67/137), within1=0.8540, bias=+0.1752 (under=22, over=48); Top (n=31) MAE=0.5806, exact=0.6129, bias=+0.3226 (under=2, over=10); Right (n=42) MAE 0.7381 -> 0.6905, exact 0.4524 -> 0.5000.
-  - Latency: FusionEngine.fuse 530.64 ms/1000 calls (~0.53 ms/scan); _is_top_platform_edge_box 0.024 ms/call (interior) and 1.03 ms/call (edge crop); zero extra YOLO inference passes.
-  - Lint: uv tool run ruff check Clean on test_colour_check.py and test_finger_count_rules.py; repo ruff check backend/app backend/tests unchanged at 644 baseline diagnostics.
-  - Frontend: tests/*.test.mjs 104 passed (non-browser), 253 failed (Playwright browser suites without playwright installed); npm run typecheck and npm run build (6.98 s) passed; npm run lint unchanged at 40 baseline issues.
-  - Graphify CLI/graphify-out/ and .icm/memories.db are absent in this checkout. No live DB/cameras touched; no commit/push/deploy run.
-
-EXACT NEXT STEP
-- Re-test the Top view platform exclusion and 21-finger Lakatan Ripe count at the live 4-camera station and re-export station photos (export_station_training_set.py --include-flagged) to retrain YOLO on real Top platform negatives and curved arches.
-
-PREVIOUS RESUME (2026-11-15) - MULTI-CAMERA TWO-TIER FUSION & TOP SECOND-TIER FIXES
-
-DONE BY THIS SESSION (2026-11-15)
-- Investigated Round-3 4-camera station screenshots (79b7c5f) covering Lakatan Ripe 21
-  (11/11/9/13 -> 13), Latundan Unripe 15 (9/7/10/10 -> 12), Cardaba Unripe 14
-  (12/9/11/2 -> 12), Cardaba Ripe (11/8/9/11 -> 12), Lakatan Unripe 19 (10/6/9/11 -> 16),
-  plus Round-2 Latundan Ripe 14 (10/7/9/9 -> 10) and Lakatan 1-tier 10 (9/7/10/6 -> 10):
-  1. Verified that Cardaba Unripe Rear 2 (dcffe85e) is not caused by classification or OOD
-     filters (banana_yolovsV2.pt one_to_many_nms detects 9-11 fingers on the clean modal crop
-     and another capture b5fabfe1 saw Rear 11).
-  2. Verified on Top screenshots (07a071ac, 530b1a91, c0307db9, ae3799a0, 4ec530f9) that
-     classification filters are not dropping detected fingers; unboxed squeezed inner tips
-     (e.g., 530b1a91 93% double box) and Left 6 shadow occlusion (ee4aa487) are single-view
-     detector/camera coverage limits.
-  3. Identified root cause in backend/app/services/fusion_engine.py:
-     - _count_top_second_tier marked left_horiz[2:] | right_horiz[2:] (w > h radial wings)
-       and boxes < 0.58 * med_area as lower-tier detections, subtracting 2-7 full upper
-       fingers on real radial hands and forcing top_second_tier > 0.
-     - _estimate_multi_camera_fingers disabled bilateral union whenever top_second_tier > 0
-       or re_lower <= max(l_lower, r_lower), and dropped two-tier reconstruction when Rear
-       collapsed (<= 4) while Left and Right still stacked vertically.
-- Fixes applied:
-  - backend/app/services/fusion_engine.py: removed stacked_flank_ids and tightened the small
-    peeking-tip cut in _count_top_second_tier to < 0.42 * med_area (keeping < 0.50 conf);
-    updated _estimate_multi_camera_fingers with wide_bilateral upper/lower union
-    (re_cnt >= 12, re_cnt >= t_cnt + 2, min(l_cnt, r_cnt) >= 8, min(l_lower, r_lower) >= 4,
-    re_lower >= max(l_lower, r_lower)) and conservative Rear-collapse recovery
-    (re_cnt <= 4 with l_cnt >= 8, r_cnt >= 8, min(l_lower, r_lower) >= 3). Fusion runtime
-    remains ~0.73 ms/scan (1000 calls in 731.06 ms) with zero extra YOLO inference.
-  - backend/tests/test_classification_fusion.py: added 4 regression tests reproducing
-    radial wing Top fans, Latundan Ripe 14, wide Lakatan 21, and Rear=2 collapse recovery.
-- Verification after final edit:
-  - Focused backend suites (11 modules): 344 passed, 3 skipped (20.99 s, temp cwd).
-  - Full backend run (without BANANAVISION_TEST_DATABASE_URL): 1112 passed, 74 skipped,
-    11 failed, 8 errors (Windows path/temp-symlink checks in export/fetch/OOD/train script
-    tests only).
-  - Single-view valid eval (banana_yolovsV2.pt, n=137): MAE=0.7664, exact=47.45% (65/137),
-    within1=85.4%, undercount=20, overcount=52.
-  - Frontend: 10 non-browser test files 104/104 passed (253 Playwright browser cases failed
-    without playwright installed); typecheck and build passed; eslint retained 40 baseline
-    issues; uv ruff check added 0 new diagnostics on modified lines.
-  - Updated docs/knowledge/Resolved Bugs.md, Testing and Validation.md, and AI Models.md.
-  - Graphify CLI and graphify-out/ are absent in this workspace. No live DB/cameras touched;
-    no commit/push/deploy run.
-
-PREVIOUS RESUME (2026-11-14) - TEAM FIXES MERGED; WAITING FOR STATION DATA
+CURRENT RESUME HERE (2026-11-17) - TEAM FUSION FIXES MERGED WITH THE FLAGGED REVIEW QUEUE
 
 Archived byte-for-byte before this merge:
-- docs/history/2026-11-14-team-checkpoint-before-merge.txt: Kent's checkpoint, the scan
-  consensus, finger-count and RFR fixes in 6bd4eac.
-- docs/history/2026-11-14-before-teammate-guide.txt: the colour-check checkpoint.
-- docs/history/2026-11-14-before-consensus-count-rfr-fix.txt: the earlier checkpoint
-  Kent archived.
+- docs/history/2026-11-17-team-checkpoint-before-merge.txt: Kent's checkpoints for
+  2026-11-15/16 (multi-camera two-tier fusion, platform-edge and trim-overhang filters,
+  Pass-3 bounds, regression fixes), with their full verification numbers.
+- docs/history/2026-11-16-before-review-queue-and-logs-date.txt: the checkpoint before
+  the review-queue change.
 
 STATE OF MAIN
-- Fork main = aa53e7a (PR #11, colour check) + 2df42eb (.gitignore for station backups,
-  team PR #12) + a merge of team main 6bd4eac (Kent, "Fix scan consensus and RFR model
-  loading"), brought in through temp PR #3 in the fork. The merge conflicted only in
-  TASK_PROGRESS.txt and docs/knowledge/Resolved Bugs.md; both sides were kept.
+- Fork main = f69aea0 (b0223f1 review queue = flagged scans + Scan Logs opens on today;
+  f69aea0 review follow-ups) + a merge of team main db1b989 (Kent: 79b7c5f, d2d1aa1,
+  2c946ff, db1b989), brought in through temp PR #4 in the fork. Only TASK_PROGRESS.txt and
+  docs/knowledge/Development Decisions.md conflicted; both sides were kept.
 
-TEAM FIXES IN 6bd4eac (Kent; details in his archived checkpoint)
-- classification.py: cultivar conflict is tracked apart from ripeness disagreement, so the
-  Top anchor and recovery pass stay on. Same-cultivar mixed-stage boxes use the same
-  duplicate geometry as same-stage boxes (a synthetic 14-finger hand had counted as 11).
-  fusion_engine.py keeps the review flag without marking the cultivar uncertain.
-- scan_service.py stores counts_as_finger markers in the box JSON. The API BoundingBox,
-  frontend types and the overlay (frontend/src/lib/detectionBoxes.ts) use them, and fall
-  back to geometry for old records. No migration.
-- spoilage.py resolves the packaged RFR model (app/ml/spoilage_rfr.joblib) when the
-  historical default path is missing. A missing model now reports is_loaded=False. Backup
-  prerequisites hash the resolved path.
-- Kent's Windows run: backend 1159 passed, 6 skipped, 12 failed and 11 errors. He reported
-  the failures in the export, training-asset and OOD preparation tool tests (the same on
-  unchanged HEAD). Which tests failed is not recorded.
+TEAM WORK IN THIS MERGE (Kent, 2026-11-15/16; details in his archived checkpoint)
+- fusion_engine.py:
+  - two-tier multi-camera fusion with lower-tier flank and Rear rules;
+  - horizontal radial wings stay upper tier;
+  - single-side and partial-Rear collapse recovery.
+- classification.py:
+  - Top platform-edge and trim-overhang suppression;
+  - sub-box dedup inside horizontal parents (mirrored in frontend
+    src/lib/detectionBoxes.ts);
+  - OCCLUDED_FINGER_MIN_PRIMARY = 4 and Pass-3 bounds.
+- Kent's measurements:
+  - offline v13/valid (banana_yolovsV2.pt): MAE 0.8832, exact 48.91 %, within one 86.13 %;
+  - debug-screenshots/2026-11-15/ holds 27 station screenshots and his debugging prompt;
+  - his Windows runs show 12 failures and 13 errors in the export/fetch/OOD-prep/train
+    script tests (Windows path, symlink and quote assertions), the same before his change.
+- The low-confidence auto-flag (fusion_engine: conflict or final confidence below the
+  threshold) is unchanged, so the flagged review queue still catches new low-confidence
+  scans.
 
-DONE BY THIS SESSION (2026-11-14)
-- Finger-counting post-processing and two-tier multi-camera fusion fixes in
-  backend/app/services/classification.py, backend/app/services/fusion_engine.py, and
-  frontend/src/lib/detectionBoxes.ts:
-  1. _is_axially_aligned_or_enclosed checks orientation-aware longitudinal alignment and
-     preserves stacked horizontal flank fingers and narrow protruding second-tier fingers
-     while keeping whole-hand box splits and small fragment suppression.
-  2. _is_cluster_box requires containment >= 0.82 and matching child orientation
-     ((a.w > a.h) == (b.w > b.h)) so 45-degree diagonal fingers in radial fans are not
-     dropped when their bounding-box corners overlap a horizontal and a vertical neighbor.
-  3. _is_duplicate_detection treats sideways/diagonal pairs (w > h on both boxes) as
-     horizontal at cont >= 0.45, preserves parallel horizontal/vertical fingers separated
-     by > 0.30 * min_dim at 0.40 < IoU < 0.65 in the rotated Top pass, and
-     _is_recovery_duplicate suppresses TTA strip repeats.
-  4. _ripeness_outliers preserves connected groups of >= 2 unique far boxes touching the
-     hand so adjacent stage-straddling fingers are kept; _hides_fingers includes same-cultivar
-     cross-stage sub-boxes when splitting whole-hand boxes.
-  5. yolo_peripheral_background_filter preserves slender upper fingers clipped by the
-     left/right frame edge (x1 <= 0.04 * img_w or x2 >= 0.96 * img_w) or overlapping the
-     accepted hand.
-  6. Pass 3 recovery runs when cultivar or ripeness consensus >= 60% holds, admitting
-     candidates whose (cultivar, ripeness) label was already observed in Pass 1/2 or
-     adjacent-stage same-cultivar candidates on multi-stage hands.
-  7. FusionEngine._estimate_multi_camera_fingers reconstructs occluded lower-tier fingers on
-     verified two-tier 4-camera hands using 2D vertical tier separation
-     (_split_horizontal_tiers and _count_top_second_tier) while keeping single-tier hands at
-     max(finger_counts).
-  - Verified on valid split (n=137, banana_yolovsV2.pt): MAE 0.8540 -> 0.7664, exact
-    40.15% (55/137) -> 47.45% (65/137), within1 84.67% -> 85.40%, undercounts 34 -> 20
-    (Top MAE 0.8710 -> 0.6452, Top undercounts 11 -> 2, Right MAE 0.8095 -> 0.7381).
-    Focused backend suites: 293 passed, 3 skipped. Frontend unit tests, typecheck, and
-    production build passed.
-- Teammate guide (PDF, English, sent to the user, not committed). It covers: updating the
-  Mini PC, a hand-count session (hand_counts.csv), the training backup after the update,
-  export_station_training_set.py --include-flagged, the station .pt and Roboflow zip, an
-  optional SHA256SUMS, and a private release station-data-YYYY-MM-DD on
-  RoronoaZoro1206/BananaVision. Fork collaborators Azanykho03, Bagohay and BlackShark404 can
-  create it.
-- .gitignore: .bananavision-maintenance/ (station backups hold credential hashes).
+THIS SESSION'S WORK (2026-11-16, merged as team PR #13 after this merge)
+- The review queue is the flagged scans (dashboard._review = flagged); only an admin
+  removes a flag.
+- The Dashboard chip opens /logs?status=Flagged. Plain Scan Logs opens on today (Manila);
+  filtered links show "All dates"; date=all is explicit; Reset goes to today; it rolls at
+  midnight.
+- Quality Control and Scan Detail show "Low confidence" for unflagged low-confidence scans.
+- Decisions: docs/knowledge/Development Decisions.md (2026-11-16 entry).
 
 VERIFICATION OF THIS MERGE (Linux cloud session, merged tree)
-- Backend full suite without PostgreSQL: 1087 passed, 104 skipped.
-- Frontend typecheck passes.
-- Frontend tests (detectionBoxes, estimates, shelfLifeWindow, kiosk, printing, manilaTime):
-  77/77 passed.
-- git diff --check is clean. git check-ignore still ignores
-  backend/.bananavision-maintenance/. The local Graphify graph is refreshed (not tracked).
+- Backend full suite with a disposable PostgreSQL 16 cluster: 1180 passed, 38 skipped.
+- Frontend full suite: 367/369. The 2 failures were kiosk-pin timing races ("stalled swap",
+  "connection failures") under a parallel backend run; kiosk-pin.test.mjs passes 15/15
+  alone, and neither change touches the Kiosk.
+- `npm run typecheck` (tsc --noEmit on the root tsconfig) checks no project files. The real
+  check is `tsc -b` inside `npm run build`. It found a type error in my f69aea0
+  (QualityControl reviewLabel did not accept the optional ScanResult.flagged), so f69aea0
+  did not build. Fixed in the commit after this merge; `tsc -b` and the build then pass.
+- ESLint 40 (baseline).
+- Ruff app+tests 644: the +10 over 634 are all in Kent's merged files (classification.py
+  +5, fusion_engine.py +1, test_classification_fusion.py +4); left for the team.
 
-FOLLOW-UPS (reported, not changed)
-- Find out which export/fetch/OOD-prep tests fail on Windows (Kent's run). The teammate
-  guide runs export_station_training_set.py on the Windows Mini PC: if the script itself
-  fails there, the guide's Troubleshooting asks for a photo of the error.
-- prediction_label.py reads a hard-coded laptop file
-  C:\Users\Kent\AppData\Local\BananaVision\laptop-host\public-url.txt.
-- PUBLIC_BASE_URL is missing from backend/.env.example.
-- Re-capture the storyboard Figure 92 screenshot. Deployment follows
-  docs/windows-mini-pc-deployment.md when authorized. Audit items are listed in the
-  archived checkpoints.
-- Station checks from Kent: retest hand counts and Natural/Ethephon shelf life on the
-  Mini PC, and confirm the real RFR model is loaded.
+STILL OPEN
+- The station data release (teammate guide PDF), then:
+  1. fetch_training_assets.py;
+  2. check_inference_head.py;
+  3. hand-count evaluation;
+  4. retraining.
+  Kent's checkpoint also asks for a station re-test of unripe and ripe Latundan, Cardaba and
+  Lakatan, and an export of flagged scans for retraining on horizontal side/Rear views.
+- Windows-only test failures in the export/fetch/OOD-prep/train script tests: get the
+  failing test names from Kent and fix them (the teammate guide runs the export on Windows).
+- prediction_label.py hard-coded laptop path; PUBLIC_BASE_URL missing from
+  backend/.env.example; Figure 92 screenshot; deployment when authorized; audit items in
+  the archived checkpoints.
 
 EXACT NEXT STEP
-- User merges team PR #12, closes temp PR #3 if it is still open, and presses Sync fork.
-  Then realign this session to the fork's main.
-- When the release tag arrives:
-  1. fetch_training_assets.py github --repo RoronoaZoro1206/BananaVision --tag <tag>.
-  2. check_inference_head.py static on the .pt.
-  3. Match hand_counts.csv to counts.csv, then evaluate_finger_count.py physical, with
-     configs including colour_check=off.
-  4. prepare_yolo_dataset.py on the Roboflow zip, then evaluate visible on VALID.
-  5. Retrain on CPU, compare with the current model, and give the PR link.
+- User merges team PR #13 and presses Sync fork; temp PR #4 closes itself.
+- Use `npx tsc -b` (or `npm run build`) as the type check, not `npm run typecheck`.

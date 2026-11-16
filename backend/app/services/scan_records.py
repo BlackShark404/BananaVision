@@ -339,6 +339,10 @@ async def mutate_scan(db, scan_id, user, kind, body, client_ip=None):
     user = await lock_current_account(db, user)
     if kind in ("correction", "note", "provenance") and not is_admin(user):
         raise ForbiddenException("Admin access required")
+    # Removing a flag takes a scan out of the review queue, so it is a quality decision.
+    # Operators may still raise a flag on their own scans.
+    if kind == "flag" and getattr(body, "flagged", None) is False and not is_admin(user):
+        raise ForbiddenException("Admin access required to remove a flag")
     scan = await load_authorized_scan(db, scan_id, user)
     # Bulk inventory and scan attachment share this parent-first lock order.
     if scan.intake_id:

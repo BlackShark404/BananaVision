@@ -18,6 +18,7 @@ from app.models.intake import Intake
 from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
 from app.models.supplier import Supplier
+from app.models.system_config import SystemConfig
 from app.models.user_account import UserAccount
 from app.schemas.enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
 from app.schemas.scan_logs import ScanLogQuery
@@ -427,8 +428,9 @@ async def test_risk_review_and_flag_metrics_match_dashboard_predicates(logs_db):
     review = await scan_logs.list_scan_logs(db, operator, ScanLogQuery(attention="review"))
     risk = await scan_logs.list_scan_logs(db, operator, ScanLogQuery(attention="at-risk"))
     flagged = await scan_logs.list_scan_logs(db, operator, ScanLogQuery(flagged_only=True))
-    assert all_rows.review_count == review.total == summary.pending_review_count == 2
-    assert {r.id for r in review.items} == {unflagged_low, flagged_high}
+    # Review is the flag alone: an unflagged low-confidence scan was checked by a person.
+    assert all_rows.review_count == review.total == summary.pending_review_count == 1
+    assert {r.id for r in review.items} == {flagged_high}
     assert all_rows.at_risk_count == risk.total == summary.expiring_stock_count == 3
     assert {r.id for r in risk.items} == {unflagged_low, flagged_high, aged}
     assert all_rows.flagged_count == flagged.total == 1
@@ -525,7 +527,7 @@ def test_api_query_validation_authentication_export_and_page_independent_metrics
         assert client.get("/api/v1/scan-logs/export").status_code == 401
         operator = account(db)
         for _ in range(23):
-            scan(db, operator, confidence=50)
+            scan(db, operator, confidence=50, flagged=True)
         app.dependency_overrides[get_current_user] = lambda: operator
         response = client.get("/api/v1/scan-logs", params={"page": 3})
         assert response.status_code == 200
@@ -602,15 +604,18 @@ async def test_csv_round_trip_special_characters_and_formula_prefixes(logs_db):
 async def test_success_drilldown_matches_dashboard_numerator_and_full_export(logs_db):
     db = logs_db  # noqa: F811 - pytest fixture injection
     own, other = account(db), account(db)
-    expected = {scan(db, own, confidence=85), scan(db, own, confidence=90)}
-    scan(db, own, confidence=60)
+    # Successful = not flagged with a known confidence; the unflagged 60 was checked by a
+    # person (low new scans are flagged when saved), unknown confidence is never approved.
+    expected = {
+        scan(db, own, confidence=85), scan(db, own, confidence=90), scan(db, own, confidence=60),
+    }
     scan(db, own, confidence=95, flagged=True)
     scan(db, own, confidence=None)
     scan(db, other, confidence=99)
     summary = await dashboard.get_summary(db, own)
     result = await scan_logs.list_scan_logs(db, own, ScanLogQuery(attention='success'))
-    assert summary.success_rate == 40
-    assert result.total == 2 and {row.id for row in result.items} == expected
+    assert summary.success_rate == 60
+    assert result.total == 3 and {row.id for row in result.items} == expected
     assert {
         row["Scan ID"]
         for row in await csv_rows(db, own, ScanLogQuery(attention="success", page=7, page_size=1))
@@ -618,22 +623,62 @@ async def test_success_drilldown_matches_dashboard_numerator_and_full_export(log
 
 
 @pytest.mark.asyncio
-async def test_review_drilldown_preserves_low_confidence_scans_with_flagged_status(logs_db):
+async def test_at_risk_subset_of_a_snapshot_counts_review_as_flagged(logs_db, monkeypatch):
+    from app.services import auth_service
+
+    db = logs_db  # noqa: F811 - pytest fixture injection
+    operator = account(db)
+    stored = {}
+
+    async def lock(_db, user):
+        return user
+
+    async def save(_db, _user, key, payload):
+        stored.update(key=key, saved=SimpleNamespace(
+            id=uuid4(), payload=payload, expires_at=NOW + timedelta(minutes=10),
+        ))
+        return stored["saved"]
+
+    async def load(_db, _user, _token, key):
+        if key != stored["key"]:
+            raise HTTPException(409, "Browse filters changed.")
+        return stored["saved"]
+
+    monkeypatch.setattr(auth_service, "lock_current_account", lock)
+    monkeypatch.setattr(scan_logs, "save_snapshot", save)
+    monkeypatch.setattr(scan_logs, "load_snapshot", load)
+    db.add(SystemConfig, confidence_threshold=85, data_retention_enabled=False)
+    scan(db, operator, confidence=60, prediction="1")  # Flag removed after a check.
+    scan(db, operator, confidence=95, prediction="1", flagged=True)
+    parent = await scan_logs.list_scan_logs(db, operator, ScanLogQuery(stable=True))
+    subset = await scan_logs.list_scan_logs(
+        db, operator, ScanLogQuery(attention="at-risk", snapshot_id=parent.snapshot_id)
+    )
+    direct = await scan_logs.list_scan_logs(db, operator, ScanLogQuery(attention="at-risk"))
+    summary = await dashboard.get_summary(db, operator)
+    assert subset.total == direct.total == 2
+    assert subset.review_count == subset.flagged_count == direct.review_count == 1
+    assert summary.pending_review_count == 1
+
+
+@pytest.mark.asyncio
+async def test_review_drilldown_is_the_flagged_scans(logs_db):
     db = logs_db
     own, other = account(db), account(db)
     flagged_high_conf = scan(db, own, confidence=95, flagged=True)
-    unflagged_low_conf = scan(db, own, confidence=70, flagged=False)
+    scan(db, own, confidence=70, flagged=False)  # Flag removed after a person checked it.
     scan(db, own, confidence=95, flagged=False)
     scan(db, other, confidence=60, flagged=True)
 
     summary = await dashboard.get_summary(db, own)
-    assert summary.pending_review_count == 2
+    assert summary.pending_review_count == 1
 
-    result = await scan_logs.list_scan_logs(
-        db, own, ScanLogQuery(attention="review", flagged_only=True)
-    )
-    assert result.total == 2
-    assert {row.id for row in result.items} == {flagged_high_conf, unflagged_low_conf}
+    for query in (
+        ScanLogQuery(attention="review"), ScanLogQuery(attention="review", flagged_only=True)
+    ):
+        result = await scan_logs.list_scan_logs(db, own, query)
+        assert result.total == 1
+        assert {row.id for row in result.items} == {flagged_high_conf}
 
     flagged_only_result = await scan_logs.list_scan_logs(
         db, own, ScanLogQuery(flagged_only=True)

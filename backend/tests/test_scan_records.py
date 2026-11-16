@@ -64,6 +64,11 @@ def test_owner_detail_and_list_do_not_expose_admin_notes(application):
         == 403
     )
     assert app.client.patch(url + "/flag", json=mutation(2, flagged=True)).status_code == 200
+    # Removing a flag clears the scan from the review queue: only an admin may do that.
+    unflag = app.client.patch(url + "/flag", json=mutation(3, flagged=False))
+    assert unflag.status_code == 403, unflag.text
+    with Session(app.engine) as db:
+        assert db.get(Scan, app.ids.scan).flagged is True
     assert (
         app.client.patch(
             url + "/status", json=mutation(3, inventory_status="Sold", reason="Dispatched")

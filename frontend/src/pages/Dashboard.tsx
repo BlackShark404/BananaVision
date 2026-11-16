@@ -36,6 +36,8 @@ const manilaTime = new Intl.DateTimeFormat("en-PH", inManila({
   month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit",
 }))
 const manilaDate = (time: number) => manilaDayKey(time)
+// Recent scans can be older than today, which a plain /logs (today's view) would hide.
+const ALL_SCAN_LOGS = buildScanLogsUrl({ date: "all" })
 
 function legacyScanLogsUrl(params: URLSearchParams, selectedDate: string): string | null {
   const view = params.get("view")
@@ -43,10 +45,13 @@ function legacyScanLogsUrl(params: URLSearchParams, selectedDate: string): strin
   const sourceKey = params.get("source_key") || undefined
   const operatorId = params.get("operator_id") || undefined
   return buildScanLogsUrl({
-    date: view === "today" || view === "confidence" || (view === "all" && (sourceKey || operatorId)) ? selectedDate : undefined,
+    date: view === "today" || view === "confidence" || (view === "all" && (sourceKey || operatorId)) ? selectedDate
+      : view === "all" ? "all" : undefined,
     source_key: sourceKey,
     operator_id: operatorId,
-    attention: view === "expiring" ? "at-risk" : view === "review" ? "review" : undefined,
+    // The review queue is the flagged scans, shown as Status: Flagged in Scan Logs.
+    status: view === "review" ? "Flagged" : undefined,
+    attention: view === "expiring" ? "at-risk" : undefined,
     sort: view === "confidence" || params.get("sort") === "confidence" ? "confidence" : undefined,
     direction: view === "confidence" || params.get("direction") === "asc" ? "asc" : params.get("direction") === "desc" ? "desc" : undefined,
   })
@@ -140,7 +145,8 @@ function DashboardContent() {
       date: filters?.business_date ? filters.business_date : view === "review" || view === "expiring" || view === "success" ? undefined : date,
       source_key: filters?.source_key,
       operator_id: filters?.operator_id,
-      attention: view === "expiring" ? "at-risk" : view === "review" ? "review" : view === "success" ? "success" : undefined,
+      status: view === "review" ? "Flagged" : undefined,
+      attention: view === "expiring" ? "at-risk" : view === "success" ? "success" : undefined,
       sort: view === "confidence" ? "confidence" : undefined,
       direction: view === "confidence" ? "asc" : undefined,
     }))
@@ -244,7 +250,7 @@ function DashboardContent() {
               <CardTitle className="text-base sm:text-lg">Recent Scans</CardTitle>
               <CardDescription className="text-xs">Latest classification results</CardDescription>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/logs")} className="hidden sm:flex text-muted-foreground hover:text-primary">
+            <Button variant="ghost" size="sm" onClick={() => navigate(ALL_SCAN_LOGS)} className="hidden sm:flex text-muted-foreground hover:text-primary">
               View All Logs <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </CardHeader>
@@ -282,7 +288,7 @@ function DashboardContent() {
                   recentScans.map((scan) => (
                     <TableRow key={scan.id} className="hover:bg-muted/50">
                       <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">
-                        <Link to="/logs" className="underline underline-offset-4 focus-visible:outline-primary">{manilaTime.format(new Date(scan.date_time))}</Link>
+                        <Link to={ALL_SCAN_LOGS} className="underline underline-offset-4 focus-visible:outline-primary">{manilaTime.format(new Date(scan.date_time))}</Link>
                       </TableCell>
                       <TableCell className="font-medium text-sm">{scan.cultivar}</TableCell>
                       <TableCell>

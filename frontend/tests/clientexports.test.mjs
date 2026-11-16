@@ -136,7 +136,7 @@ for (const screen of ["activity", "intakes", "quality"]) {
       } else {
         assert.deepEqual(rows[1], ["full-scan-identifier-00", timestamp, "Export group 00", "Lakatan", "Ripe",
           ...(format === "csv" ? ["0", "0", "0"] : [0, 0, 0]), "3.5454545454545454", format === "csv" ? "0" : 0,
-          longText, "No", "Review"])
+          longText, "No", "Low confidence"])
         assert.equal(rows[2][6], "")
         assert.equal(rows[2][7], "")
         assert.equal(rows[2][10], "")

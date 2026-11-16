@@ -15,6 +15,8 @@ export interface AppDateFilterProps {
   onChange?: (value: string) => void
   /** Accessible trigger name; also the visible placeholder when nothing is selected. */
   label?: string
+  /** Visible text when nothing is selected, if it differs from the label (e.g. "All dates"). */
+  emptyText?: string
   title?: string
   className?: string
 }
@@ -24,10 +26,10 @@ export interface AppDateFilterProps {
  * The grid shows calendar days and the value stays a plain YYYY-MM-DD string, so URL
  * params survive any device time zone. "Today" is the Asia/Manila calendar day.
  */
-export function AppDateFilter({ value = "", onChange, label = "Date", title, className }: AppDateFilterProps) {
+export function AppDateFilter({ value = "", onChange, label = "Date", emptyText, title, className }: AppDateFilterProps) {
   const [open, setOpen] = useState(false)
   const selected = parseIsoDay(value)
-  const display = selected ? format(selected, "MMM d, yyyy") : label
+  const display = selected ? format(selected, "MMM d, yyyy") : emptyText ?? label
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
