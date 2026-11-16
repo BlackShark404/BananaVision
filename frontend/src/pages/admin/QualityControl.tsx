@@ -254,7 +254,7 @@ export default function QualityControl() {
   const lowConfidenceCount = scans.filter(s => s.confidence !== null && s.confidence < config.confidenceThreshold).length
   // Review is the flag alone. An unflagged low-confidence scan was checked (or predates a
   // threshold raise), so it is labelled for information, never as pending review.
-  const reviewLabel = (s: { flagged: boolean; confidence: number | null }) =>
+  const reviewLabel = (s: { flagged?: boolean; confidence: number | null }) =>
     s.flagged ? "Flagged" : s.confidence !== null && s.confidence < config.confidenceThreshold ? "Low confidence" : "Verified"
   const flaggedCount = scans.filter(s => s.flagged).length
   const sourcesWithIssues = useMemo(() => {
