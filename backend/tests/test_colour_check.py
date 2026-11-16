@@ -262,3 +262,22 @@ def test_station_rejection_note_counts_colour_drops(station):  # noqa: F811
     assert response.status_code == 422, response.text
     [note] = rejections(station.app)
     assert "4 boxes over non-banana colours dropped" in note
+
+
+def test_top_platform_edge_drops_bottom_left_trim_only():
+    frame = table()
+    bottom_left_trim = (10, 340, 380, 470)
+    bottom_right_ripe = (480, 300, 860, 470)
+    paint(frame, bottom_left_trim, (14, 48, 175), noise=1, seed=9)
+    paint(frame, bottom_right_ripe, (24, 90, 205), noise=1, seed=10)
+
+    names = {0: "latundan_ripe"}
+    result = predict(
+        frame,
+        [(*bottom_left_trim, 0.72, 0), (*bottom_right_ripe, 0.82, 0)],
+        label="Top",
+        names=names,
+    )
+    assert result.finger_count == 1
+    assert result.colour_rejected_boxes == 1
+    assert [int(d.x) for d in result.detections] == [480]

@@ -11,10 +11,15 @@ import logging
 import math
 from dataclasses import dataclass, field
 
+import numpy as np
+
 from app.config import get_settings
 from app.services.classification import (
+    TOP_OVERLAP_CONFIDENCE,
     VOTE_CONFLICT_THRESHOLD,
     ClassificationResult,
+    Detection,
+    _unique_box_detections,
 )
 
 logger = logging.getLogger(__name__)
@@ -233,18 +238,22 @@ class FusionEngine:
             round(sum(winning_confs) / len(winning_confs), 1) if winning_confs else 0.0
         )
 
-        # Views overlap: 2D edge positions cannot establish unique fingers across
-        # cameras. Use the largest observed per-view count without adding sightings.
-        final_fingers = max(finger_counts, default=0)
+        # Estimate total hand fingers across views using 2D vertical tier separation
+        # when a two-tier hand's lower row is occluded from the overhead Top camera.
+        baseline_max_fingers = max(finger_counts, default=0)
+        final_fingers = self._estimate_multi_camera_fingers(results, finger_counts)
 
         expected = expected_camera_count if expected_camera_count is not None else len(per_camera)
         supporting_views = len(pair_cameras.get(winning_pair, set()))
         insufficient_views = supporting_views < min(2, expected)
         missing_captures = len(per_camera) < expected
-        # Different positive counts can reflect occlusion or detector errors. The
-        # maximum is still an estimate; request confirmation when detecting views
-        # disagree. Empty/missing views retain the support/capture checks above.
-        count_requires_review = len({count for count in finger_counts if count > 0}) > 1
+        # Different positive counts can reflect occlusion or detector errors. Request
+        # confirmation when detecting views disagree or multi-view tier fusion adds
+        # occluded lower-tier fingers. Empty/missing views retain the checks above.
+        count_requires_review = (
+            len({count for count in finger_counts if count > 0}) > 1
+            or final_fingers > baseline_max_fingers
+        )
         auto_flagged = (
             conflict_detected or final_confidence < review_confidence_threshold * 100
             or insufficient_views or missing_captures or count_requires_review
@@ -282,6 +291,178 @@ class FusionEngine:
             return True
         winner_ratio = weights.get(winner, 0) / total
         return winner_ratio < self.CONFLICT_THRESHOLD
+
+    def _estimate_multi_camera_fingers(
+        self,
+        results: list[tuple[str, str, ClassificationResult]],
+        finger_counts: list[int],
+    ) -> int:
+        baseline_max = max(finger_counts, default=0)
+        if len(finger_counts) < 4 or baseline_max <= 0:
+            return baseline_max
+
+        by_label: dict[str, ClassificationResult] = {}
+        seen_ids: set[str] = set()
+        for camera_id, camera_label, result in results:
+            if camera_id in seen_ids:
+                continue
+            seen_ids.add(camera_id)
+            norm = (camera_label or "").strip().casefold()
+            if norm in ("top", "left", "right", "rear") and norm not in by_label:
+                by_label[norm] = result
+
+        if len(by_label) < 4:
+            return baseline_max
+
+        t_res = by_label["top"]
+        l_res = by_label["left"]
+        r_res = by_label["right"]
+        re_res = by_label["rear"]
+
+        t_cnt = t_res.finger_count
+        l_cnt = l_res.finger_count
+        r_cnt = r_res.finger_count
+        re_cnt = re_res.finger_count
+
+        l_upper, l_lower = _split_horizontal_tiers(l_res.detections)
+        r_upper, r_lower = _split_horizontal_tiers(r_res.detections)
+        re_upper, re_lower = _split_horizontal_tiers(re_res.detections)
+
+        top_second_tier = _count_top_second_tier(t_res.detections)
+        u_primary = max(1, t_cnt - top_second_tier)
+
+        # If Rear suffered a severe single-frame capture/detection collapse while both
+        # lateral views independently observe two stacked vertical tiers, reconstruct
+        # conservatively from Top's primary row plus the smaller observed lower tier.
+        if re_cnt <= 4:
+            if l_cnt >= 8 and r_cnt >= 8 and min(l_lower, r_lower) >= 3:
+                fused_estimate = u_primary + min(l_lower, r_lower)
+                return max(baseline_max, min(sum(finger_counts), fused_estimate))
+            return baseline_max
+
+        # When Rear partially under-detects (< 8 or < max(Left, Right)), still recover
+        # the stacked lower tier if both Left and Right confirm two-tier stacking.
+        if re_cnt < 8 or re_cnt < max(l_cnt, r_cnt):
+            if (
+                min(l_cnt, r_cnt) >= 7
+                and max(l_cnt, r_cnt) >= 8
+                and min(l_lower, r_lower) >= 3
+            ):
+                side_lower = (
+                    sorted([l_lower, r_lower, re_lower])[1]
+                    if re_lower >= 2
+                    else min(l_lower, r_lower)
+                )
+                fused_estimate = u_primary + side_lower
+                return max(baseline_max, min(sum(finger_counts), fused_estimate))
+            return baseline_max
+
+        # If one side view collapses (<= 4 boxes) while the surviving side (>= 7) and Rear
+        # (>= 8) both confirm vertical stacking, recover from the surviving pair.
+        if min(l_cnt, r_cnt) <= 4:
+            surv_lower = max(l_lower, r_lower)
+            if max(l_cnt, r_cnt) >= 7 and min(surv_lower, re_lower) >= 3:
+                u_est = u_primary + (1 if re_cnt > t_cnt else 0)
+                fused_estimate = u_est + min(surv_lower, re_lower)
+                return max(baseline_max, min(sum(finger_counts), fused_estimate))
+            return baseline_max
+
+        # Require verified 2D vertical tier stacking across at least two horizontal views.
+        if sum(1 for low in (l_lower, r_lower, re_lower) if low >= 2) < 2:
+            return baseline_max
+
+        u_est = u_primary + (1 if re_cnt > t_cnt else 0)
+        wide_bilateral = (
+            re_cnt >= 12
+            and re_cnt >= u_primary + 2
+            and max(l_cnt, r_cnt) >= 8
+            and min(l_cnt, r_cnt) >= 7
+            and min(l_lower, r_lower) >= 3
+            and max(l_lower, r_lower) >= 4
+            and re_lower >= max(l_lower, r_lower)
+        )
+        if wide_bilateral:
+            # Wide curved two-tier hands foreshorten or tuck inner upper fingers in Top
+            # while Left and Right capture opposite lateral wings around Rear's center arc.
+            side_upper_union = min(l_upper + r_upper, re_upper + min(l_upper, r_upper))
+            u_est = max(u_est, side_upper_union)
+
+        if (
+            (re_cnt >= 12 and re_lower > max(l_lower, r_lower) and top_second_tier == 0)
+            or (
+                re_cnt < 12
+                and re_lower >= max(l_lower, r_lower) + 2
+                and top_second_tier == 0
+            )
+            or wide_bilateral
+        ):
+            # Left and Right capture opposite lateral halves of the lower tier while
+            # Rear spans the central overlap.
+            l_est = min(l_lower + r_lower, re_lower + min(l_lower, r_lower))
+        elif (
+            re_cnt <= 10
+            and re_cnt <= t_cnt
+            and re_lower > max(l_lower, r_lower)
+            and top_second_tier == 0
+        ):
+            # Compact Rear view did not add an upper finger beyond Top, yet directly sees
+            # more lower-tier fingers than either side view alone.
+            l_est = min(l_lower + r_lower, re_lower)
+        else:
+            # Standard two-tier hand: Left, Right, and Rear observe the shared lower tier.
+            l_est = sorted([l_lower, r_lower, re_lower])[1]
+
+        fused_estimate = u_est + l_est
+        return max(baseline_max, min(sum(finger_counts), fused_estimate))
+
+
+def _split_horizontal_tiers(dets: list[Detection]) -> tuple[int, int]:
+    """Split unique detections in a horizontal view (Left/Right/Rear) into (upper_count, lower_count).
+
+    A box belongs to the lower tier when another accepted box sits vertically above it
+    with meaningful horizontal overlap along the hand span.
+    """
+    unique = _unique_box_detections(dets)
+    if len(unique) < 2:
+        return len(unique), 0
+    lower_count = 0
+    for b in unique:
+        cy_b = b.y + b.h / 2
+        has_upper = False
+        for u in unique:
+            if u is b:
+                continue
+            cy_u = u.y + u.h / 2
+            if (cy_b - cy_u) >= 0.35 * min(u.h, b.h):
+                ix1 = max(u.x, b.x)
+                ix2 = min(u.x + u.w, b.x + b.w)
+                inter_w = max(0.0, ix2 - ix1)
+                if inter_w >= 0.20 * min(u.w, b.w):
+                    has_upper = True
+                    break
+        if has_upper:
+            lower_count += 1
+    return len(unique) - lower_count, lower_count
+
+
+def _count_top_second_tier(dets: list[Detection]) -> int:
+    """Count lower-tier fingers already visible around the perimeter of the overhead Top view."""
+    unique = _unique_box_detections(dets)
+    if len(unique) < 4:
+        return 0
+    areas = [d.w * d.h for d in unique if d.w > 0 and d.h > 0]
+    if not areas:
+        return 0
+    med_area = float(np.median(areas))
+    # Only Pass-2 low-confidence recoveries (vertical overlaps) or genuinely small peeking
+    # inner/perimeter tips belong to the second tier; splayed radial upper wings (w > h)
+    # stay in the primary row.
+    return sum(
+        1
+        for d in unique
+        if (d.confidence < TOP_OVERLAP_CONFIDENCE and d.w <= d.h)
+        or (d.w * d.h) < 0.42 * med_area
+    )
 
 
 # Singleton instance

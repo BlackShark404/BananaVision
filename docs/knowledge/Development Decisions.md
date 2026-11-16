@@ -56,6 +56,20 @@ Documented architectural, technical, and operational decisions in BananaVision.
 - **Tests:** `backend/tests/test_dashboard.py`, `test_scan_logs.py`;
   `frontend/tests/scanlogfilters.test.mjs`, `dashboard.test.mjs`, `scanrecords.test.mjs`.
 
+## 2026-11-16: Horizontal radial wings in `_count_top_second_tier`, side/Rear collapse recovery, and bottom-left Top trim scoping
+
+- **Orientation check in `_count_top_second_tier` (`fusion_engine.py`):** Kept `d.w <= d.h` on `< TOP_OVERLAP_CONFIDENCE` (`0.50`) Top detections rather than adding an area cutoff (`< 0.70 * med_area`), preserving the synthetic equal-area overlap test (`test_two_tier_hand_fusion_reconstructs_occluded_lower_tier_fingers`) while keeping splayed radial upper wings (`w > h`) in `u_primary`.
+- **Two-tier recovery bounds (`fusion_engine.py`):** Added single-side collapse recovery (`min(l_cnt, r_cnt) <= 4`) and partial-Rear collapse recovery (`re_cnt < 8 or re_cnt < max(l_cnt, r_cnt)`) instead of lowering `OCCLUDED_FINGER_MIN_PRIMARY` below `4` (`minp2` regressed `v13/valid` `effab854` `3 -> 4`).
+- **Compact `Rear` vs `11`-Rear separation (`fusion_engine.py`):** Capped compact-Rear single lower-tier substitution (`re_lower > max(l_lower, r_lower)` with `top_second_tier == 0`) at `re_cnt <= 10 and re_cnt <= t_cnt`, so `9–10`-Rear hands recover `14` while `11`-Rear `15`-finger hands (`10-lakatan-unripe`, `01-latundan-unripe`) remain on the median lower tier.
+- **Bottom-left platform scope (`classification.py`):** Scoped `_is_top_platform_edge_box` `at_bottom` check to `x1 <= 0.15 * iw and cx <= 0.50 * iw` so bottom-right smooth ripe yellow peel boxes are never misclassified as tan tray trim.
+
+## 2026-11-15: Trim-overhang sibling suppression, horizontal-parent sub-box dedup, and Pass-3 / fusion bounds
+
+- **Sub-box dedup symmetry across backend and frontend (`classification.py`, `detectionBoxes.ts`):** Extended `_is_axially_aligned_or_enclosed` (and TS `deduplicateDisplayBoxes`) to suppress vertically centered portrait/square fragments (`0.50 <= h/H < 0.80`) inside elongated horizontal parents (`w >= 1.6 * h`, `w >= 2.0 * sub_w`), rather than lowering generic IoU thresholds or merging off-axis stacked fingers.
+- **Sibling-relative Top trim overhang suppression instead of spatial platform masking (`classification.py`):** `_suppress_trim_overhang_duplicates` drops bottom-left `Top` boxes only when their outer left/bottom overhangs (`>= 18%` box area) match pale-tan tray trim / dark gap pixels (`>= 72%`) AND the trimmed interior overlaps a clean horizontal sibling (`>= 72%`). Single genuine bottom-left fingers touching trim with no inner duplicate sibling remain intact.
+- **Calibrated Pass-3 recovery bounds (`classification.py`):** Set `OCCLUDED_FINGER_MIN_PRIMARY = 4` so 4-box Cardaba Rear captures invoke recovery; admitted `>= 0.50` Pass-3 tips down to `0.10 * median_area` while keeping `0.22 * median_area` for `< 0.50` boxes; allowed `0.75 * med_w` lateral span for horizontal side views (`not upright`) while blocking low-conf `>= 2`-stage ripeness outliers and `within_hand` upper-margin peripheral grazing.
+- **Fusion 12-Rear guard (`fusion_engine.py`):** Required `re_cnt >= 12` before lower-tier flank summation or `wide_bilateral` reconstruction so 11-Rear captures cannot inflate to `22`.
+
 ## 2026-11-14: Colour check for crown and background boxes
 
 - **User request:** 16 station screenshots (newest code) still showed non-finger boxes: the

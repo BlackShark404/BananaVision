@@ -24,10 +24,34 @@ export function deduplicateDisplayBoxes(boxes: BoundingBox[]): BoundingBox[] {
       const containment = minArea > 0 ? intersection / minArea : 0
       const minWidth = Math.min(box.w, existing.w)
       const minHeight = Math.min(box.h, existing.h)
-      const aligned = minWidth <= 0 || minHeight <= 0 || Math.min(
-        Math.abs(box.x + box.w / 2 - existing.x - existing.w / 2) / minWidth,
-        Math.abs(box.y + box.h / 2 - existing.y - existing.h / 2) / minHeight,
-      ) <= 0.08
+      const relDx = minWidth > 0 ? Math.abs(box.x + box.w / 2 - existing.x - existing.w / 2) / minWidth : 0
+      const relDy = minHeight > 0 ? Math.abs(box.y + box.h / 2 - existing.y - existing.h / 2) / minHeight : 0
+      const [smaller, larger] = box.w * box.h <= existing.w * existing.h ? [box, existing] : [existing, box]
+      let aligned = false
+      if (minWidth <= 0 || minHeight <= 0 || Math.max(relDx, relDy) <= 0.08) {
+        aligned = true
+      } else if (Math.min(relDx, relDy) <= 0.08) {
+        if (smaller.w < 0.45 * larger.w && smaller.h < 0.45 * larger.h) {
+          aligned = true
+        } else if (larger.w > larger.h && smaller.w > smaller.h) {
+          aligned = relDy <= 0.08 && !(smaller.h < 0.50 * larger.h && smaller.w < 0.75 * larger.w)
+        } else if (
+          smaller.h >= smaller.w &&
+          smaller.h >= 0.5 * larger.h &&
+          (smaller.h >= 0.8 * larger.h ||
+            (larger.w >= 1.6 * larger.h && larger.w >= 2.0 * smaller.w)) &&
+          larger.w >= 1.8 * smaller.w &&
+          relDy <= 0.08
+        ) {
+          aligned = true
+        } else if (larger.h >= larger.w && smaller.h >= smaller.w) {
+          aligned = relDx <= 0.08 && !(smaller.w < 0.50 * larger.w && smaller.h < 0.75 * larger.h)
+        } else if (larger.h >= larger.w && smaller.w >= 0.80 * larger.w && relDx <= 0.08) {
+          aligned = true
+        } else if (larger.w > larger.h && smaller.h >= 0.80 * larger.h && relDy <= 0.08) {
+          aligned = true
+        }
+      }
       const sameCultivar = cultivar(box.cls) !== null && cultivar(box.cls) === cultivar(existing.cls)
       if (box.cls === existing.cls || sameCultivar) {
         // Ripeness differences must not merge adjacent fingers of the same cultivar.

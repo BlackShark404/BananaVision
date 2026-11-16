@@ -58,3 +58,18 @@ test('legacy or incomplete counting markers use geometric fallback', () => {
   const boxes = [{ ...box(0, 0), counts_as_finger: false }, box(15, 0)]
   assert.deepEqual(deduplicateDisplayBoxes(boxes), boxes)
 })
+
+test('stacked horizontal flank fingers inside a diagonal neighbor box remain distinct', () => {
+  const upperDiagonal = box(839, 276, 423, 417, 'latundan_ripe', 0.92)
+  const lowerHorizontal = box(853, 499, 415, 201, 'latundan_ripe', 0.63)
+  assert.equal(deduplicateDisplayBoxes([upperDiagonal, lowerHorizontal]).length, 2)
+})
+
+test('centered square or portrait tip inside wide horizontal parent deduplicates cleanly', () => {
+  const wideParent = box(40, 200, 400, 210, 'cardaba_unripe', 0.85)
+  const centeredSub = box(185, 235, 110, 140, 'cardaba_unripe', 0.67)
+  assert.equal(deduplicateDisplayBoxes([wideParent, centeredSub]).length, 1)
+
+  const stackedChild = box(185, 205, 110, 95, 'cardaba_unripe', 0.62)
+  assert.equal(deduplicateDisplayBoxes([wideParent, stackedChild]).length, 2)
+})

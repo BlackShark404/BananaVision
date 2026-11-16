@@ -1,92 +1,73 @@
-CURRENT RESUME HERE (2026-11-16) - REVIEW QUEUE = FLAGGED; SCAN LOGS OPENS ON TODAY
+CURRENT RESUME HERE (2026-11-17) - TEAM FUSION FIXES MERGED WITH THE FLAGGED REVIEW QUEUE
 
-The previous checkpoint (team fixes merged, waiting for station data) is archived
-byte-for-byte in docs/history/2026-11-16-before-review-queue-and-logs-date.txt. Its
-follow-ups and the station-data next steps are still open (see below).
+Archived byte-for-byte before this merge:
+- docs/history/2026-11-17-team-checkpoint-before-merge.txt: Kent's checkpoints for
+  2026-11-15/16 (multi-camera two-tier fusion, platform-edge and trim-overhang filters,
+  Pass-3 bounds, regression fixes), with their full verification numbers.
+- docs/history/2026-11-16-before-review-queue-and-logs-date.txt: the checkpoint before
+  the review-queue change.
 
 STATE OF MAIN
-- Fork main was 1e0edba (team PR #12, backups git-ignored) before this change. This
-  session's branch was realigned to it (trees identical to the merge ab6a4ac).
+- Fork main = f69aea0 (b0223f1 review queue = flagged scans + Scan Logs opens on today;
+  f69aea0 review follow-ups) + a merge of team main db1b989 (Kent: 79b7c5f, d2d1aa1,
+  2c946ff, db1b989), brought in through temp PR #4 in the fork. Only TASK_PROGRESS.txt and
+  docs/knowledge/Development Decisions.md conflicted; both sides were kept.
 
-AUTHORIZED SCOPE / USER DECISIONS (2026-11-16)
-- User request:
-  - Dashboard "Pending quality reviews" should select Flagged in the Scan Logs Status menu.
-  - "Expiring stock" should set the scan date to today, and today should be the default.
-  - The user asked for the scenario to be analysed first.
-- Analysis:
-  - The review rule was flagged OR confidence < threshold. New low-confidence scans are
-    already flagged at save (fusion_engine auto_flagged), so un-flagged scans could never
-    leave the queue.
-  - The chip counts are all-time backlogs. All 15 at-risk scans were from Oct 21, so a
-    today-only date would empty those lists.
-- Decisions:
-  1. "Flagged = the queue": dashboard._review = flagged; _successful = not flagged with a
-     known confidence. The chip opens /logs?status=Flagged. Remove Flag clears a scan from
-     the queue. The legacy attention=review becomes status=Flagged.
-  2. "Today for normal Logs only": a plain /logs (paging and sorting kept) is replaced with
-     ?date=<today, Manila> before the first request.
-     - Filtered links (chips, Inventory, intakes, sources) show all dates, and the date box
-       reads "All dates".
-     - date=all is the explicit form: clearing the date sets it, and any filter change
-       writes it when no date is set.
-     - Reset and the Total card go to today.
-     - Dashboard "View All Logs" and Recent Scans rows go to ?date=all.
+TEAM WORK IN THIS MERGE (Kent, 2026-11-15/16; details in his archived checkpoint)
+- fusion_engine.py:
+  - two-tier multi-camera fusion with lower-tier flank and Rear rules;
+  - horizontal radial wings stay upper tier;
+  - single-side and partial-Rear collapse recovery.
+- classification.py:
+  - Top platform-edge and trim-overhang suppression;
+  - sub-box dedup inside horizontal parents (mirrored in frontend
+    src/lib/detectionBoxes.ts);
+  - OCCLUDED_FINGER_MIN_PRIMARY = 4 and Pass-3 bounds.
+- Kent's measurements:
+  - offline v13/valid (banana_yolovsV2.pt): MAE 0.8832, exact 48.91 %, within one 86.13 %;
+  - debug-screenshots/2026-11-15/ holds 27 station screenshots and his debugging prompt;
+  - his Windows runs show 12 failures and 13 errors in the export/fetch/OOD-prep/train
+    script tests (Windows path, symlink and quote assertions), the same before his change.
+- The low-confidence auto-flag (fusion_engine: conflict or final confidence below the
+  threshold) is unchanged, so the flagged review queue still catches new low-confidence
+  scans.
 
-DONE
-- Backend: app/services/dashboard.py (_review, _successful, docstring), scan_logs.py
-  (snapshot review_count). Tests: test_dashboard.py (flag-only queue, removing the flag,
-  success without unknown confidence) and test_scan_logs.py.
-- Frontend:
-  - lib/scanLogFilters.ts: normalizeScanLogSearch, selectedScanLogDay, a calendar-day
-    check, flagged_only for Status Flagged.
-  - pages/Logs.tsx: normalizes the URL before LogsContent mounts; date=all; Reset to
-    today; review banner for Status Flagged with "Clear review filter"; filterMembership
-    review and success rules.
-  - components/AppDateFilter.tsx: emptyText.
-  - pages/Dashboard.tsx: chip, legacy views, View All Logs and recent rows.
-  - Tests: scanlogfilters, dashboard, scanrecords (4 new browser tests).
-- Docs: Development Decisions (2026-11-16 entry; the 2026-10-16 review-scope decision is
-  marked superseded), Resolved Bugs (old review-link fix marked superseded), Frontend.
+THIS SESSION'S WORK (2026-11-16, merged as team PR #13 after this merge)
+- The review queue is the flagged scans (dashboard._review = flagged); only an admin
+  removes a flag.
+- The Dashboard chip opens /logs?status=Flagged. Plain Scan Logs opens on today (Manila);
+  filtered links show "All dates"; date=all is explicit; Reset goes to today; it rolls at
+  midnight.
+- Quality Control and Scan Detail show "Low confidence" for unflagged low-confidence scans.
+- Decisions: docs/knowledge/Development Decisions.md (2026-11-16 entry).
 
-VERIFICATION
-- Backend full suite with a disposable PostgreSQL 16 cluster: 1154 passed, 38 skipped.
-- Frontend full node suite: 359/363 at first. The 4 crosssession failures opened
-  /logs?page=2 and the normalization dropped the page. Fixed by keeping the page; the
-  crosssession and filter tests then passed 22/22.
-- ESLint 40 problems (= baseline; the 4 in Logs.tsx are older unused imports). tsc and
-  build pass. Ruff app+tests 634 (= baseline).
-- Screenshots (scratchpad logs-screens): plain today, review Flagged + banner, expiring
-  "All dates", at 1280 and 390 px.
-- Independent review workflow (3 lenses, a skeptic per lens): 14 findings, 10 confirmed (6
-  distinct). All fixed in the follow-up commit:
-  - only an admin may remove a flag (operators get 403; they can still raise one);
-  - Quality Control and Scan Detail show a neutral "Low confidence" instead of
-    "Review"/"Needs Review" for unflagged low-confidence scans (Scan Detail keeps "Needs
-    Review" for a camera cultivar conflict); the export Status follows;
-  - the at-risk subset of a snapshot counts review as flagged;
-  - the dashboard API docstring;
-  - the sidebar Logs link goes straight to ?date=<today> (no reload or duplicate history);
-  - an open default view moves to the new Manila day at midnight.
-- After the follow-up:
-  - backend 1155 passed, 38 skipped with PostgreSQL;
-  - frontend 366/367 (the only failure was an analytics.test.mjs clock-setup race, "Cannot
-    fast-forward to the past"; that file passes 9/9 alone and the change does not touch it);
-  - ESLint 40 and Ruff 634, both baseline; tsc passes.
+VERIFICATION OF THIS MERGE (Linux cloud session, merged tree)
+- Backend full suite with a disposable PostgreSQL 16 cluster: 1180 passed, 38 skipped.
+- Frontend full suite: 367/369. The 2 failures were kiosk-pin timing races ("stalled swap",
+  "connection failures") under a parallel backend run; kiosk-pin.test.mjs passes 15/15
+  alone, and neither change touches the Kiosk.
+- `npm run typecheck` (tsc --noEmit on the root tsconfig) checks no project files. The real
+  check is `tsc -b` inside `npm run build`. It found a type error in my f69aea0
+  (QualityControl reviewLabel did not accept the optional ScanResult.flagged), so f69aea0
+  did not build. Fixed in the commit after this merge; `tsc -b` and the build then pass.
+- ESLint 40 (baseline).
+- Ruff app+tests 644: the +10 over 634 are all in Kent's merged files (classification.py
+  +5, fusion_engine.py +1, test_classification_fusion.py +4); left for the team.
 
-STILL OPEN (from earlier checkpoints)
-- Station data: when the release tag (station-data-YYYY-MM-DD) arrives:
+STILL OPEN
+- The station data release (teammate guide PDF), then:
   1. fetch_training_assets.py;
-  2. check_inference_head.py static on the .pt;
-  3. hand_counts.csv vs counts.csv, then evaluate_finger_count.py physical (configs
-     including colour_check=off);
-  4. prepare and evaluate visible on VALID;
-  5. retrain on CPU, compare, and give the PR.
-- Ask Kent which export/fetch/OOD-prep tests failed on Windows. prediction_label.py has a
-  hard-coded laptop path. PUBLIC_BASE_URL is missing from backend/.env.example.
-- Figure 92 storyboard screenshot. Deployment per docs/windows-mini-pc-deployment.md when
-  authorized. Audit items listed in the archived checkpoints.
+  2. check_inference_head.py;
+  3. hand-count evaluation;
+  4. retraining.
+  Kent's checkpoint also asks for a station re-test of unripe and ripe Latundan, Cardaba and
+  Lakatan, and an export of flagged scans for retraining on horizontal side/Rear views.
+- Windows-only test failures in the export/fetch/OOD-prep/train script tests: get the
+  failing test names from Kent and fix them (the teammate guide runs the export on Windows).
+- prediction_label.py hard-coded laptop path; PUBLIC_BASE_URL missing from
+  backend/.env.example; Figure 92 screenshot; deployment when authorized; audit items in
+  the archived checkpoints.
 
 EXACT NEXT STEP
-- User opens the team PR from the fork's main:
-  https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main
-- Then wait for the station release tag.
+- User merges team PR #13 and presses Sync fork; temp PR #4 closes itself.
+- Use `npx tsc -b` (or `npm run build`) as the type check, not `npm run typecheck`.

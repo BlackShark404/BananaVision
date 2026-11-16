@@ -42,8 +42,13 @@ TOP_OVERLAP_BASE_IOU = 0.45
 TOP_OVERLAP_IOU = 0.65
 TOP_ROTATION_DEDUP_IOU = 0.40
 OCCLUDED_FINGER_RECOVERY_CONF = 0.25
-OCCLUDED_FINGER_MIN_PRIMARY = 5
+OCCLUDED_FINGER_MIN_PRIMARY = 4
 OCCLUDED_FINGER_MIN_AREA_RATIO = 0.22
+OCCLUDED_FINGER_HIGH_CONF_AREA_RATIO = 0.10
+TRIM_OVERHANG_DARK_MAX_VALUE = 50
+TRIM_OVERHANG_PALE_MAX_SAT = 55
+TRIM_OVERHANG_PALE_MIN_VAL = 100
+TRIM_OVERHANG_PALE_MAX_HUE = 30
 # A box at least this many times longer than wide has a clear long axis (a finger seen
 # from the side or from above); squarer boxes are tips, ends or whole hands.
 FINGER_MIN_ELONGATION = 2.0
@@ -63,6 +68,20 @@ COLOUR_BLUE_MAX_HUE = 165
 COLOUR_BLUE_MIN_SATURATION = 25
 COLOUR_CENTRE_SHRINK = 0.20
 COLOUR_SAMPLE_SIZE = 48
+# Smooth warm-tan / dark-shadow shelf & platform edge below/left of Top-view hands.
+PLATFORM_EDGE_BOTTOM = 0.90
+PLATFORM_EDGE_LEFT = 0.03
+PLATFORM_EDGE_MIN_TOP = 0.65
+PLATFORM_MAX_GRADIENT = 14.0
+PLATFORM_MAX_HUE = 25
+PLATFORM_MAX_SATURATION = 115
+PLATFORM_TAN_HUE_MAX = 24
+PLATFORM_TAN_SAT_MAX = 95
+PLATFORM_DARK_MAX_VALUE = 45
+PLATFORM_MIN_FULL_FRACTION = 0.40
+PLATFORM_MIN_BOTTOM_FRACTION = 0.65
+ROTATED_DUPLICATE_AXIS_RATIO = 0.35
+RECOVERY_DUPLICATE_CONTAINMENT = 0.85
 
 
 def _detection_head(yolo) -> object | None:
@@ -250,7 +269,41 @@ def _is_axially_aligned_or_enclosed(
     cx_b, cy_b = b.x + b.w / 2.0, b.y + b.h / 2.0
     rel_dx = abs(cx_a - cx_b) / min_w
     rel_dy = abs(cy_a - cy_b) / min_h
-    return min(rel_dx, rel_dy) <= axis_tol
+    if min(rel_dx, rel_dy) > axis_tol:
+        return False
+    if max(rel_dx, rel_dy) <= axis_tol:
+        return True
+    smaller, larger = (a, b) if (a.w * a.h) <= (b.w * b.h) else (b, a)
+    if smaller.w < 0.45 * larger.w and smaller.h < 0.45 * larger.h:
+        return True
+    if larger.w > larger.h and smaller.w > smaller.h:
+        if rel_dy > axis_tol:
+            return False
+        if smaller.h < 0.50 * larger.h and smaller.w < 0.75 * larger.w:
+            return False
+        return True
+    if (
+        smaller.h >= smaller.w
+        and smaller.h >= 0.50 * larger.h
+        and (
+            smaller.h >= 0.80 * larger.h
+            or (larger.w >= 1.6 * larger.h and larger.w >= 2.0 * smaller.w)
+        )
+        and larger.w >= 1.8 * smaller.w
+        and rel_dy <= axis_tol
+    ):
+        return True
+    if larger.h >= larger.w and smaller.h >= smaller.w:
+        if rel_dx > axis_tol:
+            return False
+        if smaller.w < 0.50 * larger.w and smaller.h < 0.75 * larger.h:
+            return False
+        return True
+    if larger.h >= larger.w and smaller.w >= 0.80 * larger.w and rel_dx <= axis_tol:
+        return True
+    if larger.w > larger.h and smaller.h >= 0.80 * larger.h and rel_dy <= axis_tol:
+        return True
+    return False
 
 
 def _unique_box_detections(detections: list[Detection]) -> list[Detection]:
@@ -324,11 +377,12 @@ def _is_cluster_box(det: Detection, others: list[Detection]) -> bool:
         o_area = o.w * o.h
         if o_area <= 0:
             continue
-        if det_area >= 1.6 * o_area and _box_containment(det, o) >= 0.70:
+        if det_area >= 1.6 * o_area and _box_containment(det, o) >= 0.82:
             contained.append(o)
     for i in range(len(contained)):
         for j in range(i + 1, len(contained)):
-            if _box_iou(contained[i], contained[j]) < 0.40:
+            a, b = contained[i], contained[j]
+            if _box_iou(a, b) < 0.40 and (a.w > a.h) == (b.w > b.h):
                 return True
     return False
 
@@ -344,7 +398,23 @@ def _is_duplicate_detection(
     to prevent partial, shifted, or nested bounding boxes from double-counting
     elongated banana fingers.
     """
-    if _box_iou(candidate, existing) > iou_thresh:
+    iou = _box_iou(candidate, existing)
+    if iou >= TOP_OVERLAP_IOU:
+        return True
+    if iou > iou_thresh:
+        if getattr(settings, "yolo_axis_aware_rotation_dedup", True) and not _is_axially_aligned_or_enclosed(candidate, existing):
+            if candidate.w > candidate.h and existing.w > existing.h:
+                min_h = min(candidate.h, existing.h)
+                cy_cand = candidate.y + candidate.h / 2
+                cy_exist = existing.y + existing.h / 2
+                if min_h > 0 and abs(cy_cand - cy_exist) > ROTATED_DUPLICATE_AXIS_RATIO * min_h:
+                    return False
+            elif candidate.h >= candidate.w and existing.h >= existing.w:
+                min_w = min(candidate.w, existing.w)
+                cx_cand = candidate.x + candidate.w / 2
+                cx_exist = existing.x + existing.w / 2
+                if min_w > 0 and abs(cx_cand - cx_exist) > ROTATED_DUPLICATE_AXIS_RATIO * min_w:
+                    return False
         return True
 
     cont = _box_containment(candidate, existing)
@@ -356,10 +426,10 @@ def _is_duplicate_detection(
         # x for an upright finger. For a finger lying sideways that is y; comparing x
         # there merged a lying finger with the one stacked on it.
         larger = candidate if candidate.w * candidate.h >= existing.w * existing.h else existing
-        if (
-            getattr(settings, "yolo_axis_aware_rotation_dedup", True)
-            and _long_axis(larger) == "horizontal"
-        ):
+        is_horiz = _long_axis(larger) == "horizontal" or (
+            larger.w > larger.h and candidate.w > candidate.h and existing.w > existing.h
+        )
+        if getattr(settings, "yolo_axis_aware_rotation_dedup", True) and is_horiz:
             min_h = min(candidate.h, existing.h)
             cy_cand = candidate.y + candidate.h / 2
             cy_exist = existing.y + existing.h / 2
@@ -397,9 +467,19 @@ def _side_by_side(a: Detection, b: Detection) -> bool:
 
 def _hides_fingers(parent: Detection, children: list[Detection], others: list[Detection]) -> bool:
     """A whole-hand box that swallowed two or more side-by-side fingers as 'fragments'."""
-    if len(children) < 2:
+    parent_cult, _ = _parse_class_label(parent.cls)
+    cross_stage_children = [
+        o for o in others
+        if o is not parent
+        and parent_cult is not None
+        and _parse_class_label(o.cls)[0] == parent_cult
+        and (parent.w * parent.h) >= 1.6 * (o.w * o.h)
+        and _is_nested_or_duplicate_box(o, parent)
+    ]
+    all_children = children + cross_stage_children
+    if len(all_children) < 2:
         return False
-    if not any(_side_by_side(a, b) for a, b in combinations(children, 2)):
+    if not any(_side_by_side(a, b) for a, b in combinations(all_children, 2)):
         return False
     return _is_cluster_box(parent, others + children)
 
@@ -448,6 +528,66 @@ def _non_banana_fraction(image: np.ndarray, x1: float, y1: float, x2: float,
         & (saturation >= COLOUR_BLUE_MIN_SATURATION) & ~dark
     )
     return float((dark | bluish).mean())
+
+
+def _is_top_platform_edge_box(image: np.ndarray | None, box: Detection) -> bool:
+    """True when a Top-view edge box covers smooth tan/shadowed platform surface."""
+    import cv2
+
+    if image is None or not isinstance(image, np.ndarray) or image.ndim < 3 or image.shape[2] < 3:
+        return False
+    ih, iw = image.shape[:2]
+    if ih <= 0 or iw <= 0:
+        return False
+
+    x1 = max(0, int(round(box.x)))
+    y1 = max(0, int(round(box.y)))
+    x2 = min(iw, int(round(box.x + box.w)))
+    y2 = min(ih, int(round(box.y + box.h)))
+    bw, bh = x2 - x1, y2 - y1
+    if bw < 16 or bh < 16:
+        return False
+
+    cx = x1 + bw / 2.0
+    at_bottom = (
+        y2 >= PLATFORM_EDGE_BOTTOM * ih
+        and x1 <= 0.15 * iw
+        and cx <= 0.50 * iw
+    )
+    at_bottom_left = x1 <= PLATFORM_EDGE_LEFT * iw and y1 >= PLATFORM_EDGE_MIN_TOP * ih
+    if not (at_bottom or at_bottom_left):
+        return False
+
+    crop = np.ascontiguousarray(image[y1:y2, x1:x2, :3], dtype=np.uint8)
+    hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+    gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+    grad = np.hypot(gx, gy)
+    hue, saturation, value = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    tan_or_dark = (
+        ((hue <= PLATFORM_TAN_HUE_MAX) & (saturation <= PLATFORM_TAN_SAT_MAX))
+        | (value < PLATFORM_DARK_MAX_VALUE)
+    )
+
+    mx = max(1, int(bw * COLOUR_CENTRE_SHRINK))
+    my = max(1, int(bh * COLOUR_CENTRE_SHRINK))
+    if (
+        float(np.median(grad[my:bh - my, mx:bw - mx])) < PLATFORM_MAX_GRADIENT
+        and float(np.median(hue[my:bh - my, mx:bw - mx])) < PLATFORM_MAX_HUE
+        and float(np.median(saturation[my:bh - my, mx:bw - mx])) < PLATFORM_MAX_SATURATION
+        and float(tan_or_dark.mean()) >= PLATFORM_MIN_FULL_FRACTION
+    ):
+        return True
+
+    if at_bottom:
+        bot_y = int(round(0.65 * bh))
+        if bot_y < bh and (
+            float(np.median(grad[bot_y:, :])) < PLATFORM_MAX_GRADIENT
+            and float(tan_or_dark[bot_y:, :].mean()) >= PLATFORM_MIN_BOTTOM_FRACTION
+        ):
+            return True
+    return False
 
 
 def _ripeness_stage(det: Detection) -> int | None:
@@ -504,7 +644,123 @@ def _ripeness_outliers(detections: list[Detection]) -> list[Detection]:
             continue
         if d.confidence < best or not any(_box_iou(d, n) > 0 for n in near):
             outliers.append(d)
+    if outliers:
+        direct = [d for d in outliers if any(_box_iou(d, n) > 0 for n in near)]
+        connected = [
+            d for d in outliers
+            if any(_box_iou(d, n) > 0 for n in near)
+            or any(_box_iou(d, t) > 0 for t in direct)
+        ]
+        if len(_unique_box_detections(connected)) >= 2:
+            conn_ids = {id(d) for d in connected}
+            outliers = [d for d in outliers if id(d) not in conn_ids]
     return outliers
+
+
+def _region_trim_or_dark_fraction(
+    image: np.ndarray, x1: float, y1: float, x2: float, y2: float,
+) -> float:
+    """Share of an outer box strip matching empty dark bottom shadow or pale tan trim."""
+    import cv2
+
+    if image is None or image.ndim != 3 or image.shape[2] != 3:
+        return 0.0
+    img_h, img_w = image.shape[:2]
+    rx1, ry1 = max(0, int(round(x1))), max(0, int(round(y1)))
+    rx2, ry2 = min(img_w, int(round(x2))), min(img_h, int(round(y2)))
+    if rx2 <= rx1 or ry2 <= ry1:
+        return 0.0
+    crop = image[ry1:ry2, rx1:rx2]
+    if crop.size == 0:
+        return 0.0
+    hsv = cv2.cvtColor(np.ascontiguousarray(crop, dtype=np.uint8), cv2.COLOR_BGR2HSV)
+    hue, sat, val = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    dark = val < TRIM_OVERHANG_DARK_MAX_VALUE
+    pale_tan = (
+        (sat < TRIM_OVERHANG_PALE_MAX_SAT)
+        & (val > TRIM_OVERHANG_PALE_MIN_VAL)
+        & (hue <= TRIM_OVERHANG_PALE_MAX_HUE)
+    )
+    return float((dark | pale_tan).mean())
+
+
+def _suppress_trim_overhang_duplicates(
+    image: np.ndarray | None, detections: list[Detection],
+) -> list[Detection]:
+    """Drop Top bottom-left shelf-trim shifted duplicates overlapping a clean sibling finger."""
+    if image is None or image.ndim != 3 or image.shape[2] != 3 or not np.any(image > 0):
+        return detections
+    img_h, img_w = image.shape[:2]
+    if img_h <= 0 or img_w <= 0 or len(detections) < 2:
+        return detections
+
+    ordered = sorted(detections, key=lambda d: d.confidence, reverse=True)
+    drop_ids: set[int] = set()
+    for det in ordered:
+        if id(det) in drop_ids:
+            continue
+        if det.w <= det.h or det.x > 0.05 * img_w or (det.y + det.h) < 0.86 * img_h:
+            continue
+        det_cult, _ = _parse_class_label(det.cls)
+        det_area = det.w * det.h
+        if det_area <= 0:
+            continue
+        det_x2, det_y2 = det.x + det.w, det.y + det.h
+        for partner in ordered:
+            if partner is det or id(partner) in drop_ids or partner.w <= partner.h:
+                continue
+            part_cult, _ = _parse_class_label(partner.cls)
+            if det_cult is not None and part_cult is not None and det_cult != part_cult:
+                continue
+            part_x2, part_y2 = partner.x + partner.w, partner.y + partner.h
+            ix1, iy1 = max(det.x, partner.x), max(det.y, partner.y)
+            ix2, iy2 = min(det_x2, part_x2), min(det_y2, part_y2)
+            inter_w, inter_h = max(0.0, ix2 - ix1), max(0.0, iy2 - iy1)
+            if inter_w <= 0 or inter_h <= 0:
+                continue
+            if (
+                inter_h < 0.55 * min(det.h, partner.h)
+                or inter_w < 0.35 * min(det.w, partner.w)
+            ):
+                continue
+            left_ext = max(0.0, partner.x - det.x)
+            bot_ext = max(0.0, det_y2 - part_y2)
+            trim_area = 0.0
+            trimmed_x1 = det.x
+            trimmed_y2 = det_y2
+            if (
+                left_ext >= 0.03 * img_w
+                and _region_trim_or_dark_fraction(
+                    image, det.x, det.y, partner.x, det_y2,
+                ) >= 0.72
+            ):
+                trim_area += left_ext * det.h
+                trimmed_x1 = partner.x
+            if (
+                bot_ext >= 0.03 * img_h
+                and _region_trim_or_dark_fraction(
+                    image, trimmed_x1, part_y2, det_x2, det_y2,
+                ) >= 0.72
+            ):
+                trim_area += max(0.0, det_x2 - trimmed_x1) * bot_ext
+                trimmed_y2 = part_y2
+            if trim_area < 0.18 * det_area:
+                continue
+            rem_w = max(0.0, det_x2 - trimmed_x1)
+            rem_h = max(0.0, trimmed_y2 - det.y)
+            rem_area = rem_w * rem_h
+            if rem_area <= 0:
+                drop_ids.add(id(det))
+                break
+            rem_ix1 = max(trimmed_x1, partner.x)
+            rem_iy1 = max(det.y, partner.y)
+            rem_ix2 = min(det_x2, part_x2)
+            rem_iy2 = min(trimmed_y2, part_y2)
+            rem_inter = max(0.0, rem_ix2 - rem_ix1) * max(0.0, rem_iy2 - rem_iy1)
+            if rem_inter / rem_area >= 0.72:
+                drop_ids.add(id(det))
+                break
+    return [d for d in detections if id(d) not in drop_ids]
 
 
 def _is_recovery_duplicate(cand: Detection, existing: Detection) -> bool:
@@ -513,7 +769,10 @@ def _is_recovery_duplicate(cand: Detection, existing: Detection) -> bool:
         return True
     if _is_same_class_sub_box(cand, existing) or _is_same_class_sub_box(existing, cand):
         return True
-    if _box_containment(cand, existing) >= 0.80:
+    cont = _box_containment(cand, existing)
+    if cont >= RECOVERY_DUPLICATE_CONTAINMENT:
+        return True
+    if cont >= 0.80:
         min_w, min_h = min(cand.w, existing.w), min(cand.h, existing.h)
         cx_c, cy_c = cand.x + cand.w / 2.0, cand.y + cand.h / 2.0
         cx_e, cy_e = existing.x + existing.w / 2.0, existing.y + existing.h / 2.0
@@ -707,7 +966,7 @@ class BananaClassifier:
         colour_rejected: list[Detection] = []
 
         def off_colour(box: Detection, dropped_anyway=None) -> bool:
-            """A box over the crown or dark background: judged on its own pixels.
+            """A box over the crown, background, or Top platform: judged on its pixels.
 
             dropped_anyway(box, kept): the pass's own repeat rule. A box the pass would drop
             anyway is skipped without counting, so it cannot flag a scan for nothing (as
@@ -716,7 +975,9 @@ class BananaClassifier:
             if not colour_check or _parse_class_label(box.cls)[1] == "Overripe":
                 return False  # overripe peel really is dark brown
             fraction = _non_banana_fraction(image, box.x, box.y, box.x + box.w, box.y + box.h)
-            if fraction < max_non_banana:
+            if fraction < max_non_banana and not (
+                norm_cam == "top" and _is_top_platform_edge_box(image, box)
+            ):
                 return False
             if not (
                 (dropped_anyway is not None
@@ -785,18 +1046,26 @@ class BananaClassifier:
                         and norm_cam in ("left", "right", "rear")
                         and image is not None
                     ):
-                        img_h = image.shape[0]
+                        img_h, img_w = image.shape[:2]
                         det_h = y2 - y1
                         det_w = x2 - x1
                         # 1. Boxes entirely in the upper background (sky / ceiling):
                         if y2 < 0.22 * img_h:
                             continue
-                        # 2. Slender background pillars or door frames ending in the upper/mid area:
-                        if (
-                            det_w > 0 and (det_h / det_w) >= 2.2 and y2 <= 0.55 * img_h
-                        ) or (
-                            y1 < 0.08 * img_h and det_w > 0
-                            and (det_h / det_w) >= 2.5 and y2 < 0.65 * img_h
+                        # 2. Slender background pillars or door frames ending in the upper/mid area
+                        # (unless clipped by the left/right frame edge or overlapping the banana hand):
+                        is_edge_clipped = x1 <= 0.04 * img_w or x2 >= 0.96 * img_w
+                        touches_hand = any(
+                            _box_iou(det, d) > 0.05
+                            for d in detections
+                            if d.w > 0 and (d.h / d.w) < 2.2
+                        )
+                        if not is_edge_clipped and not touches_hand and (
+                            (det_w > 0 and (det_h / det_w) >= 2.2 and y2 <= 0.55 * img_h)
+                            or (
+                                y1 < 0.08 * img_h and det_w > 0
+                                and (det_h / det_w) >= 2.5 and y2 < 0.65 * img_h
+                            )
                         ):
                             continue
 
@@ -1047,22 +1316,38 @@ class BananaClassifier:
             and self._image_size == expected_imgsz
             and confidence_threshold == TOP_OVERLAP_CONFIDENCE
             and len(detections) >= OCCLUDED_FINGER_MIN_PRIMARY
-            and not duplicate_cultivar_conflict
+            and (not duplicate_cultivar_conflict or len(cultivar_votes) > 1)
             and image is not None
         ):
             primary_cultivar = self._best_vote(cultivar_votes)
+            all_ripeness_votes: dict[str, list[float]] = {}
+            for (_, ripeness), confs in class_votes.items():
+                if ripeness:
+                    all_ripeness_votes.setdefault(ripeness, []).extend(confs)
             primary_ripeness_votes = {
                 ripeness: confs for (cultivar, ripeness), confs in class_votes.items()
                 if cultivar == primary_cultivar and ripeness
             }
-            primary_ripeness = self._best_vote(primary_ripeness_votes)
+            primary_ripeness = (
+                self._best_vote(primary_ripeness_votes)
+                or self._best_vote(all_ripeness_votes)
+            )
             primary_total_w = sum(sum(v) for v in cultivar_votes.values())
             primary_win_w = sum(cultivar_votes.get(primary_cultivar or "", []))
+            ripeness_total_w = sum(sum(v) for v in all_ripeness_votes.values())
+            ripeness_win_w = sum(all_ripeness_votes.get(primary_ripeness or "", []))
+            cultivar_unconflicted = (
+                primary_total_w > 0
+                and primary_win_w >= primary_total_w * VOTE_CONFLICT_THRESHOLD
+            )
+            ripeness_unconflicted = (
+                ripeness_total_w > 0
+                and ripeness_win_w >= ripeness_total_w * VOTE_CONFLICT_THRESHOLD
+            )
             if (
                 primary_cultivar
                 and primary_ripeness
-                and primary_total_w > 0
-                and primary_win_w >= primary_total_w * VOTE_CONFLICT_THRESHOLD
+                and (cultivar_unconflicted or ripeness_unconflicted)
             ):
                 median_area = float(np.median([d.w * d.h for d in detections]))
                 # Hidden fingers lie within the hand: along the fingers' length inside the
@@ -1071,7 +1356,14 @@ class BananaClassifier:
                 upright = float(np.median(
                     [d.h / d.w for d in detections if d.w > 0] or [1.0]
                 )) >= 1.0
-                beside_x = float(np.median([d.w for d in detections])) if upright else 0.0
+                if upright:
+                    beside_x = float(np.median([d.w for d in detections]))
+                elif norm_cam in ("left", "right", "rear"):
+                    # Side views fan across a 3D platter horizontally; allow flanking
+                    # fingers when Pass 1 missed one side (unlike flat overhead Top hands).
+                    beside_x = 0.75 * float(np.median([d.w for d in detections]))
+                else:
+                    beside_x = 0.0
                 beside_y = 0.0 if upright else float(np.median([d.h for d in detections]))
                 hand_x1 = min(d.x for d in detections) - beside_x
                 hand_y1 = min(d.y for d in detections) - beside_y
@@ -1111,15 +1403,41 @@ class BananaClassifier:
                         else:
                             x1, y1, x2, y2 = bx1, by1, bx2, by2
                         det_w, det_h = x2 - x1, y2 - y1
-                        if det_w * det_h < OCCLUDED_FINGER_MIN_AREA_RATIO * median_area:
+                        min_area_ratio = (
+                            OCCLUDED_FINGER_HIGH_CONF_AREA_RATIO
+                            if conf >= confidence_threshold
+                            else OCCLUDED_FINGER_MIN_AREA_RATIO
+                        )
+                        if det_w * det_h < min_area_ratio * median_area:
                             continue
                         label = _parse_class_label(cls_name)
                         if label != (primary_cultivar, primary_ripeness):
                             stage = RIPENESS_STAGE.get(label[1] or "")
+                            if (
+                                conf < confidence_threshold
+                                and ripeness_unconflicted
+                                and stage is not None
+                                and primary_stage is not None
+                                and abs(stage - primary_stage) >= 2
+                            ):
+                                continue
                             if not (
-                                adjacent and label[0] == primary_cultivar
-                                and stage is not None and primary_stage is not None
-                                and abs(stage - primary_stage) == 1
+                                (
+                                    (adjacent or len(all_ripeness_votes) >= 2)
+                                    and label[0] == primary_cultivar
+                                    and stage is not None and primary_stage is not None
+                                    and abs(stage - primary_stage) == 1
+                                )
+                                or (
+                                    label in class_votes
+                                    and (
+                                        label[0] == primary_cultivar
+                                        or (
+                                            conf >= 0.40
+                                            and (not cultivar_unconflicted or norm_cam == "top")
+                                        )
+                                    )
+                                )
                             ):
                                 continue
                         if within_hand and not (
@@ -1129,6 +1447,10 @@ class BananaClassifier:
                             continue
                         if norm_cam in lip_views and _is_platter_lip(x1, y1, x2, y2, conf, img_h):
                             continue
+                        cand = Detection(
+                            x=x1, y=y1, w=det_w, h=det_h,
+                            cls=cls_name, confidence=conf,
+                        )
                         if (
                             getattr(settings, "yolo_peripheral_background_filter", True)
                             and norm_cam in ("left", "right", "rear")
@@ -1136,16 +1458,27 @@ class BananaClassifier:
                             if y2 < 0.22 * img_h:
                                 continue
                             if (
-                                det_w > 0 and (det_h / det_w) >= 2.2 and y2 <= 0.55 * img_h
-                            ) or (
-                                y1 < 0.08 * img_h and det_w > 0
-                                and (det_h / det_w) >= 2.5 and y2 < 0.65 * img_h
+                                within_hand
+                                and conf < confidence_threshold
+                                and y1 <= 0.04 * img_h
+                                and y2 <= 0.28 * img_h
+                                and not any(_box_iou(cand, d) >= 0.15 for d in detections)
                             ):
                                 continue
-                        cand = Detection(
-                            x=x1, y=y1, w=det_w, h=det_h,
-                            cls=cls_name, confidence=conf,
-                        )
+                            is_edge_clipped = x1 <= 0.04 * img_w or x2 >= 0.96 * img_w
+                            touches_hand = any(
+                                _box_iou(cand, d) > 0.05
+                                for d in detections
+                                if d.w > 0 and (d.h / d.w) < 2.2
+                            )
+                            if not is_edge_clipped and not touches_hand and (
+                                (det_w > 0 and (det_h / det_w) >= 2.2 and y2 <= 0.55 * img_h)
+                                or (
+                                    y1 < 0.08 * img_h and det_w > 0
+                                    and (det_h / det_w) >= 2.5 and y2 < 0.65 * img_h
+                                )
+                            ):
+                                continue
                         if off_colour(cand, _is_recovery_duplicate):
                             continue
                         if rejected_by_gate(cand, _is_recovery_duplicate):
@@ -1161,6 +1494,8 @@ class BananaClassifier:
                 det for det in detections
                 if not _is_cluster_box(det, [o for o in detections if o != det])
             ]
+        if norm_cam == "top":
+            detections = _suppress_trim_overhang_duplicates(image, detections)
 
         # Preserve cultivar consensus, then choose ripeness from that cultivar's
         # actual labels. Independent votes can invent a pair YOLO never detected.

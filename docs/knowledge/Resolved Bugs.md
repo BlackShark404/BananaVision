@@ -2,6 +2,75 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-11-16: Horizontal radial-wing subtraction, <12-Rear / single-side two-tier collapses, and bottom-right Top peel safety
+
+- **Symptoms (2026-11-15/16 4-camera station screenshots):**
+  - After deploying Round 2 changes, two-tier hands still undercounted by `-1` to `-6`: `11:54 PM Latundan Ripe` (`10/7/7/9` vs `14`) returned `13`; `12:16 AM Latundan Ripe` with collapsed `Right=3` (`10/8/3/9`) returned `10`; `12:07 AM Cardaba Ripe` (`10/7/8/10`) returned `13`; `12:01 AM Lakatan Ripe` (`10/8/8/11` vs `20–21`) dropped to `14`; `10:38 PM Lakatan Unripe` (`9/7/10/6` vs `15`) returned `10`; `10:36 PM Latundan Unripe` (`12/7/10/11`) and `11:52 PM Cardaba Ripe` (`11/8/9/11`) dropped splayed wings.
+- **Root causes:**
+  1. `_count_top_second_tier` in `backend/app/services/fusion_engine.py` treated `< 0.50` confidence splayed horizontal wing fingers (`w > h`) as lower-tier detections, subtracting them from `u_primary` and disabling `top_second_tier == 0` flank union.
+  2. `FusionEngine._estimate_multi_camera_fingers` gated lower-tier flank union at `re_cnt >= 12` (blocking `11`-Rear split hands and `9–10`-Rear compact hands where `re_cnt <= t_cnt` and `re_lower > max(l_lower, r_lower)`), and aborted two-tier reconstruction when `Rear < 8` or `Rear < max(Left, Right)` (`10:38 PM`) or when one side collapsed `<= 4` (`12:16 AM`).
+  3. `_is_top_platform_edge_box` in `backend/app/services/classification.py` applied `at_bottom` (`y2 >= 0.90 * ih`) across the whole image width instead of restricting it to the bottom-left platform trim (`x1 <= 0.15 * iw and cx <= 0.50 * iw`).
+- **Fixes:**
+  - `backend/app/services/fusion_engine.py`: required `d.w <= d.h` for `< 0.50` boxes in `_count_top_second_tier`; added partial-Rear and single-side collapse recovery (`min(l_cnt, r_cnt) <= 4` and `re_cnt < 8 or re_cnt < max(l_cnt, r_cnt)`); added `< 12` wide lower-flank split (`re_lower >= max(l_lower, r_lower) + 2` when `top_second_tier == 0`) and compact `Rear` substitution (`re_cnt <= 10 and re_cnt <= t_cnt and re_lower > max(l_lower, r_lower) and top_second_tier == 0`).
+  - `backend/app/services/classification.py`: narrowed `_is_top_platform_edge_box` `at_bottom` check to bottom-left (`x1 <= 0.15 * iw and cx <= 0.50 * iw`).
+- **Remaining limits:**
+  - Single-view detector misses on dim/sideways captures (e.g., `12:16 AM Right=3` where `cls@0.50` emits `2` boxes and `raw@0.25` sees `6–7`) still require retraining YOLO on exported station data.
+- **Verification:** See [[Testing and Validation]].
+
+## 2026-11-15: Sub-box fragments, Top bottom-left trim overhangs, side-view flank recovery, doorway outlier, and 11-Rear fusion inflation
+
+- **Symptoms (`debug-screenshots/2026-11-15/`):**
+  - `10-lakatan-unripe-overview` (`Top 10, Left 8, Right 9, Rear 11`) inflated to `EST. FINGERS = 22`.
+  - `15-lakatan-ripe-overview` / `17-lakatan-ripe-right` (`Right 7`) dropped lower-right flank fingers and foreshortened end-on tips, keeping fused count collapsed at `14`.
+  - `18-lakatan-ripe-rear` and `19-cardaba-unripe-top` retained portrait/square sub-box duplicates nested vertically centered inside wide horizontal finger parents.
+  - `03-latundan-unripe-left` admitted a `38%` `Latundan Ripe` doorway candidate grazing a finger corner.
+  - `22-cardaba-unripe-rear` stopped at `4` detections without triggering Pass-3 recovery.
+  - `06-latundan-ripe-top`, `14-lakatan-ripe-top`, `19-cardaba-unripe-top`, `23-cardaba-ripe-top` counted shifted bottom-left boxes extending over empty pale-tan tray trim / dark shadow gap alongside clean inner banana siblings (`IoU < 0.80`).
+- **Root causes:**
+  1. `FusionEngine._estimate_multi_camera_fingers` lacked a `re_cnt >= 12` guard on `(re_lower > max(l_lower, r_lower) and top_second_tier == 0)` and used overly permissive `wide_bilateral` gates, summing both lower flanks when `Rear=11`.
+  2. `BananaClassifier.predict` Pass 3 set `beside_x = 0.0` whenever `upright=False`, blocking missed lateral flanks in `Right`/`Left`/`Rear`, and required `>= 0.22 * median_area` even for `>= 0.50` confidence end-on tips.
+  3. `_is_axially_aligned_or_enclosed` (and `deduplicateDisplayBoxes` in `frontend/src/lib/detectionBoxes.ts`) skipped centered portrait/square children (`0.50 <= h/H < 0.80`) inside wide horizontal parents (`w >= 1.6 * h`, `w >= 2.0 * sub_w`).
+  4. Pass 3 admitted `< 0.50` candidates `>= 2` ripeness stages away on ripeness-unconflicted hands and lacked a `within_hand` upper-margin peripheral grazing guard; `OCCLUDED_FINGER_MIN_PRIMARY = 5` skipped Pass 3 on 4-box detections (`22-cardaba-unripe-rear`).
+  5. No check existed for shifted Top bottom-left duplicates whose non-overlapping left/bottom margin consists primarily of pale-tan trim / dark shadow (`27-empty-platform-top-reference.png`) while overlapping a clean sibling on the peel.
+- **Fixes:**
+  - Updated `backend/app/services/classification.py`, `backend/app/services/fusion_engine.py`, and `frontend/src/lib/detectionBoxes.ts` as summarized in `TASK_PROGRESS.txt` and [[Development Decisions]].
+- **Remaining limits:**
+  - COCO `banana_pre_detector` fails to emit strong banana evidence on some stubby/foreshortened Cardaba Rear views (`valid` `001_back`, `03682_back`), and raw Pass-1/Pass-2 inference can still merge touching stacked side-view fingers; screenshots in `debug-screenshots/2026-11-15/` lack clean raw camera frames and physically counted ground truth.
+- **Verification:** See [[Testing and Validation]].
+
+## 2026-11-15: Radial-wing Top subtraction and wide/rear-collapsed two-tier fusion
+
+- **Symptoms:**
+  - After deploying `79b7c5f` to the 4-camera station, two-tier hands still collapsed toward `max(finger_counts)`: `Latundan Ripe` (`14` actual, `Top 10 / Left 7 / Right 9 / Rear 9`) returned `10`; `Latundan Unripe` (`15` actual, `9 / 7 / 10 / 10`) returned `12`; `Lakatan Ripe` (`21` actual, `11 / 11 / 9 / 13`) returned `13`; `Cardaba Ripe` (`11 / 8 / 9 / 11`) returned `12`; `Cardaba Unripe` (`14` actual) with a single-frame `Rear` detection collapse (`12 / 9 / 11 / 2`) returned `12`.
+- **Root causes:**
+  1. `_count_top_second_tier` in `backend/app/services/fusion_engine.py` treated `left_horiz[2:] | right_horiz[2:]` (`w > h`) and boxes `< 0.58 * med_area` as lower-tier detections. On radial overhead banana fans (`Latundan`, `Cardaba`, `Lakatan`), splayed outer horizontal wing fingers (`0.51–0.93` confidence) and narrow upright primary fingers (`0.52 * med_area`) were falsely subtracted from `Top`, collapsing `u_primary` and setting `top_second_tier > 0`, which also blocked bilateral lower-tier fusion.
+  2. `_estimate_multi_camera_fingers` disabled wide bilateral union whenever `top_second_tier > 0` or `re_lower <= max(l_lower, r_lower)` even on wide curved 21-finger hands (`re_cnt >= 12`, `re_cnt >= t_cnt + 2`, `min(l_cnt, r_cnt) >= 8`), and aborted two-tier reconstruction completely when `Rear` suffered a transient collapse (`re_cnt <= 4`) while both `Left` and `Right` still verified vertical tier stacking.
+- **Fix:**
+  - In `backend/app/services/fusion_engine.py`, removed `stacked_flank_ids` from `_count_top_second_tier` and tightened the small peeking-tip threshold to `< 0.42 * med_area` (alongside `< TOP_OVERLAP_CONFIDENCE` = `0.50`).
+  - Updated `_estimate_multi_camera_fingers` to compute wide bilateral upper/lower unions when `re_cnt >= 12`, `re_cnt >= t_cnt + 2`, `min(l_cnt, r_cnt) >= 8`, `min(l_lower, r_lower) >= 4`, and `re_lower >= max(l_lower, r_lower)`, and to recover `u_primary + min(l_lower, r_lower)` on severe `Rear` collapses (`re_cnt <= 4`) when `l_cnt >= 8`, `r_cnt >= 8`, and `min(l_lower, r_lower) >= 3`.
+- **Limits (model/camera coverage, not fusion drops):**
+  - Single-view merged boxes (e.g., `530b1a91` `Latundan Top` `93%` box covering two tight fingers), heavy shadow/occlusion in one side view (`ee4aa487` `Lakatan 19` `Left 6`), and the transient `Cardaba Unripe Rear 2` capture drop (`dcffe85e`, where re-running the trained YOLO weights on the clean modal crop returns 9–11 boxes) remain detector/capture-quality constraints rather than post-filter or fusion bugs.
+- **Verification:** See [[Testing and Validation]].
+
+## 2026-11-14: Radial-fan post-processing drops, stage-straddling finger pairs, split-cultivar recovery, and two-tier multi-camera fusion
+
+- **Symptoms:**
+  - On 14–21 finger hands (Cardaba 14 actual -> 13; Green Latundan 15 actual -> 12; Ripe Latundan 14 actual -> 10; Ripe Lakatan 21 actual -> 13; Mixed-stage 15-finger hand -> 9; 1-tier Lakatan 10 actual -> `Top` 9), YOLO detected valid fingers across the 4 cameras, but per-view post-processing dropped flank/rotated/multi-stage boxes and `FusionEngine.fuse` took `max(finger_counts)` from a single camera even when the overhead `Top` view could only see the upper tier while `Left`, `Right`, and `Rear` boxed the lower tier sitting underneath.
+- **Root causes:**
+  1. `_is_axially_aligned_or_enclosed` checked `min(rel_dx, rel_dy) <= 0.08` without checking finger orientation, so two horizontal flank fingers stacked vertically (`rel_dx <= 0.08`, `rel_dy = 0.35–0.57`) or narrow protruding inner-tier fingers were dropped as sub-box fragments when a diagonal neighbor's bounding rectangle overlapped them (`containment >= 0.80`).
+  2. `_is_cluster_box` used `_box_containment >= 0.70` without checking whether contained boxes shared orientation (`(a.w > a.h) == (b.w > b.h)`), deleting real 45°-diagonal fingers in radial fans whose bounding-box corners overlapped one horizontal neighbor and one vertical neighbor.
+  3. `_ripeness_outliers` dropped connected pairs of `>= 2` adjacent fingers on the hand whose peel colour straddled `Unripe`/`Ripe`.
+  4. `_is_duplicate_detection` unconditionally suppressed rotated `Top` boxes at `0.40 < IoU < 0.65` even when two parallel horizontal fingers had vertically separated centres (`rel_dy = 0.39 > 0.30` on the 10th finger of the 10-finger Lakatan hand).
+  5. `yolo_peripheral_background_filter` dropped real upright upper-tier fingers on peripheral views when their width was clipped by the frame edge (`x2 >= 0.96 * img_w`, making `h/w >= 2.2`), and Pass 3 (`augment=True`) rejected high-confidence (`0.86–0.88`) recovery fingers on multi-stage hands (`Ripe` + `Semi Ripe` or `Unripe` + `Semi Ripe` + `Ripe`) even when that `(cultivar, ripeness)` label was already voted in Pass 1.
+  6. `FusionEngine.fuse` used `max(finger_counts)`, which caps any two-tier hand at the single largest view (`10–13`) because `Top` is physically blocked from seeing the lower tier underneath the upper tier while `Left`, `Right`, and `Rear` each see only one side or the front arc.
+- **Fixes:**
+  - Updated `_is_axially_aligned_or_enclosed`, `_is_cluster_box`, `_is_duplicate_detection`, `_is_recovery_duplicate`, `_hides_fingers`, `_ripeness_outliers`, `yolo_peripheral_background_filter`, and Pass 3 recovery in `backend/app/services/classification.py`, and synchronized geometric fallback in `frontend/src/lib/detectionBoxes.ts`.
+  - Added `_estimate_multi_camera_fingers`, `_split_horizontal_tiers`, and `_count_top_second_tier` in `backend/app/services/fusion_engine.py` to reconstruct occluded lower-tier fingers on verified two-tier 4-camera scans while keeping single-tier hands at `max(finger_counts)`.
+- **Verification:**
+  - `evaluate_finger_count.py visible` on `valid` (`n=137`): MAE `0.8540 -> 0.7664`, exact `40.15% (55/137) -> 47.45% (65/137)`, `within1` `84.67% -> 85.40%`, undercounts `34 -> 20` (`Top` MAE `0.8710 -> 0.6452`, `Right` MAE `0.8095 -> 0.7381`, `Rear` MAE `1.0000 -> 0.9333`).
+  - Station 4-camera scans: Green Latundan (`15` actual) `12 -> 15`; Green Lakatan 1-tier (`10` actual) `Top 9 -> 10`, fused `10 -> 10`; Cardaba Unripe (`14` actual) `13 -> 14`; Latundan Ripe (`14` actual) `10 -> 14`; Lakatan Ripe (`21` actual) `13 -> 20–21`; Mixed 15-finger hand (`15` actual) `9 -> 14–15`.
+  - Focused backend suites: **293 passed, 3 skipped**. Frontend unit tests (`detectionBoxes`, `manilaTime`): **14/14 passed**; `npm run typecheck` and `npm run build` passed.
+
 ## 2026-11-14: Station backups could be committed to Git
 
 - **Symptoms:** after a backup (Admin → System Config → Data & Backups → Station Backup),
