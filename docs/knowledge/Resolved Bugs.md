@@ -208,6 +208,7 @@ Documented log of confirmed bug root causes, verified solutions, and test covera
 - **Verification**: `tests/analytics.test.mjs` ("failed Analytics refresh shows an error with retry instead of stale values").
 
 ### 2. Dashboard Review Link Predicate Truncation
+- **Superseded 2026-11-16:** the review rule is now `flagged = true`, so the Dashboard links to `status=Flagged` (see [[Development Decisions]]).
 - **Issue**: Dashboard review links navigated to `/logs?attention=review&status=Flagged`, accidentally excluding unreviewed low-confidence scans from the review queue.
 - **Root Cause**: `Dashboard.tsx` added `status: "Flagged"` to review query links.
 - **Fix**: Removed `status: view === "review" ? "Flagged" : undefined` from `legacyScanLogsUrl` and `openRecords` to ensure the complete review predicate (`attention=review`) is used.

@@ -1,6 +1,8 @@
 """Scoped Dashboard projections and aggregates, without loading ORM graphs.
 
-Review is a rule-based queue, not a separate persisted human-review state.
+Review is the set of flagged scans. New scans below the confidence threshold are
+flagged when they are saved (fusion_engine), and removing the flag after a check takes a
+scan out of the queue; there is no separate persisted human-review state.
 Expiry ages the original prediction from scan time and includes overdue stock.
 Intake status does not change a scan's inventory status.
 """
@@ -10,7 +12,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import Float, and_, case, cast, extract, false, func, literal, not_, or_, select
+from sqlalchemy import Float, and_, case, cast, extract, false, func, literal, not_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ForbiddenException
@@ -184,12 +186,15 @@ async def _threshold(db: AsyncSession) -> float:
 
 
 def _review(scans, threshold: float):
-    return or_(scans.c.flagged.is_(True), scans.c.confidence < threshold)
+    # The threshold is applied when a scan is saved (it sets the flag); keeping it in the
+    # signature lets callers stay unchanged. A removed flag means a person checked it.
+    del threshold
+    return scans.c.flagged.is_(True)
 
 
 def _successful(scans, threshold: float):
-    # SQL NULL confidence stays unknown rather than becoming auto-approved.
-    return not_(_review(scans, threshold))
+    # Not under review, and SQL NULL confidence stays unknown rather than auto-approved.
+    return and_(not_(_review(scans, threshold)), scans.c.confidence.is_not(None))
 
 
 def _expiring(scans):

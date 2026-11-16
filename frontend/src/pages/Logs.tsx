@@ -32,7 +32,8 @@ import { scanWrite, scanRevision, isScanConflict } from "@/lib/scanWrites"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { scanLogParams, VALID_PAGE_SIZES } from "@/lib/scanLogFilters"
+import { normalizeScanLogSearch, scanLogParams, selectedScanLogDay, VALID_PAGE_SIZES } from "@/lib/scanLogFilters"
+import { manilaDayKey } from "@/lib/manilaTime"
 import { useDashboardResource } from "@/hooks/useDashboardResource"
 import type { ScanLogRow, ScanLogParams, ScanLogReconciliation } from "@/types/scanLogs"
 import { AppDateFilter } from "@/components/AppDateFilter"
@@ -88,9 +89,9 @@ function recordChangedNotice(count: number) {
   return `${count} scan ${count === 1 ? "record has" : "records have"} changed outside this view.`
 }
 
-function isReview(scan: Pick<LogScan, "flagged" | "confidence">, threshold: number) {
+/** The review queue is the flagged scans: low-confidence scans are flagged when saved. */
+function isReview(scan: Pick<LogScan, "flagged">) {
   return scan.flagged === true
-    || (scan.confidence !== null && scan.confidence < threshold)
 }
 
 function mergeScanRow(row: LogScan, detail: ScanUpdateDetail): LogScan {
@@ -133,7 +134,6 @@ function mergeScanRow(row: LogScan, detail: ScanUpdateDetail): LogScan {
 function filterMembership(
   scan: LogScan,
   params: ScanLogParams,
-  threshold: number,
   sourceKeyKnown: boolean,
 ): "in" | "out" | "unknown" {
   if (params.inventory_status && scan.inventoryStatus !== params.inventory_status) return "out"
@@ -147,8 +147,9 @@ function filterMembership(
   }
   if (params.stock_eligible && scan.inventoryEligible !== true) return "out"
   if (params.attention === "at-risk" && !scan.atRisk) return "out"
-  if (params.attention === "review" && !isReview(scan, threshold)) return "out"
-  if (params.attention === "success" && isReview(scan, threshold)) return "out"
+  if (params.attention === "review" && !isReview(scan)) return "out"
+  // Successful = not under review with a recorded confidence (the server rule).
+  if (params.attention === "success" && (isReview(scan) || scan.confidence === null)) return "out"
   if (params.source_key) {
     if (!sourceKeyKnown) return "unknown"
     if (scan.sourceKey !== params.source_key) return "out"
@@ -160,7 +161,15 @@ function filterMembership(
 
 export default function Logs() {
   const { user } = useAuth()
-  return user ? <LogsContent key={`${user.id}:${user.role}`} /> : null
+  const [searchParams, setSearchParams] = useSearchParams()
+  // Plain /logs opens on today's Asia/Manila day and the legacy review link becomes
+  // Status Flagged, before the first request, so no other query is ever loaded.
+  const canonical = normalizeScanLogSearch(searchParams, manilaDayKey())?.toString() ?? null
+  useEffect(() => {
+    if (canonical !== null) setSearchParams(new URLSearchParams(canonical), { replace: true })
+  }, [canonical, setSearchParams])
+  if (!user || canonical !== null) return null
+  return <LogsContent key={`${user.id}:${user.role}`} />
 }
 
 function LogsContent() {
@@ -176,7 +185,8 @@ function LogsContent() {
   const operatorFilter = searchParams.get("operator_id") || "all"
   const intakeFilter = searchParams.get("intake") || "all"
   const statusFilter = searchParams.get("status") || "all"
-  const dateFilter = searchParams.get("date") || ""
+  // "" means every date ("all", or a filtered link without a date).
+  const dateFilter = selectedScanLogDay(searchParams)
   const cardFilter = requestParams.attention === "all" ? null : requestParams.attention
   const [qrModalScan, setQrModalScan] = useState<LogScan | null>(null)
   const [exporting, setExporting] = useState(false)
@@ -341,7 +351,6 @@ function LogsContent() {
     const row = current?.rows.find(item => item.id === detail.scanId)
     if (!current || !row) return
     const params = scanLogParams(new URLSearchParams(queryKey))
-    const threshold = current.result.confidence_threshold
     const sourceKeyKnown = !params.source_key
       || current.result.options.sources.some(source => source.key === params.source_key)
     // Once this account's own write commits, applying its filter membership is
@@ -362,7 +371,7 @@ function LogsContent() {
           const visible = previous?.rows.find(item => item.id === detail.scanId)
           if (!previous || !visible || detail.revision <= (visible.revision ?? 0)) return previous
           const merged = mergeScanRow(visible, detail)
-          const membership = filterMembership(merged, params, threshold, sourceKeyKnown)
+          const membership = filterMembership(merged, params, sourceKeyKnown)
           if (membership === "out") {
             return {
               ...previous,
@@ -478,23 +487,29 @@ function LogsContent() {
     setSearchParams(previous => {
       const next = new URLSearchParams(previous)
       for (const [key, value] of Object.entries(changes)) {
-        if (!value || value === "all") next.delete(key)
+        if (!value || (value === "all" && key !== "date")) next.delete(key)
         else next.set(key, value)
       }
       if (!("page" in changes)) next.delete("page")
+      // Keep the visible date choice explicit: removing the last filter of a backlog view
+      // must not fall back to the plain view's today default.
+      if (!next.has("date")) next.set("date", "all")
       return next
     }, { replace })
   }
-  const clearAllFilters = () => setSearchParams({})
+  // The default view: no filters, today's Asia/Manila day.
+  const clearAllFilters = () => setSearchParams({ date: manilaDayKey() })
   const setSearch = (value: string) => updateFilters({ search: value }, true)
   const setCultivarFilter = (value: string) => updateFilters({ cultivar: value })
   const setRipenessFilter = (value: string) => updateFilters({ ripeness: value })
   const setSourceFilter = (value: string) => updateFilters({ source_key: value, source: undefined })
   const setOperatorFilter = (value: string) => updateFilters({ operator_id: value })
   const setStatusFilter = (value: string) => updateFilters({ status: value })
-  const setCardFilter = (value: string | null) => updateFilters({
-    attention: value ?? undefined,
-    ...(value === null && (cardFilter === "review" || statusFilter === "Flagged") ? { status: undefined } : {}),
+  const setCardFilter = (value: string | null) => updateFilters({ attention: value ?? undefined })
+  const reviewQueue = statusFilter === "Flagged" || cardFilter === "review"
+  const clearReviewFilter = () => updateFilters({
+    ...(statusFilter === "Flagged" ? { status: undefined } : {}),
+    ...(cardFilter === "review" ? { attention: undefined } : {}),
   })
 
   const viewLatestScans = () => {
@@ -886,7 +901,7 @@ const columns: ColumnDef<LogScan>[] = [
         searchQuery={search}
         onSearchChange={(value) => { setSearch(value) }}
         searchPlaceholder="Search by cultivar, operator, or ID..."
-        hasActiveFilters={search !== "" || cultivarFilter !== "all" || ripenessFilter !== "all" || sourceFilter !== "all" || operatorFilter !== "all" || statusFilter !== "all" || intakeFilter !== "all" || cardFilter !== null || dateFilter !== "" || requestParams.stock_eligible}
+        hasActiveFilters={search !== "" || cultivarFilter !== "all" || ripenessFilter !== "all" || sourceFilter !== "all" || operatorFilter !== "all" || statusFilter !== "all" || intakeFilter !== "all" || cardFilter !== null || dateFilter !== manilaDayKey(now) || requestParams.stock_eligible}
         onClearFilters={clearAllFilters}
       >
         <Select value={cultivarFilter} onValueChange={(v) => { setCultivarFilter(v) }}>
@@ -952,9 +967,9 @@ const columns: ColumnDef<LogScan>[] = [
           </SelectContent>
         </Select>
         <div className="flex w-full sm:w-auto items-center gap-1">
-          <AppDateFilter value={dateFilter} onChange={value => updateFilters({ date: value || undefined })}
-            label="Scan date" title="Filter by calendar date in Asia/Manila" className="w-full sm:w-44" />
-          {dateFilter && <Button type="button" variant="ghost" size="icon" aria-label="Clear scan date" title="All dates" onClick={() => updateFilters({ date: undefined })}><X className="size-4" /></Button>}
+          <AppDateFilter value={dateFilter} onChange={value => updateFilters({ date: value || "all" })}
+            label="Scan date" emptyText="All dates" title="Filter by calendar date in Asia/Manila" className="w-full sm:w-44" />
+          {dateFilter && <Button type="button" variant="ghost" size="icon" aria-label="Clear scan date" title="All dates" onClick={() => updateFilters({ date: "all" })}><X className="size-4" /></Button>}
         </div>
       </AppTableFilters>
 
@@ -964,15 +979,15 @@ const columns: ColumnDef<LogScan>[] = [
         <Button variant="ghost" size="sm" onClick={() => setCardFilter(null)}>Clear risk filter</Button>
       </div>}
 
-      {cardFilter === "review" && <div className="flex flex-wrap items-center gap-2 text-sm">
+      {reviewQueue && <div className="flex flex-wrap items-center gap-2 text-sm">
         <Badge variant="secondary">Pending Quality Reviews</Badge>
-        <span className="text-xs text-muted-foreground">Scans flagged for review or below the confidence threshold.</span>
-        <Button variant="ghost" size="sm" onClick={() => setCardFilter(null)}>Clear review filter</Button>
+        <span className="text-xs text-muted-foreground">Scans flagged for review. Remove a scan's flag after checking it to clear it from this queue.</span>
+        <Button variant="ghost" size="sm" onClick={clearReviewFilter}>Clear review filter</Button>
       </div>}
 
       {cardFilter === "success" && <div className="flex flex-wrap items-center gap-2 text-sm">
         <Badge variant="secondary">Auto-approved scans</Badge>
-        <span className="text-xs text-muted-foreground">Unflagged scans meeting the configured confidence threshold. This is not measured accuracy.</span>
+        <span className="text-xs text-muted-foreground">Unflagged scans with a recorded confidence; new scans below the confidence threshold are flagged when saved. This is not measured accuracy.</span>
         <Button variant="ghost" size="sm" onClick={() => setCardFilter(null)}>Clear success filter</Button>
       </div>}
 

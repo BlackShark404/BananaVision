@@ -129,7 +129,7 @@ def scan(
 async def test_namesakes_and_renames_use_ids_and_filters_cannot_broaden_scope(db):
     admin = account(db, role="Admin")
     own, other = account(db), account(db)
-    own_id = scan(db, own, confidence=60)
+    own_id = scan(db, own, confidence=60, flagged=True)  # Saved below the threshold.
     scan(db, other, confidence=100, flagged=True, prediction="1")
     summary = await dashboard.get_summary(db, admin)
     assert summary.active_operator_count == 2
@@ -188,21 +188,25 @@ async def test_no_activity_and_missing_confidence_differ_from_zero(db):
     assert missing.recent_scans[0].cultivar is None
     zero_id = scan(db, operator, confidence=0)
     measured = await dashboard.get_summary(db, operator)
-    assert measured.avg_confidence == 0 and measured.pending_review_count == 1
+    # Review is the flag alone; a station scan this low is flagged when it is saved.
+    assert measured.avg_confidence == 0 and measured.pending_review_count == 0
     ordered = await dashboard.list_scans(db, operator, sort="confidence")
     assert [s.id for s in ordered.items] == [zero_id, missing_id]
     assert ordered.items[0].confidence == 0 and ordered.items[1].confidence is None
 
 
 @pytest.mark.asyncio
-async def test_review_count_matches_drilldown_and_stored_threshold(db):
+async def test_review_queue_is_the_flagged_scans_and_matches_drilldown(db):
     operator = account(db)
     db.add(SystemConfig, confidence_threshold=75, data_retention_enabled=False)
     expected = {
-        scan(db, operator, at=NOW - timedelta(days=20), confidence=74),
+        scan(db, operator, at=NOW - timedelta(days=20), confidence=74, flagged=True),
         scan(db, operator, confidence=95, flagged=True),
         scan(db, operator, confidence=None, flagged=True),
     }
+    # A person removed the flag after checking it: it leaves the queue although its
+    # confidence is below the threshold (the threshold only flags new scans).
+    checked = scan(db, operator, confidence=60)
     scan(db, operator, confidence=75)
     scan(db, operator, confidence=None)
     summary = await dashboard.get_summary(db, operator)
@@ -210,6 +214,21 @@ async def test_review_count_matches_drilldown_and_stored_threshold(db):
     assert summary.confidence_threshold == 75
     assert summary.pending_review_count == review.total == 3
     assert {s.id for s in review.items} == expected
+    # Successful = not flagged with a known confidence: the checked scan and the 75.
+    assert summary.success_rate == round(2 / 6 * 100, 1)
+    assert checked not in {s.id for s in review.items}
+
+
+@pytest.mark.asyncio
+async def test_removing_the_flag_takes_a_scan_out_of_the_review_queue(db):
+    operator = account(db)
+    db.add(SystemConfig, confidence_threshold=85, data_retention_enabled=False)
+    low = scan(db, operator, confidence=40, flagged=True)
+    assert (await dashboard.get_summary(db, operator)).pending_review_count == 1
+    db.session.execute(update(Scan).where(Scan.id == low).values(flagged=False))
+    after = await dashboard.get_summary(db, operator)
+    assert after.pending_review_count == 0
+    assert (await dashboard.list_scans(db, operator, view="review")).total == 0
 
 
 @pytest.mark.asyncio

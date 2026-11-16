@@ -128,7 +128,7 @@ test("same-name account and role changes discard an older in-flight response", a
 
 test("admin scan KPIs redirect to filtered logs; group KPIs retain lists", async t => {
   const { page } = await setup(t)
-  for (const [label, query] of [[/Scans Today/i, { date: "2026-10-02" }], [/Pending quality reviews/i, { attention: "review" }], [/Expiring stock/i, { attention: "at-risk" }]]) {
+  for (const [label, query] of [[/Scans Today/i, { date: "2026-10-02" }], [/Pending quality reviews/i, { status: "Flagged" }], [/Expiring stock/i, { attention: "at-risk" }]]) {
     await expectValue(card(page), "12")
     await card(page, label).click()
     await page.waitForURL("**/logs?**")
@@ -169,18 +169,31 @@ test("daily group rows retain the selected date and stable identity", async t =>
   }
 })
 
-test("legacy review links use the complete review predicate", async t => {
+test("legacy review and all-records links keep their meaning", async t => {
   const { page } = await setup(t)
-  await page.goto(`${runtime.url}/dashboard?view=review`)
-  await page.waitForURL("**/logs?**")
-  assert.deepEqual(Object.fromEntries(new URL(page.url()).searchParams), { attention: "review" })
+  for (const [view, query] of [["review", { status: "Flagged" }], ["expiring", { attention: "at-risk" }], ["all", { date: "all" }]]) {
+    await page.goto(`${runtime.url}/dashboard?view=${view}`)
+    await page.waitForURL("**/logs?**")
+    assert.deepEqual(Object.fromEntries(new URL(page.url()).searchParams), query, view)
+  }
 })
 
 test("Recent Scans and Today's Sources retain their logs destinations", async t => {
-  const { page } = await setup(t)
+  const olderScan = {
+    id: "scan-older", date_time: "2026-09-30T08:10:00+08:00", cultivar: "Lakatan", ripeness: "Ripe",
+    confidence: 91, operator_id: "operator-1", operator_name: "Alex Santos", source_key: "supplier:source-1",
+    source_name: "Fixture Supplier", inventory_status: "In Stock", flagged: false, spoilage_days: "5-7", remaining_days: 3,
+  }
+  const { page } = await setup(t, { response: { summary: summary({ recent_scans: [olderScan] }) } })
   await expectValue(card(page), "12")
   await page.getByRole("button", { name: /View All Logs/i }).click()
-  await page.waitForURL("**/logs")
+  await page.waitForURL("**/logs?**")
+  assert.deepEqual(Object.fromEntries(new URL(page.url()).searchParams), { date: "all" })
+  await page.goto(`${runtime.url}/dashboard`)
+  await expectValue(card(page), "12")
+  const hrefs = await page.locator('a[href^="/logs"]').evaluateAll(links => links.map(link => link.getAttribute("href")))
+  assert.ok(hrefs.includes("/logs?date=all"), "recent scan rows open every date, so older scans stay visible")
+  assert.ok(!hrefs.includes("/logs"), "no dashboard link falls back to today's plain view")
   await page.goto(`${runtime.url}/dashboard`)
   await expectValue(card(page), "12")
   await page.getByRole("button", { name: "Open Today's Sources in Scan Logs" }).click()

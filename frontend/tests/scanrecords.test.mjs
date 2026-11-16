@@ -86,7 +86,7 @@ async function setup(t, status = 200, options = {}) {
     }
     return reply({ detail: 'This scan changed. Reload it before saving your changes.' }, 409)
   })
-  await page.goto(`${runtime.url}${options.screen === 'quality' ? '/scans/quality' : options.screen === 'logs' ? '/logs' : options.screen === 'intakes' ? '/scans/intakes' : `/scans/${id}`}`)
+  await page.goto(`${runtime.url}${options.path ?? (options.screen === 'quality' ? '/scans/quality' : options.screen === 'logs' ? '/logs' : options.screen === 'intakes' ? '/scans/intakes' : `/scans/${id}`)}`)
   return { page, state }
 }
 
@@ -284,11 +284,63 @@ test('finger counts read "Est." on Scan Detail, Quality Control and Scan Logs; c
 
 test('Logs date picker marks today by the Asia/Manila calendar in a Los Angeles browser', async t => {
   // 04:00 UTC on 2 October is noon on 2 October in Manila and 21:00 on 1 October here.
-  const { page } = await setup(t, 200, { screen: 'logs' })
+  const { page } = await setup(t, 200, { screen: 'logs', path: '/logs?date=all' })
   await page.getByRole('button', { name: 'Scan date', exact: true }).click()
   const today = page.locator('[role="gridcell"][data-today]')
   await today.waitFor()
   assert.equal(await today.getAttribute('data-day'), '2026-10-02')
+})
+
+const listRequests = state => state.requests.filter(r => r.path === '/api/v1/scan-logs')
+const urlQuery = page => Object.fromEntries(new URL(page.url()).searchParams)
+
+test('plain Scan Logs opens on the Asia/Manila day and never loads all history first', async t => {
+  // 21:00 on 1 October in Los Angeles is already 2 October in Manila.
+  const { page, state } = await setup(t, 200, { screen: 'logs' })
+  await page.waitForURL('**/logs?date=2026-10-02')
+  await page.getByRole('button', { name: 'Scan date: Oct 2, 2026', exact: true }).waitFor()
+  await until(() => listRequests(state).length > 0)
+  assert.ok(listRequests(state).every(r => r.query.business_date === '2026-10-02'), JSON.stringify(listRequests(state)))
+  assert.equal(await page.getByRole('button', { name: 'Reset', exact: true }).isDisabled(), true, 'today is the default view')
+  // Clearing the date shows every date, and stays that way.
+  await page.getByRole('button', { name: 'Clear scan date', exact: true }).click()
+  await page.waitForURL('**/logs?date=all')
+  await page.getByRole('button', { name: 'Scan date', exact: true }).getByText('All dates', { exact: true }).waitFor()
+  await until(() => listRequests(state).at(-1).query.business_date === undefined)
+})
+
+test('Expiring stock opens every date, and Reset returns to today', async t => {
+  const { page, state } = await setup(t, 200, { screen: 'logs', path: '/logs?attention=at-risk' })
+  await page.getByText('At-Risk Scans', { exact: true }).first().waitFor()
+  await page.getByRole('button', { name: 'Scan date', exact: true }).getByText('All dates', { exact: true }).waitFor()
+  await until(() => listRequests(state).length > 0)
+  assert.ok(listRequests(state).every(r => r.query.business_date === undefined && r.query.attention === 'at-risk'))
+  assert.deepEqual(urlQuery(page), { attention: 'at-risk' })
+  await page.getByRole('button', { name: 'Reset', exact: true }).click()
+  await page.waitForURL('**/logs?date=2026-10-02')
+  await until(() => listRequests(state).at(-1).query.business_date === '2026-10-02')
+  assert.equal(listRequests(state).at(-1).query.attention, 'all')
+})
+
+test('the review queue shows Status Flagged and its banner; clearing it keeps all dates', async t => {
+  const { page, state } = await setup(t, 200, { screen: 'logs', path: '/logs?status=Flagged' })
+  await page.getByText('Pending Quality Reviews', { exact: true }).waitFor()
+  await page.getByRole('combobox').filter({ hasText: 'Flagged' }).waitFor()
+  assert.equal(await page.getByRole('combobox').filter({ hasText: 'All Statuses' }).count(), 0)
+  await until(() => listRequests(state).length > 0)
+  assert.ok(listRequests(state).every(r => r.query.flagged_only === 'true' && r.query.business_date === undefined))
+  await page.getByRole('button', { name: 'Clear review filter', exact: true }).click()
+  await page.waitForURL('**/logs?date=all')
+  await page.getByRole('combobox').filter({ hasText: 'All Statuses' }).waitFor()
+  assert.equal(await page.getByText('Pending Quality Reviews', { exact: true }).count(), 0)
+})
+
+test('legacy review links become Status Flagged before the first request', async t => {
+  const { page, state } = await setup(t, 200, { screen: 'logs', path: '/logs?attention=review' })
+  await page.waitForURL('**/logs?status=Flagged')
+  await page.getByRole('combobox').filter({ hasText: 'Flagged' }).waitFor()
+  await until(() => listRequests(state).length > 0)
+  assert.ok(listRequests(state).every(r => r.query.attention !== 'review' && r.query.flagged_only === 'true'), JSON.stringify(listRequests(state)))
 })
 
 test('decimal spoilage displays a readable range in Logs and Details without changing stored values', async t => {
