@@ -20,8 +20,10 @@ Documented architectural, technical, and operational decisions in BananaVision.
   2. Record changes use `record()` in the same transaction (fail closed). Failures,
      denials and exports use `emit()` or `attach()`. These write after the rollback and
      never turn a 401/403/429 into a 500.
-  3. Data that leaves the station (backup download, scan-log export) is not served if its
-     audit row cannot be written while the station is ready (503).
+  3. Data that leaves the station (backup download, scan-log export) is not served
+     without its audit row (503). It is refused while the station is in recovery or
+     maintenance, and written at once while a restart or shutdown is pending. (Review
+     finding: it was only held in memory, so a reboot could lose it.)
   4. Refused access (403) is logged centrally, throttled per actor, route and reason.
      401s from expired tabs are not stored. (User decision: "Yes, throttled".)
   5. Change-password, change-PIN and maintenance re-authentication get the same rate

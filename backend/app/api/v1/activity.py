@@ -35,9 +35,16 @@ async def list_activity(
     """List activity logs with server-side pagination, filtering, and search.
 
     Count and page only include rows at or before ``as_of``; the response returns the
-    boundary used (now when absent) so later pages can pass it back.
+    boundary used so later pages can pass it back. Without ``as_of`` the boundary is the
+    later of now and the newest row, so rows stamped ahead of this clock (a restored backup
+    from a station whose clock ran ahead, or a clock stepped back) are never hidden.
     """
-    boundary = as_of or now_manila()
+    boundary = as_of
+    if boundary is None:
+        boundary = now_manila()
+        newest = await db.scalar(select(func.max(ActivityLog.timestamp)))
+        if newest is not None and newest > boundary:
+            boundary = newest
     query = (
         select(ActivityLog)
         .options(selectinload(ActivityLog.user))

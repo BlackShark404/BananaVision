@@ -493,6 +493,15 @@ def test_refused_scan_log_export_is_not_logged_as_an_export(logs):
     assert rows(app, "data_exported") == []
 
 
+def test_snapshot_export_that_fails_validation_is_not_logged_as_an_export(logs):
+    """An expired or unknown browse snapshot is refused before the export row is written."""
+    app = logs
+    response = app.client.get("/api/v1/scan-logs/export",
+                              params={"snapshot_id": str(uuid4()), "stable": "true"})
+    assert response.status_code == 410, response.text
+    assert rows(app, "data_exported") == []
+
+
 # ── PostgreSQL: the export audit row is written before the snapshot lock ──────
 
 @pytest.mark.skipif(

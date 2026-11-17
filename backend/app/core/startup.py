@@ -184,6 +184,15 @@ async def run_shutdown():
     """
     logger.info("Shutting down BananaVision Backend...")
 
+    # Held audit events are written while the database is still open; any left (the station
+    # is not ready) stay in the audit file log.
+    try:
+        await audit.flush_deferred()
+    except Exception:
+        logger.exception("audit flush at shutdown failed")
+    if audit.pending_events():
+        logger.warning("%d audit events were not written to the database at shutdown; they "
+                       "remain in the bananavision.audit log", len(audit.pending_events()))
     coordinator.block('draining')
     await asyncio.wait_for(coordinator._empty.wait(), timeout=coordinator.drain_timeout)
     await run_blocking(camera_manager.release_all)

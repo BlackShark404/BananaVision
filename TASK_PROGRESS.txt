@@ -42,8 +42,20 @@ VERIFICATION
   113 skipped without it. Ruff 644 (baseline).
 - Frontend: 389/390. The analytics refresh failure is the known clock race; it passes 9/9
   alone, twice. tsc -b and build pass. ESLint 36 (was 40).
-- A four-lens review workflow ran when this was committed; its confirmed findings are fixed
-  in the next commit.
+- Review follow-up (four-lens review with skeptics: 14 of 15 findings confirmed, 9 after
+  merging duplicates), fixed in a separate commit:
+  - Egress: required egress is refused in recovery/maintenance and written at once while a
+    restart is pending.
+  - Backlog: one drain lock (no double writes); a failed write requeues; a warning when
+    the queue drops events; flush after camera apply and at shutdown.
+  - Cap: failures against real accounts are not capped.
+  - File log: shows only committed record() rows.
+  - Reading: GET /activity boundary = later of now and the newest row.
+  - Export: a snapshot export is checked read-only before data_exported is written.
+  - Frontend: the login_blocked label is now "Blocked while locked"; the frontend boundary
+    test is real (mutation-checked).
+  - Results after the fixes: backend 1301 passed / 38 skipped with PostgreSQL, 1226 / 113
+    without; frontend 391/391; tsc -b and build pass; ESLint 36; Ruff 644.
 
 STILL OPEN
 - The station data release (teammate guide PDF), then:
@@ -62,7 +74,6 @@ STILL OPEN
 - Type check: use `npx tsc -b` (or `npm run build`), not `npm run typecheck`.
 
 IN PROGRESS (approved plan, 2026-11-17)
-- Apply the confirmed findings from the audit review workflow (follow-up commit).
 - Part 3: audit integrity:
   - activity_log.actor_name snapshot plus migration 0012 plus backup archive v5 (older
     archives still restorable);
@@ -71,5 +82,5 @@ IN PROGRESS (approved plan, 2026-11-17)
 - Plan: /root/.claude/plans/before-you-continue-why-optimized-sphinx.md (session-local).
 
 EXACT NEXT STEP
-- Finish the review fixes and Part 3. Then the user opens the team PR from the fork's main:
+- Part 3 (audit integrity). Then the user opens the team PR from the fork's main:
   https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main

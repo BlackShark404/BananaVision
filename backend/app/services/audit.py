@@ -21,8 +21,10 @@ did not expect. Every event is also mirrored to the ``bananavision.audit`` logge
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
+import weakref
 import unicodedata
 from collections import deque
 from types import SimpleNamespace
@@ -33,6 +35,8 @@ from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
 from fastapi.exception_handlers import http_exception_handler
+from sqlalchemy import event as sa_event
+from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 
@@ -236,9 +240,14 @@ def _actor_parts(actor=None, actor_id=None, actor_name=None):
     return actor_id, actor_name
 
 
-def _event(action, details, *, actor=None, actor_id=None, actor_name=None, ip=None, timestamp=None):
+def _event(action, details, *, actor=None, actor_id=None, actor_name=None, ip=None, timestamp=None,
+           capped=None):
     action = AuditAction(action)
     actor_id, actor_name = _actor_parts(actor, actor_id, actor_name)
+    if capped is None:
+        # By default a failure before sign-in is capped; a caller that knows the target is a
+        # real account passes capped=False (lockouts bound those per account anyway).
+        capped = actor_id is None and action.value in ANONYMOUS_CAPPED
     return {
         "action": action.value,
         "details": clean(details, MAX_DETAILS),
@@ -246,6 +255,7 @@ def _event(action, details, *, actor=None, actor_id=None, actor_name=None, ip=No
         "actor_name": clean(actor_name, 100) or None,
         "ip": clean(ip, 45) or None,
         "timestamp": timestamp or now_manila(),
+        "capped": bool(capped),
     }
 
 
@@ -261,10 +271,32 @@ def _row(event: dict) -> ActivityLog:
 
 
 async def record(db, action, details, *, actor=None, actor_id=None, actor_name=None, ip=None):
-    """Add an audit row to the caller's transaction (it commits or rolls back with the change)."""
+    """Add an audit row to the caller's transaction (it commits or rolls back with the change).
+
+    The file-log line is written when that transaction commits, so a rolled-back change
+    never appears there either.
+    """
     event = _event(action, details, actor=actor, actor_id=actor_id, actor_name=actor_name, ip=ip)
     db.add(_row(event))
-    _mirror(event)
+    session = getattr(db, "sync_session", None) or getattr(db, "session", None)
+    if isinstance(session, Session):
+        session.info.setdefault(_MIRROR_KEY, []).append(event)
+    else:
+        _mirror(event)
+
+
+_MIRROR_KEY = "bananavision_audit_mirror"
+
+
+@sa_event.listens_for(Session, "after_commit")
+def _mirror_committed(session):
+    for event in session.info.pop(_MIRROR_KEY, []):
+        _mirror(event)
+
+
+@sa_event.listens_for(Session, "after_rollback")
+def _forget_rolled_back(session):
+    session.info.pop(_MIRROR_KEY, None)
 
 
 async def _known_actor(db, event: dict) -> None:
@@ -314,56 +346,122 @@ def _owner(owner: bool) -> bool:
 
 
 async def emit(action, details, *, actor=None, actor_id=None, actor_name=None, ip=None,
-               sessions=None, owner=False, required=False, timestamp=None) -> None:
-    """Write an audit row through its own session. Never raises unless ``required``."""
+               sessions=None, owner=False, required=False, timestamp=None, capped=None) -> None:
+    """Write an audit row through its own session.
+
+    It never raises, except ``required=True`` (data leaving the station), which raises 503
+    when the row cannot be written: no audit row, no download.
+    """
     event = _event(action, details, actor=actor, actor_id=actor_id, actor_name=actor_name,
-                   ip=ip, timestamp=timestamp)
+                   ip=ip, timestamp=timestamp, capped=capped)
     await _emit_event(event, sessions=sessions, owner=owner, required=required)
+
+
+# States in which nothing may be written to the station database by a non-owner: a restore or
+# backup holds the barrier, or recovery must find the data exactly as it was left.
+_UNWRITABLE = {"draining", "maintenance", "recovery-required"}
+
+_drain_locks: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+
+
+def _drain_lock() -> asyncio.Lock:
+    """One lock per event loop: the backlog is taken by exactly one writer at a time."""
+    loop = asyncio.get_running_loop()
+    lock = _drain_locks.get(loop)
+    if lock is None:
+        lock = _drain_locks[loop] = asyncio.Lock()
+    return lock
+
+
+def _defer(event: dict, note: str) -> None:
+    if len(_deferred) == _deferred.maxlen:
+        dropped = _deferred[0]
+        logger.warning("audit deferred queue is full; dropping the oldest event (it stays in "
+                       "this log): action=%s details=%r", dropped["action"], dropped["details"])
+    _deferred.append(event)
+    _mirror(event, note=note)
+
+
+def _take_backlog() -> list[dict]:
+    batch = list(_deferred)
+    _deferred.clear()
+    return batch
+
+
+def _requeue(batch: list[dict]) -> None:
+    """Put unwritten events back in front, oldest first, without exceeding the limit."""
+    room = (_deferred.maxlen or len(batch)) - len(_deferred)
+    keep = batch[-room:] if room > 0 else []
+    for lost in batch[: len(batch) - len(keep)]:
+        logger.warning("audit deferred queue is full; dropping event (it stays in this log): "
+                       "action=%s details=%r", lost["action"], lost["details"])
+    _deferred.extendleft(reversed(keep))
 
 
 async def _emit_event(event: dict, *, sessions=None, owner=False, required=False) -> None:
     is_owner = _owner(owner)
-    station = _station()
-    if event["user_id"] is None and event["action"] in ANONYMOUS_CAPPED and not _anonymous_allowed():
+    state = _station().state
+    if event["capped"] and not _anonymous_allowed():
         _mirror(event, level=logging.WARNING, note=" (over the anonymous rate cap; no database row)")
         return
-    if not is_owner and station.state != "ready":
-        _deferred.append(event)
-        _mirror(event, note=f" (deferred: station {station.state})")
-        return
-    _mirror(event)
-    batch = [] if is_owner else list(_deferred)
-    try:
-        await _write([*batch, event], sessions=sessions, owner=is_owner)
-    except Exception as exc:
-        logger.exception("audit write failed for action=%s details=%r", event["action"],
-                         event["details"])
+    if not is_owner and state != "ready":
         if required:
-            raise HTTPException(503, "Audit log unavailable; please retry",
-                                headers={"Retry-After": "5"}) from exc
+            if state in _UNWRITABLE:
+                _mirror(event, level=logging.WARNING, note=f" (refused: station {state})")
+                raise HTTPException(503, f"Station is {state}; please retry when it is ready",
+                                    headers={"Retry-After": "5"})
+            # A pending restart or shutdown holds no barrier; the row is written now so it
+            # cannot be lost at the reboot.
+            await _write_or_raise(event, sessions)
+            return
+        _defer(event, f" (deferred: station {state})")
         return
-    for written in batch:
+    if is_owner:
+        _mirror(event)
         try:
-            _deferred.remove(written)
-        except ValueError:
-            pass
+            await _write([event], sessions=sessions, owner=True)
+        except Exception as exc:
+            _write_failed(event, exc, required)
+        return
+    async with _drain_lock():
+        batch = _take_backlog()
+        _mirror(event)
+        try:
+            await _write([*batch, event], sessions=sessions)
+        except Exception as exc:
+            _requeue(batch if required else [*batch, event])
+            _write_failed(event, exc, required)
+
+
+async def _write_or_raise(event: dict, sessions) -> None:
+    _mirror(event)
+    try:
+        await _write([event], sessions=sessions)
+    except Exception as exc:
+        _write_failed(event, exc, True)
+
+
+def _write_failed(event: dict, exc: Exception, required: bool) -> None:
+    logger.exception("audit write failed for action=%s details=%r", event["action"],
+                     event["details"])
+    if required:
+        raise HTTPException(503, "Audit log unavailable; please retry",
+                            headers={"Retry-After": "5"}) from exc
 
 
 async def flush_deferred(sessions=None) -> None:
     """Write events kept while the station was in maintenance or recovery."""
     if not _deferred or _station().state != "ready":
         return
-    batch = list(_deferred)
-    try:
-        await _write(batch, sessions=sessions)
-    except Exception:
-        logger.exception("audit flush failed; %d events stay queued", len(batch))
-        return
-    for written in batch:
+    async with _drain_lock():
+        batch = _take_backlog()
+        if not batch:
+            return
         try:
-            _deferred.remove(written)
-        except ValueError:
-            pass
+            await _write(batch, sessions=sessions)
+        except Exception:
+            logger.exception("audit flush failed; %d events stay queued", len(batch))
+            _requeue(batch)
 
 
 def pending_events() -> list[dict]:

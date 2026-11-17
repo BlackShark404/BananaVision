@@ -110,7 +110,7 @@ async def test_stock_eligible_filters_list_export_and_snapshot_binding(
         snapshots[saved.id] = saved
         return saved
 
-    async def load(_db, _user, identifier, key):
+    async def load(_db, _user, identifier, key, lock=True):
         saved = snapshots[identifier]
         if key != saved.binding:
             raise HTTPException(409, "Filters changed")
@@ -213,7 +213,7 @@ async def test_risk_rows_counts_filters_and_export_share_unrounded_stock_rule(
         snapshots[saved.id] = saved
         return saved
 
-    async def load(_db, _user, identifier, key):
+    async def load(_db, _user, identifier, key, lock=True):
         saved = snapshots[identifier]
         if key != saved.binding:
             raise HTTPException(409, "Filters changed")
@@ -335,7 +335,7 @@ async def test_vpd_snapshot_keeps_recorded_value_and_legacy_missing_stays_unknow
         saved = SimpleNamespace(id=uuid4(), payload=payload, expires_at=NOW + timedelta(minutes=10))
         return saved
 
-    async def load(*_args):
+    async def load(*_args, **_kwargs):
         return saved
 
     monkeypatch.setattr(auth_service, "lock_current_account", lock)
@@ -662,7 +662,7 @@ async def test_at_risk_subset_of_a_snapshot_counts_review_as_flagged(logs_db, mo
         ))
         return stored["saved"]
 
-    async def load(_db, _user, _token, key):
+    async def load(_db, _user, _token, key, lock=True):
         if key != stored["key"]:
             raise HTTPException(409, "Browse filters changed.")
         return stored["saved"]
@@ -763,7 +763,7 @@ async def test_pending_count_tracks_only_new_matching_scoped_scans(logs_db, monk
         snapshots[saved.id] = saved
         return saved
 
-    async def load(_db, _user, identifier, key):
+    async def load(_db, _user, identifier, key, lock=True):
         saved = snapshots[identifier]
         if key != saved.binding:
             raise HTTPException(409, "Filters changed")

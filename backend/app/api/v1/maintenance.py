@@ -277,7 +277,9 @@ async def apply_cameras(body: OperationRequest, db: DbSession, admin: AdminUser,
                                    f'{response["application_status"]}; {camera_results(response)}',
                                    actor_id=actor_id, actor_name=actor_name, ip=ip)
                 await db.commit()
-                return response
+            # Events held while the station was busy are written once it is ready again.
+            await audit.flush_deferred()
+            return response
     return await safe_operation(apply())
 
 

@@ -29,6 +29,18 @@
   - `npx tsc -b` and `npm run build` pass. ESLint 36 (down from 40). Ruff 644 (baseline).
 - **Test safety:** an autouse fixture refuses connections to the configured station
   database, because audit writes look up the session factory at call time.
+- **Review follow-up** (4-lens review with skeptics; 14 of 15 findings confirmed, 9 after
+  merging duplicates):
+  - Backend tests added:
+    - egress refused in recovery and maintenance, written at once while power is pending;
+    - the backlog is written once by overlapping writers, and kept after a failed write;
+    - a full queue warns;
+    - failures against real accounts are not capped;
+    - the file log shows only committed `record()` rows;
+    - future-stamped rows stay listed;
+    - a refused snapshot export writes no `data_exported`.
+  - The frontend boundary test now changes only the boundary. A mutant without the
+    boundary check fails it.
 
 ## Admin status correction and intake reopen — 2026-11-17
 

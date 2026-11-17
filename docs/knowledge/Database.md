@@ -74,20 +74,32 @@ any other module builds an `ActivityLog(...)`.
 - `audit.emit(...)` writes through its own session. It is used for events that must
   survive the request's rollback (failed sign-ins, lockouts, refused access) or that have
   no committing session (the scan-log export stream, maintenance outcomes). It never
-  raises, except `required=True` data egress (backup download, scan-log export), which
-  returns 503 if the row cannot be written while the station is ready.
+  raises, except for `required=True` data egress (backup download, scan-log export): no
+  audit row, no data.
+  - While the station is in recovery or maintenance, egress is refused (503).
+  - While a restart or shutdown is pending, the row is written at once, so a reboot cannot
+    lose it.
+  - If the write fails, the request gets 503.
 - `audit.attach(exc, ...)` puts an event on an `HTTPException`. The handler installed by
   `audit.install(app)` writes it after `get_db` has rolled back and released its row locks.
   Emitting while the request still holds `FOR UPDATE` on the actor's account would wait on
   the foreign-key check forever; audit sessions also set `lock_timeout = 5s` on PostgreSQL.
 - While the station is in maintenance or recovery, events from non-owners are kept in
   memory (and in the `bananavision.audit` file log) and written when the station is ready
-  again, so a restore never sees rows it did not expect. Every event is mirrored to that
-  logger.
+  again, so a restore never sees rows it did not expect.
+  - One lock per event loop drains that backlog, so overlapping writers never write it
+    twice. A failed write puts it back.
+  - The queue holds 1000 events and logs a warning when it drops the oldest.
+  - It is flushed after backups, restores, recovery, camera apply, power cancel, retention
+    and at shutdown. Events still held at a reboot remain only in the file log.
+- Every event is mirrored to that logger. Rows from `record()` are mirrored only when
+  their transaction commits.
 - The same handler writes `access_denied` for every 403 by a signed-in user, at most once
-  per actor, route and reason every 10 minutes ("N similar suppressed"). Anonymous rows
-  (refused access, failed sign-ins, rejected setup tokens) share a cap of 120 per minute;
-  `account_locked` is never capped. 401s go to the file log only. Paths never include the
+  per actor, route and reason every 10 minutes ("N similar suppressed").
+  - Rows with no known target (refused access, failed sign-ins for unrecognized
+    usernames, setup tokens that name no account) share a cap of 120 per minute.
+  - Failures against real accounts are not capped; their lockouts already bound them.
+  - `account_locked` is never capped. 401s go to the file log only. Paths never include the
   query string (media tokens).
 
 **Vocabulary** (`AuditAction`, snake_case, ≤50 characters). Existing names are kept for
@@ -115,5 +127,9 @@ with `Retry-After`.
 
 **Reading:** `GET /api/v1/activity` accepts `as_of` and returns the boundary it used; the
 page passes page 1's `as_of` to later pages so rows arriving mid-load do not shift the
-paging. See [[Development Decisions]] (2026-11-17 audit entry) and
+paging.
+- Without `as_of` the boundary is the later of now and the newest row, so rows stamped
+  ahead of the server clock stay visible.
+- A scan-log export of a browse snapshot checks the snapshot (read-only, no account lock)
+  before writing `data_exported`, so a refused export is not logged as one. See [[Development Decisions]] (2026-11-17 audit entry) and
 [[Testing and Validation]].

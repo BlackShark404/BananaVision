@@ -141,7 +141,7 @@ async def _refused_while_locked(db, channel: str, username: str, what: str, rema
     account = await find_account(db, username)
     await audit.emit(AuditAction.LOGIN_BLOCKED, _with_suppressed(
         f"{what} refused for {_subject(account)}: locked for another {remaining} s", suppressed,
-    ), ip=ip)
+    ), ip=ip, capped=account is None)
 
 
 @router.get("/operators")
@@ -213,14 +213,16 @@ async def login(body: LoginRequest, db: DbSession, request: Request):
         if reason == "incorrect_password":
             failure += ": incorrect password"
         if is_locked:
-            await audit.emit(AuditAction.LOGIN_FAILED, f"{failure}; sign-in locked", ip=ip)
+            await audit.emit(AuditAction.LOGIN_FAILED, f"{failure}; sign-in locked", ip=ip,
+                             capped=user is None)
             await audit.emit(AuditAction.ACCOUNT_LOCKED,
                              _locked(user, "sign-in", info, "sign-in attempts"), ip=ip)
             raise HTTPException(
                 status_code=429,
                 detail=f"Too many failed login attempts. Account locked for {info} seconds.",
             )
-        await audit.emit(AuditAction.LOGIN_FAILED, f"{failure}; {_attempts_left(info)}", ip=ip)
+        await audit.emit(AuditAction.LOGIN_FAILED, f"{failure}; {_attempts_left(info)}", ip=ip,
+                         capped=user is None)
         return LoginResponse(status="failed")
 
     if status == "inactive":
@@ -280,14 +282,16 @@ async def swap(body: PinSwapRequest, db: DbSession, request: Request):
         elif reason == "no_pin":
             failure += ": account has no kiosk PIN"
         if is_locked:
-            await audit.emit(AuditAction.PIN_FAILED, f"{failure}; PIN sign-in locked", ip=ip)
+            await audit.emit(AuditAction.PIN_FAILED, f"{failure}; PIN sign-in locked", ip=ip,
+                             capped=user is None)
             await audit.emit(AuditAction.ACCOUNT_LOCKED,
                              _locked(user, "PIN sign-in", info, "PIN attempts"), ip=ip)
             raise HTTPException(
                 status_code=429,
                 detail=f"Too many failed PIN attempts. Account locked for {info} seconds.",
             )
-        await audit.emit(AuditAction.PIN_FAILED, f"{failure}; {_attempts_left(info)}", ip=ip)
+        await audit.emit(AuditAction.PIN_FAILED, f"{failure}; {_attempts_left(info)}", ip=ip,
+                         capped=user is None)
         return LoginResponse(status="failed")
 
     if status == "inactive":
@@ -361,7 +365,8 @@ def _rejected_setup(error: SetupTokenRejected, what: str, ip: str | None) -> HTT
     """The token text is never written; the signed user id is, when the token named one."""
     target = f" for user id {error.user_id}" if error.user_id else ""
     return audit.attach(error, AuditAction.SETUP_TOKEN_REJECTED,
-                        f"{what} refused{target}: setup authorization {error.reason}", ip=ip)
+                        f"{what} refused{target}: setup authorization {error.reason}", ip=ip,
+                        capped=error.user_id is None)
 
 
 @router.post("/change-password", response_model=LoginResponse)

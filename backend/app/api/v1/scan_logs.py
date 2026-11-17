@@ -8,6 +8,7 @@ from app.core.http import get_client_ip
 from app.schemas.scan_logs import ScanLogList, ScanLogPending, ScanLogQuery, ScanLogReconciliation
 from app.services import audit
 from app.services.scan_logs import (
+    check_export_snapshot,
     export_scan_logs,
     export_scan_logs_xlsx,
     list_scan_logs,
@@ -72,8 +73,11 @@ async def scan_logs_export(
 ):
     """Export every matching row in the same sort order; pagination is ignored."""
     scan_scope(user)  # A refused export is not logged as an export.
+    # An expired, foreign or changed snapshot is refused here, before the export row; the
+    # check releases its account lock.
+    await check_export_snapshot(db, user, query)
     # The stream session never commits, so the row is written through its own session. It is
-    # written before any export query: a snapshot export locks this account's row, and the
+    # written before the export queries: a snapshot export locks this account's row, and the
     # audit insert would then wait on that lock. No audit row, no file (503).
     await audit.emit(
         audit.AuditAction.DATA_EXPORTED, export_details(user, query),

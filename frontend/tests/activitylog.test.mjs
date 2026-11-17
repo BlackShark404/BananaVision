@@ -27,7 +27,7 @@ const onSecondPage = { id: "a-restore", user_name: "Admin User", action: "restor
 const original = [...featured, ...fillers, onSecondPage].map((row, index) => ({ ...row, created_at: at(index), ip_address: null }))
 const arrived = { id: "a-arrived", user_name: "Admin User", action: "logout", details: "Signed out mid-load", created_at: at(-0.5), ip_address: null }
 
-async function openActivity(t, { echoAsOf = true } = {}) {
+async function openActivity(t, { echoAsOf = true, secondPageAsOf = null } = {}) {
   const context = await runtime.browser.newContext({ timezoneId: "America/New_York" })
   t.after(() => context.close())
   const page = await context.newPage()
@@ -45,10 +45,12 @@ async function openActivity(t, { echoAsOf = true } = {}) {
       const number = Number(url.searchParams.get("page")), size = Number(url.searchParams.get("page_size"))
       const asOf = url.searchParams.get("as_of")
       // A new row lands right after the first page; only an unpinned read can see it.
-      const rows = asOf === AS_OF || requests.length === 1 ? original : [arrived, ...original]
+      const rows = secondPageAsOf || asOf === AS_OF || requests.length === 1 ? original : [arrived, ...original]
+      const boundary = secondPageAsOf && number === 2 ? secondPageAsOf
+        : echoAsOf ? (asOf ?? AS_OF) : "2026-10-02T12:00:05+08:00"
       return route.fulfill({ headers, json: {
         items: rows.slice((number - 1) * size, number * size), total: rows.length, page: number, page_size: size,
-        as_of: echoAsOf ? (asOf ?? AS_OF) : "2026-10-02T12:00:05+08:00",
+        as_of: boundary,
       } })
     }
     const responses = {
@@ -88,6 +90,14 @@ test("later pages carry the first page's as_of, so rows arriving mid-load do not
 })
 
 test("a page read at a different boundary is rejected instead of mixing snapshots", async t => {
+  // Rows and totals stay identical; only the boundary reported by page 2 differs.
+  const { page, requests } = await openActivity(t, { secondPageAsOf: "2026-10-02T12:00:09+08:00" })
+  await page.getByRole("alert").waitFor()
+  assert.equal(requests[1].searchParams.get("as_of"), AS_OF)
+  assert.match(await page.getByRole("alert").innerText(), /could not be loaded completely/)
+})
+
+test("an unpinned read that sees a newly arrived row is rejected", async t => {
   const { page } = await openActivity(t, { echoAsOf: false })
   await page.getByRole("alert").waitFor()
   assert.match(await page.getByRole("alert").innerText(), /could not be loaded completely/)

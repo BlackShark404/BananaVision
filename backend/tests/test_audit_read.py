@@ -95,6 +95,19 @@ def test_as_of_round_trips_and_defaults_to_now(application):
     assert app.client.get("/api/v1/activity", params={"as_of": "yesterday"}).status_code == 422
 
 
+def test_rows_stamped_after_the_server_clock_are_still_listed(application):
+    """A restored backup from a station whose clock ran ahead, or a clock stepped back by NTP,
+    must not hide rows: without as_of the boundary is the later of now and the newest row."""
+    app = application
+    ahead = now_manila() + timedelta(days=2)
+    [future] = add_rows(app, 1, ahead)
+    first = page(app, 1, 10)
+    assert future in [item["id"] for item in first["items"]]
+    assert datetime.fromisoformat(first["as_of"]) >= ahead
+    # The returned boundary keeps that row on later pages too.
+    assert future in [item["id"] for item in page(app, 1, 10, as_of=first["as_of"])["items"]]
+
+
 def test_as_of_includes_rows_at_the_boundary_and_applies_with_filters(application):
     app = application
     base = datetime(2026, 11, 1, 9, 0, tzinfo=MANILA)

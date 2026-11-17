@@ -288,3 +288,98 @@ def test_no_secret_shapes_in_any_written_row(application):
     for row in rows(application):
         text = f"{row.action} {row.details}"
         assert "$2b$" not in text and "eyJ" not in text and "Bearer" not in text
+
+
+# ── Review findings (2026-11-17) ──────────────────────────────────────────────
+
+@pytest.mark.parametrize("state", ["recovery-required", "draining", "maintenance"])
+def test_required_egress_is_refused_while_the_station_is_not_writable(application, monkeypatch, state):
+    station = StationCoordinator()
+    station.block(state)
+    monkeypatch.setattr(audit, "coordinator", station)
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(audit.emit(audit.AuditAction.BACKUP_DOWNLOADED, "download", required=True))
+    assert error.value.status_code == 503
+    assert rows(application) == [] and audit.pending_events() == []
+
+
+def test_required_egress_is_written_at_once_while_power_is_pending(application, monkeypatch):
+    station = StationCoordinator()
+    station.block("power-accepted")
+    monkeypatch.setattr(audit, "coordinator", station)
+    asyncio.run(audit.emit(audit.AuditAction.BACKUP_DOWNLOADED, "download", required=True))
+    assert [row.action for row in rows(application)] == ["backup_downloaded"]
+
+
+def test_the_deferred_backlog_is_written_once_by_overlapping_writers(application, monkeypatch):
+    station = StationCoordinator()
+    monkeypatch.setattr(audit, "coordinator", station)
+    station.block("recovery-required")
+    asyncio.run(audit.emit(audit.AuditAction.LOGIN, "held while recovering"))
+    station.resume()
+
+    async def overlap():
+        await asyncio.gather(
+            audit.emit(audit.AuditAction.MAINTENANCE_RECOVERED, "recovered"),
+            audit.flush_deferred(),
+            audit.emit(audit.AuditAction.LOGOUT, "bye"),
+        )
+
+    asyncio.run(overlap())
+    assert sorted(row.action for row in rows(application)) == ["login", "logout", "maintenance_recovered"]
+    assert audit.pending_events() == []
+
+
+def test_a_failed_write_keeps_the_backlog_and_the_event_queued(application, monkeypatch):
+    station = StationCoordinator()
+    monkeypatch.setattr(audit, "coordinator", station)
+    station.block("recovery-required")
+    asyncio.run(audit.emit(audit.AuditAction.LOGIN, "held"))
+    station.resume()
+    application.state.fail_commit = True
+    asyncio.run(audit.emit(audit.AuditAction.LOGOUT, "not written yet"))
+    assert [event["action"] for event in audit.pending_events()] == ["login", "logout"]
+    application.state.fail_commit = False
+    asyncio.run(audit.flush_deferred())
+    assert [row.action for row in rows(application)] == ["login", "logout"]
+
+
+def test_a_full_deferred_queue_warns_when_it_drops_the_oldest_event(application, monkeypatch, caplog):
+    station = StationCoordinator()
+    station.block("recovery-required")
+    monkeypatch.setattr(audit, "coordinator", station)
+    with caplog.at_level("WARNING", logger="bananavision.audit"):
+        for number in range(audit.DEFERRED_LIMIT + 1):
+            asyncio.run(audit.emit(audit.AuditAction.LOGIN, f"event {number}"))
+    assert len(audit.pending_events()) == audit.DEFERRED_LIMIT
+    assert audit.pending_events()[0]["details"] == "event 1"
+    assert any("queue is full" in r.getMessage() and "event 0" in r.getMessage()
+               for r in caplog.records)
+
+
+def test_failures_against_real_accounts_are_not_capped(application, monkeypatch):
+    monkeypatch.setattr(audit, "ANONYMOUS_PER_MINUTE", 1)
+    monkeypatch.setattr(audit, "_clock", lambda: 9000.0)
+    for _ in range(3):
+        asyncio.run(audit.emit(audit.AuditAction.LOGIN_FAILED, "Sign-in failed for 'admin'",
+                               capped=False))
+    for _ in range(3):
+        asyncio.run(audit.emit(audit.AuditAction.LOGIN_FAILED, "an unrecognized username"))
+    assert [row.details for row in rows(application)].count("Sign-in failed for 'admin'") == 3
+    assert [row.details for row in rows(application)].count("an unrecognized username") == 1
+
+
+def test_the_file_log_shows_a_recorded_change_only_after_it_commits(application, caplog):
+    actor = SimpleNamespace(id=application.ids.admin, full_name="Admin User")
+
+    async def run():
+        async with SessionAdapter(application.engine, application.state) as db:
+            await audit.record(db, audit.AuditAction.SUPPLIER_UPDATED, "rolled back", actor=actor)
+            await db.rollback()
+            await audit.record(db, audit.AuditAction.SUPPLIER_UPDATED, "committed", actor=actor)
+            await db.commit()
+
+    with caplog.at_level("INFO", logger="bananavision.audit"):
+        asyncio.run(run())
+    messages = " ".join(r.getMessage() for r in caplog.records)
+    assert "committed" in messages and "rolled back" not in messages

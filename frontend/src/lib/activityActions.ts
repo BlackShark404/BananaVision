@@ -44,7 +44,7 @@ export const ACTIVITY_ACTIONS = {
   // Security failures
   login_failed: entry("Sign-in failed", "security", RED, "A sign-in attempt failed", true),
   pin_failed: entry("PIN sign-in failed", "security", RED, "A PIN sign-in attempt failed", true),
-  login_blocked: entry("Sign-in blocked", "security", RED, "A sign-in attempt was blocked", true),
+  login_blocked: entry("Blocked while locked", "security", RED, "An attempt was refused while locked out", true),
   account_locked: entry("Account locked", "security", RED, "Account was locked after failed attempts", true),
   login_denied: entry("Sign-in denied", "security", RED, "A sign-in was denied", true),
   setup_token_rejected: entry("Setup token rejected", "security", RED, "A credential setup link was rejected", true),
