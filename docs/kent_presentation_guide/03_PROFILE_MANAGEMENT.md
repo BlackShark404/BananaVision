@@ -19,7 +19,7 @@
 In a busy warehouse packinghouse:
 1. **Visual Recognition on Touchscreen:** When multiple operators share a kiosk station across shifts, recognizing fellow workers by avatar photos on the Kiosk selection modal (`/auth/operators`) is far faster than reading small text usernames.
 2. **Autonomous Security Maintenance:** Workers must be empowered to update their personal password or kiosk PIN when their shift changes or if they suspect someone glimpsed their PIN over their shoulder, without bothering the plant administrator.
-3. **Worker Performance Visibility:** Operators deserve transparent visibility into their own productivity (Total Scans Handled, Average YOLO AI Model Confidence, and 7-Day Throughput) to track sorting consistency.
+3. **Worker Productivity & Activity Visibility:** Operators and administrators get personal visibility into their activity (`Your Actions (7d)` and `Recent Activity`), while Operators also see their own scan throughput (`Total Scans` and `Last 7 Days`)—keeping AI confidence metrics where they belong in Scan Logs and Analytics.
 
 ### 1.2 Identity Immutability: Why Workers Cannot Edit Username or Role
 In standard consumer apps, users can freely change their name, email, or handle. In BananaVision:
@@ -223,7 +223,7 @@ async def own_profile_summary(db: DbSession, user: CurrentUser):
     }
 ```
 
-- **Role-Aware Profile Cards (`Profile.tsx:223-280`):** Admins see **System Scans**, **Total Users**, and **Your Actions (7d)** (personal audit actions over the last 7 days, rather than repeating AI confidence metrics already shown in Scan Logs); Operators see **Total Scans**, **Last 7 Days**, and **Avg Confidence** scoped strictly to their own scans.
+- **Role-Aware Profile Cards (`Profile.tsx:223-267`):** Admins see **System Scans**, **Total Users**, and **Your Actions (7d)**; Operators see **Total Scans**, **Last 7 Days** (*Your scans in the last 7 days*), and **Your Actions (7d)**. Model confidence metrics are intentionally reserved for Scan Logs, Dashboard, and Analytics rather than a personal profile page.
 - **Panel Defense Value (PROFILE-03):** You can explain: *"Notice `users.py:148-167`. We don't query raw scan rows into memory and loop over them. PostgreSQL evaluates `func.count()`, `func.avg()`, and conditional `func.sum()` in database engine memory. This keeps network payload tiny (< 1 KB) regardless of scan history size."*
 
 ---

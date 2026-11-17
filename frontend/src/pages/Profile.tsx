@@ -18,7 +18,7 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp"
-import { Loader2, User, Shield, Calendar, Activity, TrendingUp, Target, Moon, Sun, Eye, EyeOff, Camera } from "lucide-react"
+import { Loader2, User, Shield, Calendar, Activity, TrendingUp, Moon, Sun, Eye, EyeOff, Camera } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
@@ -115,7 +115,6 @@ export default function Profile() {
 
   const stats = {
     totalScans: summary?.total_scans ?? "—",
-    avgConfidence: summary?.avg_confidence?.toFixed(1) ?? null,
     totalUsers: summary?.total_users ?? "—",
     last7Days: summary?.last_7_days ?? "—",
     recentActions7d: summary?.recent_actions_7d ?? "—",
@@ -249,32 +248,19 @@ export default function Profile() {
             iconColor="text-blue-600"
             iconBgColor="bg-blue-500/10"
             delay={100}
-            description="Recent activity"
+            description="Your scans in the last 7 days"
           />
         )}
-        {user.role === "Admin" ? (
-          <AppStatsCard
-            loading={!summary && !summaryError}
-            title="Your Actions (7d)"
-            value={stats.recentActions7d}
-            icon={TrendingUp}
-            iconColor="text-emerald-600"
-            iconBgColor="bg-emerald-500/10"
-            delay={150}
-            description="Your activity in the last 7 days"
-          />
-        ) : (
-          <AppStatsCard
-            loading={!summary && !summaryError}
-            title="Avg Confidence"
-            value={stats.avgConfidence === null ? "—" : `${stats.avgConfidence}%`}
-            icon={Target}
-            iconColor="text-emerald-600"
-            iconBgColor="bg-emerald-500/10"
-            delay={150}
-            description="Average model confidence on your scans"
-          />
-        )}
+        <AppStatsCard
+          loading={!summary && !summaryError}
+          title="Your Actions (7d)"
+          value={stats.recentActions7d}
+          icon={Calendar}
+          iconColor="text-emerald-600"
+          iconBgColor="bg-emerald-500/10"
+          delay={150}
+          description="Your activity in the last 7 days"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
