@@ -156,6 +156,12 @@ async def own_profile_summary(db: DbSession, user: CurrentUser):
             OperatorProfile.account_id == user.id
         )
     row = (await db.execute(query)).one()
+    recent_actions_7d = await db.scalar(
+        select(func.count(ActivityLog.id)).where(
+            ActivityLog.user_id == user.id,
+            ActivityLog.timestamp.between(now - timedelta(days=7), now),
+        )
+    )
     logs = (await db.execute(
         select(ActivityLog).where(ActivityLog.user_id == user.id)
         .order_by(ActivityLog.timestamp.desc(), ActivityLog.id.desc()).limit(8)
@@ -164,6 +170,7 @@ async def own_profile_summary(db: DbSession, user: CurrentUser):
         "total_scans": row.total_scans,
         "avg_confidence": float(row.avg_confidence) if row.avg_confidence is not None else None,
         "last_7_days": row.last_7_days or 0,
+        "recent_actions_7d": recent_actions_7d or 0,
         "total_users": (await db.scalar(select(func.count(UserAccount.id)))) if is_admin else None,
         "activity": [{"id": str(log.id), "action": log.action, "details": log.details or "",
                       "timestamp": log.timestamp.isoformat()} for log in logs],

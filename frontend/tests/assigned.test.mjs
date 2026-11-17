@@ -46,7 +46,7 @@ async function setup(t, screen, role = "Admin") {
     if (path.startsWith("/api/v1/auth/setup-")) return reply({ status: "success", token: { access_token: "new-access" }, user: { id: "owner", username: "owner", full_name: "Same Name", role } })
     if (path === "/api/v1/users" && request.method() === "POST") return reply({ id: "created", username: body.username, full_name: body.full_name, role: body.role, status: body.status, temporary_password: "generated-private-password", temporary_pin: "9087" }, 201)
     if (path === "/api/v1/users") return reply({ items: [{ id: "owner", username: "owner", full_name: "Same Name", role, status: "Active" }], total: 1 })
-    if (path === "/api/v1/users/me/summary") return reply({ total_scans: 131, avg_confidence: 82.3, last_7_days: 130, total_users: role === "Admin" ? 9 : null, activity: [{ id: "log", action: "login", details: "Own activity", timestamp: "2026-10-05T10:00:00+08:00" }] })
+    if (path === "/api/v1/users/me/summary") return reply({ total_scans: 131, avg_confidence: 82.3, last_7_days: 130, recent_actions_7d: role === "Admin" ? 6 : 2, total_users: role === "Admin" ? 9 : null, activity: [{ id: "log", action: "login", details: "Own activity", timestamp: "2026-10-05T10:00:00+08:00" }] })
     if (path === "/api/v1/activity") return reply({ items: [], total: 0, page: 1, page_size: 100 })
     if (path === "/api/v1/config") return reply({ camera_ids: "CAM-001", confidence_threshold: 85, data_retention_enabled: true })
     if (path === "/api/v1/devices") return reply([])
@@ -80,6 +80,15 @@ test("operator profile uses full backend totals without requesting admin-only re
   assert.equal(await page.getByText("Average model confidence on your scans", { exact: true }).count(), 1)
   assert.ok(requests.some(r => r.path === "/api/v1/users/me/summary"))
   assert.ok(!requests.some(r => ["/api/v1/users", "/api/v1/activity", "/api/v1/scans"].includes(r.path)))
+})
+
+test("admin profile replaces system avg confidence with personal recent actions count", async t => {
+  const { page } = await setup(t, "profile", "Admin")
+  await page.getByText("131", { exact: true }).waitFor()
+  await page.getByText("6", { exact: true }).waitFor()
+  assert.equal(await page.getByText("Your Actions (7d)", { exact: true }).count(), 1)
+  assert.equal(await page.getByText("System Avg Confidence", { exact: true }).count(), 0)
+  assert.equal(await page.getByText("82.3%", { exact: true }).count(), 0)
 })
 
 test("password and PIN setup carry limited proofs and do not persist setup tokens", async t => {
