@@ -1,46 +1,41 @@
-CURRENT RESUME HERE (2026-11-17) - SCAN LOGS OPENS ON ALL DATES
+CURRENT RESUME HERE (2026-11-17) - SOLD/SPOILED/FOR PROCESSING EST. SPOILAGE FORMAT
 
-The previous checkpoint (team fusion fixes merged with the flagged review queue; PR #13
-merged to team main as 80cde65) is archived byte-for-byte in
-docs/history/2026-11-17-before-logs-all-dates.txt. Its STILL OPEN items carry over below.
+The previous checkpoint (Scan Logs opens on All dates; PR #14 merged to team main as
+d561df8, same tree as a21b744) is archived
+byte-for-byte in docs/history/2026-11-17-before-closed-stock-spoilage.txt. Its STILL OPEN
+items carry over below.
 
-USER REQUEST (2026-11-17, after testing on the station laptop)
-- "Pending quality reviews" (/logs?status=Flagged) and "Expiring stock"
-  (/logs?attention=at-risk, All dates) work. Leave them unchanged.
-- The sidebar Logs button opened /logs?date=<today> and showed an empty table when nothing
-  was scanned today. It must open on All dates.
+USER REQUEST (2026-11-17, after station testing)
+- "Fix the old scan logs data to follow the format in scan logs data especially in the
+  est. spoilage." Sold rows showed a bare "8–9 days"; In Stock rows show a countdown with
+  "Est. 3–4 days from scan" beneath.
+- User choices: "Status + estimate line" and "all three" pages (Scan Logs, Scan Detail,
+  Quality Control dialog).
 
 DONE
-- All dates is the Scan Logs default everywhere: the sidebar, a plain /logs, Reset and the
-  Total Scans card. The same empty-table problem applied to Reset and the Total card.
-  - frontend/src/lib/scanLogFilters.ts: normalizeScanLogSearch only rewrites the legacy
-    attention=review to status=Flagged; the today branch and isDefaultScanLogView are gone.
-  - frontend/src/pages/Logs.tsx: no today redirect and no midnight roll. clearAllFilters
-    goes to {}. Reset is active only when a day is chosen. Clearing the date removes it.
-  - frontend/src/components/AppSidebar.tsx: Logs links to plain /logs.
-- Unchanged:
-  - Dashboard chips, "Scans Today" (?date=<day>), "View All Logs" and Recent Scans rows
-    (?date=all);
-  - the date box "All dates";
-  - the review queue rule;
-  - Quality Control and Scan Detail labels;
-  - the backend.
+- frontend/src/lib/spoilageDisplay.ts: closedStockSpoilageLabel(status) returns
+  "Sold · no countdown", "Spoiled · no countdown" or "For processing · no countdown";
+  null for In Stock, unknown and prototype keys (Object.hasOwn).
+- Scan Logs cell, Scan Detail Est. Spoilage metric and the Quality Control dialog: the
+  outcome sits where the countdown would be, with "Est. … from scan" beneath. The beneath
+  line is hidden when the estimate is Unknown. A record with no status keeps the plain
+  estimate.
+- Unchanged: In Stock countdown, sorting, at-risk icon, exports, the public QR page (counts
+  down for every status), Kiosk Recent Scans, the backend and stored values.
 - Tests:
-  - scanlogfilters: plain queries are left as they are; the legacy review rewrite is kept.
-  - scanrecords:
-    - plain /logs shows All dates with no business_date and Reset disabled;
-    - a picked day can be cleared back to all dates;
-    - Expiring stock Reset goes to plain /logs;
-    - clearing the review filter shows all dates;
-    - the midnight test is removed.
-  - layout: the sidebar Logs href is /logs and it shows an older scan on All dates.
-- Docs: Development Decisions (2026-11-16 entry revised 2026-11-17) and Frontend.
+  - scanrecords: Logs Sold rows (two tests), Scan Detail Sold (two tests), new Quality
+    Control dialog tests for Spoiled and For Processing. All 6 failed before the change.
+  - spoilageDisplay: helper unit test (also caught the prototype-key bug).
+- Docs: Frontend (shelf-life section), Development Decisions (2026-11-13 countdown entry,
+  revised 2026-11-17).
 
 VERIFICATION
-- Frontend full suite 366/366. Targeted scanlogfilters, scanrecords, layout, dashboard and
-  crosssession: 121/121.
-- `npx tsc -b` and `npm run build` pass. ESLint 40 (baseline).
-- Manila time guards pass: backend 4, frontend 6. The backend code is unchanged.
+- Frontend full suite 369/369 (includes the Manila time guard).
+- `npx tsc -b` and `npm run build` pass. ESLint 40 (baseline); changed files have no new
+  problems (Logs 4, Quality Control 7 existed before).
+- Screenshot node_modules/.tmp/bv-shelf-life-logs.png shows the Sold row in the two-line
+  shape.
+- Backend untouched; not re-run.
 
 STILL OPEN
 - The station data release (teammate guide PDF), then:
@@ -59,5 +54,5 @@ STILL OPEN
 - Type check: use `npx tsc -b` (or `npm run build`), not `npm run typecheck`.
 
 EXACT NEXT STEP
-- User opens the team PR from the fork's main:
+- User opens the team PR for this change from the fork's main:
   https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main

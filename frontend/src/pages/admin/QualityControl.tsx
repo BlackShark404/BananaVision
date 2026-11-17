@@ -32,7 +32,7 @@ import {
 import { Loader2, ShieldCheck, Flag, MessageSquare, Edit, AlertTriangle, CheckCircle, Banana, ChevronsLeft, ChevronsRight, Filter, Thermometer, Droplets } from "lucide-react"
 import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
-import { formatSpoilageDays } from "@/lib/spoilageDisplay"
+import { closedStockSpoilageLabel, formatSpoilageDays } from "@/lib/spoilageDisplay"
 import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
 import { CULTIVARS, RIPENESS_LEVELS, type ScanResult, type Cultivar, type Ripeness } from "@/types"
 import { AppChangePreview } from "@/components/AppChangePreview"
@@ -809,11 +809,12 @@ export default function QualityControl() {
                         <Label className="text-xs text-muted-foreground">Est. Spoilage</Label>
                         {(() => {
                           const countdown = selectedScan.inventoryStatus === "In Stock" ? liveShelfLifeLabel(selectedScan, now) : null
+                          const lead = countdown ?? closedStockSpoilageLabel(selectedScan.inventoryStatus)
                           const estimate = formatSpoilageDays(selectedScan.spoilageDays)
                           return (
                             <>
-                              <p className="text-lg font-bold mt-1">{countdown ?? estimate}</p>
-                              {countdown !== null && estimate !== "Unknown" && <p className="text-xs text-muted-foreground">Est. {estimate} from scan</p>}
+                              <p className="text-lg font-bold mt-1">{lead ?? estimate}</p>
+                              {lead !== null && estimate !== "Unknown" && <p className="text-xs text-muted-foreground">Est. {estimate} from scan</p>}
                             </>
                           )
                         })()}
