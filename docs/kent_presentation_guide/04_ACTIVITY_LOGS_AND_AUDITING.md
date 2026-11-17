@@ -1,32 +1,114 @@
-# 📜 Deep Dive: Activity Logs, Forensics & Audit Trail
+# 📜 Master Guide: Activity Logs, Forensics & Audit Trail Architecture
 
-> **Feature 8:** Activity Logs & Audit System  
-> **Backend Files:** [`backend/app/api/v1/activity.py`](file:///d:/KENT%20EDUCATION%20PROJECTS/BananaVision/backend/app/api/v1/activity.py), [`backend/app/models/activity_log.py`](file:///d:/KENT%20EDUCATION%20PROJECTS/BananaVision/backend/app/models/activity_log.py)  
-> **Frontend Files:** [`frontend/src/pages/admin/ActivityLog.tsx`](file:///d:/KENT%20EDUCATION%20PROJECTS/BananaVision/frontend/src/pages/admin/ActivityLog.tsx), [`frontend/src/context/AdminContext.tsx`](file:///d:/KENT%20EDUCATION%20PROJECTS/BananaVision/frontend/src/context/AdminContext.tsx)
-
----
-
-## 1. Why Did We Implement This System?
-
-In industrial quality control and security compliance:
-- Every privileged action must be attributable to a specific operator or administrator.
-- If someone changes a camera calibration or deactivates an operator, management must know **who** did it, **from what IP address**, and **at what exact timestamp**.
-- If someone attacks the kiosk by repeatedly guessing PINs, security must have a forensic record of failed attempts.
-
----
-
-## 2. Security & Architecture Vulnerabilities Fixed
-
-| Vulnerability ID | Historical Flaw | How Kent's Code Fixed It |
-|---|---|---|
-| **ACCESS-01** | The `/activity` endpoint only required `CurrentUser`, meaning any regular operator could view sensitive admin logs. | Protected with `admin: AdminUser`, restricting all audit listings to verified administrators. |
-| **AUDIT-01** | Logs were paginated in React state after downloading the first 50 entries, meaning older logs were completely invisible to search and filters. | Implemented **True Server-Side Pagination & Filtering**: `page`, `page_size`, `action`, `user_name`, and `search` query parameters passed directly to SQL. |
-| **AUDIT-02** | Failed logins and admin password resets did not generate audit records. | Added automatic `ActivityLog` emission across all auth failures, resets, config updates, and scans. |
-| **AUDIT-03** | CSV export did not escape internal quotation marks, creating corrupted rows in Excel. | Implemented RFC 4180 standard quotation doubling in CSV generators. |
+> **Presenter & Author:** Kent RG A. Baguio  
+> **Core Focus:** Immutable Forensic Auditing, Server-Side Pagination with `as_of` Snapshot Pinning (`AUDIT-01`), Security Failure Tracing (`AUDIT-02`), and RFC-Compliant Multi-Format Export (`AUDIT-03`).  
+> **Backend Files:**
+> - [`backend/app/api/v1/activity.py`](file:///d:/KENT%20EDUCATION%20PROJECTS/BananaVision/backend/app/api/v1/activity.py) — Admin endpoint for paginated and filtered activity retrieval
+> - [`backend/app/models/activity_log.py`](file:///d:/KENT%20EDUCATION%20PROJECTS/BananaVision/backend/app/models/activity_log.py) — PostgreSQL audit table model
+> - [`backend/app/core/http.py`](file:///d:/KENT%20EDUCATION%20PROJECTS/BananaVision/backend/app/core/http.py) — Client IP address resolution helper
+>
+> **Frontend Files:**
+> - [`frontend/src/pages/admin/ActivityLog.tsx`](file:///d:/KENT%20EDUCATION%20PROJECTS/BananaVision/frontend/src/pages/admin/ActivityLog.tsx) — Activity table, action badges, stats cards, CSV and XLSX export
+> - [`frontend/src/context/AdminContext.tsx`](file:///d:/KENT%20EDUCATION%20PROJECTS/BananaVision/frontend/src/context/AdminContext.tsx) — Administrative log state synchronization
+> - [`frontend/src/lib/exportUtils.ts`](file:///d:/KENT%20EDUCATION%20PROJECTS/BananaVision/frontend/src/lib/exportUtils.ts) — RFC 4180 quote-escaping CSV & Excel workbook generators
 
 ---
 
-## 3. Database Schema: The `ActivityLog` Model
+## 1. Why Did We Implement This System? (Panel Defense Rationale)
+
+### 1.1 The Operational Need: Non-Repudiation in Agricultural Quality Control
+In commercial banana distribution (exporting Cavendish, Lakatan, or Cardaba to international markets or retail chains):
+- If an entire container of bananas arrives at a shipping dock overripe or spoiled, an investigation occurs.
+- Management needs to know: *Who calibrated Camera 1? Who changed the AI ripeness threshold from 85% to 60%? Which operator scanned Batch #409?*
+- Without an immutable forensic log, operators and supervisors can point fingers at each other. BananaVision's audit architecture guarantees **non-repudiation**: every state mutation is stamped with the actor's UUID, their client IP address, and an exact Asia/Manila timestamp.
+
+### 1.2 Forensic Visibility on Brute-Force Attacks (AUDIT-02)
+If a rogue user connects to the packinghouse Wi-Fi and tries to guess a 4-digit operator PIN or brute-force an Admin password:
+- The system must not merely block them; it must generate a permanent forensic trail.
+- When `login_failed` or `pin_failed` triggers in `backend/app/api/v1/auth.py`, `user_id` is set to `None`, but the target username and the attacker's client IP address (`get_client_ip(request)`) are permanently written to PostgreSQL. An administrator can review the logs and alert on-site facility security.
+
+### 1.3 Why Strict Admin Authorization (`ACCESS-01`)?
+Audit logs contain sensitive operational intelligence: IP addresses of management terminals, records of failed login attacks, and timestamps of employee shift changes.
+- Regular kiosk operators are restricted from querying `/api/v1/activity`.
+- Protected by `admin: AdminUser` dependency in `deps.py`: attempting to call this route with an Operator JWT returns `HTTP 403 Forbidden: Admin access required`.
+
+---
+
+## 2. High-Level Architecture & End-to-End Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Caller as Admin / Operator / Rogue Client
+    participant Router as auth.py / users.py / config.py
+    participant AuditService as PostgreSQL (activity_logs)
+    participant ActivityRouter as activity.py
+    participant UI as ActivityLog.tsx
+
+    %% AUDIT LOG EMISSION
+    Caller->>Router: Executes Privileged Action (e.g. login, reset PIN, change config)
+    Router->>Router: Action succeeds or fails
+    Router->>Router: Extract client IP via get_client_ip(request)
+    Router->>AuditService: INSERT INTO activity_logs (user_id, action, details, ip_address, timestamp)
+    AuditService-->>Router: Commit row (Auto-increment ID)
+
+    %% AUDIT LOG VIEWING & PAGINATION
+    actor Admin as System Administrator
+    Admin->>UI: Open /admin/activity
+    UI->>ActivityRouter: GET /api/v1/activity?page=1&page_size=50&as_of=2026-11-17T22:00:00+08:00
+    ActivityRouter->>ActivityRouter: Verify AdminUser dependency (ACCESS-01)
+    ActivityRouter->>AuditService: SELECT * WHERE timestamp <= as_of ORDER BY timestamp DESC, id DESC LIMIT 50
+    AuditService-->>ActivityRouter: 50 ActivityLog records + Total Count
+    ActivityRouter-->>UI: HTTP 200 { items: [...], total: 1420, page: 1, as_of: "..." }
+    UI->>Admin: Display interactive table, 24h summary stats, and critical event badges
+
+    %% EXPORT FLOW
+    Admin->>UI: Click Export -> Download CSV / XLSX
+    UI->>UI: Format rows with RFC 4180 double-quote escaping
+    UI->>Admin: Save activity-log-2026-11-17.csv to local machine
+```
+
+---
+
+## 3. Step-by-Step Code Walkthrough: Front to Back to Front
+
+### Step 1: Emitting Audit Logs Across the Codebase
+
+Every major service in BananaVision writes to `activity_logs`. For example, in [`backend/app/api/v1/auth.py:97`](file:///d:/KENT%20EDUCATION%20PROJECTS/BananaVision/backend/app/api/v1/auth.py):
+
+```python
+# Failed login attempt (Unauthenticated)
+db.add(ActivityLog(
+    user_id=None,
+    action="login_failed",
+    details=f"Failed login attempt for username '{body.username}'",
+    ip_address=get_client_ip(request),
+))
+await db.flush()
+```
+And on successful login (`auth.py:129`):
+```python
+db.add(ActivityLog(
+    user_id=user.id,
+    action="login",
+    details=f"User {user.username} logged in",
+    ip_address=get_client_ip(request),
+))
+await db.flush()
+```
+And on configuration modifications (`config.py:161`):
+```python
+db.add(ActivityLog(
+    user_id=admin.id,
+    action="config_changed",
+    details=f"Updated config revision {config.revision}: {changes}",
+    ip_address=get_client_ip(request),
+))
+```
+
+---
+
+### Step 2: The `ActivityLog` Database Model in [`backend/app/models/activity_log.py`](file:///d:/KENT%20EDUCATION%20PROJECTS/BananaVision/backend/app/models/activity_log.py)
 
 ```python
 class ActivityLog(Base):
@@ -41,37 +123,49 @@ class ActivityLog(Base):
 
     user: Mapped[UserAccount | None] = relationship("UserAccount", lazy="selectin")
 ```
-- Timestamps are strictly pinned to `Asia/Manila` time (`now_manila`).
-- If an unauthenticated brute-force attempt occurs, `user_id` is set to `None`, but the IP address and targeted username are saved in `details`.
+
+- **Database Structure:** Timestamps use `DateTime(timezone=True)` defaulting to `now_manila` (`Asia/Manila` UTC+08:00).
+- `ip_address` is sized at `String(45)` to accommodate standard IPv4 (e.g. `192.168.1.100`) as well as full IPv6 addresses (e.g. `2001:0db8:85a3:0000:0000:8a2e:0370:7334`).
 
 ---
 
-## 4. Code Breakdown: Part-by-Part
+### Step 3: Server-Side Query & `as_of` Pagination Boundary in [`backend/app/api/v1/activity.py`](file:///d:/KENT%20EDUCATION%20PROJECTS/BananaVision/backend/app/api/v1/activity.py)
 
-### Part A: Server-Side Query & Dynamic Filtering (`backend/app/api/v1/activity.py:21`)
+When an administrator navigates through pages of logs:
 
 ```python
+# backend/app/api/v1/activity.py (lines 24-84)
 @router.get("", response_model=ActivityLogListResponse)
 async def list_activity(
     db: DbSession,
-    admin: AdminUser,               # ACCESS-01: Admin authorization required
+    admin: AdminUser,                 # ACCESS-01: Admin authorization guard
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     action: str | None = None,
     user_name: str | None = None,
     search: str | None = None,
+    as_of: InputTimestamp | None = None,  # AUDIT-01: Snapshot boundary
 ):
-    """List activity logs with server-side pagination, filtering, and search."""
-    # Base query ordered newest first
-    query = select(ActivityLog).options(selectinload(ActivityLog.user)).order_by(
-        desc(ActivityLog.timestamp), desc(ActivityLog.id)
+    # ── AUDIT-01: Pin pagination to an as_of snapshot boundary ──────
+    boundary = as_of
+    if boundary is None:
+        boundary = now_manila()
+        newest = await db.scalar(select(func.max(ActivityLog.timestamp)))
+        if newest is not None and newest > boundary:
+            boundary = newest
+
+    query = (
+        select(ActivityLog)
+        .options(selectinload(ActivityLog.user))
+        .where(ActivityLog.timestamp <= boundary) # Prevents new rows from shifting pages!
+        .order_by(desc(ActivityLog.timestamp), desc(ActivityLog.id))
     )
 
-    # 1. Filter by action type (e.g. "login", "user_created", "config_changed")
+    # 1. Filter by specific action (e.g. "login", "pin_failed", "config_changed")
     if action:
         query = query.where(ActivityLog.action == action)
 
-    # 2. Filter by specific user
+    # 2. Filter by actor name
     if user_name:
         from app.models.user_account import UserAccount
         query = query.join(ActivityLog.user).where(UserAccount.full_name == user_name)
@@ -88,7 +182,7 @@ async def list_activity(
             )
         )
 
-    # Calculate total count for pagination metadata
+    # Total matching count for pagination controls
     count_query = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_query)).scalar() or 0
 
@@ -98,52 +192,83 @@ async def list_activity(
     logs = result.scalars().all()
 
     return ActivityLogListResponse(
-        items=[ActivityLogResponse(...) for log in logs],
+        items=[...],
         total=total,
         page=page,
         page_size=page_size,
+        as_of=boundary, # Return boundary to client so page 2 keeps the same snapshot!
     )
 ```
 
----
-
-### Part B: Events Tracked by the System
-
-| Event Action | When It Fires | What Is Recorded in `details` |
-|---|---|---|
-| `login` | Successful Admin or Operator login | `"User {username} logged in"` or `"Operator {username} swapped in session"` |
-| `login_failed` | Failed password attempt (`AUTH-02`) | `"Failed login attempt for username '{username}'"` + IP address |
-| `pin_failed` | Failed 4-digit PIN attempt (`AUTH-02`) | `"Failed PIN swap attempt for username '{username}'"` + IP address |
-| `logout` | Explicit logout button click | `"User {username} logged out"` |
-| `user_created` | Admin creates new account | `"Created user '{username}' with role {role}"` |
-| `user_updated` | Role transition, status toggle, reset | `"Updated user '{username}': ['role_change:Operator->Admin']"` |
-| `config_changed` | Camera or threshold update | `"Updated config revision {revision}: {changes}"` |
+#### What is the `as_of` Boundary Problem? (Panel Goldmine)
+In high-volume logging systems, if an administrator is reading page 1 (rows 1–50) and 5 new scans occur, those 5 new rows are inserted at the top.  
+When the admin clicks "Page 2" (`OFFSET 50`), traditional SQL offset pagination shifts: the admin will see rows 46–50 a second time!  
+**Our Fix:** By passing `timestamp <= as_of`, the query evaluates against a frozen snapshot of time. New incoming log rows cannot push older rows into subsequent pages.
 
 ---
 
-### Part C: Safe CSV Export (`frontend/src/pages/admin/ActivityLog.tsx`)
+### Step 4: RFC 4180 Compliant Multi-Format Export in [`frontend/src/pages/admin/ActivityLog.tsx`](file:///d:/KENT%20EDUCATION%20PROJECTS/BananaVision/frontend/src/pages/admin/ActivityLog.tsx)
 
-In `ActivityLog.tsx`:
 ```tsx
-const exportLogs = () => {
+// frontend/src/pages/admin/ActivityLog.tsx (lines 62-85)
+const handleExportCsv = () => {
+  if (activityLoading || !!activityError || !activityReady) return
+  const logs = sortedLogsRef.current
+  const filename = `activity-log-${manilaDayKey(Date.now())}.csv`
   const headers = ["Timestamp", "User", "Action", "Details", "IP Address"]
-  const rows = logs.map(l => [
-    `"${l.timestamp.replace(/"/g, '""')}"`,
-    `"${(l.userName || "System").replace(/"/g, '""')}"`,
-    `"${l.action.replace(/"/g, '""')}"`,
-    `"${(l.details || "").replace(/"/g, '""')}"`,
-    `"${(l.ipAddress || "Localhost").replace(/"/g, '""')}"`
+  const rows = logs.map(log => [
+    log.timestamp,
+    log.user,
+    log.action,
+    log.details,
+    log.ipAddress || ""
   ])
-  const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n")
-  ...
+  downloadCsv(filename, headers, rows) // Uses RFC 4180 quotation doubling
+  toast.success("Export successful", { description: `${logs.length} activities exported to CSV` })
+}
+
+const handleExportXlsx = async () => {
+  // Generates real Excel workbook via xlsx library
+  await downloadXlsx(filename, headers, rows)
 }
 ```
-- **Why `.replace(/"/g, '""')` is necessary:** In standard CSV format, if a user's details contain quotes or commas, unescaped quotes break the CSV columns when opened in Microsoft Excel. Doubling the quotes guarantees pristine formatting.
+
+In `frontend/src/lib/exportUtils.ts`:
+```ts
+export function escapeCsvCell(val: unknown): string {
+  if (val === null || val === undefined) return ""
+  const str = String(val)
+  // RFC 4180: If string contains quotes, commas, or newlines, wrap in quotes and double internal quotes
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`
+  }
+  return str
+}
+```
 
 ---
 
-## 5. Summary of Key Defense Takeaways
+## 4. Security Vulnerabilities Fixed in This Module
 
-1. **Role-Enforced:** Regular kiosk users cannot snoop on admin actions; only verified admins can query `/activity`.
-2. **Infinite Scalability:** True database SQL `OFFSET` and `LIMIT` ensure that whether the station has 50 logs or 50,000 logs, the page loads in under 50 milliseconds.
-3. **Forensic Value:** Failed attempts record IP and timestamps, giving administrators the exact evidence needed to investigate unauthorized access attempts.
+| Vulnerability ID | Historical Flaw Identified | How Kent's Code Fixed It |
+|---|---|---|
+| **ACCESS-01** | The `/activity` endpoint only checked `CurrentUser`, meaning regular kiosk operators could view management audit logs. | Bound endpoint to `admin: AdminUser` dependency, rejecting non-admins with `HTTP 403 Forbidden`. |
+| **AUDIT-01** | Logs were paginated in client-side React memory after fetching 50 items; older logs were invisible to search and filters. | Built true server-side pagination with SQL `OFFSET`/`LIMIT`, dynamic filtering (`action`, `user_name`, `search`), and snapshot `as_of` timestamp pinning. |
+| **AUDIT-02** | Failed logins, PIN guesses, and admin password resets did not generate audit records. | Instrumenting automatic `ActivityLog` commits across all authentication failures, password/PIN resets, config changes, and hardware operations. |
+| **AUDIT-03** | CSV export did not escape internal quotation marks or commas, corrupting rows in Microsoft Excel. | Implemented RFC 4180 standard quotation doubling (`.replace(/"/g, '""')`) and provided dual **CSV and XLSX** export options. |
+
+---
+
+## 5. Defense Cheat Sheet: Panel Traps & Winning Answers
+
+### Question 1: "Why do you record failed login attempts if you don't even know who the user is?"
+> **Kent's Winning Answer:**  
+> "When an unauthorized user or brute-force bot tries guessing passwords, recording the failure is critical for intrusion detection. In `auth.py`, on failed attempts we set `user_id = None`, but we record the targeted username, the failure reason, and the client's IP address using `get_client_ip(request)`. If an admin notices 50 failed login attempts coming from a specific IP address on the local network, facility management can physically trace the terminal or device attempting unauthorized access."
+
+### Question 2: "What is the `as_of` parameter in your activity endpoint, and why did you add it?"
+> **Kent's Winning Answer:**  
+> "The `as_of` parameter solves the classic **pagination drift problem** in relational databases. If an administrator is reading Page 1, and 10 new banana scans are processed simultaneously, those 10 new rows get inserted at the top. Without `as_of`, when the admin clicks to Page 2 with `OFFSET 50`, the rows have shifted down by 10, causing the admin to see duplicate records they already read on Page 1. By pinning the query to `ActivityLog.timestamp <= as_of`, the administrator reads against a stable point-in-time snapshot."
+
+### Question 3: "Why can't Kiosk Operators view the Activity Log?"
+> **Kent's Winning Answer:**  
+> "The Activity Log contains privileged administrative intelligence: IP addresses of management workstations, records of employee PIN resets, role changes, and system shutdowns. Kiosk operators need only quality inspection tools. Exposing security audit logs to non-administrative staff violates the principle of least privilege. We enforce this at the backend routing level using our `AdminUser` FastAPI dependency."

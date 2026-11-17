@@ -118,6 +118,7 @@ export default function Profile() {
     avgConfidence: summary?.avg_confidence?.toFixed(1) ?? null,
     totalUsers: summary?.total_users ?? "—",
     last7Days: summary?.last_7_days ?? "—",
+    recentActions7d: summary?.recent_actions_7d ?? "—",
   }
 
   const handlePasswordChange = async (e: React.SubmitEvent<HTMLFormElement>) => {
@@ -251,16 +252,29 @@ export default function Profile() {
             description="Recent activity"
           />
         )}
-        <AppStatsCard
-          loading={!summary && !summaryError}
-          title={user.role === "Admin" ? "System Avg Confidence" : "Avg Confidence"}
-          value={stats.avgConfidence === null ? "—" : `${stats.avgConfidence}%`}
-          icon={Target}
-          iconColor="text-emerald-600"
-          iconBgColor="bg-emerald-500/10"
-          delay={150}
-          description={user.role === "Admin" ? "Average platform model confidence" : "Average model confidence on your scans"}
-        />
+        {user.role === "Admin" ? (
+          <AppStatsCard
+            loading={!summary && !summaryError}
+            title="Your Actions (7d)"
+            value={stats.recentActions7d}
+            icon={TrendingUp}
+            iconColor="text-emerald-600"
+            iconBgColor="bg-emerald-500/10"
+            delay={150}
+            description="Your activity in the last 7 days"
+          />
+        ) : (
+          <AppStatsCard
+            loading={!summary && !summaryError}
+            title="Avg Confidence"
+            value={stats.avgConfidence === null ? "—" : `${stats.avgConfidence}%`}
+            icon={Target}
+            iconColor="text-emerald-600"
+            iconBgColor="bg-emerald-500/10"
+            delay={150}
+            description="Average model confidence on your scans"
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
