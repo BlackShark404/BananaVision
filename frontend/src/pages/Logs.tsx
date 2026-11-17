@@ -32,8 +32,7 @@ import { scanWrite, scanRevision, isScanConflict } from "@/lib/scanWrites"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { isDefaultScanLogView, normalizeScanLogSearch, scanLogParams, selectedScanLogDay, VALID_PAGE_SIZES } from "@/lib/scanLogFilters"
-import { manilaDayKey } from "@/lib/manilaTime"
+import { normalizeScanLogSearch, scanLogParams, selectedScanLogDay, VALID_PAGE_SIZES } from "@/lib/scanLogFilters"
 import { useDashboardResource } from "@/hooks/useDashboardResource"
 import type { ScanLogRow, ScanLogParams, ScanLogReconciliation } from "@/types/scanLogs"
 import { AppDateFilter } from "@/components/AppDateFilter"
@@ -162,9 +161,9 @@ function filterMembership(
 export default function Logs() {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  // Plain /logs opens on today's Asia/Manila day and the legacy review link becomes
-  // Status Flagged, before the first request, so no other query is ever loaded.
-  const canonical = normalizeScanLogSearch(searchParams, manilaDayKey())?.toString() ?? null
+  // The legacy review link becomes Status Flagged before the first request, so the old
+  // query is never loaded.
+  const canonical = normalizeScanLogSearch(searchParams)?.toString() ?? null
   useEffect(() => {
     if (canonical !== null) setSearchParams(new URLSearchParams(canonical), { replace: true })
   }, [canonical, setSearchParams])
@@ -195,19 +194,6 @@ function LogsContent() {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000)
     return () => window.clearInterval(timer)
   }, [])
-  // The default view follows the Asia/Manila day: at midnight an open "today" view moves
-  // to the new day. A chosen past day or any filtered view stays as it is.
-  const dayKey = manilaDayKey(now)
-  const previousDay = useRef(dayKey)
-  useEffect(() => {
-    const before = previousDay.current
-    previousDay.current = dayKey
-    if (before === dayKey || searchParams.get("date") !== before || !isDefaultScanLogView(searchParams)) return
-    const next = new URLSearchParams(searchParams)
-    next.set("date", dayKey)
-    next.delete("page")
-    setSearchParams(next, { replace: true })
-  }, [dayKey, searchParams, setSearchParams])
   const [pendingScans, setPendingScans] = useState<Set<string>>(new Set())
   const inFlight = useRef(new Set<string>())
   const [statusAction, setStatusAction] = useState<{ scan: LogScan; status: InventoryStatus } | null>(null)
@@ -504,14 +490,11 @@ function LogsContent() {
         else next.set(key, value)
       }
       if (!("page" in changes)) next.delete("page")
-      // Keep the visible date choice explicit: removing the last filter of a backlog view
-      // must not fall back to the plain view's today default.
-      if (!next.has("date")) next.set("date", "all")
       return next
     }, { replace })
   }
-  // The default view: no filters, today's Asia/Manila day.
-  const clearAllFilters = () => setSearchParams({ date: manilaDayKey() })
+  // The default view: no filters, every date.
+  const clearAllFilters = () => setSearchParams({})
   const setSearch = (value: string) => updateFilters({ search: value }, true)
   const setCultivarFilter = (value: string) => updateFilters({ cultivar: value })
   const setRipenessFilter = (value: string) => updateFilters({ ripeness: value })
@@ -914,7 +897,7 @@ const columns: ColumnDef<LogScan>[] = [
         searchQuery={search}
         onSearchChange={(value) => { setSearch(value) }}
         searchPlaceholder="Search by cultivar, operator, or ID..."
-        hasActiveFilters={search !== "" || cultivarFilter !== "all" || ripenessFilter !== "all" || sourceFilter !== "all" || operatorFilter !== "all" || statusFilter !== "all" || intakeFilter !== "all" || cardFilter !== null || dateFilter !== dayKey || requestParams.stock_eligible}
+        hasActiveFilters={search !== "" || cultivarFilter !== "all" || ripenessFilter !== "all" || sourceFilter !== "all" || operatorFilter !== "all" || statusFilter !== "all" || intakeFilter !== "all" || cardFilter !== null || dateFilter !== "" || requestParams.stock_eligible}
         onClearFilters={clearAllFilters}
       >
         <Select value={cultivarFilter} onValueChange={(v) => { setCultivarFilter(v) }}>
@@ -980,9 +963,9 @@ const columns: ColumnDef<LogScan>[] = [
           </SelectContent>
         </Select>
         <div className="flex w-full sm:w-auto items-center gap-1">
-          <AppDateFilter value={dateFilter} onChange={value => updateFilters({ date: value || "all" })}
+          <AppDateFilter value={dateFilter} onChange={value => updateFilters({ date: value || undefined })}
             label="Scan date" emptyText="All dates" title="Filter by calendar date in Asia/Manila" className="w-full sm:w-44" />
-          {dateFilter && <Button type="button" variant="ghost" size="icon" aria-label="Clear scan date" title="All dates" onClick={() => updateFilters({ date: "all" })}><X className="size-4" /></Button>}
+          {dateFilter && <Button type="button" variant="ghost" size="icon" aria-label="Clear scan date" title="All dates" onClick={() => updateFilters({ date: undefined })}><X className="size-4" /></Button>}
         </div>
       </AppTableFilters>
 

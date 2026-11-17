@@ -4,6 +4,13 @@ Documented architectural, technical, and operational decisions in BananaVision.
 
 ## 2026-11-16: Review queue is the flagged scans; Scan Logs opens on today
 
+- **Revised 2026-11-17 (user request after testing on the station laptop):** Scan Logs
+  opens on **All dates**, not today. The sidebar Logs button showed an empty table whenever
+  nothing had been scanned that day. A plain `/logs`, the sidebar, **Reset** and the Total
+  Scans card now all show every date. The today redirect and the midnight roll are removed.
+  A single day is still one pick away in the date box, and the Dashboard "Scans Today" card
+  still opens `?date=<day>`. The review chip and the Expiring-stock chip are unchanged.
+
 - **User request:** the Dashboard "Pending quality reviews" link should select **Flagged** in the
   Scan Logs Status menu, not leave it on "All Statuses". Today's date should be the Scan Logs
   default. The user asked for the situation to be analysed first.

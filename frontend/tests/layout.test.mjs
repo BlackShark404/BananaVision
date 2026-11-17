@@ -174,7 +174,7 @@ for (const [width, height] of [[1280, 650], [1024, 600], [390, 700]]) {
   })
 }
 
-test('sidebar Logs opens today directly and does not reload the open default view', async t => {
+test('sidebar Logs opens Scan Logs on all dates', async t => {
   const context = await runtime.browser.newContext({ viewport: { width: 1280, height: 800 }, timezoneId: 'America/Los_Angeles' })
   t.after(() => context.close())
   const page = await context.newPage()
@@ -188,7 +188,7 @@ test('sidebar Logs opens today directly and does not reload the open default vie
     if (route.request().method() === 'OPTIONS') return route.fulfill({ headers, status: 204 })
     if (url.pathname === '/api/v1/scan-logs') {
       listRequests.push(Object.fromEntries(url.searchParams))
-      return route.fulfill({ headers, json: { items: [{ id: 'scan-1', revision: 1, date_time: '2026-10-02T08:10:00+08:00',
+      return route.fulfill({ headers, json: { items: [{ id: 'scan-1', revision: 1, date_time: '2026-09-21T08:10:00+08:00',
         cultivar: 'Lakatan', ripeness: 'Ripe', confidence: 92, spoilage_days: '3', finger_count: 7,
         operator_name: 'Fixture Operator', source_name: 'Fixture Supplier', inventory_status: 'In Stock' }],
         total: 1, page: 1, page_size: 10, snapshot_id: 'fixture-snapshot', avg_confidence: 92, at_risk_count: 0,
@@ -197,19 +197,19 @@ test('sidebar Logs opens today directly and does not reload the open default vie
     if (url.pathname === '/api/v1/config') return route.fulfill({ headers, json: { camera_ids: '', confidence_threshold: 85, revision: 1 } })
     return route.fulfill({ headers, json: ['/api/v1/scans', '/api/v1/users', '/api/v1/notifications'].includes(url.pathname) ? { items: [], total: 0, page: 1, page_size: 100 } : [] })
   })
-  await page.goto(`${runtime.url}/logs`)
-  await page.waitForURL('**/logs?date=2026-10-02')
+  // Start on a filtered view, then use the sidebar.
+  await page.goto(`${runtime.url}/logs?status=Sold&date=2026-10-02`)
   await page.locator('tbody tr').first().waitFor()
   const logsLink = page.locator('aside').getByRole('link', { name: 'Logs', exact: true })
-  // The Manila day, although this browser's clock still reads 1 October.
-  assert.equal(await logsLink.getAttribute('href'), '/logs?date=2026-10-02')
-  const historyLength = await page.evaluate(() => history.length)
-  const requestCount = listRequests.length
+  assert.equal(await logsLink.getAttribute('href'), '/logs')
   await logsLink.click()
+  await page.waitForURL(url => new URL(url).pathname === '/logs' && new URL(url).search === '')
+  await page.getByRole('button', { name: 'Scan date', exact: true }).getByText('All dates', { exact: true }).waitFor()
   await page.clock.runFor(500)
-  assert.equal(new URL(page.url()).search, '?date=2026-10-02')
-  assert.equal(await page.evaluate(() => history.length), historyLength, 'no duplicate history entry')
-  assert.equal(listRequests.length, requestCount, 'the open view is not reloaded')
+  const last = listRequests.at(-1)
+  assert.equal(last.business_date, undefined, JSON.stringify(last))
+  assert.equal(last.inventory_status, undefined)
+  // An older scan (21 September) is listed although nothing was scanned "today".
   assert.equal(await page.locator('tbody tr').count(), 1)
   assert.deepEqual(errors, [])
 })

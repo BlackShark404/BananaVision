@@ -462,19 +462,19 @@ single save controls, immediate-cleanup draft preservation, reset/discard, pendi
 guards, validation invalidation after file changes, and backup results across tabs.
 See [[Testing and Validation]].
 
-## Scan Logs date default and review queue (2026-11-16)
+## Scan Logs date default and review queue (2026-11-16, revised 2026-11-17)
 
-- **Plain Scan Logs opens on today.** A `/logs` with no filters (only paging or sorting) is
-  replaced before the first request with `?date=<today>`, using `manilaDayKey()`. Helpers:
-  `normalizeScanLogSearch` and `selectedScanLogDay` in `src/lib/scanLogFilters.ts`.
-- **Filtered links keep all dates.** The Dashboard chips, Inventory, intake and source links
-  have no `date`, so they show all dates, and the date box (`AppDateFilter` `emptyText`) reads
-  **All dates**. `date=all` is the explicit form. Clearing the date sets it, and every filter
-  change writes it when no date is set, so a backlog view never falls back to today.
-- **Reset** and the Total Scans card return to the default view: today, no filters.
-  Dashboard "View All Logs" and Recent Scans rows use `?date=all`. The sidebar Logs link goes
-  straight to `?date=<today>`. At Manila midnight an open default view (`isDefaultScanLogView`)
-  moves to the new day; a chosen day or a filtered view stays.
+- **Scan Logs opens on All dates.** A plain `/logs` (the sidebar Logs link), **Reset** and
+  the Total Scans card show every date. The date box (`AppDateFilter` `emptyText`) reads
+  **All dates** until a day is picked; clearing the day returns to all dates.
+  `selectedScanLogDay` in `src/lib/scanLogFilters.ts` reads the URL: no `date`, `date=all` or
+  an invalid value means all dates.
+- **Links that choose a day:** the Dashboard "Scans Today" card and the source and operator
+  rows send `?date=<day>`. Dashboard "View All Logs" and Recent Scans rows send
+  `?date=all`. The chips send no date.
+- The 2026-11-16 "today" default (redirect of plain `/logs`, midnight roll) was removed by
+  user request on 2026-11-17, because an empty table showed whenever nothing had been
+  scanned that day.
 - **Labels:** Quality Control and Scan Detail show **Low confidence** (neutral) for an unflagged
   scan below the threshold. Only a flag means pending review; only an admin removes a flag.
 - **Review queue = Status: Flagged.** The Dashboard "Pending quality reviews" chip opens
