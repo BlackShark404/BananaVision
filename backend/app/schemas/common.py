@@ -210,6 +210,8 @@ class ActivityLogListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+    # The boundary the page was read at; pass it back as ``as_of`` for later pages.
+    as_of: Timestamp
 
 
 # ── Config ───────────────────────────────────────────────────────────────────

@@ -1,5 +1,69 @@
 # Testing and Validation
 
+## Audit logging overhaul — 2026-11-17
+
+- **New backend tests** (89 in total):
+  - `test_audit_log.py` (20): writer, text hygiene, vocabulary, the "only through
+    `audit.py`" guard, deferral and flush, `access_denied` throttling (including a real
+    signed-in user), anonymous cap, no query strings, no secret shapes.
+  - `test_audit_auth.py` (14): the lockout row survives the 429, `login_blocked` per
+    window, unrecognized usernames never written, inactive and temporary-credential
+    sign-ins, `pin_login`, credential actions, change-password/PIN rate limit,
+    setup-token rejection; a PostgreSQL deadlock guard.
+  - `test_audit_maintenance.py` (22) and `test_audit_maintenance_postgresql.py` (4): backup
+    created/failed/downloaded without secrets, re-auth failure and limit, restore outcome
+    exactly once and safe when the actor is gone, power and retention events, deferral
+    during a restore.
+  - `test_audit_records.py` (25): old → new details, no-ops skipped, role/status actions,
+    profile avatar without data, scan details without note text, `scan_failed`, exports
+    (stream session, fail closed), print requests.
+  - `test_audit_read.py` (4): `as_of` paging stays stable while rows are inserted.
+- **New frontend tests:** `activityactions.test.mjs` (the action map matches `AuditAction`
+  in `audit.py`; labels, critical set) and `activitylog.test.mjs` (badges, critical count,
+  the second page reuses `as_of`).
+- **Results:**
+  - Backend: 1290 passed, 38 skipped with a disposable PostgreSQL 16 cluster; 1215 passed,
+    113 skipped without it.
+  - Frontend: 389/390. The failing analytics refresh test is the known clock race; it
+    passes 9/9 when run alone, twice.
+  - `npx tsc -b` and `npm run build` pass. ESLint 36 (down from 40). Ruff 644 (baseline).
+- **Test safety:** an autouse fixture refuses connections to the configured station
+  database, because audit writes look up the session factory at call time.
+- **Review follow-up** (4-lens review with skeptics; 14 of 15 findings confirmed, 9 after
+  merging duplicates):
+  - Backend tests added:
+    - egress refused in recovery and maintenance, written at once while power is pending;
+    - the backlog is written once by overlapping writers, and kept after a failed write;
+    - a full queue warns;
+    - failures against real accounts are not capped;
+    - the file log shows only committed `record()` rows;
+    - future-stamped rows stay listed;
+    - a refused snapshot export writes no `data_exported`.
+  - The frontend boundary test now changes only the boundary. A mutant without the
+    boundary check fails it.
+
+## Admin status correction and intake reopen — 2026-11-17
+
+- **New backend tests:**
+  - `test_scan_records.py`: `test_admin_corrects_sold_and_spoiled_scans_to_any_status`,
+    `test_restoring_stock_reopens_a_depleted_intake`,
+    `test_leaving_stock_does_not_reopen_a_depleted_intake` (For Processing, Spoiled),
+    `test_single_scan_sale_keeps_intake_active`,
+    `test_operator_cannot_change_a_sold_or_spoiled_scan` (8 cases) and
+    `test_operator_cannot_reopen_a_depleted_intake`.
+  - `test_mutation_events.py`: `test_reopened_intake_event_follows_commit_and_replays_once`
+    and `test_reopen_is_rolled_back_and_unpublished_when_commit_fails`.
+  - `test_scan_records_postgresql.py`: `test_restore_reads_intake_status_after_parent_lock`
+    (a mutant that read the intake before the lock failed it) and
+    `test_restore_and_bulk_on_one_intake_do_not_deadlock`.
+- **New frontend tests:** `scanrecords.test.mjs` (Scan Detail menu for each current status,
+  Spoiled → For Processing, Sold → In Stock, In Stock → Sold, and the Logs dialog note) and
+  `inventoryStatusChange.test.mjs` (12 note cases). The new-behaviour tests failed before the
+  change.
+- **Results:** backend 1198 passed, 38 skipped with a disposable PostgreSQL 16 cluster, and
+  1130 passed, 106 skipped without it. Frontend 377/377. `npx tsc -b` and `npm run build`
+  pass. ESLint 40 and Ruff 644 (baselines).
+
 ## Fusion collapse recovery, compact-Rear split, and bottom-left platform trim — 2026-11-16
 
 - **New regression tests:**

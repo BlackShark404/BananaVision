@@ -586,6 +586,7 @@ test('Logs latest search wins; status writes use dedicated operation with reason
   assert.equal(await page.locator('tbody').getByText('Slow', { exact: true }).count(), 0)
   await page.getByRole('button', { name: 'Open menu' }).first().click()
   await page.getByRole('menuitem', { name: /Mark Sold/i }).click()
+  await page.getByRole('dialog').getByText('The scan leaves stock. This change will be recorded in the scan history.', { exact: true }).waitFor()
   await page.getByLabel('Reason for change').fill('Dispatched')
   state.onWrite = async body => ({ ...state.record, revision: 2, inventory_status: body.inventory_status })
   await page.getByRole('button', { name: 'Save Changes' }).click()
@@ -1190,3 +1191,63 @@ for (const status of [403, 422]) {
     assert.equal(state.writes.length, 2)
   })
 }
+
+const STATUSES = ['In Stock', 'For Processing', 'Sold', 'Spoiled']
+
+for (const current of STATUSES) {
+  test(`ScanDetail offers an admin every status except ${current}`, async t => {
+    const { page } = await setup(t, 200, { record: { ...scan(), inventory_status: current } })
+    await page.getByRole('button', { name: 'Update status' }).click()
+    for (const target of STATUSES) {
+      const item = page.getByRole('menuitem', { name: `Mark ${target}`, exact: true })
+      await item.waitFor()
+      assert.equal(await item.isDisabled(), target === current, `${current} -> ${target}`)
+    }
+  })
+}
+
+async function changeStatus(t, current, target, reason) {
+  const { page, state } = await setup(t, 200, { record: { ...scan(), inventory_status: current } })
+  await page.getByRole('button', { name: 'Update status' }).click()
+  await page.getByRole('menuitem', { name: `Mark ${target}`, exact: true }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByText(`Mark scan as ${target}?`, { exact: true }).waitFor()
+  const note = await dialog.locator('p').first().textContent()
+  assert.doesNotMatch(note, /terminal status|cannot be easily undone/)
+  await dialog.getByLabel('Reason for change').fill(reason)
+  state.onWrite = async body => {
+    state.record = { ...state.record, revision: 2, inventory_status: body.inventory_status }
+    return state.record
+  }
+  await dialog.getByRole('button', { name: 'Save Changes' }).click()
+  await until(() => state.writes.length === 1)
+  const body = state.writes[0]
+  assert.equal(body.path, `/api/v1/scans/${id}/status`)
+  assert.equal(body.expected_revision, 1)
+  assert.equal(body.inventory_status, target)
+  assert.equal(body.reason, reason)
+  assert.match(body.request_id, /^[0-9a-f-]{36}$/)
+  await dialog.waitFor({ state: 'hidden' })
+  return { page, note }
+}
+
+test('ScanDetail lets an admin correct a Spoiled scan to For Processing', async t => {
+  const { page, note } = await changeStatus(t, 'Spoiled', 'For Processing', 'Marked spoiled by mistake')
+  assert.equal(note, 'This corrects the Spoiled status. This change will be recorded in the scan history.')
+  const metric = page.getByText('Est. Spoilage', { exact: true }).locator('..')
+  await metric.getByText('For processing · no countdown', { exact: true }).waitFor()
+  // The menu stays available, so a second mistake can be corrected too.
+  await page.getByRole('button', { name: 'Update status' }).click()
+  assert.equal(await page.getByRole('menuitem', { name: 'Mark For Processing', exact: true }).isDisabled(), true)
+  assert.equal(await page.getByRole('menuitem', { name: 'Mark Spoiled', exact: true }).isDisabled(), false)
+})
+
+test('ScanDetail lets an admin return a Sold scan to stock and says a depleted intake reopens', async t => {
+  const { note } = await changeStatus(t, 'Sold', 'In Stock', 'Sale was cancelled')
+  assert.equal(note, 'This corrects the Sold status. The scan returns to stock. If its delivery intake is depleted, the intake reopens. This change will be recorded in the scan history.')
+})
+
+test('ScanDetail moving stock to Sold says the scan leaves stock', async t => {
+  const { note } = await changeStatus(t, 'In Stock', 'Sold', 'Dispatched')
+  assert.equal(note, 'The scan leaves stock. This change will be recorded in the scan history.')
+})

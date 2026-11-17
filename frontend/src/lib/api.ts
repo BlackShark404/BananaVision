@@ -13,7 +13,7 @@ import type { LabelPreview, PrintJob } from "@/types/printing"
 import type { CameraDiscovery } from "@/types/cameras"
 import type { InventoryStatus, IntakeStatus } from "@/types"
 import type { AnalyticsRange, AnalyticsSummary, AnalyticsOperator } from "@/types/analytics"
-import type { ApiConfigUpdate, MaintenanceOperation, MaintenanceStatus, RestoreValidation, ApiActivity, ApiConfig, ApiDevice, ApiIntake, ApiMessage, ApiNotification, ApiSensor, ApiSupplier, ApiSupplierWrite, ApiUser, ApiUserCreate, ApiUserCreated, ApiUserUpdate } from "@/types/api"
+import type { ApiConfigUpdate, MaintenanceOperation, MaintenanceStatus, RestoreValidation, ApiActivityPage, ApiConfig, ApiDevice, ApiIntake, ApiMessage, ApiNotification, ApiSensor, ApiSupplier, ApiSupplierWrite, ApiUser, ApiUserCreate, ApiUserCreated, ApiUserUpdate } from "@/types/api"
 
 export interface ScanMutationEnvelope { request_id: string; expected_revision: number }
 
@@ -348,8 +348,8 @@ export const api = {
 
   // ── Activity ─────────────────────────────────────────────────────────────
   activity: {
-    list: (params?: { page?: number; page_size?: number; action?: string }, signal?: AbortSignal) =>
-      get<RecordPage<ApiActivity>>("/api/v1/activity", params, signal),
+    list: (params?: { page?: number; page_size?: number; action?: string; as_of?: string }, signal?: AbortSignal) =>
+      get<ApiActivityPage>("/api/v1/activity", params, signal),
   },
 
   // ── Config ───────────────────────────────────────────────────────────────

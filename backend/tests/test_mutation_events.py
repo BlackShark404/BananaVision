@@ -15,8 +15,10 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from app.models import SensorReading
+from app.models import ActivityLog, Intake, ScanStatusLog, SensorReading
+from app.schemas.enums import IntakeStatusEnum, InventoryStatusEnum
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from tests.test_time_and_writes import SessionAdapter
@@ -215,6 +217,102 @@ def test_intake_and_bulk_events_follow_commit(application, monkeypatch):
     assert "images" not in scan_event["scan"]
     assert intake_events[-1][1]["kind"] == "bulk-inventory"
     assert intake_events[-1][0][-1] == "commit"
+
+
+def _sold_scan_in_depleted_intake(application):
+    with Session(application.engine) as db:
+        log = db.scalar(
+            select(ScanStatusLog).where(ScanStatusLog.scan_id == application.ids.scan)
+        )
+        log.inventory_status = InventoryStatusEnum.SOLD
+        db.get(Intake, application.ids.intake).status = IntakeStatusEnum.DEPLETED
+        db.commit()
+
+
+def _intake_reopen_count(application):
+    with Session(application.engine) as db:
+        return db.scalar(
+            select(func.count()).select_from(ActivityLog)
+            .where(ActivityLog.action == "intake_status_changed")
+        )
+
+
+def test_reopened_intake_event_follows_commit_and_replays_once(application, monkeypatch):
+    from app.schemas.scan import ScanStatusUpdate
+    from app.services import scan_records
+
+    _sold_scan_in_depleted_intake(application)
+    scan_events, intake_events = [], []
+
+    async def capture_scan(event, *, owner_account_id=None):
+        scan_events.append((list(application.state.events), event))
+
+    async def capture_intake(event):
+        intake_events.append((list(application.state.events), event))
+
+    monkeypatch.setattr(scan_records, "publish_scan_event", capture_scan)
+    monkeypatch.setattr(scan_records, "publish_intake_event", capture_intake)
+
+    async def restore():
+        async with SessionAdapter(application.engine, application.state) as db:
+            body = ScanStatusUpdate(
+                request_id=uuid4(), expected_revision=1, inventory_status="In Stock",
+                reason="Sold by mistake",
+            )
+            saved = await scan_records.mutate_scan(
+                db, application.ids.scan, _actor(application), "status", body
+            )
+            # Replaying the same request returns the receipt; nothing reopens or publishes again.
+            replay = await scan_records.mutate_scan(
+                db, application.ids.scan, _actor(application), "status", body
+            )
+            assert replay == saved
+            return saved
+
+    saved = asyncio.run(restore())
+    assert saved["inventory_eligible"] is True
+    assert len(scan_events) == 1 and len(intake_events) == 1
+    assert scan_events[0][0] == ["commit"] and intake_events[0][0] == ["commit"]
+    assert scan_events[0][1]["scan"]["inventory_status"] == "In Stock"
+    assert scan_events[0][1]["scan"]["inventory_eligible"] is True
+    event = intake_events[0][1]
+    assert event["kind"] == "scan-status"
+    assert event["intake_id"] == str(application.ids.intake)
+    assert event["actor_id"] == str(application.ids.admin)
+    assert event["status"] == "Active"
+    assert set(event["intake"]) == {"id", "status", "updated_at"}
+    assert event["intake"]["status"] == "Active" and event["intake"]["updated_at"]
+    assert _intake_reopen_count(application) == 1
+
+
+def test_reopen_is_rolled_back_and_unpublished_when_commit_fails(application, monkeypatch):
+    from app.models import Scan
+    from app.services import scan_records
+
+    _sold_scan_in_depleted_intake(application)
+    published = []
+
+    async def capture_scan(event, *, owner_account_id=None):
+        published.append(event)
+
+    async def capture_intake(event):
+        published.append(event)
+
+    monkeypatch.setattr(scan_records, "publish_scan_event", capture_scan)
+    monkeypatch.setattr(scan_records, "publish_intake_event", capture_intake)
+    application.state.fail_commit = True
+    response = application.client.patch(
+        f"/api/v1/scans/{application.ids.scan}/status",
+        json={"request_id": str(uuid4()), "expected_revision": 1,
+              "inventory_status": "In Stock", "reason": "Sold by mistake"},
+    )
+    assert response.status_code == 500
+    assert application.state.events == ["commit", "rollback", "response:500"]
+    assert published == []
+    with Session(application.engine) as db:
+        assert db.get(Intake, application.ids.intake).status == IntakeStatusEnum.DEPLETED
+        assert db.get(Scan, application.ids.scan).revision == 1
+    assert _intake_reopen_count(application) == 0
 
 
 def test_supplier_events_are_post_commit_and_carry_reference_data(application, monkeypatch):

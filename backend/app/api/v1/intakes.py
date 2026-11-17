@@ -32,7 +32,7 @@ from app.core.http import get_client_ip
 from app.models.supplier import Supplier
 from app.models.intake import Intake
 from app.models.scan import Scan
-from app.models.activity_log import ActivityLog
+from app.services import audit
 from app.ws.mutations import (
     intake_event,
     publish_intake_event,
@@ -98,12 +98,16 @@ async def create_intake(body: IntakeCreate, db: DbSession, user: CurrentUser, re
     sup_result = await db.execute(select(Supplier).where(Supplier.id == new_intake.supplier_id))
     sup = sup_result.scalar_one_or_none()
 
-    db.add(ActivityLog(
-        user_id=user.id,
-        action="intake_created",
-        details=f"Created intake {new_intake.id}",
-        ip_address=get_client_ip(request),
-    ))
+    supplier_text = audit.quoted(sup.name) if sup else "unknown"
+    batch_text = audit.quoted(new_intake.batch_number) if new_intake.batch_number else "none"
+    source_text = audit.quoted(new_intake.source) if new_intake.source else "none"
+    await audit.record(
+        db, audit.AuditAction.INTAKE_CREATED,
+        f"Created intake {new_intake.id} for supplier {supplier_text} "
+        f"({new_intake.supplier_id}): batch {batch_text}, source {source_text}, "
+        f"treatment {audit.clean(new_intake.treatment) or 'none'}",
+        actor=user, ip=get_client_ip(request),
+    )
 
     response = IntakeResponse(
         id=new_intake.id,
@@ -186,13 +190,14 @@ async def update_intake_status(
     if not intake:
         raise NotFoundException("Intake")
 
+    old_status = intake.status
     intake.status = body.status
-    db.add(ActivityLog(
-        user_id=admin.id,
-        action="intake_status_changed",
-        details=f"Intake {intake_id} status → {body.status.value}",
-        ip_address=get_client_ip(request),
-    ))
+    if old_status != body.status:  # Saving the same status is not an event.
+        await audit.record(
+            db, audit.AuditAction.INTAKE_STATUS_CHANGED,
+            f"Intake {intake_id} status {audit.clean(old_status)} → {audit.clean(body.status)}",
+            actor=admin, ip=get_client_ip(request),
+        )
     await db.commit()
     await publish_intake_event(
         intake_event(
@@ -281,15 +286,21 @@ async def bulk_update_intake_inventory(
             for scan in scans
         )
     )
+    old_intake_status = intake.status
     intake.status = IntakeStatusEnum.ACTIVE if final_in_stock else IntakeStatusEnum.DEPLETED
-    db.add(
-        ActivityLog(
-            user_id=admin.id,
-            action="intake_status_changed",
-            details=f"Bulk updated {len(updated_ids)} scans in intake {intake_id}: {body.reason}",
-            ip_address=get_client_ip(request),
+    if updated_ids or intake.status != old_intake_status:  # Nothing changed: no event.
+        intake_change = (
+            f"intake status {audit.clean(old_intake_status)} → {audit.clean(intake.status)}"
+            if intake.status != old_intake_status
+            else f"intake status {audit.clean(intake.status)} unchanged"
         )
-    )
+        await audit.record(
+            db, audit.AuditAction.INTAKE_STATUS_CHANGED,
+            f"Bulk inventory for intake {intake_id}: {len(updated_ids)} of {len(scans)} scans "
+            f"set to {audit.clean(body.inventory_status)}; "
+            f"reason {audit.quoted(body.reason, 200)}; {intake_change}",
+            actor=admin, ip=get_client_ip(request),
+        )
     response = {
         "message": f"Updated {len(updated_ids)} scans",
         "updated_count": len(updated_ids),

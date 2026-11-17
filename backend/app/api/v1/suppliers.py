@@ -12,13 +12,20 @@ from sqlalchemy import select
 from app.api.deps import DbSession, CurrentUser, AdminUser
 from app.core.exceptions import NotFoundException
 from app.models.supplier import Supplier
-from app.models.activity_log import ActivityLog
 from app.core.http import get_client_ip
+from app.services import audit
 from app.schemas.common import SupplierCreate, SupplierUpdate, SupplierResponse
 from app.ws.mutations import publish_supplier_event, supplier_event
 
 
 router = APIRouter(prefix="/suppliers", tags=["Suppliers"])
+
+# Contact fields are personal data: the audit log notes that they changed, never the value.
+AUDITED_FIELDS = ("name", "contact_person", "contact_phone", "status")
+
+
+def _audit_snapshot(supplier: Supplier) -> dict:
+    return {field: getattr(supplier, field) for field in AUDITED_FIELDS}
 
 
 @router.get("", response_model=list[SupplierResponse])
@@ -33,12 +40,13 @@ async def create_supplier(body: SupplierCreate, db: DbSession, admin: AdminUser,
     """Create a new supplier."""
     supplier = Supplier(**body.model_dump())
     db.add(supplier)
-    db.add(ActivityLog(
-        user_id=admin.id,
-        action="supplier_created",
-        details=f"Added supplier '{body.name}'",
-        ip_address=get_client_ip(request),
-    ))
+    await db.flush()
+    await audit.record(
+        db, audit.AuditAction.SUPPLIER_CREATED,
+        f"Created supplier {audit.quoted(supplier.name)} ({supplier.id}), "
+        f"status {audit.clean(supplier.status)}",
+        actor=admin, ip=get_client_ip(request),
+    )
     await db.flush()
     response = SupplierResponse.model_validate(supplier)
     await db.commit()
@@ -63,15 +71,17 @@ async def update_supplier(
     if not supplier:
         raise NotFoundException("Supplier")
 
+    before = _audit_snapshot(supplier)
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(supplier, field, value)
 
-    db.add(ActivityLog(
-        user_id=admin.id,
-        action="supplier_updated",
-        details=f"Updated supplier '{supplier.name}'",
-        ip_address=get_client_ip(request),
-    ))
+    changes = audit.describe_changes(before, _audit_snapshot(supplier))
+    if changes:  # Saving unchanged values is not an event.
+        await audit.record(
+            db, audit.AuditAction.SUPPLIER_UPDATED,
+            f"Updated supplier {audit.quoted(before['name'])} ({supplier.id}): {changes}",
+            actor=admin, ip=get_client_ip(request),
+        )
 
     await db.flush()
     response = SupplierResponse.model_validate(supplier)

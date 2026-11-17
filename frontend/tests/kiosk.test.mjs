@@ -212,12 +212,30 @@ test('kiosk offers real scans only and requires an intake before scanning', asyn
 })
 
 test('kiosk resumes the open active intake instead of creating a duplicate', async t => {
+  // The fixture clock is 12:00 on 2026-10-02 in Manila, so this intake was started today.
   const { page, state } = await setup(t, { intakes: [{
     id: 'restored-intake', supplier_id: 'supplier-1', supplier_name: 'Fixture Supplier',
-    batch_number: 'BCH-OPEN', status: 'Active', intake_date: '2026-10-14', scan_count: 0,
+    batch_number: 'BCH-OPEN', status: 'Active', intake_date: '2026-10-02', scan_count: 0,
   }] })
   await page.getByText(/Fixture Supplier \(BCH-OPEN\)/).waitFor()
   assert.equal(await page.getByRole('button', { name: 'Scan Now', exact: true }).isEnabled(), true)
+  assert.equal(state.writes.length, 0)
+})
+
+test('kiosk does not resume an active intake from an earlier day, such as one reopened by a correction', async t => {
+  const { page, state } = await setup(t, { intakes: [
+    { id: 'reopened-old', supplier_id: 'supplier-1', supplier_name: 'Fixture Supplier',
+      batch_number: 'BCH-OLD', status: 'Active', intake_date: '2026-10-01', scan_count: 3 },
+    { id: 'older-still', supplier_id: 'supplier-1', supplier_name: 'Fixture Supplier',
+      batch_number: 'BCH-OLDER', status: 'Active', intake_date: '2026-09-28', scan_count: 1 },
+  ] })
+  await page.getByRole('button', { name: /Select Source/ }).waitFor()
+  assert.equal(await page.getByText(/BCH-OLD/).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Scan Now', exact: true }).isDisabled(), true)
+  // A focus reconcile must not pick the old intake up later either.
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await page.clock.runFor(1000)
+  assert.equal(await page.getByText(/BCH-OLD/).count(), 0)
   assert.equal(state.writes.length, 0)
 })
 

@@ -8,7 +8,7 @@ process.env.TZ = 'America/Los_Angeles'
 
 const source = await readFile(new URL('../src/lib/manilaTime.ts', import.meta.url), 'utf8')
 const { code } = await transform(source, { loader: 'ts', format: 'esm' })
-const { MANILA_TIME_ZONE, inManila, manilaDayKey, manilaToday } =
+const { MANILA_TIME_ZONE, inManila, manilaDayKey, manilaToday, isManilaToday } =
   await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
 
 const at = iso => Date.parse(iso)
@@ -39,6 +39,24 @@ test('the Manila calendar day changes at 16:00 UTC, not at local or UTC midnight
   assert.equal(manilaDayKey(at('2026-10-02T00:00:00Z')), '2026-10-02')
   assert.equal(manilaDayKey(new Date('2026-12-31T16:00:00Z')), '2027-01-01')
   assert.match(manilaDayKey(), /^\d{4}-\d{2}-\d{2}$/)
+})
+
+test('isManilaToday compares a stored business date or instant with the Manila day', () => {
+  const noon = at('2026-10-02T04:00:00Z')  // 12:00 on 2026-10-02 in Manila
+  assert.equal(isManilaToday('2026-10-02', noon), true)
+  assert.equal(isManilaToday('2026-10-01', noon), false)
+  assert.equal(isManilaToday('2026-10-03', noon), false)
+  // Instants are read in Manila: 23:30 on 10-01 UTC is already 10-02 in Manila.
+  assert.equal(isManilaToday('2026-10-01T23:30:00Z', noon), true)
+  assert.equal(isManilaToday('2026-10-02T08:10:00+08:00', noon), true)
+  assert.equal(isManilaToday('2026-10-01T15:59:59Z', noon), false)
+  // Just after Manila midnight, yesterday's business date is no longer today.
+  const afterMidnight = at('2026-10-02T16:05:00Z')
+  assert.equal(isManilaToday('2026-10-02', afterMidnight), false)
+  assert.equal(isManilaToday('2026-10-03', afterMidnight), true)
+  for (const value of ['', 'not-a-date', null, undefined, '2026-13-40']) {
+    assert.equal(isManilaToday(value, noon), false, String(value))
+  }
 })
 
 test('manilaToday is the local calendar date of the Manila day for the date picker', () => {

@@ -89,7 +89,7 @@ def test_scan_excel_all_rows_filters_permissions_and_full_text(
         snapshots[saved.id] = saved
         return saved
 
-    async def load(_db, _user, token, key):
+    async def load(_db, _user, token, key, lock=True):
         saved = snapshots[token]
         if key != saved.binding:
             raise HTTPException(409, "Browse filters changed")

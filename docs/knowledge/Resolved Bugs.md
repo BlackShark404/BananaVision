@@ -2,6 +2,48 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-11-17: Audit log gaps (lockout row lost, refused access and backups unlogged)
+
+- **Symptoms found by the audit-coverage review:**
+  - **Lockout rows lost:** the failed sign-in (or PIN) that triggered a lockout was added
+    and then rolled back by the 429, so the trail showed four failures for a five-failure
+    lockout.
+  - **Missing events:** backup downloads, which contain credential hashes, plus restores,
+    exports, refused access and failed current-password checks were never logged.
+  - **Activity Log page broke:** it threw "could not be loaded completely" when rows
+    arrived while it was paging.
+- **Root causes:**
+  - Audit rows were built inline in the request transaction.
+  - `get_db` rolls back on any `HTTPException`.
+  - No component logged 403s or maintenance outcomes.
+  - The page used offset paging without a fixed boundary.
+- **Fixes:** the single writer in `services/audit.py` (record/emit/attach plus a global
+  handler), and `as_of` paging for `GET /api/v1/activity`. See [[Development Decisions]]
+  (2026-11-17 audit entry).
+- **Also fixed during the work:**
+  - An ORM user kept for refused-access rows was expired after the rollback, so the
+    handler silently wrote nothing. A plain snapshot is kept now.
+  - An audit write while the request held a `FOR UPDATE` lock could hang the request;
+    `attach` and a 5 s `lock_timeout` prevent it.
+
+## 2026-11-17: A Spoiled or Sold scan could not be corrected on Scan Detail
+
+- **Symptom (station screenshot):** an admin opened a Spoiled scan's Scan Detail and found
+  no status control, so a Spoiled entered by mistake could not be changed there.
+- **Root causes:**
+  1. `VALID_TRANSITIONS` in `frontend/src/pages/ScanDetail.tsx` gave Sold and Spoiled no
+     targets, and the menu was hidden when a status had no targets. The rule existed only in
+     the browser; `PATCH /scans/{id}/status` never enforced it, and the Scan Logs row menu
+     already allowed any change.
+  2. Hidden second gap: a scan returned to In Stock inside a **Depleted** intake stayed out of
+     stock counts, because stock only counts in an Active intake and single-scan changes never
+     updated the intake.
+- **Fixes:** Scan Detail offers every status except the current one. `mutate_scan` reopens a
+  Depleted intake when an admin returns one of its scans to In Stock (activity log entry and
+  post-commit `intake:changed`). Operators get 403 for leaving Sold or Spoiled and for a
+  change that would reopen an intake. See [[Development Decisions]] (2026-11-17).
+- **Verification:** See [[Testing and Validation]] (2026-11-17).
+
 ## 2026-11-16: Horizontal radial-wing subtraction, <12-Rear / single-side two-tier collapses, and bottom-right Top peel safety
 
 - **Symptoms (2026-11-15/16 4-camera station screenshots):**

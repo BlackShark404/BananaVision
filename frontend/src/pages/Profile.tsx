@@ -23,6 +23,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { inManila } from "@/lib/manilaTime"
+import { activityProfileLabel } from "@/lib/activityActions"
 
 export default function Profile() {
   const { user, changePassword, changePin } = useAuth()
@@ -100,37 +101,12 @@ export default function Profile() {
     return () => controller.abort()
   }, [user])
 
-  const formatActivityLabel = (action: string, details: string) => {
-    switch (action) {
-      case "login":
-        return "Signed in to the web dashboard"
-      case "logout":
-        return "Signed out from the session"
-      case "scan_created":
-        return "Captured a new banana scan in Kiosk"
-      case "scan_edited":
-        return "Updated scan data in Quality Control"
-      case "scan_flagged":
-        return "Flagged a scan for manual review"
-      case "scan_rejected":
-        return "Scan rejected: no supported banana detected"
-      case "intake_created":
-        return "Recorded a new delivery intake"
-      case "intake_status_changed":
-        return "Updated intake status in Intake Management"
-      case "config_changed":
-        return "Adjusted system configuration settings"
-      default:
-        return details
-    }
-  }
-
   const recentActivityFeed = useMemo(() => {
     const userActivity = summary?.activity ?? []
     if (userActivity.length > 0) {
       return userActivity.slice(0, 8).map((activity) => ({
         id: activity.id,
-        details: formatActivityLabel(activity.action, activity.details),
+        details: activityProfileLabel(activity.action, activity.details),
         timestamp: activity.timestamp,
       }))
     }

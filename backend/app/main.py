@@ -22,6 +22,7 @@ from app.ws.handlers import websocket_endpoint
 from app.core.startup import run_startup, run_shutdown, start_background_tasks
 from app.core.time import manila_struct_time
 from app.services.runtime_operations import StationAdmissionMiddleware
+from app.services import audit
 
 settings = get_settings()
 
@@ -95,6 +96,10 @@ app = CorsFastAPI(
 # ── CORS ─────────────────────────────────────────────────────────────────────
 # CorsFastAPI wraps both admission and the server error handler.
 app.add_middleware(StationAdmissionMiddleware)
+
+# ── Audit ────────────────────────────────────────────────────────────────────
+# Writes failure events after rollback and logs refused access (403), throttled.
+audit.install(app)
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 app.include_router(v1_router)

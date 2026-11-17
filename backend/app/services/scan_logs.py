@@ -147,10 +147,10 @@ def _snapshot_key(query):
     ))
 
 
-async def _snapshot(db, user, query):
+async def _snapshot(db, user, query, *, lock=True):
     """Allow only an at-risk subset of the same authorized, frozen result."""
     try:
-        return await load_snapshot(db, user, query.snapshot_id, _snapshot_key(query))
+        return await load_snapshot(db, user, query.snapshot_id, _snapshot_key(query), lock=lock)
     except HTTPException as error:
         if error.status_code != 409 or query.attention != "at-risk":
             raise
@@ -158,7 +158,7 @@ async def _snapshot(db, user, query):
         try:
             saved = await load_snapshot(
                 db, user, query.snapshot_id,
-                _snapshot_key(query.model_copy(update={"attention": attention})),
+                _snapshot_key(query.model_copy(update={"attention": attention})), lock=lock,
             )
         except HTTPException as error:
             if error.status_code != 409:
@@ -395,6 +395,16 @@ def _safe_cell(value):
     if value.startswith(("\t", "\r", "\n")) or dangerous:
         return "'" + value
     return value
+
+
+async def check_export_snapshot(db: AsyncSession, user: UserAccount, query: ScanLogQuery):
+    """Refuse an expired, foreign or changed snapshot before the export is audited.
+
+    The check reads without locking the account row, because the audit insert that follows
+    would wait on that lock. The export repeats the locked check when it reads the snapshot.
+    """
+    if query.snapshot_id:
+        await _snapshot(db, user, query, lock=False)
 
 
 async def export_scan_logs(db: AsyncSession, user: UserAccount, query: ScanLogQuery):

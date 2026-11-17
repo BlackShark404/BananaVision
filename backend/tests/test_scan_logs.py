@@ -9,11 +9,13 @@ from uuid import uuid4
 import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
-from sqlalchemy import update
+from sqlalchemy import select, update
 
 from app.api.deps import get_current_user
 from app.api.v1.scan_logs import router
+from app.core import database
 from app.core.database import get_db, get_stream_db
+from app.models.activity_log import ActivityLog
 from app.models.intake import Intake
 from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
@@ -24,10 +26,11 @@ from app.schemas.enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
 from app.schemas.scan_logs import ScanLogQuery
 from app.services import dashboard, scan_logs
 from tests.test_dashboard import NOW, account, db, scan  # noqa: F401
+from tests.test_time_and_writes import SessionAdapter
 
 
 @pytest.fixture
-def logs_db(db):
+def logs_db(db, monkeypatch):
     class AsyncRows:
         def __init__(self, result):
             self.result = result
@@ -43,6 +46,22 @@ def logs_db(db):
         return AsyncRows(db.session.execute(statement))
 
     db.stream = stream
+    # Exports are audited. The rows go to this disposable database: a request's own row
+    # through its session, an export stream's row through a separate session.
+    engine = db.session.get_bind()
+    ActivityLog.__table__.create(engine, checkfirst=True)
+    insert_values = db.add
+
+    def add(model, **values):
+        if isinstance(model, type):
+            return insert_values(model, **values)
+        db.session.add(model)
+
+    db.add = add
+    db.audit_state = SimpleNamespace(fail_commit=False, events=[])
+    monkeypatch.setattr(
+        database, "async_session_factory", lambda: SessionAdapter(engine, db.audit_state),
+    )
     return db
 
 
@@ -91,7 +110,7 @@ async def test_stock_eligible_filters_list_export_and_snapshot_binding(
         snapshots[saved.id] = saved
         return saved
 
-    async def load(_db, _user, identifier, key):
+    async def load(_db, _user, identifier, key, lock=True):
         saved = snapshots[identifier]
         if key != saved.binding:
             raise HTTPException(409, "Filters changed")
@@ -194,7 +213,7 @@ async def test_risk_rows_counts_filters_and_export_share_unrounded_stock_rule(
         snapshots[saved.id] = saved
         return saved
 
-    async def load(_db, _user, identifier, key):
+    async def load(_db, _user, identifier, key, lock=True):
         saved = snapshots[identifier]
         if key != saved.binding:
             raise HTTPException(409, "Filters changed")
@@ -316,7 +335,7 @@ async def test_vpd_snapshot_keeps_recorded_value_and_legacy_missing_stays_unknow
         saved = SimpleNamespace(id=uuid4(), payload=payload, expires_at=NOW + timedelta(minutes=10))
         return saved
 
-    async def load(*_args):
+    async def load(*_args, **_kwargs):
         return saved
 
     monkeypatch.setattr(auth_service, "lock_current_account", lock)
@@ -539,6 +558,10 @@ def test_api_query_validation_authentication_export_and_page_independent_metrics
         assert exported.status_code == 200
         assert len(list(csv.DictReader(io.StringIO(exported.text.lstrip("\ufeff"))))) == 23
         assert "attachment" in exported.headers["content-disposition"]
+        # Paging never limits an export, so it is not recorded as a filter.
+        assert db.session.scalars(
+            select(ActivityLog.details).where(ActivityLog.action == "data_exported")
+        ).all() == ["Exported scan logs (csv, own scans): filters none"]
         for params in (
             {"page": 0}, {"page_size": 101}, {"business_date": "bad"}, {"operator_id": "bad"},
             {"intake_id": "bad"}, {"cultivar": "bad"}, {"ripeness": "bad"},
@@ -639,7 +662,7 @@ async def test_at_risk_subset_of_a_snapshot_counts_review_as_flagged(logs_db, mo
         ))
         return stored["saved"]
 
-    async def load(_db, _user, _token, key):
+    async def load(_db, _user, _token, key, lock=True):
         if key != stored["key"]:
             raise HTTPException(409, "Browse filters changed.")
         return stored["saved"]
@@ -740,7 +763,7 @@ async def test_pending_count_tracks_only_new_matching_scoped_scans(logs_db, monk
         snapshots[saved.id] = saved
         return saved
 
-    async def load(_db, _user, identifier, key):
+    async def load(_db, _user, identifier, key, lock=True):
         saved = snapshots[identifier]
         if key != saved.binding:
             raise HTTPException(409, "Filters changed")

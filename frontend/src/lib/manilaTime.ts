@@ -28,3 +28,22 @@ export function manilaToday(time: number | Date = Date.now()): Date {
   const [year, month, day] = manilaDayKey(time).split("-").map(Number)
   return new Date(year, month - 1, day)
 }
+
+const BUSINESS_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Whether a stored business date (YYYY-MM-DD, already a Manila day) or an instant falls on
+ * today's Manila calendar day. Unreadable values are never today.
+ */
+export function isManilaToday(value: string | null | undefined, now: number | Date = Date.now()): boolean {
+  if (!value) return false
+  let day: string
+  if (BUSINESS_DATE.test(value)) {
+    day = value
+  } else {
+    const instant = Date.parse(value)
+    if (Number.isNaN(instant)) return false
+    day = manilaDayKey(instant)
+  }
+  return day === manilaDayKey(now)
+}

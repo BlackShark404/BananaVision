@@ -1,41 +1,61 @@
-CURRENT RESUME HERE (2026-11-17) - SOLD/SPOILED/FOR PROCESSING EST. SPOILAGE FORMAT
+CURRENT RESUME HERE (2026-11-17) - COMPLETE AUDIT LOGGING (PART 2 OF 3)
 
-The previous checkpoint (Scan Logs opens on All dates; PR #14 merged to team main as
-d561df8, same tree as a21b744) is archived
-byte-for-byte in docs/history/2026-11-17-before-closed-stock-spoilage.txt. Its STILL OPEN
-items carry over below.
+The previous checkpoint (admin Sold/Spoiled correction, kiosk today-only resume; pushed to
+fork main as 7f8e858) is archived byte-for-byte in
+docs/history/2026-11-17-before-audit-logging.txt.
 
-USER REQUEST (2026-11-17, after station testing)
-- "Fix the old scan logs data to follow the format in scan logs data especially in the
-  est. spoilage." Sold rows showed a bare "8–9 days"; In Stock rows show a countdown with
-  "Est. 3–4 days from scan" beneath.
-- User choices: "Status + estimate line" and "all three" pages (Scan Logs, Scan Detail,
-  Quality Control dialog).
+USER REQUEST (2026-11-17)
+- "Make sure also the audit logs properly logs all CRUD operations and other things. Do
+  what must be done and best practice and continue that Resume today only".
+- User choices: keep the actor's name with each entry (Part 3), log refused access
+  (throttled), keep the audit log across restores (Part 3).
 
-DONE
-- frontend/src/lib/spoilageDisplay.ts: closedStockSpoilageLabel(status) returns
-  "Sold · no countdown", "Spoiled · no countdown" or "For processing · no countdown";
-  null for In Stock, unknown and prototype keys (Object.hasOwn).
-- Scan Logs cell, Scan Detail Est. Spoilage metric and the Quality Control dialog: the
-  outcome sits where the countdown would be, with "Est. … from scan" beneath. The beneath
-  line is hidden when the estimate is Unknown. A record with no status keeps the plain
-  estimate.
-- Unchanged: In Stock countdown, sorting, at-risk icon, exports, the public QR page (counts
-  down for every status), Kiosk Recent Scans, the backend and stored values.
-- Tests:
-  - scanrecords: Logs Sold rows (two tests), Scan Detail Sold (two tests), new Quality
-    Control dialog tests for Spoiled and For Processing. All 6 failed before the change.
-  - spoilageDisplay: helper unit test (also caught the prototype-key bug).
-- Docs: Frontend (shelf-life section), Development Decisions (2026-11-13 countdown entry,
-  revised 2026-11-17).
+DONE (Part 2, this commit)
+- backend/app/services/audit.py: the single writer.
+  - Writers: AuditAction vocabulary; record (same transaction); emit (own session, defers
+    while the station is not ready, required=True egress fails closed with 503); attach
+    plus a global handler that writes failure events after rollback.
+  - Refused access: access_denied for 403, throttled per actor, route and reason (10 min).
+  - Safety: anonymous cap 120/min, lock_timeout 5s, bananavision.audit file mirror.
+- All 25 inline ActivityLog writes migrated (a guard test enforces it).
+- Sign-in:
+  - the lockout row survives the 429; new account_locked, login_blocked, login_denied,
+    credential_setup_started, pin_login;
+  - specific credential actions;
+  - change-password, change-PIN and re-auth get the credential_limiter (429);
+  - unrecognized usernames are never stored.
+- Maintenance: backup created/failed/downloaded, restore validated/completed/failed
+  (exactly once, after verify_live), recovery, power cancel/failed/completed,
+  config_applied, retention, bootstrap, system_started.
+- Records: old -> new details, no-ops skipped, user_role_changed/user_status_changed,
+  profile_updated, scan details with reason (never note text), scan_failed, data_exported
+  (config and scan-log exports), label print/retry.
+- Read side: GET /activity as_of paging; frontend lib/activityActions.ts gives labels,
+  categories, colours and the critical set for every action, plus a sync test against
+  audit.py.
+- Docs: Database (Activity log section), Development Decisions, Resolved Bugs, Frontend,
+  Testing and Validation, USER_GUIDE, data dictionary Table 37, schema draft note,
+  backend README, storyboard Figure 84.
 
 VERIFICATION
-- Frontend full suite 369/369 (includes the Manila time guard).
-- `npx tsc -b` and `npm run build` pass. ESLint 40 (baseline); changed files have no new
-  problems (Logs 4, Quality Control 7 existed before).
-- Screenshot node_modules/.tmp/bv-shelf-life-logs.png shows the Sold row in the two-line
-  shape.
-- Backend untouched; not re-run.
+- Backend: 1290 passed, 38 skipped with a disposable PostgreSQL 16 cluster; 1215 passed,
+  113 skipped without it. Ruff 644 (baseline).
+- Frontend: 389/390. The analytics refresh failure is the known clock race; it passes 9/9
+  alone, twice. tsc -b and build pass. ESLint 36 (was 40).
+- Review follow-up (four-lens review with skeptics: 14 of 15 findings confirmed, 9 after
+  merging duplicates), fixed in a separate commit:
+  - Egress: required egress is refused in recovery/maintenance and written at once while a
+    restart is pending.
+  - Backlog: one drain lock (no double writes); a failed write requeues; a warning when
+    the queue drops events; flush after camera apply and at shutdown.
+  - Cap: failures against real accounts are not capped.
+  - File log: shows only committed record() rows.
+  - Reading: GET /activity boundary = later of now and the newest row.
+  - Export: a snapshot export is checked read-only before data_exported is written.
+  - Frontend: the login_blocked label is now "Blocked while locked"; the frontend boundary
+    test is real (mutation-checked).
+  - Results after the fixes: backend 1301 passed / 38 skipped with PostgreSQL, 1226 / 113
+    without; frontend 391/391; tsc -b and build pass; ESLint 36; Ruff 644.
 
 STILL OPEN
 - The station data release (teammate guide PDF), then:
@@ -53,6 +73,14 @@ STILL OPEN
   the archived checkpoints.
 - Type check: use `npx tsc -b` (or `npm run build`), not `npm run typecheck`.
 
+IN PROGRESS (approved plan, 2026-11-17)
+- Part 3: audit integrity:
+  - activity_log.actor_name snapshot plus migration 0012 plus backup archive v5 (older
+    archives still restorable);
+  - the audit log is kept across restores;
+  - a PostgreSQL append-only trigger.
+- Plan: /root/.claude/plans/before-you-continue-why-optimized-sphinx.md (session-local).
+
 EXACT NEXT STEP
-- User opens the team PR for this change from the fork's main:
+- Part 3 (audit integrity). Then the user opens the team PR from the fork's main:
   https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main

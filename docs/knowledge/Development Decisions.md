@@ -2,6 +2,81 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-17: Complete audit logging through one writer
+
+- **Request:** "Make sure also the audit logs properly logs all CRUD operations and other
+  things. Do what must be done and best practice."
+- **Before:** 25 inline `ActivityLog(...)` writes, no helper.
+  - **Lost on rollback:** the failed sign-in that caused a lockout.
+  - **Not logged at all:** backups, backup downloads, restores, recovery, exports, refused
+    access, failed re-authentication, failed current-password/PIN checks, inactive and
+    temporary-credential sign-ins, power cancel and outcomes, printing, retention and
+    startup.
+  - **Lumped together:** seven credential events were `user_updated`, and kiosk PIN
+    sign-in was `login`.
+- **Decisions:**
+  1. One writer, `backend/app/services/audit.py`, with a fixed vocabulary (`AuditAction`).
+     Existing names stay for unchanged events; old rows are not rewritten.
+  2. Record changes use `record()` in the same transaction (fail closed). Failures,
+     denials and exports use `emit()` or `attach()`. These write after the rollback and
+     never turn a 401/403/429 into a 500.
+  3. Data that leaves the station (backup download, scan-log export) is not served
+     without its audit row (503). It is refused while the station is in recovery or
+     maintenance, and written at once while a restart or shutdown is pending. (Review
+     finding: it was only held in memory, so a reboot could lose it.)
+  4. Refused access (403) is logged centrally, throttled per actor, route and reason.
+     401s from expired tabs are not stored. (User decision: "Yes, throttled".)
+  5. Change-password, change-PIN and maintenance re-authentication get the same rate
+     limit as sign-in.
+  6. Maintenance control paths never write into their request session. Non-owners defer
+     while the station is not ready; the restore owner writes its outcome in `_finish`
+     after `verify_live`, exactly once.
+- **Not logged (noise):** ordinary GET reads, notification read receipts, automatic label
+  printing, device online/offline changes.
+- **Not visible to the server:** exports made in the browser (Activity Log, Quality
+  Control and Delivery Intake CSV/XLSX).
+- See [[Database]] (Activity log) for the vocabulary and details grammar.
+
+## 2026-11-17: Admins can correct a Sold or Spoiled scan; restoring stock reopens its intake
+
+- **Problem (station report):** Scan Detail showed no status control for a Spoiled scan, so
+  an admin who chose Spoiled by mistake (instead of For Processing or Sold) could not fix it
+  there. The lock was frontend-only: `VALID_TRANSITIONS` in `ScanDetail.tsx` gave Sold and
+  Spoiled no targets and never offered In Stock. The backend never enforced it, and the
+  Scan Logs row menu already allowed any change.
+- **User decisions:**
+  1. Scan Detail offers an admin every status except the current one, the same rule as the
+     Scan Logs row menu. A reason is still required and each change is in Scan History.
+  2. A single-scan change back to **In Stock** reopens a **Depleted** delivery intake
+     (Active). Stock only counts in an Active intake (`inventory_policy.eligible_stock` and
+     `inventory_facts`), so without this the restored scan stayed out of Inventory, at-risk,
+     dashboard expiring and analytics. Single changes to Sold or Spoiled still do not
+     deplete an intake.
+  3. Single scans only. Delivery Intake "Mark all …" and the bulk API's skip of Sold and
+     Spoiled scans are unchanged, so a bulk action never overwrites a recorded outcome.
+- **Operators:** they may still change status on their own scans through the API (no UI).
+  Leaving Sold or Spoiled, and any change that would reopen a Depleted intake, now return
+  403. This mirrors the rule that only an admin removes a flag; intake status is otherwise
+  admin-only.
+- **Implementation:** `mutate_scan` in `backend/app/services/scan_records.py`. The reopen
+  decision reads `scan.intake` after the existing parent-first intake lock (the scan reload
+  with `populate_existing` re-reads it), so no lock is added and the lock order stays the
+  same as bulk inventory and scan attachment. The reopen writes `intake_status_changed` to
+  the activity log, sets the intake's `updated_at` to the status change time, and after
+  commit publishes `intake:changed` with kind `scan-status` (same payload as bulk). A replayed
+  request returns its receipt and changes nothing.
+- **Dialog wording:** `inventoryStatusChangeNote` (`frontend/src/lib/inventoryStatusChange.ts`)
+  replaces "This is a terminal status and cannot be easily undone" on Scan Detail and is also
+  used by the Scan Logs dialog. The Delivery Intake bulk dialog keeps its terminal warning,
+  which is still true for bulk.
+- **Kiosk resume (review finding, user decision "Resume today only"):** this change adds the
+  first page action that reopens a Depleted intake (Delivery Intake never offers "Mark all
+  In Stock"). The kiosk used to resume the newest Active intake on load, so a reopened older
+  intake could have captured today's scans. `InventoryContext.loadData` now resumes only an
+  Active intake whose `intake_date` is today in Asia/Manila (`isManilaToday`). An intake
+  already open in the kiosk stays open across midnight; after a reload or operator swap the
+  operator picks the source again.
+
 ## 2026-11-16: Review queue is the flagged scans; Scan Logs opens on today
 
 - **Revised 2026-11-17 (user request after testing on the station laptop):** Scan Logs

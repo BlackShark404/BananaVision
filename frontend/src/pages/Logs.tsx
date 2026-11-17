@@ -43,6 +43,7 @@ import type { Cultivar, Ripeness, InventoryStatus, ScanResult } from "@/types"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import { collectScanPages, type ApiScan } from "@/lib/scanData"
 import { closedStockSpoilageLabel, formatSpoilageDays } from "@/lib/spoilageDisplay"
+import { inventoryStatusChangeNote } from "@/lib/inventoryStatusChange"
 import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
 import { LIVE_RESUMED_EVENT, SCAN_UPDATED_EVENT, SCANS_ADDED_EVENT, newEventId, type ScanUpdateDetail } from "@/lib/liveEvents"
 import { fingersLabel } from "@/lib/estimates"
@@ -797,7 +798,7 @@ const columns: ColumnDef<LogScan>[] = [
     <div className="space-y-6">
       <Dialog open={!!statusAction} onOpenChange={open => { if (!open && !pendingScans.size) setStatusAction(null) }}>
         <DialogContent className="rounded-2xl">
-          <DialogHeader><DialogTitle>Mark scan as {statusAction?.status}?</DialogTitle><DialogDescription>This change will be recorded in the scan history.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>Mark scan as {statusAction?.status}?</DialogTitle><DialogDescription>{statusAction ? inventoryStatusChangeNote(statusAction.scan.inventoryStatus || "In Stock", statusAction.status) : null}</DialogDescription></DialogHeader>
           <Label htmlFor="status-reason">Reason for change</Label>
           <Textarea id="status-reason" value={statusReason} onChange={event => setStatusReason(event.target.value)} disabled={!!pendingScans.size} />
           <DialogFooter><Button variant="outline" disabled={!!pendingScans.size} onClick={() => setStatusAction(null)}>Cancel</Button><Button disabled={resource.isPreviousData || !statusReason.trim() || !!pendingScans.size} onClick={() => void handleStatusUpdate()}>{!!pendingScans.size && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin mr-2" />}{pendingScans.size ? "Saving…" : "Save Changes"}</Button></DialogFooter>

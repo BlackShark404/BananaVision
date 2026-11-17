@@ -18,6 +18,23 @@ class CredentialsException(HTTPException):
         )
 
 
+class SetupTokenRejected(CredentialsException):
+    """401 — a credential-setup token was refused.
+
+    ``reason`` and ``user_id`` (when the signed token named one) are for the audit log; the
+    response carries only ``detail``.
+    """
+
+    def __init__(self, detail: str, *, reason: str, user_id=None):
+        super().__init__(detail)
+        self.reason = reason
+        self.user_id = user_id
+
+
+class CurrentCredentialIncorrect(CredentialsException):
+    """401 — the current password or PIN given to authorize a credential change is wrong."""
+
+
 class ForbiddenException(HTTPException):
     """403 — Insufficient permissions."""
 

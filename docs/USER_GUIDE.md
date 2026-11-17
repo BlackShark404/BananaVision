@@ -78,9 +78,9 @@ The system consists of an inspection station equipped with four USB cameras, a D
 
 #### I. Activity and Audit Logs
 
-- View Audit Trail - Browse a server-side paginated log of all security and administrative events.
-- Search Activity Records - Filter audit logs by action type, user account, date range, or IP address.
-- Security Auditing - Track IP addresses and timestamps for logins, overrides, and configuration changes.
+- View Audit Trail - Browse every recorded sign-in, security failure, credential change, record change, export, backup, restore and system event, with the actor, time (Asia/Manila), IP address and details.
+- Search Activity Records - Search the text and filter by action and user; each action shows a friendly label and a category colour (security failures in red).
+- Security Auditing - The Critical Actions card counts security failures, credential resets, role and status changes, exports, backup downloads, restores, configuration and power events. Refused access (403) is recorded once per user, page and reason every 10 minutes.
 
 #### J. System Configuration
 

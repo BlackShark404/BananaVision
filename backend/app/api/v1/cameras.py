@@ -25,7 +25,7 @@ from app.api.deps import DbSession, AdminUser, MediaUser
 from sqlalchemy.future import select
 from app.services import configuration
 from app.models.admin_profile import AdminProfile
-from app.models.activity_log import ActivityLog
+from app.services import audit
 from app.services.maintenance_state import operation_result, record_operation
 
 
@@ -154,6 +154,12 @@ class CameraMappingUpdate(BaseModel):
             raise ValueError("Camera indices must be distinct and nonnegative")
         return ids
 
+def _device_ids(config) -> dict:
+    """Physical slot indices as plain text, read before the update refreshes the slots."""
+    _, device_ids = configuration.camera_slot_values(config.camera_slots)
+    return {'camera_device_ids': ', '.join(str(value) for value in device_ids)}
+
+
 @router.post("/mapping")
 async def update_camera_mapping(mapping: CameraMappingUpdate, db: DbSession, admin: AdminUser, request: Request):
     """Persist physical slots atomically, then apply and report actual hardware results."""
@@ -166,11 +172,17 @@ async def update_camera_mapping(mapping: CameraMappingUpdate, db: DbSession, adm
                 raise HTTPException(409, 'Operation ID already used')
             return configuration.config_response(await configuration.get_config(db))
         admin_profile_id = await db.scalar(select(AdminProfile.id).where(AdminProfile.account_id == admin.id))
+        before = _device_ids(await configuration.get_config(db))
         config = await configuration.update_config(db, {'camera_device_ids': mapping.device_ids},
             mapping.expected_revision, admin_profile_id)
-        db.add(ActivityLog(user_id=admin.id, action='config_changed',
-            details=f'Camera mapping saved at revision {config.revision}: {mapping.device_ids}',
-            ip_address=get_client_ip(request)))
+        described = audit.describe_changes(before, _device_ids(config))
+        if described:  # Saving the same mapping is not an event.
+            await audit.record(
+                db, audit.AuditAction.CONFIG_CHANGED,
+                f'Camera mapping revision {mapping.expected_revision} → {config.revision}: '
+                f'{described}',
+                actor=admin, ip=get_client_ip(request),
+            )
         await record_operation(db, str(mapping.operation_id), {'kind': 'calibration', 'actor_id': str(admin.id),
             'device_ids': mapping.device_ids, 'status': 'saved'})
         await db.commit()
