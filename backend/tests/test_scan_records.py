@@ -5,7 +5,16 @@ from uuid import uuid4
 
 import pytest
 from app.api.deps import get_current_user
-from app.models import OperatorProfile, Scan, ScanNote, ScanStatusLog, UserAccount
+from app.models import (
+    ActivityLog,
+    Intake,
+    OperatorProfile,
+    Scan,
+    ScanNote,
+    ScanStatusLog,
+    UserAccount,
+)
+from app.schemas.enums import IntakeStatusEnum, InventoryStatusEnum
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -358,3 +367,136 @@ def test_flag_and_unflag_independence_with_notes_and_dashboard(application):
     assert len(unflag_events) == 2
     assert unflag_events[1]["new_values"] == {"flagged": False}
     assert unflag_events[1]["reason"] == "Review passed"
+
+
+def set_stock_state(app, status, intake_status):
+    """Seed the scan's latest status and its intake state directly, as a past write left them."""
+    with Session(app.engine) as db:
+        log = db.scalar(select(ScanStatusLog).where(ScanStatusLog.scan_id == app.ids.scan))
+        log.inventory_status = InventoryStatusEnum(status)
+        db.get(Intake, app.ids.intake).status = IntakeStatusEnum(intake_status)
+        db.commit()
+
+
+def intake_reopen_logs(app):
+    with Session(app.engine) as db:
+        return db.scalars(
+            select(ActivityLog).where(ActivityLog.action == "intake_status_changed")
+        ).all()
+
+
+def test_admin_corrects_sold_and_spoiled_scans_to_any_status(application):
+    app = application
+    url = f"/api/v1/scans/{app.ids.scan}/status"
+    previous = "In Stock"
+    steps = ["Spoiled", "For Processing", "Sold", "In Stock", "Spoiled", "Sold", "Spoiled"]
+    for revision, target in enumerate(steps, start=1):
+        reason = f"Entered by mistake; really {target}"
+        response = app.client.patch(url, json=mutation(revision, inventory_status=target,
+                                                       reason=reason))
+        assert response.status_code == 200, response.text
+        saved = response.json()
+        assert saved["revision"] == revision + 1
+        assert saved["inventory_status"] == target
+        event = saved["history"][-1]
+        assert event["previous_values"] == {"inventory_status": previous}
+        assert event["new_values"] == {"inventory_status": target}
+        assert event["reason"] == reason
+        previous = target
+
+
+def test_restoring_stock_reopens_a_depleted_intake(application):
+    app = application
+    set_stock_state(app, "Sold", "Depleted")
+    response = app.client.patch(
+        f"/api/v1/scans/{app.ids.scan}/status",
+        json=mutation(inventory_status="In Stock", reason="Marked sold by mistake"),
+    )
+    assert response.status_code == 200, response.text
+    saved = response.json()
+    assert saved["inventory_status"] == "In Stock"
+    # The restored scan counts as stock in the same response.
+    assert saved["inventory_eligible"] is True
+    with Session(app.engine) as db:
+        assert db.get(Intake, app.ids.intake).status == IntakeStatusEnum.ACTIVE
+        status_log = db.scalars(
+            select(ActivityLog).where(ActivityLog.action == "scan_status")
+        ).one()
+    [reopened] = intake_reopen_logs(app)
+    assert reopened.user_id == app.ids.admin
+    assert reopened.details == (
+        f"Intake {app.ids.intake} status → Active: scan {app.ids.scan} returned to In Stock"
+    )
+    assert reopened.ip_address == status_log.ip_address
+    listed = {row["id"]: row for row in app.client.get("/api/v1/intakes").json()}
+    assert listed[str(app.ids.intake)]["status"] == "Active"
+
+
+@pytest.mark.parametrize("target", ["For Processing", "Spoiled"])
+def test_leaving_stock_does_not_reopen_a_depleted_intake(application, target):
+    app = application
+    set_stock_state(app, "Sold", "Depleted")
+    response = app.client.patch(
+        f"/api/v1/scans/{app.ids.scan}/status",
+        json=mutation(inventory_status=target, reason="Correct the outcome"),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["inventory_status"] == target
+    assert response.json()["inventory_eligible"] is False
+    with Session(app.engine) as db:
+        assert db.get(Intake, app.ids.intake).status == IntakeStatusEnum.DEPLETED
+    assert intake_reopen_logs(app) == []
+
+
+def test_single_scan_sale_keeps_intake_active(application):
+    app = application
+    response = app.client.patch(
+        f"/api/v1/scans/{app.ids.scan}/status",
+        json=mutation(inventory_status="Sold", reason="Dispatched"),
+    )
+    assert response.status_code == 200, response.text
+    with Session(app.engine) as db:
+        assert db.get(Intake, app.ids.intake).status == IntakeStatusEnum.ACTIVE
+    assert intake_reopen_logs(app) == []
+
+
+@pytest.mark.parametrize("closed", ["Sold", "Spoiled"])
+@pytest.mark.parametrize("target", ["In Stock", "For Processing", "Sold", "Spoiled"])
+def test_operator_cannot_change_a_sold_or_spoiled_scan(application, closed, target):
+    app = application
+    set_stock_state(app, closed, "Active")
+    operator_session(app, app.ids.operator)
+    response = app.client.patch(
+        f"/api/v1/scans/{app.ids.scan}/status",
+        json=mutation(inventory_status=target, reason="Operator correction"),
+    )
+    if target == closed:
+        # Re-sending the current status is a no-op, not a correction.
+        assert response.status_code == 200, response.text
+        assert response.json()["revision"] == 1
+    else:
+        assert response.status_code == 403, response.text
+        assert response.json()["detail"] == "Admin access required to change a Sold or Spoiled scan"
+    with Session(app.engine) as db:
+        assert db.get(Scan, app.ids.scan).revision == 1
+        logs = db.scalars(select(ScanStatusLog).where(ScanStatusLog.scan_id == app.ids.scan)).all()
+        assert [log.inventory_status.value for log in logs] == [closed]
+
+
+def test_operator_cannot_reopen_a_depleted_intake(application):
+    app = application
+    set_stock_state(app, "For Processing", "Depleted")
+    operator_session(app, app.ids.operator)
+    url = f"/api/v1/scans/{app.ids.scan}/status"
+    response = app.client.patch(url, json=mutation(inventory_status="In Stock", reason="Back"))
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"] == "Admin access required to reopen a depleted intake"
+    with Session(app.engine) as db:
+        assert db.get(Intake, app.ids.intake).status == IntakeStatusEnum.DEPLETED
+        assert db.get(Scan, app.ids.scan).revision == 1
+    assert intake_reopen_logs(app) == []
+    # The same change on an active intake stays an ordinary operator status write.
+    set_stock_state(app, "For Processing", "Active")
+    allowed = app.client.patch(url, json=mutation(inventory_status="In Stock", reason="Back"))
+    assert allowed.status_code == 200, allowed.text
+    assert allowed.json()["inventory_status"] == "In Stock"

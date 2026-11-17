@@ -6,6 +6,7 @@ import { useScans } from "@/context/ScanContext"
 import type { DailyIntake, Supplier, InventoryStatus } from "@/types"
 import { useLocation } from "react-router-dom"
 import { INTAKE_CHANGED_EVENT, LIVE_RESUMED_EVENT, SUPPLIER_CHANGED_EVENT } from "@/lib/liveEvents"
+import { isManilaToday } from "@/lib/manilaTime"
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -186,8 +187,10 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
               if (!refreshed) return null
               return refreshed.status === "Active" ? refreshed : null
             }
-            // A reload must resume the open batch instead of forcing a duplicate intake.
-            return loaded.find(intake => intake.status === "Active") ?? null
+            // A reload resumes today's open batch instead of forcing a duplicate intake. An
+            // Active intake from an earlier day (for example one reopened by a stock
+            // correction) is never picked up on its own; the operator chooses a source.
+            return loaded.find(intake => intake.status === "Active" && isManilaToday(intake.date)) ?? null
           })
           hasIntakeSnapshot.current = true
           setIntakesReady(true)

@@ -71,22 +71,14 @@ import { scanWrite, scanRevision, isScanConflict } from "@/lib/scanWrites"
 import { cultivarCameraConflict } from "@/lib/scanData"
 import { api } from "@/lib/api"
 import { closedStockSpoilageLabel, formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
+import { inventoryStatusChangeNote } from "@/lib/inventoryStatusChange"
 import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
 import { inManila } from "@/lib/manilaTime"
 import { fingerCountIsEstimate, fingersLabel } from "@/lib/estimates"
 
 const EMPTY_DETECTIONS: ScanDetection[] = []
 
-// Valid transitions: key = current status, value = allowed target statuses
-const VALID_TRANSITIONS: Record<string, InventoryStatus[]> = {
-  "In Stock": ["Sold", "For Processing", "Spoiled"],
-  "For Processing": ["Sold", "Spoiled"],
-  "Sold": [],
-  "Spoiled": [],
-}
-
-const TERMINAL_STATUSES: InventoryStatus[] = ["Sold", "Spoiled"]
-
+// Admins can set any other status, so a Sold or Spoiled entered by mistake can be corrected.
 const STATUS_ACTIONS: { status: InventoryStatus; icon: typeof Box; color: string }[] = [
   { status: "In Stock", icon: Box, color: "text-blue-500" },
   { status: "For Processing", icon: Settings, color: "text-purple-500" },
@@ -450,9 +442,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
           <DialogHeader>
             <DialogTitle>Mark scan as {statusAction}?</DialogTitle>
             <DialogDescription>
-              {TERMINAL_STATUSES.includes(statusAction as InventoryStatus)
-                ? "This is a terminal status and cannot be easily undone. This change will be recorded in the scan history."
-                : "This change will be recorded in the scan history."}
+              {statusAction ? inventoryStatusChangeNote(scan.inventoryStatus || "In Stock", statusAction) : null}
             </DialogDescription>
           </DialogHeader>
           <Label htmlFor="scan-status-reason">Reason for change</Label>
@@ -896,8 +886,6 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                       <AppStatusBadge type="inventory" status={scan.inventoryStatus || "In Stock"} size="md" />
                       {isAdmin && (() => {
                         const currentStatus = scan.inventoryStatus || "In Stock"
-                        const allowed = VALID_TRANSITIONS[currentStatus] || []
-                        if (allowed.length === 0) return null
                         return (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -910,7 +898,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                               <DropdownMenuLabel>Update Status</DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               {STATUS_ACTIONS.map(({ status, icon: StatusIcon, color }) => {
-                                const isDisabled = !allowed.includes(status)
+                                const isDisabled = status === currentStatus
                                 return (
                                   <DropdownMenuItem
                                     key={status}

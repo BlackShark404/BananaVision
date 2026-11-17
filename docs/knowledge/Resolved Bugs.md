@@ -2,6 +2,24 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-11-17: A Spoiled or Sold scan could not be corrected on Scan Detail
+
+- **Symptom (station screenshot):** an admin opened a Spoiled scan's Scan Detail and found
+  no status control, so a Spoiled entered by mistake could not be changed there.
+- **Root causes:**
+  1. `VALID_TRANSITIONS` in `frontend/src/pages/ScanDetail.tsx` gave Sold and Spoiled no
+     targets, and the menu was hidden when a status had no targets. The rule existed only in
+     the browser; `PATCH /scans/{id}/status` never enforced it, and the Scan Logs row menu
+     already allowed any change.
+  2. Hidden second gap: a scan returned to In Stock inside a **Depleted** intake stayed out of
+     stock counts, because stock only counts in an Active intake and single-scan changes never
+     updated the intake.
+- **Fixes:** Scan Detail offers every status except the current one. `mutate_scan` reopens a
+  Depleted intake when an admin returns one of its scans to In Stock (activity log entry and
+  post-commit `intake:changed`). Operators get 403 for leaving Sold or Spoiled and for a
+  change that would reopen an intake. See [[Development Decisions]] (2026-11-17).
+- **Verification:** See [[Testing and Validation]] (2026-11-17).
+
 ## 2026-11-16: Horizontal radial-wing subtraction, <12-Rear / single-side two-tier collapses, and bottom-right Top peel safety
 
 - **Symptoms (2026-11-15/16 4-camera station screenshots):**

@@ -9,7 +9,18 @@ import pytest_asyncio
 from app.api.v1.intakes import IntakeBulkInventoryUpdate, bulk_update_intake_inventory
 from app.core.database import Base
 from app.core.time import now_manila
-from app.models import Intake, OperatorProfile, Scan, ScanEvent, ScanMutation, UserAccount, UserRole
+from app.models import (
+    ActivityLog,
+    Intake,
+    OperatorProfile,
+    Scan,
+    ScanEvent,
+    ScanMutation,
+    ScanStatusLog,
+    UserAccount,
+    UserRole,
+)
+from app.schemas.enums import IntakeStatusEnum, InventoryStatusEnum
 from app.schemas.scan import ScanFlagRequest, ScanStatusUpdate
 from app.services import scan_records as records
 from sqlalchemy import func, select, text
@@ -199,3 +210,86 @@ async def test_single_and_bulk_writers_cannot_silently_overwrite(station):
     results = await asyncio.gather(write(x, x.actors[0], single), bulk(), return_exceptions=True)
     assert len([r for r in results if isinstance(r, dict)]) == 1
     assert [r.status_code for r in results if isinstance(r, Exception)] == [409]
+
+
+async def seed_stock_state(x, status, intake_status):
+    async with x.sessions() as db:
+        db.add(ScanStatusLog(scan_id=x.scan, inventory_status=status, updated_at=now_manila()))
+        intake = await db.get(Intake, x.intake)
+        intake.status = intake_status
+        await db.commit()
+
+
+async def intake_reopen_count(x):
+    async with x.sessions() as db:
+        return await db.scalar(
+            select(func.count()).select_from(ActivityLog)
+            .where(ActivityLog.action == "intake_status_changed")
+        )
+
+
+@pytest.mark.asyncio
+async def test_restore_reads_intake_status_after_parent_lock(station, monkeypatch):
+    x = station
+    await seed_stock_state(x, InventoryStatusEnum.SOLD, IntakeStatusEnum.DEPLETED)
+    read = asyncio.Event()
+    original = records.load_authorized_scan
+
+    async def observed(*args, **kwargs):
+        scan = await original(*args, **kwargs)
+        read.set()  # The unlocked read saw the Depleted intake.
+        return scan
+
+    monkeypatch.setattr(records, "load_authorized_scan", observed)
+    body = ScanStatusUpdate(
+        request_id=uuid4(), expected_revision=1, inventory_status="In Stock", reason="Not sold"
+    )
+    async with x.sessions() as blocker:
+        intake = (await blocker.execute(
+            select(Intake).where(Intake.id == x.intake).with_for_update()
+        )).scalar_one()
+        pending = asyncio.create_task(write(x, x.actors[0], body, kind="status"))
+        await asyncio.wait_for(read.wait(), 5)
+        intake.status = IntakeStatusEnum.ACTIVE
+        await blocker.commit()
+    saved = await asyncio.wait_for(pending, 5)
+    assert saved["inventory_status"] == "In Stock" and saved["inventory_eligible"] is True
+    # The restore read the intake after the lock: already Active, so nothing reopened it.
+    assert await intake_reopen_count(x) == 0
+
+
+@pytest.mark.asyncio
+async def test_restore_and_bulk_on_one_intake_do_not_deadlock(station):
+    x = station
+    await seed_stock_state(x, InventoryStatusEnum.FOR_PROCESSING, IntakeStatusEnum.DEPLETED)
+
+    async def bulk():
+        async with x.sessions() as db:
+            user = await db.get(UserAccount, x.actors[1])
+            body = IntakeBulkInventoryUpdate(
+                request_id=uuid4(), expected_revisions={x.scan: 1},
+                inventory_status="Sold", reason="Shipment",
+            )
+            try:
+                result = await bulk_update_intake_inventory(
+                    x.intake, body, db, user, Request({"type": "http"})
+                )
+                await db.commit()
+                return result
+            except Exception:
+                await db.rollback()
+                raise
+
+    restore = ScanStatusUpdate(
+        request_id=uuid4(), expected_revision=1, inventory_status="In Stock", reason="Not sold"
+    )
+    results = await asyncio.wait_for(asyncio.gather(
+        write(x, x.actors[0], restore, kind="status"), bulk(), return_exceptions=True,
+    ), 10)
+    assert len([r for r in results if isinstance(r, dict)]) == 1
+    assert [r.status_code for r in results if isinstance(r, Exception)] == [409]
+    async with x.sessions() as db:
+        scan = await db.get(Scan, x.scan)
+        intake = await db.get(Intake, x.intake)
+        in_stock = scan.status_logs[-1].inventory_status == InventoryStatusEnum.IN_STOCK
+        assert (intake.status == IntakeStatusEnum.ACTIVE) == in_stock

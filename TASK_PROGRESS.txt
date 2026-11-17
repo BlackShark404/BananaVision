@@ -1,41 +1,48 @@
-CURRENT RESUME HERE (2026-11-17) - SOLD/SPOILED/FOR PROCESSING EST. SPOILAGE FORMAT
+CURRENT RESUME HERE (2026-11-17) - ADMIN CAN CORRECT SOLD/SPOILED; RESTORED STOCK REOPENS ITS INTAKE
 
-The previous checkpoint (Scan Logs opens on All dates; PR #14 merged to team main as
-d561df8, same tree as a21b744) is archived
-byte-for-byte in docs/history/2026-11-17-before-closed-stock-spoilage.txt. Its STILL OPEN
-items carry over below.
+The previous checkpoint (Sold/Spoiled/For Processing Est. Spoilage format; PR #15 merged to
+team main as 3db6689, same tree as 0638ec9) is archived byte-for-byte in
+docs/history/2026-11-17-before-status-correction.txt. Its STILL OPEN items carry over below.
 
-USER REQUEST (2026-11-17, after station testing)
-- "Fix the old scan logs data to follow the format in scan logs data especially in the
-  est. spoilage." Sold rows showed a bare "8–9 days"; In Stock rows show a countdown with
-  "Est. 3–4 days from scan" beneath.
-- User choices: "Status + estimate line" and "all three" pages (Scan Logs, Scan Detail,
-  Quality Control dialog).
+USER REQUEST (2026-11-17, station screenshot)
+- Scan Detail of a Spoiled scan had no status control. "The inventory status should still be
+  editable by admin even if it's spoiled because what if the admin committed a mistake and
+  put spoiled instead of for processing or sold. Do something about it and verify."
+- User choices: "Any other status", "Reopen the intake", "Single scans only".
 
 DONE
-- frontend/src/lib/spoilageDisplay.ts: closedStockSpoilageLabel(status) returns
-  "Sold · no countdown", "Spoiled · no countdown" or "For processing · no countdown";
-  null for In Stock, unknown and prototype keys (Object.hasOwn).
-- Scan Logs cell, Scan Detail Est. Spoilage metric and the Quality Control dialog: the
-  outcome sits where the countdown would be, with "Est. … from scan" beneath. The beneath
-  line is hidden when the estimate is Unknown. A record with no status keeps the plain
-  estimate.
-- Unchanged: In Stock countdown, sorting, at-risk icon, exports, the public QR page (counts
-  down for every status), Kiosk Recent Scans, the backend and stored values.
-- Tests:
-  - scanrecords: Logs Sold rows (two tests), Scan Detail Sold (two tests), new Quality
-    Control dialog tests for Spoiled and For Processing. All 6 failed before the change.
-  - spoilageDisplay: helper unit test (also caught the prototype-key bug).
-- Docs: Frontend (shelf-life section), Development Decisions (2026-11-13 countdown entry,
-  revised 2026-11-17).
+- frontend/src/pages/ScanDetail.tsx: VALID_TRANSITIONS/TERMINAL_STATUSES removed. The admin
+  "Update status" menu offers every status except the current one (the Logs row rule).
+- frontend/src/lib/inventoryStatusChange.ts: inventoryStatusChangeNote(current, target) for
+  the Scan Detail and Scan Logs dialogs. "Terminal status ... cannot be easily undone" is gone
+  from single-scan dialogs; the Delivery Intake bulk dialog keeps it (bulk still skips
+  Sold/Spoiled).
+- backend/app/services/scan_records.py mutate_scan:
+  - an admin change back to In Stock reopens a Depleted intake (Active), logs
+    intake_status_changed and publishes intake:changed (kind scan-status) after commit;
+  - the reopen decision reads scan.intake after the existing intake lock (no new lock);
+  - operators get 403 for leaving Sold/Spoiled and for a change that would reopen an intake.
+- Unchanged: bulk "Mark all ..." and the bulk API, single Sold/Spoiled changes (intake stays
+  as it is), API fields, the database schema.
+- Kiosk resume (review finding; user chose "Resume today only"): InventoryContext.loadData
+  resumes only an Active intake started today in Asia/Manila (isManilaToday in
+  lib/manilaTime.ts). An intake already open stays open across midnight. Tests: kiosk (old
+  Active intake not resumed, also after a focus reconcile), manilaTime helper cases.
+- Status dialog note: a same-status note ("The scan is already X. Saving changes nothing.")
+  for the rare "Reload latest" case (review polish).
+- Docs: Development Decisions, Frontend, Resolved Bugs, Testing and Validation (2026-11-17);
+  storyboard Figure 48 wording (admin status controls). Figure 76 (bulk dialog) unchanged.
 
 VERIFICATION
-- Frontend full suite 369/369 (includes the Manila time guard).
-- `npx tsc -b` and `npm run build` pass. ESLint 40 (baseline); changed files have no new
-  problems (Logs 4, Quality Control 7 existed before).
-- Screenshot node_modules/.tmp/bv-shelf-life-logs.png shows the Sold row in the two-line
-  shape.
-- Backend untouched; not re-run.
+- Backend full suite: 1198 passed, 38 skipped with a disposable PostgreSQL 16 cluster;
+  1130 passed, 106 skipped without it. New PostgreSQL lock tests 7/7; a mutant that read the
+  intake before the lock failed the stale-read test.
+- Frontend full suite 380/380 (with the kiosk resume and note tests). `npx tsc -b` and
+  `npm run build` pass.
+- ESLint 40 and Ruff 644 (baselines); changed files have no new findings.
+- Screenshots: Scan Detail of a Spoiled scan with the menu open, and the correction dialog.
+- Review workflow (backend, authorization, frontend lenses with skeptics): one confirmed
+  finding (kiosk resume of a reopened old intake), fixed as above; two refuted.
 
 STILL OPEN
 - The station data release (teammate guide PDF), then:
@@ -52,6 +59,13 @@ STILL OPEN
   backend/.env.example; Figure 92 screenshot; deployment when authorized; audit items in
   the archived checkpoints.
 - Type check: use `npx tsc -b` (or `npm run build`), not `npm run typecheck`.
+
+IN PROGRESS (approved plan, 2026-11-17)
+- Part 2: audit logging overhaul (services/audit.py helper and handler, auth/403/maintenance/
+  export/CRUD/system events, as_of paging, frontend labels).
+- Part 3: audit integrity (actor_name snapshot + migration 0012 + backup v5, audit kept
+  across restore, PostgreSQL append-only trigger).
+- Plan: /root/.claude/plans/before-you-continue-why-optimized-sphinx.md (session-local).
 
 EXACT NEXT STEP
 - User opens the team PR for this change from the fork's main:

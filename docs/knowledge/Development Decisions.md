@@ -2,6 +2,46 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-17: Admins can correct a Sold or Spoiled scan; restoring stock reopens its intake
+
+- **Problem (station report):** Scan Detail showed no status control for a Spoiled scan, so
+  an admin who chose Spoiled by mistake (instead of For Processing or Sold) could not fix it
+  there. The lock was frontend-only: `VALID_TRANSITIONS` in `ScanDetail.tsx` gave Sold and
+  Spoiled no targets and never offered In Stock. The backend never enforced it, and the
+  Scan Logs row menu already allowed any change.
+- **User decisions:**
+  1. Scan Detail offers an admin every status except the current one, the same rule as the
+     Scan Logs row menu. A reason is still required and each change is in Scan History.
+  2. A single-scan change back to **In Stock** reopens a **Depleted** delivery intake
+     (Active). Stock only counts in an Active intake (`inventory_policy.eligible_stock` and
+     `inventory_facts`), so without this the restored scan stayed out of Inventory, at-risk,
+     dashboard expiring and analytics. Single changes to Sold or Spoiled still do not
+     deplete an intake.
+  3. Single scans only. Delivery Intake "Mark all …" and the bulk API's skip of Sold and
+     Spoiled scans are unchanged, so a bulk action never overwrites a recorded outcome.
+- **Operators:** they may still change status on their own scans through the API (no UI).
+  Leaving Sold or Spoiled, and any change that would reopen a Depleted intake, now return
+  403. This mirrors the rule that only an admin removes a flag; intake status is otherwise
+  admin-only.
+- **Implementation:** `mutate_scan` in `backend/app/services/scan_records.py`. The reopen
+  decision reads `scan.intake` after the existing parent-first intake lock (the scan reload
+  with `populate_existing` re-reads it), so no lock is added and the lock order stays the
+  same as bulk inventory and scan attachment. The reopen writes `intake_status_changed` to
+  the activity log, sets the intake's `updated_at` to the status change time, and after
+  commit publishes `intake:changed` with kind `scan-status` (same payload as bulk). A replayed
+  request returns its receipt and changes nothing.
+- **Dialog wording:** `inventoryStatusChangeNote` (`frontend/src/lib/inventoryStatusChange.ts`)
+  replaces "This is a terminal status and cannot be easily undone" on Scan Detail and is also
+  used by the Scan Logs dialog. The Delivery Intake bulk dialog keeps its terminal warning,
+  which is still true for bulk.
+- **Kiosk resume (review finding, user decision "Resume today only"):** this change adds the
+  first page action that reopens a Depleted intake (Delivery Intake never offers "Mark all
+  In Stock"). The kiosk used to resume the newest Active intake on load, so a reopened older
+  intake could have captured today's scans. `InventoryContext.loadData` now resumes only an
+  Active intake whose `intake_date` is today in Asia/Manila (`isManilaToday`). An intake
+  already open in the kiosk stays open across midnight; after a reload or operator swap the
+  operator picks the source again.
+
 ## 2026-11-16: Review queue is the flagged scans; Scan Logs opens on today
 
 - **Revised 2026-11-17 (user request after testing on the station laptop):** Scan Logs

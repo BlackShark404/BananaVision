@@ -76,7 +76,7 @@ The UI distinguishes between initial loads, continuous/hardware actions, and bac
 - `ScanProvider` merges newer revisions, preserves fields omitted by partial responses, and deduplicates a completed scan that arrives from the Kiosk room, dashboard room and HTTP response. Later print fields still merge through `acceptScan`. A bounded set prevents the dedupe memory from growing indefinitely.
 - `useDashboardResource` coalesces focus, visibility and online events into one refresh and retries an expired/superseded snapshot once without it, so a 10-minute snapshot expiry does not become a failed poll or a full-snapshot polling loop. Logs no longer discards its frozen snapshot for every edit; it patches the visible row by revision.
 - Scan Detail refreshes in place on focus/visibility and every 30 seconds while visible, merging the latest record without replacing the open page with a loading skeleton. It aborts and pauses while an edit, status dialog, flag, or note is pending, and a failed background read preserves the current record.
-- Kiosk restores the newest server-reported Active intake after remount/reload. Inventory stock, cultivar and ripeness links preserve the selected source, In Stock state and eligible-stock predicate; intake-linked spoilage rows intentionally open that intake's full log. Dashboard source links preserve the selected Asia/Manila business date.
+- Kiosk restores the newest server-reported Active intake **started today in Asia/Manila** (`isManilaToday` in `lib/manilaTime.ts`) after remount/reload. An Active intake from an earlier day (for example one reopened by a stock correction) is not picked up on its own; the operator chooses a source. An intake already open in the kiosk stays open across midnight until a reload or operator swap. Inventory stock, cultivar and ripeness links preserve the selected source, In Stock state and eligible-stock predicate; intake-linked spoilage rows intentionally open that intake's full log. Dashboard source links preserve the selected Asia/Manila business date.
 - Activity Log renders stored timestamps in `Asia/Manila`, matching the rest of the business-date UI. Delivery Intake feedback reports the persisted changed-scan count and resulting intake status instead of claiming every scan changed.
 - Incoming revision 0010 isolates broadcast notification read receipts per account.
 
@@ -466,6 +466,25 @@ uses the ready-state green styling.
 single save controls, immediate-cleanup draft preservation, reset/discard, pending-dialog
 guards, validation invalidation after file changes, and backup results across tabs.
 See [[Testing and Validation]].
+
+## Inventory status changes (2026-11-17)
+
+- **Scan Detail** (admin only): the "Update status" menu next to the Inventory Status badge
+  offers every status except the current one, including correcting Sold or Spoiled. The
+  Scan Logs row "Actions" menu already used this rule.
+- **Dialog note:** `inventoryStatusChangeNote(current, target)` in
+  `src/lib/inventoryStatusChange.ts`, used by Scan Detail and Scan Logs:
+  - from Sold or Spoiled: "This corrects the {status} status.";
+  - to In Stock: "The scan returns to stock. If its delivery intake is depleted, the intake
+    reopens.";
+  - from In Stock to anything else: "The scan leaves stock.";
+  - always ending "This change will be recorded in the scan history."
+- **Reopened intake:** the server publishes `intake:changed` (kind `scan-status`) after
+  commit. The existing `InventoryContext.applyIntakeEvent` handler (ordered by
+  `updated_at`) turns the Delivery Intake row Active without a reload. The `/status` response
+  and `scan:changed` carry `inventory_eligible: true` for the restored scan.
+- **Delivery Intake bulk is unchanged:** "Mark all …" follows its own transition table and
+  the server skips Sold and Spoiled scans. See [[Development Decisions]] (2026-11-17).
 
 ## Scan Logs date default and review queue (2026-11-16, revised 2026-11-17)
 

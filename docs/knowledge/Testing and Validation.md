@@ -1,5 +1,27 @@
 # Testing and Validation
 
+## Admin status correction and intake reopen — 2026-11-17
+
+- **New backend tests:**
+  - `test_scan_records.py`: `test_admin_corrects_sold_and_spoiled_scans_to_any_status`,
+    `test_restoring_stock_reopens_a_depleted_intake`,
+    `test_leaving_stock_does_not_reopen_a_depleted_intake` (For Processing, Spoiled),
+    `test_single_scan_sale_keeps_intake_active`,
+    `test_operator_cannot_change_a_sold_or_spoiled_scan` (8 cases) and
+    `test_operator_cannot_reopen_a_depleted_intake`.
+  - `test_mutation_events.py`: `test_reopened_intake_event_follows_commit_and_replays_once`
+    and `test_reopen_is_rolled_back_and_unpublished_when_commit_fails`.
+  - `test_scan_records_postgresql.py`: `test_restore_reads_intake_status_after_parent_lock`
+    (a mutant that read the intake before the lock failed it) and
+    `test_restore_and_bulk_on_one_intake_do_not_deadlock`.
+- **New frontend tests:** `scanrecords.test.mjs` (Scan Detail menu for each current status,
+  Spoiled → For Processing, Sold → In Stock, In Stock → Sold, and the Logs dialog note) and
+  `inventoryStatusChange.test.mjs` (12 note cases). The new-behaviour tests failed before the
+  change.
+- **Results:** backend 1198 passed, 38 skipped with a disposable PostgreSQL 16 cluster, and
+  1130 passed, 106 skipped without it. Frontend 377/377. `npx tsc -b` and `npm run build`
+  pass. ESLint 40 and Ruff 644 (baselines).
+
 ## Fusion collapse recovery, compact-Rear split, and bottom-left platform trim — 2026-11-16
 
 - **New regression tests:**
