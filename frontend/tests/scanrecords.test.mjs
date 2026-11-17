@@ -497,6 +497,116 @@ test('history shows the recorded creation actor and does not invent a legacy sta
   assert.doesNotMatch(await legacy.innerText(), /Recorded Operator|Renamed Operator|Admin User/)
 })
 
+test('ScanDetail history renders in a bounded scrollable container with record count badge and preserves all entries', async t => {
+  const record = scan()
+  record.history = Array.from({ length: 15 }, (_, i) => ({
+    id: `event-${i + 1}`,
+    kind: i === 0 ? 'created' : 'status',
+    timestamp: '2024-05-05T08:10:00+08:00',
+    actor_name: `Admin ${i + 1}`,
+    actor_id: null,
+    reason: `Reason entry ${i + 1} with very long descriptive text that wraps naturally without expanding or overflowing`,
+    previous_values: i > 0 ? { inventory_status: 'In Stock' } : null,
+    new_values: { inventory_status: i % 2 === 0 ? 'For Processing' : 'In Stock' },
+    revision: i + 1,
+    legacy: false,
+  }))
+  const { page } = await setup(t, 200, { record })
+  const card = page.locator('[data-slot="card"]').filter({ hasText: 'Scan History' })
+  const title = card.locator('[data-slot="card-title"]')
+  await title.waitFor()
+  assert.equal(await title.getByText('15', { exact: true }).count(), 1)
+
+  const container = card.locator('div.space-y-2.max-h-48.overflow-y-auto')
+  await container.waitFor()
+  assert.equal(await container.locator('> div').count(), 15)
+
+  const { scrollHeight, clientHeight } = await container.evaluate(el => ({
+    scrollHeight: el.scrollHeight,
+    clientHeight: el.clientHeight,
+  }))
+  assert.ok(scrollHeight > clientHeight, `Expected scrollHeight (${scrollHeight}) > clientHeight (${clientHeight})`)
+})
+
+test('ScanDetail history shows empty state and no count badge when history is empty', async t => {
+  const record = scan()
+  record.history = []
+  const { page } = await setup(t, 200, { record })
+  const card = page.locator('[data-slot="card"]').filter({ hasText: 'Scan History' })
+  const title = card.locator('[data-slot="card-title"]')
+  await title.waitFor()
+  assert.equal(await title.locator('.rounded-full').count(), 0)
+  await card.getByText('No recorded history is available.', { exact: true }).waitFor()
+})
+
+test('ScanDetail history with one or two entries displays naturally without scrolling', async t => {
+  const record = scan()
+  record.history = [
+    {
+      id: 'event-1',
+      kind: 'created',
+      timestamp: '2024-05-05T08:10:00+08:00',
+      actor_name: 'Original Operator',
+      actor_id: null,
+      reason: 'Initial intake scan',
+      previous_values: null,
+      new_values: { inventory_status: 'In Stock' },
+      revision: 1,
+      legacy: false,
+    },
+  ]
+  const { page } = await setup(t, 200, { record })
+  const card = page.locator('[data-slot="card"]').filter({ hasText: 'Scan History' })
+  const title = card.locator('[data-slot="card-title"]')
+  await title.waitFor()
+  assert.equal(await title.getByText('1', { exact: true }).count(), 1)
+
+  const container = card.locator('div.space-y-2.max-h-48.overflow-y-auto')
+  await container.waitFor()
+  assert.equal(await container.locator('> div').count(), 1)
+
+  const { scrollHeight, clientHeight } = await container.evaluate(el => ({
+    scrollHeight: el.scrollHeight,
+    clientHeight: el.clientHeight,
+  }))
+  assert.equal(scrollHeight, clientHeight, `Expected scrollHeight (${scrollHeight}) == clientHeight (${clientHeight})`)
+})
+
+test('ScanDetail history remains bounded and wraps long text on mobile viewport', async t => {
+  const record = scan()
+  record.history = Array.from({ length: 8 }, (_, i) => ({
+    id: `event-${i + 1}`,
+    kind: 'status',
+    timestamp: '2024-05-05T08:10:00+08:00',
+    actor_name: `Admin User ${i + 1}`,
+    actor_id: null,
+    reason: `SuperLongWordWithoutSpacesReasonTextEntryNumber${i + 1}ThatMustWrapCleanlyInsideContainer`,
+    previous_values: { inventory_status: 'In Stock' },
+    new_values: { inventory_status: 'Sold' },
+    revision: i + 1,
+    legacy: false,
+  }))
+  const { page } = await setup(t, 200, { record })
+  await page.setViewportSize({ width: 390, height: 844 })
+  const card = page.locator('[data-slot="card"]').filter({ hasText: 'Scan History' })
+  const title = card.locator('[data-slot="card-title"]')
+  await title.waitFor()
+  assert.equal(await title.getByText('8', { exact: true }).count(), 1)
+
+  const container = card.locator('div.space-y-2.max-h-48.overflow-y-auto')
+  await container.waitFor()
+  assert.equal(await container.locator('> div').count(), 8)
+
+  const { scrollHeight, clientHeight, scrollWidth, clientWidth } = await container.evaluate(el => ({
+    scrollHeight: el.scrollHeight,
+    clientHeight: el.clientHeight,
+    scrollWidth: el.scrollWidth,
+    clientWidth: el.clientWidth,
+  }))
+  assert.ok(scrollHeight > clientHeight, 'Vertical scroll active')
+  assert.ok(scrollWidth <= clientWidth + 2, 'No unexpected horizontal overflow')
+})
+
 for (const screen of ['logs', 'detail']) {
   for (const [value, label] of [[1.555, '1.555 kPa'], [1.25, '1.250 kPa'], [0, '0.000 kPa'], [null, '—'], [undefined, '—']]) {
     test(`${screen} VPD preserves stored ${value} with consistent units and missing-data feedback`, async t => {

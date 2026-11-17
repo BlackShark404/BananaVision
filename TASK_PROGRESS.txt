@@ -70,7 +70,7 @@ VERIFICATION
 - Frontend:
   - activityactions.test.mjs: 7 passed
   - activitylog.test.mjs: 4 passed
-  - npm run build (tsc -b && vite build): passed cleanly (11.20s)
+  - npm run build (tsc -b && vite build): passed cleanly
 - Scoped linting: Ruff 0 new errors on modified and untracked code.
 
 STILL OPEN
@@ -90,7 +90,7 @@ STILL OPEN
 - Type check: use `npx tsc -b` (or `npm run build`), not `npm run typecheck`.
 
 COMPLETED
-- Part 3: audit integrity (all requirements met and verified).
+- Part 3: audit integrity (all requirements met and verified; commit 582ea43).
 
 EXACT NEXT STEP
 - Open team PR from fork's main:
