@@ -284,7 +284,7 @@ test('finger counts read "Est." on Scan Detail, Quality Control and Scan Logs; c
 
 test('Logs date picker marks today by the Asia/Manila calendar in a Los Angeles browser', async t => {
   // 04:00 UTC on 2 October is noon on 2 October in Manila and 21:00 on 1 October here.
-  const { page } = await setup(t, 200, { screen: 'logs', path: '/logs?date=all' })
+  const { page } = await setup(t, 200, { screen: 'logs' })
   await page.getByRole('button', { name: 'Scan date', exact: true }).click()
   const today = page.locator('[role="gridcell"][data-today]')
   await today.waitFor()
@@ -294,22 +294,26 @@ test('Logs date picker marks today by the Asia/Manila calendar in a Los Angeles 
 const listRequests = state => state.requests.filter(r => r.path === '/api/v1/scan-logs')
 const urlQuery = page => Object.fromEntries(new URL(page.url()).searchParams)
 
-test('plain Scan Logs opens on the Asia/Manila day and never loads all history first', async t => {
-  // 21:00 on 1 October in Los Angeles is already 2 October in Manila.
+test('plain Scan Logs opens on all dates; a picked day can be cleared back to all dates', async t => {
   const { page, state } = await setup(t, 200, { screen: 'logs' })
-  await page.waitForURL('**/logs?date=2026-10-02')
-  await page.getByRole('button', { name: 'Scan date: Oct 2, 2026', exact: true }).waitFor()
+  await page.getByRole('button', { name: 'Scan date', exact: true }).getByText('All dates', { exact: true }).waitFor()
   await until(() => listRequests(state).length > 0)
-  assert.ok(listRequests(state).every(r => r.query.business_date === '2026-10-02'), JSON.stringify(listRequests(state)))
-  assert.equal(await page.getByRole('button', { name: 'Reset', exact: true }).isDisabled(), true, 'today is the default view')
-  // Clearing the date shows every date, and stays that way.
+  assert.equal(new URL(page.url()).search, '', 'the plain URL is kept')
+  assert.ok(listRequests(state).every(r => r.query.business_date === undefined), JSON.stringify(listRequests(state)))
+  assert.equal(await page.getByRole('button', { name: 'Reset', exact: true }).isDisabled(), true, 'all dates is the default view')
+  // Pick 2 October (the Manila day), then clear it again.
+  await page.getByRole('button', { name: 'Scan date', exact: true }).click()
+  await page.locator('[role="gridcell"][data-day="2026-10-02"] button').click()
+  await page.waitForURL('**/logs?date=2026-10-02')
+  await until(() => listRequests(state).at(-1).query.business_date === '2026-10-02')
+  assert.equal(await page.getByRole('button', { name: 'Reset', exact: true }).isDisabled(), false)
   await page.getByRole('button', { name: 'Clear scan date', exact: true }).click()
-  await page.waitForURL('**/logs?date=all')
   await page.getByRole('button', { name: 'Scan date', exact: true }).getByText('All dates', { exact: true }).waitFor()
   await until(() => listRequests(state).at(-1).query.business_date === undefined)
+  assert.equal(urlQuery(page).date, undefined)
 })
 
-test('Expiring stock opens every date, and Reset returns to today', async t => {
+test('Expiring stock opens every date, and Reset returns to plain Scan Logs', async t => {
   const { page, state } = await setup(t, 200, { screen: 'logs', path: '/logs?attention=at-risk' })
   await page.getByText('At-Risk Scans', { exact: true }).first().waitFor()
   await page.getByRole('button', { name: 'Scan date', exact: true }).getByText('All dates', { exact: true }).waitFor()
@@ -317,12 +321,13 @@ test('Expiring stock opens every date, and Reset returns to today', async t => {
   assert.ok(listRequests(state).every(r => r.query.business_date === undefined && r.query.attention === 'at-risk'))
   assert.deepEqual(urlQuery(page), { attention: 'at-risk' })
   await page.getByRole('button', { name: 'Reset', exact: true }).click()
-  await page.waitForURL('**/logs?date=2026-10-02')
-  await until(() => listRequests(state).at(-1).query.business_date === '2026-10-02')
-  assert.equal(listRequests(state).at(-1).query.attention, 'all')
+  await until(() => new URL(page.url()).search === '')
+  await until(() => listRequests(state).at(-1).query.attention === 'all')
+  assert.equal(listRequests(state).at(-1).query.business_date, undefined)
+  await page.getByRole('button', { name: 'Scan date', exact: true }).getByText('All dates', { exact: true }).waitFor()
 })
 
-test('the review queue shows Status Flagged and its banner; clearing it keeps all dates', async t => {
+test('the review queue shows Status Flagged and its banner; clearing it shows all dates', async t => {
   const { page, state } = await setup(t, 200, { screen: 'logs', path: '/logs?status=Flagged' })
   await page.getByText('Pending Quality Reviews', { exact: true }).waitFor()
   await page.getByRole('combobox').filter({ hasText: 'Flagged' }).waitFor()
@@ -330,9 +335,11 @@ test('the review queue shows Status Flagged and its banner; clearing it keeps al
   await until(() => listRequests(state).length > 0)
   assert.ok(listRequests(state).every(r => r.query.flagged_only === 'true' && r.query.business_date === undefined))
   await page.getByRole('button', { name: 'Clear review filter', exact: true }).click()
-  await page.waitForURL('**/logs?date=all')
   await page.getByRole('combobox').filter({ hasText: 'All Statuses' }).waitFor()
   assert.equal(await page.getByText('Pending Quality Reviews', { exact: true }).count(), 0)
+  await page.getByRole('button', { name: 'Scan date', exact: true }).getByText('All dates', { exact: true }).waitFor()
+  await until(() => listRequests(state).at(-1).query.flagged_only !== 'true')
+  assert.equal(listRequests(state).at(-1).query.business_date, undefined)
 })
 
 test('legacy review links become Status Flagged before the first request', async t => {
@@ -341,22 +348,6 @@ test('legacy review links become Status Flagged before the first request', async
   await page.getByRole('combobox').filter({ hasText: 'Flagged' }).waitFor()
   await until(() => listRequests(state).length > 0)
   assert.ok(listRequests(state).every(r => r.query.attention !== 'review' && r.query.flagged_only === 'true'), JSON.stringify(listRequests(state)))
-})
-
-test('the default Scan Logs view moves to the new Manila day at midnight; a filtered day stays', async t => {
-  const { page, state } = await setup(t, 200, { screen: 'logs' })
-  await page.waitForURL('**/logs?date=2026-10-02')
-  await until(() => listRequests(state).length > 0)
-  // Noon in Manila plus 12 hours and a minute is 00:01 on 3 October in Manila.
-  await page.clock.fastForward('12:01:00')
-  await page.waitForURL('**/logs?date=2026-10-03')
-  await until(() => listRequests(state).at(-1).query.business_date === '2026-10-03')
-
-  const filtered = await setup(t, 200, { screen: 'logs', path: '/logs?date=2026-10-02&status=Sold' })
-  await until(() => listRequests(filtered.state).length > 0)
-  await filtered.page.clock.fastForward('12:01:00')
-  await filtered.page.clock.runFor(1000)
-  assert.deepEqual(urlQuery(filtered.page), { date: '2026-10-02', status: 'Sold' })
 })
 
 test('an unflagged low-confidence scan reads Low confidence, not pending review, in Details and Quality Control', async t => {

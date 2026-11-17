@@ -2,7 +2,6 @@ import { NavLink, useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import AppSidebarFooter from "@/components/AppSidebarFooter"
 import { Separator } from "@/components/ui/separator"
-import { manilaDayKey } from "@/lib/manilaTime"
 
 import {
   LayoutDashboard,
@@ -71,9 +70,8 @@ export default function AppSidebar({ onLinkClick }: { onLinkClick?: () => void }
         <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-3">
           Menu
         </p>
-        {/* Logs opens today's Manila day directly, so an open default view is not reloaded. */}
         {navItems.map((item) => (
-          <NavLink key={item.to} to={item.to === "/logs" ? `/logs?date=${manilaDayKey()}` : item.to} className={linkClass} end={item.to === "/dashboard"} onClick={onLinkClick}>
+          <NavLink key={item.to} to={item.to} className={linkClass} end={item.to === "/dashboard"} onClick={onLinkClick}>
             <item.icon className="w-5 h-5 shrink-0" />
             <span>{item.label}</span>
           </NavLink>

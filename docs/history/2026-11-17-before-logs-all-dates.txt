@@ -1,0 +1,73 @@
+CURRENT RESUME HERE (2026-11-17) - TEAM FUSION FIXES MERGED WITH THE FLAGGED REVIEW QUEUE
+
+Archived byte-for-byte before this merge:
+- docs/history/2026-11-17-team-checkpoint-before-merge.txt: Kent's checkpoints for
+  2026-11-15/16 (multi-camera two-tier fusion, platform-edge and trim-overhang filters,
+  Pass-3 bounds, regression fixes), with their full verification numbers.
+- docs/history/2026-11-16-before-review-queue-and-logs-date.txt: the checkpoint before
+  the review-queue change.
+
+STATE OF MAIN
+- Fork main = f69aea0 (b0223f1 review queue = flagged scans + Scan Logs opens on today;
+  f69aea0 review follow-ups) + a merge of team main db1b989 (Kent: 79b7c5f, d2d1aa1,
+  2c946ff, db1b989), brought in through temp PR #4 in the fork. Only TASK_PROGRESS.txt and
+  docs/knowledge/Development Decisions.md conflicted; both sides were kept.
+
+TEAM WORK IN THIS MERGE (Kent, 2026-11-15/16; details in his archived checkpoint)
+- fusion_engine.py:
+  - two-tier multi-camera fusion with lower-tier flank and Rear rules;
+  - horizontal radial wings stay upper tier;
+  - single-side and partial-Rear collapse recovery.
+- classification.py:
+  - Top platform-edge and trim-overhang suppression;
+  - sub-box dedup inside horizontal parents (mirrored in frontend
+    src/lib/detectionBoxes.ts);
+  - OCCLUDED_FINGER_MIN_PRIMARY = 4 and Pass-3 bounds.
+- Kent's measurements:
+  - offline v13/valid (banana_yolovsV2.pt): MAE 0.8832, exact 48.91 %, within one 86.13 %;
+  - debug-screenshots/2026-11-15/ holds 27 station screenshots and his debugging prompt;
+  - his Windows runs show 12 failures and 13 errors in the export/fetch/OOD-prep/train
+    script tests (Windows path, symlink and quote assertions), the same before his change.
+- The low-confidence auto-flag (fusion_engine: conflict or final confidence below the
+  threshold) is unchanged, so the flagged review queue still catches new low-confidence
+  scans.
+
+THIS SESSION'S WORK (2026-11-16, merged as team PR #13 after this merge)
+- The review queue is the flagged scans (dashboard._review = flagged); only an admin
+  removes a flag.
+- The Dashboard chip opens /logs?status=Flagged. Plain Scan Logs opens on today (Manila);
+  filtered links show "All dates"; date=all is explicit; Reset goes to today; it rolls at
+  midnight.
+- Quality Control and Scan Detail show "Low confidence" for unflagged low-confidence scans.
+- Decisions: docs/knowledge/Development Decisions.md (2026-11-16 entry).
+
+VERIFICATION OF THIS MERGE (Linux cloud session, merged tree)
+- Backend full suite with a disposable PostgreSQL 16 cluster: 1180 passed, 38 skipped.
+- Frontend full suite: 367/369. The 2 failures were kiosk-pin timing races ("stalled swap",
+  "connection failures") under a parallel backend run; kiosk-pin.test.mjs passes 15/15
+  alone, and neither change touches the Kiosk.
+- `npm run typecheck` (tsc --noEmit on the root tsconfig) checks no project files. The real
+  check is `tsc -b` inside `npm run build`. It found a type error in my f69aea0
+  (QualityControl reviewLabel did not accept the optional ScanResult.flagged), so f69aea0
+  did not build. Fixed in the commit after this merge; `tsc -b` and the build then pass.
+- ESLint 40 (baseline).
+- Ruff app+tests 644: the +10 over 634 are all in Kent's merged files (classification.py
+  +5, fusion_engine.py +1, test_classification_fusion.py +4); left for the team.
+
+STILL OPEN
+- The station data release (teammate guide PDF), then:
+  1. fetch_training_assets.py;
+  2. check_inference_head.py;
+  3. hand-count evaluation;
+  4. retraining.
+  Kent's checkpoint also asks for a station re-test of unripe and ripe Latundan, Cardaba and
+  Lakatan, and an export of flagged scans for retraining on horizontal side/Rear views.
+- Windows-only test failures in the export/fetch/OOD-prep/train script tests: get the
+  failing test names from Kent and fix them (the teammate guide runs the export on Windows).
+- prediction_label.py hard-coded laptop path; PUBLIC_BASE_URL missing from
+  backend/.env.example; Figure 92 screenshot; deployment when authorized; audit items in
+  the archived checkpoints.
+
+EXACT NEXT STEP
+- User merges team PR #13 and presses Sync fork; temp PR #4 closes itself.
+- Use `npx tsc -b` (or `npm run build`) as the type check, not `npm run typecheck`.
