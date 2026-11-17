@@ -1,5 +1,35 @@
 # Testing and Validation
 
+## Audit logging overhaul — 2026-11-17
+
+- **New backend tests** (89 in total):
+  - `test_audit_log.py` (20): writer, text hygiene, vocabulary, the "only through
+    `audit.py`" guard, deferral and flush, `access_denied` throttling (including a real
+    signed-in user), anonymous cap, no query strings, no secret shapes.
+  - `test_audit_auth.py` (14): the lockout row survives the 429, `login_blocked` per
+    window, unrecognized usernames never written, inactive and temporary-credential
+    sign-ins, `pin_login`, credential actions, change-password/PIN rate limit,
+    setup-token rejection; a PostgreSQL deadlock guard.
+  - `test_audit_maintenance.py` (22) and `test_audit_maintenance_postgresql.py` (4): backup
+    created/failed/downloaded without secrets, re-auth failure and limit, restore outcome
+    exactly once and safe when the actor is gone, power and retention events, deferral
+    during a restore.
+  - `test_audit_records.py` (25): old → new details, no-ops skipped, role/status actions,
+    profile avatar without data, scan details without note text, `scan_failed`, exports
+    (stream session, fail closed), print requests.
+  - `test_audit_read.py` (4): `as_of` paging stays stable while rows are inserted.
+- **New frontend tests:** `activityactions.test.mjs` (the action map matches `AuditAction`
+  in `audit.py`; labels, critical set) and `activitylog.test.mjs` (badges, critical count,
+  the second page reuses `as_of`).
+- **Results:**
+  - Backend: 1290 passed, 38 skipped with a disposable PostgreSQL 16 cluster; 1215 passed,
+    113 skipped without it.
+  - Frontend: 389/390. The failing analytics refresh test is the known clock race; it
+    passes 9/9 when run alone, twice.
+  - `npx tsc -b` and `npm run build` pass. ESLint 36 (down from 40). Ruff 644 (baseline).
+- **Test safety:** an autouse fixture refuses connections to the configured station
+  database, because audit writes look up the session factory at call time.
+
 ## Admin status correction and intake reopen — 2026-11-17
 
 - **New backend tests:**

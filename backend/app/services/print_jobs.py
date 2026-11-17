@@ -11,11 +11,19 @@ from app.config import get_settings
 from app.core import database
 from app.models.print_job import PrintJob
 from app.schemas.printing import LabelPrintRequest, PrintJobResponse
+from app.services import audit
 from app.services.prediction_label import PredictionData
 from app.services.runtime_operations import coordinator, run_blocking
 from app.services.printer_service import print_prediction_label
 
 logger = logging.getLogger(__name__)
+
+
+def _labels(job) -> str:
+    return (
+        f"{job.quantity} label{'' if job.quantity == 1 else 's'} on printer "
+        f"{audit.quoted(job.printer_name)}"
+    )
 
 
 def serialize_job(job):
@@ -26,7 +34,8 @@ def serialize_job(job):
     )
 
 
-async def create_job(db, scan, user, body, *, demo=False):
+async def create_job(db, scan, user, body, *, demo=False, manual=False, client_ip=None):
+    """Queue a label once per request ID. A person's request (``manual``) is audited once."""
     try:
         data = PredictionData.from_scan(scan, demo=demo)
     except ValueError as exc:
@@ -51,6 +60,12 @@ async def create_job(db, scan, user, body, *, demo=False):
             or job.quantity != body.quantity
             or bool(job.label_data.get("demo", False)) != demo):
         raise HTTPException(409, "This print request ID was already used for another action.")
+    if created and manual:
+        await audit.record(
+            db, audit.AuditAction.LABEL_PRINT_REQUESTED,
+            f"Print job {job.id} for scan {scan.id}: {_labels(job)}",
+            actor=user, ip=client_ip,
+        )
     await db.commit()
     return job, created
 
@@ -66,13 +81,19 @@ async def queue_automatic_label(db, scan, user, background_tasks):
     return serialize_job(job)
 
 
-async def retry_job(db, job, expected_attempt):
+async def retry_job(db, job, expected_attempt, *, actor=None, client_ip=None):
     result = await db.execute(update(PrintJob).where(
         PrintJob.id == job.id, PrintJob.status == "FAILED",
         PrintJob.attempt_count == expected_attempt,
     ).values(status="QUEUED", claimed=False, error_message=None, windows_job_id=None))
     if result.rowcount != 1:
         raise HTTPException(409, "This job has changed. Refresh its print status before retrying.")
+    await audit.record(
+        db, audit.AuditAction.LABEL_PRINT_RETRIED,
+        f"Retried print job {job.id} for scan {job.prediction_id}: {_labels(job)} "
+        f"(attempt {expected_attempt + 1})",
+        actor=actor, ip=client_ip,
+    )
     await db.commit()
     return (await db.execute(select(PrintJob).where(PrintJob.id == job.id)
                             .execution_options(populate_existing=True))).scalar_one()

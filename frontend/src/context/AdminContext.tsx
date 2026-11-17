@@ -6,6 +6,7 @@ import type { User, Device, ActivityLog, SystemConfig } from "@/types"
 import type { ApiUser, ApiDevice, ApiActivity, ApiUserUpdate, ApiConfigUpdate, ApiConfig } from "@/types/api"
 import { useLocation } from "react-router-dom"
 import { LIVE_RESUMED_EVENT } from "@/lib/liveEvents"
+import { actorlessName } from "@/lib/activityActions"
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -69,7 +70,7 @@ const mapApiDevice = (d: ApiDevice): Device => ({
 const mapApiActivityLog = (a: ApiActivity): ActivityLog => ({
   id: a.id,
   timestamp: storedTimestamp(a.created_at),
-  user: a.user_name ?? "System",
+  user: a.user_name ?? actorlessName(a.action),
   action: a.action,
   details: a.details ?? "",
   ipAddress: a.ip_address ?? undefined,
@@ -196,7 +197,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         (async () => {
           try {
             const result = user.role === "Admin"
-              ? await collectScanPages((page, page_size, signal) => api.activity.list({ page, page_size }, signal), controller.signal)
+              // Page 1's as_of pins later pages (checked like a scan snapshot id), so rows
+              // written while the log loads cannot shift or duplicate them.
+              ? await collectScanPages(async (page, page_size, signal, as_of) => {
+                const response = await api.activity.list({ page, page_size, as_of }, signal)
+                return { ...response, snapshot_id: response.as_of }
+              }, controller.signal)
               : []
             if (controller.signal.aborted) return
             setActivityLogs(result.map(mapApiActivityLog))

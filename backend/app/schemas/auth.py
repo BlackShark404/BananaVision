@@ -29,7 +29,7 @@ class SetupPasswordRequest(BaseModel):
 
 
 class PinSwapRequest(BaseModel):
-    username: str
+    username: str = Field(..., min_length=1, max_length=50)
     pin: str = Field(..., min_length=4, max_length=4, pattern=r"^\d{4}$")
 
 

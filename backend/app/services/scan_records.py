@@ -11,7 +11,6 @@ from sqlalchemy.orm import selectinload
 from app.core.exceptions import ConflictException, ForbiddenException, NotFoundException
 from app.core.time import now_manila
 from app.models import (
-    ActivityLog,
     Intake,
     ScanClassification,
     ScanNote,
@@ -32,6 +31,7 @@ from app.schemas.scan import (
     ScanNoteResponse,
     ScanResponse,
 )
+from app.services import audit
 from app.services.auth_service import lock_current_account
 from app.services.inventory_policy import inventory_facts
 from app.services.scan_evidence import evidence_url
@@ -331,16 +331,24 @@ async def apply_scan_change(db, scan, user, kind, changes, reason=None, client_i
     db.add(ScanEvent(scan_id=scan.id, revision=scan.revision, kind=kind, timestamp=now,
                      actor_id=user.id, actor_name=user.full_name, reason=reason,
                      previous_values=previous, new_values=new, evidence_id=evidence_id))
-    db.add(
-        ActivityLog(
-            user_id=user.id,
-            action=f"scan_{kind}",
-            details=f"Scan {scan.id}, revision {scan.revision}",
-            ip_address=client_ip,
-        )
+    await audit.record(
+        db, audit.SCAN_CHANGE_ACTIONS[kind], scan_change_details(scan, previous, new, reason),
+        actor=user, ip=client_ip,
     )
     await db.flush()
     return ScanChange(note, tuple(sorted(new)))
+
+
+def scan_change_details(scan, previous, new, reason=None) -> str:
+    """Each changed field old → new. Note text is private and is never copied here."""
+    fields = [key for key in new if key != "text"]
+    parts = [audit.describe_changes(previous, new, fields)] if fields else []
+    if "text" in new:
+        parts.append(f"note added ({len(new['text'] or '')} chars)")
+    text = f"Scan {scan.id}, revision {scan.revision}: {'; '.join(parts)}"
+    if reason:
+        text += f"; reason {audit.quoted(reason, 200)}"
+    return text
 
 
 async def mutate_scan(db, scan_id, user, kind, body, client_ip=None):
@@ -400,18 +408,14 @@ async def mutate_scan(db, scan_id, user, kind, body, client_ip=None):
         db, scan, user, kind, changes, getattr(body, "reason", None), client_ip=client_ip
     )
     if reopen_intake is not None and "inventory_status" in change.changed:
+        old_intake_status = reopen_intake.status
         reopen_intake.status = IntakeStatusEnum.ACTIVE
         reopen_intake.updated_at = scan.updated_at
-        db.add(
-            ActivityLog(
-                user_id=user.id,
-                action="intake_status_changed",
-                details=(
-                    f"Intake {reopen_intake.id} status → Active: "
-                    f"scan {scan.id} returned to In Stock"
-                ),
-                ip_address=client_ip,
-            )
+        await audit.record(
+            db, audit.AuditAction.INTAKE_STATUS_CHANGED,
+            f"Intake {reopen_intake.id} status {audit.clean(old_intake_status)} → "
+            f"{audit.clean(reopen_intake.status)}: scan {scan.id} returned to In Stock",
+            actor=user, ip=client_ip,
         )
         await db.flush()
     else:

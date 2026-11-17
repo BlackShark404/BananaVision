@@ -10,6 +10,9 @@ from fastapi import HTTPException
 
 station_lock = asyncio.Lock()
 maintenance_context: ContextVar[bool] = ContextVar("maintenance_context", default=False)
+# True only inside the exclusive section that owns the maintenance barrier. Audit writes from
+# the owner must not request the shared lock the owner itself blocks.
+maintenance_owner: ContextVar[bool] = ContextVar("maintenance_owner", default=False)
 
 
 async def finish_on_disconnect(awaitable):
@@ -93,6 +96,7 @@ class StationCoordinator:
         self.assert_ready()
         self.state, self.kind = "draining", kind
         token = maintenance_context.set(True)
+        owner_token = maintenance_owner.set(True)
         try:
             if self.owner_check:
                 await self.owner_check()
@@ -107,6 +111,7 @@ class StationCoordinator:
             else:
                 yield
         finally:
+            maintenance_owner.reset(owner_token)
             maintenance_context.reset(token)
             if self.state in {"draining", "maintenance"}:
                 self.state, self.kind = "ready", None

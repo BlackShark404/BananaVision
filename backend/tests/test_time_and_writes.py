@@ -145,6 +145,9 @@ def application(monkeypatch):
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
         id=ids.admin, token_version=1, full_name="Admin User", role=SimpleNamespace(name="Admin"),
     )
+    # Production parity: failure events and refused access are written by the audit handler.
+    from app.services import audit
+    audit.install(app)
 
     class ResponseObserver:
         async def __call__(self, scope, receive, send):
@@ -346,8 +349,11 @@ def test_activity_details_render_enum_values_not_enum_reprs(application):
     assert status.status_code == 200, status.text
     with Session(app.engine) as db:
         details = {log.action: log.details for log in db.scalars(select(ActivityLog))}
-    assert details["user_created"] == "Created user 'enum-check' with role Operator"
-    assert details["intake_status_changed"] == f"Intake {app.ids.intake} status → Depleted"
+    assert details["user_created"] == (
+        f"Created user 'enum-check' ({created.json()['id']}) with role Operator, "
+        "status Active; temporary credentials issued"
+    )
+    assert details["intake_status_changed"] == f"Intake {app.ids.intake} status Active → Depleted"
 
 
 @pytest.mark.asyncio

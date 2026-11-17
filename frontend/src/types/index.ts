@@ -1,5 +1,6 @@
 import type { PrintJob } from "./printing"
 import type { ShelfLifeWindow } from "@/lib/shelfLifeWindow"
+import type { KnownActivityAction } from "@/lib/activityActions"
 
 export const CultivarEnum = {
   LAKATAN: "Lakatan",
@@ -196,28 +197,8 @@ export interface ActivityLog {
   id: string
   timestamp: string
   user: string
-  action:
-    | "login"
-    | "login_failed"
-    | "pin_failed"
-    | "logout"
-    | "scan_created"
-    | "scan_edited"
-    | "scan_deleted"
-    | "user_created"
-    | "user_updated"
-    | "config_changed"
-    | "scan_flagged"
-    | "scan_rejected"
-    | "supplier_created"
-    | "supplier_updated"
-    | "supplier_deleted"
-    | "intake_created"
-    | "intake_edited"
-    | "intake_deleted"
-    | "intake_status_changed"
-    | "system_shutdown"
-    | "system_restart"
+  /** A known AuditAction, or a legacy/unknown stored name (shown via the title-case fallback). */
+  action: KnownActivityAction | (string & {})
   details: string
   ipAddress?: string
 }

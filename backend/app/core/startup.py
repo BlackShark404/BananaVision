@@ -40,7 +40,7 @@ import random
 from datetime import timedelta
 from app.services.camera_manager import camera_manager
 from app.services.runtime_operations import station_lock, coordinator, run_blocking
-from app.services import configuration, maintenance_state, maintenance_database
+from app.services import audit, configuration, maintenance_state, maintenance_database
 from app.services.backup_restore import get_service
 from app.services.power_control import reconcile_power
 from app.services.classification import banana_classifier
@@ -160,6 +160,14 @@ async def _initialize_runtime():
     logger.info("[Phase 5] Initializing DHT22 sensor...")
     sensor_connected = sensor_reader.connect()
     logger.info(f"  Sensor connected: {sensor_connected}")
+
+    # Once per process: run_startup and resume_runtime both guard on _runtime_ready.
+    await audit.emit(
+        audit.AuditAction.SYSTEM_STARTED,
+        f"Station runtime started: {len(online)}/{len(camera_manager._device_ids)} cameras online; "
+        f"sensor {'connected' if sensor_connected else 'not connected'}",
+        sessions=async_session_factory,
+    )
 
     # ── Phase 6: Ready ───────────────────────────────────────────────────
     logger.info("[Phase 6] System ready!")
@@ -364,6 +372,12 @@ async def _seed_default_data(db: AsyncSession):
     )
     admin_account.admin_profile = AdminProfile()
     db.add(admin_account)
+    await db.flush()
+    await audit.record(
+        db, audit.AuditAction.BOOTSTRAP_ADMIN_CREATED,
+        f"Bootstrap administrator {audit.quoted(admin_account.username)} ({admin_account.id}) "
+        "created from BOOTSTRAP_ADMIN_PASSWORD; password replacement required at first sign-in",
+    )
     await db.commit()
     logger.info("  Bootstrap administrator created; credential replacement required")
 

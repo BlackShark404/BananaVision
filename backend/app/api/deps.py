@@ -43,6 +43,10 @@ async def _resolve_user(db: AsyncSession, token: str) -> UserAccount:
     if not user:
         raise CredentialsException("User not found")
 
+    # Refused-access audit rows name the account, even when it is inactive or revoked.
+    from app.services.audit import remember_actor
+    remember_actor(user)
+
     if user.status != ActiveStatusEnum.ACTIVE:
         raise ForbiddenException("Account is inactive")
 
@@ -85,6 +89,8 @@ async def require_admin(
     user: Annotated[UserAccount, Depends(get_current_user)],
 ) -> UserAccount:
     """Require the current user to have Admin role."""
+    from app.services.audit import remember_actor
+    remember_actor(user)
     if not user.role or user.role.name != RoleEnum.ADMIN.value:
         raise ForbiddenException("Admin access required")
     return user

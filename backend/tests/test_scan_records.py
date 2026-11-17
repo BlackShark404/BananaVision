@@ -425,7 +425,8 @@ def test_restoring_stock_reopens_a_depleted_intake(application):
     [reopened] = intake_reopen_logs(app)
     assert reopened.user_id == app.ids.admin
     assert reopened.details == (
-        f"Intake {app.ids.intake} status → Active: scan {app.ids.scan} returned to In Stock"
+        f"Intake {app.ids.intake} status Depleted → Active: "
+        f"scan {app.ids.scan} returned to In Stock"
     )
     assert reopened.ip_address == status_log.ip_address
     listed = {row["id"]: row for row in app.client.get("/api/v1/intakes").json()}

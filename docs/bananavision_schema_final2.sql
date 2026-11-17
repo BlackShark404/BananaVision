@@ -263,6 +263,9 @@ create table scan_note (
 -- system logs & notifications
 -- ============================================================
 
+-- Historical design draft. The live table has no CHECK on action: the application writes
+-- the AuditAction vocabulary in backend/app/services/audit.py (see
+-- docs/knowledge/Database.md, "Activity log (audit)").
 create table activity_log (
     id               uuid primary key default gen_random_uuid(),
     timestamp        timestamp with time zone not null default now(),

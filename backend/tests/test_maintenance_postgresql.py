@@ -11,7 +11,7 @@ from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from app.core.database import Base
-from app.models import UserAccount, MaintenanceState, ScanStatusLog, Scan
+from app.models import ActivityLog, UserAccount, MaintenanceState, ScanStatusLog, Scan
 from app.services import backup_archive as archive, backup_restore as restore, maintenance_database
 from app.services.runtime_operations import StationCoordinator, maintenance_context
 from tests.test_backup_archive import station as station, archive_module as archive_module, AsyncDB  # noqa: F401
@@ -23,6 +23,13 @@ def legacy_scan_archive(archive_module, station, tmp_path, request):
     return legacy_backup(archive_module, station, tmp_path, version=request.param), request.param
 
 pytestmark = pytest.mark.skipif(not os.environ.get('BANANAVISION_TEST_DATABASE_URL'), reason='Isolated PostgreSQL URL required')
+
+
+async def restore_outcomes(sessions):
+    """Audit actions of restore outcome rows; each restore must write exactly one."""
+    async with sessions() as db:
+        return list((await db.scalars(select(ActivityLog.action).where(
+            ActivityLog.action.in_(['restore_completed', 'restore_failed'])))).all())
 
 
 @pytest_asyncio.fixture
@@ -118,6 +125,8 @@ async def test_restore_round_trip_and_one_use_validation(recovery_station):
         await x.service.restore(uuid4(), x.validation['validation_id'], x.validation['token'], x.actor, 'session')
     assert error.value.status_code == 409
     assert x.coordinator.state == 'ready'
+    # The replay and the reused validation add no second outcome row (the reuse is a rejection).
+    assert sorted(await restore_outcomes(x.sessions)) == ['restore_completed', 'restore_failed']
 
 
 @pytest.mark.asyncio
@@ -143,6 +152,7 @@ async def test_restore_failure_boundaries_and_compensation(recovery_station, mon
     async with x.sessions() as db:
         assert await db.scalar(select(UserAccount.full_name)) == ('Admin' if failure == 'lost-commit' else 'Current station name')
     assert x.coordinator.state == 'ready'
+    assert await restore_outcomes(x.sessions) == ['restore_' + result['status']]
 
 
 @pytest.mark.asyncio
@@ -192,6 +202,7 @@ async def test_restore_preparation_failure_is_terminal_and_preserves_station(rec
     async with x.sessions() as db:
         assert await db.scalar(select(UserAccount.full_name)) == 'Current station name'
     assert x.coordinator.state == 'ready'
+    assert await restore_outcomes(x.sessions) == ['restore_failed']
 
 
 @pytest.mark.asyncio
@@ -215,6 +226,7 @@ async def test_verified_restore_survives_crash_during_hardware_refresh(recovery_
     async with x.sessions() as db:
         assert await db.scalar(select(UserAccount.full_name)) == 'After verified restore'
     assert x.coordinator.state == 'ready'
+    assert await restore_outcomes(x.sessions) == ['restore_completed']
 
 @pytest.mark.asyncio
 async def test_production_http_backup_uses_exclusive_barrier(recovery_station, monkeypatch):

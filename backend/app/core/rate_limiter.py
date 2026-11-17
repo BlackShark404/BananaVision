@@ -92,6 +92,10 @@ class RateLimiter:
                 del self._records[key]
 
 
-# Singleton instances — one for login (password), one for PIN swap.
+# Singleton instances — one for login (password), one for PIN swap, and one for
+# re-checking a signed-in user's current password or PIN (change-password, change-pin,
+# maintenance re-authentication). Keys: "password:<user id>", "pin:<user id>",
+# "reauth:<user id>".
 login_limiter = RateLimiter()
 pin_limiter = RateLimiter()
+credential_limiter = RateLimiter()

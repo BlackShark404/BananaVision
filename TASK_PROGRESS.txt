@@ -1,48 +1,49 @@
-CURRENT RESUME HERE (2026-11-17) - ADMIN CAN CORRECT SOLD/SPOILED; RESTORED STOCK REOPENS ITS INTAKE
+CURRENT RESUME HERE (2026-11-17) - COMPLETE AUDIT LOGGING (PART 2 OF 3)
 
-The previous checkpoint (Sold/Spoiled/For Processing Est. Spoilage format; PR #15 merged to
-team main as 3db6689, same tree as 0638ec9) is archived byte-for-byte in
-docs/history/2026-11-17-before-status-correction.txt. Its STILL OPEN items carry over below.
+The previous checkpoint (admin Sold/Spoiled correction, kiosk today-only resume; pushed to
+fork main as 7f8e858) is archived byte-for-byte in
+docs/history/2026-11-17-before-audit-logging.txt.
 
-USER REQUEST (2026-11-17, station screenshot)
-- Scan Detail of a Spoiled scan had no status control. "The inventory status should still be
-  editable by admin even if it's spoiled because what if the admin committed a mistake and
-  put spoiled instead of for processing or sold. Do something about it and verify."
-- User choices: "Any other status", "Reopen the intake", "Single scans only".
+USER REQUEST (2026-11-17)
+- "Make sure also the audit logs properly logs all CRUD operations and other things. Do
+  what must be done and best practice and continue that Resume today only".
+- User choices: keep the actor's name with each entry (Part 3), log refused access
+  (throttled), keep the audit log across restores (Part 3).
 
-DONE
-- frontend/src/pages/ScanDetail.tsx: VALID_TRANSITIONS/TERMINAL_STATUSES removed. The admin
-  "Update status" menu offers every status except the current one (the Logs row rule).
-- frontend/src/lib/inventoryStatusChange.ts: inventoryStatusChangeNote(current, target) for
-  the Scan Detail and Scan Logs dialogs. "Terminal status ... cannot be easily undone" is gone
-  from single-scan dialogs; the Delivery Intake bulk dialog keeps it (bulk still skips
-  Sold/Spoiled).
-- backend/app/services/scan_records.py mutate_scan:
-  - an admin change back to In Stock reopens a Depleted intake (Active), logs
-    intake_status_changed and publishes intake:changed (kind scan-status) after commit;
-  - the reopen decision reads scan.intake after the existing intake lock (no new lock);
-  - operators get 403 for leaving Sold/Spoiled and for a change that would reopen an intake.
-- Unchanged: bulk "Mark all ..." and the bulk API, single Sold/Spoiled changes (intake stays
-  as it is), API fields, the database schema.
-- Kiosk resume (review finding; user chose "Resume today only"): InventoryContext.loadData
-  resumes only an Active intake started today in Asia/Manila (isManilaToday in
-  lib/manilaTime.ts). An intake already open stays open across midnight. Tests: kiosk (old
-  Active intake not resumed, also after a focus reconcile), manilaTime helper cases.
-- Status dialog note: a same-status note ("The scan is already X. Saving changes nothing.")
-  for the rare "Reload latest" case (review polish).
-- Docs: Development Decisions, Frontend, Resolved Bugs, Testing and Validation (2026-11-17);
-  storyboard Figure 48 wording (admin status controls). Figure 76 (bulk dialog) unchanged.
+DONE (Part 2, this commit)
+- backend/app/services/audit.py: the single writer.
+  - Writers: AuditAction vocabulary; record (same transaction); emit (own session, defers
+    while the station is not ready, required=True egress fails closed with 503); attach
+    plus a global handler that writes failure events after rollback.
+  - Refused access: access_denied for 403, throttled per actor, route and reason (10 min).
+  - Safety: anonymous cap 120/min, lock_timeout 5s, bananavision.audit file mirror.
+- All 25 inline ActivityLog writes migrated (a guard test enforces it).
+- Sign-in:
+  - the lockout row survives the 429; new account_locked, login_blocked, login_denied,
+    credential_setup_started, pin_login;
+  - specific credential actions;
+  - change-password, change-PIN and re-auth get the credential_limiter (429);
+  - unrecognized usernames are never stored.
+- Maintenance: backup created/failed/downloaded, restore validated/completed/failed
+  (exactly once, after verify_live), recovery, power cancel/failed/completed,
+  config_applied, retention, bootstrap, system_started.
+- Records: old -> new details, no-ops skipped, user_role_changed/user_status_changed,
+  profile_updated, scan details with reason (never note text), scan_failed, data_exported
+  (config and scan-log exports), label print/retry.
+- Read side: GET /activity as_of paging; frontend lib/activityActions.ts gives labels,
+  categories, colours and the critical set for every action, plus a sync test against
+  audit.py.
+- Docs: Database (Activity log section), Development Decisions, Resolved Bugs, Frontend,
+  Testing and Validation, USER_GUIDE, data dictionary Table 37, schema draft note,
+  backend README, storyboard Figure 84.
 
 VERIFICATION
-- Backend full suite: 1198 passed, 38 skipped with a disposable PostgreSQL 16 cluster;
-  1130 passed, 106 skipped without it. New PostgreSQL lock tests 7/7; a mutant that read the
-  intake before the lock failed the stale-read test.
-- Frontend full suite 380/380 (with the kiosk resume and note tests). `npx tsc -b` and
-  `npm run build` pass.
-- ESLint 40 and Ruff 644 (baselines); changed files have no new findings.
-- Screenshots: Scan Detail of a Spoiled scan with the menu open, and the correction dialog.
-- Review workflow (backend, authorization, frontend lenses with skeptics): one confirmed
-  finding (kiosk resume of a reopened old intake), fixed as above; two refuted.
+- Backend: 1290 passed, 38 skipped with a disposable PostgreSQL 16 cluster; 1215 passed,
+  113 skipped without it. Ruff 644 (baseline).
+- Frontend: 389/390. The analytics refresh failure is the known clock race; it passes 9/9
+  alone, twice. tsc -b and build pass. ESLint 36 (was 40).
+- A four-lens review workflow ran when this was committed; its confirmed findings are fixed
+  in the next commit.
 
 STILL OPEN
 - The station data release (teammate guide PDF), then:
@@ -61,12 +62,14 @@ STILL OPEN
 - Type check: use `npx tsc -b` (or `npm run build`), not `npm run typecheck`.
 
 IN PROGRESS (approved plan, 2026-11-17)
-- Part 2: audit logging overhaul (services/audit.py helper and handler, auth/403/maintenance/
-  export/CRUD/system events, as_of paging, frontend labels).
-- Part 3: audit integrity (actor_name snapshot + migration 0012 + backup v5, audit kept
-  across restore, PostgreSQL append-only trigger).
+- Apply the confirmed findings from the audit review workflow (follow-up commit).
+- Part 3: audit integrity:
+  - activity_log.actor_name snapshot plus migration 0012 plus backup archive v5 (older
+    archives still restorable);
+  - the audit log is kept across restores;
+  - a PostgreSQL append-only trigger.
 - Plan: /root/.claude/plans/before-you-continue-why-optimized-sphinx.md (session-local).
 
 EXACT NEXT STEP
-- User opens the team PR for this change from the fork's main:
+- Finish the review fixes and Part 3. Then the user opens the team PR from the fork's main:
   https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main

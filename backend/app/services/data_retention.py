@@ -14,6 +14,8 @@ from app.core.time import now_manila
 from app.models.scan import Scan
 from app.models.scan_image import ScanImage
 from app.models.scan_classification import ScanClassification
+from app.services import audit
+from app.services.audit import AuditAction
 from app.services.capture_cleanup import remove_scan_captures
 from app.services.configuration import get_config
 from app.services.maintenance_state import get_state
@@ -37,6 +39,14 @@ async def data_retention_worker():
 
 
 async def _run_retention_cycle():
+    try:
+        await _retention_cycle()
+    finally:
+        # Admission is open again: write events kept while the cleanup held it.
+        await audit.flush_deferred(sessions=async_session_factory)
+
+
+async def _retention_cycle():
     async with coordinator.exclusive('retention'):
         async with async_session_factory() as db:
             if not (await get_config(db)).data_retention_enabled:
@@ -51,15 +61,26 @@ async def _run_retention_cycle():
                     for value in (await db.execute(select(column).where(column.is_not(None)))).scalars():
                         relative = _evidence_name(value, settings.capture_path)
                         referenced.add(relative.split('/')[0])
-                cutoff = now_manila() - timedelta(days=settings.max_captures_retention_days)
+                days = settings.max_captures_retention_days
+                cutoff = now_manila() - timedelta(days=days)
                 removed = await run_blocking(remove_expired_orphans, settings.capture_path, referenced, cutoff.timestamp())
                 state.retention = {**state.retention, 'completed_at': now_manila().isoformat(),
                                    'directories_removed': removed, 'error': None}
+                if removed:
+                    noun = 'directory' if removed == 1 else 'directories'
+                    await audit.record(db, AuditAction.RETENTION_CLEANUP,
+                                       f'Capture retention removed {removed} unreferenced capture '
+                                       f'{noun} older than {days} days; scan history and evidence '
+                                       'kept')
                 await db.commit()
-            except Exception:
+            except Exception as exc:
                 await db.rollback()
                 state = await get_state(db)
                 state.retention = {**(state.retention or {}), 'error': 'Cleanup failed; see server logs. No history was deleted.'}
+                # Error text can hold paths: the server log keeps it, the audit row its type.
+                await audit.record(db, AuditAction.RETENTION_FAILED,
+                                   f'Capture retention cleanup failed ({type(exc).__name__}); '
+                                   'no history was deleted; see server logs')
                 await db.commit()
                 raise
 

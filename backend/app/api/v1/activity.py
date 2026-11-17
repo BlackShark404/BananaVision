@@ -2,18 +2,21 @@
 Activity log routes.
 
 AUDIT-01: True server-side pagination, filtering by action/user/search query.
+Paging is pinned to an ``as_of`` boundary so rows written while an administrator pages
+through the log cannot shift later pages.
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter, Query
-from sqlalchemy import select, func, desc, or_
+from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import DbSession, AdminUser
+from app.api.deps import AdminUser, DbSession
+from app.core.time import now_manila
 from app.models.activity_log import ActivityLog
-from app.schemas.common import ActivityLogResponse, ActivityLogListResponse
-
+from app.schemas.common import ActivityLogListResponse, ActivityLogResponse
+from app.schemas.timestamps import InputTimestamp
 
 router = APIRouter(prefix="/activity", tags=["Activity"])
 
@@ -27,10 +30,19 @@ async def list_activity(
     action: str | None = None,
     user_name: str | None = None,
     search: str | None = None,
+    as_of: InputTimestamp | None = None,
 ):
-    """List activity logs with server-side pagination, filtering, and search."""
-    query = select(ActivityLog).options(selectinload(ActivityLog.user)).order_by(
-        desc(ActivityLog.timestamp), desc(ActivityLog.id)
+    """List activity logs with server-side pagination, filtering, and search.
+
+    Count and page only include rows at or before ``as_of``; the response returns the
+    boundary used (now when absent) so later pages can pass it back.
+    """
+    boundary = as_of or now_manila()
+    query = (
+        select(ActivityLog)
+        .options(selectinload(ActivityLog.user))
+        .where(ActivityLog.timestamp <= boundary)
+        .order_by(desc(ActivityLog.timestamp), desc(ActivityLog.id))
     )
 
     # Filter by action type
@@ -77,4 +89,5 @@ async def list_activity(
         total=total,
         page=page,
         page_size=page_size,
+        as_of=boundary,
     )

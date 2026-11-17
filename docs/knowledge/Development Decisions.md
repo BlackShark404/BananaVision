@@ -2,6 +2,39 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-17: Complete audit logging through one writer
+
+- **Request:** "Make sure also the audit logs properly logs all CRUD operations and other
+  things. Do what must be done and best practice."
+- **Before:** 25 inline `ActivityLog(...)` writes, no helper.
+  - **Lost on rollback:** the failed sign-in that caused a lockout.
+  - **Not logged at all:** backups, backup downloads, restores, recovery, exports, refused
+    access, failed re-authentication, failed current-password/PIN checks, inactive and
+    temporary-credential sign-ins, power cancel and outcomes, printing, retention and
+    startup.
+  - **Lumped together:** seven credential events were `user_updated`, and kiosk PIN
+    sign-in was `login`.
+- **Decisions:**
+  1. One writer, `backend/app/services/audit.py`, with a fixed vocabulary (`AuditAction`).
+     Existing names stay for unchanged events; old rows are not rewritten.
+  2. Record changes use `record()` in the same transaction (fail closed). Failures,
+     denials and exports use `emit()` or `attach()`. These write after the rollback and
+     never turn a 401/403/429 into a 500.
+  3. Data that leaves the station (backup download, scan-log export) is not served if its
+     audit row cannot be written while the station is ready (503).
+  4. Refused access (403) is logged centrally, throttled per actor, route and reason.
+     401s from expired tabs are not stored. (User decision: "Yes, throttled".)
+  5. Change-password, change-PIN and maintenance re-authentication get the same rate
+     limit as sign-in.
+  6. Maintenance control paths never write into their request session. Non-owners defer
+     while the station is not ready; the restore owner writes its outcome in `_finish`
+     after `verify_live`, exactly once.
+- **Not logged (noise):** ordinary GET reads, notification read receipts, automatic label
+  printing, device online/offline changes.
+- **Not visible to the server:** exports made in the browser (Activity Log, Quality
+  Control and Delivery Intake CSV/XLSX).
+- See [[Database]] (Activity log) for the vocabulary and details grammar.
+
 ## 2026-11-17: Admins can correct a Sold or Spoiled scan; restoring stock reopens its intake
 
 - **Problem (station report):** Scan Detail showed no status control for a Spoiled scan, so

@@ -467,6 +467,23 @@ single save controls, immediate-cleanup draft preservation, reset/discard, pendi
 guards, validation invalidation after file changes, and backup results across tabs.
 See [[Testing and Validation]].
 
+## Activity Log labels and paging (2026-11-17)
+
+- `src/lib/activityActions.ts` gives every audit action a label, a category (sign-in,
+  security, credential, record, export, system) and a badge colour. Security failures and
+  system failures are red. Legacy or unknown actions fall back to the title-cased name
+  and a grey badge.
+- A Node test reads `AuditAction` from `backend/app/services/audit.py` and fails if the two
+  lists differ.
+- "Critical Actions" counts security failures, credential resets, role and status
+  changes, exports, backup downloads, restores, recovery, configuration and power events.
+- Search also matches the friendly label. Exports keep the raw action string. Profile's
+  recent activity uses the same map.
+- Rows with no account show "Unauthenticated" (security events) or "System".
+- `AdminContext` passes page 1's `as_of` to later pages, so new rows arriving during the
+  load do not break it. A row stamped before `as_of` but committed later can still change
+  the count; the page then asks for a reload, as before.
+
 ## Inventory status changes (2026-11-17)
 
 - **Scan Detail** (admin only): the "Update status" menu next to the Inventory Status badge

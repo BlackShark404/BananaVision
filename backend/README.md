@@ -256,6 +256,8 @@ Regression tests use disposable databases. To include PostgreSQL cases, set `BAN
 
 Power endpoints check the command exit code and report OS acceptance, not proof of completed reboot. They close admission and drain active scans and admitted work before dispatch; a drain timeout rejects the operation. Windows schedules power actions after ten seconds; Linux/macOS use a one-minute delay and noninteractive `sudo -n`. Configure host permissions and service autostart using [the kiosk guide](../docs/kiosk-autostart-guide.md); verify these on the deployed station.
 
+Audit log: every activity row is written by `app/services/audit.py` and mirrored to the `bananavision.audit` logger. While the station is in maintenance or recovery, audit events are held in memory and in that log, then written once the station is ready. Refused access (403), failed sign-ins and lockouts, credential changes, exports, backup downloads and restores are recorded; secrets and file paths never are.
+
 The retention worker checks every six hours and respects the enable flag. It removes only expired, unreferenced UUID capture directories. Persisted scans, active-stock evidence, notes, corrections, audit history, and referenced images are protected; enabling retention does not shorten recorded history. Failed scans clean up their own unpersisted captures. The scan-summary CSV is a report, not a restorable backup. System Configuration provides versioned station backups with application data and referenced evidence, archive validation, and confirmed in-place restore with rollback protection.
 
 ## WebSocket

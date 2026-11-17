@@ -12,11 +12,14 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import AdminUser, DbSession, get_current_user, require_admin
 from app.core import database
 from app.core.http import get_client_ip
+from app.core.rate_limiter import MAX_ATTEMPTS, credential_limiter
 from app.core.security import verify_password
 from app.models.user_account import UserAccount
 from app.schemas.enums import ActiveStatusEnum
-from app.services import backup_archive, maintenance_state, power_control, configuration
+from app.services import audit, backup_archive, maintenance_state, power_control, configuration
+from app.services.audit import AuditAction
 from app.services.backup_restore import get_service
+from app.services.camera_manager import camera_manager
 from app.services.runtime_operations import coordinator, finish_on_disconnect, run_blocking, station_lock
 
 router = APIRouter(prefix='/config', tags=['Maintenance'])
@@ -44,8 +47,35 @@ async def reauthenticate(db, admin, password=None):
     if (current is None or current.status != ActiveStatusEnum.ACTIVE or not current.role
             or current.role.name != 'Admin'):
         raise HTTPException(403, 'Active administrator required')
-    if password is not None and not await run_blocking(verify_password, password.get_secret_value(), current.password_hash):
-        raise HTTPException(403, 'Administrator password is incorrect')
+    if password is None:
+        return
+    # Failures are attached to the raised error: the audit handler writes them after the
+    # request transaction has rolled back, so no row lock is held while writing.
+    key = f'reauth:{current.id}'
+    subject = f'Maintenance re-authentication for {audit.quoted(current.username)}'
+    locked, remaining = credential_limiter.is_locked(key)
+    if locked:
+        raise audit.attach(too_many_attempts(remaining), AuditAction.LOGIN_BLOCKED,
+                           f'{subject} refused: locked for {remaining} more seconds', actor=current)
+    if not await run_blocking(verify_password, password.get_secret_value(), current.password_hash):
+        now_locked, info = credential_limiter.record_failure(key)
+        failed = f'{subject} failed: incorrect administrator password'
+        if now_locked:
+            error = audit.attach(too_many_attempts(info), AuditAction.REAUTH_FAILED, failed,
+                                 actor=current)
+            raise audit.attach(error, AuditAction.ACCOUNT_LOCKED,
+                               f'{subject} locked for {info} seconds after {MAX_ATTEMPTS} '
+                               'incorrect passwords', actor=current)
+        raise audit.attach(HTTPException(403, 'Administrator password is incorrect'),
+                           AuditAction.REAUTH_FAILED, f'{failed} ({info} attempts left)',
+                           actor=current)
+    credential_limiter.record_success(key)
+
+
+def too_many_attempts(seconds):
+    return HTTPException(
+        429, f'Too many incorrect administrator passwords. Try again in {seconds} seconds.',
+        headers={'Retry-After': str(max(seconds, 1))})
 
 
 def session_digest(request):
@@ -99,11 +129,13 @@ async def operation_status(operation_id: uuid.UUID, db: DbSession, admin: AdminU
 async def create_backup(body: OperationRequest, db: DbSession, admin: AdminUser, request: Request):
     await reauthenticate(db, admin)
     return await safe_operation(get_service().backup(body.operation_id, admin.id,
-        authorize=fresh_authorization(request, admin.id)))
+        authorize=fresh_authorization(request, admin.id), actor_name=admin.full_name,
+        client_ip=get_client_ip(request)))
 
 
 @router.get('/backups/{operation_id}')
-async def download_backup(operation_id: uuid.UUID, db: DbSession, admin: AdminUser):
+async def download_backup(operation_id: uuid.UUID, db: DbSession, admin: AdminUser,
+                          request: Request):
     result = await operation_status(operation_id, db, admin)
     if result['kind'] != 'backup' or result['status'] != 'completed':
         raise HTTPException(409, 'Backup is not available')
@@ -111,6 +143,12 @@ async def download_backup(operation_id: uuid.UUID, db: DbSession, admin: AdminUs
     backup_archive._no_links(path)
     if not path.is_file():
         raise HTTPException(410, 'Backup file is no longer available')
+    # The archive holds every record and credential hash: no audit row, no download.
+    created = (result.get('manifest') or {}).get('created_at')
+    await audit.emit(AuditAction.BACKUP_DOWNLOADED,
+                     f'Backup {operation_id} downloaded: archive created {audit.clean(created)}, '
+                     f'{path.stat().st_size} bytes; archive contains credential hashes',
+                     actor=admin, ip=get_client_ip(request), required=True)
     return FileResponse(path, media_type='application/zip', filename=f'bananavision-{operation_id}.zip',
                         headers={'Cache-Control': 'no-store'})
 
@@ -130,10 +168,17 @@ async def validate_backup(request: Request, db: DbSession, admin: AdminUser):
                 async for chunk in request.stream():
                     length += len(chunk)
                     if length > backup_archive.MAX_ARCHIVE_BYTES:
-                        raise HTTPException(413, 'Backup exceeds upload limit')
+                        raise audit.attach(
+                            HTTPException(413, 'Backup exceeds upload limit'),
+                            AuditAction.RESTORE_VALIDATION_FAILED,
+                            f'Backup upload {identifier} rejected: exceeds the '
+                            f'{backup_archive.MAX_ARCHIVE_BYTES} byte upload limit',
+                            actor=admin)
                     backup_archive._space(directory, len(chunk))
                     output.write(chunk)
-            return await safe_operation(service.validate(path, identifier, admin.id, session_digest(request)))
+            return await safe_operation(service.validate(
+                path, identifier, admin.id, session_digest(request), actor_name=admin.full_name,
+                client_ip=get_client_ip(request)))
         except BaseException:
             path.unlink(missing_ok=True)
             raise
@@ -145,7 +190,9 @@ async def restore_backup(body: RestoreRequest, request: Request, db: DbSession, 
         raise HTTPException(422, 'Type REPLACE to confirm station replacement')
     await reauthenticate(db, admin, body.password)
     return await safe_operation(get_service().restore(body.operation_id, body.validation_id,
-        body.token, admin.id, session_digest(request), authorize=fresh_authorization(request, admin.id, body.password)))
+        body.token, admin.id, session_digest(request),
+        authorize=fresh_authorization(request, admin.id, body.password),
+        actor_name=admin.full_name, client_ip=get_client_ip(request)))
 
 
 @router.post('/restart')
@@ -165,7 +212,9 @@ async def shutdown(body: OperationRequest, db: DbSession, admin: AdminUser, requ
 @router.post('/power/cancel')
 async def cancel_power(body: RecoveryRequest, db: DbSession, admin: AdminUser, request: Request):
     await reauthenticate(db, admin, body.password)
-    return await safe_operation(power_control.cancel_power(authorize=fresh_authorization(request, admin.id, body.password)))
+    return await safe_operation(power_control.cancel_power(
+        authorize=fresh_authorization(request, admin.id, body.password), actor_id=admin.id,
+        client_ip=get_client_ip(request)))
 
 
 @router.post('/maintenance/recover')
@@ -173,6 +222,7 @@ async def recover(body: RecoveryRequest, db: DbSession, admin: AdminUser, reques
     await reauthenticate(db, admin, body.password)
     service = get_service()
     authorize = fresh_authorization(request, admin.id, body.password)
+    actor, ip = admin, get_client_ip(request)
     async def recover_station():
         async with service._lock:
             await authorize()
@@ -181,16 +231,22 @@ async def recover(body: RecoveryRequest, db: DbSession, admin: AdminUser, reques
                 raise HTTPException(409, 'Cancel the pending power operation first')
             if coordinator.state != 'recovery-required':
                 raise HTTPException(409, 'Station does not require recovery')
+            before = coordinator.state
             await service.recover()
             if coordinator.state != 'ready':
                 await coordinator.finish_recovery()
+            await audit.emit(AuditAction.MAINTENANCE_RECOVERED,
+                             f'Station recovery completed: {before} → {coordinator.state}',
+                             actor=actor, ip=ip)
+            # Events kept while admission was closed are written now that the station is ready.
+            await audit.flush_deferred()
         return coordinator.status()
     return await safe_operation(recover_station())
 
 
 @router.post('/maintenance/apply')
 async def apply_cameras(body: OperationRequest, db: DbSession, admin: AdminUser, request: Request):
-    actor_id = admin.id
+    actor_id, actor_name, ip = admin.id, getattr(admin, 'full_name', None), get_client_ip(request)
     authorize = fresh_authorization(request, actor_id)
     async def apply():
         async with get_service()._lock:
@@ -214,6 +270,21 @@ async def apply_cameras(body: OperationRequest, db: DbSession, admin: AdminUser,
                     await configuration.sync_devices(db)
                 response = configuration.config_response(config)
                 await maintenance_state.record_operation(db, identifier, {**result, 'status': 'completed', 'configuration': response})
+                # This request owns the exclusive section; the row commits with the outcome.
+                await audit.record(db, AuditAction.CONFIG_APPLIED,
+                                   f'Saved camera configuration revision {response["revision"]} '
+                                   f'applied (operation {identifier}): '
+                                   f'{response["application_status"]}; {camera_results(response)}',
+                                   actor_id=actor_id, actor_name=actor_name, ip=ip)
                 await db.commit()
                 return response
     return await safe_operation(apply())
+
+
+def camera_results(response):
+    """'CAM-001 device 0 online, ...' for each saved camera slot."""
+    online = set(camera_manager.online_cameras)
+    names = [name for name in response['camera_ids'].split(', ') if name]
+    return ', '.join(
+        f"{audit.clean(name, 40)} device {index} {'online' if index in online else 'offline'}"
+        for name, index in zip(names, response['camera_device_ids'], strict=False))
