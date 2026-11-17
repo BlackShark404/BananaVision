@@ -1,77 +1,22 @@
-CURRENT RESUME HERE (2026-11-17) - COMPLETE AUDIT LOGGING (PART 3 OF 3: AUDIT INTEGRITY)
-
-The previous checkpoint (admin Sold/Spoiled correction, kiosk today-only resume; pushed to
-fork main as 7f8e858) is archived byte-for-byte in
-docs/history/2026-11-17-before-audit-logging.txt.
+CURRENT RESUME HERE (2026-11-18) - DEFAULT CONFIDENCE THRESHOLD 85 → 80
 
 USER REQUEST (2026-11-17)
-- "Make sure also the audit logs properly logs all CRUD operations and other things. Do
-  what must be done and best practice and continue that Resume today only".
-- User choices: keep the actor's name with each entry (Part 3), log refused access
-  (throttled), keep the audit log across restores (Part 3).
+- "What is the default confidence threshold? I think it was 85%, so make it 80 by default."
 
-DONE (Part 3, this commit)
-- backend/app/models/activity_log.py: added `actor_name` (String(100), nullable=True).
-- backend/app/services/audit.py: `_row()` persists `actor_name`; `record()` supports explicit
-  `timestamp` overrides for test fixtures.
-- backend/app/api/v1/activity.py: list endpoint returns `actor_name` snapshot with fallback to
-  user `full_name`; user filtering and full-text search query both snapshot and user account.
-- backend/migrations/versions/0012_audit_integrity.py: Alembic migration adding `actor_name`
-  column, backfilling from `user_account.full_name`, and establishing PostgreSQL append-only
-  trigger `audit_log_append_only()` for UPDATE, DELETE, and TRUNCATE with
-  `SET LOCAL bananavision.audit_restore = 'on'` bypass.
-- backend/app/services/backup_archive.py: bumped archive version to 5; added `V4_SCHEMA`
-  and backward compatibility for archives v1–v5; updated `restore_rows` with `preserve_audit`
-  support.
-- backend/app/services/backup_restore.py: `_replace()` preserves `activity_log` across station
-  restores; sets `bananavision.audit_restore = 'on'` for audit restore insertions; verifies live
-  audit count >= backup count; updates outcome messaging to reflect retained pre-restore audit rows.
-- backend/app/services/archive_schema_v4.json: version 4 archive schema snapshot.
-- Knowledge updates: `docs/knowledge/Database.md`, `docs/knowledge/Development Decisions.md`,
-  and Graphify AST graph refreshed.
+CHANGES IMPLEMENTED
+- Default confidence threshold lowered from 85% to 80% across all four hardcoded locations:
+  - backend/app/models/system_config.py: column default 85 → 80.
+  - backend/app/services/dashboard.py: DEFAULT_CONFIDENCE_THRESHOLD 85.0 → 80.0.
+  - backend/app/services/configuration.py: bootstrap fallback 85 → 80.
+  - frontend/src/pages/admin/SystemConfig.tsx: "Reset to defaults" button 85 → 80.
+- Existing stations with a persisted system_config row retain their saved value (likely 85).
+  Change via the System Config admin slider or fresh bootstrap.
 
-DONE (Part 2, commit 19196f9)
-- backend/app/services/audit.py: the single writer.
-  - Writers: AuditAction vocabulary; record (same transaction); emit (own session, defers
-    while the station is not ready, required=True egress fails closed with 503); attach
-    plus a global handler that writes failure events after rollback.
-  - Refused access: access_denied for 403, throttled per actor, route and reason (10 min).
-  - Safety: anonymous cap 120/min, lock_timeout 5s, bananavision.audit file mirror.
-- All 25 inline ActivityLog writes migrated (a guard test enforces it).
-- Sign-in:
-  - the lockout row survives the 429; new account_locked, login_blocked, login_denied,
-    credential_setup_started, pin_login;
-  - specific credential actions;
-  - change-password, change-PIN and re-auth get the credential_limiter (429);
-  - unrecognized usernames are never stored.
-- Maintenance: backup created/failed/downloaded, restore validated/completed/failed
-  (exactly once, after verify_live), recovery, power cancel/failed/completed,
-  config_applied, retention, bootstrap, system_started.
-- Records: old -> new details, no-ops skipped, user_role_changed/user_status_changed,
-  profile_updated, scan details with reason (never note text), scan_failed, data_exported
-  (config and scan-log exports), label print/retry.
-- Read side: GET /activity as_of paging; frontend lib/activityActions.ts gives labels,
-  categories, colours and the critical set for every action, plus a sync test against
-  audit.py.
-- Docs: Database (Activity log section), Development Decisions, Resolved Bugs, Frontend,
-  Testing and Validation, USER_GUIDE, data dictionary Table 37, schema draft note,
-  backend README, storyboard Figure 84.
-
-VERIFICATION
-- Backend:
-  - test_audit_log.py: 31 passed (including actor_name snapshot immutability)
-  - test_audit_read.py: 13 passed with PostgreSQL (5 passed, 1 skipped SQLite)
-  - test_backup_archive.py: 40 passed (v5 roundtrip and v4 upgrade validation)
-  - test_audit_maintenance.py: 23 passed
-  - test_audit_maintenance_postgresql.py: 4 passed
-  - test_maintenance_postgresql.py: 14 passed
-  - test_migrations.py: 10 passed (including SQLite 0012 and PostgreSQL trigger/backfill tests)
-  - test_audit_auth.py + test_audit_records.py: 40 passed, 2 skipped
-- Frontend:
-  - activityactions.test.mjs: 7 passed
-  - activitylog.test.mjs: 4 passed
-  - npm run build (tsc -b && vite build): passed cleanly
-- Scoped linting: Ruff 0 new errors on modified and untracked code.
+ALSO PENDING (from previous commit cycle)
+- TASK_PROGRESS.txt rewrite: audit logging content archived to
+  docs/history/2026-11-17-before-scan-history-display.txt; scan history content promoted
+  to TASK_PROGRESS.txt; TASK_PROGRESS_SCAN_HISTORY.txt and duplicate
+  docs/history/2026-11-17-scan-history-bounded-display.txt removed.
 
 STILL OPEN
 - The station data release (teammate guide PDF), then:
@@ -90,8 +35,9 @@ STILL OPEN
 - Type check: use `npx tsc -b` (or `npm run build`), not `npm run typecheck`.
 
 COMPLETED
-- Part 3: audit integrity (all requirements met and verified; commit 582ea43).
+- Default confidence threshold: 85 → 80 (pending commit).
+- Bounded Scan History display (commit 7e46a64).
+- Part 3: audit integrity (commit 582ea43).
 
 EXACT NEXT STEP
-- Open team PR from fork's main:
-  https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main
+- Commit pending changes (TASK_PROGRESS reorganization + confidence threshold) when authorized.

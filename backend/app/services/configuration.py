@@ -148,7 +148,7 @@ async def get_config(db) -> SystemConfig:
         canonical.canonical_key = 1
     else:
         canonical = SystemConfig(canonical_key=1, revision=1,
-            confidence_threshold=85, data_retention_enabled=True, legacy_conflict=False)
+            confidence_threshold=80, data_retention_enabled=True, legacy_conflict=False)
         db.add(canonical)
     try:
         await db.flush()
