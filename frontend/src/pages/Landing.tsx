@@ -307,7 +307,7 @@ export default function Landing() {
               <AccordionItem value="item-2">
                 <AccordionTrigger className="text-left text-lg">Does it need an internet connection?</AccordionTrigger>
                 <AccordionContent className="text-muted-foreground h-auto">
-                  No. The entire system runs on a local mini PC that hosts both the frontend and backend. Devices like tablets or computers simply connect to the mini PC through a local network (LAN or hotspot) — no internet required.
+                  Internet access is optional. On-site scanning, AI analysis, dashboards, and the database all run on the local mini PC with no cloud service, so tablets or computers on the same LAN or hotspot work without internet. Internet is only needed for remote access or for a public QR tracking link to open from outside the station network.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="item-3">
