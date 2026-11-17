@@ -11,7 +11,6 @@ from sqlalchemy.orm import selectinload
 from app.core.exceptions import ConflictException, ForbiddenException, NotFoundException
 from app.core.time import now_manila
 from app.models import (
-    ActivityLog,
     Intake,
     ScanClassification,
     ScanNote,
@@ -21,7 +20,7 @@ from app.models import (
 from app.models.operator_profile import OperatorProfile
 from app.models.scan import Scan
 from app.models.scan_history import ScanEvent, ScanMutation, ScanTombstone
-from app.schemas.enums import InventoryStatusEnum
+from app.schemas.enums import IntakeStatusEnum, InventoryStatusEnum
 from app.schemas.scan import (
     OriginalAiResult,
     ScanDetailResponse,
@@ -32,10 +31,11 @@ from app.schemas.scan import (
     ScanNoteResponse,
     ScanResponse,
 )
+from app.services import audit
 from app.services.auth_service import lock_current_account
 from app.services.inventory_policy import inventory_facts
 from app.services.scan_evidence import evidence_url
-from app.ws.mutations import publish_scan_event, scan_event
+from app.ws.mutations import intake_event, publish_intake_event, publish_scan_event, scan_event
 
 
 @dataclass(frozen=True)
@@ -48,6 +48,16 @@ class ScanChange:
 
 def is_admin(user) -> bool:
     return bool(user.role and user.role.name == "Admin")
+
+
+# Sold and Spoiled end a scan's time in stock; changing them afterwards is an admin correction.
+CLOSED_INVENTORY_STATUSES = (InventoryStatusEnum.SOLD, InventoryStatusEnum.SPOILED)
+
+
+def current_inventory_status(scan):
+    if not scan.status_logs:
+        return InventoryStatusEnum.IN_STOCK
+    return scan.status_logs[-1].inventory_status
 
 
 def scan_scope(user):
@@ -321,16 +331,24 @@ async def apply_scan_change(db, scan, user, kind, changes, reason=None, client_i
     db.add(ScanEvent(scan_id=scan.id, revision=scan.revision, kind=kind, timestamp=now,
                      actor_id=user.id, actor_name=user.full_name, reason=reason,
                      previous_values=previous, new_values=new, evidence_id=evidence_id))
-    db.add(
-        ActivityLog(
-            user_id=user.id,
-            action=f"scan_{kind}",
-            details=f"Scan {scan.id}, revision {scan.revision}",
-            ip_address=client_ip,
-        )
+    await audit.record(
+        db, audit.SCAN_CHANGE_ACTIONS[kind], scan_change_details(scan, previous, new, reason),
+        actor=user, ip=client_ip,
     )
     await db.flush()
     return ScanChange(note, tuple(sorted(new)))
+
+
+def scan_change_details(scan, previous, new, reason=None) -> str:
+    """Each changed field old → new. Note text is private and is never copied here."""
+    fields = [key for key in new if key != "text"]
+    parts = [audit.describe_changes(previous, new, fields)] if fields else []
+    if "text" in new:
+        parts.append(f"note added ({len(new['text'] or '')} chars)")
+    text = f"Scan {scan.id}, revision {scan.revision}: {'; '.join(parts)}"
+    if reason:
+        text += f"; reason {audit.quoted(reason, 200)}"
+    return text
 
 
 async def mutate_scan(db, scan_id, user, kind, body, client_ip=None):
@@ -344,7 +362,8 @@ async def mutate_scan(db, scan_id, user, kind, body, client_ip=None):
     if kind == "flag" and getattr(body, "flagged", None) is False and not is_admin(user):
         raise ForbiddenException("Admin access required to remove a flag")
     scan = await load_authorized_scan(db, scan_id, user)
-    # Bulk inventory and scan attachment share this parent-first lock order.
+    # Bulk inventory and scan attachment share this parent-first lock order. The scan reload
+    # below re-reads scan.intake after this lock, so its status is current for the reopen rule.
     if scan.intake_id:
         await db.execute(select(Intake.id).where(Intake.id == scan.intake_id).with_for_update())
     scan = (await db.execute(
@@ -358,6 +377,19 @@ async def mutate_scan(db, scan_id, user, kind, body, client_ip=None):
     replay = await mutation_replay(db, user, body, fingerprint)
     if replay is not None:
         return replay
+    reopen_intake = None
+    if kind == "status" and body.inventory_status != current_inventory_status(scan):
+        if current_inventory_status(scan) in CLOSED_INVENTORY_STATUSES and not is_admin(user):
+            raise ForbiddenException("Admin access required to change a Sold or Spoiled scan")
+        # Stock counts only in an Active intake, so restoring a scan reopens a Depleted one.
+        if (
+            body.inventory_status == InventoryStatusEnum.IN_STOCK
+            and scan.intake is not None
+            and scan.intake.status == IntakeStatusEnum.DEPLETED
+        ):
+            if not is_admin(user):
+                raise ForbiddenException("Admin access required to reopen a depleted intake")
+            reopen_intake = scan.intake
     if body.expected_revision != scan.revision:
         raise ConflictException("This scan changed. Reload it before saving your changes.")
     if kind == "provenance" and (
@@ -375,6 +407,19 @@ async def mutate_scan(db, scan_id, user, kind, body, client_ip=None):
     change = await apply_scan_change(
         db, scan, user, kind, changes, getattr(body, "reason", None), client_ip=client_ip
     )
+    if reopen_intake is not None and "inventory_status" in change.changed:
+        old_intake_status = reopen_intake.status
+        reopen_intake.status = IntakeStatusEnum.ACTIVE
+        reopen_intake.updated_at = scan.updated_at
+        await audit.record(
+            db, audit.AuditAction.INTAKE_STATUS_CHANGED,
+            f"Intake {reopen_intake.id} status {audit.clean(old_intake_status)} → "
+            f"{audit.clean(reopen_intake.status)}: scan {scan.id} returned to In Stock",
+            actor=user, ip=client_ip,
+        )
+        await db.flush()
+    else:
+        reopen_intake = None
     if change.note:
         response = {
             **ScanNoteResponse.model_validate(change.note).model_dump(mode="json"),
@@ -398,6 +443,20 @@ async def mutate_scan(db, scan_id, user, kind, body, client_ip=None):
             if scan.operator and scan.operator.account
             else None
         )
+        intake_change = (
+            intake_event(
+                intake_id=reopen_intake.id,
+                kind="scan-status",
+                actor_id=user.id,
+                intake={"id": str(reopen_intake.id), "status": reopen_intake.status.value,
+                        "updated_at": reopen_intake.updated_at.isoformat()},
+                status=reopen_intake.status,
+            )
+            if reopen_intake is not None
+            else None
+        )
         await db.commit()
         await publish_scan_event(event, owner_account_id=owner_id)
+        if intake_change is not None:
+            await publish_intake_event(intake_change)
     return response

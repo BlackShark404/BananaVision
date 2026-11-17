@@ -50,6 +50,15 @@ export interface ApiActivity {
   ip_address: string | null
 }
 
+export interface ApiActivityPage {
+  items: ApiActivity[]
+  total: number
+  page: number
+  page_size: number
+  /** Boundary the page was read at; later pages pass it back so new rows cannot shift them. */
+  as_of: string
+}
+
 export interface ApiConfig {
   revision: number
   camera_device_ids: number[]

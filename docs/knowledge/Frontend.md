@@ -76,7 +76,7 @@ The UI distinguishes between initial loads, continuous/hardware actions, and bac
 - `ScanProvider` merges newer revisions, preserves fields omitted by partial responses, and deduplicates a completed scan that arrives from the Kiosk room, dashboard room and HTTP response. Later print fields still merge through `acceptScan`. A bounded set prevents the dedupe memory from growing indefinitely.
 - `useDashboardResource` coalesces focus, visibility and online events into one refresh and retries an expired/superseded snapshot once without it, so a 10-minute snapshot expiry does not become a failed poll or a full-snapshot polling loop. Logs no longer discards its frozen snapshot for every edit; it patches the visible row by revision.
 - Scan Detail refreshes in place on focus/visibility and every 30 seconds while visible, merging the latest record without replacing the open page with a loading skeleton. It aborts and pauses while an edit, status dialog, flag, or note is pending, and a failed background read preserves the current record.
-- Kiosk restores the newest server-reported Active intake after remount/reload. Inventory stock, cultivar and ripeness links preserve the selected source, In Stock state and eligible-stock predicate; intake-linked spoilage rows intentionally open that intake's full log. Dashboard source links preserve the selected Asia/Manila business date.
+- Kiosk restores the newest server-reported Active intake **started today in Asia/Manila** (`isManilaToday` in `lib/manilaTime.ts`) after remount/reload. An Active intake from an earlier day (for example one reopened by a stock correction) is not picked up on its own; the operator chooses a source. An intake already open in the kiosk stays open across midnight until a reload or operator swap. Inventory stock, cultivar and ripeness links preserve the selected source, In Stock state and eligible-stock predicate; intake-linked spoilage rows intentionally open that intake's full log. Dashboard source links preserve the selected Asia/Manila business date.
 - Activity Log renders stored timestamps in `Asia/Manila`, matching the rest of the business-date UI. Delivery Intake feedback reports the persisted changed-scan count and resulting intake status instead of claiming every scan changed.
 - Incoming revision 0010 isolates broadcast notification read receipts per account.
 
@@ -269,9 +269,14 @@ Where the countdown shows, for In Stock records:
 - **Inventory is unchanged.** Its labels still come from the aged number, the same number
   its two-day rule uses, so a card under "≤2 days left" never shows a label above two days.
 
-Unchanged by decision: Sold, Spoiled and For Processing records keep the scan-time
-estimate on staff pages; only the public QR page counts down for every status, as it did
-before. The Kiosk result card of the scan just taken, correction inputs, change
+Sold, Spoiled and For Processing records have no countdown on staff pages. Since
+2026-11-17 Scan Logs, Scan Detail and the Quality Control dialog give them the same
+two-line shape as In Stock rows: the outcome where the countdown would be (`Sold · no
+countdown`, `Spoiled · no countdown`, `For processing · no countdown`, from
+`closedStockSpoilageLabel` in `lib/spoilageDisplay.ts`) and `Est. … from scan` beneath.
+The beneath line is hidden when the estimate is Unknown; a record with no status keeps the
+plain estimate. The public QR page counts down for every status, as it did before, and the
+Kiosk Recent Scans list is unchanged. The Kiosk result card of the scan just taken, correction inputs, change
 previews, Scan History entries, printed labels, the label preview and CSV/XLSX exports
 keep the stored estimate.
 
@@ -385,6 +390,14 @@ remounting Kiosk and clearing its operator/intake selection. Old status rows wit
 an audit event have no reliable actor evidence: keep **Actor not recorded**, rather
 than substituting the scan owner or current login. See [[Testing and Validation]].
 
+### Bounded history container and count badge
+
+Scan Detail wraps historical records in `div.space-y-2.max-h-48.overflow-y-auto`, matching
+the Quality Control Review Notes panel layout. When accumulated events exceed the 12rem
+limit, vertical scrolling is contained internally without expanding the page. A record
+count badge (`Badge variant="secondary"`) is rendered beside the Scan History heading
+when records exist, and text wraps naturally (`break-words`) without horizontal clipping.
+
 ## CSV and XLSX exports (2026-10-22)
 
 All five export surfaces offer CSV and XLSX through the shared `ExportDropdown`.
@@ -462,19 +475,55 @@ single save controls, immediate-cleanup draft preservation, reset/discard, pendi
 guards, validation invalidation after file changes, and backup results across tabs.
 See [[Testing and Validation]].
 
-## Scan Logs date default and review queue (2026-11-16)
+## Activity Log labels and paging (2026-11-17)
 
-- **Plain Scan Logs opens on today.** A `/logs` with no filters (only paging or sorting) is
-  replaced before the first request with `?date=<today>`, using `manilaDayKey()`. Helpers:
-  `normalizeScanLogSearch` and `selectedScanLogDay` in `src/lib/scanLogFilters.ts`.
-- **Filtered links keep all dates.** The Dashboard chips, Inventory, intake and source links
-  have no `date`, so they show all dates, and the date box (`AppDateFilter` `emptyText`) reads
-  **All dates**. `date=all` is the explicit form. Clearing the date sets it, and every filter
-  change writes it when no date is set, so a backlog view never falls back to today.
-- **Reset** and the Total Scans card return to the default view: today, no filters.
-  Dashboard "View All Logs" and Recent Scans rows use `?date=all`. The sidebar Logs link goes
-  straight to `?date=<today>`. At Manila midnight an open default view (`isDefaultScanLogView`)
-  moves to the new day; a chosen day or a filtered view stays.
+- `src/lib/activityActions.ts` gives every audit action a label, a category (sign-in,
+  security, credential, record, export, system) and a badge colour. Security failures and
+  system failures are red. Legacy or unknown actions fall back to the title-cased name
+  and a grey badge.
+- A Node test reads `AuditAction` from `backend/app/services/audit.py` and fails if the two
+  lists differ.
+- "Critical Actions" counts security failures, credential resets, role and status
+  changes, exports, backup downloads, restores, recovery, configuration and power events.
+- Search also matches the friendly label. Exports keep the raw action string. Profile's
+  recent activity uses the same map.
+- Rows with no account show "Unauthenticated" (security events) or "System".
+- `AdminContext` passes page 1's `as_of` to later pages, so new rows arriving during the
+  load do not break it. A row stamped before `as_of` but committed later can still change
+  the count; the page then asks for a reload, as before.
+
+## Inventory status changes (2026-11-17)
+
+- **Scan Detail** (admin only): the "Update status" menu next to the Inventory Status badge
+  offers every status except the current one, including correcting Sold or Spoiled. The
+  Scan Logs row "Actions" menu already used this rule.
+- **Dialog note:** `inventoryStatusChangeNote(current, target)` in
+  `src/lib/inventoryStatusChange.ts`, used by Scan Detail and Scan Logs:
+  - from Sold or Spoiled: "This corrects the {status} status.";
+  - to In Stock: "The scan returns to stock. If its delivery intake is depleted, the intake
+    reopens.";
+  - from In Stock to anything else: "The scan leaves stock.";
+  - always ending "This change will be recorded in the scan history."
+- **Reopened intake:** the server publishes `intake:changed` (kind `scan-status`) after
+  commit. The existing `InventoryContext.applyIntakeEvent` handler (ordered by
+  `updated_at`) turns the Delivery Intake row Active without a reload. The `/status` response
+  and `scan:changed` carry `inventory_eligible: true` for the restored scan.
+- **Delivery Intake bulk is unchanged:** "Mark all …" follows its own transition table and
+  the server skips Sold and Spoiled scans. See [[Development Decisions]] (2026-11-17).
+
+## Scan Logs date default and review queue (2026-11-16, revised 2026-11-17)
+
+- **Scan Logs opens on All dates.** A plain `/logs` (the sidebar Logs link), **Reset** and
+  the Total Scans card show every date. The date box (`AppDateFilter` `emptyText`) reads
+  **All dates** until a day is picked; clearing the day returns to all dates.
+  `selectedScanLogDay` in `src/lib/scanLogFilters.ts` reads the URL: no `date`, `date=all` or
+  an invalid value means all dates.
+- **Links that choose a day:** the Dashboard "Scans Today" card and the source and operator
+  rows send `?date=<day>`. Dashboard "View All Logs" and Recent Scans rows send
+  `?date=all`. The chips send no date.
+- The 2026-11-16 "today" default (redirect of plain `/logs`, midnight roll) was removed by
+  user request on 2026-11-17, because an empty table showed whenever nothing had been
+  scanned that day.
 - **Labels:** Quality Control and Scan Detail show **Low confidence** (neutral) for an unflagged
   scan below the threshold. Only a flag means pending review; only an admin removes a flag.
 - **Review queue = Status: Flagged.** The Dashboard "Pending quality reviews" chip opens

@@ -1,0 +1,58 @@
+CURRENT RESUME HERE (2026-11-17) - SOLD/SPOILED/FOR PROCESSING EST. SPOILAGE FORMAT
+
+The previous checkpoint (Scan Logs opens on All dates; PR #14 merged to team main as
+d561df8, same tree as a21b744) is archived
+byte-for-byte in docs/history/2026-11-17-before-closed-stock-spoilage.txt. Its STILL OPEN
+items carry over below.
+
+USER REQUEST (2026-11-17, after station testing)
+- "Fix the old scan logs data to follow the format in scan logs data especially in the
+  est. spoilage." Sold rows showed a bare "8–9 days"; In Stock rows show a countdown with
+  "Est. 3–4 days from scan" beneath.
+- User choices: "Status + estimate line" and "all three" pages (Scan Logs, Scan Detail,
+  Quality Control dialog).
+
+DONE
+- frontend/src/lib/spoilageDisplay.ts: closedStockSpoilageLabel(status) returns
+  "Sold · no countdown", "Spoiled · no countdown" or "For processing · no countdown";
+  null for In Stock, unknown and prototype keys (Object.hasOwn).
+- Scan Logs cell, Scan Detail Est. Spoilage metric and the Quality Control dialog: the
+  outcome sits where the countdown would be, with "Est. … from scan" beneath. The beneath
+  line is hidden when the estimate is Unknown. A record with no status keeps the plain
+  estimate.
+- Unchanged: In Stock countdown, sorting, at-risk icon, exports, the public QR page (counts
+  down for every status), Kiosk Recent Scans, the backend and stored values.
+- Tests:
+  - scanrecords: Logs Sold rows (two tests), Scan Detail Sold (two tests), new Quality
+    Control dialog tests for Spoiled and For Processing. All 6 failed before the change.
+  - spoilageDisplay: helper unit test (also caught the prototype-key bug).
+- Docs: Frontend (shelf-life section), Development Decisions (2026-11-13 countdown entry,
+  revised 2026-11-17).
+
+VERIFICATION
+- Frontend full suite 369/369 (includes the Manila time guard).
+- `npx tsc -b` and `npm run build` pass. ESLint 40 (baseline); changed files have no new
+  problems (Logs 4, Quality Control 7 existed before).
+- Screenshot node_modules/.tmp/bv-shelf-life-logs.png shows the Sold row in the two-line
+  shape.
+- Backend untouched; not re-run.
+
+STILL OPEN
+- The station data release (teammate guide PDF), then:
+  1. fetch_training_assets.py;
+  2. check_inference_head.py;
+  3. hand-count evaluation;
+  4. retraining.
+  Kent's checkpoint asks for a station re-test of each cultivar and ripeness.
+- Windows-only failures in the export/fetch/OOD-prep/train script tests: get the names from
+  Kent and fix them.
+- Ruff +10 in Kent's merged files (classification.py, fusion_engine.py,
+  test_classification_fusion.py).
+- prediction_label.py hard-coded laptop path; PUBLIC_BASE_URL missing from
+  backend/.env.example; Figure 92 screenshot; deployment when authorized; audit items in
+  the archived checkpoints.
+- Type check: use `npx tsc -b` (or `npm run build`), not `npm run typecheck`.
+
+EXACT NEXT STEP
+- User opens the team PR for this change from the fork's main:
+  https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main

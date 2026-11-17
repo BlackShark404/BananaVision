@@ -5,7 +5,7 @@ import { transform } from 'esbuild'
 
 const source = await readFile(new URL('../src/lib/spoilageDisplay.ts', import.meta.url), 'utf8')
 const { code } = await transform(source, { loader: 'ts', format: 'esm' })
-const { formatSpoilageDays, spoilageDayUnit } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
+const { formatSpoilageDays, spoilageDayUnit, closedStockSpoilageLabel } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
 
 for (const [stored, label] of [
   ['0.9938128387987426', '1 day'], ['0.7435556840773698', '1 day'],
@@ -28,3 +28,12 @@ for (const [stored, label] of [
     assert.equal(scan.spoilage_days, stored)
   })
 }
+
+test('closed stock names its outcome instead of a countdown; in-stock and unknown statuses get none', () => {
+  assert.equal(closedStockSpoilageLabel('Sold'), 'Sold · no countdown')
+  assert.equal(closedStockSpoilageLabel('Spoiled'), 'Spoiled · no countdown')
+  assert.equal(closedStockSpoilageLabel('For Processing'), 'For processing · no countdown')
+  for (const status of ['In Stock', undefined, null, '', 'sold', 'toString', 'constructor', 42]) {
+    assert.equal(closedStockSpoilageLabel(status), null, String(status))
+  }
+})

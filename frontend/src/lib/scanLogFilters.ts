@@ -26,14 +26,6 @@ export function buildScanLogsUrl(filters: ScanLogNavigation = {}) {
 
 export const VALID_PAGE_SIZES = [10, 25, 50, 100] as const
 
-/** URL keys that only page or order the list; they never narrow it. */
-const LAYOUT_KEYS = new Set(["page", "limit", "page_size", "sort", "direction"])
-
-/** The default view: no filters, only a date and paging or sorting. */
-export function isDefaultScanLogView(params: URLSearchParams): boolean {
-  return [...params.keys()].every(key => key === "date" || LAYOUT_KEYS.has(key))
-}
-
 /** A real YYYY-MM-DD calendar day (2026-02-30 is not). */
 function isCalendarDay(value: string | null): value is string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
@@ -50,22 +42,15 @@ export function selectedScanLogDay(params: URLSearchParams): string {
 
 /**
  * The replacement Scan Logs query, or null when the URL is already canonical.
- * - A plain /logs (only paging or sorting, both kept) opens on today's Asia/Manila day.
- * - Any filter, or date=all, keeps every date, so backlog links (expiring stock,
- *   the review queue, inventory) show their full lists.
- * - The legacy attention=review is the review queue, which is the flagged scans:
- *   it becomes Status Flagged unless another status is already selected.
+ * Scan Logs shows every date unless a day is chosen (no date, or date=all).
+ * The legacy attention=review is the review queue, which is the flagged scans:
+ * it becomes Status Flagged unless another status is already selected.
  */
-export function normalizeScanLogSearch(params: URLSearchParams, today: string): URLSearchParams | null {
+export function normalizeScanLogSearch(params: URLSearchParams): URLSearchParams | null {
   if (params.get("attention") === "review" && (!params.get("status") || params.get("status") === "Flagged")) {
     const next = new URLSearchParams(params)
     next.delete("attention")
     next.set("status", "Flagged")
-    return next
-  }
-  if ([...params.keys()].every(key => LAYOUT_KEYS.has(key))) {
-    const next = new URLSearchParams(params)
-    next.set("date", today)
     return next
   }
   return null

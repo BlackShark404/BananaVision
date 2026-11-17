@@ -29,6 +29,7 @@ from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
 from app.core.time import now_manila
 from app.core.http import get_client_ip
+from app.services import audit
 from app.schemas.user import (
     UserCreate,
     UserCreatedResponse,
@@ -42,6 +43,32 @@ from app.schemas.enums import RoleEnum, ActiveStatusEnum, PasswordSetupReasonEnu
 
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
+
+def _as_enum(enum_type, value):
+    """Stored strings and request enums render the same way in the audit log."""
+    try:
+        return enum_type(value) if value is not None else None
+    except ValueError:
+        return value
+
+
+def _audit_snapshot(user: UserAccount) -> dict:
+    """Fields an administrator can change; private values are only noted as changed."""
+    profile = user.operator_profile
+    return {
+        "username": user.username,
+        "full_name": user.full_name,
+        "role": _as_enum(RoleEnum, user.role.name if user.role else None),
+        "status": _as_enum(ActiveStatusEnum, user.status),
+        "avatar_url": user.avatar_url,
+        "requires_password_change": user.requires_password_change,
+        "password_setup_reason": _as_enum(PasswordSetupReasonEnum, user.password_setup_reason),
+        "requires_pin_change": profile.requires_pin_change if profile else None,
+        "pin_setup_reason": (
+            _as_enum(PinSetupReasonEnum, profile.pin_setup_reason) if profile else None
+        ),
+    }
 
 
 @router.get("", response_model=UserListResponse)
@@ -95,15 +122,15 @@ async def create_user(body: UserCreate, db: DbSession, admin: AdminUser, request
         )
 
     db.add(user)
-
-    db.add(ActivityLog(
-        user_id=admin.id,
-        action="user_created",
-        details=f"Created user '{body.username}' with role {body.role.value}",
-        ip_address=get_client_ip(request),
-    ))
-
     await db.flush()
+
+    await audit.record(
+        db, audit.AuditAction.USER_CREATED,
+        f"Created user {audit.quoted(user.username)} ({user.id}) with role "
+        f"{audit.clean(body.role)}, status {audit.clean(body.status)}; "
+        "temporary credentials issued",
+        actor=admin, ip=get_client_ip(request),
+    )
     return UserCreatedResponse(**UserResponse.from_db_model(user).model_dump(),
                                temporary_password=password, temporary_pin=pin)
 
@@ -129,6 +156,12 @@ async def own_profile_summary(db: DbSession, user: CurrentUser):
             OperatorProfile.account_id == user.id
         )
     row = (await db.execute(query)).one()
+    recent_actions_7d = await db.scalar(
+        select(func.count(ActivityLog.id)).where(
+            ActivityLog.user_id == user.id,
+            ActivityLog.timestamp.between(now - timedelta(days=7), now),
+        )
+    )
     logs = (await db.execute(
         select(ActivityLog).where(ActivityLog.user_id == user.id)
         .order_by(ActivityLog.timestamp.desc(), ActivityLog.id.desc()).limit(8)
@@ -137,6 +170,7 @@ async def own_profile_summary(db: DbSession, user: CurrentUser):
         "total_scans": row.total_scans,
         "avg_confidence": float(row.avg_confidence) if row.avg_confidence is not None else None,
         "last_7_days": row.last_7_days or 0,
+        "recent_actions_7d": recent_actions_7d or 0,
         "total_users": (await db.scalar(select(func.count(UserAccount.id)))) if is_admin else None,
         "activity": [{"id": str(log.id), "action": log.action, "details": log.details or "",
                       "timestamp": log.timestamp.isoformat()} for log in logs],
@@ -144,7 +178,9 @@ async def own_profile_summary(db: DbSession, user: CurrentUser):
 
 
 @router.patch("/me/profile", response_model=UserResponse)
-async def update_own_profile(body: SelfProfileUpdate, db: DbSession, user: CurrentUser):
+async def update_own_profile(
+    body: SelfProfileUpdate, db: DbSession, user: CurrentUser, request: Request,
+):
     """
     Self-service profile update — any authenticated user can update their own
     avatar without needing admin privileges.  (PROFILE-01 fix)
@@ -158,8 +194,15 @@ async def update_own_profile(body: SelfProfileUpdate, db: DbSession, user: Curre
     if not account:
         raise NotFoundException("User")
 
-    if body.avatar_url is not None:
+    if body.avatar_url is not None and body.avatar_url != account.avatar_url:
         account.avatar_url = body.avatar_url
+        # The image itself is private and large; only the fact of the change is kept.
+        await audit.record(
+            db, audit.AuditAction.PROFILE_UPDATED,
+            f"Updated profile of user {audit.quoted(account.username)} ({account.id}): "
+            "avatar changed",
+            actor=account, ip=get_client_ip(request),
+        )
 
     await db.flush()
     return UserResponse.from_db_model(account)
@@ -226,6 +269,8 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin
     # ── Detect role changes for ROLE-01 reconciliation ──────────────────
     old_role_name = user.role.name if user.role else None
     old_status = user.status
+    old_username = user.username
+    before = _audit_snapshot(user)
     new_role_name = None
 
     update_data = body.model_dump(exclude_none=True)
@@ -270,19 +315,25 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, db: DbSession, admin
             user.operator_profile.pin_setup_reason = PinSetupReasonEnum.NEW_ACCOUNT
             # Admin must issue a fresh temporary PIN through reset-pin.
 
-    if user.role.name != old_role_name or user.status != old_status:
+    sessions_revoked = user.role.name != old_role_name or user.status != old_status
+    if sessions_revoked:
         user.token_version += 1
 
-    detail_parts = list(update_data.keys())
-    if new_role_name and new_role_name != old_role_name:
-        detail_parts.append(f"role_change:{old_role_name}->{new_role_name}")
-
-    db.add(ActivityLog(
-        user_id=admin.id,
-        action="user_updated",
-        details=f"Updated user '{user.username}': {detail_parts}",
-        ip_address=get_client_ip(request),
-    ))
+    after = _audit_snapshot(user)
+    changes = audit.describe_changes(before, after)
+    if changes:  # Saving unchanged values is not an event.
+        if before["role"] != after["role"]:
+            action = audit.AuditAction.USER_ROLE_CHANGED
+        elif before["status"] != after["status"]:
+            action = audit.AuditAction.USER_STATUS_CHANGED
+        else:
+            action = audit.AuditAction.USER_UPDATED
+        await audit.record(
+            db, action,
+            f"Updated user {audit.quoted(old_username)} ({user.id}): {changes}"
+            + ("; sessions revoked" if sessions_revoked else ""),
+            actor=admin, ip=get_client_ip(request),
+        )
 
     await db.flush()
     return UserResponse.from_db_model(user)
@@ -306,13 +357,13 @@ async def reset_user_password(
     user.password_setup_reason = body.password_setup_reason
     user.token_version += 1  # Revoke all prior sessions (AUTH-02)
 
-    # AUDIT-02: Record password reset in activity log
-    db.add(ActivityLog(
-        user_id=admin.id,
-        action="user_updated",
-        details=f"Admin reset password for user '{user.username}'",
-        ip_address=get_client_ip(request),
-    ))
+    # AUDIT-02: Record password reset in activity log (never the credential itself)
+    await audit.record(
+        db, audit.AuditAction.PASSWORD_RESET,
+        f"Reset password for user {audit.quoted(user.username)} ({user.id}); "
+        "setup required; sessions revoked",
+        actor=admin, ip=get_client_ip(request),
+    )
     await db.flush()
 
     return {"message": "Password reset successfully", "temporary_password": password}
@@ -342,13 +393,13 @@ async def reset_user_pin(
     user.operator_profile.pin_setup_reason = body.pin_setup_reason
     user.token_version += 1  # Revoke all prior sessions (AUTH-02)
 
-    # AUDIT-02: Record PIN reset in activity log
-    db.add(ActivityLog(
-        user_id=admin.id,
-        action="user_updated",
-        details=f"Admin reset PIN for user '{user.username}'",
-        ip_address=get_client_ip(request),
-    ))
+    # AUDIT-02: Record PIN reset in activity log (never the credential itself)
+    await audit.record(
+        db, audit.AuditAction.PIN_RESET,
+        f"Reset PIN for user {audit.quoted(user.username)} ({user.id}); "
+        "setup required; sessions revoked",
+        actor=admin, ip=get_client_ip(request),
+    )
     await db.flush()
 
     return {"message": "PIN reset successfully", "temporary_pin": pin}

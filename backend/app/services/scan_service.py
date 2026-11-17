@@ -9,6 +9,7 @@ from app.services.scan_evidence import evidence_url
 import logging
 import uuid
 import asyncio
+from contextlib import suppress
 from fastapi import HTTPException
 from app.config import get_settings
 from app.services.capture_cleanup import remove_scan_captures
@@ -26,7 +27,6 @@ from app.services.scan_records import serialize_scan
 from app.models.scan_detection import ScanDetection
 from app.models.scan_image import ScanImage
 from app.models.device import Device
-from app.models.activity_log import ActivityLog
 from app.models.app_notification import AppNotification
 from app.core.exceptions import (
     ConflictException,
@@ -40,7 +40,7 @@ from app.services.classification import (
     banana_classifier, _parse_class_label, _unique_box_detections,
 )
 from app.services.banana_detector import banana_pre_detector
-from app.services import ood_gate
+from app.services import audit, ood_gate
 from app.services.fusion_engine import fusion_engine
 from app.services.spoilage import spoilage_predictor
 from app.services.feature_engineering import calc_vpd
@@ -73,21 +73,60 @@ def rejection_payload(exc: ScanRejectedError) -> dict:
     }
 
 
+def _intake_text(intake_id) -> str:
+    return f"intake {intake_id}" if intake_id else "no intake"
+
+
+async def _record_outcome(
+    db: AsyncSession, action: audit.AuditAction, details: str, account_id: uuid.UUID,
+    client_ip: str | None,
+) -> None:
+    """Audit a scan that was not saved; never mask the original error.
+
+    Rolling back first discards the unsaved scan and releases the intake row lock, so only
+    the audit row commits.
+    """
+    try:
+        await db.rollback()
+        await audit.record(db, action, details, actor_id=account_id, ip=client_ip)
+        await db.commit()
+    except Exception:
+        with suppress(Exception):
+            await db.rollback()
+        logger.exception("Could not record the unsaved scan in the activity log")
+
+
 async def _record_rejection(
     db: AsyncSession, account_id: uuid.UUID, exc: ScanRejectedError, client_ip: str | None,
 ) -> None:
     """Keep an audit row for a rejected scan; never mask the rejection itself."""
-    try:
-        db.add(ActivityLog(
-            user_id=account_id,
-            action="scan_rejected",
-            details=f"Scan rejected ({exc.reason}): {exc.audit}",
-            ip_address=client_ip,
-        ))
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        logger.exception("Could not record the rejected scan in the activity log")
+    await _record_outcome(
+        db, audit.AuditAction.SCAN_REJECTED, f"Scan rejected ({exc.reason}): {exc.audit}",
+        account_id, client_ip,
+    )
+
+
+def _failure_text(exc: Exception) -> str:
+    """Operator-safe cause of a failed scan: no paths, payloads or exception messages."""
+    if isinstance(exc, ScanRejectedError):
+        return f"({audit.clean(exc.code, 60)}): {audit.clean(exc.audit or exc.message, 300)}"
+    if isinstance(exc, ModelInferenceError):
+        return f"(model_error): {audit.clean(exc.message, 300)}"
+    if isinstance(exc, HTTPException):
+        return f"({exc.status_code}): {audit.clean(exc.detail, 300)}"
+    return f"(error): unexpected {type(exc).__name__}"
+
+
+async def _record_failure(
+    db: AsyncSession, scan_id: uuid.UUID, intake_id, account_id: uuid.UUID, exc: Exception,
+    client_ip: str | None,
+) -> None:
+    """Keep an audit row for a scan that failed before it was saved."""
+    await _record_outcome(
+        db, audit.AuditAction.SCAN_FAILED,
+        f"Scan {scan_id} ({_intake_text(intake_id)}) failed {_failure_text(exc)}",
+        account_id, client_ip,
+    )
 
 
 async def execute_scan_pipeline(
@@ -454,11 +493,11 @@ async def _execute_scan_pipeline(
             db.add(img)
 
         # Activity log
-        db.add(ActivityLog(
-            user_id=account_id,
-            action="scan_created",
-            details=(
-                f"Scanned {fused.cultivar} ({fused.ripeness}) — "
+        await audit.record(
+            db, audit.AuditAction.SCAN_CREATED,
+            (
+                f"Scan {scan_id} ({_intake_text(intake_obj.id if intake_obj else None)}): "
+                f"Scanned {audit.clean(fused.cultivar)} ({audit.clean(fused.ripeness)}) — "
                 f"{fused.confidence}% confidence, {estimated_fingers(fused.finger_count)}"
                 + (
                     f"; {ood_rejected_boxes} boxes without banana evidence dropped, "
@@ -476,8 +515,8 @@ async def _execute_scan_pipeline(
                     if colour_rejected_boxes else ""
                 )
             ),
-            ip_address=client_ip,
-        ))
+            actor_id=account_id, ip=client_ip,
+        )
 
         # Auto-create notifications
         db.add(AppNotification(
@@ -587,4 +626,6 @@ async def _execute_scan_pipeline(
             await _record_rejection(db, account_id, exc, client_ip)
         else:
             logger.error(f"Scan pipeline failed: {exc}")
+            if not committed:
+                await _record_failure(db, scan_id, intake_id, account_id, exc, client_ip)
         raise

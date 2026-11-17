@@ -393,7 +393,7 @@ business boundaries.
 | IP_ADDRESS | VARCHAR(45) | Yes |  |  |  |
 | USER_ID | UUID | Yes |  | FK | USER_ACCOUNT(ID) |
 
-**Notes:** Deleting a user sets `USER_ID` to `NULL`.
+**Notes:** Deleting a user sets `USER_ID` to `NULL`. Rows are written only by `backend/app/services/audit.py`; `ACTION` is one of the `AuditAction` values (for example `login`, `pin_login`, `login_failed`, `account_locked`, `access_denied`, `password_changed`, `user_role_changed`, `scan_status`, `data_exported`, `backup_downloaded`, `restore_completed`, `config_changed`). `DETAILS` never holds passwords, PINs, hashes, tokens or file paths. `USER_ID` is `NULL` for events with no signed-in account.
 
 ### Table 38: APP_NOTIFICATION Table
 

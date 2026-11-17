@@ -24,8 +24,11 @@ from sqlalchemy import select, delete, text, func
 from app.core.database import Base
 from app.core.time import now_manila
 from app.models.maintenance_state import MaintenanceState
+from app.models.user_account import UserAccount
+from app.services import audit
 from app.services import backup_archive as archive
 from app.services import maintenance_state as state_store
+from app.services.audit import AuditAction
 from app.services.runtime_operations import coordinator, run_blocking
 
 
@@ -83,6 +86,25 @@ def reconcile_evidence(root: Path, old: Path, new: Path, *, committed: bool):
     elif not root.is_dir():
         raise archive.ArchiveError('Original evidence tree is missing')
     _sync_parent(root.parent)
+
+
+def _reason(exc):
+    """Our own error text only: OS and driver messages can carry paths or row values."""
+    if isinstance(exc, HTTPException):
+        return audit.clean(exc.detail, 160)
+    if isinstance(exc, archive.ArchiveError):
+        return audit.clean(str(exc), 160)
+    return f'unexpected {type(exc).__name__}'
+
+
+def _counts(manifest):
+    tables = manifest.get('tables', {})
+    rows = sum(int(table.get('count', 0)) for table in tables.values())
+    return f"{rows} rows in {len(tables)} tables, {len(manifest.get('files', {}))} evidence files"
+
+
+def _requester(who):
+    return audit.quoted(who.get('actor_name') or 'an administrator')
 
 
 async def reset_sequences(db, dialect):
@@ -162,12 +184,41 @@ class MaintenanceService:
             raise HTTPException(409, 'Operation ID already used')
         return result
 
-    async def save_result(self, result):
+    async def save_result(self, result, event=None):
+        """Store an operation result; ``event`` is its audit row, written in the same commit."""
         async with self.sessions() as db:
+            if event is not None:
+                await self._record_outcome(db, result, event)
             await state_store.record_operation(db, result['id'], result)
             await db.commit()
 
-    async def backup(self, identifier, actor_id, *, authorize=None):
+    async def _record_outcome(self, db, result, event):
+        # The row belongs to the transaction that first stores this terminal status, so a
+        # replay or a crash re-entry that stores it again does not write a second row.
+        state = await state_store.get_state(db, lock=True)
+        previous = state.operations.get(result['id'])
+        if previous and previous.get('status') == result['status']:
+            return
+        details, actor_id = event['details'], event.get('actor_id')
+        if actor_id is not None:
+            actor_id = uuid.UUID(str(actor_id))
+            # A restore can replace the requesting account; keep its name, not a broken key.
+            if await db.scalar(select(UserAccount.id).where(UserAccount.id == actor_id)) is None:
+                actor_id = None
+                details += ' (requesting account is not in the restored data)'
+        await audit.record(db, event['action'], details, actor_id=actor_id,
+                           actor_name=event.get('actor_name'), ip=event.get('client_ip'))
+
+    async def backup(self, identifier, actor_id, *, authorize=None, actor_name=None,
+                     client_ip=None):
+        who = {'actor_id': str(actor_id), 'actor_name': actor_name, 'client_ip': client_ip}
+        try:
+            return await self._backup(identifier, actor_id, authorize, who)
+        finally:
+            # Admission is open again: write events kept while the backup held it.
+            await audit.flush_deferred(sessions=self.sessions)
+
+    async def _backup(self, identifier, actor_id, authorize, who):
         async with self._lock:
             if authorize:
                 await authorize()
@@ -185,11 +236,16 @@ class MaintenanceService:
                     async with self.sessions() as db:
                         manifest = await archive.create_archive(db, self.capture_root, directory / 'station.zip')
                     result.update(status='completed', filename='station.zip', manifest=self.summary(manifest))
-                except Exception:
+                except Exception as exc:
                     result.update(status='failed', message='Backup creation failed; no complete backup is available')
-                    await self.save_result(result)
+                    await self.save_result(result, {**who, 'action': AuditAction.BACKUP_FAILED,
+                        'details': f'Backup {identifier} failed: {_reason(exc)}; '
+                                   'no complete backup is available'})
                     raise
-                await self.save_result(result)
+                # The archive cannot hold its own creation row: it is written after the snapshot.
+                await self.save_result(result, {**who, 'action': AuditAction.BACKUP_CREATED,
+                    'details': f'Backup {identifier} created: {_counts(manifest)}; '
+                               'archive contains credential hashes'})
                 return result
 
     @staticmethod
@@ -217,8 +273,26 @@ class MaintenanceService:
                 # A connection that observed now-dropped staging types must not rejoin the pool.
                 await connection.invalidate()
 
-    async def validate(self, uploaded: Path, identifier, actor_id, session_digest):
+    async def validate(self, uploaded: Path, identifier, actor_id, session_digest, *,
+                       actor_name=None, client_ip=None):
         coordinator.assert_ready()
+        who = {'actor_id': actor_id, 'actor_name': actor_name, 'ip': client_ip,
+               'sessions': self.sessions}
+        try:
+            response, validated = await self._validate(uploaded, identifier, actor_id,
+                                                       session_digest)
+        except Exception as exc:
+            await audit.emit(AuditAction.RESTORE_VALIDATION_FAILED,
+                             f'Backup upload {identifier} rejected: {_reason(exc)}', **who)
+            raise
+        manifest = validated.manifest
+        await audit.emit(AuditAction.RESTORE_VALIDATED,
+                         f'Backup upload {identifier} validated: archive version '
+                         f'{manifest["version"]}, created {audit.clean(manifest["created_at"])}, '
+                         f'sha256 {validated.archive_sha256[:12]}, {_counts(manifest)}', **who)
+        return response
+
+    async def _validate(self, uploaded, identifier, actor_id, session_digest):
         validated = await run_blocking(archive.validate_archive, uploaded, self.directory(identifier) / 'staging')
         await self.check_database(validated)
         # Saved configuration must be semantically applicable, not just SQL-valid.
@@ -243,7 +317,7 @@ class MaintenanceService:
         atomic_json(self.directory(identifier) / 'validation.json', descriptor)
         await run_blocking(shutil.rmtree, validated.staging_root)
         return {'validation_id': str(identifier), 'token': token, 'expires_at': expires.isoformat(),
-                'manifest': self.summary(validated.manifest)}
+                'manifest': self.summary(validated.manifest)}, validated
 
     @staticmethod
     def _valid_config(row, slots, validate):
@@ -264,9 +338,15 @@ class MaintenanceService:
 
     async def _replace(self, validated, marker):
         async with self.sessions() as db:
+            is_pg = self.engine.dialect.name == "postgresql"
+            if is_pg:
+                # Allow the restore to merge audit rows past the append-only trigger.
+                await db.execute(text("SET LOCAL bananavision.audit_restore = 'on'"))
             for table in reversed(archive.application_tables()):
+                if table.name == "activity_log":
+                    continue  # Preserve existing audit history.
                 await db.execute(delete(table))
-            await archive.restore_rows(db, validated)
+            await archive.restore_rows(db, validated, preserve_audit=True)
             await reset_sequences(db, self.engine.dialect.name)
             generation = await state_store.advance_generation(db, marker)
             await db.commit()
@@ -280,18 +360,45 @@ class MaintenanceService:
     async def verify_live(self, expected, directory):
         async with self.sessions() as db:
             actual = await archive.create_archive(db, self.capture_root, directory / 'verify.zip')
-        for key in ('tables', 'files'):
-            if actual[key] != expected[key]:
+        if actual['files'] != expected['files']:
+            raise archive.ArchiveError('Restored data/evidence verification failed')
+        for name, descriptor in expected['tables'].items():
+            if name == 'activity_log':
+                if actual['tables'][name]['count'] < descriptor['count']:
+                    raise archive.ArchiveError('Restored data/evidence verification failed')
+                continue
+            if actual['tables'].get(name) != descriptor:
                 raise archive.ArchiveError('Restored data/evidence verification failed')
         (directory / 'verify.zip').unlink()
 
-    async def restore(self, identifier, validation_id, token, actor_id, session_digest, *, authorize=None):
+    async def restore(self, identifier, validation_id, token, actor_id, session_digest, *,
+                      authorize=None, actor_name=None, client_ip=None):
+        who = {'actor_id': str(actor_id), 'actor_name': actor_name, 'client_ip': client_ip,
+               'stage': 'authorization'}
+        try:
+            return await self._restore(identifier, validation_id, token, actor_id, session_digest,
+                                       authorize, who)
+        except Exception as exc:
+            if who['stage'] == 'validation':  # Rejected before maintenance started.
+                await audit.emit(AuditAction.RESTORE_FAILED,
+                                 f'Restore {identifier} rejected before maintenance: '
+                                 f'{_reason(exc)}; requested by {_requester(who)}',
+                                 actor_id=who['actor_id'], actor_name=actor_name, ip=client_ip,
+                                 sessions=self.sessions)
+            raise
+        finally:
+            # Outside the exclusive section: events kept during the restore are written now.
+            await audit.flush_deferred(sessions=self.sessions)
+
+    async def _restore(self, identifier, validation_id, token, actor_id, session_digest, authorize,
+                       who):
         async with self._lock:
             if authorize:
                 await authorize()
             previous = await self.saved_result(identifier, actor_id, 'restore')
             if previous:
                 return previous
+            who['stage'] = 'validation'
             validation_dir = self.directory(validation_id)
             try:
                 descriptor = json.loads((validation_dir / 'validation.json').read_text(encoding='utf-8'))
@@ -310,6 +417,7 @@ class MaintenanceService:
                 raise HTTPException(422, 'Uploaded archive changed; validate again')
             await self.check_database(validated)
             async with coordinator.exclusive('restore'):
+                who['stage'] = 'maintenance'
                 if authorize:
                     await authorize()
                 descriptor['consumed'] = True
@@ -327,10 +435,15 @@ class MaintenanceService:
                     await run_blocking(sync_tree, new)
                     journal = {'id': str(identifier), 'validation_id': str(validation_id), 'phase': 'restore',
                                'actor_id': str(actor_id), 'manifest': validated.manifest, 'rollback_manifest': rollback.manifest}
+                    # Who asked, for the outcome row _finish writes after verification.
+                    journal.update(actor_name=who['actor_name'], client_ip=who['client_ip'])
                     atomic_json(self.journal, journal)
-                except Exception:
+                except Exception as exc:
                     result.update(status='failed', message='Restore preparation failed; station data was not replaced')
-                    await self.save_result(result)
+                    await self.save_result(result, {**who, 'action': AuditAction.RESTORE_FAILED,
+                        'details': f'Restore {identifier} failed during preparation: '
+                                   f'{_reason(exc)}; station data was not replaced; '
+                                   f'requested by {_requester(who)}'})
                     raise
                 coordinator.block('recovery-required')
                 try:
@@ -365,7 +478,9 @@ class MaintenanceService:
                 result['configuration'] = await self.hardware_refresh()
             except Exception:
                 result['hardware_error'] = 'Data verified, but camera configuration failed; retry applying saved configuration'
-        await self.save_result(result)
+        # Data is verified, so the outcome row cannot disturb verification. It commits with the
+        # final result, once, also when recovery or a crash re-entry finishes the restore.
+        await self.save_result(result, self._outcome(journal, status, message))
         # Keep verified rollback archive/evidence; ordinary retention must never remove them.
         atomic_json(self.journal, {**journal, 'phase': 'finished'})
         await coordinator.finish_recovery()
@@ -376,6 +491,25 @@ class MaintenanceService:
                 await socket.close(code=4001, reason='Station data changed; sign in again')
             except Exception:
                 pass
+
+    @staticmethod
+    def _outcome(journal, status, message):
+        operation, manifest = journal['id'], journal.get('manifest') or {}
+        rollback = (journal.get('rollback_manifest') or {}).get('tables', {})
+        kept = rollback.get('activity_log', {}).get('count', 0)
+        if status == 'completed':
+            action = AuditAction.RESTORE_COMPLETED
+            details = (f'Restore {operation} completed: station data replaced from backup created '
+                       f'{audit.clean(manifest.get("created_at"))} ({_counts(manifest)}); '
+                       f'requested by {_requester(journal)}; audit history preserved ({kept} '
+                       f'pre-restore audit rows retained; rollback archive {operation})')
+        else:
+            action = AuditAction.RESTORE_FAILED
+            details = (f'Restore {operation} failed: {audit.clean(message, 160)}; requested by '
+                       f'{_requester(journal)}; pre-restore audit history kept ({kept} rows; '
+                       f'rollback archive {operation})')
+        return {'action': action, 'details': details, 'actor_id': journal.get('actor_id'),
+                'actor_name': journal.get('actor_name'), 'client_ip': journal.get('client_ip')}
 
     async def recover(self):
         if coordinator.owner_check:

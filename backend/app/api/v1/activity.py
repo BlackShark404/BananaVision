@@ -2,18 +2,21 @@
 Activity log routes.
 
 AUDIT-01: True server-side pagination, filtering by action/user/search query.
+Paging is pinned to an ``as_of`` boundary so rows written while an administrator pages
+through the log cannot shift later pages.
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter, Query
-from sqlalchemy import select, func, desc, or_
+from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import DbSession, AdminUser
+from app.api.deps import AdminUser, DbSession
+from app.core.time import now_manila
 from app.models.activity_log import ActivityLog
-from app.schemas.common import ActivityLogResponse, ActivityLogListResponse
-
+from app.schemas.common import ActivityLogListResponse, ActivityLogResponse
+from app.schemas.timestamps import InputTimestamp
 
 router = APIRouter(prefix="/activity", tags=["Activity"])
 
@@ -27,20 +30,41 @@ async def list_activity(
     action: str | None = None,
     user_name: str | None = None,
     search: str | None = None,
+    as_of: InputTimestamp | None = None,
 ):
-    """List activity logs with server-side pagination, filtering, and search."""
-    query = select(ActivityLog).options(selectinload(ActivityLog.user)).order_by(
-        desc(ActivityLog.timestamp), desc(ActivityLog.id)
+    """List activity logs with server-side pagination, filtering, and search.
+
+    Count and page only include rows at or before ``as_of``; the response returns the
+    boundary used so later pages can pass it back. Without ``as_of`` the boundary is the
+    later of now and the newest row, so rows stamped ahead of this clock (a restored backup
+    from a station whose clock ran ahead, or a clock stepped back) are never hidden.
+    """
+    boundary = as_of
+    if boundary is None:
+        boundary = now_manila()
+        newest = await db.scalar(select(func.max(ActivityLog.timestamp)))
+        if newest is not None and newest > boundary:
+            boundary = newest
+    query = (
+        select(ActivityLog)
+        .options(selectinload(ActivityLog.user))
+        .where(ActivityLog.timestamp <= boundary)
+        .order_by(desc(ActivityLog.timestamp), desc(ActivityLog.id))
     )
 
     # Filter by action type
     if action:
         query = query.where(ActivityLog.action == action)
 
-    # Filter by user name (join with user table)
+    # Filter by user name (actor snapshot or user table)
     if user_name:
         from app.models.user_account import UserAccount
-        query = query.join(ActivityLog.user).where(UserAccount.full_name == user_name)
+        query = query.outerjoin(ActivityLog.user).where(
+            or_(
+                ActivityLog.actor_name == user_name,
+                UserAccount.full_name == user_name,
+            )
+        )
 
     # Full-text search across user name, action, and details
     if search:
@@ -51,6 +75,7 @@ async def list_activity(
             or_(
                 ActivityLog.action.ilike(search_pattern),
                 ActivityLog.details.ilike(search_pattern),
+                ActivityLog.actor_name.ilike(search_pattern),
                 UserAccount.full_name.ilike(search_pattern),
             )
         )
@@ -66,7 +91,7 @@ async def list_activity(
         items=[
             ActivityLogResponse(
                 id=log.id,
-                user_name=log.user.full_name if log.user else None,
+                user_name=log.actor_name or (log.user.full_name if log.user else None),
                 action=log.action,
                 details=log.details,
                 ip_address=log.ip_address,
@@ -77,4 +102,5 @@ async def list_activity(
         total=total,
         page=page,
         page_size=page_size,
+        as_of=boundary,
     )

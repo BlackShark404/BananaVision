@@ -3,7 +3,7 @@
 ## Current schema reference
 
 - [Current SQL DDL](../bananavision_schema_current.sql) — Alembic revision
-  `0010_notification_read_receipts`, 25 application tables, 7 PostgreSQL enum types and
+  `0012_audit_integrity`, 25 application tables, 7 PostgreSQL enum types and
   20 foreign keys.
 - [Data dictionary](../schema_tables.md) — table purposes, columns, nullability, database
   defaults, keys, constraints, indexes, enum labels and ERD cardinalities.
@@ -59,3 +59,92 @@ sequence-backed `SERIAL` columns. `device.slot_index`/`device_index`, the absenc
 receipt primary key and the absence of `alembic_version` were checked against the catalog.
 No live station database was used. See [[Testing and Validation]] for the verification
 record.
+
+## Activity log (audit) — 2026-11-17
+
+`activity_log` is the audit trail shown on the admin Activity Log page. Every row is written
+by `backend/app/services/audit.py`; a guard test
+(`test_audit_log.py::test_activity_rows_are_written_only_through_the_audit_helper`) fails if
+any other module builds an `ActivityLog(...)`.
+
+**Write modes**
+
+- `audit.record(db, action, details, actor=, ip=)` adds the row to the caller's transaction:
+  a record change and its audit row commit or roll back together.
+- `audit.emit(...)` writes through its own session. It is used for events that must
+  survive the request's rollback (failed sign-ins, lockouts, refused access) or that have
+  no committing session (the scan-log export stream, maintenance outcomes). It never
+  raises, except for `required=True` data egress (backup download, scan-log export): no
+  audit row, no data.
+  - While the station is in recovery or maintenance, egress is refused (503).
+  - While a restart or shutdown is pending, the row is written at once, so a reboot cannot
+    lose it.
+  - If the write fails, the request gets 503.
+- `audit.attach(exc, ...)` puts an event on an `HTTPException`. The handler installed by
+  `audit.install(app)` writes it after `get_db` has rolled back and released its row locks.
+  Emitting while the request still holds `FOR UPDATE` on the actor's account would wait on
+  the foreign-key check forever; audit sessions also set `lock_timeout = 5s` on PostgreSQL.
+- While the station is in maintenance or recovery, events from non-owners are kept in
+  memory (and in the `bananavision.audit` file log) and written when the station is ready
+  again, so a restore never sees rows it did not expect.
+  - One lock per event loop drains that backlog, so overlapping writers never write it
+    twice. A failed write puts it back.
+  - The queue holds 1000 events and logs a warning when it drops the oldest.
+  - It is flushed after backups, restores, recovery, camera apply, power cancel, retention
+    and at shutdown. Events still held at a reboot remain only in the file log.
+- Every event is mirrored to that logger. Rows from `record()` are mirrored only when
+  their transaction commits.
+- The same handler writes `access_denied` for every 403 by a signed-in user, at most once
+  per actor, route and reason every 10 minutes ("N similar suppressed").
+  - Rows with no known target (refused access, failed sign-ins for unrecognized
+    usernames, setup tokens that name no account) share a cap of 120 per minute.
+  - Failures against real accounts are not capped; their lockouts already bound them.
+  - `account_locked` is never capped. 401s go to the file log only. Paths never include the
+  query string (media tokens).
+
+**Vocabulary** (`AuditAction`, snake_case, ≤50 characters). Existing names are kept for
+unchanged events; older rows are not rewritten (kiosk PIN sign-ins before 2026-11-17 are
+`login`, and credential changes before then are `user_updated`).
+
+| Area | Actions |
+|---|---|
+| Sign-in | `login`, `pin_login`, `logout`, `credential_setup_started` |
+| Security failures | `login_failed`, `pin_failed`, `login_blocked`, `account_locked`, `login_denied`, `setup_token_rejected`, `access_denied`, `reauth_failed`, `password_change_failed`, `pin_change_failed` |
+| Credentials | `password_changed`, `password_setup_completed`, `pin_changed`, `pin_setup_completed`, `password_reset`, `pin_reset` |
+| Records | `user_created`, `user_updated`, `user_role_changed`, `user_status_changed`, `profile_updated`, `supplier_created`, `supplier_updated`, `intake_created`, `intake_status_changed`, `scan_created`, `scan_rejected`, `scan_failed`, `scan_flag`, `scan_correction`, `scan_status`, `scan_note`, `scan_provenance`, `label_print_requested`, `label_print_retried`, `data_exported` |
+| System | `config_changed`, `config_applied`, `backup_created`, `backup_failed`, `backup_downloaded`, `restore_validated`, `restore_validation_failed`, `restore_completed`, `restore_failed`, `maintenance_recovered`, `system_restart`, `system_shutdown`, `power_failed`, `power_cancelled`, `power_completed`, `retention_cleanup`, `retention_failed`, `system_started`, `bootstrap_admin_created` |
+
+**Details grammar:** one line, subject first, target ids, and `field old → new` for changes
+(`audit.describe_changes`). No-op changes write no row. Untrusted text is cleaned
+(control characters removed, length capped). Secrets and payloads are never written:
+passwords, PINs, hashes, tokens, temporary credentials, avatar data, file paths, query
+strings, note text. A username typed at sign-in that is not an account is written as "an
+unrecognized username".
+
+**Rate limits:** `credential_limiter` (5 failures in 300 s, 300 s lockout, like sign-in)
+covers change-password, change-PIN and maintenance re-authentication; a lockout returns 429
+with `Retry-After`.
+
+**Reading:** `GET /api/v1/activity` accepts `as_of` and returns the boundary it used; the
+page passes page 1's `as_of` to later pages so rows arriving mid-load do not shift the
+paging.
+- Without `as_of` the boundary is the later of now and the newest row, so rows stamped
+  ahead of the server clock stay visible.
+- A scan-log export of a browse snapshot checks the snapshot (read-only, no account lock)
+  before writing `data_exported`, so a refused export is not logged as one. See [[Development Decisions]] (2026-11-17 audit entry) and
+[[Testing and Validation]].
+
+**Audit integrity & append-only protection (migration 0012):**
+
+- `activity_log.actor_name` stores an immutable snapshot of the actor's display name
+  at the moment of the event. Historical attribution survives account renaming or deletion.
+- PostgreSQL row and statement triggers (`activity_log_append_only`,
+  `activity_log_truncate`) call `audit_log_append_only()` to disallow `UPDATE`, `DELETE`, and
+  `TRUNCATE` operations on `activity_log`.
+- Trigger bypass is strictly restricted to maintenance restores and migration backfills by
+  setting `SET LOCAL bananavision.audit_restore = 'on'` within the authorized transaction.
+- Backup archive format is bumped to version 5, preserving `actor_name`. Compatibility with
+  older archive versions (1 to 4) is maintained with automatic staging schema upgrade.
+- Station data restores (`backup_restore.py`) preserve the existing live audit trail
+  across restores (`preserve_audit=True`), merging backup audit records while preventing ID
+  collisions and recording restore audit milestones.

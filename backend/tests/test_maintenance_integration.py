@@ -112,13 +112,15 @@ def test_recovery_login_is_admin_only_and_does_not_change_application_data(appli
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from app.api.v1 import auth
-    from app.services import runtime_operations, maintenance_state
+    from app.services import audit, runtime_operations, maintenance_state
     from app.core.security import hash_password, decode_access_token
     from app.models import UserAccount, MaintenanceState
     from sqlalchemy import func
     local = runtime_operations.StationCoordinator()
     local.block('recovery-required')
     monkeypatch.setattr(runtime_operations, 'coordinator', local)
+    # Production has one coordinator: audit events raised while it is blocked are deferred.
+    monkeypatch.setattr(audit, 'coordinator', local)
     monkeypatch.setattr(maintenance_state, 'auth_generation', 'old-process-generation')
     with Session(application.engine) as db:
         for user in db.scalars(select(UserAccount)):

@@ -18,11 +18,12 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp"
-import { Loader2, User, Shield, Calendar, Activity, TrendingUp, Target, Moon, Sun, Eye, EyeOff, Camera } from "lucide-react"
+import { Loader2, User, Shield, Calendar, Activity, TrendingUp, Moon, Sun, Eye, EyeOff, Camera } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { inManila } from "@/lib/manilaTime"
+import { activityProfileLabel } from "@/lib/activityActions"
 
 export default function Profile() {
   const { user, changePassword, changePin } = useAuth()
@@ -100,37 +101,12 @@ export default function Profile() {
     return () => controller.abort()
   }, [user])
 
-  const formatActivityLabel = (action: string, details: string) => {
-    switch (action) {
-      case "login":
-        return "Signed in to the web dashboard"
-      case "logout":
-        return "Signed out from the session"
-      case "scan_created":
-        return "Captured a new banana scan in Kiosk"
-      case "scan_edited":
-        return "Updated scan data in Quality Control"
-      case "scan_flagged":
-        return "Flagged a scan for manual review"
-      case "scan_rejected":
-        return "Scan rejected: no supported banana detected"
-      case "intake_created":
-        return "Recorded a new delivery intake"
-      case "intake_status_changed":
-        return "Updated intake status in Intake Management"
-      case "config_changed":
-        return "Adjusted system configuration settings"
-      default:
-        return details
-    }
-  }
-
   const recentActivityFeed = useMemo(() => {
     const userActivity = summary?.activity ?? []
     if (userActivity.length > 0) {
       return userActivity.slice(0, 8).map((activity) => ({
         id: activity.id,
-        details: formatActivityLabel(activity.action, activity.details),
+        details: activityProfileLabel(activity.action, activity.details),
         timestamp: activity.timestamp,
       }))
     }
@@ -139,9 +115,9 @@ export default function Profile() {
 
   const stats = {
     totalScans: summary?.total_scans ?? "—",
-    avgConfidence: summary?.avg_confidence?.toFixed(1) ?? null,
     totalUsers: summary?.total_users ?? "—",
     last7Days: summary?.last_7_days ?? "—",
+    recentActions7d: summary?.recent_actions_7d ?? "—",
   }
 
   const handlePasswordChange = async (e: React.SubmitEvent<HTMLFormElement>) => {
@@ -272,18 +248,18 @@ export default function Profile() {
             iconColor="text-blue-600"
             iconBgColor="bg-blue-500/10"
             delay={100}
-            description="Recent activity"
+            description="Your scans in the last 7 days"
           />
         )}
         <AppStatsCard
           loading={!summary && !summaryError}
-          title={user.role === "Admin" ? "System Avg Confidence" : "Avg Confidence"}
-          value={stats.avgConfidence === null ? "—" : `${stats.avgConfidence}%`}
-          icon={Target}
+          title="Your Actions (7d)"
+          value={stats.recentActions7d}
+          icon={Calendar}
           iconColor="text-emerald-600"
           iconBgColor="bg-emerald-500/10"
           delay={150}
-          description={user.role === "Admin" ? "Average platform model confidence" : "Average model confidence on your scans"}
+          description="Your activity in the last 7 days"
         />
       </div>
 

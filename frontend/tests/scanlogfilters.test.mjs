@@ -5,11 +5,10 @@ import { transform } from 'esbuild'
 
 const source = await readFile(new URL('../src/lib/scanLogFilters.ts', import.meta.url), 'utf8')
 const { code } = await transform(source, { loader: 'ts', format: 'esm' })
-const { buildScanLogsUrl, scanLogParams, normalizeScanLogSearch, selectedScanLogDay, isDefaultScanLogView } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
+const { buildScanLogsUrl, scanLogParams, normalizeScanLogSearch, selectedScanLogDay } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
 
-const TODAY = '2026-10-02'
 const normalized = query => {
-  const next = normalizeScanLogSearch(new URLSearchParams(query), TODAY)
+  const next = normalizeScanLogSearch(new URLSearchParams(query))
   return next === null ? null : Object.fromEntries(next)
 }
 
@@ -55,25 +54,13 @@ test('only a real calendar day becomes business_date; all and invalid dates mean
   assert.equal(selectedScanLogDay(new URLSearchParams('attention=at-risk')), '')
 })
 
-test('plain Scan Logs opens on the Manila day; page and sort are kept and are not filters', () => {
-  assert.deepEqual(normalized(''), { date: TODAY })
-  assert.deepEqual(normalized('page=3'), { page: '3', date: TODAY })
-  assert.deepEqual(normalized('sort=confidence&direction=asc&limit=25'), { sort: 'confidence', direction: 'asc', limit: '25', date: TODAY })
-})
-
-test('filtered links keep all dates, and explicit dates are left alone', () => {
-  for (const query of ['attention=at-risk', 'status=Flagged', 'date=all', 'date=2026-10-01', 'source_key=supplier:1', 'stock=eligible&status=In+Stock', 'intake=intake-1', 'search=alex']) {
+test('plain Scan Logs is left as it is: no date means every date', () => {
+  for (const query of ['', 'page=3', 'sort=confidence&direction=asc&limit=25', 'attention=at-risk', 'status=Flagged',
+    'date=all', 'date=2026-10-01', 'source_key=supplier:1', 'stock=eligible&status=In+Stock', 'intake=intake-1', 'search=alex']) {
     assert.equal(normalized(query), null, query)
   }
-})
-
-test('the default view is a date with only paging or sorting', () => {
-  for (const query of ['date=2026-10-02', 'date=2026-10-02&page=2&sort=confidence&direction=asc', '']) {
-    assert.equal(isDefaultScanLogView(new URLSearchParams(query)), true, query)
-  }
-  for (const query of ['date=2026-10-02&status=Sold', 'date=2026-10-02&attention=at-risk', 'date=all&search=x']) {
-    assert.equal(isDefaultScanLogView(new URLSearchParams(query)), false, query)
-  }
+  assert.equal(scanLogParams(new URLSearchParams('')).business_date, undefined)
+  assert.equal(selectedScanLogDay(new URLSearchParams('')), '')
 })
 
 test('legacy review links become Status: Flagged without adding a date', () => {

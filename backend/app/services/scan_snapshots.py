@@ -33,9 +33,15 @@ async def generation(db):
     )
 
 
-async def load_snapshot(db, user, token, key):
+async def load_snapshot(db, user, token, key, *, lock=True):
+    """The caller's snapshot, checked for owner, expiry and filters.
+
+    ``lock=False`` reads it without locking the account row (a pre-check whose session must
+    not hold that lock, such as before an export's audit row is written).
+    """
     scan_scope(user)
-    user = await lock_current_account(db, user)
+    if lock:
+        user = await lock_current_account(db, user)
     scan_scope(user)
     snapshot = await db.scalar(select(ScanSnapshot).where(ScanSnapshot.id == token))
     if snapshot is None:

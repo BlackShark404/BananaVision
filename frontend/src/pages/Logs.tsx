@@ -32,8 +32,7 @@ import { scanWrite, scanRevision, isScanConflict } from "@/lib/scanWrites"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { isDefaultScanLogView, normalizeScanLogSearch, scanLogParams, selectedScanLogDay, VALID_PAGE_SIZES } from "@/lib/scanLogFilters"
-import { manilaDayKey } from "@/lib/manilaTime"
+import { normalizeScanLogSearch, scanLogParams, selectedScanLogDay, VALID_PAGE_SIZES } from "@/lib/scanLogFilters"
 import { useDashboardResource } from "@/hooks/useDashboardResource"
 import type { ScanLogRow, ScanLogParams, ScanLogReconciliation } from "@/types/scanLogs"
 import { AppDateFilter } from "@/components/AppDateFilter"
@@ -43,7 +42,8 @@ import { ScanLabelPrint } from "@/components/ScanLabelPrint"
 import type { Cultivar, Ripeness, InventoryStatus, ScanResult } from "@/types"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import { collectScanPages, type ApiScan } from "@/lib/scanData"
-import { formatSpoilageDays } from "@/lib/spoilageDisplay"
+import { closedStockSpoilageLabel, formatSpoilageDays } from "@/lib/spoilageDisplay"
+import { inventoryStatusChangeNote } from "@/lib/inventoryStatusChange"
 import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
 import { LIVE_RESUMED_EVENT, SCAN_UPDATED_EVENT, SCANS_ADDED_EVENT, newEventId, type ScanUpdateDetail } from "@/lib/liveEvents"
 import { fingersLabel } from "@/lib/estimates"
@@ -162,9 +162,9 @@ function filterMembership(
 export default function Logs() {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  // Plain /logs opens on today's Asia/Manila day and the legacy review link becomes
-  // Status Flagged, before the first request, so no other query is ever loaded.
-  const canonical = normalizeScanLogSearch(searchParams, manilaDayKey())?.toString() ?? null
+  // The legacy review link becomes Status Flagged before the first request, so the old
+  // query is never loaded.
+  const canonical = normalizeScanLogSearch(searchParams)?.toString() ?? null
   useEffect(() => {
     if (canonical !== null) setSearchParams(new URLSearchParams(canonical), { replace: true })
   }, [canonical, setSearchParams])
@@ -195,19 +195,6 @@ function LogsContent() {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000)
     return () => window.clearInterval(timer)
   }, [])
-  // The default view follows the Asia/Manila day: at midnight an open "today" view moves
-  // to the new day. A chosen past day or any filtered view stays as it is.
-  const dayKey = manilaDayKey(now)
-  const previousDay = useRef(dayKey)
-  useEffect(() => {
-    const before = previousDay.current
-    previousDay.current = dayKey
-    if (before === dayKey || searchParams.get("date") !== before || !isDefaultScanLogView(searchParams)) return
-    const next = new URLSearchParams(searchParams)
-    next.set("date", dayKey)
-    next.delete("page")
-    setSearchParams(next, { replace: true })
-  }, [dayKey, searchParams, setSearchParams])
   const [pendingScans, setPendingScans] = useState<Set<string>>(new Set())
   const inFlight = useRef(new Set<string>())
   const [statusAction, setStatusAction] = useState<{ scan: LogScan; status: InventoryStatus } | null>(null)
@@ -504,14 +491,11 @@ function LogsContent() {
         else next.set(key, value)
       }
       if (!("page" in changes)) next.delete("page")
-      // Keep the visible date choice explicit: removing the last filter of a backlog view
-      // must not fall back to the plain view's today default.
-      if (!next.has("date")) next.set("date", "all")
       return next
     }, { replace })
   }
-  // The default view: no filters, today's Asia/Manila day.
-  const clearAllFilters = () => setSearchParams({ date: manilaDayKey() })
+  // The default view: no filters, every date.
+  const clearAllFilters = () => setSearchParams({})
   const setSearch = (value: string) => updateFilters({ search: value }, true)
   const setCultivarFilter = (value: string) => updateFilters({ cultivar: value })
   const setRipenessFilter = (value: string) => updateFilters({ ripeness: value })
@@ -719,10 +703,15 @@ const columns: ColumnDef<LogScan>[] = [
       sortable: true,
       sortKey: "spoilage_days",
       cell: (scan) => {
-        // In-stock rows lead with the live countdown; the stored estimate stays beneath it.
+        // In-stock rows lead with the live countdown and sold, spoiled or processed rows with
+        // their outcome; the stored estimate stays beneath either.
         const countdown = scan.inventoryStatus === "In Stock" ? liveShelfLifeLabel(scan, now) : null
+        const outcome = countdown === null ? closedStockSpoilageLabel(scan.inventoryStatus) : null
+        const lead = countdown ?? outcome
         const estimate = formatSpoilageDays(scan.spoilageDays)
-        const meaning = countdown !== null ? "Live remaining shelf life from the scan's prediction" : "Estimate when scanned"
+        const meaning = countdown !== null
+          ? "Live remaining shelf life from the scan's prediction"
+          : outcome !== null ? "No countdown: this stock is no longer in inventory" : "Estimate when scanned"
         return (
           <div className="text-sm">
             <span
@@ -730,9 +719,9 @@ const columns: ColumnDef<LogScan>[] = [
               title={scan.atRisk ? `At risk: eligible stock whose estimate midpoint is 2 days or less away, or already passed, at this snapshot. ${meaning}.` : meaning}
             >
               {scan.atRisk && <AlertTriangle role="img" aria-label="At-risk scan" className="h-3.5 w-3.5 shrink-0" />}
-              {countdown ?? estimate}
+              {lead ?? estimate}
             </span>
-            {countdown !== null && estimate !== "Unknown" && (
+            {lead !== null && estimate !== "Unknown" && (
               <span className="block text-[10px] text-muted-foreground" title="Estimate when scanned">
                 Est. {estimate} from scan
               </span>
@@ -809,7 +798,7 @@ const columns: ColumnDef<LogScan>[] = [
     <div className="space-y-6">
       <Dialog open={!!statusAction} onOpenChange={open => { if (!open && !pendingScans.size) setStatusAction(null) }}>
         <DialogContent className="rounded-2xl">
-          <DialogHeader><DialogTitle>Mark scan as {statusAction?.status}?</DialogTitle><DialogDescription>This change will be recorded in the scan history.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>Mark scan as {statusAction?.status}?</DialogTitle><DialogDescription>{statusAction ? inventoryStatusChangeNote(statusAction.scan.inventoryStatus || "In Stock", statusAction.status) : null}</DialogDescription></DialogHeader>
           <Label htmlFor="status-reason">Reason for change</Label>
           <Textarea id="status-reason" value={statusReason} onChange={event => setStatusReason(event.target.value)} disabled={!!pendingScans.size} />
           <DialogFooter><Button variant="outline" disabled={!!pendingScans.size} onClick={() => setStatusAction(null)}>Cancel</Button><Button disabled={resource.isPreviousData || !statusReason.trim() || !!pendingScans.size} onClick={() => void handleStatusUpdate()}>{!!pendingScans.size && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin mr-2" />}{pendingScans.size ? "Saving…" : "Save Changes"}</Button></DialogFooter>
@@ -914,7 +903,7 @@ const columns: ColumnDef<LogScan>[] = [
         searchQuery={search}
         onSearchChange={(value) => { setSearch(value) }}
         searchPlaceholder="Search by cultivar, operator, or ID..."
-        hasActiveFilters={search !== "" || cultivarFilter !== "all" || ripenessFilter !== "all" || sourceFilter !== "all" || operatorFilter !== "all" || statusFilter !== "all" || intakeFilter !== "all" || cardFilter !== null || dateFilter !== dayKey || requestParams.stock_eligible}
+        hasActiveFilters={search !== "" || cultivarFilter !== "all" || ripenessFilter !== "all" || sourceFilter !== "all" || operatorFilter !== "all" || statusFilter !== "all" || intakeFilter !== "all" || cardFilter !== null || dateFilter !== "" || requestParams.stock_eligible}
         onClearFilters={clearAllFilters}
       >
         <Select value={cultivarFilter} onValueChange={(v) => { setCultivarFilter(v) }}>
@@ -980,9 +969,9 @@ const columns: ColumnDef<LogScan>[] = [
           </SelectContent>
         </Select>
         <div className="flex w-full sm:w-auto items-center gap-1">
-          <AppDateFilter value={dateFilter} onChange={value => updateFilters({ date: value || "all" })}
+          <AppDateFilter value={dateFilter} onChange={value => updateFilters({ date: value || undefined })}
             label="Scan date" emptyText="All dates" title="Filter by calendar date in Asia/Manila" className="w-full sm:w-44" />
-          {dateFilter && <Button type="button" variant="ghost" size="icon" aria-label="Clear scan date" title="All dates" onClick={() => updateFilters({ date: "all" })}><X className="size-4" /></Button>}
+          {dateFilter && <Button type="button" variant="ghost" size="icon" aria-label="Clear scan date" title="All dates" onClick={() => updateFilters({ date: undefined })}><X className="size-4" /></Button>}
         </div>
       </AppTableFilters>
 

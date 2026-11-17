@@ -70,23 +70,15 @@ import BoundingBoxOverlay from "@/components/BoundingBoxOverlay"
 import { scanWrite, scanRevision, isScanConflict } from "@/lib/scanWrites"
 import { cultivarCameraConflict } from "@/lib/scanData"
 import { api } from "@/lib/api"
-import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
+import { closedStockSpoilageLabel, formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
+import { inventoryStatusChangeNote } from "@/lib/inventoryStatusChange"
 import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
 import { inManila } from "@/lib/manilaTime"
 import { fingerCountIsEstimate, fingersLabel } from "@/lib/estimates"
 
 const EMPTY_DETECTIONS: ScanDetection[] = []
 
-// Valid transitions: key = current status, value = allowed target statuses
-const VALID_TRANSITIONS: Record<string, InventoryStatus[]> = {
-  "In Stock": ["Sold", "For Processing", "Spoiled"],
-  "For Processing": ["Sold", "Spoiled"],
-  "Sold": [],
-  "Spoiled": [],
-}
-
-const TERMINAL_STATUSES: InventoryStatus[] = ["Sold", "Spoiled"]
-
+// Admins can set any other status, so a Sold or Spoiled entered by mistake can be corrected.
 const STATUS_ACTIONS: { status: InventoryStatus; icon: typeof Box; color: string }[] = [
   { status: "In Stock", icon: Box, color: "text-blue-500" },
   { status: "For Processing", icon: Settings, color: "text-purple-500" },
@@ -135,6 +127,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const scanDetections = scan?.detections ?? EMPTY_DETECTIONS
   const cultivarConflict = scan ? cultivarCameraConflict(scan) : null
   const countdown = scan && scan.inventoryStatus === "In Stock" ? liveShelfLifeLabel(scan, now) : null
+  const spoilageLead = countdown ?? (scan ? closedStockSpoilageLabel(scan.inventoryStatus) : null)
   const notes = scan ? getScanNotes(scan.id) : []
   const isAdmin = user?.role === "Admin"
 
@@ -449,9 +442,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
           <DialogHeader>
             <DialogTitle>Mark scan as {statusAction}?</DialogTitle>
             <DialogDescription>
-              {TERMINAL_STATUSES.includes(statusAction as InventoryStatus)
-                ? "This is a terminal status and cannot be easily undone. This change will be recorded in the scan history."
-                : "This change will be recorded in the scan history."}
+              {statusAction ? inventoryStatusChangeNote(scan.inventoryStatus || "In Stock", statusAction) : null}
             </DialogDescription>
           </DialogHeader>
           <Label htmlFor="scan-status-reason">Reason for change</Label>
@@ -830,11 +821,11 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     <AlertTriangle className="w-3.5 h-3.5" /> Est. Spoilage
                   </div>
                   <p className="text-2xl font-bold">
-                    {countdown !== null
-                      ? countdown
+                    {spoilageLead !== null
+                      ? spoilageLead
                       : <>{formatSpoilageDays(scan.spoilageDays, false)} <span className="text-sm font-normal text-muted-foreground">{spoilageDayUnit(scan.spoilageDays)}</span></>}
                   </p>
-                  {countdown !== null && formatSpoilageDays(scan.spoilageDays) !== "Unknown" && (
+                  {spoilageLead !== null && formatSpoilageDays(scan.spoilageDays) !== "Unknown" && (
                     <p className="text-xs text-muted-foreground">Est. {formatSpoilageDays(scan.spoilageDays)} from scan</p>
                   )}
                 </div>
@@ -895,8 +886,6 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                       <AppStatusBadge type="inventory" status={scan.inventoryStatus || "In Stock"} size="md" />
                       {isAdmin && (() => {
                         const currentStatus = scan.inventoryStatus || "In Stock"
-                        const allowed = VALID_TRANSITIONS[currentStatus] || []
-                        if (allowed.length === 0) return null
                         return (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -909,7 +898,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                               <DropdownMenuLabel>Update Status</DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               {STATUS_ACTIONS.map(({ status, icon: StatusIcon, color }) => {
-                                const isDisabled = !allowed.includes(status)
+                                const isDisabled = status === currentStatus
                                 return (
                                   <DropdownMenuItem
                                     key={status}
@@ -1030,18 +1019,30 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
           )}
 
           <Card className="rounded-2xl">
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Clock className="w-4 h-4 text-primary" />Scan History</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              {scan.history?.length ? scan.history.map(event => <div key={event.id} className="p-3 bg-muted/50 rounded-lg text-sm space-y-1">
-                <p className="font-medium">{event.kind === 'correction' ? 'Scan correction' : event.kind === 'created' ? 'Scan created' : event.kind === 'status' ? 'Inventory status' : event.kind === 'note' ? 'Review note' : 'Review flag'}</p>
-                <p className="text-xs text-muted-foreground">{event.actor_name ?? 'Actor not recorded'} · {new Date(event.timestamp).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</p>
-                {Object.entries(event.new_values).map(([key, value]) => {
-                  const display = (item: unknown) => item == null ? 'Not recorded' : key === 'spoilage_days' ? formatSpoilageDays(item) : String(item)
-                  return <p key={key} className="break-words">{key.replaceAll('_', ' ')}: {event.previous_values && key in event.previous_values ? `${display(event.previous_values[key])} → ` : ''}{display(value)}</p>
-                })}
-                {event.reason && <p>{event.reason}</p>}
-                {event.legacy && <p className="text-xs text-muted-foreground">Historical record; additional change details were not recorded.</p>}
-              </div>) : <p className="text-sm text-muted-foreground">No recorded history is available.</p>}
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
+                Scan History
+                {Boolean(scan.history?.length) && (
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 rounded-full">
+                    {scan.history!.length}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {scan.history?.length ? scan.history.map(event => <div key={event.id} className="p-3 bg-muted/50 rounded-lg text-sm space-y-1">
+                  <p className="font-medium">{event.kind === 'correction' ? 'Scan correction' : event.kind === 'created' ? 'Scan created' : event.kind === 'status' ? 'Inventory status' : event.kind === 'note' ? 'Review note' : 'Review flag'}</p>
+                  <p className="text-xs text-muted-foreground">{event.actor_name ?? 'Actor not recorded'} · {new Date(event.timestamp).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</p>
+                  {Object.entries(event.new_values).map(([key, value]) => {
+                    const display = (item: unknown) => item == null ? 'Not recorded' : key === 'spoilage_days' ? formatSpoilageDays(item) : String(item)
+                    return <p key={key} className="break-words">{key.replaceAll('_', ' ')}: {event.previous_values && key in event.previous_values ? `${display(event.previous_values[key])} → ` : ''}{display(value)}</p>
+                  })}
+                  {event.reason && <p className="break-words">{event.reason}</p>}
+                  {event.legacy && <p className="text-xs text-muted-foreground">Historical record; additional change details were not recorded.</p>}
+                </div>) : <p className="text-sm text-muted-foreground text-center py-4">No recorded history is available.</p>}
+              </div>
             </CardContent>
           </Card>
 

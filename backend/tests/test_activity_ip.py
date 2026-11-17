@@ -251,7 +251,7 @@ def test_untrusted_proxy_header_not_spoofed_in_api(application, monkeypatch):
     with Session(app.engine) as db:
         log = db.execute(
             select(ActivityLog)
-            .where(ActivityLog.details == f"Scan {app.ids.scan}, revision 2")
+            .where(ActivityLog.details.startswith(f"Scan {app.ids.scan}, revision 2:"))
             .order_by(ActivityLog.id.desc())
         ).scalar_one()
         # Must record peer IP 127.0.0.1, NOT the spoofed 203.0.113.195
@@ -280,7 +280,7 @@ def test_trusted_proxy_header_honored_in_api(application, monkeypatch):
     with Session(app.engine) as db:
         log = db.execute(
             select(ActivityLog)
-            .where(ActivityLog.details == f"Scan {app.ids.scan}, revision 2")
+            .where(ActivityLog.details.startswith(f"Scan {app.ids.scan}, revision 2:"))
             .order_by(ActivityLog.id.desc())
         ).scalar_one()
         # Originating client IP extracted from leftmost forwarded IP
