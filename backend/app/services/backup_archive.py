@@ -49,6 +49,9 @@ V2_SCHEMA = json.loads(
 V3_SCHEMA = json.loads(
     Path(__file__).with_name("archive_schema_v3.json").read_text(encoding="utf-8")
 )
+V4_SCHEMA = json.loads(
+    Path(__file__).with_name("archive_schema_v4.json").read_text(encoding="utf-8")
+)
 MAX_ARCHIVE_BYTES = 4 * 1024**3
 MAX_EXPANDED_BYTES = 8 * 1024**3
 MAX_FILE_BYTES = 256 * 1024**2
@@ -381,7 +384,7 @@ async def create_archive(db, capture_root: Path, destination: Path) -> dict:
     partial = owned / "archive.zip"
     try:
         _space(owned, RESERVE_BYTES)
-        manifest = {"format": "bananavision-station", "version": 4,
+        manifest = {"format": "bananavision-station", "version": 5,
                     "application_version": "0.1.0", "created_at": now_manila().isoformat(),
                     "schema": schema_description(), "tables": {}, "files": {},
                     "prerequisites": {"database": "PostgreSQL", "timezone": "Asia/Manila",
@@ -574,6 +577,8 @@ def _validate_spec_row(row, spec):
 def _upgrade_to_v3(manifest, root):
     """Validate and adapt v1/v2/v3 rows to the last schema with camera arrays."""
     version = manifest["version"]
+    if version >= 4:
+        return  # v4+ rows are already past the camera-array schema.
     source_schema = {1: LEGACY_SCHEMA, 2: V2_SCHEMA, 3: V3_SCHEMA}[version]
     defaults = {
         "scan": {"revision": 1, "operator_name_snapshot": None, "source_name_snapshot": None},
@@ -711,6 +716,8 @@ def _upgrade_to_current(manifest, root):
                            if key != "is_read"}
                 if table.name in ("scan_detection", "scan_image") and "device_id" not in row:
                     row["device_id"] = None
+                if table.name == "activity_log" and "actor_name" not in row:
+                    row["actor_name"] = None
                 validated = _row(table, row)
                 encoded = _dump(_encode(validated)) + b"\n"
                 if len(encoded) > MAX_ROW_BYTES:
@@ -738,7 +745,7 @@ def _upgrade_to_current(manifest, root):
 
 
 def _upgrade_staging(manifest, root):
-    """Strictly adapt v1/v2/v3 archives to the current normalized schema.
+    """Strictly adapt v1/v2/v3/v4 archives to the current normalized schema.
 
     The original archive hash remains authoritative. Only private staged rows and
     their descriptors change, so restore/compensation verify exactly what is inserted.
@@ -784,10 +791,10 @@ def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
             if (
                 manifest["format"] != "bananavision-station"
                 or type(manifest["version"]) is not int
-                or manifest["version"] not in (1, 2, 3, 4)
+                or manifest["version"] not in (1, 2, 3, 4, 5)
             ):
                 raise ArchiveError("Unsupported archive version")
-            expected_schema = {1: LEGACY_SCHEMA, 2: V2_SCHEMA, 3: V3_SCHEMA}.get(
+            expected_schema = {1: LEGACY_SCHEMA, 2: V2_SCHEMA, 3: V3_SCHEMA, 4: V4_SCHEMA}.get(
                 manifest["version"], schema_description()
             )
             if manifest["application_version"] != "0.1.0" or manifest["schema"] != expected_schema:
@@ -828,7 +835,7 @@ def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
                 path = evidence_root.joinpath(*name.split("/"))
                 _copy_member(source, f"evidence/{name}", path, descriptor)
                 evidence[name] = path
-        if manifest["version"] < 4:
+        if manifest["version"] < 5:
             _upgrade_staging(manifest, owned)
         validated = ValidatedBackup(manifest, owned, evidence_root, evidence, _hash_file(archive))
         _check_constraints(validated)
@@ -842,9 +849,22 @@ def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
         raise ArchiveError("Invalid or unreadable backup archive") from exc
 
 
-async def restore_rows(db, validated: ValidatedBackup):
+async def restore_rows(db, validated: ValidatedBackup, *, preserve_audit: bool = False):
     """Insert trusted typed values into empty application tables; caller commits."""
     for table in application_tables():
+        if table.name == "activity_log" and preserve_audit:
+            existing_ids = set((await db.execute(select(table.c.id))).scalars().all())
+            batch = []
+            for row in validated.iter_rows(table.name):
+                if row["id"] not in existing_ids:
+                    batch.append(row)
+                    existing_ids.add(row["id"])
+                if len(batch) == 100:
+                    await db.execute(insert(table).values(batch))
+                    batch = []
+            if batch:
+                await db.execute(insert(table).values(batch))
+            continue
         batch = []
         for row in validated.iter_rows(table.name):
             batch.append(row)

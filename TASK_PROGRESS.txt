@@ -1,4 +1,4 @@
-CURRENT RESUME HERE (2026-11-17) - COMPLETE AUDIT LOGGING (PART 2 OF 3)
+CURRENT RESUME HERE (2026-11-17) - COMPLETE AUDIT LOGGING (PART 3 OF 3: AUDIT INTEGRITY)
 
 The previous checkpoint (admin Sold/Spoiled correction, kiosk today-only resume; pushed to
 fork main as 7f8e858) is archived byte-for-byte in
@@ -10,7 +10,27 @@ USER REQUEST (2026-11-17)
 - User choices: keep the actor's name with each entry (Part 3), log refused access
   (throttled), keep the audit log across restores (Part 3).
 
-DONE (Part 2, this commit)
+DONE (Part 3, this commit)
+- backend/app/models/activity_log.py: added `actor_name` (String(100), nullable=True).
+- backend/app/services/audit.py: `_row()` persists `actor_name`; `record()` supports explicit
+  `timestamp` overrides for test fixtures.
+- backend/app/api/v1/activity.py: list endpoint returns `actor_name` snapshot with fallback to
+  user `full_name`; user filtering and full-text search query both snapshot and user account.
+- backend/migrations/versions/0012_audit_integrity.py: Alembic migration adding `actor_name`
+  column, backfilling from `user_account.full_name`, and establishing PostgreSQL append-only
+  trigger `audit_log_append_only()` for UPDATE, DELETE, and TRUNCATE with
+  `SET LOCAL bananavision.audit_restore = 'on'` bypass.
+- backend/app/services/backup_archive.py: bumped archive version to 5; added `V4_SCHEMA`
+  and backward compatibility for archives v1–v5; updated `restore_rows` with `preserve_audit`
+  support.
+- backend/app/services/backup_restore.py: `_replace()` preserves `activity_log` across station
+  restores; sets `bananavision.audit_restore = 'on'` for audit restore insertions; verifies live
+  audit count >= backup count; updates outcome messaging to reflect retained pre-restore audit rows.
+- backend/app/services/archive_schema_v4.json: version 4 archive schema snapshot.
+- Knowledge updates: `docs/knowledge/Database.md`, `docs/knowledge/Development Decisions.md`,
+  and Graphify AST graph refreshed.
+
+DONE (Part 2, commit 19196f9)
 - backend/app/services/audit.py: the single writer.
   - Writers: AuditAction vocabulary; record (same transaction); emit (own session, defers
     while the station is not ready, required=True egress fails closed with 503); attach
@@ -38,24 +58,20 @@ DONE (Part 2, this commit)
   backend README, storyboard Figure 84.
 
 VERIFICATION
-- Backend: 1290 passed, 38 skipped with a disposable PostgreSQL 16 cluster; 1215 passed,
-  113 skipped without it. Ruff 644 (baseline).
-- Frontend: 389/390. The analytics refresh failure is the known clock race; it passes 9/9
-  alone, twice. tsc -b and build pass. ESLint 36 (was 40).
-- Review follow-up (four-lens review with skeptics: 14 of 15 findings confirmed, 9 after
-  merging duplicates), fixed in a separate commit:
-  - Egress: required egress is refused in recovery/maintenance and written at once while a
-    restart is pending.
-  - Backlog: one drain lock (no double writes); a failed write requeues; a warning when
-    the queue drops events; flush after camera apply and at shutdown.
-  - Cap: failures against real accounts are not capped.
-  - File log: shows only committed record() rows.
-  - Reading: GET /activity boundary = later of now and the newest row.
-  - Export: a snapshot export is checked read-only before data_exported is written.
-  - Frontend: the login_blocked label is now "Blocked while locked"; the frontend boundary
-    test is real (mutation-checked).
-  - Results after the fixes: backend 1301 passed / 38 skipped with PostgreSQL, 1226 / 113
-    without; frontend 391/391; tsc -b and build pass; ESLint 36; Ruff 644.
+- Backend:
+  - test_audit_log.py: 31 passed (including actor_name snapshot immutability)
+  - test_audit_read.py: 13 passed with PostgreSQL (5 passed, 1 skipped SQLite)
+  - test_backup_archive.py: 40 passed (v5 roundtrip and v4 upgrade validation)
+  - test_audit_maintenance.py: 23 passed
+  - test_audit_maintenance_postgresql.py: 4 passed
+  - test_maintenance_postgresql.py: 14 passed
+  - test_migrations.py: 10 passed (including SQLite 0012 and PostgreSQL trigger/backfill tests)
+  - test_audit_auth.py + test_audit_records.py: 40 passed, 2 skipped
+- Frontend:
+  - activityactions.test.mjs: 7 passed
+  - activitylog.test.mjs: 4 passed
+  - npm run build (tsc -b && vite build): passed cleanly (11.20s)
+- Scoped linting: Ruff 0 new errors on modified and untracked code.
 
 STILL OPEN
 - The station data release (teammate guide PDF), then:
@@ -73,14 +89,9 @@ STILL OPEN
   the archived checkpoints.
 - Type check: use `npx tsc -b` (or `npm run build`), not `npm run typecheck`.
 
-IN PROGRESS (approved plan, 2026-11-17)
-- Part 3: audit integrity:
-  - activity_log.actor_name snapshot plus migration 0012 plus backup archive v5 (older
-    archives still restorable);
-  - the audit log is kept across restores;
-  - a PostgreSQL append-only trigger.
-- Plan: /root/.claude/plans/before-you-continue-why-optimized-sphinx.md (session-local).
+COMPLETED
+- Part 3: audit integrity (all requirements met and verified).
 
 EXACT NEXT STEP
-- Part 3 (audit integrity). Then the user opens the team PR from the fork's main:
+- Open team PR from fork's main:
   https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main

@@ -56,10 +56,15 @@ async def list_activity(
     if action:
         query = query.where(ActivityLog.action == action)
 
-    # Filter by user name (join with user table)
+    # Filter by user name (actor snapshot or user table)
     if user_name:
         from app.models.user_account import UserAccount
-        query = query.join(ActivityLog.user).where(UserAccount.full_name == user_name)
+        query = query.outerjoin(ActivityLog.user).where(
+            or_(
+                ActivityLog.actor_name == user_name,
+                UserAccount.full_name == user_name,
+            )
+        )
 
     # Full-text search across user name, action, and details
     if search:
@@ -70,6 +75,7 @@ async def list_activity(
             or_(
                 ActivityLog.action.ilike(search_pattern),
                 ActivityLog.details.ilike(search_pattern),
+                ActivityLog.actor_name.ilike(search_pattern),
                 UserAccount.full_name.ilike(search_pattern),
             )
         )
@@ -85,7 +91,7 @@ async def list_activity(
         items=[
             ActivityLogResponse(
                 id=log.id,
-                user_name=log.user.full_name if log.user else None,
+                user_name=log.actor_name or (log.user.full_name if log.user else None),
                 action=log.action,
                 details=log.details,
                 ip_address=log.ip_address,

@@ -338,9 +338,15 @@ class MaintenanceService:
 
     async def _replace(self, validated, marker):
         async with self.sessions() as db:
+            is_pg = self.engine.dialect.name == "postgresql"
+            if is_pg:
+                # Allow the restore to merge audit rows past the append-only trigger.
+                await db.execute(text("SET LOCAL bananavision.audit_restore = 'on'"))
             for table in reversed(archive.application_tables()):
+                if table.name == "activity_log":
+                    continue  # Preserve existing audit history.
                 await db.execute(delete(table))
-            await archive.restore_rows(db, validated)
+            await archive.restore_rows(db, validated, preserve_audit=True)
             await reset_sequences(db, self.engine.dialect.name)
             generation = await state_store.advance_generation(db, marker)
             await db.commit()
@@ -354,8 +360,14 @@ class MaintenanceService:
     async def verify_live(self, expected, directory):
         async with self.sessions() as db:
             actual = await archive.create_archive(db, self.capture_root, directory / 'verify.zip')
-        for key in ('tables', 'files'):
-            if actual[key] != expected[key]:
+        if actual['files'] != expected['files']:
+            raise archive.ArchiveError('Restored data/evidence verification failed')
+        for name, descriptor in expected['tables'].items():
+            if name == 'activity_log':
+                if actual['tables'][name]['count'] < descriptor['count']:
+                    raise archive.ArchiveError('Restored data/evidence verification failed')
+                continue
+            if actual['tables'].get(name) != descriptor:
                 raise archive.ArchiveError('Restored data/evidence verification failed')
         (directory / 'verify.zip').unlink()
 
@@ -489,8 +501,8 @@ class MaintenanceService:
             action = AuditAction.RESTORE_COMPLETED
             details = (f'Restore {operation} completed: station data replaced from backup created '
                        f'{audit.clean(manifest.get("created_at"))} ({_counts(manifest)}); '
-                       f'requested by {_requester(journal)}; audit history replaced ({kept} '
-                       f'pre-restore audit rows kept in rollback archive {operation})')
+                       f'requested by {_requester(journal)}; audit history preserved ({kept} '
+                       f'pre-restore audit rows retained; rollback archive {operation})')
         else:
             action = AuditAction.RESTORE_FAILED
             details = (f'Restore {operation} failed: {audit.clean(message, 160)}; requested by '

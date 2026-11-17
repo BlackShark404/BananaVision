@@ -41,7 +41,7 @@ def assert_upgraded(connection):
     }
     assert (
         connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        == "0011_device_scan_links"
+        == "0012_audit_integrity"
     )
 
 
@@ -71,7 +71,7 @@ def test_current_schema_adopts_revision_without_duplicate_columns():
                 assert [column["name"] for column in inspect(connection).get_columns(table)] == columns
             assert (
                 connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                == "0011_device_scan_links"
+                == "0012_audit_integrity"
             )
     finally:
         engine.dispose()
@@ -120,7 +120,7 @@ def test_notification_read_receipt_migration_replaces_shared_flag():
 
             assert (
                 connection.execute(text("SELECT version_num FROM alembic_version"))
-            ).scalar_one() == "0011_device_scan_links"
+            ).scalar_one() == "0012_audit_integrity"
             assert "is_read" not in {
                 column["name"]
                 for column in inspect(connection).get_columns("app_notification")
@@ -269,7 +269,7 @@ def test_camera_slots_migration_normalizes_saved_arrays_and_counters():
             )).scalar_one() == 75
             assert connection.execute(text(
                 "SELECT version_num FROM alembic_version"
-            )).scalar_one() == "0011_device_scan_links"
+            )).scalar_one() == "0012_audit_integrity"
             with pytest.raises(IntegrityError):
                 connection.execute(text(
                     "INSERT INTO device (id, camera_id, label, status, created_at, updated_at) "
@@ -305,11 +305,145 @@ async def test_postgresql_schema_startup_upgrade(legacy):
             async with engine.begin() as connection:
                 assert (
                     await connection.execute(text("SELECT version_num FROM alembic_version"))
-                ).scalar_one() == "0011_device_scan_links"
+                ).scalar_one() == "0012_audit_integrity"
         async with engine.begin() as connection:
             await connection.run_sync(upgrade_connection)
             if legacy:
                 await connection.run_sync(assert_upgraded)
+    finally:
+        await engine.dispose()
+        async with control.begin() as connection:
+            await connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
+        await control.dispose()
+
+
+def test_audit_integrity_migration_adds_column_and_preserves_rows():
+    engine = create_engine("sqlite://")
+    try:
+        with engine.begin() as connection:
+            connection.execute(text(
+                "CREATE TABLE user_account (id CHAR(36) PRIMARY KEY, "
+                "username VARCHAR(50), full_name VARCHAR(100), password_hash VARCHAR(255))"
+            ))
+            connection.execute(text(
+                "CREATE TABLE activity_log (id CHAR(36) PRIMARY KEY, "
+                "user_id CHAR(36), action VARCHAR(50) NOT NULL, details TEXT, "
+                "ip_address VARCHAR(45), timestamp DATETIME NOT NULL)"
+            ))
+            connection.execute(text(
+                "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"
+            ))
+            connection.execute(text(
+                "INSERT INTO alembic_version VALUES ('0011_device_scan_links')"
+            ))
+            connection.execute(text(
+                "INSERT INTO user_account VALUES "
+                "('00000000-0000-0000-0000-000000000001', 'admin', 'Admin User', 'hash')"
+            ))
+            connection.execute(text(
+                "INSERT INTO activity_log VALUES "
+                "('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', "
+                "'login', 'Original login', '127.0.0.1', '2025-01-01 00:00:00')"
+            ))
+
+            upgrade_connection(connection)
+
+            assert (
+                connection.execute(text("SELECT version_num FROM alembic_version"))
+            ).scalar_one() == "0012_audit_integrity"
+            assert "actor_name" in {
+                column["name"]
+                for column in inspect(connection).get_columns("activity_log")
+            }
+            row = connection.execute(text(
+                "SELECT id, action, details FROM activity_log"
+            )).one()
+            assert row[1] == "login" and row[2] == "Original login"
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(
+    not os.environ.get("BANANAVISION_TEST_DATABASE_URL"),
+    reason="Optional isolated PostgreSQL instance",
+)
+async def test_postgresql_audit_integrity_trigger_and_backfill():
+    url = os.environ["BANANAVISION_TEST_DATABASE_URL"]
+    schema = f"qa_audit_trigger_{uuid4().hex}"
+    control = create_async_engine(url)
+    async with control.begin() as connection:
+        await connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+    engine = create_async_engine(url, connect_args={"server_settings": {"search_path": schema}})
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(text(
+                "CREATE TABLE user_account (id UUID PRIMARY KEY, "
+                "username VARCHAR(50) NOT NULL, full_name VARCHAR(100) NOT NULL, "
+                "password_hash VARCHAR(255) NOT NULL)"
+            ))
+            await connection.execute(text(
+                "CREATE TABLE activity_log (id UUID PRIMARY KEY, "
+                "user_id UUID REFERENCES user_account(id) ON DELETE SET NULL, "
+                "action VARCHAR(50) NOT NULL, details TEXT, ip_address VARCHAR(45), "
+                "timestamp TIMESTAMPTZ NOT NULL DEFAULT now())"
+            ))
+            await connection.execute(text(
+                "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"
+            ))
+            await connection.execute(text(
+                "INSERT INTO alembic_version VALUES ('0011_device_scan_links')"
+            ))
+            user_id = str(uuid4())
+            log_id = str(uuid4())
+            await connection.execute(text(
+                f"INSERT INTO user_account VALUES ('{user_id}', 'admin', 'Original Admin', 'hash')"
+            ))
+            await connection.execute(text(
+                f"INSERT INTO activity_log (id, user_id, action, details) "
+                f"VALUES ('{log_id}', '{user_id}', 'login', 'Historical action')"
+            ))
+
+            await connection.run_sync(upgrade_connection)
+
+            row = (await connection.execute(text(
+                f"SELECT actor_name FROM activity_log WHERE id = '{log_id}'"
+            ))).one()
+            assert row[0] == "Original Admin"
+
+            # 2. Verify append-only trigger prevents UPDATE
+            with pytest.raises(Exception) as exc_info:
+                async with connection.begin_nested():
+                    await connection.execute(text(
+                        f"UPDATE activity_log SET details = 'tampered' WHERE id = '{log_id}'"
+                    ))
+            assert "activity_log is append-only" in str(exc_info.value)
+
+            # 3. Verify append-only trigger prevents DELETE
+            with pytest.raises(Exception) as exc_info:
+                async with connection.begin_nested():
+                    await connection.execute(text(
+                        f"DELETE FROM activity_log WHERE id = '{log_id}'"
+                    ))
+            assert "activity_log is append-only" in str(exc_info.value)
+
+            # 4. Verify append-only trigger prevents TRUNCATE
+            with pytest.raises(Exception) as exc_info:
+                async with connection.begin_nested():
+                    await connection.execute(text("TRUNCATE activity_log"))
+            assert "activity_log is append-only" in str(exc_info.value)
+
+            new_log_id = str(uuid4())
+            await connection.execute(text(
+                "INSERT INTO activity_log (id, user_id, action, details, actor_name) "
+                f"VALUES ('{new_log_id}', '{user_id}', 'logout', 'Legitimate insert', "
+                "'Original Admin')"
+            ))
+
+            await connection.execute(text("SET LOCAL bananavision.audit_restore = 'on'"))
+            await connection.execute(text(
+                f"UPDATE activity_log SET details = 'restored' WHERE id = '{new_log_id}'"
+            ))
     finally:
         await engine.dispose()
         async with control.begin() as connection:

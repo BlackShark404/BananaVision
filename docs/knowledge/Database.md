@@ -3,7 +3,7 @@
 ## Current schema reference
 
 - [Current SQL DDL](../bananavision_schema_current.sql) — Alembic revision
-  `0010_notification_read_receipts`, 25 application tables, 7 PostgreSQL enum types and
+  `0012_audit_integrity`, 25 application tables, 7 PostgreSQL enum types and
   20 foreign keys.
 - [Data dictionary](../schema_tables.md) — table purposes, columns, nullability, database
   defaults, keys, constraints, indexes, enum labels and ERD cardinalities.
@@ -133,3 +133,18 @@ paging.
 - A scan-log export of a browse snapshot checks the snapshot (read-only, no account lock)
   before writing `data_exported`, so a refused export is not logged as one. See [[Development Decisions]] (2026-11-17 audit entry) and
 [[Testing and Validation]].
+
+**Audit integrity & append-only protection (migration 0012):**
+
+- `activity_log.actor_name` stores an immutable snapshot of the actor's display name
+  at the moment of the event. Historical attribution survives account renaming or deletion.
+- PostgreSQL row and statement triggers (`activity_log_append_only`,
+  `activity_log_truncate`) call `audit_log_append_only()` to disallow `UPDATE`, `DELETE`, and
+  `TRUNCATE` operations on `activity_log`.
+- Trigger bypass is strictly restricted to maintenance restores and migration backfills by
+  setting `SET LOCAL bananavision.audit_restore = 'on'` within the authorized transaction.
+- Backup archive format is bumped to version 5, preserving `actor_name`. Compatibility with
+  older archive versions (1 to 4) is maintained with automatic staging schema upgrade.
+- Station data restores (`backup_restore.py`) preserve the existing live audit trail
+  across restores (`preserve_audit=True`), merging backup audit records while preventing ID
+  collisions and recording restore audit milestones.

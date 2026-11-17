@@ -127,6 +127,22 @@ def test_as_of_includes_rows_at_the_boundary_and_applies_with_filters(applicatio
     assert page(app, 1, 50, as_of=utc)["total"] == 4
 
 
+def test_activity_log_displays_actor_name_snapshot_after_user_rename(application):
+    app = application
+    with Session(app.engine) as db:
+        row = ActivityLog(user_id=app.ids.admin, action="user_updated",
+                          details="Name changed", actor_name="Snapshot Name",
+                          timestamp=now_manila())
+        db.add(row)
+        user = db.get(UserAccount, app.ids.admin)
+        user.full_name = "New Live Name"
+        db.commit()
+
+    p = page(app, 1, 10, action="user_updated")
+    item = next(it for it in p["items"] if it["details"] == "Name changed")
+    assert item["user_name"] == "Snapshot Name"
+
+
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 
 @pytest_asyncio.fixture
@@ -174,14 +190,10 @@ async def test_postgresql_as_of_paging_is_stable_while_rows_are_inserted(pg_stat
     async with pg_station.sessions() as db:
         for index in range(5):
             await audit.record(db, audit.AuditAction.LOGIN, f"Original {index}",
-                               actor=pg_station.admin)
-        await db.flush()
+                               actor=pg_station.admin, timestamp=base + timedelta(minutes=index))
+        await db.commit()
         rows = (await db.execute(text("SELECT id FROM activity_log ORDER BY details"))).all()
         original = {str(row.id) for row in rows}
-        for index, row in enumerate(rows):
-            entry = await db.get(ActivityLog, row.id)
-            entry.timestamp = base + timedelta(minutes=index)
-        await db.commit()
 
     first = await pg_page(pg_station, 1, 2)
     assert first["total"] == 5

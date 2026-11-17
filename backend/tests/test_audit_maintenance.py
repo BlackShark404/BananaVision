@@ -238,7 +238,7 @@ def test_restore_validation_success_and_failure_are_logged(station):
     preview = checked.json()
     [row] = rows(station.engine, "restore_validated")
     assert preview["validation_id"] in row.details
-    assert "version 4" in row.details
+    assert "version 5" in row.details
     assert preview["manifest"]["created_at"] in row.details
     import hashlib
     assert f"sha256 {hashlib.sha256(archive).hexdigest()[:12]}" in row.details
@@ -296,7 +296,7 @@ def test_restore_outcome_is_written_once_and_survives_a_missing_actor(station):
     [row] = rows(station.engine, "restore_completed")
     assert row.user_id is None  # the requesting account is not in the restored data
     assert "Gone Admin" in row.details and str(operation) in row.details
-    assert ("audit history replaced (3 pre-restore audit rows kept in rollback archive "
+    assert ("audit history preserved (3 pre-restore audit rows retained; rollback archive "
             f"{operation})") in row.details
     assert row.ip_address == "10.0.0.7"
     assert rows(station.engine, "restore_failed") == []
