@@ -118,9 +118,12 @@ test('Logs keep readable ranges and risk snapshot membership while showing a liv
   await table.getByText('Est. 2–3 days from scan', { exact: true }).waitFor()
   assert.equal(await table.getByText('1–2 days left', { exact: true }).count(), 1)
   assert.equal(await table.getByText('2 days left', { exact: true }).count(), 1)
-  assert.equal(await table.getByText(/days left/).count(), 2)  // Sold and unknown rows stay static.
-  assert.equal(await table.getByText('1–2 days', { exact: true }).count(), 1)  // the Sold row keeps its estimate
-  assert.equal(await table.getByText(/from scan/).count(), 2)
+  assert.equal(await table.getByText(/days left/).count(), 2)  // Sold and unknown rows do not count down.
+  // The Sold row names its outcome and keeps the scan-time estimate in the same "Est. … from scan" line.
+  await table.getByText('Sold · no countdown', { exact: true }).waitFor()
+  await table.getByText('Est. 1–2 days from scan', { exact: true }).waitFor()
+  assert.equal(await table.getByText('1–2 days', { exact: true }).count(), 0)
+  assert.equal(await table.getByText(/from scan/).count(), 3)
   assert.equal(await table.getByRole('img', { name: 'At-risk scan', exact: true }).count(), 1)
   assert.equal(await table.getByText('Unknown days', { exact: true }).count(), 0)
   await table.getByText('Unknown', { exact: true }).waitFor()
@@ -194,7 +197,9 @@ test('Logs leads with the countdown in Manila calendar days and keeps the scan-t
   assert.equal(await table.getByText('4 days left', { exact: true }).count(), 1)
   assert.equal(await table.getByText('Est. 1–3 days from scan', { exact: true }).count(), 2)
   assert.equal(await table.getByText('1–3 days', { exact: true }).count(), 0)  // never shown as today's value
-  assert.equal(await table.getByText('2 days', { exact: true }).count(), 1)  // the Sold row keeps its estimate
+  await table.getByText('Sold · no countdown', { exact: true }).waitFor()
+  assert.equal(await table.getByText('Est. 2 days from scan', { exact: true }).count(), 1)  // the Sold row's estimate
+  assert.equal(await table.getByText('2 days', { exact: true }).count(), 0)
   await page.screenshot({ path: 'node_modules/.tmp/bv-shelf-life-logs.png', fullPage: true })
   // Past Manila midnight the open list rolls over without waiting for new values.
   await page.clock.fastForward('12:01:00')
@@ -217,14 +222,28 @@ for (const [elapsed, label] of [[0, '1–3 days left'], [1, '0–2 days left'], 
   })
 }
 
-test('ScanDetail keeps the scan-time estimate for sold stock even when a window is sent', async t => {
+test('ScanDetail names the outcome and keeps the scan-time estimate for sold stock even when a window is sent', async t => {
   const record = { ...scan(), spoilage_days: '1-3', remaining_days: -5, inventory_status: 'Sold',
     risk_as_of: '2026-10-02T04:00:00Z', shelf_life_window: shelfWindow(1, 3, 7) }
   const { page } = await setup(t, 200, { record })
   const metric = page.getByText('Est. Spoilage', { exact: true }).locator('..')
-  await metric.getByText('1–3 days', { exact: true }).waitFor()
+  await metric.getByText('Sold · no countdown', { exact: true }).waitFor()
+  await metric.getByText('Est. 1–3 days from scan', { exact: true }).waitFor()
   assert.equal(await metric.getByText(/days left|Final day|Overdue/).count(), 0)
 })
+
+for (const [status, outcome] of [['Spoiled', 'Spoiled · no countdown'], ['For Processing', 'For processing · no countdown']]) {
+  test(`Quality Control shows ${outcome} with the estimate line`, async t => {
+    const record = { ...scan(), spoilage_days: '4-5', remaining_days: -2, inventory_status: status,
+      risk_as_of: '2026-10-02T04:00:00Z', shelf_life_window: shelfWindow(4, 5, 7) }
+    const { page } = await setup(t, 200, { screen: 'quality', record })
+    await page.locator('tbody tr').first().click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByText(outcome, { exact: true }).waitFor()
+    await dialog.getByText('Est. 4–5 days from scan', { exact: true }).waitFor()
+    assert.equal(await dialog.getByText(/days left|Final day|Overdue/).count(), 0)
+  })
+}
 
 test('QC shows the live countdown for in-stock scans', async t => {
   const record = { ...scan(), spoilage_days: '1-3', remaining_days: -5, shelf_life_window: shelfWindow(1, 3, 7) }
@@ -396,12 +415,14 @@ test('ScanDetail shows a live countdown for in-stock scans beside the scan-time 
   await metric.getByText('Est. 5–7 days from scan', { exact: true }).waitFor()
 })
 
-test('ScanDetail keeps the static estimate for scans that are no longer in stock', async t => {
+test('ScanDetail shows the outcome and the estimate line for scans that are no longer in stock', async t => {
   const record = { ...scan(), spoilage_days: '5-7', remaining_days: 4,
     risk_as_of: '2026-10-01T04:00:00Z', inventory_status: 'Sold' }
   const { page } = await setup(t, 200, { record })
   const metric = page.getByText('Est. Spoilage', { exact: true }).locator('..')
-  await metric.getByText('5–7 days', { exact: true }).waitFor()
+  await metric.getByText('Sold · no countdown', { exact: true }).waitFor()
+  await metric.getByText('Est. 5–7 days from scan', { exact: true }).waitFor()
+  assert.equal(await metric.getByText('5–7 days', { exact: true }).count(), 0)
   assert.equal(await metric.getByText(/days left|Overdue/).count(), 0)
 })
 

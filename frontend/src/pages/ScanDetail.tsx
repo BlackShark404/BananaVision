@@ -70,7 +70,7 @@ import BoundingBoxOverlay from "@/components/BoundingBoxOverlay"
 import { scanWrite, scanRevision, isScanConflict } from "@/lib/scanWrites"
 import { cultivarCameraConflict } from "@/lib/scanData"
 import { api } from "@/lib/api"
-import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
+import { closedStockSpoilageLabel, formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
 import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
 import { inManila } from "@/lib/manilaTime"
 import { fingerCountIsEstimate, fingersLabel } from "@/lib/estimates"
@@ -135,6 +135,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const scanDetections = scan?.detections ?? EMPTY_DETECTIONS
   const cultivarConflict = scan ? cultivarCameraConflict(scan) : null
   const countdown = scan && scan.inventoryStatus === "In Stock" ? liveShelfLifeLabel(scan, now) : null
+  const spoilageLead = countdown ?? (scan ? closedStockSpoilageLabel(scan.inventoryStatus) : null)
   const notes = scan ? getScanNotes(scan.id) : []
   const isAdmin = user?.role === "Admin"
 
@@ -830,11 +831,11 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     <AlertTriangle className="w-3.5 h-3.5" /> Est. Spoilage
                   </div>
                   <p className="text-2xl font-bold">
-                    {countdown !== null
-                      ? countdown
+                    {spoilageLead !== null
+                      ? spoilageLead
                       : <>{formatSpoilageDays(scan.spoilageDays, false)} <span className="text-sm font-normal text-muted-foreground">{spoilageDayUnit(scan.spoilageDays)}</span></>}
                   </p>
-                  {countdown !== null && formatSpoilageDays(scan.spoilageDays) !== "Unknown" && (
+                  {spoilageLead !== null && formatSpoilageDays(scan.spoilageDays) !== "Unknown" && (
                     <p className="text-xs text-muted-foreground">Est. {formatSpoilageDays(scan.spoilageDays)} from scan</p>
                   )}
                 </div>

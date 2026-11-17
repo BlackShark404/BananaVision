@@ -1,0 +1,63 @@
+CURRENT RESUME HERE (2026-11-17) - SCAN LOGS OPENS ON ALL DATES
+
+The previous checkpoint (team fusion fixes merged with the flagged review queue; PR #13
+merged to team main as 80cde65) is archived byte-for-byte in
+docs/history/2026-11-17-before-logs-all-dates.txt. Its STILL OPEN items carry over below.
+
+USER REQUEST (2026-11-17, after testing on the station laptop)
+- "Pending quality reviews" (/logs?status=Flagged) and "Expiring stock"
+  (/logs?attention=at-risk, All dates) work. Leave them unchanged.
+- The sidebar Logs button opened /logs?date=<today> and showed an empty table when nothing
+  was scanned today. It must open on All dates.
+
+DONE
+- All dates is the Scan Logs default everywhere: the sidebar, a plain /logs, Reset and the
+  Total Scans card. The same empty-table problem applied to Reset and the Total card.
+  - frontend/src/lib/scanLogFilters.ts: normalizeScanLogSearch only rewrites the legacy
+    attention=review to status=Flagged; the today branch and isDefaultScanLogView are gone.
+  - frontend/src/pages/Logs.tsx: no today redirect and no midnight roll. clearAllFilters
+    goes to {}. Reset is active only when a day is chosen. Clearing the date removes it.
+  - frontend/src/components/AppSidebar.tsx: Logs links to plain /logs.
+- Unchanged:
+  - Dashboard chips, "Scans Today" (?date=<day>), "View All Logs" and Recent Scans rows
+    (?date=all);
+  - the date box "All dates";
+  - the review queue rule;
+  - Quality Control and Scan Detail labels;
+  - the backend.
+- Tests:
+  - scanlogfilters: plain queries are left as they are; the legacy review rewrite is kept.
+  - scanrecords:
+    - plain /logs shows All dates with no business_date and Reset disabled;
+    - a picked day can be cleared back to all dates;
+    - Expiring stock Reset goes to plain /logs;
+    - clearing the review filter shows all dates;
+    - the midnight test is removed.
+  - layout: the sidebar Logs href is /logs and it shows an older scan on All dates.
+- Docs: Development Decisions (2026-11-16 entry revised 2026-11-17) and Frontend.
+
+VERIFICATION
+- Frontend full suite 366/366. Targeted scanlogfilters, scanrecords, layout, dashboard and
+  crosssession: 121/121.
+- `npx tsc -b` and `npm run build` pass. ESLint 40 (baseline).
+- Manila time guards pass: backend 4, frontend 6. The backend code is unchanged.
+
+STILL OPEN
+- The station data release (teammate guide PDF), then:
+  1. fetch_training_assets.py;
+  2. check_inference_head.py;
+  3. hand-count evaluation;
+  4. retraining.
+  Kent's checkpoint asks for a station re-test of each cultivar and ripeness.
+- Windows-only failures in the export/fetch/OOD-prep/train script tests: get the names from
+  Kent and fix them.
+- Ruff +10 in Kent's merged files (classification.py, fusion_engine.py,
+  test_classification_fusion.py).
+- prediction_label.py hard-coded laptop path; PUBLIC_BASE_URL missing from
+  backend/.env.example; Figure 92 screenshot; deployment when authorized; audit items in
+  the archived checkpoints.
+- Type check: use `npx tsc -b` (or `npm run build`), not `npm run typecheck`.
+
+EXACT NEXT STEP
+- User opens the team PR from the fork's main:
+  https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main

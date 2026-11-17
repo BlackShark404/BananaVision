@@ -269,9 +269,14 @@ Where the countdown shows, for In Stock records:
 - **Inventory is unchanged.** Its labels still come from the aged number, the same number
   its two-day rule uses, so a card under "≤2 days left" never shows a label above two days.
 
-Unchanged by decision: Sold, Spoiled and For Processing records keep the scan-time
-estimate on staff pages; only the public QR page counts down for every status, as it did
-before. The Kiosk result card of the scan just taken, correction inputs, change
+Sold, Spoiled and For Processing records have no countdown on staff pages. Since
+2026-11-17 Scan Logs, Scan Detail and the Quality Control dialog give them the same
+two-line shape as In Stock rows: the outcome where the countdown would be (`Sold · no
+countdown`, `Spoiled · no countdown`, `For processing · no countdown`, from
+`closedStockSpoilageLabel` in `lib/spoilageDisplay.ts`) and `Est. … from scan` beneath.
+The beneath line is hidden when the estimate is Unknown; a record with no status keeps the
+plain estimate. The public QR page counts down for every status, as it did before, and the
+Kiosk Recent Scans list is unchanged. The Kiosk result card of the scan just taken, correction inputs, change
 previews, Scan History entries, printed labels, the label preview and CSV/XLSX exports
 keep the stored estimate.
 

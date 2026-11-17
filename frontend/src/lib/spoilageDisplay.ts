@@ -14,6 +14,21 @@ export function formatSpoilageDays(value: unknown, withUnit = true): string {
   return withUnit ? `${label} ${label === "1" ? "day" : "days"}` : label
 }
 
+const CLOSED_STOCK_OUTCOMES: Readonly<Record<string, string>> = {
+  Sold: "Sold",
+  Spoiled: "Spoiled",
+  "For Processing": "For processing",
+}
+
+/**
+ * Stock that left inventory has no live countdown. Name the outcome on the line where an
+ * in-stock row shows its countdown, so every row keeps the same two-line shape.
+ */
+export function closedStockSpoilageLabel(status: unknown): string | null {
+  const outcome = typeof status === "string" && Object.hasOwn(CLOSED_STOCK_OUTCOMES, status) ? CLOSED_STOCK_OUTCOMES[status] : undefined
+  return outcome === undefined ? null : `${outcome} · no countdown`
+}
+
 /** Keep existing separately styled unit spans without duplicating formatting rules. */
 export function spoilageDayUnit(value: unknown): string {
   const label = formatSpoilageDays(value, false)

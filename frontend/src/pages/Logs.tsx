@@ -42,7 +42,7 @@ import { ScanLabelPrint } from "@/components/ScanLabelPrint"
 import type { Cultivar, Ripeness, InventoryStatus, ScanResult } from "@/types"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import { collectScanPages, type ApiScan } from "@/lib/scanData"
-import { formatSpoilageDays } from "@/lib/spoilageDisplay"
+import { closedStockSpoilageLabel, formatSpoilageDays } from "@/lib/spoilageDisplay"
 import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
 import { LIVE_RESUMED_EVENT, SCAN_UPDATED_EVENT, SCANS_ADDED_EVENT, newEventId, type ScanUpdateDetail } from "@/lib/liveEvents"
 import { fingersLabel } from "@/lib/estimates"
@@ -702,10 +702,15 @@ const columns: ColumnDef<LogScan>[] = [
       sortable: true,
       sortKey: "spoilage_days",
       cell: (scan) => {
-        // In-stock rows lead with the live countdown; the stored estimate stays beneath it.
+        // In-stock rows lead with the live countdown and sold, spoiled or processed rows with
+        // their outcome; the stored estimate stays beneath either.
         const countdown = scan.inventoryStatus === "In Stock" ? liveShelfLifeLabel(scan, now) : null
+        const outcome = countdown === null ? closedStockSpoilageLabel(scan.inventoryStatus) : null
+        const lead = countdown ?? outcome
         const estimate = formatSpoilageDays(scan.spoilageDays)
-        const meaning = countdown !== null ? "Live remaining shelf life from the scan's prediction" : "Estimate when scanned"
+        const meaning = countdown !== null
+          ? "Live remaining shelf life from the scan's prediction"
+          : outcome !== null ? "No countdown: this stock is no longer in inventory" : "Estimate when scanned"
         return (
           <div className="text-sm">
             <span
@@ -713,9 +718,9 @@ const columns: ColumnDef<LogScan>[] = [
               title={scan.atRisk ? `At risk: eligible stock whose estimate midpoint is 2 days or less away, or already passed, at this snapshot. ${meaning}.` : meaning}
             >
               {scan.atRisk && <AlertTriangle role="img" aria-label="At-risk scan" className="h-3.5 w-3.5 shrink-0" />}
-              {countdown ?? estimate}
+              {lead ?? estimate}
             </span>
-            {countdown !== null && estimate !== "Unknown" && (
+            {lead !== null && estimate !== "Unknown" && (
               <span className="block text-[10px] text-muted-foreground" title="Estimate when scanned">
                 Est. {estimate} from scan
               </span>
