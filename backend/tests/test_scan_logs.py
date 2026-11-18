@@ -497,7 +497,7 @@ async def test_extended_fields_numeric_sort_literal_search_and_safe_csv(logs_db)
     assert [r.id for r in by_days.items] == [low, high, missing]
     row = by_days.items[0]
     assert row.temperature == row.humidity == row.finger_count == row.confidence == 0
-    assert row.thumbnail_url == "/captures/example.jpg" and row.is_overridden
+    assert row.thumbnail_url == "/captures/example.jpg?variant=thumb" and row.is_overridden
     assert row.status_updated_at == NOW
     literal = await scan_logs.list_scan_logs(db, operator, ScanLogQuery(search="%_"))
     assert [r.id for r in literal.items] == [high]

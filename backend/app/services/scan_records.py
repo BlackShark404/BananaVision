@@ -34,7 +34,7 @@ from app.schemas.scan import (
 from app.services import audit
 from app.services.auth_service import lock_current_account
 from app.services.inventory_policy import inventory_facts
-from app.services.scan_evidence import evidence_url
+from app.services.scan_evidence import evidence_url, thumbnail_url
 from app.ws.mutations import intake_event, publish_intake_event, publish_scan_event, scan_event
 
 
@@ -138,7 +138,7 @@ def serialize_scan(scan, user=None):
         original_ai_result=OriginalAiResult.model_validate(scan.original_ai_result)
         if scan.original_ai_result
         else None,
-        thumbnail_url=evidence_url(classification.thumbnail_url) if classification else None,
+        thumbnail_url=thumbnail_url(classification.thumbnail_url) if classification else None,
         has_notes=user is not None and is_admin(user) and bool(scan.notes),
         images=[
             ScanImageRef(camera_id=i.camera_id, file_path=evidence_url(i.file_path) or "")

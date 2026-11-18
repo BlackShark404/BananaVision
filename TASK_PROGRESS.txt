@@ -1,4 +1,37 @@
-CURRENT RESUME HERE (2026-11-18) - DASHBOARD FIFO CARD
+CURRENT RESUME HERE (2026-11-18) - TABLE THUMBNAIL PREVIEWS
+
+User asked whether list image previews/thumbnails are optimized, then approved option 1:
+a real ~256 px thumbnail generated from each original and cached on disk. Changes are
+uncommitted.
+
+WHAT CHANGED
+- GET /captures/{scan_id}/{filename}?variant=thumb returns a 256 px max-side JPEG
+  (quality 75) generated with cv2 and cached at <capture root>/<scan>/.thumbs/<name>.jpg.
+  Existing authorization, allowlist, symlink checks and "private, no-store" headers are
+  unchanged. Unsupported variants, unreadable originals and unsafe paths return 404.
+- Generation runs through run_blocking, uses an atomic temp-file replace, and regenerates
+  only when the cache is older than the original. No database migration; old scans get a
+  thumbnail on first request. Capture cleanup removes the cache with the scan directory.
+- Scan Logs and Quality Control rows now request the thumb variant. Scan Detail and Kiosk
+  keep their original evidence URLs. Table ScanImage elements use loading="lazy" and
+  decoding="async".
+
+VERIFIED (2026-11-18)
+- backend evidence/scan suites: 61 passed on SQLite, including thumbnail authorization,
+  resize, cache reuse and failure cases.
+- Full backend: 1363 passed, 115 skipped with TMPDIR on the physical /private/var path.
+  The default macOS /var symlink caused 8 export-script failures; that is environmental.
+  PostgreSQL was not run; Ruff is not installed.
+- Full frontend: 397 of 398 passed. The single failure moved between timing-sensitive
+  Scan Records note tests on rerun and the named case passes alone; it does not touch
+  images. tsc -b and build passed. ESLint on the changed pages shows only pre-existing
+  unused imports.
+
+EXACT NEXT STEP
+- Review the scoped diff and a Scan Logs/Quality Control thumbnail in the browser.
+  Nothing is staged or committed.
+
+PREVIOUS RESUME (2026-11-18) - DASHBOARD FIFO CARD
 
 User request: a panelist suggested a Dashboard card for easy access to FIFO
 Recommendations or actionable "Sell immediately". Implemented the card. Changes are

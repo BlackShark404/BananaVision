@@ -8,13 +8,19 @@ from fastapi.responses import FileResponse
 from app.api.deps import CurrentUser, DbSession
 from app.config import get_settings
 from app.services.backup_archive import ArchiveError, _evidence_name, _no_links, _safe_name
+from app.services.runtime_operations import run_blocking
+from app.services.scan_evidence import THUMBNAIL_DIR, thumbnail_file
 from app.services.scan_records import load_authorized_scan
 
 router = APIRouter(tags=["Scan evidence"])
 
 
 @router.get("/captures/{scan_id}/{filename}")
-async def get_evidence(scan_id: UUID, filename: str, db: DbSession, user: CurrentUser):
+async def get_evidence(
+    scan_id: UUID, filename: str, db: DbSession, user: CurrentUser, variant: str | None = None,
+):
+    if variant not in (None, "thumb"):
+        raise HTTPException(404, "Image evidence is unavailable")
     scan = await load_authorized_scan(db, scan_id, user)
     root = get_settings().capture_path.absolute()
     try:
@@ -42,6 +48,18 @@ async def get_evidence(scan_id: UUID, filename: str, db: DbSession, user: Curren
             raise HTTPException(404, "Image evidence is unavailable")
     except (ArchiveError, ValueError, OSError):
         raise HTTPException(404, "Image evidence is unavailable") from None
+    if variant == "thumb":
+        cache_dir = path.parent / THUMBNAIL_DIR
+        try:
+            if cache_dir.is_symlink():
+                raise ArchiveError("Thumbnail cache must not be a link")
+            path = await run_blocking(thumbnail_file, path, cache_dir)
+            _no_links(path)
+            if not path.resolve().is_relative_to(root.resolve()):
+                raise ArchiveError("Thumbnail outside capture root")
+        except (ArchiveError, ValueError, OSError):
+            raise HTTPException(404, "Image evidence is unavailable") from None
+        mime = "image/jpeg"
     return FileResponse(
         path,
         media_type=mime,

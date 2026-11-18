@@ -27,7 +27,7 @@ from app.schemas.scan_logs import (
 )
 from app.services import dashboard
 from app.services.inventory_policy import eligible_stock
-from app.services.scan_evidence import evidence_url
+from app.services.scan_evidence import thumbnail_url
 from app.services.scan_snapshots import (
     MAX_ROWS,
     binding,
@@ -114,7 +114,7 @@ def _row(row, now: datetime) -> ScanLogRow:
         humidity=None if row.humidity is None else float(row.humidity),
         vpd=None if row.vpd is None else float(row.vpd),
         finger_count=row.finger_count if row.finger_count is not None else 0,
-        thumbnail_url=evidence_url(row.thumbnail_url),
+        thumbnail_url=thumbnail_url(row.thumbnail_url),
         intake_id=row.intake_id,
         is_overridden=bool(row.is_overridden),
         status_updated_at=(

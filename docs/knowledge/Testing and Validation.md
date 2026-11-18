@@ -1,5 +1,22 @@
 # Testing and Validation
 
+## Table thumbnail previews — 2026-11-18
+
+- **Backend:** `tests/test_scan_evidence.py` requests `?variant=thumb` and checks the
+  authorized 256 px JPEG, on-disk cache reuse, cross-operator 403, unknown variant 404 and
+  unreadable-original 404. `tests/test_scan_logs.py` checks that list rows emit the
+  thumbnail URL. Evidence and scan suites: 61 passed on SQLite.
+- **Full backend run:** 1363 passed, 115 skipped. The first run had 8
+  `test_export_station_training_set.py` failures because macOS `/var` resolves through a
+  symlink that the backup validator rejects; the same run with `TMPDIR` on the physical
+  `/private/var` path passed all 1363. That setting is an environment fix, not a code
+  change. PostgreSQL was not run and Ruff is not installed.
+- **Frontend:** full `node --test --test-concurrency=1 tests/*.test.mjs` ran 398 tests with
+  397 passing. The one failure moved between timing-sensitive Scan Records note tests on
+  rerun, and the named case passes when run alone. Neither touches images. `npx tsc -b`
+  and `npm run build` passed. ESLint on the changed pages reports only pre-existing unused
+  imports.
+
 ## Dashboard FIFO recommendations — 2026-11-18
 
 - **Backend:** `tests/test_dashboard.py` covers grouping by active intake and unlinked

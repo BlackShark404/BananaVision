@@ -36,6 +36,7 @@ Decision: [[Development Decisions]]; tests: [[Testing and Validation]].
 - The socket sends `{"event":"ping"}` every 25 seconds while open, so a proxy does not drop an idle live connection. Reconnect logic, ownership checks and room handling are unchanged.
 - Camera previews require a session. `<img>` cannot send headers, so `withMediaToken` appends the stored token as `?token=` for Kiosk, Dashboard and calibration previews; the backend accepts a bearer header or that query token.
 - Authenticated evidence images are loaded through `ScanImage` with a bearer `fetch` and an object URL. Public QR tracking no longer renders camera evidence, because `/captures` is staff-only.
+- Scan Logs and Quality Control table cells use a smaller preview: list APIs append `?variant=thumb` to `thumbnail_url`, and the evidence route generates and caches a 256 px JPEG beside the original on first request. Scan Detail and Kiosk keep the original evidence URLs. Table images also render with `loading="lazy"` and `decoding="async"`.
 - `VITE_PUBLIC_BASE_URL` overrides the origin embedded in printed QR labels, so a label scanned off-station resolves to the public HTTPS link. When unset, labels keep the kiosk origin.
 - `VITE_API_URL`, `VITE_WS_URL` and `VITE_PUBLIC_BASE_URL` are build-time values; a production build written to `frontend/dist` is what Caddy serves. See [remote-access.md](../remote-access.md).
 
