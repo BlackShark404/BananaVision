@@ -63,6 +63,7 @@ export default function SystemConfig() {
   }
   const disabled = !configReady || configConflict || archiveBusy || powerPending || powerAccepted || Boolean(maintenance && maintenance.state !== "ready")
   useEffect(() => {
+    if (archiveBusy) return
     let live = true
     let timer: ReturnType<typeof setTimeout> | undefined
     const refresh = async () => {
@@ -78,7 +79,7 @@ export default function SystemConfig() {
     }
     void refresh()
     return () => { live = false; clearTimeout(timer) }
-  }, [])
+  }, [archiveBusy])
   const [saving, setSaving] = useState(false)
   const [showShutdownDialog, setShowShutdownDialog] = useState(false)
   const [showRestartDialog, setShowRestartDialog] = useState(false)
@@ -176,7 +177,7 @@ export default function SystemConfig() {
   }
 
   const handleReset = () => {
-    setLocalConfig({ ...config, cameraIds: (config.cameraDeviceIds ?? [0, 1]).map((_, index) => `CAM-${String(index + 1).padStart(3, "0")}`).join(", "), confidenceThreshold: 85, dataRetentionEnabled: true })
+    setLocalConfig({ ...config, cameraIds: (config.cameraDeviceIds ?? [0, 1]).map((_, index) => `CAM-${String(index + 1).padStart(3, "0")}`).join(", "), confidenceThreshold: 80, dataRetentionEnabled: true })
     toast.info("Settings reset to defaults")
   }
 
@@ -248,7 +249,7 @@ export default function SystemConfig() {
         <div className="mt-3 space-y-3">
           {configReady && <p>Saved revision {config.revision} · Cameras {config.applicationStatus}. Threshold applies to the next scan. Deployment model changes require a backend restart.</p>}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <p>Reset camera names, review threshold (85%), and automatic cleanup (enabled). Device assignments stay at their saved values. Review and save to apply.</p>
+            <p>Reset camera names, review threshold (80%), and automatic cleanup (enabled). Device assignments stay at their saved values. Review and save to apply.</p>
             <Button variant="outline" size="sm" disabled={saving || disabled} onClick={handleReset} className="shrink-0 self-start">
               <RefreshCw className="w-4 h-4 mr-2" /> Reset All Settings
             </Button>

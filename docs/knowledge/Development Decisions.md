@@ -53,6 +53,27 @@ Documented architectural, technical, and operational decisions in BananaVision.
   Review" with the camera breakdown; its text mentions clearing a flag only when the scan
   is flagged. The public QR page marks a result as preliminary only for flagged scans.
 
+## 2026-11-17: Audit integrity, actor snapshots, backup archive v5, and append-only trigger
+
+- **Requirements:** Part 3 Audit Integrity:
+  1. `activity_log.actor_name` immutable snapshot at event recording time.
+  2. Migration `0012_audit_integrity` with backfill from `user_account.full_name`.
+  3. PostgreSQL append-only trigger (`activity_log_append_only` and `activity_log_truncate`) calling `audit_log_append_only()`.
+  4. Station data restore preserves live audit history across restore operations (`preserve_audit=True`).
+  5. Backup archive version bumped to 5, supporting `actor_name` while maintaining backward compatibility with v1–v4 archives.
+- **Decisions:**
+  1. `activity_log.actor_name` snapshots the actor's display name (`full_name` or `username`) when an audit event is created.
+     Historical events remain intact even if user accounts are renamed or deleted.
+  2. Append-only trigger prevents accidental or malicious `UPDATE`, `DELETE`, or `TRUNCATE` operations on `activity_log`.
+     Only explicitly authorized sessions running maintenance restore or migration backfill may bypass the trigger
+     via transaction-scoped `SET LOCAL bananavision.audit_restore = 'on'`.
+  3. Backup archives are bumped to format version 5 with updated JSON schema. Older version 1–4 archives remain fully valid
+     and are upgraded during staging validation.
+  4. Restores preserve pre-restore audit events rather than truncating the audit table, ensuring full operational accountability
+     across station rollbacks and restores.
+- **Tests:** `backend/tests/test_audit_log.py`, `test_audit_read.py`, `test_backup_archive.py`,
+  `test_audit_maintenance.py`, `test_audit_maintenance_postgresql.py`, `test_migrations.py`.
+
 ## 2026-11-17: Complete audit logging through one writer
 
 - **Request:** "Make sure also the audit logs properly logs all CRUD operations and other

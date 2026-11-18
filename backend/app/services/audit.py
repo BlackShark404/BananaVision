@@ -267,16 +267,19 @@ def _mirror(event: dict, *, level=logging.INFO, note: str = "") -> None:
 
 def _row(event: dict) -> ActivityLog:
     return ActivityLog(timestamp=event["timestamp"], user_id=event["user_id"],
-                       action=event["action"], details=event["details"], ip_address=event["ip"])
+                       action=event["action"], details=event["details"], ip_address=event["ip"],
+                       actor_name=event.get("actor_name"))
 
 
-async def record(db, action, details, *, actor=None, actor_id=None, actor_name=None, ip=None):
+async def record(db, action, details, *, actor=None, actor_id=None, actor_name=None, ip=None,
+                   timestamp=None):
     """Add an audit row to the caller's transaction (it commits or rolls back with the change).
 
     The file-log line is written when that transaction commits, so a rolled-back change
     never appears there either.
     """
-    event = _event(action, details, actor=actor, actor_id=actor_id, actor_name=actor_name, ip=ip)
+    event = _event(action, details, actor=actor, actor_id=actor_id, actor_name=actor_name, ip=ip,
+                   timestamp=timestamp)
     db.add(_row(event))
     session = getattr(db, "sync_session", None) or getattr(db, "session", None)
     if isinstance(session, Session):

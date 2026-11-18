@@ -42,7 +42,7 @@ from app.services.inventory_policy import (
     shelf_life_window,
 )
 
-DEFAULT_CONFIDENCE_THRESHOLD = 85.0
+DEFAULT_CONFIDENCE_THRESHOLD = 80.0
 
 
 def _mean(value) -> float | None:

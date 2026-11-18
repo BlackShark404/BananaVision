@@ -31,7 +31,7 @@
 
 ### Question 2: "What stops an attacker from brute-forcing the 4-digit Operator PIN on the Kiosk?"
 > **Your Answer:**  
-> "A 4-digit PIN only has 10,000 combinations, making rate limiting non-negotiable. In `app/core/rate_limiter.py` and `app/api/v1/auth.py`, we implemented `pin_limiter`. It tracks failed attempts per username using an in-memory sliding window. After 5 failed attempts, the account is temporarily locked for 60 seconds with an HTTP 429 Too Many Requests response, and an `AUDIT-02` security alert is automatically logged in the audit trail with the client's IP address. This makes brute force mathematically impossible."
+> "A 4-digit PIN only has 10,000 combinations, making rate limiting non-negotiable. In `app/core/rate_limiter.py` and `app/api/v1/auth.py`, we implemented `pin_limiter`. It tracks failed attempts per username using an in-memory sliding window. After 5 failed attempts, the account is temporarily locked for 300 seconds (5 minutes) with an HTTP 429 Too Many Requests response, and an `AUDIT-02` security alert is automatically logged in the audit trail with the client's IP address. This makes brute force mathematically impossible."
 
 ---
 

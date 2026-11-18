@@ -1,6 +1,7 @@
 import { useRef, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { api } from "@/lib/api"
+import { clearAuth } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -42,13 +43,17 @@ export function StationBackupControls({ disabled, onBusy }: { disabled: boolean;
     setValidation(null); setPassword(""); setConfirmation(""); restoreId.current = null
     setValidation(await api.config.validateRestore(file))
   })
-  const restore = () => run("Restoring station data; waiting for active work to finish…", async () => {
+  const restore = () => run("Restoring station data (this may take a minute)…", async () => {
     if (!validation || confirmation !== "REPLACE") return
     restoreId.current ??= crypto.randomUUID()
     const result = await api.config.restore({ operation_id: restoreId.current, validation_id: validation.validation_id,
       token: validation.token, password, confirmation: "REPLACE" })
     setPassword("")
-    if (result.status !== "completed") throw new Error(result.message ?? `Restore ${result.status}; check operation status`)
+    if (result.status !== "completed") {
+      if (result.status === "failed") restoreId.current = null
+      throw new Error(result.message ?? `Restore ${result.status}; check operation status`)
+    }
+    clearAuth()
     toast.success("Station data restored. Sign in with a restored account.")
     window.location.assign("/login")
   })

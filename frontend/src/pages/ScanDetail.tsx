@@ -1019,18 +1019,30 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
           )}
 
           <Card className="rounded-2xl">
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Clock className="w-4 h-4 text-primary" />Scan History</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              {scan.history?.length ? scan.history.map(event => <div key={event.id} className="p-3 bg-muted/50 rounded-lg text-sm space-y-1">
-                <p className="font-medium">{event.kind === 'correction' ? 'Scan correction' : event.kind === 'created' ? 'Scan created' : event.kind === 'status' ? 'Inventory status' : event.kind === 'note' ? 'Review note' : 'Review flag'}</p>
-                <p className="text-xs text-muted-foreground">{event.actor_name ?? 'Actor not recorded'} · {new Date(event.timestamp).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</p>
-                {Object.entries(event.new_values).map(([key, value]) => {
-                  const display = (item: unknown) => item == null ? 'Not recorded' : key === 'spoilage_days' ? formatSpoilageDays(item) : String(item)
-                  return <p key={key} className="break-words">{key.replaceAll('_', ' ')}: {event.previous_values && key in event.previous_values ? `${display(event.previous_values[key])} → ` : ''}{display(value)}</p>
-                })}
-                {event.reason && <p>{event.reason}</p>}
-                {event.legacy && <p className="text-xs text-muted-foreground">Historical record; additional change details were not recorded.</p>}
-              </div>) : <p className="text-sm text-muted-foreground">No recorded history is available.</p>}
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
+                Scan History
+                {Boolean(scan.history?.length) && (
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 rounded-full">
+                    {scan.history!.length}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {scan.history?.length ? scan.history.map(event => <div key={event.id} className="p-3 bg-muted/50 rounded-lg text-sm space-y-1">
+                  <p className="font-medium">{event.kind === 'correction' ? 'Scan correction' : event.kind === 'created' ? 'Scan created' : event.kind === 'status' ? 'Inventory status' : event.kind === 'note' ? 'Review note' : 'Review flag'}</p>
+                  <p className="text-xs text-muted-foreground">{event.actor_name ?? 'Actor not recorded'} · {new Date(event.timestamp).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</p>
+                  {Object.entries(event.new_values).map(([key, value]) => {
+                    const display = (item: unknown) => item == null ? 'Not recorded' : key === 'spoilage_days' ? formatSpoilageDays(item) : String(item)
+                    return <p key={key} className="break-words">{key.replaceAll('_', ' ')}: {event.previous_values && key in event.previous_values ? `${display(event.previous_values[key])} → ` : ''}{display(value)}</p>
+                  })}
+                  {event.reason && <p className="break-words">{event.reason}</p>}
+                  {event.legacy && <p className="text-xs text-muted-foreground">Historical record; additional change details were not recorded.</p>}
+                </div>) : <p className="text-sm text-muted-foreground text-center py-4">No recorded history is available.</p>}
+              </div>
             </CardContent>
           </Card>
 

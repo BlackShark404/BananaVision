@@ -390,6 +390,14 @@ remounting Kiosk and clearing its operator/intake selection. Old status rows wit
 an audit event have no reliable actor evidence: keep **Actor not recorded**, rather
 than substituting the scan owner or current login. See [[Testing and Validation]].
 
+### Bounded history container and count badge
+
+Scan Detail wraps historical records in `div.space-y-2.max-h-48.overflow-y-auto`, matching
+the Quality Control Review Notes panel layout. When accumulated events exceed the 12rem
+limit, vertical scrolling is contained internally without expanding the page. A record
+count badge (`Badge variant="secondary"`) is rendered beside the Scan History heading
+when records exist, and text wraps naturally (`break-words`) without horizontal clipping.
+
 ## CSV and XLSX exports (2026-10-22)
 
 All five export surfaces offer CSV and XLSX through the shared `ExportDropdown`.

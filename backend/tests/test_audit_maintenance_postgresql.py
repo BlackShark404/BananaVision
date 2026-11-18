@@ -43,10 +43,10 @@ async def test_restore_writes_one_completed_row_after_verification(recovery_stat
     [row] = await audit_rows(x.sessions, 'restore_completed')
     assert row.user_id == x.actor and row.ip_address == '10.0.0.9'
     assert str(operation) in row.details and "requested by 'Current station name'" in row.details
-    assert (f'audit history replaced ({before} pre-restore audit rows kept in rollback archive '
+    assert (f'audit history preserved ({before} pre-restore audit rows retained; rollback archive '
             f'{operation})') in row.details
-    # The restored history is exactly the archive's rows plus the outcome row.
-    assert await audit_count(x.sessions) == 2
+    # The restored history retains pre-restore audit rows plus the outcome row.
+    assert await audit_count(x.sessions) == before + 1
     replay = await x.service.restore(operation, x.validation['validation_id'],
                                      x.validation['token'], x.actor, 'session')
     assert replay['status'] == 'completed'
@@ -161,7 +161,7 @@ async def test_http_backup_download_validate_and_restore_are_audited(recovery_st
     after = await audit_rows(x.sessions)
     [outcome] = [row for row in after if row.action == 'restore_completed']
     assert outcome.user_id == x.actor
-    assert (f'audit history replaced ({len(history)} pre-restore audit rows kept in rollback '
+    assert (f'audit history preserved ({len(history)} pre-restore audit rows retained; rollback '
             f'archive {restore_id})') in outcome.details
-    # The restored archive was taken before its own backup_created row was written.
-    assert [row.action for row in after].count('backup_created') == 0
+    # Pre-restore audit history is preserved across the restore.
+    assert [row.action for row in after].count('backup_created') == 1

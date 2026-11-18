@@ -281,7 +281,7 @@ export const api = {
 
   // ── Users ────────────────────────────────────────────────────────────────
   users: {
-    summary: (signal?: AbortSignal) => get<{ total_scans: number; avg_confidence: number | null; last_7_days: number; total_users: number | null; activity: { id: string; action: string; details: string; timestamp: string }[] }>("/api/v1/users/me/summary", undefined, signal),
+    summary: (signal?: AbortSignal) => get<{ total_scans: number; avg_confidence: number | null; last_7_days: number; recent_actions_7d?: number; total_users: number | null; activity: { id: string; action: string; details: string; timestamp: string }[] }>("/api/v1/users/me/summary", undefined, signal),
     list: () => get<{ items: ApiUser[]; total: number }>("/api/v1/users"),
     create: (data: ApiUserCreate) => post<ApiUserCreated>("/api/v1/users", data),
     update: (id: string, data: ApiUserUpdate) => patch<ApiUser>(`/api/v1/users/${id}`, data),

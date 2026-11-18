@@ -383,3 +383,35 @@ def test_the_file_log_shows_a_recorded_change_only_after_it_commits(application,
         asyncio.run(run())
     messages = " ".join(r.getMessage() for r in caplog.records)
     assert "committed" in messages and "rolled back" not in messages
+
+
+def test_actor_name_snapshot_is_recorded_and_immutable(application):
+    from app.models import UserAccount
+    actor = SimpleNamespace(id=application.ids.admin, full_name="Original Name")
+
+    async def run():
+        async with SessionAdapter(application.engine, application.state) as db:
+            await audit.record(db, audit.AuditAction.USER_UPDATED, "Profile change", actor=actor)
+            await db.commit()
+
+    asyncio.run(run())
+    [row] = rows(application, audit.AuditAction.USER_UPDATED)
+    assert row.actor_name == "Original Name"
+    assert row.user_id == application.ids.admin
+
+    # Renaming the user account does not alter the historical audit snapshot.
+    with Session(application.engine) as db:
+        user = db.get(UserAccount, application.ids.admin)
+        user.full_name = "Renamed User"
+        db.commit()
+
+    [row] = rows(application, audit.AuditAction.USER_UPDATED)
+    assert row.actor_name == "Original Name"
+
+
+def test_actor_name_snapshot_is_preserved_when_account_missing(application):
+    missing_id = uuid4()
+    asyncio.run(audit.emit(audit.AuditAction.LOGIN, "Direct emit", actor_id=missing_id,
+                           actor_name="Historical Ghost"))
+    [row] = rows(application, audit.AuditAction.LOGIN)
+    assert row.actor_name == "Historical Ghost"

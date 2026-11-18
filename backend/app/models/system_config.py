@@ -24,7 +24,7 @@ class SystemConfig(Base):
     canonical_key: Mapped[int | None] = mapped_column(Integer, nullable=True, unique=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default='1')
     legacy_conflict: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default='false')
-    confidence_threshold: Mapped[int] = mapped_column(Integer, nullable=False, default=85)
+    confidence_threshold: Mapped[int] = mapped_column(Integer, nullable=False, default=80)
     data_retention_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     updated_at: Mapped[datetime] = mapped_column(ManilaDateTime(),
         default=now_manila,

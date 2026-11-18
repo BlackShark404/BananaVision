@@ -338,9 +338,15 @@ class MaintenanceService:
 
     async def _replace(self, validated, marker):
         async with self.sessions() as db:
+            is_pg = self.engine.dialect.name == "postgresql"
+            if is_pg:
+                # Allow the restore to merge audit rows past the append-only trigger.
+                await db.execute(text("SET LOCAL bananavision.audit_restore = 'on'"))
             for table in reversed(archive.application_tables()):
+                if table.name == "activity_log":
+                    continue  # Preserve existing audit history.
                 await db.execute(delete(table))
-            await archive.restore_rows(db, validated)
+            await archive.restore_rows(db, validated, preserve_audit=True)
             await reset_sequences(db, self.engine.dialect.name)
             generation = await state_store.advance_generation(db, marker)
             await db.commit()
@@ -353,11 +359,16 @@ class MaintenanceService:
 
     async def verify_live(self, expected, directory):
         async with self.sessions() as db:
-            actual = await archive.create_archive(db, self.capture_root, directory / 'verify.zip')
-        for key in ('tables', 'files'):
-            if actual[key] != expected[key]:
+            actual = await archive.snapshot_manifest(db, self.capture_root)
+        if actual['files'] != expected['files']:
+            raise archive.ArchiveError('Restored data/evidence verification failed')
+        for name, descriptor in expected['tables'].items():
+            if name == 'activity_log':
+                if actual['tables'][name]['count'] < descriptor['count']:
+                    raise archive.ArchiveError('Restored data/evidence verification failed')
+                continue
+            if actual['tables'].get(name) != descriptor:
                 raise archive.ArchiveError('Restored data/evidence verification failed')
-        (directory / 'verify.zip').unlink()
 
     async def restore(self, identifier, validation_id, token, actor_id, session_digest, *,
                       authorize=None, actor_name=None, client_ip=None):
@@ -415,14 +426,13 @@ class MaintenanceService:
                 await self.save_result(result)
                 try:
                     async with self.sessions() as db:
-                        await archive.create_archive(db, self.capture_root, directory / 'rollback.zip')
-                    rollback = await run_blocking(archive.validate_archive, directory / 'rollback.zip', directory / 'rollback')
+                        rollback_manifest = await archive.create_archive(db, self.capture_root, directory / 'rollback.zip')
                     archive._space(self.root, sum(f['size'] for f in validated.manifest['files'].values()))
                     new, old = directory / 'new-evidence', directory / 'old-evidence'
                     await run_blocking(shutil.copytree, validated.evidence_root, new)
                     await run_blocking(sync_tree, new)
                     journal = {'id': str(identifier), 'validation_id': str(validation_id), 'phase': 'restore',
-                               'actor_id': str(actor_id), 'manifest': validated.manifest, 'rollback_manifest': rollback.manifest}
+                               'actor_id': str(actor_id), 'manifest': validated.manifest, 'rollback_manifest': rollback_manifest}
                     # Who asked, for the outcome row _finish writes after verification.
                     journal.update(actor_name=who['actor_name'], client_ip=who['client_ip'])
                     atomic_json(self.journal, journal)
@@ -489,8 +499,8 @@ class MaintenanceService:
             action = AuditAction.RESTORE_COMPLETED
             details = (f'Restore {operation} completed: station data replaced from backup created '
                        f'{audit.clean(manifest.get("created_at"))} ({_counts(manifest)}); '
-                       f'requested by {_requester(journal)}; audit history replaced ({kept} '
-                       f'pre-restore audit rows kept in rollback archive {operation})')
+                       f'requested by {_requester(journal)}; audit history preserved ({kept} '
+                       f'pre-restore audit rows retained; rollback archive {operation})')
         else:
             action = AuditAction.RESTORE_FAILED
             details = (f'Restore {operation} failed: {audit.clean(message, 160)}; requested by '

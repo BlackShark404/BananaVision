@@ -101,7 +101,9 @@ async def test_invalid_legacy_configuration_is_not_promoted(configured):
         db.commit()
     async with SessionAdapter(configured.engine, configured.state) as db:
         result = await configuration.get_config(db)
-        assert result.confidence_threshold == 85
+        # The old bootstrap default (85) is auto-migrated to the current
+        # default (80) when no admin has explicitly saved the threshold.
+        assert result.confidence_threshold == 80
         assert result.legacy_conflict is True
         await db.commit()
 

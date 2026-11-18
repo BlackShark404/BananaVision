@@ -28,6 +28,7 @@ class ActivityLog(Base):
     action: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     details: Mapped[str | None] = mapped_column(Text, nullable=True)
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    actor_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Relationships
     user = relationship("UserAccount", back_populates="activity_logs")

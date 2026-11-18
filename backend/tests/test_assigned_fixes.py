@@ -92,8 +92,18 @@ def test_profile_aggregates_all_rows_and_immutable_owner(secured):
             scan.classification = ScanClassification(cultivar=CultivarEnum.LAKATAN,
                 ripeness=RipenessEnum.RIPE, confidence=80, spoilage_days="3", finger_count=5)
             db.add(scan)
-        db.add_all([ActivityLog(user_id=fixture.ids.operator, action="login", details="Own activity"),
-                    ActivityLog(user_id=fixture.ids.admin, action="login", details="Private admin activity")])
+        db.add_all([
+            ActivityLog(user_id=fixture.ids.operator, action="login", details="Own activity"),
+            ActivityLog(
+                user_id=fixture.ids.operator, action="login", details="Old operator activity",
+                timestamp=now - timedelta(days=8),
+            ),
+            ActivityLog(user_id=fixture.ids.admin, action="login", details="Private admin activity"),
+            ActivityLog(
+                user_id=fixture.ids.admin, action="login", details="Old admin activity",
+                timestamp=now - timedelta(days=8),
+            ),
+        ])
         db.commit()
     token = secured.client.post("/api/v1/auth/login", json={"username": "operator", "password": "operator-password"}).json()["token"]["access_token"]
     summary = secured.client.get("/api/v1/users/me/summary", headers={"Authorization": f"Bearer {token}"})
@@ -101,9 +111,12 @@ def test_profile_aggregates_all_rows_and_immutable_owner(secured):
     result = summary.json()
     assert result["total_scans"] == 131 and result["last_7_days"] == 130
     assert result["avg_confidence"] == pytest.approx((130 * 80 + 90) / 131)
+    assert result["recent_actions_7d"] == 2
     assert result["total_users"] is None
     assert all(log["details"] != "Private admin activity" for log in result["activity"])
-    assert secured.client.get("/api/v1/users/me/summary", headers=secured.headers).json()["total_users"] == 2
+    admin_summary = secured.client.get("/api/v1/users/me/summary", headers=secured.headers).json()
+    assert admin_summary["total_users"] == 2
+    assert admin_summary["recent_actions_7d"] == 2
 
 
 @pytest.mark.asyncio

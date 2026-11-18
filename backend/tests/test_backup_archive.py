@@ -92,7 +92,9 @@ def station(tmp_path):
             m.ScanNote(scan_id=scan_id, text="Preserve note", author_name="Admin"),
             m.Device(camera_id="CAM-001", label="Top", slot_index=0, device_index=0),
             m.SystemConfig(updated_by_admin=admin.id),
-            m.ActivityLog(user_id=user.id, action="LOGIN", details="Preserve audit"),
+            m.ActivityLog(
+                user_id=user.id, action="LOGIN", details="Preserve audit", actor_name="Admin"
+            ),
             m.SensorReading(temperature=25.75, humidity=80.5),
             m.PrintJob(
                 prediction_id=scan_id, owner_id=user.id, quantity=1,
@@ -149,7 +151,7 @@ def rewrite(path, *, edit_manifest=None, edit_row=None, extra=None, omit=None):
 def test_complete_all_table_roundtrip_preserves_values_and_instants(archive_module, station, tmp_path):
     path = backup(archive_module, station, tmp_path)
     validated = archive_module.validate_archive(path, tmp_path / "staging")
-    assert validated.manifest["version"] == 4
+    assert validated.manifest["version"] == 5
     assert len(validated.manifest["tables"]) == 22
     assert all(t["count"] == 1 for t in validated.manifest["tables"].values())
     assert "maintenance_state" not in validated.manifest["tables"]
@@ -163,6 +165,7 @@ def test_complete_all_table_roundtrip_preserves_values_and_instants(archive_modu
         restored.commit()
         assert restored.scalar(select(m.Scan)).date_time == station[3]
         assert restored.scalar(select(m.ScanClassification)).confidence == Decimal("91.25")
+        assert restored.scalar(select(m.ActivityLog)).actor_name == "Admin"
         assert restored.scalar(select(m.ScanClassification)).cultivar == CultivarEnum.LAKATAN
         assert restored.scalar(select(m.ScanDetection)).bounding_boxes == [
             {"xyxy": [1, 2, 3, 4], "confidence": 0.9125, "extra": None}]
@@ -196,7 +199,7 @@ def legacy_backup(archive_module, station, tmp_path, *, bad_null=False, version=
             continue
         rows = [{key: value for key, value in json.loads(line).items() if key in legacy[table]}
                 for line in members[name].splitlines()]
-        if table == 'system_config':
+        if version < 4 and table == 'system_config':
             for row in rows:
                 row.update(camera_ids=camera_ids, camera_device_ids=list(camera_device_ids))
         if table == 'operator_profile':
@@ -232,6 +235,23 @@ def test_v1_backup_upgrades_without_inventing_history(archive_module, station, t
         assert not restored.scalars(select(m.ScanEvent)).all()
         assert not restored.scalars(select(m.ScanMutation)).all()
         assert not restored.scalars(select(m.ScanTombstone)).all()
+        device = restored.scalar(select(m.Device))
+        assert (device.camera_id, device.slot_index, device.device_index) == ('CAM-001', 0, 0)
+    engine.dispose()
+
+
+def test_v4_backup_upgrades_without_actor_name(archive_module, station, tmp_path):
+    path = legacy_backup(archive_module, station, tmp_path, version=4)
+    validated = archive_module.validate_archive(path, tmp_path / "v4-upgrade")
+    assert validated.manifest["version"] == 4
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    with Session(engine) as restored:
+        asyncio.run(archive_module.restore_rows(AsyncDB(restored), validated))
+        restored.commit()
+        log = restored.scalar(select(m.ActivityLog))
+        assert log.actor_name is None
+        assert log.details == "Preserve audit"
         device = restored.scalar(select(m.Device))
         assert (device.camera_id, device.slot_index, device.device_index) == ('CAM-001', 0, 0)
     engine.dispose()

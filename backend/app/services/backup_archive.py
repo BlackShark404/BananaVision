@@ -6,6 +6,7 @@ Windows ACLs), never the public capture root. No uploaded SQL is executed.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import math
@@ -48,6 +49,9 @@ V2_SCHEMA = json.loads(
 )
 V3_SCHEMA = json.loads(
     Path(__file__).with_name("archive_schema_v3.json").read_text(encoding="utf-8")
+)
+V4_SCHEMA = json.loads(
+    Path(__file__).with_name("archive_schema_v4.json").read_text(encoding="utf-8")
 )
 MAX_ARCHIVE_BYTES = 4 * 1024**3
 MAX_EXPANDED_BYTES = 8 * 1024**3
@@ -370,6 +374,155 @@ def model_prerequisites():
     return result
 
 
+def _new_manifest() -> dict:
+    return {"format": "bananavision-station", "version": 5,
+            "application_version": "0.1.0", "created_at": now_manila().isoformat(),
+            "schema": schema_description(), "tables": {}, "files": {},
+            "prerequisites": {"database": "PostgreSQL", "timezone": "Asia/Manila",
+                              "models": model_prerequisites()}}
+
+
+async def _collect_snapshot_tables(db, capture_root: Path, table_dir: Path | None = None):
+    """Stream normalized database rows, compute table descriptors, and collect evidence paths."""
+    if table_dir is not None:
+        table_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    tables, references = {}, {}
+    total, total_rows = 0, 0
+    for table in application_tables():
+        digest, size, count = hashlib.sha256(), 0, 0
+        output = (table_dir / f"{table.name}.jsonl").open("wb") if table_dir is not None else None
+        try:
+            while True:
+                query = select(table).order_by(*table.primary_key.columns).limit(100).offset(count)
+                records = (await db.execute(query)).mappings().all()
+                if not records:
+                    break
+                for record in records:
+                    row = {key: _encode(value) for key, value in record.items()}
+                    for owner, column in EVIDENCE_COLUMNS:
+                        if owner == table.name and row[column] is not None:
+                            relative = _evidence_name(row[column], capture_root)
+                            row[column] = f"/captures/{relative}"
+                            references[relative] = capture_root / PurePosixPath(relative)
+                            if len(references) + len(TABLE_NAMES) + 1 > MAX_MEMBERS:
+                                raise ArchiveError("File count limit exceeded")
+                    _row(table, row)
+                    line = _dump(row) + b"\n"
+                    if len(line) > MAX_ROW_BYTES:
+                        raise ArchiveError("Row size limit exceeded")
+                    total += len(line)
+                    size += len(line)
+                    count += 1
+                    total_rows += 1
+                    if total > MAX_EXPANDED_BYTES or total_rows > MAX_ROWS:
+                        raise ArchiveError("Archive size/row limit exceeded")
+                    if output is not None:
+                        output.write(line)
+                    digest.update(line)
+        finally:
+            if output is not None:
+                output.close()
+        tables[table.name] = _descriptor(size, digest.hexdigest(), count)
+    return tables, references, total
+
+
+def _hash_evidence_files(references: dict[str, Path], total: int) -> dict:
+    """Verify and hash all referenced evidence files on disk in a worker thread."""
+    files = {}
+    for relative, source in sorted(references.items()):
+        _no_links(source)
+        if not source.is_file():
+            raise ArchiveError("Missing referenced evidence")
+        length = source.stat().st_size
+        if length > MAX_FILE_BYTES or total + length > MAX_EXPANDED_BYTES:
+            raise ArchiveError("Evidence size limit exceeded")
+        digest, length_read = hashlib.sha256(), 0
+        with source.open("rb") as evidence:
+            for chunk in iter(lambda: evidence.read(CHUNK), b""):
+                length_read += len(chunk)
+                if length_read > length:
+                    raise ArchiveError("Evidence changed during backup")
+                digest.update(chunk)
+        if length_read != length:
+            raise ArchiveError("Evidence changed during backup")
+        total += length
+        files[relative] = _descriptor(length, digest.hexdigest())
+    return files
+
+
+def _build_and_verify_archive(
+    owned: Path,
+    partial: Path,
+    destination: Path,
+    table_dir: Path,
+    references: dict[str, Path],
+    manifest: dict,
+    total: int,
+) -> dict:
+    """Write the ZIP archive and verify it before promoting to destination."""
+    with zipfile.ZipFile(
+        partial, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=1, allowZip64=True
+    ) as archive:
+        os.chmod(partial, 0o600)
+        for table in application_tables():
+            table_file = table_dir / f"{table.name}.jsonl"
+            with table_file.open("rb") as source, archive.open(
+                f"tables/{table.name}.jsonl", "w", force_zip64=True
+            ) as output:
+                for chunk in iter(lambda: source.read(CHUNK), b""):
+                    output.write(chunk)
+        for relative, source in sorted(references.items()):
+            _no_links(source)
+            if not source.is_file():
+                raise ArchiveError("Missing referenced evidence")
+            length = source.stat().st_size
+            if length > MAX_FILE_BYTES or total + length > MAX_EXPANDED_BYTES:
+                raise ArchiveError("Evidence size limit exceeded")
+            _space(owned, length)
+            digest, length_read = hashlib.sha256(), 0
+            with source.open("rb") as evidence, archive.open(
+                f"evidence/{relative}", "w", force_zip64=True
+            ) as output:
+                for chunk in iter(lambda: evidence.read(CHUNK), b""):
+                    length_read += len(chunk)
+                    if length_read > length:
+                        raise ArchiveError("Evidence changed during backup")
+                    output.write(chunk)
+                    digest.update(chunk)
+            if length_read != length:
+                raise ArchiveError("Evidence changed during backup")
+            total += length
+            manifest["files"][relative] = _descriptor(length, digest.hexdigest())
+        encoded = _dump(manifest)
+        if len(encoded) > MAX_MANIFEST_BYTES:
+            raise ArchiveError("Manifest size limit exceeded")
+        manifest_info = zipfile.ZipInfo("manifest.json", date_time=now_manila().timetuple()[:6])
+        manifest_info.compress_type = zipfile.ZIP_DEFLATED
+        archive.writestr(manifest_info, encoded)
+    with partial.open("r+b") as stream:
+        os.fsync(stream.fileno())
+    validated = validate_archive(partial, owned / "verification")
+    shutil.rmtree(validated.staging_root)
+    os.replace(partial, destination)
+    return manifest
+
+
+async def snapshot_manifest(db, capture_root: Path) -> dict:
+    """Compute and verify the live database and evidence manifest without creating a ZIP."""
+    capture_root = Path(capture_root).absolute()
+    _no_links(capture_root)
+    manifest = _new_manifest()
+    try:
+        tables, references, total = await _collect_snapshot_tables(db, capture_root)
+        manifest["tables"] = tables
+        manifest["files"] = await asyncio.to_thread(_hash_evidence_files, references, total)
+        return manifest
+    except (OSError, ValueError, RuntimeError) as exc:
+        if isinstance(exc, ArchiveError):
+            raise
+        raise ArchiveError("Could not verify live snapshot") from exc
+
+
 async def create_archive(db, capture_root: Path, destination: Path) -> dict:
     """Stream a drained, consistent database snapshot and all referenced evidence."""
     capture_root, destination = Path(capture_root).absolute(), Path(destination).absolute()
@@ -379,86 +532,30 @@ async def create_archive(db, capture_root: Path, destination: Path) -> dict:
         raise ArchiveError("Backup destination must be private")
     owned = _private_dir(destination.parent, ".backup-")
     partial = owned / "archive.zip"
+    table_dir = owned / "tables"
     try:
         _space(owned, RESERVE_BYTES)
-        manifest = {"format": "bananavision-station", "version": 4,
-                    "application_version": "0.1.0", "created_at": now_manila().isoformat(),
-                    "schema": schema_description(), "tables": {}, "files": {},
-                    "prerequisites": {"database": "PostgreSQL", "timezone": "Asia/Manila",
-                                      "models": model_prerequisites()}}
-        references = {}
-        total = 0
-        total_rows = 0
-        with zipfile.ZipFile(partial, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
-            os.chmod(partial, 0o600)
-            for table in application_tables():
-                digest, size, count = hashlib.sha256(), 0, 0
-                with archive.open(f"tables/{table.name}.jsonl", "w", force_zip64=True) as output:
-                    while True:
-                        query = select(table).order_by(*table.primary_key.columns).limit(100).offset(count)
-                        records = (await db.execute(query)).mappings().all()
-                        if not records:
-                            break
-                        for record in records:
-                            row = {key: _encode(value) for key, value in record.items()}
-                            for owner, column in EVIDENCE_COLUMNS:
-                                if owner == table.name and row[column] is not None:
-                                    relative = _evidence_name(row[column], capture_root)
-                                    row[column] = f"/captures/{relative}"
-                                    references[relative] = capture_root / PurePosixPath(relative)
-                                    if len(references) + len(TABLE_NAMES) + 1 > MAX_MEMBERS:
-                                        raise ArchiveError("File count limit exceeded")
-                            _row(table, row)
-                            line = _dump(row) + b"\n"
-                            if len(line) > MAX_ROW_BYTES:
-                                raise ArchiveError("Row size limit exceeded")
-                            total += len(line)
-                            size += len(line)
-                            count += 1
-                            total_rows += 1
-                            if total > MAX_EXPANDED_BYTES or total_rows > MAX_ROWS:
-                                raise ArchiveError("Archive size/row limit exceeded")
-                            output.write(line)
-                            digest.update(line)
-                manifest["tables"][table.name] = _descriptor(size, digest.hexdigest(), count)
-            for relative, source in sorted(references.items()):
-                _no_links(source)
-                if not source.is_file():
-                    raise ArchiveError("Missing referenced evidence")
-                length = source.stat().st_size
-                if length > MAX_FILE_BYTES or total + length > MAX_EXPANDED_BYTES:
-                    raise ArchiveError("Evidence size limit exceeded")
-                _space(owned, length)
-                digest, length_read = hashlib.sha256(), 0
-                with source.open("rb") as evidence, archive.open(f"evidence/{relative}", "w", force_zip64=True) as output:
-                    for chunk in iter(lambda: evidence.read(CHUNK), b""):
-                        length_read += len(chunk)
-                        if length_read > length:
-                            raise ArchiveError("Evidence changed during backup")
-                        output.write(chunk)
-                        digest.update(chunk)
-                if length_read != length:
-                    raise ArchiveError("Evidence changed during backup")
-                total += length
-                manifest["files"][relative] = _descriptor(length, digest.hexdigest())
-            encoded = _dump(manifest)
-            if len(encoded) > MAX_MANIFEST_BYTES:
-                raise ArchiveError("Manifest size limit exceeded")
-            manifest_info = zipfile.ZipInfo("manifest.json", date_time=now_manila().timetuple()[:6])
-            manifest_info.compress_type = zipfile.ZIP_DEFLATED
-            archive.writestr(manifest_info, encoded)
-        with partial.open("r+b") as stream:
-            os.fsync(stream.fileno())
-        validated = validate_archive(partial, owned / "verification")
-        shutil.rmtree(validated.staging_root)
-        os.replace(partial, destination)
-        return manifest
+        manifest = _new_manifest()
+        tables, references, total = await _collect_snapshot_tables(
+            db, capture_root, table_dir=table_dir
+        )
+        manifest["tables"] = tables
+        return await asyncio.to_thread(
+            _build_and_verify_archive,
+            owned,
+            partial,
+            destination,
+            table_dir,
+            references,
+            manifest,
+            total,
+        )
     except (OSError, ValueError, zipfile.BadZipFile, RuntimeError) as exc:
         if isinstance(exc, ArchiveError):
             raise
         raise ArchiveError("Could not create complete backup") from exc
     finally:
-        shutil.rmtree(owned)
+        await asyncio.to_thread(shutil.rmtree, owned, True)
 
 
 def _validate_descriptor(value, *, rows=False):
@@ -574,6 +671,8 @@ def _validate_spec_row(row, spec):
 def _upgrade_to_v3(manifest, root):
     """Validate and adapt v1/v2/v3 rows to the last schema with camera arrays."""
     version = manifest["version"]
+    if version >= 4:
+        return  # v4+ rows are already past the camera-array schema.
     source_schema = {1: LEGACY_SCHEMA, 2: V2_SCHEMA, 3: V3_SCHEMA}[version]
     defaults = {
         "scan": {"revision": 1, "operator_name_snapshot": None, "source_name_snapshot": None},
@@ -652,7 +751,7 @@ def _upgrade_to_current(manifest, root):
                 if len(line) > MAX_ROW_BYTES or not line.endswith(b"\n"):
                     raise ArchiveError("Row size/framing limit exceeded")
                 config_rows.append(_load(line))
-    mapping = _legacy_camera_mapping(config_rows)
+    mapping = _legacy_camera_mapping(config_rows) if manifest["version"] < 4 else None
 
     device_path = root / "tables" / "device.jsonl"
     device_rows = []
@@ -662,7 +761,8 @@ def _upgrade_to_current(manifest, root):
                 if len(line) > MAX_ROW_BYTES or not line.endswith(b"\n"):
                     raise ArchiveError("Row size/framing limit exceeded")
                 row = _load(line)
-                row.update(slot_index=None, device_index=None)
+                if manifest["version"] < 4:
+                    row.update(slot_index=None, device_index=None)
                 device_rows.append(row)
     if mapping is not None:
         names, device_ids = mapping
@@ -711,6 +811,8 @@ def _upgrade_to_current(manifest, root):
                            if key != "is_read"}
                 if table.name in ("scan_detection", "scan_image") and "device_id" not in row:
                     row["device_id"] = None
+                if table.name == "activity_log" and "actor_name" not in row:
+                    row["actor_name"] = None
                 validated = _row(table, row)
                 encoded = _dump(_encode(validated)) + b"\n"
                 if len(encoded) > MAX_ROW_BYTES:
@@ -738,7 +840,7 @@ def _upgrade_to_current(manifest, root):
 
 
 def _upgrade_staging(manifest, root):
-    """Strictly adapt v1/v2/v3 archives to the current normalized schema.
+    """Strictly adapt v1/v2/v3/v4 archives to the current normalized schema.
 
     The original archive hash remains authoritative. Only private staged rows and
     their descriptors change, so restore/compensation verify exactly what is inserted.
@@ -784,10 +886,10 @@ def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
             if (
                 manifest["format"] != "bananavision-station"
                 or type(manifest["version"]) is not int
-                or manifest["version"] not in (1, 2, 3, 4)
+                or manifest["version"] not in (1, 2, 3, 4, 5)
             ):
                 raise ArchiveError("Unsupported archive version")
-            expected_schema = {1: LEGACY_SCHEMA, 2: V2_SCHEMA, 3: V3_SCHEMA}.get(
+            expected_schema = {1: LEGACY_SCHEMA, 2: V2_SCHEMA, 3: V3_SCHEMA, 4: V4_SCHEMA}.get(
                 manifest["version"], schema_description()
             )
             if manifest["application_version"] != "0.1.0" or manifest["schema"] != expected_schema:
@@ -828,7 +930,7 @@ def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
                 path = evidence_root.joinpath(*name.split("/"))
                 _copy_member(source, f"evidence/{name}", path, descriptor)
                 evidence[name] = path
-        if manifest["version"] < 4:
+        if manifest["version"] < 5:
             _upgrade_staging(manifest, owned)
         validated = ValidatedBackup(manifest, owned, evidence_root, evidence, _hash_file(archive))
         _check_constraints(validated)
@@ -842,9 +944,22 @@ def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
         raise ArchiveError("Invalid or unreadable backup archive") from exc
 
 
-async def restore_rows(db, validated: ValidatedBackup):
+async def restore_rows(db, validated: ValidatedBackup, *, preserve_audit: bool = False):
     """Insert trusted typed values into empty application tables; caller commits."""
     for table in application_tables():
+        if table.name == "activity_log" and preserve_audit:
+            existing_ids = set((await db.execute(select(table.c.id))).scalars().all())
+            batch = []
+            for row in validated.iter_rows(table.name):
+                if row["id"] not in existing_ids:
+                    batch.append(row)
+                    existing_ids.add(row["id"])
+                if len(batch) == 100:
+                    await db.execute(insert(table).values(batch))
+                    batch = []
+            if batch:
+                await db.execute(insert(table).values(batch))
+            continue
         batch = []
         for row in validated.iter_rows(table.name):
             batch.append(row)

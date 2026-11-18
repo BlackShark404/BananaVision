@@ -1,17 +1,30 @@
-CURRENT RESUME HERE (2026-11-18) - AUTO-FLAG ONLY WHEN CONFIDENCE IS BELOW THE THRESHOLD
+CURRENT RESUME HERE (2026-11-18) - TEAM MAIN MERGED INTO THE AUTO-FLAG FIX
 
-The previous checkpoint (complete audit logging, Part 2 of 3; merged to team main as
-19196f9, PR #16) is archived byte-for-byte in
-docs/history/2026-11-18-before-auto-flag-fix.txt.
+Team main (f7b5aeb) is merged into the fork's main on top of the auto-flag fix (320e480,
+0f61681), so team PR #17 has no conflict. Two files conflicted: this file and
+docs/knowledge/Development Decisions.md (both entries kept, newest first).
+- The team's checkpoint (default confidence threshold 85 -> 80) is archived byte-for-byte
+  in docs/history/2026-11-18-team-checkpoint-before-merge.txt.
+- The checkpoint before the auto-flag fix (complete audit logging, Part 2 of 3; merged to
+  team main as 19196f9, PR #16) is in docs/history/2026-11-18-before-auto-flag-fix.txt.
 
-USER REQUEST (2026-11-18)
-- "Fix the autoflag of the system. It auto flags a kiosk scan in the scan logs and quality
-  control even though the average confidence of the kiosk scan is more than the default of
-  80% confidence threshold."
+TEAM WORK NOW ON MAIN (from the merge)
+- Audit integrity, Part 3 (582ea43): activity_log.actor_name snapshot, migration
+  0012_audit_integrity, PostgreSQL append-only trigger, backup archive v5, restore keeps
+  the live audit history.
+- Bounded Scan History on Scan Detail (7e46a64).
+- Profile activity metrics, "Your Actions (7d)" (b60ad48, ffcb753), and the defense guides.
+- Default confidence threshold 85 -> 80 (86e4728, 94296fc): model default, bootstrap,
+  dashboard fallback, "Reset All Settings", migration 0013_confidence_threshold_default.
+- Backup restore reliability and v4 backup device indices (92322f6, 5cb3c37).
+- Functional decomposition diagram and landing page text (c866014, 9d53b2d).
+
+AUTO-FLAG FIX (user request 2026-11-18; commits 320e480 and 0f61681)
+- Request: "Fix the autoflag of the system. It auto flags a kiosk scan in the scan logs and
+  quality control even though the average confidence of the kiosk scan is more than the
+  default of 80% confidence threshold."
 - Decision: "The auto flag must work in confidence is below the threshold only. No other
-  factors needed." Old flags: "Clean up with a preview". Order: auto-flag fix first.
-
-DONE (commits 320e480 and the review follow-up)
+  factors needed." Old flags: "Clean up with a preview".
 - backend/app/services/fusion_engine.py: auto_flagged = final confidence < review
   threshold, nothing else. FusedResult.flag_reason holds the sentence. The other signals
   (cultivar/ripeness/view conflicts, weak pair support, insufficient views, missing
@@ -25,24 +38,42 @@ DONE (commits 320e480 and the review follow-up)
   `--apply --admin <username>` removes flags the rule would not set. It never touches
   scans below the threshold, scans a person flagged/corrected/noted, or scans without a
   stored confidence. NOT run by the assistant; the station admin runs it.
-- Frontend: one wording fix. The Scan Detail cultivar-disagreement notice mentions clearing
-  the flag only when the scan is flagged. The warning itself (from stored per-camera
-  results) still shows on Kiosk and Scan Detail.
-- Review follow-up (7 of 8 findings confirmed), fixed:
-  - Threshold: a confidence equal to the threshold is never flagged (float round trip
-    at 7, 14, 28, 55, 56).
-  - Cleanup keeps more flags: an operator's "Flag for Review" on an already flagged scan
-    (only a request receipt records it), scans corrected or noted before scan history
-    existed, and scans without a creation entry.
-  - Cleanup safety: locks admin account -> intake -> scan; continues after an error on one
-    scan; must be started in the backend folder.
-- Docs: Development Decisions (2026-11-18 entry, earlier entries marked revised), Resolved
-  Bugs, AI Models, Testing and Validation, backend README.
+- Frontend: the Scan Detail cultivar-disagreement notice mentions clearing the flag only
+  when the scan is flagged.
+- Docs: Development Decisions (2026-11-18 entry), Resolved Bugs, AI Models, Testing and
+  Validation, backend README.
 
-VERIFICATION
-- Backend: 1428 passed, 38 skipped with a disposable PostgreSQL 16 cluster; 1352 passed,
-  114 skipped without it. Ruff 644 (baseline). Mutation checks on the new tests.
-- Frontend: 392/392; tsc -b and build pass; ESLint 36 (baseline).
+VERIFICATION OF THE MERGED TREE (2026-11-18)
+- Backend with a disposable PostgreSQL 16 cluster: 1412 passed, 38 skipped, 23 FAILED.
+- Backend without PostgreSQL: 1353 passed, 115 skipped, 5 FAILED.
+- Frontend: 396 of 397 passed, 1 FAILED. tsc -b and build pass. ESLint 36 (baseline).
+  Ruff 639.
+- Every failure comes from team main. Team main alone was run for comparison: the same
+  18 PostgreSQL tests and the same 4 threshold tests fail there. The merge added no failure
+  of its own (the auto-flag commits passed 1428/38 and 392/392 before the merge).
+
+DEFECTS FOUND IN TEAM MAIN BY THAT RUN (not fixed in the merge commit)
+1. The backend cannot start on PostgreSQL. Migration id
+   "0013_confidence_threshold_default" has 33 characters; alembic_version.version_num is
+   VARCHAR(32). The startup upgrade fails with "value too long for type character
+   varying(32)" and rolls back, including migration 0012. 18 PostgreSQL tests fail
+   (test_migrations, test_seed, test_seed_kiosk_contract,
+   test_audit_corrections_postgresql). SQLite does not enforce the length, so SQLite-only
+   test runs do not show it.
+2. A saved 85% threshold cannot be kept. configuration.get_config rewrites 85 to 80 on
+   every load, without a revision change or an activity entry. An admin who saves 85%
+   gets 80% back, and scans are flagged against 80%. 5 tests fail: test_audit_records (the
+   config change entry reports the wrong old value), test_detection_sensitivity (3) and
+   test_auto_flag_reasons::test_the_saved_threshold_decides_the_flag.
+3. frontend/tests/maintenance.test.mjs still expects "Reset All Settings" to give 85; the
+   page now gives 80 (stale test).
+
+AUDIT PART 3: TWO VERSIONS
+- The team's Part 3 (582ea43) is on main.
+- The earlier version from this fork is NOT on main and must not be applied on top: fork
+  branch wip/audit-integrity (commit a270d5a) and a local git stash. It uses another
+  migration name (0012_activity_audit_integrity) and another trigger switch.
+- Open: compare the two, review the team's version, then delete the parked branch.
 
 STILL OPEN
 - The station data release (teammate guide PDF), then:
@@ -53,25 +84,18 @@ STILL OPEN
   Kent's checkpoint asks for a station re-test of each cultivar and ripeness.
 - Windows-only failures in the export/fetch/OOD-prep/train script tests: get the names from
   Kent and fix them.
-- Ruff +10 in Kent's merged files (classification.py, fusion_engine.py,
+- Ruff findings in Kent's merged files (classification.py, fusion_engine.py,
   test_classification_fusion.py).
 - prediction_label.py hard-coded laptop path; PUBLIC_BASE_URL missing from
   backend/.env.example; Figure 92 screenshot; deployment when authorized; audit items in
   the archived checkpoints.
 - Type check: use `npx tsc -b` (or `npm run build`), not `npm run typecheck`.
 
-IN PROGRESS
-- Audit Part 3 (actor_name snapshot + migration 0012 + backup archive v5, audit kept across
-  restore, PostgreSQL append-only trigger) is implemented and its tests passed (backend
-  1327 with PostgreSQL, 1242 without), but its independent review has not run.
-  - It is NOT on main. It is parked on the fork branch wip/audit-integrity (commit
-    a270d5a) and in a local git stash.
-  - Next: restore it on top of main, rerun the suites, run the review, fix findings,
-    finish its docs, commit to main, push, delete the wip branch.
-
 EXACT NEXT STEP
-- User opens the team PR for the auto-flag fix from the fork's main:
-  https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main
+- Do not update the station from team main until defect 1 is fixed: the backend will not
+  start.
+- Fix defects 1 to 3 in a separate commit when the user agrees (they change a teammate's
+  files), rerun the suites, push, and merge team PR #17.
 - At the station after updating: run the preview
   `.\venv\Scripts\python.exe scripts\review_auto_flags.py` from the backend folder, then
   the same command with `--apply --admin <username>` to remove the old flags.
