@@ -359,7 +359,7 @@ class MaintenanceService:
 
     async def verify_live(self, expected, directory):
         async with self.sessions() as db:
-            actual = await archive.create_archive(db, self.capture_root, directory / 'verify.zip')
+            actual = await archive.snapshot_manifest(db, self.capture_root)
         if actual['files'] != expected['files']:
             raise archive.ArchiveError('Restored data/evidence verification failed')
         for name, descriptor in expected['tables'].items():
@@ -369,7 +369,6 @@ class MaintenanceService:
                 continue
             if actual['tables'].get(name) != descriptor:
                 raise archive.ArchiveError('Restored data/evidence verification failed')
-        (directory / 'verify.zip').unlink()
 
     async def restore(self, identifier, validation_id, token, actor_id, session_digest, *,
                       authorize=None, actor_name=None, client_ip=None):
@@ -427,14 +426,13 @@ class MaintenanceService:
                 await self.save_result(result)
                 try:
                     async with self.sessions() as db:
-                        await archive.create_archive(db, self.capture_root, directory / 'rollback.zip')
-                    rollback = await run_blocking(archive.validate_archive, directory / 'rollback.zip', directory / 'rollback')
+                        rollback_manifest = await archive.create_archive(db, self.capture_root, directory / 'rollback.zip')
                     archive._space(self.root, sum(f['size'] for f in validated.manifest['files'].values()))
                     new, old = directory / 'new-evidence', directory / 'old-evidence'
                     await run_blocking(shutil.copytree, validated.evidence_root, new)
                     await run_blocking(sync_tree, new)
                     journal = {'id': str(identifier), 'validation_id': str(validation_id), 'phase': 'restore',
-                               'actor_id': str(actor_id), 'manifest': validated.manifest, 'rollback_manifest': rollback.manifest}
+                               'actor_id': str(actor_id), 'manifest': validated.manifest, 'rollback_manifest': rollback_manifest}
                     # Who asked, for the outcome row _finish writes after verification.
                     journal.update(actor_name=who['actor_name'], client_ip=who['client_ip'])
                     atomic_json(self.journal, journal)

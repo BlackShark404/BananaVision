@@ -63,6 +63,7 @@ export default function SystemConfig() {
   }
   const disabled = !configReady || configConflict || archiveBusy || powerPending || powerAccepted || Boolean(maintenance && maintenance.state !== "ready")
   useEffect(() => {
+    if (archiveBusy) return
     let live = true
     let timer: ReturnType<typeof setTimeout> | undefined
     const refresh = async () => {
@@ -78,7 +79,7 @@ export default function SystemConfig() {
     }
     void refresh()
     return () => { live = false; clearTimeout(timer) }
-  }, [])
+  }, [archiveBusy])
   const [saving, setSaving] = useState(false)
   const [showShutdownDialog, setShowShutdownDialog] = useState(false)
   const [showRestartDialog, setShowRestartDialog] = useState(false)
