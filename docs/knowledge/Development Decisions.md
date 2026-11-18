@@ -7,6 +7,11 @@ Documented architectural, technical, and operational decisions in BananaVision.
 - **Team decision (86e4728, 94296fc):** the default review threshold is 80%, down from
   85%: model default, first-start configuration, dashboard fallback and "Reset All
   Settings". Migration `0013_threshold_default` changes a saved 85 to 80 once, at upgrade.
+- **User confirmation (2026-11-18):** "80% is the default threshold both backend and ui.
+  If the confidence is below 80 then it flags. If it's 80 and above then no auto flag."
+  Two remaining 85 defaults were changed to 80: the settings state the UI shows before the
+  saved configuration loads (`AdminContext.tsx`) and `evaluate_finger_count.py`
+  (`DEFAULT_REVIEW_CONFIDENCE`).
 - **Revised after the merge of team main (test run on PostgreSQL):**
   - `configuration.get_config` also rewrote 85 to 80 on every load. An admin could not
     keep 85%: the next read returned 80, with no revision change and no activity entry,

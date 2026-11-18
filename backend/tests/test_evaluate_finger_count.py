@@ -591,7 +591,7 @@ def test_physical_mode_fuses_views_with_the_real_fusion_engine(scans, weights, t
     assert report["uncounted_scan_folders"] == ["extra"]
     assert report["created_at"].endswith("+08:00") and "physical totals" in report["note"]
     # As scan_service: boxes kept at the lower of the two thresholds.
-    assert report["detection_confidence"] == 0.5 and report["review_confidence"] == 0.85
+    assert report["detection_confidence"] == 0.5 and report["review_confidence"] == 0.80
     assert report["expected_cameras"] == 4
 
     baseline = report["configs"]["baseline"]
@@ -709,7 +709,8 @@ def test_physical_mode_detects_at_the_configured_confidence(scans, weights, tmp_
         reader=fake_reader, classifier_factory=fake_factory([]),
         base_settings=base_settings(yolo_confidence_threshold=0.4),
     )
-    assert explicit["detection_confidence"] == 0.85
+    # Capped by the default review threshold (0.80).
+    assert explicit["detection_confidence"] == 0.80
 
 
 @pytest.mark.parametrize(("text", "message"), [

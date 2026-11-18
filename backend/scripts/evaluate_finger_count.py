@@ -106,7 +106,7 @@ RULE_COUNTERS = (
     "colour_rejected_boxes",
 )
 # Station default of the saved review threshold (system_config.confidence_threshold).
-DEFAULT_REVIEW_CONFIDENCE = 0.85
+DEFAULT_REVIEW_CONFIDENCE = 0.80
 # Bootstrap resamples drawn per block; fixed so a seed always gives the same interval.
 _BOOTSTRAP_BLOCK = 250
 # Only these settings go into the report: the rest can hold secrets.
@@ -1030,7 +1030,7 @@ def build_parser() -> argparse.ArgumentParser:
     physical.add_argument("--counts", type=Path, required=True,
                           help="CSV with the columns scan_id,physical_count")
     physical.add_argument("--review-confidence", type=float, default=DEFAULT_REVIEW_CONFIDENCE,
-                          help="saved review threshold of the station (default 0.85)")
+                          help="saved review threshold of the station (default 0.80)")
     physical.add_argument("--expected-cameras", type=int, default=len(VIEWS),
                           help="configured camera count (default 4)")
     return parser

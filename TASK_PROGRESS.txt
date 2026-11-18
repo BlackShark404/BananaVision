@@ -71,6 +71,18 @@ VERIFICATION (2026-11-18)
 - NOT rerun after the fixes (stopped at the user's request): the full backend suites, the
   frontend suite (including the corrected maintenance test), tsc, ESLint, build.
 
+DEFAULT THRESHOLD 80% EVERYWHERE (user confirmation 2026-11-18)
+- "80% is the default threshold both backend and ui. If the confidence is below 80 then it
+  flags. If it's 80 and above then no auto flag."
+- Backend default 80: SystemConfig model, first-start configuration, dashboard fallback,
+  evaluate_finger_count.py (DEFAULT_REVIEW_CONFIDENCE 0.80).
+- UI default 80: "Reset All Settings" and the settings state shown before the saved
+  configuration loads (AdminContext.tsx).
+- Rule: confidence < threshold flags; confidence >= threshold does not.
+- Checked with targeted tests only (user: "no excessive checking"):
+  test_evaluate_finger_count, test_auto_flag_reasons, test_configuration; frontend
+  maintenance and adminloading; tsc -b.
+
 AUDIT PART 3: TWO VERSIONS
 - The team's Part 3 (582ea43) is on main.
 - The earlier version from this fork is NOT on main and must not be applied on top: fork

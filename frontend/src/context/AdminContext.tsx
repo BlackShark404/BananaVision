@@ -123,7 +123,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [devicesLoading, setDevicesLoading] = useScopedState(scope, Boolean(user))
   const [devicesError, setDevicesError] = useScopedState<string | null>(scope, null)
   const [activityReady, setActivityReady] = useScopedState(scope, false)
-  const [config, setConfig] = useScopedState<SystemConfig>(scope, { cameraIds: "CAM-001, CAM-002", confidenceThreshold: 85, dataRetentionEnabled: true })
+  const [config, setConfig] = useScopedState<SystemConfig>(scope, { cameraIds: "CAM-001, CAM-002", confidenceThreshold: 80, dataRetentionEnabled: true })
   const acceptUserWrite = useCallback(() => {
     ++usersRequests.generation
     setUsersLoading(false)
