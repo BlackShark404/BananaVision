@@ -2,6 +2,21 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-11-18: Kiosk scans were auto-flagged above the confidence threshold
+
+- **Symptom (station):** new kiosk scans showed as Flagged in Scan Logs and Quality
+  Control although their confidence was above the saved threshold.
+- **Root cause:** `FusionEngine.fuse` flagged a scan when the cameras reported different
+  finger counts (`count_requires_review`), which is the normal case with four cameras. It
+  also flagged camera disagreements and missing views, and `scan_service` flagged every
+  scan with dropped boxes. None of these depend on confidence.
+- **Fix:** the only auto-flag rule is confidence below the saved threshold. The other
+  signals are recorded as observations in the scan's activity entry. The created history
+  entry of a flagged scan says why. See [[Development Decisions]] (2026-11-18).
+- **Existing data:** `backend/scripts/review_auto_flags.py` previews and, with `--apply`,
+  removes old flags the rule would not set.
+- **Verification:** See [[Testing and Validation]] (2026-11-18).
+
 ## 2026-11-17: Audit log gaps (lockout row lost, refused access and backups unlogged)
 
 - **Symptoms found by the audit-coverage review:**

@@ -1,5 +1,35 @@
 # Testing and Validation
 
+## Auto-flag only for low confidence — 2026-11-18
+
+- **New backend tests:**
+  - `test_auto_flag_reasons.py` (13):
+    - the threshold is the only flag (80.0 at an 80% threshold is not flagged, 79.9 is);
+    - different finger counts, cultivar and ripeness disagreements, a view conflict and
+      missing or unsupported views are observations, not flags;
+    - a saved confident 4-camera scan with counts 10/7/7/9 is unflagged;
+    - the saved System Config threshold decides;
+    - dropped boxes and observations appear after "; noted:" in the activity entry;
+    - a flagged scan records "Auto-flagged: …" in history, the activity entry and the
+      notification.
+  - `test_review_auto_flags.py` (8, one on PostgreSQL):
+    - the preview lists every decision and changes nothing;
+    - `--apply` needs an active administrator;
+    - only flags the rule would not set are removed, each with a history entry and an
+      audit row;
+    - a second run changes nothing;
+    - a scan a person handled meanwhile is left alone;
+    - the command line returns 2 without `--admin`.
+- **Tests updated on purpose** (they pinned the removed rules): `test_classification_fusion.py`
+  (19 tests now assert the observation instead of a flag; 7 renamed), `test_scan_trigger.py`,
+  `test_ood_gate.py`, `test_colour_check.py`, `test_finger_count_rules.py`,
+  `test_rotation_consensus.py`, `test_evaluate_finger_count.py`.
+- **Mutation checks:** flagging again on differing counts, and dropping the "person handled"
+  rule in the cleanup command, made 6 of the new tests fail.
+- **Results:** backend 1322 passed, 38 skipped with a disposable PostgreSQL 16 cluster;
+  1246 passed, 114 skipped without it. Ruff 644 (baseline). The Manila time guard covers the
+  new script. No frontend file changed, so the frontend suite was not re-run.
+
 ## Audit logging overhaul — 2026-11-17
 
 - **New backend tests** (89 in total):

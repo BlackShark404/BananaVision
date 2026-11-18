@@ -52,7 +52,7 @@ def test_rotated_stage_disagreement_does_not_disable_top_cultivar_anchor():
     assert fused.finger_count == 14
 
 
-def test_rotated_stage_ambiguity_still_flags_review_when_all_counts_agree():
+def test_rotated_stage_ambiguity_is_still_reported_when_all_counts_agree():
     top = rotated_hand(1)
     other = camera_result("Lakatan", "Unripe", 90)
     other.finger_count = top.finger_count
@@ -65,7 +65,9 @@ def test_rotated_stage_ambiguity_still_flags_review_when_all_counts_agree():
 
     assert fused.cultivar_conflict is False
     assert fused.conflict_detected is True
-    assert fused.auto_flagged is True
+    # Reported as an observation; only a confidence below the threshold flags a scan.
+    assert "view_conflict" in {observation.code for observation in fused.observations}
+    assert fused.auto_flagged is False
 
 
 @pytest.mark.parametrize("rotated_class", [0, 2])

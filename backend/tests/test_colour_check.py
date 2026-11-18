@@ -165,7 +165,7 @@ def test_rotated_pass_does_not_add_dark_background():
     assert result.finger_count == 1 and result.colour_rejected_boxes == 1
 
 
-def test_station_flags_a_scan_with_a_crown_box(station):  # noqa: F811
+def test_station_notes_a_scan_with_a_crown_box(station):  # noqa: F811
     frame = np.zeros((200, 400, 3), np.uint8)
     paint(frame, (0, 0, 400, 200), (5, 40, 200))
     fingers = [(10, 20, 50, 180), (70, 20, 110, 180), (130, 20, 170, 180)]
@@ -186,7 +186,8 @@ def test_station_flags_a_scan_with_a_crown_box(station):  # noqa: F811
     response = station.trigger()
     assert response.status_code == 200, response.text
     data = response.json()
-    assert data["finger_count"] == 3 and data["flagged"] is True
+    # Dropped boxes are noted in the activity log; only low confidence flags a scan.
+    assert data["finger_count"] == 3 and data["flagged"] is False
     with Session(station.app.engine) as db:
         saved = db.get(Scan, UUID(data["id"]))
         assert all(len(d.bounding_boxes) == 3 for d in saved.detections)
@@ -194,8 +195,7 @@ def test_station_flags_a_scan_with_a_crown_box(station):  # noqa: F811
             ActivityLog.action == "scan_created",
         ))
     assert created.endswith(
-        "4 boxes over non-banana colours (crown or dark background) dropped, "
-        "flagged for review"
+        "; noted: 4 boxes over non-banana colours (crown or dark background) dropped"
     )
 
 

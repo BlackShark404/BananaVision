@@ -242,7 +242,7 @@ def test_platter_lip_is_filtered_on_every_side_camera(rules):
 
 
 # ── The station flags a scan whose boxes were dropped for inconsistent ripeness ──
-def test_station_flags_a_scan_with_a_ripeness_outlier(station):  # noqa: F811
+def test_station_notes_a_scan_with_a_ripeness_outlier(station):  # noqa: F811
     # Three ripe Lakatan fingers and one "unripe" object beside them, on banana evidence.
     station.gate = lambda _frame: gate_result(boxes=[EvidenceBox(0, 0, 400, 200, 0.8)])
     fingers = [(10, 20, 50, 180), (70, 20, 110, 180), (130, 20, 170, 180)]
@@ -251,14 +251,15 @@ def test_station_flags_a_scan_with_a_ripeness_outlier(station):  # noqa: F811
     assert response.status_code == 200, response.text
     data = response.json()
     assert (data["cultivar"], data["ripeness"], data["finger_count"]) == ("Lakatan", "Ripe", 3)
-    assert data["flagged"] is True
+    # Dropped boxes are noted in the activity log; only low confidence flags a scan.
+    assert data["flagged"] is False
     with Session(station.app.engine) as db:
         saved = db.get(Scan, UUID(data["id"]))
         assert all(len(d.bounding_boxes) == 3 for d in saved.detections)
         created = db.scalar(select(ActivityLog.details).where(
             ActivityLog.action == "scan_created",
         ))
-    assert created.endswith("4 boxes with inconsistent ripeness dropped, flagged for review")
+    assert created.endswith("; noted: 4 boxes with inconsistent ripeness dropped")
 
 
 def test_adjacent_ripeness_recovery_is_off_unless_switched_on(rules):

@@ -1,61 +1,39 @@
-CURRENT RESUME HERE (2026-11-17) - COMPLETE AUDIT LOGGING (PART 2 OF 3)
+CURRENT RESUME HERE (2026-11-18) - AUTO-FLAG ONLY WHEN CONFIDENCE IS BELOW THE THRESHOLD
 
-The previous checkpoint (admin Sold/Spoiled correction, kiosk today-only resume; pushed to
-fork main as 7f8e858) is archived byte-for-byte in
-docs/history/2026-11-17-before-audit-logging.txt.
+The previous checkpoint (complete audit logging, Part 2 of 3; merged to team main as
+19196f9, PR #16) is archived byte-for-byte in
+docs/history/2026-11-18-before-auto-flag-fix.txt.
 
-USER REQUEST (2026-11-17)
-- "Make sure also the audit logs properly logs all CRUD operations and other things. Do
-  what must be done and best practice and continue that Resume today only".
-- User choices: keep the actor's name with each entry (Part 3), log refused access
-  (throttled), keep the audit log across restores (Part 3).
+USER REQUEST (2026-11-18)
+- "Fix the autoflag of the system. It auto flags a kiosk scan in the scan logs and quality
+  control even though the average confidence of the kiosk scan is more than the default of
+  80% confidence threshold."
+- Decision: "The auto flag must work in confidence is below the threshold only. No other
+  factors needed." Old flags: "Clean up with a preview". Order: auto-flag fix first.
 
-DONE (Part 2, this commit)
-- backend/app/services/audit.py: the single writer.
-  - Writers: AuditAction vocabulary; record (same transaction); emit (own session, defers
-    while the station is not ready, required=True egress fails closed with 503); attach
-    plus a global handler that writes failure events after rollback.
-  - Refused access: access_denied for 403, throttled per actor, route and reason (10 min).
-  - Safety: anonymous cap 120/min, lock_timeout 5s, bananavision.audit file mirror.
-- All 25 inline ActivityLog writes migrated (a guard test enforces it).
-- Sign-in:
-  - the lockout row survives the 429; new account_locked, login_blocked, login_denied,
-    credential_setup_started, pin_login;
-  - specific credential actions;
-  - change-password, change-PIN and re-auth get the credential_limiter (429);
-  - unrecognized usernames are never stored.
-- Maintenance: backup created/failed/downloaded, restore validated/completed/failed
-  (exactly once, after verify_live), recovery, power cancel/failed/completed,
-  config_applied, retention, bootstrap, system_started.
-- Records: old -> new details, no-ops skipped, user_role_changed/user_status_changed,
-  profile_updated, scan details with reason (never note text), scan_failed, data_exported
-  (config and scan-log exports), label print/retry.
-- Read side: GET /activity as_of paging; frontend lib/activityActions.ts gives labels,
-  categories, colours and the critical set for every action, plus a sync test against
-  audit.py.
-- Docs: Database (Activity log section), Development Decisions, Resolved Bugs, Frontend,
-  Testing and Validation, USER_GUIDE, data dictionary Table 37, schema draft note,
-  backend README, storyboard Figure 84.
+DONE (this commit)
+- backend/app/services/fusion_engine.py: auto_flagged = final confidence < review
+  threshold, nothing else. FusedResult.flag_reason holds the sentence. The other signals
+  (cultivar/ripeness/view conflicts, weak pair support, insufficient views, missing
+  captures, different finger counts) are FusedResult.observations.
+- backend/app/services/scan_service.py: flags only on fusion's rule. Dropped boxes and
+  observations go to the scan_created activity entry after "; noted: ...". A flagged scan's
+  created history entry, activity entry and notification say "Confidence X% is below the
+  Y% threshold".
+- backend/scripts/evaluate_finger_count.py mirrors the rule and reports "noted".
+- backend/scripts/review_auto_flags.py: station command for old flags. Preview by default.
+  `--apply --admin <username>` removes flags the rule would not set. It never touches
+  scans below the threshold, scans a person flagged/corrected/noted, or scans without a
+  stored confidence. NOT run by the assistant; the station admin runs it.
+- Frontend unchanged. The cultivar-disagreement warning (from stored per-camera results)
+  still shows on Kiosk and Scan Detail.
+- Docs: Development Decisions (2026-11-18 entry, earlier entries marked revised), Resolved
+  Bugs, AI Models, Testing and Validation, backend README.
 
 VERIFICATION
-- Backend: 1290 passed, 38 skipped with a disposable PostgreSQL 16 cluster; 1215 passed,
-  113 skipped without it. Ruff 644 (baseline).
-- Frontend: 389/390. The analytics refresh failure is the known clock race; it passes 9/9
-  alone, twice. tsc -b and build pass. ESLint 36 (was 40).
-- Review follow-up (four-lens review with skeptics: 14 of 15 findings confirmed, 9 after
-  merging duplicates), fixed in a separate commit:
-  - Egress: required egress is refused in recovery/maintenance and written at once while a
-    restart is pending.
-  - Backlog: one drain lock (no double writes); a failed write requeues; a warning when
-    the queue drops events; flush after camera apply and at shutdown.
-  - Cap: failures against real accounts are not capped.
-  - File log: shows only committed record() rows.
-  - Reading: GET /activity boundary = later of now and the newest row.
-  - Export: a snapshot export is checked read-only before data_exported is written.
-  - Frontend: the login_blocked label is now "Blocked while locked"; the frontend boundary
-    test is real (mutation-checked).
-  - Results after the fixes: backend 1301 passed / 38 skipped with PostgreSQL, 1226 / 113
-    without; frontend 391/391; tsc -b and build pass; ESLint 36; Ruff 644.
+- Backend: 1322 passed, 38 skipped with a disposable PostgreSQL 16 cluster; 1246 passed,
+  114 skipped without it. Ruff 644 (baseline). Mutation checks on the new tests.
+- Frontend suite not re-run (no frontend file changed).
 
 STILL OPEN
 - The station data release (teammate guide PDF), then:
@@ -73,14 +51,18 @@ STILL OPEN
   the archived checkpoints.
 - Type check: use `npx tsc -b` (or `npm run build`), not `npm run typecheck`.
 
-IN PROGRESS (approved plan, 2026-11-17)
-- Part 3: audit integrity:
-  - activity_log.actor_name snapshot plus migration 0012 plus backup archive v5 (older
-    archives still restorable);
-  - the audit log is kept across restores;
-  - a PostgreSQL append-only trigger.
-- Plan: /root/.claude/plans/before-you-continue-why-optimized-sphinx.md (session-local).
+IN PROGRESS
+- Audit Part 3 (actor_name snapshot + migration 0012 + backup archive v5, audit kept across
+  restore, PostgreSQL append-only trigger) is implemented and its tests passed (backend
+  1327 with PostgreSQL, 1242 without), but its independent review has not run.
+  - It is NOT on main. It is parked on the fork branch wip/audit-integrity (commit
+    a270d5a) and in a local git stash.
+  - Next: restore it on top of main, rerun the suites, run the review, fix findings,
+    finish its docs, commit to main, push, delete the wip branch.
 
 EXACT NEXT STEP
-- Part 3 (audit integrity). Then the user opens the team PR from the fork's main:
+- User opens the team PR for the auto-flag fix from the fork's main:
   https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main
+- At the station after updating: run the preview
+  `.\venv\Scripts\python.exe scripts\review_auto_flags.py` from the backend folder, then
+  the same command with `--apply --admin <username>` to remove the old flags.

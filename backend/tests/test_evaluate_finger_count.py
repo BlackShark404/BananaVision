@@ -597,16 +597,18 @@ def test_physical_mode_fuses_views_with_the_real_fusion_engine(scans, weights, t
     baseline = report["configs"]["baseline"]
     s1, s2, s3, s4 = baseline["scans"]
     assert s1["views"] == {"Top": 6, "Left": 5, "Right": 6, "Rear": 4}
-    # Fusion keeps the largest view count; differing counts need a person's review.
-    # s1 has no outlier or OOD boxes, so only fusion flags it.
-    assert (s1["fused_count"], s1["review_flagged"], s1["cultivar"]) == (6, True, "Lakatan")
+    # Fusion keeps the largest view count. Only a confidence below the review threshold
+    # flags a scan; differing counts between views are noted.
+    assert (s1["fused_count"], s1["review_flagged"], s1["cultivar"]) == (6, False, "Lakatan")
+    assert s1["noted"] == ["count_views_differ"]
     assert s1["rejected"] is None
-    # Four agreeing views at 90% confidence, no dropped boxes: no review.
-    assert s2["fused_count"] == 8 and s2["review_flagged"] is False
+    # Four agreeing views at 90% confidence, no dropped boxes: no review, nothing noted.
+    assert s2["fused_count"] == 8 and s2["review_flagged"] is False and s2["noted"] == []
     assert s3["rejected"] == "no_target_cultivar" and s3["fused_count"] is None
     assert s3["views"] == {"Top": 0, "Left": 0, "Right": 0, "Rear": 0}
-    # Views agree, but Left dropped ripeness outlier boxes: review as on the station.
-    assert s4["fused_count"] == 3 and s4["review_flagged"] is True
+    # Views agree, but Left dropped ripeness outlier boxes: noted, not flagged.
+    assert s4["fused_count"] == 3 and s4["review_flagged"] is False
+    assert "ripeness_outlier_boxes" in s4["noted"]
 
     # Fused 6 8 3 against 7 8 3: errors -1 0 0.
     assert baseline["fused"] == {
@@ -618,7 +620,7 @@ def test_physical_mode_fuses_views_with_the_real_fusion_engine(scans, weights, t
     assert baseline["rejected"] == {
         "scans": 1, "rate": 0.25, "by_reason": {"no_target_cultivar": 1},
     }
-    assert baseline["review_flagged"] == 2 and baseline["review_flag_rate"] == 0.6667
+    assert baseline["review_flagged"] == 0 and baseline["review_flag_rate"] == 0.0
     assert list(baseline["fused_by_size"]) == ["1-4", "5-8"]
     assert baseline["rules"]["ripeness_outlier_boxes"] == {"total": 2, "images": 1}
     assert baseline["comparison_to_baseline"] is None
@@ -657,8 +659,9 @@ def test_physical_mode_with_the_gate_rejects_a_scan_without_banana(scans, weight
     baseline = report["configs"]["baseline"]
     s1, s2, s3, s4 = baseline["scans"]
     assert s3["rejected"] == "no_banana" and s3["views"] == {}
-    # Left of s2 has no evidence of its own: its boxes are dropped and review is required.
-    assert s2["views"]["Left"] == 0 and s2["review_flagged"] is True
+    # Left of s2 has no evidence of its own: its boxes are dropped and that is noted.
+    assert s2["views"]["Left"] == 0 and s2["review_flagged"] is False
+    assert "ood_rejected_boxes" in s2["noted"]
     assert baseline["rules"]["ood_rejected_boxes"] == {"total": 8, "images": 1}
     assert baseline["rejected"]["by_reason"] == {"no_banana": 1}
     assert report["configs"]["hand_box_split=off"]["rejected"]["by_reason"] == {"no_banana": 1}
@@ -666,7 +669,7 @@ def test_physical_mode_with_the_gate_rejects_a_scan_without_banana(scans, weight
     assert detector.calls == 16  # once per photo of the 4 scans, not per config
 
 
-def test_physical_mode_flags_missing_captures_against_the_expected_camera_count(
+def test_physical_mode_notes_missing_captures_against_the_expected_camera_count(
     tmp_path, weights,
 ):
     root = tmp_path / "pairs"
@@ -682,11 +685,13 @@ def test_physical_mode_flags_missing_captures_against_the_expected_camera_count(
         )
         return report["configs"]["baseline"]["scans"][0]
 
-    # Two agreeing views of four configured cameras: the station asks for review.
+    # Two agreeing views of four configured cameras: noted, and not a reason to flag.
     four = scan()
-    assert four["fused_count"] == 5 and four["review_flagged"] is True
+    assert four["fused_count"] == 5 and four["review_flagged"] is False
+    assert "missing_captures" in four["noted"]
     # With two cameras configured nothing is missing.
-    assert scan("--expected-cameras", "2")["review_flagged"] is False
+    two = scan("--expected-cameras", "2")
+    assert two["review_flagged"] is False and "missing_captures" not in two["noted"]
 
 
 def test_physical_mode_detects_at_the_configured_confidence(scans, weights, tmp_path):
@@ -831,7 +836,7 @@ def test_main_refuses_missing_weights(split, tmp_path, capsys):
     assert "Cultivar weights not found" in capsys.readouterr().err
 
 
-def test_colour_check_config_and_physical_review_flag(tmp_path):
+def test_colour_check_config_and_physical_note(tmp_path):
     [config] = evaluation.parse_configs(["colour_check=off"])
     assert config.overrides == {"yolo_colour_check": False}
     views = []
@@ -841,13 +846,15 @@ def test_colour_check_config_and_physical_review_flag(tmp_path):
         views.append((view, path))
     scan = evaluation.Scan(scan_id="s1", physical=3, views=views)
 
-    def flagged(settings):
-        outcome, _ = evaluation.score_physical_scan(
+    def outcome(settings):
+        result, _ = evaluation.score_physical_scan(
             scan, FakeClassifier(settings), fake_reader, FusionEngine(), gate=None,
             policy=GatePolicy(), confidence=0.5, review_confidence=0.85, expected_cameras=4,
         )
-        return outcome["review_flagged"]
+        return result
 
-    # Same counts in every view: only the colour drop flags the scan for review.
-    assert flagged(base_settings()) is True
-    assert flagged(base_settings(yolo_colour_check=False)) is False
+    # Same counts in every view. The colour drop is noted; it does not flag the scan.
+    checked = outcome(base_settings())
+    assert checked["review_flagged"] is False and checked["noted"] == ["colour_rejected_boxes"]
+    unchecked = outcome(base_settings(yolo_colour_check=False))
+    assert unchecked["review_flagged"] is False and unchecked["noted"] == []

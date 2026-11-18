@@ -41,7 +41,7 @@ from app.services.classification import (
 )
 from app.services.banana_detector import banana_pre_detector
 from app.services import audit, ood_gate
-from app.services.fusion_engine import fusion_engine
+from app.services.fusion_engine import COUNT_VIEWS_DIFFER, fusion_engine
 from app.services.spoilage import spoilage_predictor
 from app.services.feature_engineering import calc_vpd
 from app.models.intake import Intake
@@ -60,6 +60,24 @@ CAPTURE_UNAVAILABLE_MESSAGE = (
 def estimated_fingers(count: int) -> str:
     """Wording for an AI finger count in notifications and the activity log."""
     return f"Est. {count} {'finger' if count == 1 else 'fingers'}"
+
+
+def _boxes(count: int) -> str:
+    return "1 box" if count == 1 else f"{count} boxes"
+
+
+def dropped_box_notes(no_evidence: int, ripeness_outliers: int, colour: int) -> list[str]:
+    """Activity-log notes for boxes dropped from an accepted scan. They do not flag it."""
+    reasons = []
+    if no_evidence:
+        reasons.append(f"{_boxes(no_evidence)} without banana evidence dropped")
+    if ripeness_outliers:
+        reasons.append(f"{_boxes(ripeness_outliers)} with inconsistent ripeness dropped")
+    if colour:
+        reasons.append(
+            f"{_boxes(colour)} over non-banana colours (crown or dark background) dropped"
+        )
+    return reasons
 
 
 def rejection_payload(exc: ScanRejectedError) -> dict:
@@ -367,30 +385,34 @@ async def _execute_scan_pipeline(
                     f"colours dropped; banana scores: {view_scores}"
                 ),
             )
-        # The gate never changes an accepted scan silently: dropped boxes can be a
-        # foreign object or a missed finger, so a person confirms the result.
-        # A box whose ripeness disagrees with the rest of the hand is usually another
-        # object (wood read as a ripe finger), but a person confirms that too.
-        # Boxes over the crown or dark background are dropped by colour; flagged as well.
-        auto_flagged = (
-            bool(fused.auto_flagged) or ood_rejected_boxes > 0 or ripeness_outlier_boxes > 0
-            or colour_rejected_boxes > 0
-        )
+        # The only auto-flag rule is a confidence below the saved review threshold (user
+        # decision, 2026-11-18). Camera disagreements, missing views and dropped boxes do
+        # not flag a scan. They are never silent either: each is noted in the scan's
+        # activity entry, and a cultivar disagreement still shows its own warning.
+        auto_flagged = bool(fused.auto_flagged)
+        flag_reason = (
+            getattr(fused, "flag_reason", None) or "Confidence is below the review threshold"
+        ) if auto_flagged else None
+        flagged_text = f"flagged for review: {flag_reason}"
+        scan_notes = [
+            observation.text for observation in getattr(fused, "observations", None) or ()
+            if observation.code != COUNT_VIEWS_DIFFER
+        ] + dropped_box_notes(ood_rejected_boxes, ripeness_outlier_boxes, colour_rejected_boxes)
         if ood_rejected_boxes:
             logger.info(
                 "OOD gate dropped %s cultivar boxes without banana evidence in scan %s; "
-                "flagged for review (banana scores: %s)",
+                "noted in the activity log (banana scores: %s)",
                 ood_rejected_boxes, scan_id_str, view_scores,
             )
         if colour_rejected_boxes:
             logger.info(
                 "Dropped %s boxes over non-banana colours (crown or dark background) in "
-                "scan %s; flagged for review", colour_rejected_boxes, scan_id_str,
+                "scan %s; noted in the activity log", colour_rejected_boxes, scan_id_str,
             )
         if ripeness_outlier_boxes:
             logger.info(
-                "Dropped %s boxes with inconsistent ripeness in scan %s; flagged for review",
-                ripeness_outlier_boxes, scan_id_str,
+                "Dropped %s boxes with inconsistent ripeness in scan %s; noted in the "
+                "activity log", ripeness_outlier_boxes, scan_id_str,
             )
 
         # Cross-view cultivar harmonization:
@@ -481,6 +503,7 @@ async def _execute_scan_pipeline(
             db, scan_id=scan_id, operator_id=operator_id, operator_name=operator_name,
             intake=intake_obj, source_text=supplier_name, date_time=now_manila(),
             classification=classification, flagged=auto_flagged,
+            flag_reason=flag_reason,
             actor_id=account_id, actor_name=operator_name,
         )
 
@@ -499,21 +522,8 @@ async def _execute_scan_pipeline(
                 f"Scan {scan_id} ({_intake_text(intake_obj.id if intake_obj else None)}): "
                 f"Scanned {audit.clean(fused.cultivar)} ({audit.clean(fused.ripeness)}) — "
                 f"{fused.confidence}% confidence, {estimated_fingers(fused.finger_count)}"
-                + (
-                    f"; {ood_rejected_boxes} boxes without banana evidence dropped, "
-                    "flagged for review"
-                    if ood_rejected_boxes else ""
-                )
-                + (
-                    f"; {ripeness_outlier_boxes} boxes with inconsistent ripeness dropped, "
-                    "flagged for review"
-                    if ripeness_outlier_boxes else ""
-                )
-                + (
-                    f"; {colour_rejected_boxes} boxes over non-banana colours (crown or dark "
-                    "background) dropped, flagged for review"
-                    if colour_rejected_boxes else ""
-                )
+                + (f"; {flagged_text}" if auto_flagged else "")
+                + (f"; noted: {'; '.join(scan_notes)}" if scan_notes else "")
             ),
             actor_id=account_id, ip=client_ip,
         )
@@ -536,7 +546,7 @@ async def _execute_scan_pipeline(
                 title="Scan Auto-Flagged",
                 message=(
                     f"{fused.cultivar} · {fused.ripeness} · "
-                    f"{fused.confidence}% confidence — flagged for review"
+                    f"{fused.confidence}% confidence — {flagged_text}"
                 ),
                 href=f"/scans/{scan_id_str}",
                 user_id=None,  # Broadcast; read state is per user.
@@ -584,7 +594,7 @@ async def _execute_scan_pipeline(
                 "title": "Scan Auto-Flagged",
                 "message": (
                     f"{fused.cultivar} · {fused.ripeness} · "
-                    f"{fused.confidence}% confidence — flagged for review"
+                    f"{fused.confidence}% confidence — {flagged_text}"
                 ),
                 "href": f"/scans/{scan_id_str}",
             })

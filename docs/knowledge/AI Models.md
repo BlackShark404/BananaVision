@@ -102,8 +102,9 @@ brown rather than bluish-grey, or another dark background colour, is not covered
 `tests/conftest.py` to keep the check off on blank placeholder frames.
 
 Dropped ripeness outliers are counted in `ClassificationResult.ripeness_outlier_boxes`,
-logged, appended to the scan's activity entry ("N boxes with inconsistent ripeness
-dropped, flagged for review") and flag the scan, like gate-dropped boxes. Hand-box splits
+logged and appended to the scan's activity entry ("noted: N boxes with inconsistent
+ripeness dropped"). Since 2026-11-18 dropped boxes do not flag a scan; only a confidence
+below the threshold does ([[Development Decisions]]). Hand-box splits
 are counted in `hand_box_splits`. The OOD gate contract still holds (randomized tests).
 
 **Not measured.** No banana weights, photos or GPU were available, so none of these
@@ -194,7 +195,8 @@ scikit-learn version warning (training 1.6.1, local runtime 1.8.0); dependencies
 1. **Scan gate.** `OOD_MIN_BANANA_VIEWS` views (default 1) must show a banana at
    `OOD_BANANA_CONFIDENCE` (0.30). Otherwise the scan is rejected before Stage 2. Only
    captured frames count, so a camera without a frame lowers the requirement; the fusion
-   engine flags such a scan for review as a missing capture.
+   engine reports the missing capture as an observation in the scan's activity entry (it
+   flagged the scan until 2026-11-18).
 2. **Box support.** A cultivar box is kept only when banana evidence at
    `OOD_SUPPORT_CONFIDENCE` (0.05), grown by `OOD_SUPPORT_MARGIN` (25 % per side), covers
    its centre in the same frame. An unsupported box is treated as if the model had
@@ -206,7 +208,8 @@ scikit-learn version warning (training 1.6.1, local runtime 1.8.0); dependencies
    change. The result is exactly
    what the classifier reports for the remaining boxes. Tests pin that contract on
    300 random frames.
-3. **No silent change.** If any box was dropped, the saved scan is flagged for review.
+3. **No silent change.** If any box was dropped, the scan's activity entry notes it
+   (until 2026-11-18 the scan was also flagged; now only low confidence flags).
    If no supported cultivar remains, the scan is rejected and nothing is stored.
 4. **Fail closed.** A verifier that cannot run refuses the scan (HTTP 503).
    `OOD_GATE_FAIL_OPEN=true` restores the earlier pass-through.
