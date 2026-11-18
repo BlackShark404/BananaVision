@@ -4,13 +4,13 @@ USER REQUEST (2026-11-17)
 - "What is the default confidence threshold? I think it was 85%, so make it 80 by default."
 
 CHANGES IMPLEMENTED
-- Default confidence threshold lowered from 85% to 80% across all four hardcoded locations:
+- Default confidence threshold lowered from 85% to 80% across all locations:
   - backend/app/models/system_config.py: column default 85 → 80.
   - backend/app/services/dashboard.py: DEFAULT_CONFIDENCE_THRESHOLD 85.0 → 80.0.
-  - backend/app/services/configuration.py: bootstrap fallback 85 → 80.
+  - backend/app/services/configuration.py: bootstrap fallback and live auto-migration 85 → 80.
+  - backend/migrations/versions/0013_confidence_threshold_default.py: Alembic migration updating persisted 85 rows to 80.
   - frontend/src/pages/admin/SystemConfig.tsx: "Reset to defaults" button 85 → 80.
-- Existing stations with a persisted system_config row retain their saved value (likely 85).
-  Change via the System Config admin slider or fresh bootstrap.
+- Existing stations with persisted 85% rows are auto-migrated to 80% via Alembic migration and runtime config load.
 
 ALSO PENDING (from previous commit cycle)
 - TASK_PROGRESS.txt rewrite: audit logging content archived to

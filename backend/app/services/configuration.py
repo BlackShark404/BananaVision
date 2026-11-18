@@ -128,8 +128,7 @@ async def get_config(db) -> SystemConfig:
                 503, 'Saved configuration is invalid; administrator repair is required',
             )
         # Migrate the old bootstrap default (85) to the current default (80).
-        # Only auto-migrate when no admin has explicitly saved the threshold.
-        if canonical.confidence_threshold == 85 and canonical.updated_by_admin is None:
+        if canonical.confidence_threshold == 85:
             canonical.confidence_threshold = 80
             await db.flush()
         return await _with_camera_slots(db, canonical)
@@ -152,7 +151,7 @@ async def get_config(db) -> SystemConfig:
         )
         canonical.canonical_key = 1
         # Migrate the old bootstrap default (85) to the current default (80).
-        if canonical.confidence_threshold == 85 and canonical.updated_by_admin is None:
+        if canonical.confidence_threshold == 85:
             canonical.confidence_threshold = 80
     else:
         canonical = SystemConfig(canonical_key=1, revision=1,
