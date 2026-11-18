@@ -431,7 +431,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
           <p className="font-semibold">Cameras disagree on the cultivar</p>
           <p className="text-xs mt-1">{cultivarConflict}.</p>
           <p className="text-xs mt-1">
-            Stored AI candidate: <span className="font-semibold">{scan.cultivar}</span>. Correct the cultivar or clear the flag after review.
+            Stored AI candidate: <span className="font-semibold">{scan.cultivar}</span>. {scan.flagged ? "Correct the cultivar or clear the flag after review." : "Correct the cultivar if it is wrong."}
           </p>
         </div>
       )}

@@ -62,6 +62,18 @@ def test_confidence_below_the_threshold_is_the_only_flag():
     assert stricter.flag_reason == "Confidence 82% is below the 85% threshold"
 
 
+@pytest.mark.parametrize("threshold", range(1, 101))
+def test_a_confidence_equal_to_the_threshold_is_never_flagged(threshold):
+    """The saved integer percent goes through a fraction; 7, 14, 28, 55 and 56 do not
+    survive that round trip exactly."""
+    equal = fuse(*(view(confidence=float(threshold)) for _ in range(4)),
+                 threshold=threshold / 100.0)
+    assert equal.auto_flagged is False and equal.flag_reason is None
+    below = fuse(*(view(confidence=threshold - 0.1) for _ in range(4)),
+                 threshold=threshold / 100.0)
+    assert below.auto_flagged is True
+
+
 def test_different_finger_counts_between_views_do_not_flag():
     result = fuse(view(count=10), view(count=7), view(count=7), view(count=9))
     assert result.confidence == pytest.approx(92)

@@ -26,9 +26,22 @@
   `test_rotation_consensus.py`, `test_evaluate_finger_count.py`.
 - **Mutation checks:** flagging again on differing counts, and dropping the "person handled"
   rule in the cleanup command, made 6 of the new tests fail.
-- **Results:** backend 1322 passed, 38 skipped with a disposable PostgreSQL 16 cluster;
-  1246 passed, 114 skipped without it. Ruff 644 (baseline). The Manila time guard covers the
-  new script. No frontend file changed, so the frontend suite was not re-run.
+- **Review follow-up** (2 lenses with skeptics; 7 of 8 findings confirmed, 5 after merging
+  duplicates). Tests added first, each failing before its fix:
+  - a confidence equal to the threshold is not flagged at any threshold from 1 to 100
+    (7, 14, 28, 55 and 56 failed before);
+  - an operator's flag request on an already flagged scan is kept by the cleanup;
+  - a status change is not a flag decision;
+  - scans from before scan history (corrected, noted, or without a creation entry) are
+    kept;
+  - a failure on one scan does not stop the others;
+  - an administrator deactivated during the run stops it;
+  - the command refuses to run outside the backend folder;
+  - Scan Detail mentions clearing the flag only on a flagged scan (frontend).
+- **Results after the review fixes:** backend 1428 passed, 38 skipped with a disposable
+  PostgreSQL 16 cluster; 1352 passed, 114 skipped without it. Frontend 392/392;
+  `npx tsc -b` and `npm run build` pass. ESLint 36 and Ruff 644 (baselines). The Manila
+  time guard covers the new script.
 
 ## Audit logging overhaul — 2026-11-17
 

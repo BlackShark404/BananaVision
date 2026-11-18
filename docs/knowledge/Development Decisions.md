@@ -16,8 +16,9 @@ Documented architectural, technical, and operational decisions in BananaVision.
   other factors needed." This replaces the rules of 2026-10-21 (differing counts), the OOD
   gate entry (dropped boxes flag) and the 2026-11-14 colour check ("drop and flag").
 - **Rule now:** `auto_flagged = final confidence < SystemConfig.confidence_threshold`. A
-  confidence equal to the threshold is not flagged. The same threshold labels "Low
-  confidence" in the UI.
+  confidence equal to the threshold is not flagged, at every threshold from 1 to 100 (the
+  integer percent is rounded back after its trip through a fraction). The same threshold
+  labels "Low confidence" in the UI.
 - **Nothing is silent:**
   - `FusedResult.observations` still lists what fusion noticed: `cultivar_conflict`,
     `ripeness_conflict`, `weak_pair_support`, `view_conflict`, `insufficient_views`,
@@ -30,12 +31,27 @@ Documented architectural, technical, and operational decisions in BananaVision.
   80% threshold" on the scan's created history entry, in the activity entry and in the
   notification.
 - **Old flags:** `backend/scripts/review_auto_flags.py` lists flagged scans and, with
-  `--apply --admin <username>`, removes the flags the rule would not set. It never touches
-  a scan below the threshold, a scan a person flagged, corrected or noted, or a scan with
-  no stored confidence. Each change goes through the normal un-flag path (Scan History,
-  activity log).
+  `--apply --admin <username>`, removes the flags the rule would not set. Each change goes
+  through the normal un-flag path (Scan History, activity log). It keeps a flag whenever a
+  person may have decided it, or the data cannot show otherwise:
+  - the confidence is below the threshold;
+  - a person flagged, corrected or noted the scan (history entries, `is_overridden`, or a
+    note row from before scan history existed);
+  - a request receipt (`scan_mutation`) exists that wrote no history entry. Kiosk "Flag
+    for Review" on a scan the system had already flagged changes nothing, so the receipt
+    is its only trace (review finding);
+  - the scan has no creation entry, or no stored confidence.
+- **Cleanup safety:** the command must be started in the backend folder (it uses the
+  backend's `.env`). It locks the admin account, then the intake, then the scan, the same
+  order as every scan change. A database error on one scan leaves that scan flagged and
+  continues with the next.
 - **Risk accepted:** a confident scan with a camera disagreement or dropped boxes is no
   longer queued for review. The notes above and the cultivar warning remain the trace.
+- **Not changed (a person's choice, not an auto flag):** when the cameras disagree on the
+  cultivar, the Kiosk still shows "Scan Complete - Review Needed", shows the cultivar as
+  uncertain and asks the operator to flag the scan by hand. Scan Detail still shows "Needs
+  Review" with the camera breakdown; its text mentions clearing a flag only when the scan
+  is flagged. The public QR page marks a result as preliminary only for flagged scans.
 
 ## 2026-11-17: Complete audit logging through one writer
 

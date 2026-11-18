@@ -29,6 +29,7 @@ from app.models import (
     Scan,
     ScanClassification,
     ScanEvent,
+    ScanNote,
     SystemConfig,
     UserAccount,
     UserRole,
@@ -226,6 +227,113 @@ def test_command_line_preview_and_missing_admin(stored, capsys, monkeypatch):
     assert "PREVIEW" in capsys.readouterr().out
     assert cleanup.main(["--apply"]) == 2
     assert "--apply needs --admin" in capsys.readouterr().err
+
+
+def as_user(app, account_id, role, **extra):
+    from app.api.deps import get_current_user
+
+    app.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id=account_id, token_version=1, full_name="Original Name" if role == "Operator"
+        else "Admin User", role=SimpleNamespace(name=role), **extra,
+    )
+
+
+def request(revision=1, **fields):
+    return {"request_id": str(uuid4()), "expected_revision": revision, **fields}
+
+
+def test_an_operator_flag_on_an_already_flagged_scan_is_kept(application):
+    """Kiosk "Flag for Review" on a scan the system had already flagged changes nothing, so
+    it leaves no history entry. The request receipt is the only trace of the person's flag."""
+    app = application
+    scan_id = add_scan(app, 92.0)
+    as_user(app, app.ids.operator, "Operator")
+    response = app.client.patch(f"/api/v1/scans/{scan_id}/flag",
+                                json=request(flagged=True, reason="Crown looks damaged"))
+    assert response.status_code == 200, response.text
+    with Session(app.engine) as db:
+        kinds = db.scalars(select(ScanEvent.kind).where(ScanEvent.scan_id == scan_id)).all()
+    assert kinds == ["created"]  # the flag request recorded nothing
+    assert decisions(run(app))[str(scan_id)] == ("keep", cleanup.UNRECORDED)
+    report = run(app, apply=True, admin_username="admin")
+    assert report.removed == 0
+    with Session(app.engine) as db:
+        assert db.get(Scan, scan_id).flagged is True
+
+
+def test_a_status_change_is_not_a_flag_decision(application):
+    app = application
+    scan_id = add_scan(app, 92.0)
+    as_user(app, app.ids.admin, "Admin")
+    response = app.client.patch(f"/api/v1/scans/{scan_id}/status",
+                                json=request(inventory_status="Sold", reason="Dispatched"))
+    assert response.status_code == 200, response.text
+    assert decisions(run(app))[str(scan_id)] == (
+        "remove", "Confidence 92% is not below the 85% threshold")
+
+
+def test_scans_from_before_scan_history_are_left_to_people(application):
+    app = application
+    corrected = add_scan(app, 92.0, minutes=3)
+    noted = add_scan(app, 93.0, minutes=2)
+    no_record = add_scan(app, 94.0, minutes=1)
+    with Session(app.engine) as db:
+        # Older stations: corrections and notes have no history entry, and scans restored
+        # from an old archive have no creation entry at all.
+        db.get(Scan, corrected).is_overridden = True
+        db.add(ScanNote(scan_id=noted, text="Checked", author_name="Admin User"))
+        for event in db.scalars(select(ScanEvent).where(ScanEvent.scan_id == no_record)):
+            db.delete(event)
+        db.commit()
+    found = decisions(run(app))
+    assert found[str(corrected)] == ("keep", cleanup.HANDLED)
+    assert found[str(noted)] == ("keep", cleanup.HANDLED)
+    assert found[str(no_record)] == ("keep", cleanup.UNKNOWN_ORIGIN)
+    assert run(app, apply=True, admin_username="admin").removed == 0
+
+
+def test_a_failure_on_one_scan_does_not_stop_the_others(application, monkeypatch):
+    app = application
+    first = add_scan(app, 92.0, minutes=2)
+    second = add_scan(app, 93.0, minutes=1)
+    original = cleanup.scan_records.apply_scan_change
+
+    async def fail_for_first(db, scan, *args, **kwargs):
+        if scan.id == first:
+            raise RuntimeError("simulated database error")
+        return await original(db, scan, *args, **kwargs)
+
+    monkeypatch.setattr(cleanup.scan_records, "apply_scan_change", fail_for_first)
+    report = run(app, apply=True, admin_username="admin")
+    assert (report.removed, report.skipped) == (1, 1)
+    with Session(app.engine) as db:
+        assert db.get(Scan, first).flagged is True
+        assert db.get(Scan, second).flagged is False
+    assert "1 scan could not be changed" in cleanup.render(report)
+
+
+def test_an_administrator_deactivated_during_the_run_stops_it(application, monkeypatch):
+    app = application
+    scan_id = add_scan(app, 92.0)
+    original = cleanup._remove_flag
+
+    async def deactivate_first(db, target, admin, threshold):
+        with Session(app.engine) as other:
+            other.get(UserAccount, app.ids.admin).status = ActiveStatusEnum.INACTIVE
+            other.commit()
+        return await original(db, target, admin, threshold)
+
+    monkeypatch.setattr(cleanup, "_remove_flag", deactivate_first)
+    with pytest.raises(cleanup.CleanupError, match="no longer an active administrator"):
+        run(app, apply=True, admin_username="admin")
+    with Session(app.engine) as db:
+        assert db.get(Scan, scan_id).flagged is True
+
+
+def test_the_command_refuses_to_guess_the_database_from_another_folder(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(cleanup.CleanupError, match="from the backend folder"):
+        cleanup.default_sessions()
 
 
 # ── PostgreSQL: real row locks and transactions ───────────────────────────────

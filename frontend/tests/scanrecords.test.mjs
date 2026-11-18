@@ -440,6 +440,15 @@ test('ScanDetail explains split camera cultivars without hiding the stored AI ca
   await page.getByText(/Stored AI candidate:/).waitFor()
   await page.getByText('Needs Review', { exact: true }).waitFor()
   assert.equal(await page.getByText('Verified', { exact: true }).count(), 0)
+  // A confident scan is not flagged for a camera disagreement, so there is no flag to clear.
+  await page.getByText(/Correct the cultivar if it is wrong\./).waitFor()
+  assert.equal(await page.getByText(/clear the flag/).count(), 0)
+})
+
+test('ScanDetail mentions clearing the flag only when the split-view scan is flagged', async t => {
+  const { page } = await setup(t, 200, { record: { ...scan(), confidence: 60, flagged: true, detections: splitViews } })
+  await page.getByText('Cameras disagree on the cultivar', { exact: true }).waitFor()
+  await page.getByText(/Correct the cultivar or clear the flag after review\./).waitFor()
 })
 
 test('ScanDetail keeps a human cultivar correction without repeating the split-view warning', async t => {

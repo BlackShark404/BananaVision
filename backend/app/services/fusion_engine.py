@@ -141,7 +141,7 @@ class FusionEngine:
                 finger_count=0,
                 camera_count=0,
                 auto_flagged=True,
-                flag_reason=_below_threshold(0.0, review_confidence_threshold * 100),
+                flag_reason=_below_threshold(0.0, round(review_confidence_threshold * 100, 6)),
                 observations=[Observation(MISSING_CAPTURES, "No camera returned a result")],
             )
 
@@ -308,7 +308,10 @@ class FusionEngine:
 
         # The one auto-flag rule: confidence below the saved review threshold. A result
         # without a label has confidence 0, so it is below any threshold.
-        threshold_percent = review_confidence_threshold * 100
+        # The saved threshold is an integer percent passed as a fraction; rounding undoes
+        # the float error of that round trip (55 / 100 * 100 is 55.00000000000001), so a
+        # confidence equal to the threshold is never flagged.
+        threshold_percent = round(review_confidence_threshold * 100, 6)
         auto_flagged = final_confidence < threshold_percent
         flag_reason = (
             _below_threshold(final_confidence, threshold_percent) if auto_flagged else None
