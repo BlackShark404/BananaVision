@@ -66,8 +66,8 @@ overlap between neighboring fingers is preserved in the first pass. A conflictin
 class suppressed during Top rotation also requires review.
 
 `MULTI_CAMERA_FINGER_FUSION` retains the existing peripheral count estimate.
-Rear's boxes are not added again when Rear supplies the anchor count, and any
-estimate above all individual view counts is flagged for operator confirmation.
+Rear's boxes are not added again when Rear supplies the anchor count. The count is an
+estimate ("Est."); differing view counts are reported but do not flag a scan.
 Camera-edge positions do not establish unique physical identities. Setting this
 option to `false` uses the largest per-camera count, which can undercount occluded
 fingers. The kiosk shows **Scan Complete - Review Needed** for flagged results.
@@ -94,13 +94,15 @@ Lakatan/Latundan/Cardaba ripeness labels. The out-of-distribution (OOD) gate in
 COCO pre-detector before a cultivar box is trusted:
 
 1. **Scan gate.** At least `OOD_MIN_BANANA_VIEWS` captured camera views (never more than
-   were captured; a scan with a missing capture is flagged for review) must show a banana at
+   were captured; a missing capture is noted in the scan's activity entry) must show a banana at
    `OOD_BANANA_CONFIDENCE`. Otherwise the scan is rejected before classification.
 2. **Box support.** In each view a cultivar box is kept only when banana evidence
    (confidence `OOD_SUPPORT_CONFIDENCE` or higher, grown by `OOD_SUPPORT_MARGIN` per
    side) covers its centre. A box without that support is treated as if the model had
    never emitted it; the classifier's own rules are not modified.
-3. **No silent change.** A scan that lost any box is saved flagged for review. A scan
+3. **No silent change.** A scan that lost any box says so in its activity entry
+   ("noted: … dropped"). It is flagged only when its confidence is below the saved review
+   threshold, which is the single auto-flag rule since 2026-11-18. A scan
    left with no supported cultivar is rejected, nothing is stored, and a
    `scan_rejected` activity row keeps the reason and the per-view banana scores.
 4. **Fail closed.** While the banana verifier cannot run, scans are refused with

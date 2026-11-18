@@ -2,6 +2,47 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-11-18: Backend did not start on PostgreSQL after the threshold migration
+
+- **Symptom:** the startup upgrade failed with `value too long for type character
+  varying(32)` on `UPDATE alembic_version SET version_num='0013_confidence_threshold_default'`.
+  The whole startup transaction rolled back, migration 0012 included, so the backend did
+  not start. 18 PostgreSQL tests failed (`test_migrations`, `test_seed`,
+  `test_seed_kiosk_contract`, `test_audit_corrections_postgresql`).
+- **Root cause:** the migration id had 33 characters; Alembic's version column holds 32.
+  SQLite does not enforce the length, so SQLite-only runs passed.
+- **Fix:** the id (and file name) is `0013_threshold_default`. No PostgreSQL database
+  could store the long id, so no database needs a correction.
+- **Guard:** `test_every_migration_id_fits_the_alembic_version_column`.
+
+## 2026-11-18: A saved 85% threshold changed back to 80%
+
+- **Symptom:** an admin saved a review threshold of 85%; the next read showed 80%. The
+  configuration change entry in the activity log reported "80 → …" as the old value, and
+  scans were flagged against 80%.
+- **Root cause:** `configuration.get_config` treated every stored 85 as the old default
+  and rewrote it on each load, without a revision change or an activity entry.
+- **Fix:** loading returns the saved value. The move of old 85% settings to 80% happens
+  once, in migration `0013_threshold_default`. See [[Development Decisions]] (2026-11-18).
+- **Tests:** `test_a_saved_threshold_of_85_is_kept` (new); the 5 tests that failed are
+  green again (`test_audit_records`, `test_detection_sensitivity` (3),
+  `test_auto_flag_reasons::test_the_saved_threshold_decides_the_flag`).
+
+## 2026-11-18: Kiosk scans were auto-flagged above the confidence threshold
+
+- **Symptom (station):** new kiosk scans showed as Flagged in Scan Logs and Quality
+  Control although their confidence was above the saved threshold.
+- **Root cause:** `FusionEngine.fuse` flagged a scan when the cameras reported different
+  finger counts (`count_requires_review`), which is the normal case with four cameras. It
+  also flagged camera disagreements and missing views, and `scan_service` flagged every
+  scan with dropped boxes. None of these depend on confidence.
+- **Fix:** the only auto-flag rule is confidence below the saved threshold. The other
+  signals are recorded as observations in the scan's activity entry. The created history
+  entry of a flagged scan says why. See [[Development Decisions]] (2026-11-18).
+- **Existing data:** `backend/scripts/review_auto_flags.py` previews and, with `--apply`,
+  removes old flags the rule would not set.
+- **Verification:** See [[Testing and Validation]] (2026-11-18).
+
 ## 2026-11-17: Audit log gaps (lockout row lost, refused access and backups unlogged)
 
 - **Symptoms found by the audit-coverage review:**

@@ -1,0 +1,43 @@
+CURRENT RESUME HERE (2026-11-18) - DEFAULT CONFIDENCE THRESHOLD 85 → 80
+
+USER REQUEST (2026-11-17)
+- "What is the default confidence threshold? I think it was 85%, so make it 80 by default."
+
+CHANGES IMPLEMENTED
+- Default confidence threshold lowered from 85% to 80% across all locations:
+  - backend/app/models/system_config.py: column default 85 → 80.
+  - backend/app/services/dashboard.py: DEFAULT_CONFIDENCE_THRESHOLD 85.0 → 80.0.
+  - backend/app/services/configuration.py: bootstrap fallback and live auto-migration 85 → 80.
+  - backend/migrations/versions/0013_confidence_threshold_default.py: Alembic migration updating persisted 85 rows to 80.
+  - frontend/src/pages/admin/SystemConfig.tsx: "Reset to defaults" button 85 → 80.
+- Existing stations with persisted 85% rows are auto-migrated to 80% via Alembic migration and runtime config load.
+
+ALSO PENDING (from previous commit cycle)
+- TASK_PROGRESS.txt rewrite: audit logging content archived to
+  docs/history/2026-11-17-before-scan-history-display.txt; scan history content promoted
+  to TASK_PROGRESS.txt; TASK_PROGRESS_SCAN_HISTORY.txt and duplicate
+  docs/history/2026-11-17-scan-history-bounded-display.txt removed.
+
+STILL OPEN
+- The station data release (teammate guide PDF), then:
+  1. fetch_training_assets.py;
+  2. check_inference_head.py;
+  3. hand-count evaluation;
+  4. retraining.
+  Kent's checkpoint asks for a station re-test of each cultivar and ripeness.
+- Windows-only failures in the export/fetch/OOD-prep/train script tests: get the names from
+  Kent and fix them.
+- Ruff +10 in Kent's merged files (classification.py, fusion_engine.py,
+  test_classification_fusion.py).
+- prediction_label.py hard-coded laptop path; PUBLIC_BASE_URL missing from
+  backend/.env.example; Figure 92 screenshot; deployment when authorized; audit items in
+  the archived checkpoints.
+- Type check: use `npx tsc -b` (or `npm run build`), not `npm run typecheck`.
+
+COMPLETED
+- Default confidence threshold: 85 → 80 (pending commit).
+- Bounded Scan History display (commit 7e46a64).
+- Part 3: audit integrity (commit 582ea43).
+
+EXACT NEXT STEP
+- Commit pending changes (TASK_PROGRESS reorganization + confidence threshold) when authorized.

@@ -5,6 +5,9 @@
 - [Current SQL DDL](../bananavision_schema_current.sql) — Alembic revision
   `0012_audit_integrity`, 25 application tables, 7 PostgreSQL enum types and
   20 foreign keys.
+- The migration head is `0013_threshold_default`. It changes data only (a saved 85%
+  review threshold becomes 80% once). A migration id must be 32 characters or fewer:
+  `alembic_version.version_num` is `VARCHAR(32)` and PostgreSQL rejects a longer id.
 - [Data dictionary](../schema_tables.md) — table purposes, columns, nullability, database
   defaults, keys, constraints, indexes, enum labels and ERD cardinalities.
 - [Capstone data dictionary](../capstone_data_dictionary.md) — concise Table 15–39 format.

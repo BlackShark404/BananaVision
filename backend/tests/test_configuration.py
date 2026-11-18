@@ -62,6 +62,23 @@ def test_stale_revision_does_not_overwrite_saved_threshold(configured):
     assert configured.client.get('/api/v1/config').json()['confidence_threshold'] == 63
 
 
+def test_a_saved_threshold_of_85_is_kept(configured):
+    """85 was the default until 2026-11-18. An admin can still choose it: loading the
+    settings never changes a saved value (the one-time move of old 85% settings to 80% is
+    migration 0013, at upgrade)."""
+    revision = configured.client.get('/api/v1/config').json().get('revision', 1)
+    saved = configured.client.patch('/api/v1/config', json={
+        'expected_revision': revision, 'confidence_threshold': 85})
+    assert saved.status_code == 200, saved.text
+    for _ in range(2):
+        loaded = configured.client.get('/api/v1/config').json()
+        assert loaded['confidence_threshold'] == 85
+        assert loaded['revision'] == saved.json()['revision']
+    with Session(configured.engine) as db:
+        assert db.scalars(select(SystemConfig.confidence_threshold).where(
+            SystemConfig.canonical_key == 1)).one() == 85
+
+
 def test_failed_persistence_does_not_publish_camera_names(configured, monkeypatch):
     revision = configured.client.get('/api/v1/config').json().get('revision', 1)
     changed = []
@@ -101,9 +118,9 @@ async def test_invalid_legacy_configuration_is_not_promoted(configured):
         db.commit()
     async with SessionAdapter(configured.engine, configured.state) as db:
         result = await configuration.get_config(db)
-        # The old bootstrap default (85) is auto-migrated to the current
-        # default (80) when no admin has explicitly saved the threshold.
-        assert result.confidence_threshold == 80
+        # Loading keeps the saved value. Old 85% settings move to the current
+        # default (80) once, in migration 0013, not on every load.
+        assert result.confidence_threshold == 85
         assert result.legacy_conflict is True
         await db.commit()
 

@@ -12,12 +12,22 @@ from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.models.scan_status_log import ScanStatusLog
 from app.schemas.enums import InventoryStatusEnum
 
+# Start of the created entry's reason text when the system flagged the scan.
+AUTO_FLAG_PREFIX = "Auto-flagged: "
+
 
 async def create_scan_record(
     db, *, operator_id, operator_name, classification, date_time,
     actor_id, actor_name, intake=None, source_text=None, scan_id=None,
-    flagged=False, reason=None,
+    flagged=False, reason=None, flag_reason=None,
 ):
+    """Create the scan and its "created" history entry.
+
+    A scan the system flags records why on that entry, so Scan History shows it.
+    """
+    system_flag = bool(flagged and flag_reason)
+    if system_flag and reason is None:
+        reason = AUTO_FLAG_PREFIX + str(flag_reason)
     if source_text is None and intake is not None:
         source_text = intake.supplier.name if intake.supplier else intake.source
     status = ScanStatusLog(inventory_status=InventoryStatusEnum.IN_STOCK, updated_at=date_time)
@@ -45,6 +55,7 @@ async def create_scan_record(
             "inventory_status": "In Stock", "intake_provenance": scan.intake_provenance,
             "intake_origin_id": str(scan.intake_origin_id) if scan.intake_origin_id else None,
             "operator": operator_name, "source": scan.source_name_snapshot,
+            **({"flagged": True} if system_flag else {}),
         },
         evidence_id=f"status:{status.id}",
     ))

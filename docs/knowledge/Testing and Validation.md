@@ -1,5 +1,65 @@
 # Testing and Validation
 
+## Merge of team main, migration id and saved threshold — 2026-11-18
+
+- **Why PostgreSQL runs matter:** the merged tree failed 23 backend tests with a disposable
+  PostgreSQL 16 cluster and only 5 without it. 18 failures came from a migration id longer
+  than `alembic_version.version_num` (`VARCHAR(32)`); SQLite does not enforce the length.
+  Run the migration and seed tests on PostgreSQL before a release.
+- **New tests (each failed before its fix):**
+  - `test_migrations.py::test_every_migration_id_fits_the_alembic_version_column`;
+  - `test_configuration.py::test_a_saved_threshold_of_85_is_kept`.
+- **Tests changed:** `test_invalid_legacy_configuration_is_not_promoted` expects the saved
+  85 again; `frontend/tests/maintenance.test.mjs` expects "Reset All Settings" to give 80.
+- **Result after the fixes:** the 10 affected backend test files pass on PostgreSQL (269
+  passed, 1 skipped), including all 23 tests that failed.
+- **Not rerun after the fixes:** the full backend suites, the frontend suite, tsc, ESLint
+  and build. Before the fixes: frontend 396 of 397 (the stale reset test), tsc and build
+  passed, ESLint 36, Ruff 639.
+
+## Auto-flag only for low confidence — 2026-11-18
+
+- **New backend tests:**
+  - `test_auto_flag_reasons.py` (13):
+    - the threshold is the only flag (80.0 at an 80% threshold is not flagged, 79.9 is);
+    - different finger counts, cultivar and ripeness disagreements, a view conflict and
+      missing or unsupported views are observations, not flags;
+    - a saved confident 4-camera scan with counts 10/7/7/9 is unflagged;
+    - the saved System Config threshold decides;
+    - dropped boxes and observations appear after "; noted:" in the activity entry;
+    - a flagged scan records "Auto-flagged: …" in history, the activity entry and the
+      notification.
+  - `test_review_auto_flags.py` (8, one on PostgreSQL):
+    - the preview lists every decision and changes nothing;
+    - `--apply` needs an active administrator;
+    - only flags the rule would not set are removed, each with a history entry and an
+      audit row;
+    - a second run changes nothing;
+    - a scan a person handled meanwhile is left alone;
+    - the command line returns 2 without `--admin`.
+- **Tests updated on purpose** (they pinned the removed rules): `test_classification_fusion.py`
+  (19 tests now assert the observation instead of a flag; 7 renamed), `test_scan_trigger.py`,
+  `test_ood_gate.py`, `test_colour_check.py`, `test_finger_count_rules.py`,
+  `test_rotation_consensus.py`, `test_evaluate_finger_count.py`.
+- **Mutation checks:** flagging again on differing counts, and dropping the "person handled"
+  rule in the cleanup command, made 6 of the new tests fail.
+- **Review follow-up** (2 lenses with skeptics; 7 of 8 findings confirmed, 5 after merging
+  duplicates). Tests added first, each failing before its fix:
+  - a confidence equal to the threshold is not flagged at any threshold from 1 to 100
+    (7, 14, 28, 55 and 56 failed before);
+  - an operator's flag request on an already flagged scan is kept by the cleanup;
+  - a status change is not a flag decision;
+  - scans from before scan history (corrected, noted, or without a creation entry) are
+    kept;
+  - a failure on one scan does not stop the others;
+  - an administrator deactivated during the run stops it;
+  - the command refuses to run outside the backend folder;
+  - Scan Detail mentions clearing the flag only on a flagged scan (frontend).
+- **Results after the review fixes:** backend 1428 passed, 38 skipped with a disposable
+  PostgreSQL 16 cluster; 1352 passed, 114 skipped without it. Frontend 392/392;
+  `npx tsc -b` and `npm run build` pass. ESLint 36 and Ruff 644 (baselines). The Manila
+  time guard covers the new script.
+
 ## Audit logging overhaul — 2026-11-17
 
 - **New backend tests** (89 in total):

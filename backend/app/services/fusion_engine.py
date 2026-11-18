@@ -37,6 +37,46 @@ class CameraDetection:
     detections_count: int
 
 
+@dataclass(frozen=True)
+class Observation:
+    """Something fusion noticed about the views: a stable code and a plain sentence.
+
+    Observations are recorded with the scan's activity entry. They never flag a scan: the
+    only auto-flag rule is a confidence below the saved review threshold.
+    """
+    code: str
+    text: str
+
+
+NO_LABEL = "no_label"
+CULTIVAR_CONFLICT = "cultivar_conflict"
+RIPENESS_CONFLICT = "ripeness_conflict"
+WEAK_PAIR_SUPPORT = "weak_pair_support"
+VIEW_CONFLICT = "view_conflict"
+INSUFFICIENT_VIEWS = "insufficient_views"
+MISSING_CAPTURES = "missing_captures"
+COUNT_VIEWS_DIFFER = "count_views_differ"
+
+
+def _percent(value: float) -> str:
+    return f"{value:g}"
+
+
+def _below_threshold(confidence: float, threshold_percent: float) -> str:
+    return (
+        f"Confidence {_percent(confidence)}% is below the "
+        f"{_percent(threshold_percent)}% threshold"
+    )
+
+
+def _cameras(labels: list[str]) -> str:
+    """'Left camera's', 'Top and Rear cameras'' for a sentence about those views."""
+    names = [label or "unnamed" for label in labels]
+    if len(names) == 1:
+        return f"{names[0]} camera's"
+    return f"{', '.join(names[:-1])} and {names[-1]} cameras'"
+
+
 @dataclass
 class FusedResult:
     """Merged classification from all cameras."""
@@ -49,6 +89,11 @@ class FusedResult:
     auto_flagged: bool = False
     cultivar_conflict: bool = False
     per_camera: list[CameraDetection] = field(default_factory=list)
+    # Set exactly when auto_flagged is true: the confidence is below the review threshold.
+    flag_reason: str | None = None
+    # What else fusion noticed (camera disagreements, missing views, different counts).
+    # Recorded for the activity log; never a reason to flag.
+    observations: list[Observation] = field(default_factory=list)
 
 
 class FusionEngine:
@@ -61,8 +106,9 @@ class FusionEngine:
         3. Select ripeness only from cameras supporting that cultivar
         4. Estimate finger count from available camera views
         5. Final confidence = mean confidence of the winning observed pair
-        6. Auto-flag conflicts, no cultivar camera majority, missing captures,
-           insufficient supporting views, or unverified cross-camera finger additions
+        6. Auto-flag only a confidence below the review threshold. Conflicts, no
+           cultivar camera majority, missing captures, insufficient supporting views and
+           different finger counts between views are reported as observations.
     """
 
     CONFLICT_THRESHOLD = VOTE_CONFLICT_THRESHOLD
@@ -95,6 +141,8 @@ class FusionEngine:
                 finger_count=0,
                 camera_count=0,
                 auto_flagged=True,
+                flag_reason=_below_threshold(0.0, round(review_confidence_threshold * 100, 6)),
+                observations=[Observation(MISSING_CAPTURES, "No camera returned a result")],
             )
 
         cultivar_weights: dict[str, float] = {}
@@ -105,6 +153,7 @@ class FusionEngine:
         per_camera: list[CameraDetection] = []
         seen_cameras: set[str] = set()
         per_view_conflict = False
+        conflicted_views: list[str] = []
 
         top_camera_result: ClassificationResult | None = None
         for camera_id, camera_label, result in results:
@@ -150,6 +199,8 @@ class FusionEngine:
             per_view_conflict = per_view_conflict or view_has_cultivar_conflict
             # Keep stage/duplicate review signals without making the cultivar uncertain.
             per_view_conflict = per_view_conflict or result.conflict_detected
+            if view_has_cultivar_conflict or result.conflict_detected:
+                conflicted_views.append((camera_label or camera_id or "").strip())
 
         # Check for authoritative Top view anchor:
         # Top camera is mounted overhead looking directly down at the flat inspection
@@ -247,17 +298,62 @@ class FusionEngine:
         supporting_views = len(pair_cameras.get(winning_pair, set()))
         insufficient_views = supporting_views < min(2, expected)
         missing_captures = len(per_camera) < expected
-        # Different positive counts can reflect occlusion or detector errors. Request
-        # confirmation when detecting views disagree or multi-view tier fusion adds
-        # occluded lower-tier fingers. Empty/missing views retain the checks above.
-        count_requires_review = (
+        # Each camera sees a different part of the hand, so different positive counts (or
+        # lower-tier fingers added by multi-view fusion) are normal; the count is shown as
+        # an estimate.
+        count_views_differ = (
             len({count for count in finger_counts if count > 0}) > 1
             or final_fingers > baseline_max_fingers
         )
-        auto_flagged = (
-            conflict_detected or final_confidence < review_confidence_threshold * 100
-            or insufficient_views or missing_captures or count_requires_review
+
+        # The one auto-flag rule: confidence below the saved review threshold. A result
+        # without a label has confidence 0, so it is below any threshold.
+        # The saved threshold is an integer percent passed as a fraction; rounding undoes
+        # the float error of that round trip (55 / 100 * 100 is 55.00000000000001), so a
+        # confidence equal to the threshold is never flagged.
+        threshold_percent = round(review_confidence_threshold * 100, 6)
+        auto_flagged = final_confidence < threshold_percent
+        flag_reason = (
+            _below_threshold(final_confidence, threshold_percent) if auto_flagged else None
         )
+
+        # Everything else is an observation for the activity log, not a flag.
+        observations: list[Observation] = []
+        labelled = best_cultivar != "Unknown" and best_ripeness != "Unknown"
+        if not labelled:
+            observations.append(Observation(
+                NO_LABEL, "No camera produced a complete cultivar and ripeness label",
+            ))
+        if labelled and cultivar_conflict:
+            observations.append(Observation(CULTIVAR_CONFLICT, "Cameras disagree on the cultivar"))
+        if labelled and ripeness_conflict:
+            observations.append(Observation(RIPENESS_CONFLICT, "Cameras disagree on the ripeness"))
+        if labelled and pair_conflict and not (cultivar_conflict or ripeness_conflict):
+            observations.append(Observation(
+                WEAK_PAIR_SUPPORT,
+                f"Less than {self.CONFLICT_THRESHOLD:.0%} of the camera evidence supports "
+                "this cultivar and ripeness",
+            ))
+        if conflicted_views:
+            observations.append(Observation(
+                VIEW_CONFLICT,
+                f"The {_cameras(conflicted_views)} own boxes disagree or overlap",
+            ))
+        if insufficient_views:
+            observations.append(Observation(
+                INSUFFICIENT_VIEWS,
+                f"Only {supporting_views} camera{'' if supporting_views == 1 else 's'} "
+                f"support{'s' if supporting_views == 1 else ''} the result",
+            ))
+        if missing_captures:
+            observations.append(Observation(
+                MISSING_CAPTURES,
+                f"Only {len(per_camera)} of {expected} cameras returned a result",
+            ))
+        if count_views_differ:
+            observations.append(Observation(
+                COUNT_VIEWS_DIFFER, "Cameras report different finger counts",
+            ))
 
         if auto_flagged:
             logger.warning(
@@ -265,7 +361,7 @@ class FusionEngine:
                 f"conf={final_confidence}%, conflict={conflict_detected}, "
                 f"no_camera_majority={no_camera_majority}, "
                 f"supporting_views={supporting_views}, captured={len(per_camera)}/{expected}, "
-                f"count_requires_review={count_requires_review}"
+                f"threshold={_percent(threshold_percent)}%"
             )
 
         return FusedResult(
@@ -278,6 +374,8 @@ class FusionEngine:
             auto_flagged=auto_flagged,
             cultivar_conflict=cultivar_conflict,
             per_camera=per_camera,
+            flag_reason=flag_reason,
+            observations=observations,
         )
 
     def _select_winner(self, weights: dict[str, float]) -> str | None:

@@ -2,6 +2,82 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-18: 80% is the default review threshold; loading never changes a saved value
+
+- **Team decision (86e4728, 94296fc):** the default review threshold is 80%, down from
+  85%: model default, first-start configuration, dashboard fallback and "Reset All
+  Settings". Migration `0013_threshold_default` changes a saved 85 to 80 once, at upgrade.
+- **User confirmation (2026-11-18):** "80% is the default threshold both backend and ui.
+  If the confidence is below 80 then it flags. If it's 80 and above then no auto flag."
+  Two remaining 85 defaults were changed to 80: the settings state the UI shows before the
+  saved configuration loads (`AdminContext.tsx`) and `evaluate_finger_count.py`
+  (`DEFAULT_REVIEW_CONFIDENCE`).
+- **Revised after the merge of team main (test run on PostgreSQL):**
+  - `configuration.get_config` also rewrote 85 to 80 on every load. An admin could not
+    keep 85%: the next read returned 80, with no revision change and no activity entry,
+    and scans were flagged against 80%. Loading now returns the saved value unchanged.
+    The one-time migration is the only automatic change.
+  - The migration id had 33 characters. `alembic_version.version_num` is `VARCHAR(32)`,
+    so PostgreSQL rejected the startup upgrade and the backend did not start. The id is
+    now `0013_threshold_default`. A test rejects any migration id longer than 32
+    characters.
+- **Rule:** a setting changes only through a save (revision and activity entry) or a
+  versioned migration. Reads do not write.
+- **Limit:** the one-time migration cannot tell a chosen 85% from the old default. A
+  station that wants 85% saves it again after the update.
+- See [[Resolved Bugs]] and [[Testing and Validation]] (2026-11-18).
+
+## 2026-11-18: A scan is auto-flagged only when its confidence is below the threshold
+
+- **Station report:** kiosk scans appeared as Flagged in Scan Logs and Quality Control
+  although their confidence was above the saved threshold (80% on the station).
+- **Cause:** confidence was one of several auto-flag triggers. `FusionEngine.fuse` also
+  flagged camera disagreements, missing or unsupported views, and **different finger counts
+  between cameras**. The last one fired on nearly every 4-camera scan, because each camera
+  sees a different part of the hand (for example 10/7/7/9). `scan_service` also flagged any
+  scan that had boxes dropped (no banana evidence, crown or background colour, inconsistent
+  ripeness).
+- **User decision:** "The auto flag must work in confidence is below the threshold only. No
+  other factors needed." This replaces the rules of 2026-10-21 (differing counts), the OOD
+  gate entry (dropped boxes flag) and the 2026-11-14 colour check ("drop and flag").
+- **Rule now:** `auto_flagged = final confidence < SystemConfig.confidence_threshold`. A
+  confidence equal to the threshold is not flagged, at every threshold from 1 to 100 (the
+  integer percent is rounded back after its trip through a fraction). The same threshold
+  labels "Low confidence" in the UI.
+- **Nothing is silent:**
+  - `FusedResult.observations` still lists what fusion noticed: `cultivar_conflict`,
+    `ripeness_conflict`, `weak_pair_support`, `view_conflict`, `insufficient_views`,
+    `missing_captures`, `count_views_differ`.
+  - The scan's activity entry records them, and any dropped boxes, after "; noted: …"
+    (different counts are left out, because they are on almost every scan).
+  - The cultivar-disagreement warning on Kiosk and Scan Detail is derived from the stored
+    per-camera results and is unchanged.
+- **Why it was flagged:** a system flag writes "Auto-flagged: Confidence 78% is below the
+  80% threshold" on the scan's created history entry, in the activity entry and in the
+  notification.
+- **Old flags:** `backend/scripts/review_auto_flags.py` lists flagged scans and, with
+  `--apply --admin <username>`, removes the flags the rule would not set. Each change goes
+  through the normal un-flag path (Scan History, activity log). It keeps a flag whenever a
+  person may have decided it, or the data cannot show otherwise:
+  - the confidence is below the threshold;
+  - a person flagged, corrected or noted the scan (history entries, `is_overridden`, or a
+    note row from before scan history existed);
+  - a request receipt (`scan_mutation`) exists that wrote no history entry. Kiosk "Flag
+    for Review" on a scan the system had already flagged changes nothing, so the receipt
+    is its only trace (review finding);
+  - the scan has no creation entry, or no stored confidence.
+- **Cleanup safety:** the command must be started in the backend folder (it uses the
+  backend's `.env`). It locks the admin account, then the intake, then the scan, the same
+  order as every scan change. A database error on one scan leaves that scan flagged and
+  continues with the next.
+- **Risk accepted:** a confident scan with a camera disagreement or dropped boxes is no
+  longer queued for review. The notes above and the cultivar warning remain the trace.
+- **Not changed (a person's choice, not an auto flag):** when the cameras disagree on the
+  cultivar, the Kiosk still shows "Scan Complete - Review Needed", shows the cultivar as
+  uncertain and asks the operator to flag the scan by hand. Scan Detail still shows "Needs
+  Review" with the camera breakdown; its text mentions clearing a flag only when the scan
+  is flagged. The public QR page marks a result as preliminary only for flagged scans.
+
 ## 2026-11-17: Audit integrity, actor snapshots, backup archive v5, and append-only trigger
 
 - **Requirements:** Part 3 Audit Integrity:
@@ -184,7 +260,8 @@ Documented architectural, technical, and operational decisions in BananaVision.
   station photos later.
 - **Design:** judge a box on its own pixels before the OOD gate (gate contract unchanged):
   share of dark or bluish/violet pixels in the box centre; drop at >= 0.55; Overripe exempt;
-  scan flagged with an activity note. Thresholds measured on the screenshots ([[AI Models]]);
+  scan flagged with an activity note (since 2026-11-18: noted in the activity entry, not
+  flagged; see the 2026-11-18 entry). Thresholds measured on the screenshots ([[AI Models]]);
   the dark cut is value < 40, not 60, because shaded fingers under the hand reach ~45-55
   (found by the independent review). A box the pass would drop anyway as a fragment or
   repeat is skipped without counting, so it cannot flag a scan.
@@ -295,6 +372,7 @@ Documented architectural, technical, and operational decisions in BananaVision.
 
 - The cultivar detector is closed-set, and its weights and dataset are not in the repository, so the rejection mechanism had to work without retraining. The COCO pre-detector became a banana-vs-OOD verifier: a scan needs banana evidence, and a cultivar box is trusted only where that evidence covers it. Details and measurements are in [[AI Models]].
 - A cultivar box without banana evidence is treated as if the model had never emitted it. It is skipped in the first pass, the rotated Top pass and the occluded-finger recovery pass before any rule that compares it with other boxes (only filters that judge a box on its own run first: position, and in the recovery pass also size and label), so the gate's result is exactly what the classifier reports for the remaining boxes, and the classifier's own rules are not modified. Two richer variants were tried and withdrawn after review: filtering after the suppression rules let an unsupported box swallow real fingers, and showing the set-aside boxes to the cluster rule let two of them remove the only supported box of a real banana view. The plain contract is pinned by tests on 300 random frames.
+- Revised 2026-11-18: dropped boxes are noted in the scan's activity entry and no longer flag the scan (see the 2026-11-18 entry). The counting rules below are unchanged.
 - Every scan the gate altered is flagged; there is no silent change. In the first pass and the recovery pass a skipped box counts unless that pass would have dropped it anyway as a repeat of an accepted detection. In the rotated Top pass every skipped box counts: a repeat there still feeds the orientation decision, the sub-box filter and the label-conflict check, so an exemption let the Top cultivar change unflagged (found by a randomized check, about 146,000 cases). The price is that a Top scan can be flagged for a skipped box that changed nothing.
 - The gate may not change an accepted scan silently. Any dropped box flags the saved scan for review, and a rejected scan writes a `scan_rejected` activity row with per-view banana scores, because its captures are removed like any failed scan.
 - The verifier fails closed (HTTP 503). `OOD_GATE_FAIL_OPEN=true` and `OOD_BOX_SUPPORT_FILTER=false` are the documented ways back to the earlier behaviour.
@@ -365,7 +443,7 @@ Documented architectural, technical, and operational decisions in BananaVision.
 ## 2026-10-21: Conservative Finger Count Across Overlapping Views
 
 - Confirmed the old peripheral-addition heuristic can turn Top 7 / Left 9 / Right 10 / Rear 13 into 21: Rear supplies 13 and each side adds four presumed unseen fingers. The user reports about 15 physically present; the per-camera counts do not prove which detections are distinct across views.
-- `FusionEngine.fuse` now uses the maximum reported count from unique camera IDs, with no peripheral additions. The example returns an **estimated 13**, not a verified physical total. Differing positive camera counts set the existing review flag; empty/missing-camera and classification checks remain in place.
+- `FusionEngine.fuse` now uses the maximum reported count from unique camera IDs, with no peripheral additions. The example returns an **estimated 13**, not a verified physical total. Differing positive camera counts set the existing review flag; empty/missing-camera and classification checks remain in place. (Revised 2026-11-18: differing counts and those checks are reported as observations and no longer flag a scan.)
 - Removed the unsupported peripheral-count helpers. `multi_camera_finger_fusion` remains accepted for configuration compatibility but cannot enable additive counting. Per-camera detections, classifier behavior, model weights, schemas, corrections, and existing stored scans are unchanged.
 - This supersedes the spatial-complementarity count policy below. It fixes artificial inflation, not detector misses or occlusion; physical confirmation is still needed when the actual bunch has more fingers than any view detects. See [[Testing and Validation]] for the isolated regressions.
 
@@ -417,7 +495,7 @@ Documented architectural, technical, and operational decisions in BananaVision.
 
 ## 2026-10-16: Live Detection and Result Review
 
-- YOLO retains candidates at `min(YOLO_CONFIDENCE_THRESHOLD, saved confidence_threshold / 100)`. The model setting defaults to 0.50; the saved review setting defaults to 85%. Lower saved settings remain supported.
+- YOLO retains candidates at `min(YOLO_CONFIDENCE_THRESHOLD, saved confidence_threshold / 100)`. The model setting defaults to 0.50; the saved review setting defaults to 85% (80% since 2026-11-18). Lower saved settings remain supported.
 - Fusion uses the saved setting for confidence review, alongside camera support and conflict checks. A confident box score does not establish agreement across camera views.
 - Both thresholds are snapshotted before processing the camera views. Original box confidence scores are retained.
 - The configuration response reports the effective saved detection cutoff as read-only `detection_confidence_threshold` in percent. The settings slider controls review; its helper identifies the **current** saved detection cutoff.

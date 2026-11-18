@@ -41,7 +41,7 @@ def assert_upgraded(connection):
     }
     assert (
         connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        == "0013_confidence_threshold_default"
+        == "0013_threshold_default"
     )
 
 
@@ -71,7 +71,7 @@ def test_current_schema_adopts_revision_without_duplicate_columns():
                 assert [column["name"] for column in inspect(connection).get_columns(table)] == columns
             assert (
                 connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                == "0013_confidence_threshold_default"
+                == "0013_threshold_default"
             )
     finally:
         engine.dispose()
@@ -120,7 +120,7 @@ def test_notification_read_receipt_migration_replaces_shared_flag():
 
             assert (
                 connection.execute(text("SELECT version_num FROM alembic_version"))
-            ).scalar_one() == "0013_confidence_threshold_default"
+            ).scalar_one() == "0013_threshold_default"
             assert "is_read" not in {
                 column["name"]
                 for column in inspect(connection).get_columns("app_notification")
@@ -269,7 +269,7 @@ def test_camera_slots_migration_normalizes_saved_arrays_and_counters():
             )).scalar_one() == 75
             assert connection.execute(text(
                 "SELECT version_num FROM alembic_version"
-            )).scalar_one() == "0013_confidence_threshold_default"
+            )).scalar_one() == "0013_threshold_default"
             with pytest.raises(IntegrityError):
                 connection.execute(text(
                     "INSERT INTO device (id, camera_id, label, status, created_at, updated_at) "
@@ -305,7 +305,7 @@ async def test_postgresql_schema_startup_upgrade(legacy):
             async with engine.begin() as connection:
                 assert (
                     await connection.execute(text("SELECT version_num FROM alembic_version"))
-                ).scalar_one() == "0013_confidence_threshold_default"
+                ).scalar_one() == "0013_threshold_default"
         async with engine.begin() as connection:
             await connection.run_sync(upgrade_connection)
             if legacy:
@@ -350,7 +350,7 @@ def test_audit_integrity_migration_adds_column_and_preserves_rows():
 
             assert (
                 connection.execute(text("SELECT version_num FROM alembic_version"))
-            ).scalar_one() == "0013_confidence_threshold_default"
+            ).scalar_one() == "0013_threshold_default"
             assert "actor_name" in {
                 column["name"]
                 for column in inspect(connection).get_columns("activity_log")
@@ -478,3 +478,15 @@ def test_confidence_threshold_default_migration_updates_85_to_80():
     finally:
         engine.dispose()
 
+
+def test_every_migration_id_fits_the_alembic_version_column():
+    """alembic_version.version_num is VARCHAR(32). PostgreSQL rejects a longer id, so the
+    startup upgrade fails and the backend does not start. SQLite does not enforce the
+    length, so only this check and the PostgreSQL tests show the problem."""
+    from alembic.script import ScriptDirectory
+
+    script = ScriptDirectory.from_config(Config(str(BACKEND_ROOT / "alembic.ini")))
+    too_long = sorted(
+        revision.revision for revision in script.walk_revisions() if len(revision.revision) > 32
+    )
+    assert too_long == []

@@ -1,0 +1,86 @@
+CURRENT RESUME HERE (2026-11-17) - COMPLETE AUDIT LOGGING (PART 2 OF 3)
+
+The previous checkpoint (admin Sold/Spoiled correction, kiosk today-only resume; pushed to
+fork main as 7f8e858) is archived byte-for-byte in
+docs/history/2026-11-17-before-audit-logging.txt.
+
+USER REQUEST (2026-11-17)
+- "Make sure also the audit logs properly logs all CRUD operations and other things. Do
+  what must be done and best practice and continue that Resume today only".
+- User choices: keep the actor's name with each entry (Part 3), log refused access
+  (throttled), keep the audit log across restores (Part 3).
+
+DONE (Part 2, this commit)
+- backend/app/services/audit.py: the single writer.
+  - Writers: AuditAction vocabulary; record (same transaction); emit (own session, defers
+    while the station is not ready, required=True egress fails closed with 503); attach
+    plus a global handler that writes failure events after rollback.
+  - Refused access: access_denied for 403, throttled per actor, route and reason (10 min).
+  - Safety: anonymous cap 120/min, lock_timeout 5s, bananavision.audit file mirror.
+- All 25 inline ActivityLog writes migrated (a guard test enforces it).
+- Sign-in:
+  - the lockout row survives the 429; new account_locked, login_blocked, login_denied,
+    credential_setup_started, pin_login;
+  - specific credential actions;
+  - change-password, change-PIN and re-auth get the credential_limiter (429);
+  - unrecognized usernames are never stored.
+- Maintenance: backup created/failed/downloaded, restore validated/completed/failed
+  (exactly once, after verify_live), recovery, power cancel/failed/completed,
+  config_applied, retention, bootstrap, system_started.
+- Records: old -> new details, no-ops skipped, user_role_changed/user_status_changed,
+  profile_updated, scan details with reason (never note text), scan_failed, data_exported
+  (config and scan-log exports), label print/retry.
+- Read side: GET /activity as_of paging; frontend lib/activityActions.ts gives labels,
+  categories, colours and the critical set for every action, plus a sync test against
+  audit.py.
+- Docs: Database (Activity log section), Development Decisions, Resolved Bugs, Frontend,
+  Testing and Validation, USER_GUIDE, data dictionary Table 37, schema draft note,
+  backend README, storyboard Figure 84.
+
+VERIFICATION
+- Backend: 1290 passed, 38 skipped with a disposable PostgreSQL 16 cluster; 1215 passed,
+  113 skipped without it. Ruff 644 (baseline).
+- Frontend: 389/390. The analytics refresh failure is the known clock race; it passes 9/9
+  alone, twice. tsc -b and build pass. ESLint 36 (was 40).
+- Review follow-up (four-lens review with skeptics: 14 of 15 findings confirmed, 9 after
+  merging duplicates), fixed in a separate commit:
+  - Egress: required egress is refused in recovery/maintenance and written at once while a
+    restart is pending.
+  - Backlog: one drain lock (no double writes); a failed write requeues; a warning when
+    the queue drops events; flush after camera apply and at shutdown.
+  - Cap: failures against real accounts are not capped.
+  - File log: shows only committed record() rows.
+  - Reading: GET /activity boundary = later of now and the newest row.
+  - Export: a snapshot export is checked read-only before data_exported is written.
+  - Frontend: the login_blocked label is now "Blocked while locked"; the frontend boundary
+    test is real (mutation-checked).
+  - Results after the fixes: backend 1301 passed / 38 skipped with PostgreSQL, 1226 / 113
+    without; frontend 391/391; tsc -b and build pass; ESLint 36; Ruff 644.
+
+STILL OPEN
+- The station data release (teammate guide PDF), then:
+  1. fetch_training_assets.py;
+  2. check_inference_head.py;
+  3. hand-count evaluation;
+  4. retraining.
+  Kent's checkpoint asks for a station re-test of each cultivar and ripeness.
+- Windows-only failures in the export/fetch/OOD-prep/train script tests: get the names from
+  Kent and fix them.
+- Ruff +10 in Kent's merged files (classification.py, fusion_engine.py,
+  test_classification_fusion.py).
+- prediction_label.py hard-coded laptop path; PUBLIC_BASE_URL missing from
+  backend/.env.example; Figure 92 screenshot; deployment when authorized; audit items in
+  the archived checkpoints.
+- Type check: use `npx tsc -b` (or `npm run build`), not `npm run typecheck`.
+
+IN PROGRESS (approved plan, 2026-11-17)
+- Part 3: audit integrity:
+  - activity_log.actor_name snapshot plus migration 0012 plus backup archive v5 (older
+    archives still restorable);
+  - the audit log is kept across restores;
+  - a PostgreSQL append-only trigger.
+- Plan: /root/.claude/plans/before-you-continue-why-optimized-sphinx.md (session-local).
+
+EXACT NEXT STEP
+- Part 3 (audit integrity). Then the user opens the team PR from the fork's main:
+  https://github.com/BlackShark404/BananaVision/compare/main...RoronoaZoro1206:BananaVision:main

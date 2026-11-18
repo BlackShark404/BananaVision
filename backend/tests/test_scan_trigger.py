@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.api.v1 import scans
-from app.models import Intake, OperatorProfile, PrintJob, Scan, UserAccount
+from app.models import ActivityLog, Intake, OperatorProfile, PrintJob, Scan, UserAccount
 from app.schemas.enums import IntakeStatusEnum
 from app.services import print_jobs, scan_service
 from app.services.scan_records import serialize_scan
@@ -142,7 +142,9 @@ def test_four_camera_count_estimate_is_persisted_and_broadcast_without_additions
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["finger_count"] == 13
-    assert data["flagged"] is True
+    # Each camera sees a different part of the hand; at 98% confidence that is no reason
+    # to ask for a review (station report, 2026-11-18).
+    assert data["flagged"] is False
     assert completed and all(event["finger_count"] == 13 for event in completed)
     assert all([view["finger_count"] for view in event["detections"]] == counts
                for event in completed)
@@ -158,7 +160,7 @@ def test_four_camera_count_estimate_is_persisted_and_broadcast_without_additions
         saved = db.get(Scan, UUID(data["id"]))
         assert saved.classification.finger_count == 13
         assert saved.original_ai_result.finger_count == 13
-        assert saved.flagged is True
+        assert saved.flagged is False
         assert {view.camera_label: view.finger_count for view in saved.detections} == {
             "Top": 7, "Left": 9, "Right": 10, "Rear": 13,
         }
@@ -328,7 +330,7 @@ def test_trigger_requires_an_operator_profile_before_scan_or_print(scan_station)
 
 
 @pytest.mark.parametrize("scenario", ["conflicting_pairs", "sparse_views", "missing_captures"])
-def test_real_fusion_passes_observed_pair_to_rfr_and_persists_review_flag(
+def test_real_fusion_passes_observed_pair_to_rfr_and_flags_only_by_confidence(
     scan_station, monkeypatch, scenario,
 ):
     from app.services.classification import ClassificationResult
@@ -383,12 +385,17 @@ def test_real_fusion_passes_observed_pair_to_rfr_and_persists_review_flag(
     assert response.status_code == 200, response.text
     data = response.json()
     assert (data["cultivar"], data["ripeness"], data["confidence"]) == ("Lakatan", "Ripe", 91)
-    assert data["flagged"] is True
+    # 91% is above the saved 85% threshold. Conflicting, sparse or missing views are
+    # noted in the activity log, but only a confidence below the threshold flags a scan.
+    assert data["flagged"] is False
     assert len(rfr_calls) == 1
     assert (rfr_calls[0]["cultivar"], rfr_calls[0]["ripeness"]) == ("Lakatan", "Ripe")
-    assert completed and all(event["flagged"] is True for event in completed)
+    assert completed and all(event["flagged"] is False for event in completed)
     with Session(app.engine) as db:
         saved = db.get(Scan, UUID(data["id"]))
-        assert saved.flagged is True
+        assert saved.flagged is False
+        noted = db.scalar(select(ActivityLog.details).where(
+            ActivityLog.action == "scan_created", ActivityLog.details.contains(data["id"])))
+        assert "; noted: " in noted and "flagged for review" not in noted
         assert len(saved.detections) == len(results)
         assert saved.original_ai_result.ripeness == "Ripe"

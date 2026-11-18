@@ -32,6 +32,11 @@ def classify(*labels_and_scores: tuple[str, float]) -> ClassificationResult:
     )
 
 
+def noted(result) -> set[str]:
+    """Codes of what fusion noticed; observations never flag a scan."""
+    return {observation.code for observation in result.observations}
+
+
 def camera_result(
     cultivar: str = "Lakatan", ripeness: str = "Ripe", confidence: float = 90,
 ) -> ClassificationResult:
@@ -84,7 +89,8 @@ def test_fusion_keeps_variety_majority_and_selects_an_observed_camera_pair():
     assert (result.cultivar, result.ripeness) == ("Lakatan", "Ripe")
     assert result.confidence == pytest.approx(91)
     assert result.conflict_detected is True
-    assert result.auto_flagged is True
+    # Noted for the activity log; only low confidence flags a scan.
+    assert result.auto_flagged is False and noted(result)
 
 
 def test_fusion_confidence_uses_only_cameras_with_the_selected_pair():
@@ -103,7 +109,7 @@ def test_fusion_confidence_uses_only_cameras_with_the_selected_pair():
     ("lakatan_scores", "latundan_scores", "expected_confidence"),
     [((64, 72), (90, 65.8), 77.9), ((51, 51), (99, 99), 99)],
 )
-def test_split_cultivar_cameras_require_review_despite_a_higher_candidate_score(
+def test_split_cultivar_cameras_are_noted_despite_a_higher_candidate_score(
     lakatan_scores, latundan_scores, expected_confidence,
 ):
     result = FusionEngine().fuse(views(
@@ -114,7 +120,8 @@ def test_split_cultivar_cameras_require_review_despite_a_higher_candidate_score(
     assert (result.cultivar, result.ripeness) == ("Latundan", "Ripe")
     assert result.confidence == pytest.approx(expected_confidence)
     assert result.conflict_detected is True
-    assert result.auto_flagged is True
+    # Noted for the activity log; only low confidence flags a scan.
+    assert result.auto_flagged is False and noted(result)
 
 
 @pytest.mark.parametrize(
@@ -132,10 +139,12 @@ def test_camera_cultivar_majority_preserves_the_existing_weighted_conflict_thres
     assert result.cultivar == "Lakatan"
     assert result.confidence == pytest.approx(majority_score)
     assert result.conflict_detected is expected_conflict
-    assert result.auto_flagged is expected_conflict
+    # The conflict is noted; both confidences are above the 30% review threshold.
+    assert ("cultivar_conflict" in noted(result)) is expected_conflict
+    assert result.auto_flagged is False
 
 
-def test_high_score_camera_minority_is_flagged_without_replacing_its_candidate():
+def test_high_score_camera_minority_is_noted_without_replacing_its_candidate():
     result = FusionEngine().fuse(views(
         *(camera_result("Lakatan", "Ripe", 20) for _ in range(3)),
         camera_result("Latundan", "Ripe", 99),
@@ -144,7 +153,8 @@ def test_high_score_camera_minority_is_flagged_without_replacing_its_candidate()
     assert result.cultivar == "Latundan"
     assert result.confidence == pytest.approx(99)
     assert result.conflict_detected is True
-    assert result.auto_flagged is True
+    # Noted for the activity log; only low confidence flags a scan.
+    assert result.auto_flagged is False and noted(result)
 
 
 def test_repeated_camera_id_cannot_turn_a_cultivar_split_into_a_majority():
@@ -162,7 +172,8 @@ def test_repeated_camera_id_cannot_turn_a_cultivar_split_into_a_majority():
     assert result.cultivar == "Latundan"
     assert result.confidence == pytest.approx(99)
     assert result.conflict_detected is True
-    assert result.auto_flagged is True
+    # Noted for the activity log; only low confidence flags a scan.
+    assert result.auto_flagged is False and noted(result)
 
 
 @pytest.mark.parametrize("invalid_view", [
@@ -188,7 +199,7 @@ def test_incomplete_or_invalid_camera_summaries_do_not_remove_a_valid_cultivar_m
     assert result.auto_flagged is False
 
 
-def test_fusion_flags_a_pair_without_sixty_percent_of_total_camera_weight():
+def test_fusion_notes_a_pair_without_sixty_percent_of_total_camera_weight():
     result = FusionEngine().fuse(views(
         camera_result("Lakatan", "Ripe", 90),
         camera_result("Lakatan", "Ripe", 90),
@@ -201,7 +212,8 @@ def test_fusion_flags_a_pair_without_sixty_percent_of_total_camera_weight():
     assert (result.cultivar, result.ripeness) == ("Lakatan", "Ripe")
     assert result.confidence == pytest.approx(90)
     assert result.conflict_detected is True
-    assert result.auto_flagged is True
+    # Noted for the activity log; only low confidence flags a scan.
+    assert result.auto_flagged is False and noted(result)
 
 
 def test_matching_camera_summaries_do_not_hide_ambiguous_detections():
@@ -211,10 +223,11 @@ def test_matching_camera_summaries_do_not_hide_ambiguous_detections():
     assert (result.cultivar, result.ripeness) == ("Lakatan", "Ripe")
     assert result.confidence == pytest.approx(90)
     assert result.conflict_detected is True
-    assert result.auto_flagged is True
+    # Noted for the activity log; only low confidence flags a scan.
+    assert result.auto_flagged is False and noted(result)
 
 
-def test_one_detecting_view_out_of_four_is_flagged_without_inflating_confidence():
+def test_one_detecting_view_out_of_four_is_noted_without_inflating_confidence():
     result = FusionEngine().fuse(views(
         camera_result("Latundan", "Overripe", 86),
         ClassificationResult(), ClassificationResult(), ClassificationResult(),
@@ -223,7 +236,8 @@ def test_one_detecting_view_out_of_four_is_flagged_without_inflating_confidence(
     assert (result.cultivar, result.ripeness) == ("Latundan", "Overripe")
     assert result.confidence == pytest.approx(86)
     assert result.camera_count == 4
-    assert result.auto_flagged is True
+    # Noted for the activity log; only low confidence flags a scan.
+    assert result.auto_flagged is False and noted(result)
 
 
 def test_two_detecting_views_out_of_four_can_confirm_the_same_pair():
@@ -253,22 +267,24 @@ def test_intentionally_configured_single_camera_remains_supported():
     assert result.auto_flagged is False
 
 
-def test_missing_expected_captures_are_flagged_even_with_two_agreeing_views():
+def test_missing_expected_captures_are_noted_even_with_two_agreeing_views():
     result = FusionEngine().fuse(
         views(camera_result(), camera_result()), expected_camera_count=4,
     )
 
     assert result.camera_count == 2
     assert result.confidence == pytest.approx(90)
-    assert result.auto_flagged is True
+    # Noted for the activity log; only low confidence flags a scan.
+    assert result.auto_flagged is False and noted(result)
 
 
-def test_one_successful_capture_from_four_expected_cameras_is_flagged():
+def test_one_successful_capture_from_four_expected_cameras_is_noted():
     result = FusionEngine().fuse(views(camera_result()), expected_camera_count=4)
 
     assert result.camera_count == 1
     assert result.confidence == pytest.approx(90)
-    assert result.auto_flagged is True
+    # Noted for the activity log; only low confidence flags a scan.
+    assert result.auto_flagged is False and noted(result)
 
 
 @pytest.mark.parametrize("camera_results", [[], [ClassificationResult()] * 4])
@@ -311,7 +327,8 @@ def test_repeated_camera_id_cannot_establish_two_camera_support():
     assert result.camera_count == 1
     assert len(result.per_camera) == 1
     assert result.confidence == pytest.approx(90)
-    assert result.auto_flagged is True
+    # Noted for the activity log; only low confidence flags a scan.
+    assert result.auto_flagged is False and noted(result)
 
 
 @pytest.mark.parametrize("confidence", [float("nan"), float("inf"), float("-inf"), 0, -1, 100.1])
@@ -367,7 +384,9 @@ def test_reported_four_view_counts_do_not_invent_unseen_fingers(
     # The user reports about 15 physically present. Counts alone cannot recover
     # hidden fingers; 13 is an observed estimate, not a verified physical total.
     assert fused.finger_count == 13
-    assert fused.auto_flagged is True
+    # Different counts between views are normal; they no longer ask for a review.
+    assert fused.auto_flagged is False
+    assert "count_views_differ" in noted(fused)
     assert fused.conflict_detected is False
     assert fused.confidence == 90
     assert [camera.finger_count for camera in fused.per_camera] == counts
@@ -421,7 +440,9 @@ def test_peripheral_positions_cannot_establish_nineteen_unique_fingers():
     ])
 
     assert fused.finger_count == 13
-    assert fused.auto_flagged is True
+    # Different counts between views are normal; they no longer ask for a review.
+    assert fused.auto_flagged is False
+    assert "count_views_differ" in noted(fused)
     assert fused.cultivar == "Latundan"
     assert fused.ripeness == "Ripe"
 
@@ -487,7 +508,9 @@ def test_top_count_drop_does_not_change_the_largest_visible_estimate():
     ])
 
     assert fused.finger_count == 13
-    assert fused.auto_flagged is True
+    # Different counts between views are normal; they no longer ask for a review.
+    assert fused.auto_flagged is False
+    assert "count_views_differ" in noted(fused)
 
 
 def test_equal_camera_counts_do_not_double_count_the_same_fingers():
@@ -525,7 +548,9 @@ def test_rear_anchor_does_not_add_its_own_peripheral_fingers_again():
     ], expected_camera_count=2)
 
     assert fused.finger_count == 10
-    assert fused.auto_flagged is True
+    # Different counts between views are normal; they no longer ask for a review.
+    assert fused.auto_flagged is False
+    assert "count_views_differ" in noted(fused)
     assert fused.conflict_detected is False
 
 
@@ -609,7 +634,7 @@ def test_top_camera_anchor_resolves_latundan_split():
     assert fused.cultivar_conflict is False
 
 
-def test_top_camera_minority_against_strict_majority_requires_review():
+def test_top_camera_minority_against_strict_majority_is_noted():
     # If 3 peripheral cameras all agree against Top (e.g. 3 Latundan vs 1 Lakatan),
     # strict majority rule flags it for operator review.
     top = camera_result("Lakatan", "Ripe", 80)
@@ -625,7 +650,8 @@ def test_top_camera_minority_against_strict_majority_requires_review():
     ], expected_camera_count=4)
 
     assert fused.conflict_detected is True
-    assert fused.auto_flagged is True
+    # Noted for the activity log; only low confidence flags a scan.
+    assert fused.auto_flagged is False and noted(fused)
 
 
 def test_conflicted_top_camera_does_not_unilaterally_anchor():
@@ -645,7 +671,8 @@ def test_conflicted_top_camera_does_not_unilaterally_anchor():
 
     # When Top has cultivar conflict, standard split safeguards apply
     assert fused.conflict_detected is True
-    assert fused.auto_flagged is True
+    # Noted for the activity log; only low confidence flags a scan.
+    assert fused.auto_flagged is False and noted(fused)
 
 
 def test_top_camera_with_duplicate_boxes_still_anchors():
@@ -668,7 +695,8 @@ def test_top_camera_with_duplicate_boxes_still_anchors():
     assert fused.cultivar == "Lakatan"
     assert fused.cultivar_conflict is False
     assert fused.conflict_detected is True
-    assert fused.auto_flagged is True
+    # Noted for the activity log; only low confidence flags a scan.
+    assert fused.auto_flagged is False and noted(fused)
 
 
 def test_peripheral_background_filter_suppresses_upper_door_frame():
@@ -801,7 +829,9 @@ def test_two_tier_hand_fusion_reconstructs_occluded_lower_tier_fingers():
         ("CAM-004", "Rear", _two_tier_view("Latundan", "Ripe", 0.88, 5, 4)),
     ], expected_camera_count=4)
     assert latundan_ripe.finger_count == 14
-    assert latundan_ripe.auto_flagged is True
+    # Different counts between views are normal; they no longer ask for a review.
+    assert latundan_ripe.auto_flagged is False
+    assert "count_views_differ" in noted(latundan_ripe)
 
     # 2. Unripe Cardaba 14-finger two-tier hand (Top=13 with 2 inner/recovered tips, Left=9, Right=11, Rear=11)
     cardaba_unripe = engine.fuse([

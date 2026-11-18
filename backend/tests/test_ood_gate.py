@@ -772,7 +772,7 @@ def test_cultivar_boxes_outside_banana_evidence_reject_the_scan(station):
     assert "4 cultivar boxes had no banana evidence" in audit and "Top 0.80" in audit
 
 
-def test_foreign_object_beside_the_banana_is_dropped_and_the_scan_flagged(station):
+def test_foreign_object_beside_the_banana_is_dropped_and_noted(station):
     station.model.rows = [(*finger, 0.90, 0) for finger in FINGERS] + [(*FOREIGN, 0.99, 2)]
     response = station.trigger()
     assert response.status_code == 200, response.text
@@ -780,26 +780,27 @@ def test_foreign_object_beside_the_banana_is_dropped_and_the_scan_flagged(statio
     # Without the gate this scan reports four fingers in every view.
     assert (data["cultivar"], data["ripeness"], data["finger_count"]) == ("Lakatan", "Ripe", 3)
     assert data["confidence"] == 90
-    # The gate changed the result, so a person confirms it.
-    assert data["flagged"] is True
+    # The confidence is above the threshold, so the scan is not flagged (only low
+    # confidence flags). The dropped boxes are noted in the activity log instead.
+    assert data["flagged"] is False
     with Session(station.app.engine) as db:
         saved = db.get(Scan, UUID(data["id"]))
-        assert saved.flagged is True and len(saved.detections) == 4
+        assert saved.flagged is False and len(saved.detections) == 4
         assert all(
             [box["cls"] for box in detection.bounding_boxes] == ["lakatan_ripe"] * 3
             for detection in saved.detections
         )
     [completed] = [d for event, d in station.events if event == "scan:completed"][:1]
-    assert completed["flagged"] is True
-    # A reviewer can see why the scan was flagged.
+    assert completed["flagged"] is False
+    # The gate never changes a scan silently: a reviewer can see what was dropped.
     with Session(station.app.engine) as db:
         created = db.scalar(select(ActivityLog.details).where(
             ActivityLog.action == "scan_created",
         ))
-    assert created.endswith("4 boxes without banana evidence dropped, flagged for review")
+    assert created.endswith("; noted: 4 boxes without banana evidence dropped")
 
 
-def test_top_view_without_banana_evidence_cannot_pass_unreviewed(station):
+def test_top_view_without_banana_evidence_cannot_pass_unnoticed(station):
     # Top is the cultivar anchor; losing it must not go unnoticed.
     frames = iter([gate_result(banana=False, boxes=[])] + [gate_result()] * 3)
     station.gate = lambda _frame: next(frames)
@@ -809,7 +810,13 @@ def test_top_view_without_banana_evidence_cannot_pass_unreviewed(station):
     assert (data["cultivar"], data["finger_count"]) == ("Lakatan", 3)
     # Every view still reached the cultivar model; Top's boxes were dropped.
     assert station.model.calls == 4
-    assert data["flagged"] is True
+    # Not flagged at this confidence, but the activity log says what happened.
+    assert data["flagged"] is False
+    with Session(station.app.engine) as db:
+        created = db.scalar(select(ActivityLog.details).where(
+            ActivityLog.action == "scan_created",
+        ))
+    assert "without banana evidence dropped" in created
 
 
 def test_minimum_banana_views_setting_is_enforced(station):

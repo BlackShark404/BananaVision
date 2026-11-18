@@ -106,7 +106,7 @@ RULE_COUNTERS = (
     "colour_rejected_boxes",
 )
 # Station default of the saved review threshold (system_config.confidence_threshold).
-DEFAULT_REVIEW_CONFIDENCE = 0.85
+DEFAULT_REVIEW_CONFIDENCE = 0.80
 # Bootstrap resamples drawn per block; fixed so a seed always gives the same interval.
 _BOOTSTRAP_BLOCK = 250
 # Only these settings go into the report: the rest can hold secrets.
@@ -832,10 +832,15 @@ def score_physical_scan(
     scan: Scan, classifier, reader, engine, *, gate, policy: GatePolicy,
     confidence: float, review_confidence: float, expected_cameras: int,
 ) -> tuple[dict, list[object]]:
-    """One scan as scan_service runs it: gate, per-view classification, fusion, review flag."""
+    """One scan as scan_service runs it: gate, per-view classification, fusion, review flag.
+
+    As on the station, only a confidence below the review threshold flags a scan. What else
+    fusion noticed, and whether boxes were dropped, is listed under "noted".
+    """
     outcome: dict = {
         "scan_id": scan.scan_id, "physical_count": scan.physical, "views": {},
         "fused_count": None, "cultivar": None, "rejected": None, "review_flagged": None,
+        "noted": [],
     }
     accepted, evidence = gate if gate is not None else (True, None)
     if not accepted:
@@ -860,12 +865,11 @@ def score_physical_scan(
         outcome["rejected"] = "no_target_cultivar"
         return outcome, view_results
     outcome["fused_count"] = int(fused.finger_count)
-    outcome["review_flagged"] = bool(
-        fused.auto_flagged
-        or any(getattr(result, "ood_rejected_boxes", 0) for result in view_results)
-        or any(getattr(result, "ripeness_outlier_boxes", 0) for result in view_results)
-        or any(getattr(result, "colour_rejected_boxes", 0) for result in view_results)
-    )
+    outcome["review_flagged"] = bool(fused.auto_flagged)
+    outcome["noted"] = [observation.code for observation in getattr(fused, "observations", ())]
+    for name in ("ood_rejected_boxes", "ripeness_outlier_boxes", "colour_rejected_boxes"):
+        if any(getattr(result, name, 0) for result in view_results):
+            outcome["noted"].append(name)
     return outcome, view_results
 
 
@@ -1026,7 +1030,7 @@ def build_parser() -> argparse.ArgumentParser:
     physical.add_argument("--counts", type=Path, required=True,
                           help="CSV with the columns scan_id,physical_count")
     physical.add_argument("--review-confidence", type=float, default=DEFAULT_REVIEW_CONFIDENCE,
-                          help="saved review threshold of the station (default 0.85)")
+                          help="saved review threshold of the station (default 0.80)")
     physical.add_argument("--expected-cameras", type=int, default=len(VIEWS),
                           help="configured camera count (default 4)")
     return parser

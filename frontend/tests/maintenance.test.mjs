@@ -190,7 +190,7 @@ test('global reset is explicit, reviewable and discardable across tabs', async t
  await page.getByRole('button',{name:'Reset All Settings'}).click()
  await page.getByRole('button',{name:'Rename camera 1: CAM-001'}).waitFor()
  await page.getByRole('tab',{name:'Detection',exact:true}).click()
- assert.equal(await page.getByRole('slider').getAttribute('aria-valuenow'),'85')
+ assert.equal(await page.getByRole('slider').getAttribute('aria-valuenow'),'80')
  assert.equal(state.requests.filter(r=>r.method==='PATCH').length,0)
  await page.getByRole('button',{name:'Discard',exact:true}).click()
  assert.equal(await page.getByRole('slider').getAttribute('aria-valuenow'),'70')
