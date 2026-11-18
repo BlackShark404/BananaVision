@@ -657,7 +657,7 @@ def _upgrade_to_current(manifest, root):
                 if len(line) > MAX_ROW_BYTES or not line.endswith(b"\n"):
                     raise ArchiveError("Row size/framing limit exceeded")
                 config_rows.append(_load(line))
-    mapping = _legacy_camera_mapping(config_rows)
+    mapping = _legacy_camera_mapping(config_rows) if manifest["version"] < 4 else None
 
     device_path = root / "tables" / "device.jsonl"
     device_rows = []
@@ -667,7 +667,8 @@ def _upgrade_to_current(manifest, root):
                 if len(line) > MAX_ROW_BYTES or not line.endswith(b"\n"):
                     raise ArchiveError("Row size/framing limit exceeded")
                 row = _load(line)
-                row.update(slot_index=None, device_index=None)
+                if manifest["version"] < 4:
+                    row.update(slot_index=None, device_index=None)
                 device_rows.append(row)
     if mapping is not None:
         names, device_ids = mapping

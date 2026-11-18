@@ -199,7 +199,7 @@ def legacy_backup(archive_module, station, tmp_path, *, bad_null=False, version=
             continue
         rows = [{key: value for key, value in json.loads(line).items() if key in legacy[table]}
                 for line in members[name].splitlines()]
-        if table == 'system_config':
+        if version < 4 and table == 'system_config':
             for row in rows:
                 row.update(camera_ids=camera_ids, camera_device_ids=list(camera_device_ids))
         if table == 'operator_profile':
@@ -252,6 +252,8 @@ def test_v4_backup_upgrades_without_actor_name(archive_module, station, tmp_path
         log = restored.scalar(select(m.ActivityLog))
         assert log.actor_name is None
         assert log.details == "Preserve audit"
+        device = restored.scalar(select(m.Device))
+        assert (device.camera_id, device.slot_index, device.device_index) == ('CAM-001', 0, 0)
     engine.dispose()
 
 
