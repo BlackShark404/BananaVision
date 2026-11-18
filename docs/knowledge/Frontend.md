@@ -39,6 +39,25 @@ Decision: [[Development Decisions]]; tests: [[Testing and Validation]].
 - `VITE_PUBLIC_BASE_URL` overrides the origin embedded in printed QR labels, so a label scanned off-station resolves to the public HTTPS link. When unset, labels keep the kiosk origin.
 - `VITE_API_URL`, `VITE_WS_URL` and `VITE_PUBLIC_BASE_URL` are build-time values; a production build written to `frontend/dist` is what Caddy serves. See [remote-access.md](../remote-access.md).
 
+## Dashboard FIFO card (2026-11-18)
+
+- The Dashboard shows the oldest five in-stock batches from
+  `GET /api/v1/dashboard` (`fifo_recommendations`), so the panel's FIFO ranking is
+  reachable without opening Inventory. Each row opens its intake in Scan Logs
+  (`/logs?intake=…`) or, for an unlinked stock scan, its Scan Detail page
+  (`/scans/…`). **View Inventory** opens `/inventory` for the full list.
+- The server groups eligible stock the same way Inventory does: one group per active
+  intake, or one per unlinked scan; groups are ordered by their oldest scan. The group's
+  earliest remaining life is the minimum known value in the group, and an all-unknown
+  group reports `Risk unknown`.
+- A group at or below two days, including overdue stock, shows **Sell immediately**;
+  otherwise it shows **Stock is stable**. The earliest batch shelf life uses the same
+  `Est.` wording as the rest of the UI. FIFO describes current stock, not the selected
+  `business_date`, so it does not change when an older Dashboard day is viewed.
+- The card is part of the existing summary response and refresh cycle; it adds no second
+  scan-history request. Operators receive the same projection scoped to their own scans,
+  like the rest of the Dashboard.
+
 ## Loading State Conventions
 
 The UI distinguishes between initial loads, continuous/hardware actions, and background refreshes to prevent UI flicker, premature zero/empty states, and unexpected layout shifts:
@@ -178,7 +197,8 @@ and leads the Scan Logs cell. See "Live shelf-life window" below.)
 Raw `spoilage_days` stays intact in API responses, provider state, correction drafts,
 history and CSV. Read-only correction inputs and change previews format their labels
 without replacing draft values. Dashboard/Analytics show aggregate counts and link to
-Scan Logs; they do not render a separate per-scan spoilage estimate.
+Scan Logs; they do not render a separate per-scan spoilage estimate. The Dashboard FIFO
+card is the batch-level exception: it shows the group's earliest `Est. … left` value.
 
 ## "Est." on AI-estimated numbers (2026-11-13)
 

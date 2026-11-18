@@ -45,6 +45,16 @@ class DashboardOperator(BaseModel):
     avg_confidence: float | None
 
 
+class DashboardFifoRecommendation(BaseModel):
+    key: str
+    intake_id: UUID | None = None
+    scan_id: UUID | None = None
+    source_name: str
+    scanned_at: Timestamp
+    hands: int
+    earliest_remaining_days: float | None
+
+
 class DashboardSummary(BaseModel):
     generated_at: Timestamp
     business_date: date
@@ -57,6 +67,7 @@ class DashboardSummary(BaseModel):
     sources: list[DashboardSource]
     operators: list[DashboardOperator]
     recent_scans: list[DashboardScan]
+    fifo_recommendations: list[DashboardFifoRecommendation] = []
     pending_review_count: int
     expiring_stock_count: int
     confidence_threshold: float

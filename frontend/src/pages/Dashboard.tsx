@@ -27,15 +27,33 @@ import {
   ArrowRight,
   LayoutDashboard,
   ClipboardCheck,
-  Clock
+  Clock,
+  TrendingDown
 } from "lucide-react"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import { inManila, manilaDayKey } from "@/lib/manilaTime"
+import { shelfLifeLabel } from "@/lib/inventoryRisk"
+import { estimateText } from "@/lib/estimates"
+import type { DashboardFifoRecommendation } from "@/types/dashboard"
 
 const manilaTime = new Intl.DateTimeFormat("en-PH", inManila({
   month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit",
 }))
+const manilaShortDate = new Intl.DateTimeFormat("en-PH", inManila({
+  month: "short", day: "numeric", year: "numeric",
+}))
 const manilaDate = (time: number) => manilaDayKey(time)
+
+const fifoHref = (item: DashboardFifoRecommendation) => item.intake_id
+  ? `/logs?intake=${encodeURIComponent(item.intake_id)}`
+  : item.scan_id ? `/scans/${item.scan_id}` : "/inventory"
+
+function fifoUrgency(days: number | null) {
+  if (days === null || !Number.isFinite(days)) return { label: "Risk unknown", className: "bg-muted text-muted-foreground border-border" }
+  if (days <= 2) return { label: "Sell immediately", className: "bg-red-50 text-red-700 border-red-200" }
+  return { label: "Stock is stable", className: "bg-emerald-50 text-emerald-700 border-emerald-200" }
+}
+
 // Recent scans can be older than today, which a plain /logs (today's view) would hide.
 const ALL_SCAN_LOGS = buildScanLogsUrl({ date: "all" })
 
@@ -125,6 +143,7 @@ function DashboardContent() {
   const staleCameras = !!cameras.data && (!!cameras.error || (cameras.receivedAt !== null && now - cameras.receivedAt > 90_000))
   const activeSourcesList = summary?.sources ?? []
   const recentScans = summary?.recent_scans ?? []
+  const fifoRecommendations = summary?.fifo_recommendations ?? []
   const devices = cameras.data ?? []
   const onlineCameras = devices.filter(device => device.online).length
   const metricValue = (value: string | number | undefined) => summary ? value ?? "—" : metrics.loading ? "…" : "—"
@@ -355,6 +374,69 @@ function DashboardContent() {
         </Card>
 
       </div>
+
+      {/* FIFO Recommendations */}
+      <Card className="rounded-xl sm:rounded-2xl shadow-sm overflow-hidden">
+        <CardHeader className="pb-3 flex flex-row items-center justify-between border-b bg-muted/10">
+          <div>
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-primary" /> FIFO Recommendations
+            </CardTitle>
+            <CardDescription className="text-xs">Oldest in-stock batches to sell first · current stock</CardDescription>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => navigate("/inventory")} className="hidden sm:flex text-muted-foreground hover:text-primary">
+            View Inventory <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+          <Button variant="ghost" size="icon" aria-label="Open Inventory" onClick={() => navigate("/inventory")} className="sm:hidden h-8 w-8 text-muted-foreground hover:text-primary">
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          {!summary ? (
+            <div className="p-6 text-sm text-muted-foreground">
+              {metrics.loading
+                ? <span role="status" aria-label="Loading FIFO recommendations" className="block space-y-2">{[0, 1, 2].map(row => <Skeleton key={row} className="h-10 w-full" />)}</span>
+                : "FIFO recommendations unavailable. Retry the dashboard refresh."}
+            </div>
+          ) : fifoRecommendations.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+              <Package className="w-8 h-8 mb-2 opacity-20" />
+              <p className="text-sm">No in-stock batches to prioritize</p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {fifoRecommendations.map((item, index) => {
+                const urgency = fifoUrgency(item.earliest_remaining_days)
+                return (
+                  <Link
+                    key={item.key}
+                    to={fifoHref(item)}
+                    className="flex items-center gap-3 p-3 sm:px-4 hover:bg-muted/30 transition-colors focus-visible:outline-2 focus-visible:outline-primary"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                      #{index + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{item.source_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Scanned {manilaShortDate.format(new Date(item.scanned_at))} · {item.hands} {item.hands === 1 ? "hand" : "hands"}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <Badge variant="outline" className={`text-[10px] sm:text-xs ${urgency.className}`}>
+                        {urgency.label}
+                      </Badge>
+                      <span className="text-[9px] sm:text-[10px] text-muted-foreground font-mono mt-1">
+                        Earliest spoilage: <span className="font-bold text-rose-600">{estimateText(shelfLifeLabel(item.earliest_remaining_days))}</span>
+                      </span>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Camera Frames Section */}
       <div>

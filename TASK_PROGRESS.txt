@@ -1,4 +1,33 @@
-CURRENT RESUME HERE (2026-11-18) - TEAM MAIN MERGED INTO THE AUTO-FLAG FIX
+CURRENT RESUME HERE (2026-11-18) - DASHBOARD FIFO CARD
+
+User request: a panelist suggested a Dashboard card for easy access to FIFO
+Recommendations or actionable "Sell immediately". Implemented the card. Changes are
+uncommitted.
+
+WHAT CHANGED
+- GET /api/v1/dashboard returns fifo_recommendations: the oldest five eligible in-stock
+  groups (one per active intake, or one per unlinked scan), with source, scan time, hand
+  count and earliest remaining days. Eligibility and grouping match Inventory.
+- Dashboard has a new full-width "FIFO Recommendations" card below Recent Scans /
+  Today's Sources. Each row opens /logs?intake=... or /scans/...; View Inventory opens
+  /inventory. A group at or below 2 days (overdue included) shows "Sell immediately";
+  no valid estimate in the group shows "Risk unknown". Shelf life keeps the "Est."
+  wording.
+- No migration. The card uses the existing summary request and refresh cycle.
+
+VERIFIED (2026-11-18)
+- backend tests/test_dashboard.py: 12 passed on SQLite. PostgreSQL was not run for this
+  change.
+- frontend dashboard browser tests: 15 of 15 passed.
+- npx tsc -b and npm run build passed.
+- ESLint on the changed Dashboard files reports only the existing Target and camera
+  index unused-variable findings. Ruff is not installed in this environment.
+
+EXACT NEXT STEP
+- Review the scoped diff and the FIFO card in the browser. Nothing is staged or
+  committed.
+
+PREVIOUS RESUME (2026-11-18) - TEAM MAIN MERGED INTO THE AUTO-FLAG FIX
 
 Team main (f7b5aeb) is merged into the fork's main on top of the auto-flag fix (320e480,
 0f61681), so team PR #17 has no conflict. Two files conflicted: this file and

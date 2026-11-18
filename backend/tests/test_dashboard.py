@@ -263,6 +263,53 @@ async def test_expiry_ages_ranges_and_uses_latest_status_with_id_tiebreak(db):
 
 
 @pytest.mark.asyncio
+async def test_fifo_recommendations_group_active_stock_oldest_first(db):
+    operator = account(db)
+    supplier_id, intake_id = uuid4(), uuid4()
+    db.add(Supplier, id=supplier_id, name="FIFO Supplier")
+    db.add(
+        Intake, id=intake_id, supplier_id=supplier_id, source="FIFO Supplier",
+        intake_date=date(2026, 10, 2), status=IntakeStatusEnum.ACTIVE,
+    )
+    scan(db, operator, at=NOW - timedelta(days=4), prediction="10", source="Loose Batch")
+    scan(db, operator, at=NOW - timedelta(days=3), intake=intake_id, prediction="12")
+    scan(db, operator, at=NOW - timedelta(days=1), intake=intake_id, prediction="2")
+    # Older stock that is no longer sellable never enters the recommendation list.
+    scan(db, operator, at=NOW - timedelta(days=9), prediction="1", statuses=[
+        (NOW, InventoryStatusEnum.SOLD),
+    ])
+    depleted_id = uuid4()
+    db.add(
+        Intake, id=depleted_id, source="Depleted", intake_date=date(2026, 10, 2),
+        status=IntakeStatusEnum.DEPLETED,
+    )
+    scan(db, operator, at=NOW - timedelta(days=8), intake=depleted_id, prediction="1")
+
+    summary = await dashboard.get_summary(db, operator)
+    assert len(summary.fifo_recommendations) == 2
+    first, second = summary.fifo_recommendations
+    assert first.intake_id is None and first.scan_id is not None
+    assert first.key == f"scan:{first.scan_id}"
+    assert first.source_name == "Loose Batch" and first.hands == 1
+    assert first.earliest_remaining_days == pytest.approx(6)
+    assert second.intake_id == intake_id and second.scan_id is None
+    assert second.key == f"intake:{intake_id}"
+    assert second.source_name == "FIFO Supplier" and second.hands == 2
+    assert second.earliest_remaining_days == pytest.approx(1)
+
+
+@pytest.mark.asyncio
+async def test_fifo_recommendations_keep_five_groups_and_report_unknown_risk(db):
+    operator = account(db)
+    for days in range(6):
+        scan(db, operator, at=NOW - timedelta(days=6 - days), prediction="N/A")
+    summary = await dashboard.get_summary(db, operator)
+    assert len(summary.fifo_recommendations) == dashboard.FIFO_LIMIT
+    assert all(item.earliest_remaining_days is None for item in summary.fifo_recommendations)
+    assert all(item.intake_id is None and item.scan_id is not None for item in summary.fifo_recommendations)
+
+
+@pytest.mark.asyncio
 async def test_supplier_identity_precedes_text_and_depleted_intake_excludes_stock(db):
     operator = account(db)
     supplier_id, intake_id = uuid4(), uuid4()
@@ -328,7 +375,14 @@ def test_router_authentication_validation_and_json_contract(db):
         data = response.json()
         assert data["business_date"] == "2026-10-02" and data["timezone"] == "Asia/Manila"
         assert data["generated_at"].endswith("+08:00") and data["avg_confidence"] is None
+        assert data["fifo_recommendations"] == []
         scan_id = scan(db, user)
+        fifo = client.get("/api/v1/dashboard").json()["fifo_recommendations"]
+        assert fifo == [{
+            "key": f"scan:{scan_id}", "intake_id": None, "scan_id": str(scan_id),
+            "source_name": "Farm A", "scanned_at": "2026-10-02T12:00:00+08:00",
+            "hands": 1, "earliest_remaining_days": 6.0,
+        }]
         scans_response = client.get("/api/v1/dashboard/scans")
         assert scans_response.status_code == 200
         scans_data = scans_response.json()

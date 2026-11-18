@@ -53,7 +53,7 @@ export const summary = (overrides = {}) => ({
   total_scans: 12, avg_confidence: 92.5, active_operator_count: 2,
   sources: [{ key: "supplier:source-1", name: "Fixture Supplier", count: 12 }],
   operators: [{ operator_id: "operator-1", name: "Alex Santos", username: "alex1", scan_count: 12, avg_confidence: 92.5 }],
-  recent_scans: [], pending_review_count: 3, expiring_stock_count: 4, confidence_threshold: 85, ...overrides,
+  recent_scans: [], fifo_recommendations: [], pending_review_count: 3, expiring_stock_count: 4, confidence_threshold: 85, ...overrides,
 })
 
 export async function installEnvironment(page, { user, now = "2026-10-02T04:00:00Z" } = {}) {

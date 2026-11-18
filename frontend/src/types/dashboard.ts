@@ -20,6 +20,16 @@ export interface DashboardScan {
   shelf_life_window?: ShelfLifeWindow | null
 }
 
+export interface DashboardFifoRecommendation {
+  key: string
+  intake_id: string | null
+  scan_id: string | null
+  source_name: string
+  scanned_at: string
+  hands: number
+  earliest_remaining_days: number | null
+}
+
 export interface DashboardSummary {
   generated_at: string
   business_date: string
@@ -32,6 +42,7 @@ export interface DashboardSummary {
   sources: { key: string; name: string; count: number }[]
   operators: { operator_id: string; name: string; username: string; scan_count: number; avg_confidence: number | null }[]
   recent_scans: DashboardScan[]
+  fifo_recommendations: DashboardFifoRecommendation[]
   pending_review_count: number
   expiring_stock_count: number
   confidence_threshold: number

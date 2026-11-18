@@ -201,6 +201,28 @@ test("Recent Scans and Today's Sources retain their logs destinations", async t 
   assert.equal(new URL(page.url()).searchParams.get("date"), "2026-10-02")
 })
 
+test("FIFO recommendations surface actionable batches and open their records", async t => {
+  const fifo = [
+    {
+      key: "intake:intake-1", intake_id: "intake-1", scan_id: null, source_name: "Fifo Supplier",
+      scanned_at: "2026-09-30T08:00:00+08:00", hands: 2, earliest_remaining_days: 1,
+    },
+    {
+      key: "scan:scan-9", intake_id: null, scan_id: "scan-9", source_name: "Loose Batch",
+      scanned_at: "2026-10-01T08:00:00+08:00", hands: 1, earliest_remaining_days: null,
+    },
+  ]
+  const { page } = await setup(t, { response: { summary: summary({ fifo_recommendations: fifo }) } })
+  await expectValue(card(page), "12")
+  await page.getByText("Sell immediately", { exact: true }).waitFor()
+  await page.getByText("Risk unknown", { exact: true }).waitFor()
+  await page.getByText("Est. 1 day left", { exact: true }).waitFor()
+  assert.equal(await page.getByRole("link", { name: /Fifo Supplier/ }).getAttribute("href"), "/logs?intake=intake-1")
+  assert.equal(await page.getByRole("link", { name: /Loose Batch/ }).getAttribute("href"), "/scans/scan-9")
+  await page.getByRole("button", { name: /View Inventory/i }).click()
+  await page.waitForURL("**/inventory")
+})
+
 test("zero cameras and failed preview are explicit and use the physical device ID", async t => {
   const { page, state } = await setup(t)
   await expectValue(card(page), "12")

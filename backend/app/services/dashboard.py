@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import Float, and_, case, cast, extract, false, func, literal, not_, select
+from sqlalchemy import Float, String, and_, case, cast, extract, false, func, literal, not_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ForbiddenException
@@ -26,6 +26,7 @@ from app.models.supplier import Supplier
 from app.models.system_config import SystemConfig
 from app.models.user_account import UserAccount
 from app.schemas.dashboard import (
+    DashboardFifoRecommendation,
     DashboardOperator,
     DashboardScan,
     DashboardScanList,
@@ -43,6 +44,7 @@ from app.services.inventory_policy import (
 )
 
 DEFAULT_CONFIDENCE_THRESHOLD = 80.0
+FIFO_LIMIT = 5
 
 
 def _mean(value) -> float | None:
@@ -153,6 +155,23 @@ def _source(row) -> tuple[str, str]:
     if row.source_text is not None:
         return f"text:{row.source_text}", row.source_name
     return "unknown", "Unknown"
+
+
+def _fifo(row) -> DashboardFifoRecommendation:
+    linked = row.intake_id is not None
+    scan_id = None if linked else UUID(row.fifo_key)
+    return DashboardFifoRecommendation(
+        key=f"intake:{row.intake_id}" if linked else f"scan:{scan_id}",
+        intake_id=row.intake_id,
+        scan_id=scan_id,
+        source_name=row.source_name,
+        scanned_at=as_manila(row.scanned_at),
+        hands=row.hands,
+        earliest_remaining_days=(
+            None if row.earliest_remaining_days is None
+            else round(float(row.earliest_remaining_days), 4)
+        ),
+    )
 
 
 def _scan(row, now: datetime) -> DashboardScan:
@@ -267,7 +286,25 @@ async def get_summary(
         ).select_from(scans)
     )).one()
     success_rate = (alerts.success_count / alerts.total * 100.0) if alerts.total > 0 else None
-    
+    # One row per active intake, or one per unlinked scan; the oldest group sells first.
+    fifo_key = func.coalesce(
+        cast(scans.c.intake_id, String), cast(scans.c.id, String),
+    ).label("fifo_key")
+    fifo_rows = (await db.execute(
+        select(
+            scans.c.intake_id,
+            fifo_key,
+            func.min(scans.c.date_time).label("scanned_at"),
+            func.min(scans.c.source_name).label("source_name"),
+            func.count().label("hands"),
+            func.min(scans.c.remaining_days).label("earliest_remaining_days"),
+        )
+        .where(eligible_stock(scans))
+        .group_by(scans.c.intake_id, fifo_key)
+        .order_by(func.min(scans.c.date_time).asc(), fifo_key.asc())
+        .limit(FIFO_LIMIT)
+    )).all()
+
     return DashboardSummary(
         generated_at=now, business_date=day,
         total_scans=totals.total, avg_confidence=_mean(totals.confidence),
@@ -283,6 +320,7 @@ async def get_summary(
             scan_count=r.scan_count, avg_confidence=_mean(r.avg_confidence),
         ) for r in operator_rows],
         recent_scans=[_scan(r, now) for r in recent],
+        fifo_recommendations=[_fifo(r) for r in fifo_rows],
         pending_review_count=alerts.review, expiring_stock_count=alerts.expiring,
         confidence_threshold=threshold,
     )

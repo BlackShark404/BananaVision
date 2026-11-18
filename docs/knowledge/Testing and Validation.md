@@ -1,5 +1,19 @@
 # Testing and Validation
 
+## Dashboard FIFO recommendations — 2026-11-18
+
+- **Backend:** `tests/test_dashboard.py` covers grouping by active intake and unlinked
+  scan, oldest-first order, exclusion of sold stock and depleted intakes, the five-group
+  limit, unknown risk, and the JSON contract for `fifo_recommendations`.
+  Result: 12 passed on SQLite. Not run against PostgreSQL for this change.
+- **Frontend:** `tests/dashboard.test.mjs` checks the **Sell immediately** and
+  **Risk unknown** labels, the `Est. 1 day left` wording, intake and scan links, and the
+  **View Inventory** destination. Result: 15 of 15 dashboard browser tests passed.
+- **Also passed:** `npx tsc -b`, `npm run build`. ESLint on the changed Dashboard files
+  reports only the two existing `Target` and camera `index` unused-variable findings.
+  Ruff is not installed in this environment, so the changed backend files were linted
+  only by the passing test import.
+
 ## Merge of team main, migration id and saved threshold — 2026-11-18
 
 - **Why PostgreSQL runs matter:** the merged tree failed 23 backend tests with a disposable
