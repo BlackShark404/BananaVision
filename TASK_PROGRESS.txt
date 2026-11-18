@@ -43,30 +43,33 @@ AUTO-FLAG FIX (user request 2026-11-18; commits 320e480 and 0f61681)
 - Docs: Development Decisions (2026-11-18 entry), Resolved Bugs, AI Models, Testing and
   Validation, backend README.
 
-VERIFICATION OF THE MERGED TREE (2026-11-18)
-- Backend with a disposable PostgreSQL 16 cluster: 1412 passed, 38 skipped, 23 FAILED.
-- Backend without PostgreSQL: 1353 passed, 115 skipped, 5 FAILED.
-- Frontend: 396 of 397 passed, 1 FAILED. tsc -b and build pass. ESLint 36 (baseline).
-  Ruff 639.
-- Every failure comes from team main. Team main alone was run for comparison: the same
-  18 PostgreSQL tests and the same 4 threshold tests fail there. The merge added no failure
-  of its own (the auto-flag commits passed 1428/38 and 392/392 before the merge).
-
-DEFECTS FOUND IN TEAM MAIN BY THAT RUN (not fixed in the merge commit)
-1. The backend cannot start on PostgreSQL. Migration id
+DEFECTS FOUND IN TEAM MAIN BY THE MERGED TEST RUN, FIXED IN THE FOLLOW-UP COMMIT
+1. The backend could not start on PostgreSQL. Migration id
    "0013_confidence_threshold_default" has 33 characters; alembic_version.version_num is
-   VARCHAR(32). The startup upgrade fails with "value too long for type character
-   varying(32)" and rolls back, including migration 0012. 18 PostgreSQL tests fail
-   (test_migrations, test_seed, test_seed_kiosk_contract,
-   test_audit_corrections_postgresql). SQLite does not enforce the length, so SQLite-only
-   test runs do not show it.
-2. A saved 85% threshold cannot be kept. configuration.get_config rewrites 85 to 80 on
-   every load, without a revision change or an activity entry. An admin who saves 85%
-   gets 80% back, and scans are flagged against 80%. 5 tests fail: test_audit_records (the
-   config change entry reports the wrong old value), test_detection_sensitivity (3) and
-   test_auto_flag_reasons::test_the_saved_threshold_decides_the_flag.
-3. frontend/tests/maintenance.test.mjs still expects "Reset All Settings" to give 85; the
-   page now gives 80 (stale test).
+   VARCHAR(32). The startup upgrade failed with "value too long for type character
+   varying(32)" and rolled back, including migration 0012. SQLite does not enforce the
+   length, so SQLite-only test runs did not show it.
+   Fix: the id and file are 0013_threshold_default. New guard test
+   test_every_migration_id_fits_the_alembic_version_column.
+2. A saved 85% threshold could not be kept. configuration.get_config rewrote 85 to 80 on
+   every load, without a revision change or an activity entry, and scans were flagged
+   against 80%.
+   Fix: loading returns the saved value. Old 85% settings still move to 80% once, in
+   migration 0013. New test test_a_saved_threshold_of_85_is_kept. One team assertion in
+   test_invalid_legacy_configuration_is_not_promoted is back to 85.
+3. frontend/tests/maintenance.test.mjs expected "Reset All Settings" to give 85; the page
+   gives 80. The test now expects 80.
+
+VERIFICATION (2026-11-18)
+- Merged tree before the fixes: backend with PostgreSQL 1412 passed, 38 skipped, 23
+  failed; without PostgreSQL 1353 passed, 115 skipped, 5 failed; frontend 396 of 397.
+  tsc -b and build passed. ESLint 36 (baseline). Ruff 639.
+  Team main alone had the same 18 PostgreSQL failures and the same 4 threshold failures.
+- After the fixes, on PostgreSQL: the 10 affected backend test files, 269 passed, 1
+  skipped. They contain all 23 tests that failed and the 2 new tests (both failed before
+  the fix).
+- NOT rerun after the fixes (stopped at the user's request): the full backend suites, the
+  frontend suite (including the corrected maintenance test), tsc, ESLint, build.
 
 AUDIT PART 3: TWO VERSIONS
 - The team's Part 3 (582ea43) is on main.
@@ -92,10 +95,11 @@ STILL OPEN
 - Type check: use `npx tsc -b` (or `npm run build`), not `npm run typecheck`.
 
 EXACT NEXT STEP
-- Do not update the station from team main until defect 1 is fixed: the backend will not
-  start.
-- Fix defects 1 to 3 in a separate commit when the user agrees (they change a teammate's
-  files), rerun the suites, push, and merge team PR #17.
+- Merge team PR #17 (auto-flag fix, merge of team main, the three fixes above), then
+  Sync fork.
+- A station that wants an 85% threshold saves it again after the update (migration 0013
+  changes a saved 85 to 80 once).
 - At the station after updating: run the preview
   `.\venv\Scripts\python.exe scripts\review_auto_flags.py` from the backend folder, then
   the same command with `--apply --admin <username>` to remove the old flags.
+- Optional: rerun the full backend and frontend suites on main.

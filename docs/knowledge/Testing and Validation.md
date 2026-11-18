@@ -1,5 +1,22 @@
 # Testing and Validation
 
+## Merge of team main, migration id and saved threshold — 2026-11-18
+
+- **Why PostgreSQL runs matter:** the merged tree failed 23 backend tests with a disposable
+  PostgreSQL 16 cluster and only 5 without it. 18 failures came from a migration id longer
+  than `alembic_version.version_num` (`VARCHAR(32)`); SQLite does not enforce the length.
+  Run the migration and seed tests on PostgreSQL before a release.
+- **New tests (each failed before its fix):**
+  - `test_migrations.py::test_every_migration_id_fits_the_alembic_version_column`;
+  - `test_configuration.py::test_a_saved_threshold_of_85_is_kept`.
+- **Tests changed:** `test_invalid_legacy_configuration_is_not_promoted` expects the saved
+  85 again; `frontend/tests/maintenance.test.mjs` expects "Reset All Settings" to give 80.
+- **Result after the fixes:** the 10 affected backend test files pass on PostgreSQL (269
+  passed, 1 skipped), including all 23 tests that failed.
+- **Not rerun after the fixes:** the full backend suites, the frontend suite, tsc, ESLint
+  and build. Before the fixes: frontend 396 of 397 (the stale reset test), tsc and build
+  passed, ESLint 36, Ruff 639.
+
 ## Auto-flag only for low confidence — 2026-11-18
 
 - **New backend tests:**

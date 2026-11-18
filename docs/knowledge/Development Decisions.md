@@ -2,6 +2,26 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-18: 80% is the default review threshold; loading never changes a saved value
+
+- **Team decision (86e4728, 94296fc):** the default review threshold is 80%, down from
+  85%: model default, first-start configuration, dashboard fallback and "Reset All
+  Settings". Migration `0013_threshold_default` changes a saved 85 to 80 once, at upgrade.
+- **Revised after the merge of team main (test run on PostgreSQL):**
+  - `configuration.get_config` also rewrote 85 to 80 on every load. An admin could not
+    keep 85%: the next read returned 80, with no revision change and no activity entry,
+    and scans were flagged against 80%. Loading now returns the saved value unchanged.
+    The one-time migration is the only automatic change.
+  - The migration id had 33 characters. `alembic_version.version_num` is `VARCHAR(32)`,
+    so PostgreSQL rejected the startup upgrade and the backend did not start. The id is
+    now `0013_threshold_default`. A test rejects any migration id longer than 32
+    characters.
+- **Rule:** a setting changes only through a save (revision and activity entry) or a
+  versioned migration. Reads do not write.
+- **Limit:** the one-time migration cannot tell a chosen 85% from the old default. A
+  station that wants 85% saves it again after the update.
+- See [[Resolved Bugs]] and [[Testing and Validation]] (2026-11-18).
+
 ## 2026-11-18: A scan is auto-flagged only when its confidence is below the threshold
 
 - **Station report:** kiosk scans appeared as Flagged in Scan Logs and Quality Control
@@ -470,7 +490,7 @@ Documented architectural, technical, and operational decisions in BananaVision.
 
 ## 2026-10-16: Live Detection and Result Review
 
-- YOLO retains candidates at `min(YOLO_CONFIDENCE_THRESHOLD, saved confidence_threshold / 100)`. The model setting defaults to 0.50; the saved review setting defaults to 85%. Lower saved settings remain supported.
+- YOLO retains candidates at `min(YOLO_CONFIDENCE_THRESHOLD, saved confidence_threshold / 100)`. The model setting defaults to 0.50; the saved review setting defaults to 85% (80% since 2026-11-18). Lower saved settings remain supported.
 - Fusion uses the saved setting for confidence review, alongside camera support and conflict checks. A confident box score does not establish agreement across camera views.
 - Both thresholds are snapshotted before processing the camera views. Original box confidence scores are retained.
 - The configuration response reports the effective saved detection cutoff as read-only `detection_confidence_threshold` in percent. The settings slider controls review; its helper identifies the **current** saved detection cutoff.
