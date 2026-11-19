@@ -114,6 +114,8 @@ async def create_user(body: UserCreate, db: DbSession, admin: AdminUser, request
 
     if body.role == RoleEnum.ADMIN.value:
         user.admin_profile = AdminProfile()
+        # from_db_model reads this; an async session cannot lazy-load it after flush.
+        user.operator_profile = None
     elif body.role == RoleEnum.OPERATOR.value:
         user.operator_profile = OperatorProfile(
             pin_hash=hash_pin(pin),

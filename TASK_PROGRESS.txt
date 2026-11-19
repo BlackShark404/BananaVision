@@ -1,4 +1,35 @@
-CURRENT RESUME HERE (2026-11-18) - THUMBNAILS, IMAGE CACHE AND DEFERRED FETCH
+CURRENT RESUME HERE (2026-11-19) - ADMIN USER CREATION 500 FIX
+
+User reported an error when creating an Admin account in User Management. Existing backend
+suites passed because their SQLite adapter lazy-loads synchronously.
+
+WHAT CHANGED
+- backend/app/api/v1/users.py: the Admin branch now sets operator_profile = None before the
+  flush. UserResponse.from_db_model reads that relationship; a production AsyncSession
+  raised MissingGreenlet for a new Admin because it was never loaded and no OperatorProfile
+  was assigned.
+- backend/tests/test_assigned_fixes.py:
+  test_admin_account_creation_does_not_lazy_load_a_profile detaches the new row after flush
+  to expose implicit loads on SQLite. It fails with 500 without the fix.
+- docs/knowledge/Resolved Bugs.md: 2026-11-19 entry.
+- No migration, no frontend change, no API contract change.
+
+VERIFIED (2026-11-19)
+- Reproduced on a disposable PostgreSQL cluster (port 55432, removed afterwards) with a
+  real AsyncSession: MissingGreenlet at schemas/user.py from_db_model, called from
+  users.py create_user. After the fix, POST creation returned the created Admin with
+  temporary_password and temporary_pin = null.
+- Backend user/audit suites: 137 passed, 5 skipped
+  (test_assigned_fixes, test_security_followup, test_time_and_writes, test_audit_log,
+  test_audit_records).
+- Frontend user-management browser suite: 7 of 7 passed (assigned.test.mjs, Playwright
+  module borrowed from another local project).
+- Ruff is not installed in backend/venv; not run.
+
+EXACT NEXT STEP
+- Review the scoped diff. Nothing is staged or committed.
+
+PREVIOUS RESUME (2026-11-18) - THUMBNAILS, IMAGE CACHE AND DEFERRED FETCH
 
 User asked whether list image previews/thumbnails are optimized. Option 1 (server
 thumbnails) and then options 1+2 (in-memory blob cache and true lazy fetch) were approved

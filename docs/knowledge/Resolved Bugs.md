@@ -2,6 +2,23 @@
 
 Documented log of confirmed bug root causes, verified solutions, and test coverage in BananaVision.
 
+## 2026-11-19: Creating an Admin account failed with a 500
+
+- **Symptom:** User Management → Add User with role Admin returned
+  `500 Internal Server Error`; the form showed "Could not save user". Operator creation
+  worked.
+- **Root cause:** `create_user` loads `role` and, for operators, `operator_profile`
+  before building the response. A new Admin got `admin_profile` only, so
+  `UserResponse.from_db_model` lazy-loaded the unset `operator_profile` after the flush.
+  Production uses `AsyncSession`, where that implicit load raises `MissingGreenlet`.
+  The SQLite test adapter loads synchronously, so the existing suite passed.
+- **Fix:** the Admin branch initializes `operator_profile = None` before the flush
+  (`backend/app/api/v1/users.py`).
+- **Guard:** `test_admin_account_creation_does_not_lazy_load_a_profile` detaches the new
+  row after flush to expose implicit loads on SQLite; it fails with 500 without the fix.
+  Reproduced and re-verified on a disposable PostgreSQL cluster with a real async
+  session.
+
 ## 2026-11-18: Backend did not start on PostgreSQL after the threshold migration
 
 - **Symptom:** the startup upgrade failed with `value too long for type character

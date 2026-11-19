@@ -41,6 +41,29 @@ def secured(application):
         yield SimpleNamespace(client=client, headers={"Authorization": f"Bearer {token}"}, app=application)
 
 
+def test_admin_account_creation_does_not_lazy_load_a_profile(secured):
+    """A production AsyncSession cannot lazy-load after flush. Detaching the new row
+    exposes the same implicit access while this suite still uses SQLite."""
+    from sqlalchemy import event
+    from sqlalchemy.orm import Session as OrmSession
+
+    def detach_new_admin(session, _flush_context):
+        for obj in list(session.new):
+            if isinstance(obj, UserAccount) and obj.username == "detached-admin":
+                session.expunge(obj)
+
+    event.listen(OrmSession, "after_flush", detach_new_admin)
+    try:
+        response = secured.client.post("/api/v1/users", headers=secured.headers, json={
+            "username": "detached-admin", "full_name": "Detached Admin", "role": "Admin",
+        })
+    finally:
+        event.remove(OrmSession, "after_flush", detach_new_admin)
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["requires_pin_change"] is False and body["temporary_pin"] is None
+
+
 def test_unique_handoff_setup_scope_and_replay(secured):
     client, headers = secured.client, secured.headers
     accounts = [client.post("/api/v1/users", headers=headers, json={
