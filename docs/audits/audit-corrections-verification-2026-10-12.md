@@ -115,6 +115,6 @@ exact task-generated temp roots (including the disposable Ruff installation) wer
 The two recorded empty sandbox setup directories were already absent. No unrelated
 process, database, runtime installation or station data was stopped or removed.
 
-The active [checkpoint](../TASK_PROGRESS.txt) and its [archived execution ledger](history/2026-10-12-audit-corrections-verification-checkpoint.txt)
+The active [checkpoint](../../TASK_PROGRESS.txt) and its [archived execution ledger](../history/2026-10-12-audit-corrections-verification-checkpoint.txt)
 record the final state. The final local commit is on main; use `git log -1` and
 `git status --short` to verify its identity and cleanliness rather than a stale checkpoint SHA.

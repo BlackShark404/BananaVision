@@ -25,7 +25,7 @@ from app.services.ood_gate import EvidenceBox, is_supported
 logger = logging.getLogger(__name__)
 settings = get_settings()
 VOTE_CONFLICT_THRESHOLD = 0.60
-# Calibrated on prepared VALID Top photos; see docs/yolo-dataset-audit-2026-10-16.md.
+# Calibrated on prepared VALID Top photos; see docs/audits/yolo-dataset-audit-2026-10-16.md.
 # A different checkpoint or custom confidence/NMS setting needs its own calibration.
 TOP_OVERLAP_CHECKPOINT_SHA256 = (
     "e6f4e6825a642063dfd80e0b4251920e022ce85649d477ebde75a00a852f8b89"

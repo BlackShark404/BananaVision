@@ -92,7 +92,7 @@ The approved implementation and scoped verification were already complete; no so
 or repeated test runs were needed. `git diff --check` passed. All fourteen task files remain
 unstaged on `main` at `4e7bcb11f083fa7e184ffc2f336c2cdf87a9822b`.
 The local `origin/main` tracking ref is one commit ahead (`8909dc1`), adding only
-`docs/accuracy-improvement-roadmap.md`; it does not overlap this patch. No fetch, pull, merge,
+`docs/development/accuracy-improvement-roadmap.md`; it does not overlap this patch. No fetch, pull, merge,
 commit or push was performed during this resume. The verification limits above remain.
 
 ## Follow-up — existing database during setup (2026-10-20)

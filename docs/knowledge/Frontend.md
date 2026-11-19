@@ -40,7 +40,7 @@ Decision: [[Development Decisions]]; tests: [[Testing and Validation]].
 - Protected thumbnail blobs are cached in memory by `ScanImage`, keyed by user and URL, with entry/byte limits. Remounting a table row reuses the object URL; `clearToken()` revokes the cache on logout or session expiry. Originals keep their per-mount object URLs.
 - Table thumbnails pass `defer`. An `IntersectionObserver` with a 200 px margin holds the authenticated request until the placeholder approaches the viewport, because native `loading="lazy"` cannot defer a JavaScript `fetch`.
 - `VITE_PUBLIC_BASE_URL` overrides the origin embedded in printed QR labels, so a label scanned off-station resolves to the public HTTPS link. When unset, labels keep the kiosk origin.
-- `VITE_API_URL`, `VITE_WS_URL` and `VITE_PUBLIC_BASE_URL` are build-time values; a production build written to `frontend/dist` is what Caddy serves. See [remote-access.md](../remote-access.md).
+- `VITE_API_URL`, `VITE_WS_URL` and `VITE_PUBLIC_BASE_URL` are build-time values; a production build written to `frontend/dist` is what Caddy serves. See [remote-access.md](../guides/remote-access.md).
 
 ## Dashboard FIFO card (2026-11-18)
 

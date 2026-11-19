@@ -821,7 +821,7 @@ See [the seed audit](../audits/2026-10-19-seed-compatibility.md) and
 
 ## Testing Philosophy & Safety Rules
 
-As mandated by `AGENTS.md` and `docs/development-workflow.md`:
+As mandated by `AGENTS.md` and `docs/development/development-workflow.md`:
 
 1. **Isolation from Production Systems:**
    - **Never test against the live station database, captures, physical cameras, printer hardware, or OS power.**

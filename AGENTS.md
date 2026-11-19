@@ -25,7 +25,7 @@ These are the user's repository-specific choices for applying generic skill work
 - Model selection is left to each contributor/agent. No default model is imposed by this repository. Choose based on your own budget and toolstack; see the model comparison notes in TASK_PROGRESS.txt for free-tier options. Follow explicit task/model overrides.
 - Keep `TASK_PROGRESS.txt` limited to current milestones, pending work, verified results, constraints and an exact next step. Archive superseded content before replacing it.
 
-Read [the development workflow](docs/development-workflow.md) for verification commands and tooling details.
+Read [the development workflow](docs/development/development-workflow.md) for verification commands and tooling details.
 
 For maintenance changes, use the approved [design](docs/superpowers/specs/2026-10-05-system-maintenance-design.md) and [plan](docs/superpowers/plans/2026-10-06-system-maintenance.md).
 

@@ -5,7 +5,7 @@ Implementation reviewed and tested through `4094852`, against task base `e3e1c07
 The finalization commit containing this report changes documentation and removes a
 machine-specific test helper; it does not change production behavior.
 
-The [approved plan](superpowers/plans/2026-10-09-scan-records-follow-up.md) is complete
+The [approved plan](../superpowers/plans/2026-10-09-scan-records-follow-up.md) is complete
 for implementation and isolated verification. No push, merge, deployment or live
 station acceptance was performed. The existing maintenance implementation and the
 logout fix `1a13e0b` remain intact. No reverted commits were replayed.
@@ -155,5 +155,5 @@ trailing whitespace; those unrelated/historical contents were preserved.
   by the user's explicit decision; this is not a deployment acceptance report.
 - No push, merge or deployment. Keep this branch for the user's integration decision.
 
-The compact [checkpoint](../TASK_PROGRESS.txt) is authoritative for the next session;
+The compact [checkpoint](../../TASK_PROGRESS.txt) is authoritative for the next session;
 superseded checkpoints in `docs/history` are historical evidence, not pending work.

@@ -17,7 +17,7 @@ BananaVision is a browser-based banana inventory and quality-control system. It 
 - DHT22 temperature/humidity readings from an Arduino serial connection.
 - Operator and administrator workflows, scan history, inventory, quality review, analytics, notifications, device status, and system controls.
 
-The current repository is an actively implemented foundation. See `docs/CHANGELOG.md` for implementation status and remaining station/panel verification. Planned production features are not automatically implemented.
+The current repository is an actively implemented foundation. See `docs/development/CHANGELOG.md` for implementation status and remaining station/panel verification. Planned production features are not automatically implemented.
 
 ## 2. System Shape
 
@@ -229,7 +229,7 @@ user_account 1--many app_notification_read
 
 Important scan data includes cultivar, ripeness, confidence, temperature, humidity, spoilage days, finger count, thumbnail, engineered features, treatment, current inventory status history, original AI output, notes, and per-camera evidence.
 
-The current schema DDL is `docs/bananavision_schema_current.sql`, maintained at Alembic revision `0010_notification_read_receipts`. The companion data dictionary in `docs/schema_tables.md` lists all 25 application tables, enum types, keys, constraints and indexes. Actual PostgreSQL identifiers are lowercase snake_case; the dictionary uppercases them for ERD readability. `docs/bananavision_schema_final2.sql` is retained as the historical pre-normalization reference only.
+The current schema DDL is `docs/bananavision_schema_current.sql`, maintained at Alembic revision `0010_notification_read_receipts`. The companion data dictionary in `docs/data/schema_tables.md` lists all 25 application tables, enum types, keys, constraints and indexes. Actual PostgreSQL identifiers are lowercase snake_case; the dictionary uppercases them for ERD readability. `docs/bananavision_schema_final2.sql` is retained as the historical pre-normalization reference only.
 
 ## 9. Migration: `docs/migrations/001_feature_engineering.sql`
 
@@ -312,7 +312,7 @@ The frontend uses Vite. Set `VITE_API_URL` when the backend is not at the browse
 
 These are important for any future AI or developer session:
 
-- `docs/backend_plan.md` describes proposed architecture and files that are not all present. Treat it as design guidance, not an implementation inventory.
+- `docs/development/backend_plan.md` describes proposed architecture and files that are not all present. Treat it as design guidance, not an implementation inventory.
 - The current backend startup uses `Base.metadata.create_all`; it does not automatically run the SQL migration file as an Alembic migration.
 - Model weights exist locally under `backend/app/ml/weights/` but are ignored by Git. Provision them separately and verify metadata/hash for the deployed station.
 - Frontend API typing is permissive in several places (`any`) and may not exactly match backend response schemas.

@@ -30,11 +30,11 @@ deployment and live-acceptance limitations. Recommended fixes require separate a
 ## Scope, method and evidence
 
 Requirements are the original comprehensive audit request and its main-only resume
-request. The existing [scan plan](superpowers/plans/2026-10-09-scan-records-follow-up.md),
-[maintenance design](superpowers/specs/2026-10-05-system-maintenance-design.md) and
-[maintenance plan](superpowers/plans/2026-10-06-system-maintenance.md) remain completed
+request. The existing [scan plan](../superpowers/plans/2026-10-09-scan-records-follow-up.md),
+[maintenance design](../superpowers/specs/2026-10-05-system-maintenance-design.md) and
+[maintenance plan](../superpowers/plans/2026-10-06-system-maintenance.md) remain completed
 implementation references, not instructions to repeat their work. The separate
-[product roadmap](SYSTEM_DESIGN_GAP_ANALYSIS_AND_PRODUCT_ROADMAP.md) contains proposed
+[product roadmap](../development/SYSTEM_DESIGN_GAP_ANALYSIS_AND_PRODUCT_ROADMAP.md) contains proposed
 future product scope; its proposals are not assumed to be current requirements or
 authorized fixes.
 
@@ -48,8 +48,8 @@ Evidence labels used throughout:
   after a fresh Git comparison. These are previous executed results, not newly run tests.
 - **P:** new dependency-free source-function characterization probes, executed during
   this audit. They confirm observed defects and do **not** certify corrected behavior.
-- **T:** new executed runtime characterization in the [PostgreSQL probes](audits/test_system_audit_metrics.py)
-  and [browser probes](audits/system-audit-browser-2026-10-11.mjs), plus the targeted
+- **T:** new executed runtime characterization in the [PostgreSQL probes](test_system_audit_metrics.py)
+  and [browser probes](system-audit-browser-2026-10-11.mjs), plus the targeted
   backend run listed below. Passing characterization can confirm a defect; it does
   not mean the observed behavior was fixed. Browser HTTP/WebSocket traffic is mocked.
 - **G:** a specific verification or policy gap; no passing result is claimed.
@@ -75,13 +75,13 @@ Status meanings:
 
 ### Dashboard
 
-Primary paths: [Dashboard.tsx](../frontend/src/pages/Dashboard.tsx),
-[DashboardRecords.tsx](../frontend/src/components/DashboardRecords.tsx),
-[useDashboardResource](../frontend/src/hooks/useDashboardResource.ts),
-[Dashboard API](../backend/app/api/v1/dashboard.py),
-[dashboard service](../backend/app/services/dashboard.py),
-[backend tests](../backend/tests/test_dashboard.py),
-[browser tests](../frontend/tests/dashboard.test.mjs).
+Primary paths: [Dashboard.tsx](../../frontend/src/pages/Dashboard.tsx),
+[DashboardRecords.tsx](../../frontend/src/components/DashboardRecords.tsx),
+[useDashboardResource](../../frontend/src/hooks/useDashboardResource.ts),
+[Dashboard API](../../backend/app/api/v1/dashboard.py),
+[dashboard service](../../backend/app/services/dashboard.py),
+[backend tests](../../backend/tests/test_dashboard.py),
+[browser tests](../../frontend/tests/dashboard.test.mjs).
 
 | ID | Requirement | Status | Evidence and boundary |
 | --- | --- | --- | --- |
@@ -102,20 +102,20 @@ Primary paths: [Dashboard.tsx](../frontend/src/pages/Dashboard.tsx),
 
 ### Scan Logs and Scan Detail
 
-Primary paths: [scan logs service](../backend/app/services/scan_logs.py),
-[scan APIs](../backend/app/api/v1/scans.py),
-[scan records service](../backend/app/services/scan_records.py),
-[history models](../backend/app/models/scan_history.py),
-[ScanContext](../frontend/src/context/ScanContext.tsx),
-[Logs](../frontend/src/pages/Logs.tsx), [ScanDetail](../frontend/src/pages/ScanDetail.tsx),
-[scan writes](../frontend/src/lib/scanWrites.ts),
-[ScanImage](../frontend/src/components/ScanImage.tsx).
-Tests: [logs](../backend/tests/test_scan_logs.py),
-[records](../backend/tests/test_scan_records.py),
-[PostgreSQL records](../backend/tests/test_scan_records_postgresql.py),
-[evidence](../backend/tests/test_scan_evidence.py),
-[browser records](../frontend/tests/scanrecords.test.mjs),
-[retry unit tests](../frontend/tests/scanwrites.test.mjs).
+Primary paths: [scan logs service](../../backend/app/services/scan_logs.py),
+[scan APIs](../../backend/app/api/v1/scans.py),
+[scan records service](../../backend/app/services/scan_records.py),
+[history models](../../backend/app/models/scan_history.py),
+[ScanContext](../../frontend/src/context/ScanContext.tsx),
+[Logs](../../frontend/src/pages/Logs.tsx), [ScanDetail](../../frontend/src/pages/ScanDetail.tsx),
+[scan writes](../../frontend/src/lib/scanWrites.ts),
+[ScanImage](../../frontend/src/components/ScanImage.tsx).
+Tests: [logs](../../backend/tests/test_scan_logs.py),
+[records](../../backend/tests/test_scan_records.py),
+[PostgreSQL records](../../backend/tests/test_scan_records_postgresql.py),
+[evidence](../../backend/tests/test_scan_evidence.py),
+[browser records](../../frontend/tests/scanrecords.test.mjs),
+[retry unit tests](../../frontend/tests/scanwrites.test.mjs).
 
 | ID | Requirement | Status | Evidence and boundary |
 | --- | --- | --- | --- |
@@ -146,12 +146,12 @@ Tests: [logs](../backend/tests/test_scan_logs.py),
 
 ### Analytics
 
-Primary paths: [Analytics UI](../frontend/src/pages/Analytics.tsx),
-[API](../backend/app/api/v1/analytics.py),
-[service](../backend/app/services/analytics.py),
-[schema](../backend/app/schemas/analytics.py),
-[backend tests](../backend/tests/test_analytics.py),
-[browser tests](../frontend/tests/analytics.test.mjs).
+Primary paths: [Analytics UI](../../frontend/src/pages/Analytics.tsx),
+[API](../../backend/app/api/v1/analytics.py),
+[service](../../backend/app/services/analytics.py),
+[schema](../../backend/app/schemas/analytics.py),
+[backend tests](../../backend/tests/test_analytics.py),
+[browser tests](../../frontend/tests/analytics.test.mjs).
 
 | ID | Requirement | Status | Evidence and boundary |
 | --- | --- | --- | --- |
@@ -187,20 +187,20 @@ broader earlier fixture; it does not reclassify its eight-scan assertions as a n
 
 ### System Configuration, Export and Maintenance
 
-Primary paths: [config API](../backend/app/api/v1/config.py),
-[configuration service](../backend/app/services/configuration.py),
-[schemas](../backend/app/schemas/common.py),
-[camera manager](../backend/app/services/camera_manager.py),
-[scan pipeline](../backend/app/services/scan_service.py),
-[retention](../backend/app/services/data_retention.py),
-[maintenance API](../backend/app/api/v1/maintenance.py),
-[archive](../backend/app/services/backup_archive.py),
-[restore](../backend/app/services/backup_restore.py),
-[coordinator](../backend/app/services/runtime_operations.py),
-[database locks](../backend/app/services/maintenance_database.py),
-[power control](../backend/app/services/power_control.py),
-[SystemConfig UI](../frontend/src/pages/admin/SystemConfig.tsx),
-[backup controls](../frontend/src/components/StationBackupControls.tsx).
+Primary paths: [config API](../../backend/app/api/v1/config.py),
+[configuration service](../../backend/app/services/configuration.py),
+[schemas](../../backend/app/schemas/common.py),
+[camera manager](../../backend/app/services/camera_manager.py),
+[scan pipeline](../../backend/app/services/scan_service.py),
+[retention](../../backend/app/services/data_retention.py),
+[maintenance API](../../backend/app/api/v1/maintenance.py),
+[archive](../../backend/app/services/backup_archive.py),
+[restore](../../backend/app/services/backup_restore.py),
+[coordinator](../../backend/app/services/runtime_operations.py),
+[database locks](../../backend/app/services/maintenance_database.py),
+[power control](../../backend/app/services/power_control.py),
+[SystemConfig UI](../../frontend/src/pages/admin/SystemConfig.tsx),
+[backup controls](../../frontend/src/components/StationBackupControls.tsx).
 
 | ID | Requirement | Status | Evidence and boundary |
 | --- | --- | --- | --- |
@@ -578,6 +578,6 @@ are intentional durable evidence, not cleanup residue.
 The audit's approved source inspection, targeted runtime characterization, evidence
 review and cleanup are complete. Remaining unverified scenarios and policy choices
 are explicitly bounded above; recommended corrections are **not implemented** by
-design. The current [checkpoint](../TASK_PROGRESS.txt) records final Git/check results
+design. The current [checkpoint](../../TASK_PROGRESS.txt) records final Git/check results
 and the next authorization-dependent actions. Audit completion does not mean that
 all 82 implementation requirements passed or that deployment/live acceptance occurred.

@@ -53,7 +53,7 @@ with original-pixel box coordinates.
 Explicit inference options prevent a Top prediction from changing later views.
 No database migration or frontend change is needed.
 
-See the [dataset and inference audit](../docs/yolo-dataset-audit-2026-10-16.md)
+See the [dataset and inference audit](../docs/audits/yolo-dataset-audit-2026-10-16.md)
 for the validation results and limits. These offline measurements do not establish
 an exact physical bunch count or accuracy on the live camera scene.
 
@@ -236,7 +236,7 @@ Role and active-status changes revoke existing sessions. Promoting an operator c
 
 From `backend/`, run `python -m app.core.migrations` with the deployment environment configured. This initializes missing tables and applies the versioned revisions in `migrations/versions/`. Startup runs the same upgrade before reading users or seeding accounts, and fails if an upgrade cannot complete. PostgreSQL uses a transaction advisory lock so simultaneous starts serialize schema changes.
 
-For a current ERD/data-dictionary view, see [the schema reference](../docs/bananavision_schema_current.sql) and [the table dictionary](../docs/schema_tables.md). They describe the application schema at head `0010_notification_read_receipts`; they are documentation references, not an upgrade path.
+For a current ERD/data-dictionary view, see [the schema reference](../docs/bananavision_schema_current.sql) and [the table dictionary](../docs/data/schema_tables.md). They describe the application schema at head `0010_notification_read_receipts`; they are documentation references, not an upgrade path.
 
 - `0001_session_revocation` adds a non-null `user_account.token_version` with default `1` to older schemas, preserving account credentials and existing rows.
 - `0002_feature_engineering` adds missing batch lifecycle/treatment and engineered-feature columns from the earlier manual SQL migration. Already-present columns are retained. Historical engineered values remain unchanged; the schema upgrade does not recompute model features.
@@ -256,7 +256,7 @@ Regression tests use disposable databases. To include PostgreSQL cases, set `BAN
 
 ## Power commands and data retention
 
-Power endpoints check the command exit code and report OS acceptance, not proof of completed reboot. They close admission and drain active scans and admitted work before dispatch; a drain timeout rejects the operation. Windows schedules power actions after ten seconds; Linux/macOS use a one-minute delay and noninteractive `sudo -n`. Configure host permissions and service autostart using [the kiosk guide](../docs/kiosk-autostart-guide.md); verify these on the deployed station.
+Power endpoints check the command exit code and report OS acceptance, not proof of completed reboot. They close admission and drain active scans and admitted work before dispatch; a drain timeout rejects the operation. Windows schedules power actions after ten seconds; Linux/macOS use a one-minute delay and noninteractive `sudo -n`. Configure host permissions and service autostart using [the kiosk guide](../docs/guides/kiosk-autostart-guide.md); verify these on the deployed station.
 
 Audit log: every activity row is written by `app/services/audit.py` and mirrored to the `bananavision.audit` logger. While the station is in maintenance or recovery, audit events are held in memory and in that log, then written once the station is ready. Refused access (403), failed sign-ins and lockouts, credential changes, exports, backup downloads and restores are recorded; secrets and file paths never are.
 

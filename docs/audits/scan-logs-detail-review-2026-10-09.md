@@ -61,11 +61,11 @@ The current Logs.tsx blob is identical to its blob before `7528544`.
 | Error/loading and stale responses | Logs' resource hook has request sequence/abort guards, initial unavailable state and explicit stale-data retention after refresh failure. Detail has direct-load timeout/retry. Remaining write/read races below are distinct. |
 | Persistence before success | Function-scoped DB dependencies commit before HTTP success. Existing rollback tests cover failed writes; frontend writes await the server before success messages. |
 
-Sources: [Logs](../frontend/src/pages/Logs.tsx),
-[query/export service](../backend/app/services/scan_logs.py),
-[Scan Detail](../frontend/src/pages/ScanDetail.tsx),
-[mapping/pagination](../frontend/src/lib/scanData.ts),
-[shared state](../frontend/src/context/ScanContext.tsx).
+Sources: [Logs](../../frontend/src/pages/Logs.tsx),
+[query/export service](../../backend/app/services/scan_logs.py),
+[Scan Detail](../../frontend/src/pages/ScanDetail.tsx),
+[mapping/pagination](../../frontend/src/lib/scanData.ts),
+[shared state](../../frontend/src/context/ScanContext.tsx).
 
 ## Confirmed gaps
 
@@ -162,6 +162,6 @@ unchanged. New frontend behavior remains unimplemented and needs browser tests l
 existing server browsing/export/direct links/timestamps/camera history and the current
 spoilage layout. Use the old history service only as reference; do not revert a revert
 or cherry-pick either commit wholesale. The focused
-[implementation plan](superpowers/plans/2026-10-09-scan-records-follow-up.md) starts with
+[implementation plan](../superpowers/plans/2026-10-09-scan-records-follow-up.md) starts with
 authorization, then integrates atomic audited writes, migrations/backups and all callers,
 followed by detail resilience and verification. It is a proposal, not executed work.

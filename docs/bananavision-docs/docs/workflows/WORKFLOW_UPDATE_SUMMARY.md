@@ -2,7 +2,7 @@
 
 **Updated:** September 13, 2026
 **Scope:** Operator, kiosk, administrator, and IoT workflow diagrams
-**Source of truth:** Implemented backend/frontend code, plus `docs/BANANAVISION_CONTEXT.md`
+**Source of truth:** Implemented backend/frontend code, plus `docs/development/BANANAVISION_CONTEXT.md`
 
 ## Purpose
 
@@ -91,7 +91,7 @@ The earlier diagrams described the main research concept correctly, but several 
 - Multi-camera fusion: `backend/app/services/fusion_engine.py`
 - Sensor polling: `backend/app/services/sensor_reader.py`
 - API and WebSocket registration: `backend/app/api/v1/router.py` and `backend/app/main.py`
-- Project-wide implementation context: `docs/BANANAVISION_CONTEXT.md`
+- Project-wide implementation context: `docs/development/BANANAVISION_CONTEXT.md`
 
 ## Validation
 

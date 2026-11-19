@@ -8,7 +8,7 @@ new scan, or inference is required. The existing scan and inventory are unchange
 The kiosk also offers an explicit **Demo mode** which replays an accessible saved
 prediction and prints one DEMO label without adding scans or stock. Real **Scan Now**
 automatic printing is implemented behind `BANANAVISION_AUTO_PRINT` (default false).
-See `KIOSK_DEMO.md` for demonstration and switching back to normal operation.
+See `docs/guides/KIOSK_DEMO.md` for demonstration and switching back to normal operation.
 
 The modal QR encodes the saved prediction values, not the old tracking-page URL.
 The label contains the scan UUID, ripeness, estimated spoilage days, confidence
@@ -164,7 +164,7 @@ and `spoilage_predictor.predict`; it persists and commits the final prediction
 before broadcasting completion. After it returns, `trigger_scan` optionally calls
 `queue_automatic_label` and schedules the background worker. Queue/print errors preserve
 the committed prediction. React never creates the automatic job. Capture, ML and
-prediction persistence remain unchanged. See `KIOSK_DEMO.md` for the demo isolation
+prediction persistence remain unchanged. See `docs/guides/KIOSK_DEMO.md` for the demo isolation
 boundaries and all current kiosk behavior.
 
 ## Changed files for this stage
@@ -199,7 +199,7 @@ Verification and documentation:
 - `backend/tests/test_backup_archive.py`
 - `frontend/tests/printing.fixture.tsx`
 - `frontend/tests/printing.test.mjs`
-- `docs/PRINTING_INTEGRATION.md`
+- `docs/guides/PRINTING_INTEGRATION.md`
 - `TASK_PROGRESS.txt`
 - `docs/history/2026-10-13-before-manual-printing.txt`
 

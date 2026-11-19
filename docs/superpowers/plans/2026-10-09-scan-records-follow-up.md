@@ -15,7 +15,7 @@ existing write callers, rather than reintroducing the partial `7528544` implemen
 **Tech stack:** FastAPI, Pydantic, SQLAlchemy, Alembic, PostgreSQL; React/TypeScript,
 existing UI components; pytest and the existing Vite/Playwright fixture harness.
 
-**Spec:** Current user request and [verified repository review](../../scan-logs-detail-review-2026-10-09.md).
+**Spec:** Current user request and [verified repository review](../../audits/scan-logs-detail-review-2026-10-09.md).
 The old `7528544` plan/service is reference only. Maintenance constraints remain in
 [the approved design](../specs/2026-10-05-system-maintenance-design.md).
 
@@ -210,4 +210,4 @@ working query/export pipeline; finish with Task 6. No wholesale restoration is n
 The reason for the original reverts remains unknown and is not a prerequisite to this
 evidence-based plan. A new scan deletion workflow or expiry-layout change is out of scope.
 
-Completion evidence: [final verification report](../../scan-records-verification-2026-10-10.md).
+Completion evidence: [final verification report](../../audits/scan-records-verification-2026-10-10.md).

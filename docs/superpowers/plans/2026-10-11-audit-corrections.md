@@ -1,7 +1,7 @@
 # Audit Corrections Implementation Plan
 
 **Goal:** Resolve authorized F01–F09 findings and agreed G01–G06 gaps without changing the existing UI design.
-**Reference:** `docs/system-audit-2026-10-10.md`; user authorization on 2026-10-11 supersedes its audit-only restriction.
+**Reference:** `docs/audits/system-audit-2026-10-10.md`; user authorization on 2026-10-11 supersedes its audit-only restriction.
 **Architecture:** Reuse scoped SQL projections, mutation/history contracts and existing React components. Centralize inventory eligibility and remaining-life values on the backend; do not reconstruct unknown deleted history.
 **Execution:** Inline on main, targeted regressions first. TASK_PROGRESS.txt is the single current execution ledger; no extra worktree or per-step approval.
 

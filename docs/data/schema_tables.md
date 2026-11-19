@@ -1,7 +1,7 @@
 # BananaVision Database Tables
 
 Current application schema at Alembic revision `0010_notification_read_receipts`, based on the
-reference DDL in [`bananavision_schema_current.sql`](bananavision_schema_current.sql), which
+reference DDL in [`bananavision_schema_current.sql`](../bananavision_schema_current.sql), which
 was loaded into an isolated PostgreSQL 17.10 database for validation. The technical
 `alembic_version` table is excluded from this dictionary.
 
@@ -706,5 +706,5 @@ deleted or changed.
 | `ScanTombstone` | `scan_tombstone` | Tombstone for deleted scans; the referenced scan no longer exists. |
 
 For the exact PostgreSQL DDL, enum definitions, sequences, defaults and constraint names,
-use [`bananavision_schema_current.sql`](bananavision_schema_current.sql).
+use [`bananavision_schema_current.sql`](../bananavision_schema_current.sql).
 

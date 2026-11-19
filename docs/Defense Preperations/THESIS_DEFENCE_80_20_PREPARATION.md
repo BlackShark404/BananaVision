@@ -51,7 +51,7 @@
 - **Why It Matters:** Sharing views of the same bunch across splits inflates test mAP@50 (**94.11%**) compared to unseen bunches.
 - **What the Examiner Is Testing:** Group-level vs. image-level splitting in multi-camera datasets.
 - **What a Strong Answer Must Prove:** Explain the 80/10/10 class-stratified split and concede that physical-bunch-isolated splitting is needed for unseen-bunch benchmarking.
-- **Thesis Evidence to Use:** **CONFIRMED BY THESIS**: Scope 5.1.1–5.1.4 (p. 8), Definition of Terms (p. 14), Ch. III (p. 54): 4,171 raw images, 37,316 annotations, augmented to 10,845, 80/10/10 split. **INFERRED** (`docs/yolo-dataset-audit-2026-10-16.md`): 411/417 validation and 411/416 test images share filename capture prefixes with training views.
+- **Thesis Evidence to Use:** **CONFIRMED BY THESIS**: Scope 5.1.1–5.1.4 (p. 8), Definition of Terms (p. 14), Ch. III (p. 54): 4,171 raw images, 37,316 annotations, augmented to 10,845, 80/10/10 split. **INFERRED** (`docs/audits/yolo-dataset-audit-2026-10-16.md`): 411/417 validation and 411/416 test images share filename capture prefixes with training views.
 - **Risk Level:** **High**
 
 ### Q5. Why Combine Vision, IoT Sensors, RFR, and an Enterprise Web Platform? (Scope Defence)
@@ -123,7 +123,7 @@
 - **Why It Matters:** Tests transparency regarding pilot scope and the SUS correction record.
 - **What the Examiner Is Testing:** Statistical honesty and research integrity.
 - **What a Strong Answer Must Prove:** Limitation 5 (p. 10) defines a **3–5 user pilot** ($n=5$: 2 Admins, 3 Operators at one wholesale enterprise). Odd items averaged **4.60–4.80/5.00** unmodified; even items (2, 4, 6, 8, 10) used documented once-only coding corrections ($5 \to 1, 4 \to 2$), yielding mean SUS **94.00 (SD = 5.76)**.
-- **Thesis Evidence to Use:** **CONFIRMED BY THESIS**: Limitation 5 (p. 10), Ch. III (p. 67), `docs/Acceptance_Testing.md` (Tables 46–47), and `docs/SUS_Response_Correction_Record.md`.
+- **Thesis Evidence to Use:** **CONFIRMED BY THESIS**: Limitation 5 (p. 10), Ch. III (p. 67), `docs/acceptance/Acceptance_Testing.md` (Tables 46–47), and `docs/acceptance/SUS_Response_Correction_Record.md`.
 - **Risk Level:** **High**
 
 ---
@@ -145,7 +145,7 @@
 - **What Not to Say:** Never claim you waited 14 days watching demo scans rot on the finished kiosk, or present fallback rules as RFR outputs.
 
 ### 3. **[Overlaps with Q4]** — Multi-View / Augmentation Split Overlap (Data Leakage Risk)
-- **Vulnerability Exposed:** Partitioning 10,845 augmented multi-angle images 80/10/10 without physical-bunch isolation allows different angles/days of the same hand to appear in both train and test sets (**INFERRED**, `docs/yolo-dataset-audit-2026-10-16.md`).
+- **Vulnerability Exposed:** Partitioning 10,845 augmented multi-angle images 80/10/10 without physical-bunch isolation allows different angles/days of the same hand to appear in both train and test sets (**INFERRED**, `docs/audits/yolo-dataset-audit-2026-10-16.md`).
 - **Safest Answer Strategy:** Describe the 4,171 raw captures, 37,316 annotations, and 80/10/10 class-stratified split across all 12 classes.
 - **What to Concede:** Splitting was stratified by class at the image level rather than isolated by physical bunch ID before augmentation, which can inflate test mAP@50 (**94.11%**) relative to unseen bunches in new lighting.
 - **What to Hold Firm On:** All 4,171 images and 37,316 boxes were manually gathered and labeled locally under DA **PNS/BAFPS 8:2004** with multi-camera consensus and QC safeguards.
@@ -215,7 +215,7 @@
 
 - **Thesis in One Sentence:** BananaVision is an edge-deployed IoT and computer vision kiosk integrating a 4-camera YOLOv26s detector, an Arduino DHT22 sensor, a 6-feature Random Forest Regressor, and a local PostgreSQL web platform to automate ripeness grading and shelf-life estimation for Lakatan, Latundan, and Cardaba bananas (**CONFIRMED BY THESIS**, Abstract, p. ii).
 - **Contribution in One Sentence:** The study delivers a localized post-harvest grading and FEFO decision-support station calibrated for three Philippine banana cultivars under DA **PNS/BAFPS 8:2004** standards, pairing multi-angle optical consensus with VPD-informed spoilage regression and auditable human-in-the-loop quality control (**CONFIRMED BY THESIS**, pp. 4–5, 53–55).
-- **Method Defence in One Sentence:** We trained YOLOv26s on 4,171 multi-angle images (37,316 annotations, augmented to 10,845; **87.12% precision, 89.41% recall, 94.11% mAP@50**), trained RFR on 3,964 14-day longitudinal records (**MAE = 0.7205d, RMSE = 0.9822d, $R^2 = 0.9552$**), and evaluated pilot usability with five wholesale enterprise users (**94.00 mean SUS, SD = 5.76**) (**CONFIRMED BY THESIS**, pp. 54–65; `docs/Acceptance_Testing.md`).
+- **Method Defence in One Sentence:** We trained YOLOv26s on 4,171 multi-angle images (37,316 annotations, augmented to 10,845; **87.12% precision, 89.41% recall, 94.11% mAP@50**), trained RFR on 3,964 14-day longitudinal records (**MAE = 0.7205d, RMSE = 0.9822d, $R^2 = 0.9552$**), and evaluated pilot usability with five wholesale enterprise users (**94.00 mean SUS, SD = 5.76**) (**CONFIRMED BY THESIS**, pp. 54–65; `docs/acceptance/Acceptance_Testing.md`).
 - **Main Limitation in One Sentence:** BananaVision is a single-station, manually loaded prototype limited to Lakatan, Latundan, and Cardaba under open-air ambient conditions, where RFR outputs serve as point-in-time FEFO estimates (with 82% MDI weight on ripeness and 46.8% P10–P90 interval coverage) rather than guarantees across changing downstream storage (**CONFIRMED BY THESIS**, pp. 9–10, 63–65).
 
 ### Three Questions to Practise First

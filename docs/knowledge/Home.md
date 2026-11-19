@@ -3,6 +3,7 @@
 Centralized documentation and project knowledge for BananaVision: An Intelligent System for Banana Ripeness Detection.
 
 ## Project Documentation
+- [Repository documentation index](../README.md)
 - [[System Architecture]]
 - [[Frontend]]
 - [[Backend]]

@@ -146,7 +146,7 @@ than 0.65 and added mostly unmatched predictions.
 This supports 0.65 as a candidate to evaluate for the new model. It does not
 prove a fix for live 19-finger counting, and no production NMS setting was
 changed by this audit. See the
-[full benchmark summary](audits/yolo-v13-overlap-validation-2026-10-16.json).
+[full benchmark summary](yolo-v13-overlap-validation-2026-10-16.json).
 
 ## Completed YOLOv8n comparison - 2026-10-17
 
@@ -187,7 +187,7 @@ and label hashes; identical test configurations, class ordering, matching rules
 and ground-truth inputs; and validation-before-test calibration timing. Recomputing
 aggregate, per-view, per-group, dominant-class and all 12 exact-class metrics from
 the saved predictions found no discrepancies. This comparison review used saved
-test predictions. See the [durable comparison summary](audits/yolov8-v13-training-comparison-2026-10-17.json)
+test predictions. See the [durable comparison summary](yolov8-v13-training-comparison-2026-10-17.json)
 for full precision, recall, count metrics and artifact hashes. The original
 per-image reports and `TRAINING_RESULTS.md` remain in the separate training folder.
 
@@ -248,7 +248,7 @@ Only prepared validation images were used; the frozen test reports were preserve
 Count error improves on seven photos, worsens on three and ties on 21. Undercount
 photos decrease from eight to three, while overcount photos increase from ten to
 14; signed bias rises from +0.032 to +0.484. The aggregate improvement is not a
-guarantee for every image. See the [full policy evidence](audits/yolo-top-overlap-validation-2026-10-17.json).
+guarantee for every image. See the [full policy evidence](yolo-top-overlap-validation-2026-10-17.json).
 
 The application now passes the configured camera label into the classifier and
 enables IoU 0.65 only for normalized `Top`, the calibrated checkpoint fingerprint,
@@ -320,7 +320,7 @@ Completely hidden fingers cannot be established from an individual 2D view.
 The current export and screenshots do not establish that a parameter change
 will recover exactly seven missing fingers.
 
-The [October 17 integrity audit](audits/yolo-scan-integrity-2026-10-17.json)
+The [October 17 integrity audit](yolo-scan-integrity-2026-10-17.json)
 compares the resumed checkout with the corrected application postprocessing on
 all 137 prepared VALID images using cached identical model calls. Visible-count
 MAE decreases from 1.518 to 0.934; 55 images have exact visible counts. Count error
@@ -341,7 +341,7 @@ visible-instance annotations to separate missed, repeated and hidden fingers.
 
 The later supplied `v26n_run5_khen27_1024` training run saves input size 800 and
 the expected 12 classes. Its `best.pt` matches local `banana_yolov26.pt`, not the
-audited default YOLO26m weights. The [application comparison](audits/yolo26n-supplied-run-validation-2026-10-17.json)
+audited default YOLO26m weights. The [application comparison](yolo26n-supplied-run-validation-2026-10-17.json)
 uses the same 137 prepared VALID images without frozen TEST inference or tuning.
 Candidate versus default visible-count MAE is 0.942 versus 0.934; combined-class
 recall is 88.50% versus 90.36%. Exact-count images are 58 versus 55. Both match
@@ -355,5 +355,5 @@ predictions, some above 90% score. Fusion now requires review when the weighted
 candidate lacks a strict camera majority; the kiosk exposes the split as
 `Uncertain` and withholds confidence/spoilage from the main result card.
 This is uncertainty disclosure, not an improvement to trained recognition.
-Follow the [station cultivar protocol](knowledge/Testing%20and%20Validation.md#station-cultivar-recognition-protocol)
+Follow the [station cultivar protocol](../knowledge/Testing%20and%20Validation.md#station-cultivar-recognition-protocol)
 for trusted labels, physical-bunch splits and untouched station evaluation.

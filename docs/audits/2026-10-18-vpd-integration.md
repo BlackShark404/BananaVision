@@ -99,7 +99,7 @@ Backend tests ran from a fresh temporary working directory without the station
 `.env` or database URL. Frontend tests used the existing mocked Vite/Edge harness.
 No live database, captures, cameras, printer or power operations were accessed.
 Relevant test commands and isolation procedures remain in
-[the development workflow](../development-workflow.md).
+[the development workflow](../development/development-workflow.md).
 
 Local ignored logs are under `frontend/node_modules/.tmp/`:
 `bv-vpd-backend-targeted.txt`, `bv-vpd-green.txt`, `bv-vpd-full-backend.txt`,

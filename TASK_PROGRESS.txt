@@ -1,4 +1,23 @@
-CURRENT RESUME HERE (2026-11-19) - ADMIN USER CREATION 500 FIX
+CURRENT RESUME HERE (2026-11-19) - DOCS NAVIGATION REORGANIZATION
+
+User asked to organize loose Markdown files under docs/. Moved 34 root-level .md files into
+acceptance/, audits/, data/, development/, guides/ and project/. Added docs/README.md as
+the navigation index and linked it from docs/knowledge/Home.md. Updated live relative links
+and repo-root path references outside docs/history/; historical checkpoints keep original
+paths by design.
+
+VERIFIED (2026-11-19)
+- All Markdown links outside docs/history/ resolve, except four pre-existing broken links
+  (.agents/skills/*/README.md and docs/bananavision-docs/docs/workflows/WORKFLOW_DOCUMENTATION.md)
+  and four checker false positives for PDF/XLSX links with spaces and parentheses.
+- No stale docs/<old-name>.md references remain outside docs/history/.
+- Docs-only move; no application behavior changed. `python -m py_compile` passed for the
+  touched Python file. No tests, type checks, lint or build run.
+
+EXACT NEXT STEP
+- Review docs/README.md, the new folder layout and the scoped diff. Nothing staged or committed.
+
+PREVIOUS RESUME (2026-11-19) - ADMIN USER CREATION 500 FIX
 
 User reported an error when creating an Admin account in User Management. Existing backend
 suites passed because their SQLite adapter lazy-loads synchronously.

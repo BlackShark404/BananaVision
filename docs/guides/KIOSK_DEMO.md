@@ -49,7 +49,7 @@ existing real scan behavior stays opt-in while physical printing is being evalua
 The demo queues its one label independently of that setting.
 
 The existing public tracking QR displayed for real scans is preserved. Physical
-prediction labels encode the saved values as described in `PRINTING_INTEGRATION.md`.
+prediction labels encode the saved values as described in `docs/guides/PRINTING_INTEGRATION.md`.
 The demo preview encodes its exact DEMO label payload.
 
 ## Integration and isolation
@@ -125,5 +125,5 @@ Changed files for this kiosk stage:
   `src/lib/api.ts`, `src/lib/scanData.ts`, `src/types/index.ts`,
   `src/types/printing.ts`, `tests/kiosk.auth.tsx`, `tests/kiosk.fixture.tsx`,
   `tests/kiosk.test.mjs`.
-- Documentation: `docs/KIOSK_DEMO.md`, `docs/PRINTING_INTEGRATION.md`,
+- Documentation: `docs/guides/KIOSK_DEMO.md`, `docs/guides/PRINTING_INTEGRATION.md`,
   `TASK_PROGRESS.txt`, `docs/history/2026-10-14-before-kiosk-demo.txt`.

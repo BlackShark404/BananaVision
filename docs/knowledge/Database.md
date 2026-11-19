@@ -8,10 +8,10 @@
 - The migration head is `0013_threshold_default`. It changes data only (a saved 85%
   review threshold becomes 80% once). A migration id must be 32 characters or fewer:
   `alembic_version.version_num` is `VARCHAR(32)` and PostgreSQL rejects a longer id.
-- [Data dictionary](../schema_tables.md) — table purposes, columns, nullability, database
+- [Data dictionary](../data/schema_tables.md) — table purposes, columns, nullability, database
   defaults, keys, constraints, indexes, enum labels and ERD cardinalities.
-- [Capstone data dictionary](../capstone_data_dictionary.md) — concise Table 15–39 format.
-- [Detailed capstone data dictionary](../capstone_data_dictionary_detailed.md) — same
+- [Capstone data dictionary](../data/capstone_data_dictionary.md) — concise Table 15–39 format.
+- [Detailed capstone data dictionary](../data/capstone_data_dictionary_detailed.md) — same
   tables with per-column descriptions, constraints and an ERD relationship summary.
 - [Historical pre-normalization SQL](../bananavision_schema_final2.sql) — retained for
   comparison only; it still contains camera arrays, operator scan counters and the shared

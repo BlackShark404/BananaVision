@@ -20,9 +20,9 @@ This guide explains how to grant **remote access** so administrators and manager
 
 Understanding this avoids most setup surprises:
 
-- The frontend is served on port `5173`, the FastAPI backend on port `8000` (API + WebSockets). Both bind `0.0.0.0` in [start.bat](../start.bat) and [start.sh](../start.sh).
+- The frontend is served on port `5173`, the FastAPI backend on port `8000` (API + WebSockets). Both bind `0.0.0.0` in [start.bat](../../start.bat) and [start.sh](../../start.sh).
 - On a plain-HTTP page the frontend derives the API address from the browser hostname: `http://<hostname>:8000` (`frontend/src/lib/api.ts`). WebSockets use the same host on port `8000` (`frontend/src/hooks/useWebSocket.ts`).
-- On an HTTPS page the frontend calls the **same origin** for both HTTP and WebSocket traffic. A reverse proxy must forward `/api`, `/captures` and `/health` to port `8000`. This is what the bundled [Caddyfile](../deploy/Caddyfile) does.
+- On an HTTPS page the frontend calls the **same origin** for both HTTP and WebSocket traffic. A reverse proxy must forward `/api`, `/captures` and `/health` to port `8000`. This is what the bundled [Caddyfile](../../deploy/Caddyfile) does.
 - **Consequence:** Tailscale private-network access still works as before: opening `http://bananavision-pc:5173` sends API and WebSocket calls to `http://bananavision-pc:8000` through the tailnet. No rebuild is needed.
 - **Consequence:** a public `https://` link needs the proxy path below. Pointing a funnel directly at port `5173` cannot work: the page would call the HTTPS origin for `/api`, and the funnel does not expose port `8000`.
 - CORS: the built-in default is `http://localhost:5173` and `http://127.0.0.1:5173` (`backend/app/config.py`). Plain-HTTP LAN and Tailscale pages call the station hostname, so the shipped example keeps `["*"]`. The public setup is same-origin and needs no CORS entry. Never expose port `8000` to the internet.
@@ -132,7 +132,7 @@ Internet -> Tailscale Funnel (TLS) -> Caddy 127.0.0.1:8080
          -> frontend/dist and /api, /captures, /health -> uvicorn 127.0.0.1:8000
 ```
 
-The funnel exposes **one** HTTPS port. [Caddy](../deploy/Caddyfile) provides the single origin, serves the built frontend, forwards the API and WebSocket upgrade, and adds security headers. It does not listen on the LAN.
+The funnel exposes **one** HTTPS port. [Caddy](../../deploy/Caddyfile) provides the single origin, serves the built frontend, forwards the API and WebSocket upgrade, and adds security headers. It does not listen on the LAN.
 
 ### Prerequisites
 
@@ -142,7 +142,7 @@ The funnel exposes **one** HTTPS port. [Caddy](../deploy/Caddyfile) provides the
 
 ### 1. Production backend settings
 
-Merge [deploy/backend.env.production.example](../deploy/backend.env.production.example) into `backend/.env`. It lists every key that differs between the development and public deployment configs; the rest keep their current values. Never commit `backend/.env` or real secrets.
+Merge [deploy/backend.env.production.example](../../deploy/backend.env.production.example) into `backend/.env`. It lists every key that differs between the development and public deployment configs; the rest keep their current values. Never commit `backend/.env` or real secrets.
 
 ```dotenv
 APP_ENV=production
@@ -166,7 +166,7 @@ TRUSTED_PROXIES=["127.0.0.1","::1"]
 
 ### 2. Build the frontend for the public origin
 
-Copy [frontend/.env.production.example](../frontend/.env.production.example) to `frontend/.env.production` and set the final public origin:
+Copy [frontend/.env.production.example](../../frontend/.env.production.example) to `frontend/.env.production` and set the final public origin:
 
 ```dotenv
 VITE_PUBLIC_BASE_URL=https://bananavision-pc.<tailnet>.ts.net
@@ -268,6 +268,6 @@ deploy/stop-mac-tailnet.sh               # stops both processes and removes Serv
 
 - [Windows Mini PC Deployment](windows-mini-pc-deployment.md) — linear public HTTPS runbook for the station.
 - [Kiosk Auto-Start Guide](kiosk-autostart-guide.md) — auto-login and app startup on the Mini PC.
-- [Caddyfile](../deploy/Caddyfile) — reverse proxy for the public HTTPS deployment.
+- [Caddyfile](../../deploy/Caddyfile) — reverse proxy for the public HTTPS deployment.
 - [Installation Guide](INSTALLATION_GUIDE.md) — station hardware and software setup.
 - [User Guide](USER_GUIDE.md) — application roles and dashboard usage.

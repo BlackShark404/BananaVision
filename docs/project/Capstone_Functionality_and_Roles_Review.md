@@ -2,7 +2,7 @@
 
 Review date: **2026-11-02**. Checkout: `main`, `1848ac0`.
 
-This is a source-based follow-up to the [pre-defense audit](../Capstone_Pre_Defense_Audit_Report.md), focused on missing functionality, users, and the owner's proposed way to contact the inventors about IoT problems. The user clarified that intended clients are medium businesses that may own many stations in different locations. The product assessment therefore prioritizes multiple companies, each with multiple stations. It proposes priorities; it does not implement features or establish that this architecture is part of the approved capstone scope. The review before this clarification is [archived](history/2026-11-02-functionality-review-before-multi-station-clarification.md).
+This is a source-based follow-up to the [pre-defense audit](../../Capstone_Pre_Defense_Audit_Report.md), focused on missing functionality, users, and the owner's proposed way to contact the inventors about IoT problems. The user clarified that intended clients are medium businesses that may own many stations in different locations. The product assessment therefore prioritizes multiple companies, each with multiple stations. It proposes priorities; it does not implement features or establish that this architecture is part of the approved capstone scope. The review before this clarification is [archived](../history/2026-11-02-functionality-review-before-multi-station-clarification.md).
 
 ## Finding
 
@@ -25,7 +25,7 @@ These capabilities should not be presented as missing. Source presence does not 
 | Accounts and authorization | Admin/Operator accounts, backend role checks, temporary credentials, password/PIN changes and Admin resets; protection against removing the last active Admin | `backend/app/api/deps.py:66`; `backend/app/api/v1/users.py:62`, `:198`, `:291`, `:321` |
 | Inspection | Kiosk operator/PIN selection, active intake selection, scan progress, results and printing | `frontend/src/pages/Kiosk.tsx:70`, `:173`, `:560`, `:790`; `backend/app/api/v1/scans.py:69` |
 | Traceable records and QC | Saved scans/evidence, notes, flags, Admin corrections with reasons, original fused AI comparison and event history | `frontend/src/pages/admin/QualityControl.tsx:173`, `:806`, `:863`; `frontend/src/pages/ScanDetail.tsx:1001` |
-| Operations and inventory | Suppliers, delivery intakes, stock views, Sold/For Processing/Spoiled transitions, intake bulk changes, filtered logs, analytics and report exports | `frontend/src/App.tsx:72`; `frontend/src/pages/ScanDetail.tsx:76`, `:323`; `frontend/src/pages/admin/DeliveryIntake.tsx:159`; [export notes](knowledge/Frontend.md#csv-and-xlsx-exports-2026-10-22) |
+| Operations and inventory | Suppliers, delivery intakes, stock views, Sold/For Processing/Spoiled transitions, intake bulk changes, filtered logs, analytics and report exports | `frontend/src/App.tsx:72`; `frontend/src/pages/ScanDetail.tsx:76`, `:323`; `frontend/src/pages/admin/DeliveryIntake.tsx:159`; [export notes](../knowledge/Frontend.md#csv-and-xlsx-exports-2026-10-22) |
 | Device visibility | Camera monitoring, feed mapping/preview, sensor Live/Stale/Offline display and host CPU/memory/disk/uptime | `backend/app/core/startup.py:239`; `frontend/src/pages/DeviceStatus.tsx:130`, `:369`; `backend/app/api/v1/system.py:130` |
 | Printer handling | Discovery, saved job state, failure messages and guarded retries | `backend/app/api/v1/printing.py:36`; `backend/app/services/print_jobs.py:69` |
 | Station maintenance | Admin backups, archive validation, restore/recovery, retention and guarded power actions | `backend/app/api/v1/maintenance.py:82`, `:171`; `frontend/src/pages/admin/SystemConfig.tsx:287`, `:412`, `:495` |
@@ -99,7 +99,7 @@ Additional evidence:
 - G05: `backend/app/services/scan_service.py:263`; `backend/app/services/sensor_reader.py:108`; `backend/app/services/spoilage.py:152`, `:168`, `:191`.
 - G06: `backend/app/models/scan.py:20`; `backend/app/services/scan_creation.py:23`; `frontend/src/context/ScanContext.tsx:313`; `frontend/src/pages/Inventory.tsx:38`.
 - G07: `frontend/src/pages/Kiosk.tsx:818`, `:836`; `backend/app/services/scan_creation.py:45`.
-- G08/G09: [pre-defense audit findings F01, F04, F05 and F15](../Capstone_Pre_Defense_Audit_Report.md); `backend/app/services/prediction_label.py:34`; `backend/app/api/v1/scans.py:178`; `backend/app/services/scan_service.py:235`.
+- G08/G09: [pre-defense audit findings F01, F04, F05 and F15](../../Capstone_Pre_Defense_Audit_Report.md); `backend/app/services/prediction_label.py:34`; `backend/app/api/v1/scans.py:178`; `backend/app/services/scan_service.py:235`.
 
 The existing Camera Calibration screen maps feeds to physical positions. It does not prove measured optical/sensor calibration. A calibration procedure and evidence are needed for measurement claims; a large calibration-management module is not automatically required. Evidence: `frontend/src/components/CameraCalibrationModal.tsx:112`; `backend/app/api/v1/cameras.py:153`.
 

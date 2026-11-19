@@ -452,7 +452,7 @@ Five models intentionally have no ORM relationships: `SENSOR_READING` (standalon
 time-series), `MAINTENANCE_STATE` (system singleton), `SCAN_BROWSE_SNAPSHOT` (ephemeral, no FK),
 `SCAN_MUTATION` (audit immutability, no FK) and `SCAN_TOMBSTONE` (deleted-scan evidence, no FK).
 
-For the complete ORM relationship map with loading strategies, see `docs/schema_tables.md`.
+For the complete ORM relationship map with loading strategies, see `docs/data/schema_tables.md`.
 For the technical companion with explicit constraint names, indexes and referential actions,
-see `docs/schema_tables.md`. The source DDL is `docs/bananavision_schema_current.sql`.
+see `docs/data/schema_tables.md`. The source DDL is `docs/bananavision_schema_current.sql`.
 

@@ -1,6 +1,6 @@
 # BananaVision - Development Changelog
 
-This document tracks completed features, bug fixes, and security updates implemented from the `KENT_ASSIGNED_FEATURES_REVIEW.md` checklist. 
+This document tracks completed features, bug fixes, and security updates implemented from the `docs/project/KENT_ASSIGNED_FEATURES_REVIEW.md` checklist. 
 
 ---
 
@@ -221,7 +221,7 @@ The `SystemConfig` page previously used a `setTimeout(800)` to fake a loading de
 
 ## Assigned Issue Checklist (updated October 5, 2026)
 
-Based on the `KENT_ASSIGNED_FEATURES_REVIEW.md` priority roadmap, the implementation status is recorded below. Completed means code changes are present; deployment and hardware verification remain separate.
+Based on the `docs/project/KENT_ASSIGNED_FEATURES_REVIEW.md` priority roadmap, the implementation status is recorded below. Completed means code changes are present; deployment and hardware verification remain separate.
 
 ### 1. Remaining Security & Authorization (Completed)
 - **[x] AUTH-03 (High):** Live-event access via WebSockets can bypass login/status checks.
@@ -320,7 +320,7 @@ Rehearse migrations against a disposable copy of the deployed database and verif
 
 ## Team Testing Guide — Account Handoff and Follow-up Fixes
 
-Use the branch/commit containing these updates. The commands below use **Windows PowerShell** and each block starts from the **BananaVision repository root**. Install backend requirements in `backend/venv` and frontend dependencies first; see [backend setup](../backend/README.md). Use test accounts and a disposable database for manual checks, role/status changes, credential resets and migration rehearsals.
+Use the branch/commit containing these updates. The commands below use **Windows PowerShell** and each block starts from the **BananaVision repository root**. Install backend requirements in `backend/venv` and frontend dependencies first; see [backend setup](../../backend/README.md). Use test accounts and a disposable database for manual checks, role/status changes, credential resets and migration rehearsals.
 
 ### 1. Run the backend regression suite
 
@@ -363,7 +363,7 @@ cd ..
 
 ### 4. Run browser regression tests
 
-These tests start isolated Vite servers and use fixture APIs, so the real backend and cameras are not required. They require Node.js, installed Google Chrome and Playwright. See [browser test setup](../frontend/tests/dashboard.README.md) for alternate browser/module paths. If Playwright is not already installed, the following optional command installs the version used for verification into an ignored test-tools folder:
+These tests start isolated Vite servers and use fixture APIs, so the real backend and cameras are not required. They require Node.js, installed Google Chrome and Playwright. See [browser test setup](../../frontend/tests/dashboard.README.md) for alternate browser/module paths. If Playwright is not already installed, the following optional command installs the version used for verification into an ignored test-tools folder:
 
 ```powershell
 cd frontend
@@ -380,7 +380,7 @@ If using an existing Playwright installation, skip the install command and set `
 
 ### 5. Check the behavior in the running app
 
-Run the backend using [its startup instructions](../backend/README.md), configured for the test database. In another terminal, run `npm run dev` from `frontend`. Use separate browser profiles or a normal and an incognito window for independent sessions; two normal tabs share local storage.
+Run the backend using [its startup instructions](../../backend/README.md), configured for the test database. In another terminal, run `npm run dev` from `frontend`. Use separate browser profiles or a normal and an incognito window for independent sessions; two normal tabs share local storage.
 
 | Change | Test steps | Expected result |
 | --- | --- | --- |

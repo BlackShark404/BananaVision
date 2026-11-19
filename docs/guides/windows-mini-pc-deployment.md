@@ -105,7 +105,7 @@ If the command fails, copy the **DNS name** from the admin console: **Machines**
 
 The template lists every key that differs from the development configuration:
 
-[deploy/backend.env.production.example](../deploy/backend.env.production.example)
+[deploy/backend.env.production.example](../../deploy/backend.env.production.example)
 
 1. Back up the current file first:
 
@@ -224,7 +224,7 @@ Rebuild whenever the public URL changes. Otherwise printed QR labels keep the ol
 
    Expected: health JSON, then `404` for `/docs`.
 
-The [Caddyfile](../deploy/Caddyfile) binds only to `127.0.0.1:8080`, serves `frontend/dist`, proxies `/api`, `/captures` and `/health`, blocks API docs and adds security headers. Caddy must run from `C:\BananaVision` so the relative `frontend/dist` path resolves.
+The [Caddyfile](../../deploy/Caddyfile) binds only to `127.0.0.1:8080`, serves `frontend/dist`, proxies `/api`, `/captures` and `/health`, blocks API docs and adds security headers. Caddy must run from `C:\BananaVision` so the relative `frontend/dist` path resolves.
 
 If Caddy does not start, check that the backend is running and that nothing else owns port `8080`:
 
@@ -411,5 +411,5 @@ The login page is reachable by anyone on the internet. Expect automated scanning
 - [remote-access.md](remote-access.md) — both remote-access options, security notes and troubleshooting.
 - [kiosk-autostart-guide.md](kiosk-autostart-guide.md) — auto-login and app startup.
 - [INSTALLATION_GUIDE.md](INSTALLATION_GUIDE.md) — station hardware and software installation.
-- [backend/README.md](../backend/README.md) — migrations, database upgrades and backend operations.
-- [deploy/Caddyfile](../deploy/Caddyfile) — proxy configuration.
+- [backend/README.md](../../backend/README.md) — migrations, database upgrades and backend operations.
+- [deploy/Caddyfile](../../deploy/Caddyfile) — proxy configuration.
