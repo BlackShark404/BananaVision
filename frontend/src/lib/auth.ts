@@ -2,6 +2,7 @@
  * Auth token management — localStorage wrappers.
  */
 
+import { clearImageCache } from "@/lib/imageCache"
 import { clearScanWrites } from "@/lib/scanWrites"
 
 const TOKEN_KEY = "bananavision_token"
@@ -28,6 +29,7 @@ export function setToken(token: string): void {
 
 export function clearToken(): void {
   clearScanWrites()
+  clearImageCache()
   localStorage.removeItem(TOKEN_KEY)
 }
 

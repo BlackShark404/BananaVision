@@ -1,5 +1,20 @@
 # Testing and Validation
 
+## Evidence image cache and deferred fetch — 2026-11-18
+
+- **New browser tests:** `tests/scanimages.test.mjs` proves a deferred thumbnail makes no
+  request until it approaches the viewport, and a remounted thumbnail reuses its cached
+  blob. Clearing the session token forces a new request. Result: 2 of 2 passed.
+- **Affected suites:** Scan Records, Scan Pages/Logs/Quality Control and Kiosk:
+  133 passed after the final `ScanImage` change.
+- **Full frontend run:** 399 of 400 passed. The one failure was the known timing-sensitive
+  `late notes response cannot erase a successful new note` case; it passes when run alone
+  and does not involve images. An earlier full run before the final cache-init refactor
+  passed 400 of 400.
+- **Also passed:** `npx tsc -b`, `npm run build`, and ESLint on `ScanImage`, the cache
+  module and the new tests. Logs and Quality Control still report only their pre-existing
+  unused imports.
+
 ## Table thumbnail previews — 2026-11-18
 
 - **Backend:** `tests/test_scan_evidence.py` requests `?variant=thumb` and checks the

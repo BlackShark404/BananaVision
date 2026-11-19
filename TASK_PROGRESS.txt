@@ -1,8 +1,9 @@
-CURRENT RESUME HERE (2026-11-18) - TABLE THUMBNAIL PREVIEWS
+CURRENT RESUME HERE (2026-11-18) - THUMBNAILS, IMAGE CACHE AND DEFERRED FETCH
 
-User asked whether list image previews/thumbnails are optimized, then approved option 1:
-a real ~256 px thumbnail generated from each original and cached on disk. Changes are
-uncommitted.
+User asked whether list image previews/thumbnails are optimized. Option 1 (server
+thumbnails) and then options 1+2 (in-memory blob cache and true lazy fetch) were approved
+and implemented. The server thumbnail work is committed as 10a3b8a; the cache and deferred
+fetch remain uncommitted.
 
 WHAT CHANGED
 - GET /captures/{scan_id}/{filename}?variant=thumb returns a 256 px max-side JPEG
@@ -15,6 +16,13 @@ WHAT CHANGED
 - Scan Logs and Quality Control rows now request the thumb variant. Scan Detail and Kiosk
   keep their original evidence URLs. Table ScanImage elements use loading="lazy" and
   decoding="async".
+- ScanImage caches protected thumb blobs in memory, keyed by user and URL, with entry and
+  byte limits. Remounts reuse the object URL. clearToken() clears and revokes the cache on
+  logout or session expiry; originals keep per-mount object URLs.
+- Table thumbnails pass defer: an IntersectionObserver with a 200 px margin holds the
+  authenticated fetch until the placeholder nears the viewport. Native loading="lazy"
+  cannot defer that fetch. Files: frontend/src/lib/imageCache.ts and
+  frontend/src/components/ScanImage.tsx.
 
 VERIFIED (2026-11-18)
 - backend evidence/scan suites: 61 passed on SQLite, including thumbnail authorization,
@@ -22,13 +30,18 @@ VERIFIED (2026-11-18)
 - Full backend: 1363 passed, 115 skipped with TMPDIR on the physical /private/var path.
   The default macOS /var symlink caused 8 export-script failures; that is environmental.
   PostgreSQL was not run; Ruff is not installed.
-- Full frontend: 397 of 398 passed. The single failure moved between timing-sensitive
-  Scan Records note tests on rerun and the named case passes alone; it does not touch
-  images. tsc -b and build passed. ESLint on the changed pages shows only pre-existing
-  unused imports.
+- New frontend tests/scanimages.test.mjs: 2 of 2 passed. They prove no request before the
+  placeholder nears the viewport, cache reuse after remount, and a new request after
+  clearToken().
+- Affected frontend suites (Scan Records, Scan Pages/Logs/QC, Kiosk, Scan Images):
+  133 of 133 passed after the final ScanImage change.
+- Full frontend: 399 of 400 passed. The one failure was the timing-sensitive Scan Records
+  "late notes response" case, which passes alone and does not touch images. tsc -b and
+  build passed. ESLint on ScanImage, the cache module and new tests is clean; Logs and QC
+  retain only pre-existing unused imports.
 
 EXACT NEXT STEP
-- Review the scoped diff and a Scan Logs/Quality Control thumbnail in the browser.
+- Review the scoped diff and the lazy/cached thumbnails in Scan Logs and Quality Control.
   Nothing is staged or committed.
 
 PREVIOUS RESUME (2026-11-18) - DASHBOARD FIFO CARD

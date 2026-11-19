@@ -597,7 +597,7 @@ const columns: ColumnDef<LogScan>[] = [
         <div className="w-14">
           <AspectRatio ratio={1} className="rounded-lg overflow-hidden bg-muted/50 border">
             {scan.thumbnailUrl ? (
-              <ScanImage src={scan.thumbnailUrl} alt={scan.cultivar} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+              <ScanImage src={scan.thumbnailUrl} alt={scan.cultivar} defer loading="lazy" decoding="async" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <Banana className="w-6 h-6 text-muted-foreground/40" />
