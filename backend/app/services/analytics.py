@@ -136,16 +136,14 @@ def _projection(user: UserAccount, now: datetime):
 
 def _conditions(
     scans,
-    range_key: DateRange,
-    now: datetime,
+    start: datetime | None,
+    end: datetime,
     source_key,
     source,
     cultivar=None,
     inventory_status=None,
-    date_from: date | None = None,
-    date_to: date | None = None,
 ):
-    start, end = _period(range_key, now, date_from, date_to)
+    """The period (from ``_period``, computed once per request) plus the shared filters."""
     conditions = [scans.c.date_time <= end]
     if start is not None:
         conditions.append(scans.c.date_time >= start)
@@ -233,9 +231,9 @@ async def get_summary(
     now = as_manila(now_manila())
     today = now.date()
     scans = _projection(user, now)
+    range_start, range_end = _period(date_range, now, date_from, date_to)
     conditions = _conditions(
-        scans, date_range, now, source_key, source, cultivar, inventory_status,
-        date_from, date_to,
+        scans, range_start, range_end, source_key, source, cultivar, inventory_status,
     )
     threshold = await _threshold(db) if confidence_threshold is None else confidence_threshold
     complete = _complete(scans.c.cultivar, scans.c.ripeness)
@@ -312,8 +310,6 @@ async def get_summary(
         .where(*conditions).group_by(local_hour).order_by(local_hour)
     )).all()
 
-    range_start, range_end = _period(date_range, now, date_from, date_to)
-
     return AnalyticsSummary(
         generated_at=now, business_date=today, next_refresh_at=business_day_bounds(today)[1],
         range_start=range_start, range_end=range_end,
@@ -361,8 +357,8 @@ async def get_operator_performance(
         db,
         scans,
         _conditions(
-            scans, date_range, now, source_key, source, cultivar, inventory_status,
-            date_from, date_to,
+            scans, *_period(date_range, now, date_from, date_to),
+            source_key, source, cultivar, inventory_status,
         ),
     )
     return OperatorPerformanceList(items=items, total_operators=len(items))

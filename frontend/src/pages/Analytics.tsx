@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/chart"
 import { BarChart3, TrendingUp, Target, AlertTriangle, Users, Calendar, Package, Clock, Loader2, CalendarDays, X } from "lucide-react"
 import { AppDateFilter } from "@/components/AppDateFilter"
-import { ANALYTICS_RANGE_LABELS, analyticsPeriodLabel, analyticsPeriodParams, hasCustomDates, type AnalyticsPeriod, type AnalyticsRangeChoice } from "@/lib/analyticsPeriod"
+import { ANALYTICS_RANGE_LABELS, DEFAULT_ANALYTICS_PERIOD, analyticsPeriodLabel, analyticsPeriodParams, hasCustomDates, rangeChoice, type AnalyticsPeriod } from "@/lib/analyticsPeriod"
 import {
   PieChart,
   Pie,
@@ -124,7 +124,7 @@ const hoursOf = (s: AnalyticsSummary) => s.hourly_distribution
  * One chart's period. It follows the page period until the user picks another one for this
  * chart; then the chart loads its own data (same source/cultivar/status filters) through the
  * shared resource hook, so stale responses are dropped and a failure is shown, never the
- * page's data under this chart's label.
+ * page's data under this chart's label. A chart on the page period makes no requests.
  */
 function useChartPeriod<T>(
   pageData: T | undefined,
@@ -137,9 +137,8 @@ function useChartPeriod<T>(
     if (!override) return null
     return extract(await api.analytics.summary({ ...filters, ...analyticsPeriodParams(override) }, signal))
   }, [override, extract, filters])
-  const resource = useDashboardResource(load)
+  const resource = useDashboardResource(load, { enabled: override !== null })
   const period = override ?? pagePeriod
-  const base = override ?? pagePeriod
   return {
     overridden: override !== null,
     period,
@@ -148,15 +147,76 @@ function useChartPeriod<T>(
     loading: override !== null && resource.loading,
     error: override ? resource.error : null,
     retry: () => void resource.refresh(),
-    setRange: (range: AnalyticsRangeChoice) => setOverride({ range, from: "", to: "" }),
-    setFrom: (from: string) => setOverride({ range: "custom", from, to: base.to }),
-    setTo: (to: string) => setOverride({ range: "custom", from: base.from, to }),
+    change: setOverride,
     reset: () => setOverride(null),
   }
 }
 
+/**
+ * Preset + Date From + Date To, shared by the page header and every chart header. Picking a
+ * preset clears the dates; picking a date keeps the other one. The X button is given by the
+ * caller (page: clear the dates; chart: use the page dates).
+ */
+function PeriodControls({ name, period, onChange, clear, compact = false }: {
+  name: string
+  period: AnalyticsPeriod
+  onChange: (period: AnalyticsPeriod) => void
+  clear?: { label: string; title: string; onClick: () => void }
+  compact?: boolean
+}) {
+  const size = compact ? "h-8 text-xs px-2" : "h-10"
+  return (
+    <>
+      <Select value={rangeChoice(period)} onValueChange={v => onChange({ range: v as AnalyticsRange, from: "", to: "" })}>
+        <SelectTrigger className={compact ? "h-8 min-w-[110px] text-xs px-2" : "w-[140px] h-10"} aria-label={`${name} date range`}>
+          {!compact && <Calendar className="w-4 h-4 mr-2" />}
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {Object.entries(ANALYTICS_RANGE_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+          {hasCustomDates(period) && <SelectItem value="custom" disabled>Custom</SelectItem>}
+        </SelectContent>
+      </Select>
+      <div className="flex items-center gap-1">
+        <AppDateFilter
+          value={period.from}
+          onChange={from => onChange({ ...period, from })}
+          label={`${name} date from`}
+          emptyText="Date From"
+          title="First day included (Asia/Manila)"
+          disableFuture
+          maxDate={period.to || undefined}
+          className={compact ? `${size} min-w-[105px]` : "h-10 w-[130px] text-xs"}
+        />
+        <AppDateFilter
+          value={period.to}
+          onChange={to => onChange({ ...period, to })}
+          label={`${name} date to`}
+          emptyText="Date To"
+          title="Last day included (Asia/Manila)"
+          disableFuture
+          minDate={period.from || undefined}
+          className={compact ? `${size} min-w-[105px]` : "h-10 w-[130px] text-xs"}
+        />
+        {clear && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={compact ? "h-8 w-8 p-0 shrink-0" : "h-10 w-10 shrink-0"}
+            aria-label={clear.label}
+            title={clear.title}
+            onClick={clear.onClick}
+          >
+            <X className={compact ? "size-3.5" : "size-4"} />
+          </Button>
+        )}
+      </div>
+    </>
+  )
+}
+
 function ChartCardHeader({ title, helpText, chart }: { title: string; helpText?: string; chart: ChartPeriod }) {
-  const { period } = chart
   return (
     <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -165,50 +225,13 @@ function ChartCardHeader({ title, helpText, chart }: { title: string; helpText?:
           {chart.loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <Select value={period.range} onValueChange={v => chart.setRange(v as AnalyticsRangeChoice)}>
-            <SelectTrigger className="h-8 min-w-[110px] text-xs px-2" aria-label={`${title} date range`}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(ANALYTICS_RANGE_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
-              {period.range === "custom" && <SelectItem value="custom">Custom</SelectItem>}
-            </SelectContent>
-          </Select>
-          <div className="flex items-center gap-1">
-            <AppDateFilter
-              value={period.from}
-              onChange={chart.setFrom}
-              label={`${title}: Date from`}
-              emptyText="Date From"
-              title={`${title} date from`}
-              disableFuture
-              maxDate={period.to || undefined}
-              className="h-8 min-w-[105px] text-xs px-2"
-            />
-            <AppDateFilter
-              value={period.to}
-              onChange={chart.setTo}
-              label={`${title}: Date to`}
-              emptyText="Date To"
-              title={`${title} date to`}
-              disableFuture
-              minDate={period.from || undefined}
-              className="h-8 min-w-[105px] text-xs px-2"
-            />
-            {chart.overridden && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 p-0 shrink-0"
-                aria-label={`Use page dates for ${title}`}
-                title="Use page dates"
-                onClick={chart.reset}
-              >
-                <X className="size-3.5" />
-              </Button>
-            )}
-          </div>
+          <PeriodControls
+            compact
+            name={title}
+            period={chart.period}
+            onChange={chart.change}
+            clear={chart.overridden ? { label: `Use page dates for ${title}`, title: "Use page dates", onClick: chart.reset } : undefined}
+          />
           <Badge variant="outline" className="text-[10px] gap-1 shrink-0 py-0.5 h-8" title={chart.overridden ? "This chart has its own dates" : "Page dates"}>
             <CalendarDays className="w-3 h-3" />
             {chart.label}{chart.overridden ? " · this chart" : ""}
@@ -242,28 +265,17 @@ function chartStatus(chart: ChartPeriod) {
 }
 
 function AnalyticsContent() {
-  const [dateRange, setDateRange] = useState<AnalyticsRangeChoice>("week")
+  const [period, setPeriod] = useState<AnalyticsPeriod>(DEFAULT_ANALYTICS_PERIOD)
   const [sourceFilter, setSourceFilter] = useState("all")
   const [cultivarFilter, setCultivarFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [dateFrom, setDateFrom] = useState("")
-  const [dateTo, setDateTo] = useState("")
   const [availableSources, setAvailableSources] = useState<AnalyticsSummary["source_options"]>([])
 
-  const period = useMemo<AnalyticsPeriod>(() => ({ range: dateRange, from: dateFrom, to: dateTo }), [dateRange, dateFrom, dateTo])
-  const isCustomDate = hasCustomDates(period)
   const filterParams = useMemo<AnalyticsFilterParams>(() => ({
     source_key: sourceFilter === "all" ? undefined : sourceFilter,
     cultivar: cultivarFilter === "all" ? undefined : cultivarFilter,
     inventory_status: statusFilter === "all" ? undefined : statusFilter,
   }), [sourceFilter, cultivarFilter, statusFilter])
-
-  const handleDateRangeChange = (v: string) => {
-    setDateRange(v as AnalyticsRangeChoice)
-    if (v !== "custom") { setDateFrom(""); setDateTo("") }
-  }
-  const handleDateFromChange = (v: string) => { setDateFrom(v); if (v || dateTo) setDateRange("custom") }
-  const handleDateToChange = (v: string) => { setDateTo(v); if (v || dateFrom) setDateRange("custom") }
 
   const fetchAnalytics = useCallback(async (signal: AbortSignal) => {
     const response = await api.analytics.summary({ ...filterParams, ...analyticsPeriodParams(period) }, signal)
@@ -359,54 +371,12 @@ function AnalyticsContent() {
                 {Object.values(InventoryStatusEnum).map(value => <SelectItem key={value} value={value}>{value}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={dateRange} onValueChange={handleDateRangeChange}>
-              <SelectTrigger className="w-[140px] h-10" aria-label="Analytics date range">
-                <Calendar className="w-4 h-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="week">Last 7 Days</SelectItem>
-                <SelectItem value="month">Last 30 Days</SelectItem>
-                <SelectItem value="all">All Time</SelectItem>
-                {isCustomDate && <SelectItem value="custom">Custom</SelectItem>}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-1.5">
-              <AppDateFilter
-                value={dateFrom}
-                onChange={handleDateFromChange}
-                label="Date from"
-                emptyText="Date From"
-                title="Filter scans from date in Asia/Manila"
-                disableFuture
-                maxDate={dateTo || undefined}
-                className="h-10 w-[130px] text-xs"
-              />
-              <AppDateFilter
-                value={dateTo}
-                onChange={handleDateToChange}
-                label="Date to"
-                emptyText="Date To"
-                title="Filter scans to date in Asia/Manila"
-                disableFuture
-                minDate={dateFrom || undefined}
-                className="h-10 w-[130px] text-xs"
-              />
-              {isCustomDate && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 shrink-0"
-                  aria-label="Clear custom dates"
-                  title="Clear dates"
-                  onClick={() => { setDateFrom(""); setDateTo(""); setDateRange("week") }}
-                >
-                  <X className="size-4" />
-                </Button>
-              )}
-            </div>
+            <PeriodControls
+              name="Analytics"
+              period={period}
+              onChange={setPeriod}
+              clear={hasCustomDates(period) ? { label: "Clear custom dates", title: "Clear dates", onClick: () => setPeriod({ ...period, from: "", to: "" }) } : undefined}
+            />
           </div>
         }
       />

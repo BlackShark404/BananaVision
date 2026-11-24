@@ -221,9 +221,9 @@ test("Operator view uses the same activity columns without restricted QC metrics
 test("Date From and Date To replace the preset and are sent as inclusive Manila days", async t => {
   const { page, state } = await setup(t)
   await expectCount(page, 12)
-  await page.getByRole("button", { name: "Date from", exact: true }).click()
+  await page.getByRole("button", { name: "Analytics date from", exact: true }).click()
   await page.getByRole("button", { name: /October 1st, 2026/ }).click()
-  await page.getByRole("button", { name: "Date to", exact: true }).click()
+  await page.getByRole("button", { name: "Analytics date to", exact: true }).click()
   // Days after today (Asia/Manila, Oct 5) cannot be picked.
   assert.equal(await page.getByRole("button", { name: /October 6th, 2026/ }).isDisabled(), true)
   await page.getByRole("button", { name: /October 3rd, 2026/ }).click()

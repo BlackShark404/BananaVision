@@ -22,12 +22,10 @@ export interface AppDateFilterProps {
   className?: string
   /** Disallow picking future dates (after today in Manila). Defaults to false. */
   disableFuture?: boolean
-  /** Earliest selectable date as YYYY-MM-DD string or Date. Dates before this will be disabled. */
-  minDate?: string | Date
-  /** Latest selectable date as YYYY-MM-DD string or Date. Dates after this will be disabled. */
-  maxDate?: string | Date
-  /** Custom disabled matcher for DayPicker */
-  disabled?: React.ComponentProps<typeof Calendar>["disabled"]
+  /** Earliest selectable day (YYYY-MM-DD); earlier days are disabled. */
+  minDate?: string
+  /** Latest selectable day (YYYY-MM-DD); later days are disabled. */
+  maxDate?: string
 }
 
 /**
@@ -45,32 +43,17 @@ export function AppDateFilter({
   disableFuture = false,
   minDate,
   maxDate,
-  disabled,
 }: AppDateFilterProps) {
   const [open, setOpen] = useState(false)
   const selected = parseIsoDay(value)
   const display = selected ? format(selected, "MMM d, yyyy") : emptyText ?? label
 
-  const matchers: Matcher[] = []
-  if (disabled) {
-    if (Array.isArray(disabled)) {
-      matchers.push(...disabled)
-    } else {
-      matchers.push(disabled)
-    }
-  }
-  if (disableFuture) {
-    matchers.push({ after: manilaToday() })
-  }
-  if (minDate) {
-    const min = typeof minDate === "string" ? parseIsoDay(minDate) : minDate
-    if (min) matchers.push({ before: min })
-  }
-  if (maxDate) {
-    const max = typeof maxDate === "string" ? parseIsoDay(maxDate) : maxDate
-    if (max) matchers.push({ after: max })
-  }
-  const disabledMatcher = matchers.length > 0 ? matchers : undefined
+  const disabledDays: Matcher[] = []
+  if (disableFuture) disabledDays.push({ after: manilaToday() })
+  const min = parseIsoDay(minDate)
+  if (min) disabledDays.push({ before: min })
+  const max = parseIsoDay(maxDate)
+  if (max) disabledDays.push({ after: max })
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -93,7 +76,7 @@ export function AppDateFilter({
           // "Today" and the opening month follow Asia/Manila, not the device clock.
           today={manilaToday()}
           defaultMonth={selected ?? manilaToday()}
-          disabled={disabledMatcher}
+          disabled={disabledDays.length ? disabledDays : undefined}
           onSelect={date => {
             if (date) onChange?.(formatIsoDay(date))
             setOpen(false)

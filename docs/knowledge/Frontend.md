@@ -44,13 +44,18 @@ Decision: [[Development Decisions]]; tests: [[Testing and Validation]].
 
 ## Analytics dates (2026-11-24)
 
-- **Page period:** a preset (Today, Last 7 Days, Last 30 Days, All Time) or Date From / Date
-  To. Dates are inclusive Asia/Manila days (`YYYY-MM-DD`) and replace the preset; the request
-  then has `date_from`/`date_to` and no `range`. "Custom" is a UI choice only
-  (`AnalyticsRangeChoice`, `frontend/src/lib/analyticsPeriod.ts`).
+- **Page period:** one state `{ range, from, to }` (`AnalyticsPeriod`,
+  `frontend/src/lib/analyticsPeriod.ts`). `range` is always a backend preset (Today, Last 7
+  Days, Last 30 Days, All Time). Date From / Date To are inclusive Asia/Manila days
+  (`YYYY-MM-DD`) and replace the preset; the request then has `date_from`/`date_to` and no
+  `range`. "Custom" is derived from the dates (`rangeChoice`), never stored. Clearing the
+  dates returns to the preset chosen before.
+- **One control:** `PeriodControls` (preset, Date From, Date To, X) serves the page header and
+  every chart header.
 - **Chart periods:** every chart follows the page period and shows it. A chart can pick its
   own; the badge then reads "… · this chart" and **Use page dates** (X) resets it. Its data
-  loads through `useDashboardResource`; a failure shows the chart's own error and Retry.
+  loads through `useDashboardResource` (`enabled` only while the chart has its own dates, so a
+  chart on the page dates makes no request); a failure shows the chart's own error and Retry.
 - **Server rules:** Date From after Date To, or a day after today, returns 422. `range_end` is
   the last instant of Date To, never later than now.
 - Scan Trend keeps its fixed 14 days.

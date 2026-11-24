@@ -1,14 +1,20 @@
 import type { AnalyticsRange } from "@/types/analytics"
 
-/** The Analytics date choice: a backend preset, or "custom" while Date From/To are set (UI only). */
+/** What the date Select shows: a backend preset, or "custom" while Date From/To are set (UI only). */
 export type AnalyticsRangeChoice = AnalyticsRange | "custom"
 
-/** A period on the Analytics page or one chart. Dates are inclusive Asia/Manila days (YYYY-MM-DD). */
+/**
+ * A period on the Analytics page or one chart. `range` is always a backend preset; dates are
+ * inclusive Asia/Manila days (YYYY-MM-DD) and, when set, replace it. "Custom" is derived from
+ * the dates, so a "custom" choice without dates cannot exist.
+ */
 export interface AnalyticsPeriod {
-  range: AnalyticsRangeChoice
+  range: AnalyticsRange
   from: string
   to: string
 }
+
+export const DEFAULT_ANALYTICS_PERIOD: AnalyticsPeriod = { range: "week", from: "", to: "" }
 
 export const ANALYTICS_RANGE_LABELS: Record<AnalyticsRange, string> = {
   today: "Today",
@@ -17,23 +23,19 @@ export const ANALYTICS_RANGE_LABELS: Record<AnalyticsRange, string> = {
   all: "All Time",
 }
 
-const DEFAULT_RANGE: AnalyticsRange = "week"
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 export function hasCustomDates(period: AnalyticsPeriod): boolean {
   return period.from !== "" || period.to !== ""
 }
 
-function preset(range: AnalyticsRangeChoice): AnalyticsRange {
-  return range === "custom" ? DEFAULT_RANGE : range
+export function rangeChoice(period: AnalyticsPeriod): AnalyticsRangeChoice {
+  return hasCustomDates(period) ? "custom" : period.range
 }
 
-/**
- * Query parameters for /analytics/summary and /analytics/operator-performance.
- * Dates replace the preset; "custom" is never sent, so the request matches the backend contract.
- */
+/** Query parameters for the analytics routes: the dates when set, otherwise the preset. */
 export function analyticsPeriodParams(period: AnalyticsPeriod): { range?: AnalyticsRange; date_from?: string; date_to?: string } {
-  if (!hasCustomDates(period)) return { range: preset(period.range) }
+  if (!hasCustomDates(period)) return { range: period.range }
   return {
     ...(period.from ? { date_from: period.from } : {}),
     ...(period.to ? { date_to: period.to } : {}),
@@ -54,5 +56,5 @@ export function analyticsPeriodLabel(period: AnalyticsPeriod): string {
   if (from && to) return from === to ? dayLabel(from) : `${dayLabel(from)} – ${dayLabel(to)}`
   if (from) return `From ${dayLabel(from)}`
   if (to) return `Up to ${dayLabel(to)}`
-  return ANALYTICS_RANGE_LABELS[preset(period.range)]
+  return ANALYTICS_RANGE_LABELS[period.range]
 }
