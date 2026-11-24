@@ -1,5 +1,7 @@
 """Analytics routes. Aggregates and metric definitions are shared by all clients."""
 
+from datetime import date
+
 from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentUser, DbSession
@@ -20,11 +22,14 @@ async def analytics_summary(
     confidence_threshold: float | None = Query(None, ge=0, le=100),
     cultivar: CultivarEnum | None = None,
     inventory_status: InventoryStatusEnum | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
 ):
     return await get_summary(
         db, user, date_range=date_range, source_key=source_key, source=source,
         confidence_threshold=confidence_threshold,
         cultivar=cultivar, inventory_status=inventory_status,
+        date_from=date_from, date_to=date_to,
     )
 
 
@@ -37,8 +42,11 @@ async def operator_performance(
     source_key: str | None = Query(None, max_length=200),
     cultivar: CultivarEnum | None = None,
     inventory_status: InventoryStatusEnum | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
 ):
     return await get_operator_performance(
         db, user, date_range=date_range, source_key=source_key, source=source,
         cultivar=cultivar, inventory_status=inventory_status,
+        date_from=date_from, date_to=date_to,
     )

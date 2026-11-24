@@ -42,6 +42,21 @@ Decision: [[Development Decisions]]; tests: [[Testing and Validation]].
 - `VITE_PUBLIC_BASE_URL` overrides the origin embedded in printed QR labels, so a label scanned off-station resolves to the public HTTPS link. When unset, labels keep the kiosk origin.
 - `VITE_API_URL`, `VITE_WS_URL` and `VITE_PUBLIC_BASE_URL` are build-time values; a production build written to `frontend/dist` is what Caddy serves. See [remote-access.md](../remote-access.md).
 
+## Analytics dates (2026-11-24)
+
+- **Page period:** a preset (Today, Last 7 Days, Last 30 Days, All Time) or Date From / Date
+  To. Dates are inclusive Asia/Manila days (`YYYY-MM-DD`) and replace the preset; the request
+  then has `date_from`/`date_to` and no `range`. "Custom" is a UI choice only
+  (`AnalyticsRangeChoice`, `frontend/src/lib/analyticsPeriod.ts`).
+- **Chart periods:** every chart follows the page period and shows it. A chart can pick its
+  own; the badge then reads "… · this chart" and **Use page dates** (X) resets it. Its data
+  loads through `useDashboardResource`; a failure shows the chart's own error and Retry.
+- **Server rules:** Date From after Date To, or a day after today, returns 422. `range_end` is
+  the last instant of Date To, never later than now.
+- Scan Trend keeps its fixed 14 days.
+- **Scan Detail notes:** Add asks "Add Review Note … Confirm"; empty text shows a toast
+  and writes nothing.
+
 ## Dashboard FIFO card (2026-11-18)
 
 - The Dashboard shows the oldest five in-stock batches from

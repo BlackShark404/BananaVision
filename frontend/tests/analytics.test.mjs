@@ -41,7 +41,7 @@ async function setup(t, response = payload(), user) {
     const query = new URL(route.request().url()).searchParams
     state.requests.push(query)
     const value = typeof state.response === "function" ? state.response(query) : state.response
-    const fail = state.fail
+    const fail = typeof state.fail === "function" ? state.fail(query) : state.fail
     if (state.hold) await state.hold(query)
     await route.fulfill({ status: fail ? 503 : 200, headers: { "access-control-allow-origin": "*" }, json: fail ? { detail: "Analytics unavailable" } : value }).catch(() => {})
   })
@@ -218,3 +218,47 @@ test("Operator view uses the same activity columns without restricted QC metrics
   assert.equal(await page.getByRole("table").locator("tbody tr").count(), 1)
 })
 
+test("Date From and Date To replace the preset and are sent as inclusive Manila days", async t => {
+  const { page, state } = await setup(t)
+  await expectCount(page, 12)
+  await page.getByRole("button", { name: "Date from", exact: true }).click()
+  await page.getByRole("button", { name: /October 1st, 2026/ }).click()
+  await page.getByRole("button", { name: "Date to", exact: true }).click()
+  // Days after today (Asia/Manila, Oct 5) cannot be picked.
+  assert.equal(await page.getByRole("button", { name: /October 6th, 2026/ }).isDisabled(), true)
+  await page.getByRole("button", { name: /October 3rd, 2026/ }).click()
+  const query = () => state.requests.at(-1)
+  assert.equal(query().get("date_from"), "2026-10-01")
+  assert.equal(query().get("date_to"), "2026-10-03")
+  // "custom" is a UI choice only; the backend receives no range with dates.
+  assert.equal(query().get("range"), null)
+  await page.getByRole("combobox", { name: "Analytics date range" }).getByText("Custom", { exact: true }).waitFor()
+  await page.getByRole("button", { name: "Clear custom dates" }).click()
+  await page.getByRole("combobox", { name: "Analytics date range" }).getByText("Last 7 Days", { exact: true }).waitFor()
+  assert.equal(query().get("range"), "week")
+  assert.equal(query().get("date_from"), null)
+})
+
+test("a chart with its own dates shows its own error, never the page data", async t => {
+  const { page, state } = await setup(t)
+  await expectCount(page, 12)
+  const ripeness = card(page, "Ripeness Distribution")
+  await ripeness.getByTitle("Page dates").getByText("Last 7 Days").waitFor()
+  state.fail = query => query.get("range") === "today"
+  await page.getByRole("combobox", { name: "Ripeness Distribution date range" }).click()
+  await page.getByRole("option", { name: "Today", exact: true }).click()
+  await ripeness.getByRole("alert").getByText(/Could not load this chart for Today/).waitFor()
+  assert.equal(await ripeness.getByText(/^Ripe 100%/).count(), 0)
+  await expectCount(page, 12)
+  state.fail = false
+  state.response = query => query.get("range") === "today" ? payload({ ripeness_distribution: [{ name: "Unripe", value: 3 }] }) : payload()
+  await ripeness.getByRole("button", { name: "Retry" }).click()
+  await page.clock.runFor(2000) // pie labels appear after the chart animation
+  await ripeness.getByText(/Unripe 100%/).waitFor()
+  assert.equal(await ripeness.getByRole("alert").count(), 0)
+  await ripeness.getByTitle("This chart has its own dates").getByText("Today · this chart").waitFor()
+  await page.getByRole("button", { name: "Use page dates for Ripeness Distribution" }).click()
+  await page.clock.runFor(2000)
+  await ripeness.getByText(/^Ripe 100%/).waitFor()
+  await ripeness.getByTitle("Page dates").getByText("Last 7 Days").waitFor()
+})

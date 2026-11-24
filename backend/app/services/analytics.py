@@ -9,9 +9,10 @@ The 14-day trend deliberately has its own fixed window.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Literal
 
+from fastapi import HTTPException
 from sqlalchemy import and_, case, extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -85,6 +86,28 @@ def _range_start(range_key: DateRange, now: datetime) -> datetime | None:
     return business_day_bounds(as_manila(now).date() - timedelta(days=days - 1))[0]
 
 
+def _period(
+    range_key: DateRange, now: datetime, date_from: date | None, date_to: date | None,
+) -> tuple[datetime | None, datetime]:
+    """First and last included instant of the selected period.
+
+    Date From and Date To are inclusive Asia/Manila calendar days and replace the preset
+    range. The end is never later than now, so the period text names the real last day.
+    """
+    if date_from is None and date_to is None:
+        return _range_start(range_key, now), now
+    today = as_manila(now).date()
+    if any(day is not None and day > today for day in (date_from, date_to)):
+        raise HTTPException(422, "Dates cannot be after today")
+    if date_from is not None and date_to is not None and date_from > date_to:
+        raise HTTPException(422, "Date from must be on or before Date to")
+    start = business_day_bounds(date_from)[0] if date_from is not None else None
+    end = now
+    if date_to is not None:
+        end = min(now, business_day_bounds(date_to)[1] - timedelta(microseconds=1))
+    return start, end
+
+
 def _projection(user: UserAccount, now: datetime):
     scans = _scoped_projection(user, now)
     original = ScanOriginalAiResult
@@ -119,9 +142,11 @@ def _conditions(
     source,
     cultivar=None,
     inventory_status=None,
+    date_from: date | None = None,
+    date_to: date | None = None,
 ):
-    conditions = [scans.c.date_time <= now]
-    start = _range_start(range_key, now)
+    start, end = _period(range_key, now, date_from, date_to)
+    conditions = [scans.c.date_time <= end]
     if start is not None:
         conditions.append(scans.c.date_time >= start)
     conditions.extend(_source_conditions(scans, source_key, source))
@@ -203,11 +228,15 @@ async def get_summary(
     source_key: str | None = None, source: str | None = None,
     confidence_threshold: float | None = None,
     cultivar: CultivarEnum | None = None, inventory_status: InventoryStatusEnum | None = None,
+    date_from: date | None = None, date_to: date | None = None,
 ) -> AnalyticsSummary:
     now = as_manila(now_manila())
     today = now.date()
     scans = _projection(user, now)
-    conditions = _conditions(scans, date_range, now, source_key, source, cultivar, inventory_status)
+    conditions = _conditions(
+        scans, date_range, now, source_key, source, cultivar, inventory_status,
+        date_from, date_to,
+    )
     threshold = await _threshold(db) if confidence_threshold is None else confidence_threshold
     complete = _complete(scans.c.cultivar, scans.c.ripeness)
     valid_confidence = _confidence(scans)
@@ -283,9 +312,11 @@ async def get_summary(
         .where(*conditions).group_by(local_hour).order_by(local_hour)
     )).all()
 
+    range_start, range_end = _period(date_range, now, date_from, date_to)
+
     return AnalyticsSummary(
         generated_at=now, business_date=today, next_refresh_at=business_day_bounds(today)[1],
-        range_start=_range_start(date_range, now), range_end=now,
+        range_start=range_start, range_end=range_end,
         trend_start=trend_start, trend_end=today, confidence_threshold=threshold,
         total_scans=totals.total, classification_count=totals.classified,
         incomplete_count=totals.total - totals.classified,
@@ -322,12 +353,16 @@ async def get_operator_performance(
     db: AsyncSession, user: UserAccount, *, date_range: DateRange = "week",
     source_key: str | None = None, source: str | None = None,
     cultivar: CultivarEnum | None = None, inventory_status: InventoryStatusEnum | None = None,
+    date_from: date | None = None, date_to: date | None = None,
 ) -> OperatorPerformanceList:
     now = as_manila(now_manila())
     scans = _projection(user, now)
     items = await _operators(
         db,
         scans,
-        _conditions(scans, date_range, now, source_key, source, cultivar, inventory_status),
+        _conditions(
+            scans, date_range, now, source_key, source, cultivar, inventory_status,
+            date_from, date_to,
+        ),
     )
     return OperatorPerformanceList(items=items, total_operators=len(items))

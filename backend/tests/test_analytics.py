@@ -136,6 +136,24 @@ async def test_calendar_ranges_and_fixed_trend_have_explicit_different_populatio
     assert sum(row.count for row in week.scan_trend) == 3
     assert week.trend_start == date(2026, 9, 19) and week.trend_end == date(2026, 10, 2)
 
+    # Custom date_from and date_to filters override preset ranges.
+    from_week_start = await analytics.get_summary(db, user, date_from=date(2026, 9, 26))
+    assert from_week_start.total_scans == 2
+    assert from_week_start.range_start == business_day_bounds(date(2026, 9, 26))[0]
+
+    bounded_range = await analytics.get_summary(
+        db, user, date_from=date(2026, 9, 20), date_to=date(2026, 9, 25),
+    )
+    assert bounded_range.total_scans == 1  # only the scan at week_start - 1us (2026-09-25)
+    assert bounded_range.range_start == business_day_bounds(date(2026, 9, 20))[0]
+    # Period end is the last instant of Date To (inclusive day), so "Period: … – Sep 25"
+    # shows Sep 25, not the exclusive midnight after it.
+    last_instant = business_day_bounds(date(2026, 9, 25))[1] - timedelta(microseconds=1)
+    assert bounded_range.range_end == last_instant
+    up_to_today = await analytics.get_summary(db, user, date_to=NOW.date())
+    assert up_to_today.range_start is None and up_to_today.range_end == NOW
+    assert up_to_today.total_scans == 5
+
 
 @pytest.mark.asyncio
 async def test_confidence_excludes_missing_invalid_and_unrecoverable_overrides(analytics_db):
@@ -353,10 +371,29 @@ def test_api_contract_validates_filters_and_serializes_manila_offsets(analytics_
         assert data["operator_performance"][0]["operator_id"] == str(user.operator_id)
         assert data["human_verified_accuracy"] is None
         assert data["cultivar_ripeness"][0]["Semi Ripe"] == 0
-        for params in ({"range": "year"}, {"confidence_threshold": -1}, {"confidence_threshold": 101}):
+        for params in ({"range": "year"}, {"confidence_threshold": -1},
+                       {"confidence_threshold": 101}, {"date_from": "invalid"}):
             assert client.get("/api/v1/analytics/summary", params=params).status_code == 422
+        custom_result = client.get("/api/v1/analytics/summary",
+                                   params={"date_from": "2026-10-01", "date_to": "2026-10-02"})
+        assert custom_result.status_code == 200
+        assert custom_result.json()["range_start"] == "2026-10-01T00:00:00+08:00"
         operator_result = client.get("/api/v1/analytics/operator-performance", params={"range": "today"})
         assert operator_result.json()["items"] == data["operator_performance"]
+
+        # Date From after Date To, or a day after today (Asia/Manila), is refused on both routes.
+        for route in ("summary", "operator-performance"):
+            reversed_dates = client.get(f"/api/v1/analytics/{route}",
+                                        params={"date_from": "2026-10-02", "date_to": "2026-10-01"})
+            assert reversed_dates.status_code == 422
+            assert reversed_dates.json()["detail"] == "Date from must be on or before Date to"
+            for params in ({"date_from": "2026-10-03"}, {"date_to": "2026-10-03"}):
+                future = client.get(f"/api/v1/analytics/{route}", params=params)
+                assert future.status_code == 422
+                assert future.json()["detail"] == "Dates cannot be after today"
+        same_day = client.get("/api/v1/analytics/summary",
+                              params={"date_from": "2026-10-02", "date_to": "2026-10-02"})
+        assert same_day.status_code == 200 and same_day.json()["total_scans"] == 1
 
 
 def test_postgres_queries_keep_stable_scope_elapsed_risk_and_original_model(analytics_db):

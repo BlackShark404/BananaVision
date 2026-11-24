@@ -1,3 +1,4 @@
+/** Preset periods the backend accepts (`range`). "custom" is UI-only: see lib/analyticsPeriod. */
 export type AnalyticsRange = "today" | "week" | "month" | "all"
 
 export type AnalyticsMetricKey =

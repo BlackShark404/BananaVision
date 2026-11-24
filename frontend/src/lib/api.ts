@@ -340,9 +340,9 @@ export const api = {
 
   // ── Analytics ────────────────────────────────────────────────────────────
   analytics: {
-    summary: (params?: { range?: AnalyticsRange; source?: string; source_key?: string; confidence_threshold?: number; cultivar?: string; inventory_status?: string }, signal?: AbortSignal) =>
+    summary: (params?: { range?: AnalyticsRange; source?: string; source_key?: string; confidence_threshold?: number; cultivar?: string; inventory_status?: string; date_from?: string; date_to?: string }, signal?: AbortSignal) =>
       get<AnalyticsSummary>("/api/v1/analytics/summary", params, signal),
-    operatorPerformance: (params?: { range?: AnalyticsRange; source?: string; source_key?: string; cultivar?: string; inventory_status?: string }, signal?: AbortSignal) =>
+    operatorPerformance: (params?: { range?: AnalyticsRange; source?: string; source_key?: string; cultivar?: string; inventory_status?: string; date_from?: string; date_to?: string }, signal?: AbortSignal) =>
       get<{ items: AnalyticsOperator[]; total_operators: number }>("/api/v1/analytics/operator-performance", params, signal),
   },
 
