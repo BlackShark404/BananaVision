@@ -2,6 +2,22 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-24: Packaged model fallbacks in Git (YOLO and spoilage)
+
+- **User decision:** keep a copy of each model in Git as the backend's fallback, for the fork
+  and team main. This reverses `28415d1` "Remove unused spoilage RFR model".
+- **Files:** `backend/app/ml/spoilage_rfr.joblib` (restored, same file as before) and
+  `backend/app/ml/banana_yolo26m.pt` (added from the user's station copy).
+- **Rule (both models):** a station's own file in `backend/app/ml/weights/` (git-ignored) is
+  used first. If the configured default is missing there, the packaged copy in
+  `backend/app/ml/` is used and a warning is logged. A missing custom or absolute path stays
+  an error, so a wrong setting is visible. YOLO: `classification.resolve_model_path`;
+  spoilage: `SpoilagePredictor.resolve_model_path`.
+- **Why outside `weights/`:** stations already keep untracked files with those names in
+  `weights/`. A tracked file at the same path would make `git pull` refuse to run.
+- **Backups** record the file the backend actually loads (`model_prerequisites`).
+- **Limit:** files over 100 MB cannot be pushed to GitHub without Git LFS.
+
 ## 2026-11-18: 80% is the default review threshold; loading never changes a saved value
 
 - **Team decision (86e4728, 94296fc):** the default review threshold is 80%, down from

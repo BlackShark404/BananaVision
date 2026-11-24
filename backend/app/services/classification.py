@@ -14,6 +14,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from itertools import combinations
+from pathlib import Path
 
 import numpy as np
 
@@ -224,6 +225,35 @@ def _parse_class_label(label: str) -> tuple[str | None, str | None]:
     if ripeness:
         return None, ripeness
     return None, None
+
+
+# The checkpoint packaged in Git (backend/app/ml/), used when the station has none.
+PACKAGED_MODEL = "banana_yolo26m.pt"
+# Relative defaults (config.py and .env.example) that may fall back to the packaged model.
+DEFAULT_MODEL_PATHS = frozenset({
+    "app/ml/weights/banana_yolov26n.pt",
+    "app/ml/weights/banana_yolo26m.pt",
+})
+
+
+def resolve_model_path(configured: str, app_dir: Path | None = None) -> Path:
+    """Keep explicit station checkpoints; resolve a missing default to the packaged model.
+
+    Same rule as ``SpoilagePredictor.resolve_model_path``. The station's own checkpoint lives
+    in ``app/ml/weights/`` (git-ignored); Git ships one under ``app/ml/``. Only the relative
+    defaults get this lookup: a missing custom or absolute path stays visible as an error.
+    """
+    path = Path(configured)
+    if path.exists() or path.is_absolute():
+        return path
+    if path.as_posix() not in DEFAULT_MODEL_PATHS:
+        return path
+    app_dir = app_dir or Path(__file__).resolve().parents[1]
+    station_path = app_dir / "ml" / "weights" / path.name
+    if station_path.exists():
+        return station_path
+    packaged_path = app_dir / "ml" / PACKAGED_MODEL
+    return packaged_path if packaged_path.exists() else path
 
 
 def _model_name_from_path(path: str) -> str:
@@ -817,7 +847,11 @@ class BananaClassifier:
         try:
             from ultralytics import YOLO
 
-            model_path = settings.yolo_model_path
+            model_path = str(resolve_model_path(settings.yolo_model_path))
+            if model_path != settings.yolo_model_path:
+                logger.warning(
+                    f"No model at {settings.yolo_model_path}; using {model_path} instead"
+                )
             self._model_name = _model_name_from_path(model_path)
             logger.info(f"Loading {self._model_name} model from {model_path}")
             self._model = YOLO(model_path)

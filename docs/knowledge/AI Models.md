@@ -179,6 +179,15 @@ model mean. Its previous independent tree-quantile range did not match the app's
 decimal-mean output. Existing estimates are not rewritten. The local artifact emits a
 scikit-learn version warning (training 1.6.1, local runtime 1.8.0); dependencies were unchanged.
 
+## Packaged model fallbacks (2026-11-24)
+
+- YOLO: the backend loads `YOLO_MODEL_PATH`. When that default file is missing, it uses
+  `backend/app/ml/weights/<same name>`, then the copy in Git, `backend/app/ml/banana_yolo26m.pt`.
+  The log shows "No model at …; using … instead".
+- Spoilage: the same order ends at `backend/app/ml/spoilage_rfr.joblib`. Without any file the
+  rule-based estimate runs ("Running in fallback mode").
+- See [[Development Decisions]] (2026-11-24).
+
 ## Out-of-distribution (OOD) rejection
 
 ### Why it was needed

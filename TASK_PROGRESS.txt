@@ -1,4 +1,32 @@
-CURRENT RESUME HERE (2026-11-19) - DOCS NAVIGATION REORGANIZATION
+CURRENT RESUME HERE (2026-11-24) - PACKAGED MODEL FALLBACKS (YOLO AND SPOILAGE) IN GIT
+
+USER REQUEST (2026-11-24)
+- "copy the bananavision-fork in Bananavision to put also the backend fallback for yolo and
+  rfr. i give you full access of two gits"
+
+DONE
+- backend/app/ml/spoilage_rfr.joblib restored (reverses 28415d1).
+- backend/app/ml/banana_yolo26m.pt added from fork as packaged YOLO fallback.
+- classification.resolve_model_path: station file in app/ml/weights/ takes priority; if
+  missing, relative defaults fall back to packaged app/ml/banana_yolo26m.pt with a warning log.
+  Custom/absolute paths stay errors. BananaClassifier.load uses it.
+- backup_archive.model_prerequisites records the classifier file actually loaded.
+- Tests: backend/tests/test_model_fallback.py (3 tests), test_backup_archive.py,
+  test_spoilage_models.py: 81 passed.
+- Docs: docs/knowledge/Development Decisions.md and docs/knowledge/AI Models.md updated.
+
+VERIFIED (2026-11-24)
+- 81 passed in pytest (backend/tests/test_model_fallback.py, test_backup_archive.py,
+  test_spoilage_models.py).
+- Hashes of banana_yolo26m.pt and spoilage_rfr.joblib match station copies bit-for-bit.
+
+EXACT NEXT STEP
+- Review the scoped diff. Nothing is staged or committed.
+
+PREVIOUS RESUME (2026-11-19) - DOCS NAVIGATION REORGANIZATION
+
+The previous checkpoint is archived byte-for-byte in
+docs/history/2026-11-24-before-packaged-model-fallbacks.txt.
 
 User asked to organize loose Markdown files under docs/. Moved 34 root-level .md files into
 acceptance/, audits/, data/, development/, guides/ and project/. Added docs/README.md as
