@@ -20,6 +20,16 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { Separator } from "@/components/ui/separator"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
 import {
   DropdownMenu,
@@ -111,6 +121,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
   const [detail, setDetail] = useState<{ retry: number; scan: ScanResult | null; error: string | null; notFound: boolean; status?: number } | null>(null)
   const [flagPending, setFlagPending] = useState(false)
   const [notePending, setNotePending] = useState(false)
+  const [noteConfirmOpen, setNoteConfirmOpen] = useState(false)
   const [editPending, setEditPending] = useState(false)
   const [statusAction, setStatusAction] = useState<InventoryStatus | null>(null)
   const [statusReason, setStatusReason] = useState("")
@@ -260,6 +271,14 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
     } finally {
       setFlagPending(false)
     }
+  }
+
+  const handleAddButtonClick = () => {
+    if (!noteText.trim()) {
+      toast.error("Please enter a review note before adding.")
+      return
+    }
+    setNoteConfirmOpen(true)
   }
 
   const handleAddNote = async () => {
@@ -1009,9 +1028,23 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                       className="rounded-xl resize-none"
                       rows={2}
                     />
-                    <Button onClick={handleAddNote} disabled={!noteText.trim() || notePending} className="self-end">
+                    <Button onClick={handleAddButtonClick} disabled={notePending} className="self-end">
                       {notePending && <Loader2 className="size-4 animate-spin" />} {notePending ? "Adding…" : "Add"}
                     </Button>
+                    <AlertDialog open={noteConfirmOpen} onOpenChange={setNoteConfirmOpen}>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Add Review Note</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to add this review note? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => { setNoteConfirmOpen(false); void handleAddNote() }}>Confirm</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </CardContent>

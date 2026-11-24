@@ -135,6 +135,12 @@ function patch<T>(path: string, body?: unknown, timeoutMessage?: string) {
 
 // ── API Namespaces ──────────────────────────────────────────────────────────
 
+/** Shared analytics query; date_from/date_to (inclusive Manila days) replace range. */
+type AnalyticsQuery = {
+  range?: AnalyticsRange; source?: string; source_key?: string; cultivar?: string
+  inventory_status?: string; date_from?: string; date_to?: string
+}
+
 export const api = {
   // ── Auth ─────────────────────────────────────────────────────────────────
   auth: {
@@ -340,9 +346,9 @@ export const api = {
 
   // ── Analytics ────────────────────────────────────────────────────────────
   analytics: {
-    summary: (params?: { range?: AnalyticsRange; source?: string; source_key?: string; confidence_threshold?: number; cultivar?: string; inventory_status?: string }, signal?: AbortSignal) =>
+    summary: (params?: AnalyticsQuery & { confidence_threshold?: number }, signal?: AbortSignal) =>
       get<AnalyticsSummary>("/api/v1/analytics/summary", params, signal),
-    operatorPerformance: (params?: { range?: AnalyticsRange; source?: string; source_key?: string; cultivar?: string; inventory_status?: string }, signal?: AbortSignal) =>
+    operatorPerformance: (params?: AnalyticsQuery, signal?: AbortSignal) =>
       get<{ items: AnalyticsOperator[]; total_operators: number }>("/api/v1/analytics/operator-performance", params, signal),
   },
 

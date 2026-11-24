@@ -684,6 +684,7 @@ test('late notes response cannot erase a successful new note', async t => {
   }
   await page.getByPlaceholder('Add a review note...').fill('Persisted new note')
   await page.getByRole('button', { name: 'Add', exact: true }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Confirm', exact: true }).click()
   await page.getByText('Persisted new note', { exact: true }).waitFor()
   release()
   await page.clock.runFor(200)
@@ -773,8 +774,17 @@ test('confirmed note replay clears only its submitted draft', async t => {
   const note = { id: 'retried-note', scan_id: id, text: 'Once only', author_name: 'Admin', timestamp: state.record.date_time }
   state.onWrite = async () => { state.record = { ...state.record, revision: 2, notes: [...scan().notes, note] }; return { ...note, revision: 2 } }
   state.loseResponseOnce = true
+  // Add with empty text opens no confirmation and writes nothing (a toast asks for text);
+  // Cancel writes nothing.
+  await page.getByPlaceholder('Add a review note...').waitFor()
+  await page.getByRole('button', { name: 'Add', exact: true }).click()
+  assert.equal(await page.getByRole('alertdialog').count(), 0)
   await page.getByPlaceholder('Add a review note...').fill('Once only')
   await page.getByRole('button', { name: 'Add', exact: true }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel', exact: true }).click()
+  assert.equal(state.writes.length, 0)
+  await page.getByRole('button', { name: 'Add', exact: true }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Confirm', exact: true }).click()
   await until(() => state.writes.length === 1)
   await page.clock.runFor(200)
   await page.getByRole('button', { name: 'Retry previous', exact: true }).click()
@@ -791,6 +801,7 @@ test('definitively rejected explicit retry preserves the note draft and shows no
   state.loseResponseOnce = true
   await page.getByPlaceholder('Add a review note...').fill('Keep this draft')
   await page.getByRole('button', { name: 'Add', exact: true }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Confirm', exact: true }).click()
   await until(() => state.writes.length === 1)
   await page.clock.runFor(200)
   state.onWrite = null // fixture now rejects with 409

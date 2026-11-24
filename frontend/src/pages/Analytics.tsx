@@ -21,7 +21,9 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import { BarChart3, TrendingUp, Target, AlertTriangle, Users, Calendar, Package, Clock, Loader2 } from "lucide-react"
+import { BarChart3, TrendingUp, Target, AlertTriangle, Users, Calendar, Package, Clock, Loader2, CalendarDays, X } from "lucide-react"
+import { AppDateFilter } from "@/components/AppDateFilter"
+import { ANALYTICS_RANGE_LABELS, DEFAULT_ANALYTICS_PERIOD, analyticsPeriodLabel, analyticsPeriodParams, hasCustomDates, rangeChoice, type AnalyticsPeriod } from "@/lib/analyticsPeriod"
 import {
   PieChart,
   Pie,
@@ -77,8 +79,6 @@ const hourlyChartConfig = {
   count: { label: "Scans", color: "#eab308" },
 } satisfies ChartConfig
 
-type DateRange = AnalyticsRange
-
 const metricLabels: Record<string, string> = {
   throughput: "Total Scans",
   classifications: "Cultivar & Ripeness Charts",
@@ -110,19 +110,178 @@ export default function Analytics() {
   return user ? <AnalyticsContent key={`${user.id}:${user.role}`} /> : null
 }
 
+type AnalyticsFilterParams = { source_key?: string; cultivar?: string; inventory_status?: string }
+type ChartPeriod = ReturnType<typeof useChartPeriod<unknown>>
+
+const ripenessOf = (s: AnalyticsSummary) => s.ripeness_distribution
+const cultivarsOf = (s: AnalyticsSummary) => s.cultivar_counts
+const cultivarRipenessOf = (s: AnalyticsSummary) => s.cultivar_ripeness
+const confidenceOf = (s: AnalyticsSummary) => s.ripeness_confidence
+const sourcesOf = (s: AnalyticsSummary) => s.scans_by_source
+const hoursOf = (s: AnalyticsSummary) => s.hourly_distribution
+
+/**
+ * One chart's period. It follows the page period until the user picks another one for this
+ * chart; then the chart loads its own data (same source/cultivar/status filters) through the
+ * shared resource hook, so stale responses are dropped and a failure is shown, never the
+ * page's data under this chart's label. A chart on the page period makes no requests.
+ */
+function useChartPeriod<T>(
+  pageData: T | undefined,
+  extract: (summary: AnalyticsSummary) => T,
+  pagePeriod: AnalyticsPeriod,
+  filters: AnalyticsFilterParams,
+) {
+  const [override, setOverride] = useState<AnalyticsPeriod | null>(null)
+  const load = useCallback(async (signal: AbortSignal) => {
+    if (!override) return null
+    return extract(await api.analytics.summary({ ...filters, ...analyticsPeriodParams(override) }, signal))
+  }, [override, extract, filters])
+  const resource = useDashboardResource(load, { enabled: override !== null })
+  const period = override ?? pagePeriod
+  return {
+    overridden: override !== null,
+    period,
+    label: analyticsPeriodLabel(period),
+    data: override ? resource.data ?? undefined : pageData,
+    loading: override !== null && resource.loading,
+    error: override ? resource.error : null,
+    retry: () => void resource.refresh(),
+    change: setOverride,
+    reset: () => setOverride(null),
+  }
+}
+
+/**
+ * Preset + Date From + Date To, shared by the page header and every chart header. Picking a
+ * preset clears the dates; picking a date keeps the other one. The X button is given by the
+ * caller (page: clear the dates; chart: use the page dates).
+ */
+function PeriodControls({ name, period, onChange, clear, compact = false }: {
+  name: string
+  period: AnalyticsPeriod
+  onChange: (period: AnalyticsPeriod) => void
+  clear?: { label: string; title: string; onClick: () => void }
+  compact?: boolean
+}) {
+  const size = compact ? "h-8 text-xs px-2" : "h-10"
+  return (
+    <>
+      <Select value={rangeChoice(period)} onValueChange={v => onChange({ range: v as AnalyticsRange, from: "", to: "" })}>
+        <SelectTrigger className={compact ? "h-8 min-w-[110px] text-xs px-2" : "w-[140px] h-10"} aria-label={`${name} date range`}>
+          {!compact && <Calendar className="w-4 h-4 mr-2" />}
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {Object.entries(ANALYTICS_RANGE_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+          {hasCustomDates(period) && <SelectItem value="custom" disabled>Custom</SelectItem>}
+        </SelectContent>
+      </Select>
+      <div className="flex items-center gap-1">
+        <AppDateFilter
+          value={period.from}
+          onChange={from => onChange({ ...period, from })}
+          label={`${name} date from`}
+          emptyText="Date From"
+          title="First day included (Asia/Manila)"
+          disableFuture
+          maxDate={period.to || undefined}
+          className={compact ? `${size} min-w-[105px]` : "h-10 w-[130px] text-xs"}
+        />
+        <AppDateFilter
+          value={period.to}
+          onChange={to => onChange({ ...period, to })}
+          label={`${name} date to`}
+          emptyText="Date To"
+          title="Last day included (Asia/Manila)"
+          disableFuture
+          minDate={period.from || undefined}
+          className={compact ? `${size} min-w-[105px]` : "h-10 w-[130px] text-xs"}
+        />
+        {clear && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={compact ? "h-8 w-8 p-0 shrink-0" : "h-10 w-10 shrink-0"}
+            aria-label={clear.label}
+            title={clear.title}
+            onClick={clear.onClick}
+          >
+            <X className={compact ? "size-3.5" : "size-4"} />
+          </Button>
+        )}
+      </div>
+    </>
+  )
+}
+
+function ChartCardHeader({ title, helpText, chart }: { title: string; helpText?: string; chart: ChartPeriod }) {
+  return (
+    <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-sm sm:text-base font-semibold" title={helpText}>{title}</CardTitle>
+          {chart.loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <PeriodControls
+            compact
+            name={title}
+            period={chart.period}
+            onChange={chart.change}
+            clear={chart.overridden ? { label: `Use page dates for ${title}`, title: "Use page dates", onClick: chart.reset } : undefined}
+          />
+          <Badge variant="outline" className="text-[10px] gap-1 shrink-0 py-0.5 h-8" title={chart.overridden ? "This chart has its own dates" : "Page dates"}>
+            <CalendarDays className="w-3 h-3" />
+            {chart.label}{chart.overridden ? " · this chart" : ""}
+          </Badge>
+        </div>
+      </div>
+    </CardHeader>
+  )
+}
+
+/**
+ * Whether a chart has nothing to draw. A chart on the page dates uses the server's count for the
+ * whole selection; a chart with its own dates has only its own rows.
+ */
+function noData<T>(chart: { overridden: boolean; data: T[] | undefined }, pageCount: number, isZero: (row: T) => boolean) {
+  if (!chart.overridden) return pageCount === 0 || !chart.data?.length
+  return !chart.data?.length || chart.data.every(isZero)
+}
+
+/** Loading or error state of a chart with its own dates; null when the chart can render. */
+function chartStatus(chart: ChartPeriod) {
+  if (!chart.overridden || chart.data !== undefined) return null
+  return (
+    <div className="h-[240px] sm:h-[280px] w-full flex flex-col items-center justify-center gap-3 text-sm text-muted-foreground" role={chart.error ? "alert" : "status"}>
+      {chart.error ? <>
+        <p>Could not load this chart for {chart.label}: {chart.error}</p>
+        <Button variant="outline" size="sm" onClick={chart.retry}>Retry</Button>
+      </> : <Loader2 className="w-6 h-6 animate-spin text-primary" aria-label="Loading chart" />}
+    </div>
+  )
+}
+
 function AnalyticsContent() {
-  const [dateRange, setDateRange] = useState<DateRange>("week")
+  const [period, setPeriod] = useState<AnalyticsPeriod>(DEFAULT_ANALYTICS_PERIOD)
   const [sourceFilter, setSourceFilter] = useState("all")
   const [cultivarFilter, setCultivarFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [availableSources, setAvailableSources] = useState<AnalyticsSummary["source_options"]>([])
+
+  const filterParams = useMemo<AnalyticsFilterParams>(() => ({
+    source_key: sourceFilter === "all" ? undefined : sourceFilter,
+    cultivar: cultivarFilter === "all" ? undefined : cultivarFilter,
+    inventory_status: statusFilter === "all" ? undefined : statusFilter,
+  }), [sourceFilter, cultivarFilter, statusFilter])
+
   const fetchAnalytics = useCallback(async (signal: AbortSignal) => {
-    const response = await api.analytics.summary({ range: dateRange, source_key: sourceFilter === "all" ? undefined : sourceFilter,
-      cultivar: cultivarFilter === "all" ? undefined : cultivarFilter,
-      inventory_status: statusFilter === "all" ? undefined : statusFilter }, signal)
+    const response = await api.analytics.summary({ ...filterParams, ...analyticsPeriodParams(period) }, signal)
     if (!signal.aborted) setAvailableSources(response.source_options)
     return response
-  }, [dateRange, sourceFilter, cultivarFilter, statusFilter])
+  }, [filterParams, period])
   const resource = useDashboardResource(fetchAnalytics, { keepPreviousData: true })
   // A failed request is never presented as a successful empty dataset or old filter result.
   const summary = resource.error ? null : resource.data
@@ -138,10 +297,18 @@ function AnalyticsContent() {
 
   // ── Derived chart data ──────────────────────────────────────────────────
 
+  const ripenessChart = useChartPeriod(summary?.ripeness_distribution, ripenessOf, period, filterParams)
+  const cultivarChart = useChartPeriod(summary?.cultivar_counts, cultivarsOf, period, filterParams)
+  const cultivarRipenessChart = useChartPeriod(summary?.cultivar_ripeness, cultivarRipenessOf, period, filterParams)
+  const confidenceChart = useChartPeriod(summary?.ripeness_confidence, confidenceOf, period, filterParams)
+  const sourceChart = useChartPeriod(summary?.scans_by_source, sourcesOf, period, filterParams)
+  const hourlyChart = useChartPeriod(summary?.hourly_distribution, hoursOf, period, filterParams)
+
+  const currentRipenessData = ripenessChart.data
   const pieChartConfig = useMemo(() => {
-    if (!summary) return {} as ChartConfig
+    if (!currentRipenessData) return {} as ChartConfig
     const cfg: ChartConfig = {}
-    summary.ripeness_distribution?.forEach((item) => {
+    currentRipenessData.forEach((item) => {
       const key = item.name as keyof typeof ripenessChartConfig
       if (ripenessChartConfig[key]) {
         cfg[item.name] = ripenessChartConfig[key]
@@ -149,7 +316,7 @@ function AnalyticsContent() {
     })
     cfg.value = { label: "Count" }
     return cfg
-  }, [summary])
+  }, [currentRipenessData])
 
   type OperatorRow = {
     id: string
@@ -204,18 +371,12 @@ function AnalyticsContent() {
                 {Object.values(InventoryStatusEnum).map(value => <SelectItem key={value} value={value}>{value}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
-              <SelectTrigger className="w-[140px] h-10" aria-label="Analytics date range">
-                <Calendar className="w-4 h-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="week">Last 7 Days</SelectItem>
-                <SelectItem value="month">Last 30 Days</SelectItem>
-                <SelectItem value="all">All Time</SelectItem>
-              </SelectContent>
-            </Select>
+            <PeriodControls
+              name="Analytics"
+              period={period}
+              onChange={setPeriod}
+              clear={hasCustomDates(period) ? { label: "Clear custom dates", title: "Clear dates", onClick: () => setPeriod({ ...period, from: "", to: "" }) } : undefined}
+            />
           </div>
         }
       />
@@ -285,15 +446,17 @@ function AnalyticsContent() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Ripeness Pie */}
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-5">
-          <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.classifications}>Ripeness Distribution</CardTitle>
-          </CardHeader>
+          <ChartCardHeader
+            title="Ripeness Distribution"
+            helpText={summary.metric_definitions.classifications}
+            chart={ripenessChart}
+          />
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
-            {summary.classification_count === 0 ? emptyChart() : (
+            {chartStatus(ripenessChart) ?? (noData(ripenessChart, summary.classification_count, d => d.value === 0) ? emptyChart() : (
             <ChartContainer config={pieChartConfig} className="h-[240px] sm:h-[280px] w-full">
               <PieChart>
                 <Pie
-                  data={summary.ripeness_distribution || []}
+                  data={ripenessChart.data}
                   cx="50%"
                   cy="50%"
                   innerRadius={50}
@@ -303,7 +466,7 @@ function AnalyticsContent() {
                   nameKey="name"
                   label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                 >
-                  {(summary.ripeness_distribution || []).map((entry) => (
+                  {(ripenessChart.data ?? []).map((entry) => (
                     <Cell
                       key={entry.name}
                       fill={ripenessChartConfig[entry.name as keyof typeof ripenessChartConfig]?.color ?? "#888"}
@@ -314,43 +477,47 @@ function AnalyticsContent() {
                 <ChartLegend content={<ChartLegendContent />} />
               </PieChart>
             </ChartContainer>
-            )}
+            ))}
           </CardContent>
         </Card>
 
         {/* Cultivar Bar */}
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-6">
-          <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.classifications}>Cultivar Counts</CardTitle>
-          </CardHeader>
+          <ChartCardHeader
+            title="Cultivar Counts"
+            helpText={summary.metric_definitions.classifications}
+            chart={cultivarChart}
+          />
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
-            {summary.classification_count === 0 ? emptyChart() : (
+            {chartStatus(cultivarChart) ?? (noData(cultivarChart, summary.classification_count, d => d.count === 0) ? emptyChart() : (
             <ChartContainer config={cultivarChartConfig} className="h-[240px] sm:h-[280px] w-full">
-              <BarChart data={summary.cultivar_counts || []}>
+              <BarChart data={cultivarChart.data}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar dataKey="count" radius={[8, 8, 0, 0]}>
-                  {(summary.cultivar_counts || []).map((entry) => (
+                  {(cultivarChart.data ?? []).map((entry) => (
                     <Cell key={entry.name} fill={CULTIVAR_COLORS[entry.name] ?? "#eab308"} />
                   ))}
                 </Bar>
               </BarChart>
             </ChartContainer>
-            )}
+            ))}
           </CardContent>
         </Card>
 
         {/* Ripeness by Cultivar */}
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-7">
-          <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.classifications}>Ripeness by Cultivar</CardTitle>
-          </CardHeader>
+          <ChartCardHeader
+            title="Ripeness by Cultivar"
+            helpText={summary.metric_definitions.classifications}
+            chart={cultivarRipenessChart}
+          />
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
-            {summary.classification_count === 0 ? emptyChart() : (
+            {chartStatus(cultivarRipenessChart) ?? (noData(cultivarRipenessChart, summary.classification_count, d => d.Unripe === 0 && d["Semi Ripe"] === 0 && d.Ripe === 0 && d.Overripe === 0) ? emptyChart() : (
             <ChartContainer config={cultivarRipenessChartConfig} className="h-[240px] sm:h-[280px] w-full">
-              <BarChart data={summary.cultivar_ripeness || []}>
+              <BarChart data={cultivarRipenessChart.data}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
@@ -362,19 +529,21 @@ function AnalyticsContent() {
                 <Bar dataKey={RipenessEnum.OVERRIPE} stackId="a" fill={cultivarRipenessChartConfig[RipenessEnum.OVERRIPE].color} radius={[8, 8, 0, 0]} />
               </BarChart>
             </ChartContainer>
-            )}
+            ))}
           </CardContent>
         </Card>
 
         {/* Confidence by Ripeness */}
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-8">
-          <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.confidence_by_ripeness}>Confidence by Ripeness</CardTitle>
-          </CardHeader>
+          <ChartCardHeader
+            title="Confidence by Ripeness"
+            helpText={summary.metric_definitions.confidence_by_ripeness}
+            chart={confidenceChart}
+          />
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
-            {summary.confidence_sample_count === 0 ? emptyChart("No valid model-confidence results in this selection.") : (
+            {chartStatus(confidenceChart) ?? (noData(confidenceChart, summary.confidence_sample_count, d => d.count === 0) ? emptyChart("No valid model-confidence results in this selection.") : (
             <ChartContainer config={confidenceChartConfig} className="h-[240px] sm:h-[280px] w-full">
-              <ComposedChart data={summary.ripeness_confidence || []}>
+              <ComposedChart data={confidenceChart.data}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="ripeness" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
@@ -385,19 +554,22 @@ function AnalyticsContent() {
                 <Line yAxisId="right" type="monotone" dataKey="avgConfidence" stroke="var(--color-avgConfidence)" strokeWidth={2.5} name="Avg Confidence %" />
               </ComposedChart>
             </ChartContainer>
-            )}
+            ))}
           </CardContent>
         </Card>
 
         {/* Scans by Source */}
-        {summary.scans_by_source?.length > 0 && (
+        {(sourceChart.overridden || (sourceChart.data?.length ?? 0) > 0) && (
           <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-8-5 lg:col-span-2">
-            <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-              <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.sources}>Scans by Source</CardTitle>
-            </CardHeader>
+            <ChartCardHeader
+              title="Scans by Source"
+              helpText={summary.metric_definitions.sources}
+              chart={sourceChart}
+            />
             <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
+              {chartStatus(sourceChart) ?? (!sourceChart.data?.length ? emptyChart("No scans in this selection.") : (
               <ChartContainer config={sourceChartConfig} className="h-[240px] sm:h-[280px] w-full">
-                <BarChart data={summary.scans_by_source || []}>
+                <BarChart data={sourceChart.data}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-25} textAnchor="end" height={60} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
@@ -405,6 +577,7 @@ function AnalyticsContent() {
                   <Bar dataKey="count" fill="var(--color-count)" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ChartContainer>
+              ))}
             </CardContent>
           </Card>
         )}
@@ -413,8 +586,16 @@ function AnalyticsContent() {
       {/* Scan Trend */}
       <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-9">
         <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-          <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.trend}>Scan Trend (Last 14 Days)</CardTitle>
-          <p className="text-xs text-muted-foreground">{summary.trend_start} – {summary.trend_end} · Uses source, cultivar and stock-status filters, regardless of the date range.</p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.trend}>Scan Trend (Last 14 Days)</CardTitle>
+              <p className="text-xs text-muted-foreground">{summary.trend_start} – {summary.trend_end} · Uses source, cultivar and stock-status filters, regardless of the date range.</p>
+            </div>
+            <Badge variant="outline" className="text-[10px] gap-1 shrink-0 py-0.5 h-7">
+              <CalendarDays className="w-3 h-3" />
+              {summary.trend_start} – {summary.trend_end}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
           <ChartContainer config={scanTrendChartConfig} className="h-[240px] sm:h-[280px] w-full">
@@ -494,14 +675,17 @@ function AnalyticsContent() {
       )}
 
       {/* Hourly Distribution */}
-      {summary.hourly_distribution?.length > 0 && (
+      {(hourlyChart.overridden || (hourlyChart.data?.length ?? 0) > 0) && (
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-11">
-          <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="text-sm sm:text-base font-semibold" title={summary.metric_definitions.hourly}>Peak Scanning Hours</CardTitle>
-          </CardHeader>
+          <ChartCardHeader
+            title="Peak Scanning Hours"
+            helpText={summary.metric_definitions.hourly}
+            chart={hourlyChart}
+          />
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
+            {chartStatus(hourlyChart) ?? (!hourlyChart.data?.length ? emptyChart("No scans in this selection.") : (
             <ChartContainer config={hourlyChartConfig} className="h-[240px] sm:h-[280px] w-full">
-              <BarChart data={summary.hourly_distribution || []}>
+              <BarChart data={hourlyChart.data}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="hour" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={60} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
@@ -509,6 +693,7 @@ function AnalyticsContent() {
                 <Bar dataKey="count" fill="var(--color-count)" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ChartContainer>
+            ))}
           </CardContent>
         </Card>
       )}

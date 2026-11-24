@@ -3,6 +3,8 @@ import { LIVE_RESUMED_EVENT } from "@/lib/liveEvents"
 
 interface ResourceOptions {
   keepPreviousData?: boolean
+  /** When false the hook makes no request, no refresh timer and no state change. Default true. */
+  enabled?: boolean
 }
 
 interface ResourceState<T> {
@@ -20,6 +22,7 @@ export function useDashboardResource<T>(
   options?: ResourceOptions,
 ) {
   const keepPreviousData = options?.keepPreviousData ?? false
+  const enabled = options?.enabled ?? true
   const [state, setState] = useState<ResourceState<T>>({
     source: load,
     data: null,
@@ -82,6 +85,7 @@ export function useDashboardResource<T>(
   }, [load])
 
   useEffect(() => {
+    if (!enabled) return
     mounted.current = true
     void refresh()
     const interval = window.setInterval(() => void refresh(), 30_000)
@@ -109,7 +113,7 @@ export function useDashboardResource<T>(
       window.removeEventListener(LIVE_RESUMED_EVENT, onResume)
       document.removeEventListener("visibilitychange", onResume)
     }
-  }, [refresh])
+  }, [refresh, enabled])
 
   if (state.source === load) {
     return { ...state, refresh, patch }
