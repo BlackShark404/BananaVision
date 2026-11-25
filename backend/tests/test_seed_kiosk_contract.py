@@ -216,17 +216,17 @@ async def test_seed_and_kiosk_records_agree_across_consumers(
         dash_scan = next(row for row in dash.items if row.id == live.id)
         assert dash_scan.remaining_days == log.remaining_days
         summary = await analytics.get_summary(db, admin, date_range="all")
-        assert summary.total_scans == summary.confidence_sample_count == 26
-        assert summary.current_stock_count == 16  # Ten sold demo scans excluded.
+        assert summary.total_scans == summary.confidence_sample_count == 31
+        assert summary.current_stock_count == 21  # Ten sold demo scans excluded.
         registry = await list_intakes(db, admin)
-        assert sum(item.scan_count for item in registry) == (26 if linked else 25)
+        assert sum(item.scan_count for item in registry) == (31 if linked else 30)
         xlsx_bytes = await scan_logs.export_scan_logs_xlsx(db, admin, ScanLogQuery())
         pdf_bytes = await scan_logs.export_scan_logs_pdf(db, admin, ScanLogQuery(format="pdf"))
         with zipfile.ZipFile(io.BytesIO(xlsx_bytes)) as archive:
             sheet_root = ET.fromstring(archive.read("xl/worksheets/sheet1.xml"))
         ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
         xml_rows = sheet_root.findall("m:sheetData/m:row", ns)
-        assert len(xml_rows) == 27  # Header + 25 seeded + 1 live scan.
+        assert len(xml_rows) == 32  # Header + 30 seeded + 1 live scan.
         headers = [cell.find("m:is/m:t", ns).text for cell in xml_rows[0].findall("m:c", ns)]
         assert "VPD (kPa)" not in headers and "Scan ID" not in headers
         assert headers[:2] == ["Scan Ref", "Date & Time"]

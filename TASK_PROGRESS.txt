@@ -1,4 +1,4 @@
-CURRENT RESUME HERE (2026-11-25) - LIVE DERIVED-ON-READ RIPENESS PROGRESSION & ICON AUDIT
+CURRENT RESUME HERE (2026-11-25) - LIVE DERIVED-ON-READ RIPENESS PROGRESSION, ICON AUDIT & INVENTORY UPDATES
 
 USER REQUEST (2026-11-25)
 - Replace all raw Unicode UI emojis across `frontend/src/` with `lucide-react` icons and add a
@@ -8,6 +8,8 @@ USER REQUEST (2026-11-25)
   Dashboard, Public Scan View, and Excel/PDF exports with zero DB migration, `ripeness_scope=current`
   Inventory -> Scan Logs filter parity (Option A), and dedicated `Scanned Ripeness` +
   `Est. Current Ripeness` export columns.
+- Sync `main` with `origin/main` (merging Received by Supplier breakdown, paginated Spoilage Alerts,
+  alert-row layout refactor, and near-expiry seed data from `eb0ea8d..97699b6`) and push `main`.
 
 DONE
 - UI icon audit & standing rule:
@@ -36,7 +38,7 @@ DONE
     stock) with verified 744pt landscape PDF layout and intact `SCAN-XXXXXXXX` refs.
   - Analytics (`human_verified_accuracy`, Confidence vs. Verified Accuracy, ripeness charts) and
     stored DB values remain strictly anchored to scan-time classification.
-- Frontend live ripeness projection & surfaces:
+- Frontend live ripeness projection & merged Inventory improvements:
   - `frontend/src/lib/ripenessProjection.ts`: Asia/Manila midnight rollover mirroring
     `shelfLifeWindow.ts`, slow-clock monotonic guard, and closed-status freeze.
   - Synced `types/dashboard.ts`, `types/scanLogs.ts`, `types/index.ts`, `lib/scanData.ts`,
@@ -46,16 +48,20 @@ DONE
   - Updated `Logs.tsx` (two-line `Est.` ripeness + `ripeness_scope=current` chip), `ScanDetail.tsx`
     (projected badge + scanned anchor note; Edit dialog keeps scanned anchor), `Dashboard.tsx`
     (Recent Scans two-line badge), `QualityControl.tsx` (scanned ripeness primary + muted
-    `Now Est. ...` hint), `Inventory.tsx` (Stock by Ripeness & Spoiling Soon grouped by projected
-    current ripeness, linking with `ripeness_scope=current`), and `PublicScanView.tsx` (projected
-    badge + `Scanned as ...` inside details).
+    `Now Est. ...` hint), `Inventory.tsx` (Stock by Ripeness & paginated Spoiling Soon grouped by
+    projected current ripeness with refactored 3-line alert rows, `Est.` badges, `ripeness_scope=current`
+    click-through, plus **Received by Supplier** breakdown via `frontend/src/lib/supplierReceipts.ts`),
+    and `PublicScanView.tsx` (projected badge + `Scanned as ...` inside details).
+  - Merged `origin/main` (`eb0ea8d..97699b6`): Received by Supplier card, 3-per-page Spoilage Alerts
+    pagination & refactored alert row layout, and `backend/seed.py` 5-group near-expiry demo intake.
 - Tests & Docs:
   - Added `backend/tests/test_ripeness_projection.py` and `frontend/tests/ripenessProjection.test.mjs`;
     updated `test_exports.py`, `test_estimate_wording.py`, `test_shelf_life_window.py`,
     `clientexports.test.mjs`, `scanlogfilters.test.mjs`, `persistence.test.mjs`,
-    `public-scan.test.mjs`, `scanrecords.test.mjs`, and `dashboard.test.mjs`.
-  - Synced `docs/knowledge/Development Decisions.md`, `docs/knowledge/Frontend.md`, Graphify
-    (6948 nodes, 20704 edges, 321 communities), and ICM (`01M88TPGJDFTRWEMYH8KES11F9`).
+    `public-scan.test.mjs`, `scanrecords.test.mjs`, and `dashboard.test.mjs`; retained merged
+    `supplierReceipts.test.mjs`, `test_seed.py`, and `test_seed_kiosk_contract.py`.
+  - Synced `docs/knowledge/Development Decisions.md`, `docs/knowledge/Frontend.md`, Graphify, and
+    ICM (`01M88TPGJDFTRWEMYH8KES11F9`).
 
 VERIFIED (2026-11-25)
 - Scoped diff review: audited full backend/frontend diff and `shelf_life_window` parity; caught and
@@ -70,21 +76,14 @@ VERIFIED (2026-11-25)
 - Real-RFR export check (`spoilage_rfr.joblib` loaded, Lakatan Natural `[14.4, 7.91, 5.09, 1.07]`):
   verified 15-column `.xlsx` (`Scanned Ripeness` + `Est. Current Ripeness`: `Est. Ripe` aged In Stock,
   plain `Unripe` Day-0, `—` closed `Sold`) and valid 2405-byte landscape `.pdf`.
-- Frontend unit + Playwright browser tests (9 suites via local `PLAYWRIGHT_MODULE`, covering Inventory
-  `ripeness_scope=current` click-through, Logs banner/Excel+PDF export forwarding/switch-to-scanned,
-  ScanDetail edit anchor, Quality Control primary+hint, Dashboard Recent Scans, Public QR closed-stock
-  progression, and ScanContext partial WS hydration): 206 passed, 0 failed, 0 skipped.
+- Post-merge verification: `supplierReceipts.test.mjs` + `persistence.test.mjs` + `tsc -b` +
+  `npm run build` + `npm run lint` (exact 36 pre-existing problems, 0 new) + `git diff --check`.
 - Zero Unicode emoji/pictograph UI hits across `frontend/src/**/*.{ts,tsx}`.
-- `npx tsc -b` passed; `npm run build` (`tsc -b && vite build`) passed (`frontend/dist` rebuilt).
-- `npm run lint`: 36 problems (31 errors, 5 warnings) — exact pre-existing baseline, 0 new diagnostics.
-- `git diff --check`: clean.
 - Live dev servers restarted via `dev.bat` (FastAPI `--reload` on port 8000, Vite on port 5173).
-- Not verified: live Chrome DevTools attachment to `http://localhost:5173` (Chrome remote debugging
-  disabled: `ENOENT: DevToolsActivePort`).
 
 EXACT NEXT STEP
-- All live ripeness progression changes are verified and committed on `main` (not pushed). Push to
-  remote when authorized, or open `http://localhost:5173` in Chrome to inspect live.
+- `main` is merged and pushed to `origin/main`. Enable remote debugging in Chrome at
+  `chrome://inspect/#remote-debugging` if you want agent live-tab inspection at `http://localhost:5173`.
 
 PREVIOUS RESUME (2026-11-25) - ANALYTICS CONFIDENCE VS. VERIFIED ACCURACY (COMPLIANCE ITEM #2)
 
