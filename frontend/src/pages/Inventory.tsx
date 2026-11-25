@@ -12,9 +12,10 @@ import { ContentSkeleton } from "@/components/LoadingState"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { Progress } from "@/components/ui/progress"
-import { Package, AlertTriangle, TrendingDown, CheckCircle, Clock, Banana, ExternalLink } from "lucide-react"
+import { Package, AlertTriangle, TrendingDown, CheckCircle, Clock, Banana, ExternalLink, Truck } from "lucide-react"
 import { InventoryStatusEnum, RipenessEnum, CultivarEnum, type ScanResult } from "@/types"
 import { estimateText, fingerCountIsEstimate, fingerCountText } from "@/lib/estimates"
+import { bunchCountText, receivedBySupplier } from "@/lib/supplierReceipts"
 
 /** A group's finger total, marked as an estimate while any count in it is the AI value. */
 function fingersOf(list: ScanResult[]): string {
@@ -142,6 +143,10 @@ export default function Inventory() {
     const forProcessing = activeScans.filter(s => s.inventoryStatus === InventoryStatusEnum.FOR_PROCESSING).length
     const spoiled = activeScans.filter(s => s.inventoryStatus === InventoryStatusEnum.SPOILED).length
 
+    // Receipts cover every recorded delivery, not only what is still in stock.
+    const received = receivedBySupplier(activeScans)
+    const receivedTotal = received.reduce((sum, supplier) => sum + supplier.total, 0)
+
     return {
       totalHands,
       totalFingers,
@@ -157,6 +162,8 @@ export default function Inventory() {
       forProcessing,
       spoiled,
       unknownRisk,
+      received,
+      receivedTotal,
     }
   }, [scans, sourceFilter, asOf])
 
@@ -452,6 +459,50 @@ export default function Inventory() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Received by Supplier */}
+      <Card className="rounded-xl sm:rounded-2xl">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <Truck className="w-5 h-5 text-primary" />
+            <h3 className="text-base font-semibold">Received by Supplier</h3>
+            <Badge variant="outline" className="ml-auto text-xs">{bunchCountText(inventory.receivedTotal)}</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            Banana bunches received per supplier and variety, including sold and spoiled stock
+          </p>
+          {inventory.received.length === 0 ? (
+            <div className="text-center py-8">
+              <Truck className="w-12 h-12 text-muted-foreground/50 mx-auto mb-2" />
+              <p className="text-sm font-medium">No deliveries recorded yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Supplier totals appear after the first scan.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {inventory.received.map((group) => (
+                <div
+                  key={group.supplier}
+                  className="p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer group/supplier"
+                  onClick={() => navigate(scanLogsLink({ source: group.supplier }))}
+                >
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <p className="font-medium text-sm truncate group-hover/supplier:text-primary transition-colors">{group.supplier}</p>
+                    <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover/supplier:opacity-100 transition-opacity shrink-0" />
+                    <span className="ml-auto text-sm font-bold shrink-0">{bunchCountText(group.total)}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {group.varieties.map((variety) => (
+                      <Badge key={variety.cultivar} variant="outline" className="text-[10px] sm:text-xs">
+                        {variety.cultivar === "Unknown" ? "Variety unknown" : variety.cultivar} · {variety.count}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* FIFO Recommendations */}
       <Card className="rounded-xl sm:rounded-2xl">

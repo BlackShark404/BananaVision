@@ -210,6 +210,28 @@ test("inventory finger totals drop Est. only when every counted scan was correct
   await page.getByText(/^Est\. /).first().waitFor()
 })
 
+test("inventory totals bunches received per supplier and variety, including sold stock", async t => {
+  const records = rows(5).map((row, index) => ({
+    ...row,
+    intake_id: null, intake_provenance: "unlinked", inventory_eligible: true,
+    source_text: index < 3 ? "Supplier Alpha" : "Supplier Beta",
+    cultivar: ["Lakatan", "Lakatan", "Cardaba", "Latundan", "Lakatan"][index],
+    inventory_status: index === 4 ? "Sold" : "In Stock",
+  }))
+  const { page } = await setup(t, { screen: "inventory", scans: records })
+  await page.getByText("Received by Supplier", { exact: true }).waitFor()
+  await page.getByText("5 bunches", { exact: true }).waitFor()
+  await page.getByText("Supplier Alpha", { exact: true }).first().waitFor()
+  await page.getByText("3 bunches", { exact: true }).waitFor()
+  await page.getByText("Supplier Beta", { exact: true }).first().waitFor()
+  await page.getByText("2 bunches", { exact: true }).waitFor()
+  await page.getByText("Lakatan · 2", { exact: true }).waitFor()
+  await page.getByText("Cardaba · 1", { exact: true }).waitFor()
+  await page.getByText("Latundan · 1", { exact: true }).waitFor()
+  // One of the three Lakatan bunches was sold: receipts still show all five bunches.
+  await page.getByText("2 hands in stock", { exact: true }).waitFor()
+})
+
 test("late intake read cannot undo a confirmed bulk update", async t => {
   const { page, state } = await setup(t, { count: 2, failWrites: false })
   let release

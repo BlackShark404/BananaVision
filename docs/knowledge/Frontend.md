@@ -2,6 +2,14 @@
 
 BananaVision's frontend is a React 19 single-page application built with Vite, TypeScript, Tailwind CSS, and Radix UI primitives.
 
+## Inventory: received bunches per supplier (2026-11-25)
+
+- The Inventory page adds a **Received by Supplier** card (`frontend/src/pages/Inventory.tsx`) that answers how many banana bunches each supplier delivered and which varieties they were.
+- `frontend/src/lib/supplierReceipts.ts` groups the scans already loaded by `ScanContext`; every recorded scan counts as one received bunch, including Sold, For Processing and Spoiled stock. Missing sources read `Unknown Supplier`; missing cultivars read `Variety unknown`.
+- Suppliers sort by bunch count (descending), then by name. Varieties sort Lakatan, Latundan, Cardaba, then any unknown label. The card header shows the total bunches in scope.
+- The card respects the page's source filter, and a supplier row opens Scan Logs filtered to that source. No backend, API or schema change.
+- Tests: `frontend/tests/supplierReceipts.test.mjs` (grouping and ordering) and the Inventory case in `frontend/tests/persistence.test.mjs` (per-supplier totals, variety badges, sold stock still received).
+
 ## Public QR page shows only the scanned data (2026-11-13)
 
 Decision: [[Development Decisions]]; tests: [[Testing and Validation]].

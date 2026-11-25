@@ -1,4 +1,44 @@
-CURRENT RESUME HERE (2026-11-25) - ANALYTICS CONFIDENCE VS. VERIFIED ACCURACY (COMPLIANCE ITEM #2)
+CURRENT RESUME HERE (2026-11-25) - INVENTORY RECEIPTS BY SUPPLIER AND VARIETY
+
+USER REQUEST (2026-11-25)
+- "implement this in the inventory: To determine how many banana bunches were received from
+  each supplier, including their respective banana varieties or types."
+
+DONE
+- Frontend (`frontend/src/lib/supplierReceipts.ts`): pure `receivedBySupplier()` aggregates
+  the scan history already loaded by `ScanContext`. Each recorded scan = one received bunch,
+  regardless of inventory status; blank source reads `Unknown Supplier`, blank cultivar reads
+  `Unknown`. Suppliers sort by total desc then name; varieties sort Lakatan, Latundan,
+  Cardaba, then unknown. `bunchCountText()` handles singular/plural.
+- Frontend (`frontend/src/pages/Inventory.tsx`): new full-width **Received by Supplier** card
+  between Spoilage Alerts and FIFO Recommendations. Header badge shows total bunches in scope;
+  each row shows supplier, bunch total, and cultivar count badges. Card respects the page
+  source filter; rows open Scan Logs filtered by that source. Empty state for no deliveries.
+- Tests & Docs:
+  - `frontend/tests/supplierReceipts.test.mjs` (grouping, ordering, fallbacks, wording).
+  - `frontend/tests/persistence.test.mjs`: Inventory case proving per-supplier totals,
+    variety badges, and that sold stock still counts as received.
+  - Updated `docs/knowledge/Frontend.md`. No backend, API, schema or migration change.
+
+VERIFIED (2026-11-25)
+- `node --test frontend/tests/supplierReceipts.test.mjs`: 5 passed, 0 failed.
+- `node --test frontend/tests/persistence.test.mjs` with local `PLAYWRIGHT_MODULE`:
+  19 passed, 0 failed; new Inventory test passed.
+- Desktop (1280×1100) and mobile (390×900) fixture screenshots reviewed: card renders
+  correctly, badges wrap, totals align.
+- `frontend/node_modules/.bin/tsc -b frontend/tsconfig.json` passed; `npm run build` passed
+  (dist ignored by Git).
+- `npm run lint`: 36 problems (31 errors, 5 warnings) — exact pre-existing baseline; targeted
+  ESLint on touched files reported 0 problems.
+- Not run: backend tests (no backend change), Graphify update (no `graphify-out/` or
+  `graphify` CLI in this checkout).
+
+EXACT NEXT STEP
+- Review the scoped diff (`frontend/src/pages/Inventory.tsx`,
+  `frontend/src/lib/supplierReceipts.ts`, both tests, `docs/knowledge/Frontend.md`,
+  `TASK_PROGRESS.txt`). Nothing is staged or committed.
+
+PREVIOUS RESUME (2026-11-25) - ANALYTICS CONFIDENCE VS. VERIFIED ACCURACY (COMPLIANCE ITEM #2)
 
 USER REQUEST (2026-11-25)
 - Implement Compliance Item #2 ("analytics - confidence vs accuracy") by auditing and surfacing
