@@ -22,6 +22,10 @@ DONE
 - Follow-up (same request thread): Spoilage Alerts now paginates 3 entries per page instead of
   scrolling. Removed `max-h-64 overflow-y-auto`; added Previous/Next controls, `Page X of Y`
   and `Showing A–B of N`. Page resets on source-filter change and clamps when alerts shrink.
+- Follow-up layout: each alert row now gives the supplier/variety title its own full-width
+  line with the ripeness badge; the hand count and days-left badge share a second row that
+  wraps on narrow widths; the scan date sits on a third line. The days-left badge is no
+  longer a wide mono column squeezing the title.
 - Follow-up demo data: `backend/seed.py` adds an open ethephon intake from the previous day
   with five near-expiry cultivar/ripeness groups (Lakatan/Latundan/Cardaba Overripe,
   Lakatan/Latundan Ripe), guaranteeing 5 Spoilage Alert groups (two pages). Seed total is now

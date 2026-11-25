@@ -6,6 +6,7 @@ BananaVision's frontend is a React 19 single-page application built with Vite, T
 
 - Spoilage Alerts no longer scrolls (`max-h-64 overflow-y-auto` removed). It shows three alert groups per page with Previous / Next controls, a `Page X of Y` label and a `Showing A–B of N` summary (`frontend/src/pages/Inventory.tsx`).
 - Page state resets on source-filter changes and clamps when the alert count shrinks, so the list never lands on an empty page. Controls appear only when more than one page exists.
+- Each alert row gives the supplier and variety a full-width line with the ripeness badge; hand count and days-left badge share a wrapping second row, and the scan date sits on a third. Long supplier names no longer squeeze against the days-left badge.
 - Test: the pagination case in `frontend/tests/persistence.test.mjs` proves three groups on page 1, the remaining two on page 2, and the return to page 1.
 - Demo seed: `backend/seed.py` adds an open ethephon intake from the previous day with five near-expiry cultivar/ripeness groups, so a reseeded development database always shows two Spoilage Alerts pages. `backend/tests/test_seed.py` checks the five groups and their remaining life.
 

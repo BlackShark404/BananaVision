@@ -428,42 +428,38 @@ export default function Inventory() {
                     if (intakeId) navigate(`/logs?intake=${encodeURIComponent(intakeId)}`)
                     else navigate(scanLogsLink({ status: "In Stock", cultivar: group.cultivar, ripeness: group.ripeness, stock: "eligible" }))
                   }}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-semibold text-sm group-hover/alert:text-primary transition-colors">{group.source} — {group.cultivar}</p>
-                          <Badge variant="outline" className={`text-[10px] ${group.ripeness === RipenessEnum.SEMI_RIPE
-                              ? "bg-violet-50 text-violet-700 border-violet-200"
-                              : group.ripeness === RipenessEnum.OVERRIPE
-                                ? "bg-red-50 text-red-700 border-red-200"
-                                : "bg-yellow-50 text-yellow-700 border-yellow-200"
-                            }`}>
-                            {group.ripeness}
-                          </Badge>
-                          <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover/alert:opacity-100 transition-opacity ml-auto shrink-0" />
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {group.count} hands ({fingerCountText(group.fingers, group.fingersEstimated)})
-                        </p>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                          Scanned: {group.oldestScanDate.toLocaleDateString("en-US", { timeZone: "Asia/Manila", month: "short", day: "numeric" })}
-                        </p>
-                      </div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="font-semibold text-sm leading-snug group-hover/alert:text-primary transition-colors">{group.source} — {group.cultivar}</p>
+                      <Badge variant="outline" className={`text-[10px] ${group.ripeness === RipenessEnum.SEMI_RIPE
+                          ? "bg-violet-50 text-violet-700 border-violet-200"
+                          : group.ripeness === RipenessEnum.OVERRIPE
+                            ? "bg-red-50 text-red-700 border-red-200"
+                            : "bg-yellow-50 text-yellow-700 border-yellow-200"
+                        }`}>
+                        {group.ripeness}
+                      </Badge>
+                      <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover/alert:opacity-100 transition-opacity ml-auto shrink-0" />
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        {group.count} hands ({fingerCountText(group.fingers, group.fingersEstimated)})
+                      </p>
                       <Badge
                         variant="destructive"
-                        className={`h-auto rounded-lg font-mono text-center flex-col items-center justify-center py-1.5 px-2.5 text-[10px] sm:text-xs whitespace-nowrap shrink-0 text-white border-transparent ${group.daysNum === 0
+                        className={`ml-auto h-auto rounded-lg inline-flex items-center gap-1.5 py-1.5 px-2.5 text-[10px] sm:text-xs whitespace-nowrap shrink-0 text-white border-transparent ${group.daysNum === 0
                             ? "bg-red-600 hover:bg-red-700"
                             : group.daysNum === 1
                               ? "bg-orange-600 hover:bg-orange-700"
                               : "bg-yellow-600 hover:bg-yellow-700"
                           }`}
                       >
-                        <div className="flex items-center justify-center mb-0.5">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {estimateText(group.spoilageDays)}
-                        </div>
+                        <Clock className="w-3 h-3" />
+                        {estimateText(group.spoilageDays)}
                       </Badge>
                     </div>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-1.5">
+                      Scanned: {group.oldestScanDate.toLocaleDateString("en-US", { timeZone: "Asia/Manila", month: "short", day: "numeric" })}
+                    </p>
                   </div>
                   ))}
                 </div>
