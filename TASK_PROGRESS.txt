@@ -1,4 +1,76 @@
-CURRENT RESUME HERE (2026-11-24) - PACKAGED MODEL FALLBACKS (YOLO AND SPOILAGE) IN GIT
+CURRENT RESUME HERE (2026-11-25) - EXCEL & PDF EXPORTS, HUMAN-FRIENDLY FORMAT, AND REFERENCE TRACEABILITY
+
+USER REQUEST (2026-11-25)
+- Replace CSV exports with Excel (.xlsx) and PDF (.pdf) across all five export surfaces and
+  redesign exported data for non-technical store owners and operators (Compliance Item #1).
+- Restore unambiguous record traceability without raw 36-char UUIDs via deterministic short
+  Scan Ref (`SCAN-XXXXXXXX`) and Intake Ref (`INT-XXXXXXXX`) codes, direct searchability by
+  exported ref codes, seconds in Asia/Manila timestamps, and spreadsheet-friendly numeric
+  Excel cells (`0.0` format) for Confidence, Temperature, and Humidity.
+- Rebuild frontend production bundle after the final code changes.
+
+DONE
+- Backend core:
+  - backend/app/core/export_format.py: shared 14-column human-friendly scan export formatter
+    (`Scan Ref`, `Date & Time` with seconds in Asia/Manila, `Source / Supplier`, `Cultivar`,
+    `Ripeness`, `Est. Fingers` respecting AI-estimated vs human-corrected counts,
+    `Est. Shelf Life (Original)`, `Est. Time Left / Freshness`, `Inventory Status`,
+    `Review Status`, numeric `Confidence (%)`, `Temperature (°C)`, `Humidity (%)`, `Operator`).
+  - backend/app/core/pdf.py: dependency-free tabular PDF 1.4 generator (landscape layout,
+    proportional Helvetica metrics, WinAnsi encoding, single-line ref width floor, wrapped cells,
+    filter summary, Asia/Manila timestamp/metadata, repeated headers, Page X of Y footers).
+  - backend/app/core/xlsx.py: optional Manila `timestamp` parameter and style `3` (`0.0` numFmt)
+    for numeric 1-decimal measurement/percentage cells.
+- Backend API & services:
+  - backend/app/schemas/scan_logs.py, backend/app/api/v1/scan_logs.py,
+    backend/app/services/scan_logs.py, backend/app/api/v1/config.py,
+    backend/app/services/scan_snapshots.py: removed CSV (`?format=csv` returns 422), kept Excel
+    (default `xlsx`) and added PDF (`pdf`) with exact XLSX/PDF parity; preserved auth, scope,
+    snapshots, and `DATA_EXPORTED` audit logging; Scan Logs search accepts `SCAN-XXXXXXXX`,
+    bare 8-char hex prefix (case-insensitive), and full UUID.
+- Frontend utilities & UI:
+  - frontend/src/lib/manilaTime.ts: added `formatManilaDateTime` (with seconds),
+    `formatManilaDate`, and `manilaPdfTimestamp`.
+  - frontend/src/lib/pdfExport.ts & frontend/src/lib/exportUtils.ts: removed `downloadCsv`,
+    added dependency-free `downloadPdf`, `formatScanRef`, `formatIntakeRef`, shared 14-column
+    `SCAN_EXPORT_HEADERS` / `formatScanExportRow`, and numeric `0.0` OpenXML style `3`.
+  - frontend/src/components/ExportDropdown.tsx: removed CSV completely; primary action
+    "Export Excel", dropdown options "Export Excel (.xlsx)" and "Export PDF (.pdf)".
+  - frontend/src/lib/api.ts & frontend/src/types/scanLogs.ts: `xlsx` | `pdf` only (default `xlsx`).
+  - frontend/src/pages/Logs.tsx, QualityControl.tsx, DeliveryIntake.tsx, ActivityLog.tsx,
+    SystemConfig.tsx: updated export handlers to Excel/PDF with human-friendly formats (`Scan Ref`
+    on scans, `Intake Ref` on intakes, `activityLabel` on activity log); added `SCAN-` / `INT-`
+    reference search on Quality Control and Delivery Intakes. No changes to on-screen table
+    columns, Scan Detail, or database schema.
+- Tests & Docs:
+  - Updated/expanded backend tests (`test_exports.py`, `test_estimate_wording.py`,
+    `test_scan_logs.py`, `test_audit_records.py`, `test_scan_snapshots.py`,
+    `test_time_and_writes.py`, `test_manila_time_guard.py`, `test_seed.py`,
+    `test_seed_kiosk_contract.py`) and frontend tests (`manilaTime.test.mjs`,
+    `clientexports.test.mjs`, `activitylog.test.mjs`, `persistence.test.mjs`,
+    `scanrecords.test.mjs`).
+  - Updated docs/knowledge/Development Decisions.md, docs/knowledge/Frontend.md, Graphify, ICM.
+
+VERIFIED (2026-11-25)
+- Backend pytest (14 affected suites on SQLite from isolated temp dir): 253 passed, 29 skipped
+  (PostgreSQL-only / Windows `time.tzset`), 0 failed; post-final-edit re-run of `test_exports`,
+  `test_estimate_wording`, `test_scan_logs`, `test_manila_time_guard`: 40 passed, 4 skipped.
+- Frontend Node unit tests (`manilaTime`, `estimates`, `spoilageDisplay`, `shelfLifeWindow`,
+  `activityactions`): 78 of 78 passed.
+- Frontend Playwright browser suites (`clientexports`, `activitylog`, `persistence`, `scanrecords`
+  via local `PLAYWRIGHT_MODULE`): 122/123 before final `pdfExport.ts` ref-width fix, then
+  `manilaTime` + `clientexports` re-run after final edit: 19 of 19 passed (0 failed).
+- `npx tsc -b` passed; `npm run build` (`tsc -b && vite build`) passed and rebuilt `frontend/dist`.
+- `npm run lint`: 36 problems (31 errors, 5 warnings) — exact pre-existing baseline, 0 new
+  diagnostics in touched or created files.
+- Not run: PostgreSQL-only test variants (no disposable PG cluster spun up), backend Ruff (not
+  installed in `backend/venv`).
+
+EXACT NEXT STEP
+- Review the scoped diff and test downloading Excel/PDF reports in the app (including pasting
+  `SCAN-...` / `INT-...` into search). Nothing is staged or committed.
+
+PREVIOUS RESUME (2026-11-24) - PACKAGED MODEL FALLBACKS (YOLO AND SPOILAGE) IN GIT
 
 USER REQUEST (2026-11-24)
 - "copy the bananavision-fork in Bananavision to put also the backend fallback for yolo and

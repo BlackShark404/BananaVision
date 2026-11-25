@@ -2,6 +2,21 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-25: Excel and PDF exports with human-friendly format and reference traceability
+
+- **Compliance Item #1:** replaced CSV exports across all five export surfaces (Scan Logs, System Configuration scan summaries, Quality Control, Delivery Intakes, Activity Log) with **Excel (.xlsx)** and **PDF (.pdf)** only.
+- **API & UI contracts:** `GET /api/v1/scan-logs/export` and `GET /api/v1/config/export` accept only `format=xlsx|pdf` (default `xlsx`; `csv` returns 422). `ExportDropdown` offers primary **Export Excel** plus dropdown items **Export Excel (.xlsx)** and **Export PDF (.pdf)**. Auth, role scoping, snapshot consistency, and `DATA_EXPORTED` audit logging are unchanged.
+- **Dependency-free PDF 1.4 generators:** `backend/app/core/pdf.py` and `frontend/src/lib/pdfExport.ts` render landscape/portrait tabular PDFs using proportional Helvetica metrics, WinAnsi encoding (`°`, `–`, `ñ`, `•`), wrapped cells, applied filter summaries, Asia/Manila export timestamps, repeated table headers, and `Page X of Y` footers with zero new third-party dependencies.
+- **Human-friendly format & XLSX/PDF parity:**
+  - Scan exports (`backend/app/core/export_format.py`, `frontend/src/lib/exportUtils.ts`) share 14 canonical columns: `Scan Ref`, `Date & Time`, `Source / Supplier`, `Cultivar`, `Ripeness`, `Est. Fingers`, `Est. Shelf Life (Original)`, `Est. Time Left / Freshness`, `Inventory Status`, `Review Status`, `Confidence (%)`, `Temperature (°C)`, `Humidity (%)`, `Operator`. Programmer/redundant fields (`Scan ID`, `Intake ID`, `Operator Username`, `Overridden`, `Status Updated At`, `VPD (kPa)`) are excluded.
+  - Deterministic short references (`SCAN-` + first 8 uppercase hex chars of `scan.id`, and `INT-` + 8 chars on Delivery Intakes) preserve unambiguous traceability without exposing raw 36-character UUIDs or requiring a database migration.
+  - `Date & Time` renders readable `Asia/Manila` wall-clock timestamps with seconds (e.g., `Nov 25, 2026, 1:45:11 PM`).
+  - `Est. Fingers` marks AI-estimated counts as `Est. N fingers` and human-corrected counts as `N fingers`; `Est. Shelf Life (Original)` uses whole-day bounds (`14–15 days`); `Est. Time Left / Freshness` uses live window wording (`8–9 days left`, `Final day`, `Overdue by 1 day`) or closed-stock outcomes (`Sold`, `For Processing`, `Spoiled`).
+  - `Confidence (%)`, `Temperature (°C)`, and `Humidity (%)` export as native 1-decimal numeric Excel cells (custom `numFmtId="164" formatCode="0.0"`, style index `3`) so Excel formulas/sorting work while displaying identically to PDF.
+  - Activity Log exports use `activityLabel` instead of raw snake_case action codes.
+- **Direct reference search:** Scan Logs (`backend/app/services/scan_logs.py`), Quality Control (`QualityControl.tsx`), and Delivery Intakes (`DeliveryIntake.tsx`) match pasted `SCAN-...`, `INT-...`, 8-char prefixes (case-insensitive), `Batch / PO`, and full UUIDs.
+- **Non-goals preserved:** on-screen Scan Logs table columns, Scan Detail page, database schema, and stored raw values were not modified.
+
 ## 2026-11-24: Packaged model fallbacks in Git (YOLO and spoilage)
 
 - **User decision:** keep a copy of each model in Git as the backend's fallback, for the fork

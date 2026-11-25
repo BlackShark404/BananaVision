@@ -441,6 +441,17 @@ limit, vertical scrolling is contained internally without expanding the page. A 
 count badge (`Badge variant="secondary"`) is rendered beside the Scan History heading
 when records exist, and text wraps naturally (`break-words`) without horizontal clipping.
 
+## Excel and PDF exports (2026-11-25)
+
+Supersedes the CSV path in *CSV and XLSX exports (2026-10-22)* below. Decision: [[Development Decisions]].
+
+- All five export surfaces offer **Export Excel (.xlsx)** (primary button) and **Export PDF (.pdf)** through `ExportDropdown`. CSV controls, `downloadCsv`, and server `?format=csv` routes were removed (`422` on server routes).
+- `frontend/src/lib/pdfExport.ts` and `backend/app/core/pdf.py` generate dependency-free tabular PDF 1.4 reports (landscape for wide tables, title, Asia/Manila timestamp with seconds, record count, active filter summary, wrapped cells, repeated headers, `Page X of Y` footers). Compact single-token identifiers (`SCAN-XXXXXXXX`, `INT-XXXXXXXX`) reserve enough column width to stay on one line.
+- **Parity:** Excel and PDF share one canonical row builder per surface so columns, row order, and displayed values match identically. Scan exports (Scan Logs, System Configuration summary, Quality Control) use the 14 business-friendly columns starting with `Scan Ref` (`SCAN-XXXXXXXX`) and readable `Asia/Manila` `Date & Time` with seconds (`Nov 25, 2026, 1:45:11 PM`), keeping `Confidence (%)`, `Temperature (°C)`, and `Humidity (%)` numeric (`0.0` OpenXML number format, style `3`) in Excel while rendering identically in PDF.
+- Delivery Intakes exports start with `Intake Ref` (`INT-XXXXXXXX`) plus readable Manila `Date`, `Supplier / Source`, `Batch / PO`, `Items Scanned`, `Intake Status`, and `Inventory Status`. Activity Log exports format `Date & Time` in Asia/Manila and map `Action` through `activityLabel`.
+- Search boxes on Scan Logs, Quality Control, and Delivery Intakes accept pasted `SCAN-XXXXXXXX` / `INT-XXXXXXXX` codes, bare 8-character hex prefixes (case-insensitive), and full UUIDs without changing on-screen table layouts.
+- `frontend/src/lib/manilaTime.ts` exposes `formatManilaDateTime`, `formatManilaDate`, and `manilaPdfTimestamp` so every export date and PDF metadata timestamp stays inside `Asia/Manila`.
+
 ## CSV and XLSX exports (2026-10-22)
 
 All five export surfaces offer CSV and XLSX through the shared `ExportDropdown`.
