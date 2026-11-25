@@ -18,7 +18,7 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp"
-import { Loader2, User, Shield, Calendar, Activity, TrendingUp, Moon, Sun, Eye, EyeOff, Camera } from "lucide-react"
+import { Loader2, User, Shield, Calendar, Activity, TrendingUp, Moon, Sun, Eye, EyeOff, Camera, Check } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
@@ -491,7 +491,7 @@ export default function Profile() {
                               ? "bg-emerald-500 text-white"
                               : "bg-muted text-muted-foreground"
                         }`}>
-                          {(pinStep === "new" && step === "current") || (pinStep === "confirm" && step !== "confirm") ? "✓" : i + 1}
+                          {(pinStep === "new" && step === "current") || (pinStep === "confirm" && step !== "confirm") ? <Check className="w-3.5 h-3.5" aria-hidden="true" /> : i + 1}
                         </div>
                         {i < 2 && <div className={`w-8 h-0.5 rounded-full ${
                           (pinStep === "new" && i === 0) || (pinStep === "confirm") ? "bg-emerald-500" : "bg-muted"

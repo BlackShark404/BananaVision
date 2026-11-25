@@ -69,6 +69,11 @@ import {
   Settings,
   ChevronDown,
   ExternalLink,
+  Thermometer,
+  Droplets,
+  Wind,
+  Leaf,
+  FlaskConical,
 } from "lucide-react"
 import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
@@ -859,7 +864,7 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                   {scan.temperature !== undefined && (
                     <div className="p-4 rounded-xl bg-muted/40 space-y-1">
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <span>🌡️</span> Temperature
+                        <Thermometer className="w-3.5 h-3.5" aria-hidden="true" /> Temperature
                       </div>
                       <p className="text-2xl font-bold">{scan.temperature}<span className="text-sm font-normal text-muted-foreground">°C</span></p>
                     </div>
@@ -867,14 +872,14 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                   {scan.humidity !== undefined && (
                     <div className="p-4 rounded-xl bg-muted/40 space-y-1">
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <span>💧</span> Humidity
+                        <Droplets className="w-3.5 h-3.5" aria-hidden="true" /> Humidity
                       </div>
                       <p className="text-2xl font-bold">{scan.humidity}<span className="text-sm font-normal text-muted-foreground">%</span></p>
                     </div>
                   )}
                   <div role="group" aria-label="Vapor pressure deficit" title="Vapor Pressure Deficit recorded for this scan" className="p-4 rounded-xl bg-muted/40 space-y-1">
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span>💨</span> VPD
+                      <Wind className="w-3.5 h-3.5" aria-hidden="true" /> VPD
                     </div>
                     <p className="text-2xl font-bold">{scan.vpd != null && Number.isFinite(scan.vpd)
                       ? <>{scan.vpd.toFixed(3)}<span className="text-sm font-normal text-muted-foreground"> kPa</span></>
@@ -883,7 +888,9 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                   {scan.treatment && (
                     <div className="p-4 rounded-xl bg-muted/40 space-y-1">
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <span>{scan.treatment === "Ethephon" ? "🧪" : "🌿"}</span> Treatment
+                        {scan.treatment === "Ethephon"
+                          ? <FlaskConical className="w-3.5 h-3.5" aria-hidden="true" />
+                          : <Leaf className="w-3.5 h-3.5" aria-hidden="true" />} Treatment
                       </div>
                       <p className="text-lg font-bold">{scan.treatment}</p>
                     </div>

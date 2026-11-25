@@ -13,11 +13,16 @@ import {
   Banana,
   Calendar,
   ChevronDown,
+  Droplets,
+  FlaskConical,
   Hand,
   Info,
+  Leaf,
   Target,
+  Thermometer,
   ScanLine,
   Loader2,
+  Wind,
 } from "lucide-react"
 import { fingersLabel } from "@/lib/estimates"
 
@@ -28,11 +33,11 @@ const ripenessColor: Record<string, string> = {
   Overripe: "bg-red-500/15 text-red-700 border-red-200",
 }
 
-const ripenessIcon: Record<string, string> = {
-  Unripe: "🟢",
-  "Semi Ripe": "🟠",
-  Ripe: "🟡",
-  Overripe: "🔴",
+const ripenessAccent: Record<string, string> = {
+  Unripe: "bg-emerald-500/15 text-emerald-600",
+  "Semi Ripe": "bg-orange-500/15 text-orange-600",
+  Ripe: "bg-yellow-500/15 text-yellow-600",
+  Overripe: "bg-red-500/15 text-red-600",
 }
 
 type PublicScan = Awaited<ReturnType<typeof api.scans.publicTrack>>
@@ -160,8 +165,8 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
             {/* Ripeness + Cultivar */}
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl">
-                  {ripenessIcon[scan.ripeness ?? ""] || "🍌"}
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${ripenessAccent[scan.ripeness ?? ""] || "bg-primary/10 text-primary"}`}>
+                  <Banana className="w-6 h-6" aria-hidden="true" />
                 </div>
                 <div>
                   <p className="text-lg font-bold">{scan.cultivar ?? "Unknown"}</p>
@@ -229,21 +234,21 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
               <div className="grid grid-cols-3 gap-3">
                 {scan.temperature !== null && (
                   <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                    <p className="text-lg mx-auto mb-0.5">🌡️</p>
+                    <Thermometer className="w-5 h-5 text-muted-foreground mx-auto mb-1" aria-hidden="true" />
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Temp</p>
                     <p className="text-lg font-bold">{scan.temperature}°C</p>
                   </div>
                 )}
                 {scan.humidity !== null && (
                   <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                    <p className="text-lg mx-auto mb-0.5">💧</p>
+                    <Droplets className="w-5 h-5 text-muted-foreground mx-auto mb-1" aria-hidden="true" />
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Humidity</p>
                     <p className="text-lg font-bold">{scan.humidity}%</p>
                   </div>
                 )}
                 {scan.vpd !== null && (
                   <div className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                    <p className="text-lg mx-auto mb-0.5">💨</p>
+                    <Wind className="w-5 h-5 text-muted-foreground mx-auto mb-1" aria-hidden="true" />
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">VPD</p>
                     <p className="text-lg font-bold">{scan.vpd} <span className="text-xs font-normal">kPa</span></p>
                   </div>
@@ -255,12 +260,14 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
               <div className="flex flex-wrap gap-2">
                 {scan.source_text && (
                   <Badge variant="secondary" className="gap-1.5 px-3 py-1">
-                    <Banana className="w-3.5 h-3.5" /> {scan.source_text}
+                    <Banana className="w-3.5 h-3.5" aria-hidden="true" /> {scan.source_text}
                   </Badge>
                 )}
                 {scan.treatment && (
                   <Badge variant="secondary" className="gap-1.5 px-3 py-1">
-                    {scan.treatment === "Ethephon" ? "🧪" : "🌿"} {scan.treatment}
+                    {scan.treatment === "Ethephon"
+                      ? <FlaskConical className="w-3.5 h-3.5" aria-hidden="true" />
+                      : <Leaf className="w-3.5 h-3.5" aria-hidden="true" />} {scan.treatment}
                   </Badge>
                 )}
               </div>

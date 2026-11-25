@@ -32,6 +32,11 @@ import {
   EyeOff,
   SearchX,
   TriangleAlert,
+  Thermometer,
+  Droplets,
+  Wind,
+  Leaf,
+  FlaskConical,
 } from "lucide-react"
 import { toast } from "sonner"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
@@ -41,15 +46,6 @@ import type { BoundingBox, ScanDetection } from "@/types"
 import { KioskPrintStatus } from "@/components/KioskPrintStatus"
 import { inManila } from "@/lib/manilaTime"
 import { estimateText, fingerCountIsEstimate, fingerCountText, fingersLabel } from "@/lib/estimates"
-
-const ripenessIcon: Record<string, string> = {
-  Unripe: "🟢",
-  "Semi Ripe": "🟠",
-  Ripe: "🟡",
-  Overripe: "🔴",
-}
-
-
 
 export default function Kiosk() {
   const { user } = useAuth()
@@ -274,7 +270,7 @@ export default function Kiosk() {
                     : "border-border hover:border-primary/40"
                     }`}
                 >
-                  <span className="text-lg">🌿</span>
+                  <Leaf className="w-5 h-5 mx-auto text-emerald-600" aria-hidden="true" />
                   <p className="text-sm font-semibold mt-1">Natural</p>
                   <p className="text-[10px] text-muted-foreground">Ambient ripening</p>
                 </button>
@@ -285,7 +281,7 @@ export default function Kiosk() {
                     : "border-border hover:border-primary/40"
                     }`}
                 >
-                  <span className="text-lg">🧪</span>
+                  <FlaskConical className="w-5 h-5 mx-auto text-amber-600" aria-hidden="true" />
                   <p className="text-sm font-semibold mt-1">Ethephon</p>
                   <p className="text-[10px] text-muted-foreground">Chemical ripening</p>
                 </button>
@@ -653,7 +649,7 @@ export default function Kiosk() {
                   if (lastResult.temperature !== undefined) {
                     envCards.push(
                       <div key="temp" className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                        <p className="text-xl mx-auto mb-1">🌡️</p>
+                        <Thermometer className="w-5 h-5 text-muted-foreground mx-auto mb-1" aria-hidden="true" />
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Temp</p>
                         <p className="text-lg font-bold">{lastResult.temperature}°C</p>
                       </div>
@@ -662,7 +658,7 @@ export default function Kiosk() {
                   if (lastResult.humidity !== undefined) {
                     envCards.push(
                       <div key="humidity" className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                        <p className="text-xl mx-auto mb-1">💧</p>
+                        <Droplets className="w-5 h-5 text-muted-foreground mx-auto mb-1" aria-hidden="true" />
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Humidity</p>
                         <p className="text-lg font-bold">{lastResult.humidity}%</p>
                       </div>
@@ -671,7 +667,7 @@ export default function Kiosk() {
                   if (lastResult.vpd !== undefined && lastResult.vpd !== null) {
                     envCards.push(
                       <div key="vpd" className="bg-muted/50 rounded-xl p-3 text-center border border-border">
-                        <p className="text-xl mx-auto mb-1">💨</p>
+                        <Wind className="w-5 h-5 text-muted-foreground mx-auto mb-1" aria-hidden="true" />
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider">VPD</p>
                         <p className="text-lg font-bold">{lastResult.vpd.toFixed(3)} kPa</p>
                       </div>
@@ -924,11 +920,11 @@ export default function Kiosk() {
                       style={{ animationDelay: `${i * 40}ms` }}
                     >
                       <CardContent className="p-3 flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 ${scan.ripeness === "Unripe" ? "bg-emerald-500/20" :
-                          scan.ripeness === "Ripe" ? "bg-yellow-500/20" :
-                            scan.ripeness === "Overripe" ? "bg-red-500/20" : "bg-violet-500/20"
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${scan.ripeness === "Unripe" ? "bg-emerald-500/20 text-emerald-600" :
+                          scan.ripeness === "Ripe" ? "bg-yellow-500/20 text-yellow-600" :
+                            scan.ripeness === "Overripe" ? "bg-red-500/20 text-red-600" : "bg-violet-500/20 text-violet-600"
                           }`}>
-                          {ripenessIcon[scan.ripeness]}
+                          <Banana className="w-4 h-4" aria-hidden="true" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">

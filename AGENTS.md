@@ -3,6 +3,7 @@
 - When resuming work, read `TASK_PROGRESS.txt` and the current Git status first. Use its latest resume point; historical checkpoints are reference material, not pending work.
 - Trace the affected API, service, schema and UI before editing. Preserve explicit reverts, unrelated user changes, existing architecture and working behavior.
 - Preserve the existing UI layout, components, styling, spacing and typography unless the user requests a redesign. Keep frontend/backend field names and types synchronized.
+- Always use `lucide-react` for UI icons; never use raw Unicode emojis in the UI, and verify no emojis are introduced when editing frontend components.
 - AI-estimated numbers (finger counts, shelf-life estimates) are shown with "Est." through `frontend/src/lib/estimates.ts`; counts a person corrected, measurements and identifiers are not. Raw values stay numeric.
 - Keep business timestamps and date boundaries consistent with the backend Asia/Manila helpers. Reuse existing conversions rather than adding competing timezone logic. Every date, time, "today" and file-name date is Asia/Manila: backend through `backend/app/core/time.py`, frontend through `frontend/src/lib/manilaTime.ts`; `backend/tests/test_manila_time_guard.py` and `frontend/tests/manilaTime.test.mjs` reject anything else.
 - Never test against the live station database, captures, physical cameras or OS power. Use isolated fixtures and disposable PostgreSQL schemas; inspect test setup first.
