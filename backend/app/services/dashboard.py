@@ -40,6 +40,7 @@ from app.services.inventory_policy import (
     PREDICTION_PATTERN,
     WHITESPACE,
     eligible_stock,
+    ripeness_projection,
     shelf_life_window,
 )
 
@@ -130,6 +131,7 @@ def _scoped_projection(user: UserAccount, now: datetime):
             ScanClassification.temperature,
             ScanClassification.humidity,
             ScanClassification.vpd,
+            ScanClassification.treatment,
             ScanClassification.finger_count,
             ScanClassification.thumbnail_url,
             _prediction_days().label("predicted_days"),
@@ -176,6 +178,8 @@ def _fifo(row) -> DashboardFifoRecommendation:
 
 def _scan(row, now: datetime) -> DashboardScan:
     source_key, source_name = _source(row)
+    treatment = getattr(row, "treatment", None)
+    treatment_text = treatment.value if hasattr(treatment, "value") else treatment
     return DashboardScan(
         id=row.id,
         date_time=as_manila(row.date_time),
@@ -190,8 +194,21 @@ def _scan(row, now: datetime) -> DashboardScan:
         flagged=bool(row.flagged),
         spoilage_days=row.spoilage_days,
         remaining_days=None if row.remaining_days is None else round(float(row.remaining_days), 4),
-        # Derived here from the stored string and scan time; the SQL risk rule is untouched.
+        treatment=treatment_text,
+        # Derived from stored scan fields and elapsed Manila days; DB rows stay untouched.
         shelf_life_window=shelf_life_window(row.spoilage_days, row.date_time, now),
+        ripeness_projection=ripeness_projection(
+            row.ripeness,
+            row.cultivar,
+            row.spoilage_days,
+            row.date_time,
+            now,
+            temperature=getattr(row, "temperature", None),
+            humidity=getattr(row, "humidity", None),
+            vpd=getattr(row, "vpd", None),
+            treatment=treatment_text,
+            inventory_status=row.inventory_status,
+        ),
     )
 
 

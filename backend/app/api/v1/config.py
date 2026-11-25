@@ -140,6 +140,8 @@ async def export_database(
             confidence=classification.confidence if classification else None,
             temperature=classification.temperature if classification else None,
             humidity=classification.humidity if classification else None,
+            vpd=classification.vpd if classification else None,
+            treatment=classification.treatment if classification else None,
             operator_name=operator_name,
             as_of=as_of,
         ))

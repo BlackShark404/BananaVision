@@ -43,7 +43,11 @@ from app.services.scan_records import (
     serialize_detail,
     serialize_scan,
 )
-from app.services.inventory_policy import remaining_shelf_life, shelf_life_window
+from app.services.inventory_policy import (
+    remaining_shelf_life,
+    ripeness_projection,
+    shelf_life_window,
+)
 from app.services.ood_gate import REJECTION_CODE
 from app.services.scan_service import execute_scan_pipeline, rejection_payload
 from app.config import get_settings
@@ -210,6 +214,18 @@ async def public_scan_track(scan_id: uuid.UUID, db: DbSession):
         risk_as_of=now,
         shelf_life_window=shelf_life_window(
             classification.spoilage_days if classification else None, scan.date_time, now
+        ),
+        ripeness_projection=ripeness_projection(
+            classification.ripeness if classification else None,
+            classification.cultivar if classification else None,
+            classification.spoilage_days if classification else None,
+            scan.date_time,
+            now,
+            temperature=classification.temperature if classification else None,
+            humidity=classification.humidity if classification else None,
+            vpd=classification.vpd if classification else None,
+            treatment=classification.treatment if classification else None,
+            respect_closed_status=False,
         ),
         finger_count=classification.finger_count if classification else 0,
         temperature=classification.temperature if classification else None,

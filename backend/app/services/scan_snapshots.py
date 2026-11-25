@@ -10,7 +10,7 @@ from app.core.time import now_manila
 from app.models.maintenance_state import MaintenanceState
 from app.models.scan_snapshot import ScanSnapshot
 from app.services.auth_service import lock_current_account
-from app.services.inventory_policy import shelf_life_window
+from app.services.inventory_policy import ripeness_projection, shelf_life_window
 from app.services.scan_records import scan_scope
 
 MAX_ROWS = 50_000
@@ -18,6 +18,8 @@ MAX_BYTES = 20 * 1024 * 1024
 LIFETIME = timedelta(minutes=10)
 PER_ACCOUNT = 4
 WINDOW = "shelf_life_window"
+PROJECTION = "ripeness_projection"
+DERIVED_FIELDS = frozenset({WINDOW, PROJECTION})
 
 
 def binding(kind, filters):
@@ -60,10 +62,11 @@ async def save_snapshot(db, user, key, payload):
     scan_scope(user)
     user = await lock_current_account(db, user)
     scan_scope(user)
-    # The window is derived from fields each row already holds. It is rebuilt on read
-    # (slice_snapshot), so storing it would only spend the size budget.
+    # Derived windows are rebuilt on read (slice_snapshot) from fields each row already
+    # holds, so storing them would only spend the snapshot size budget.
     payload = {**payload, "items": [
-        {key: value for key, value in row.items() if key != WINDOW} for row in payload["items"]
+        {key: value for key, value in row.items() if key not in DERIVED_FIELDS}
+        for row in payload["items"]
     ]}
     if len(payload["items"]) > MAX_ROWS or len(json.dumps(payload).encode()) > MAX_BYTES:
         raise HTTPException(
@@ -92,16 +95,30 @@ def _instant(value):
 
 
 def _with_window(row, generated_at):
-    """Rebuild the window for the instant the row was frozen.
+    """Rebuild derived windows for the instant the row was frozen.
 
     That instant is the row's own `risk_as_of`, or the snapshot's `generated_at`. A
     frozen page therefore reads the same at any later time, and the page that shows
     it counts forward from `as_of_date`.
     """
-    return {**row, WINDOW: shelf_life_window(
-        row.get("spoilage_days"), _instant(row.get("date_time")),
-        _instant(row.get("risk_as_of") or generated_at),
-    )}
+    scanned_at = _instant(row.get("date_time"))
+    as_of = _instant(row.get("risk_as_of") or generated_at)
+    return {
+        **row,
+        WINDOW: shelf_life_window(row.get("spoilage_days"), scanned_at, as_of),
+        PROJECTION: ripeness_projection(
+            row.get("ripeness"),
+            row.get("cultivar"),
+            row.get("spoilage_days"),
+            scanned_at,
+            as_of,
+            temperature=row.get("temperature"),
+            humidity=row.get("humidity"),
+            vpd=row.get("vpd"),
+            treatment=row.get("treatment"),
+            inventory_status=row.get("inventory_status"),
+        ),
+    }
 
 
 def slice_snapshot(snapshot, page, page_size):

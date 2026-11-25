@@ -4,6 +4,7 @@ import { Package, Cog, XCircle } from "lucide-react"
 interface StatusBadgeProps {
   status: string
   type: "ripeness" | "inventory" | "role" | "device" | "user" | "quality"
+  label?: string
   className?: string
   size?: "sm" | "md" | "lg"
 }
@@ -28,12 +29,13 @@ const STYLE_MAP = {
   },
 } as const
 
-export function AppStatusBadge({ status, type, className = "", size = "md" }: StatusBadgeProps) {
+export function AppStatusBadge({ status, type, label, className = "", size = "md" }: StatusBadgeProps) {
+  const display = label ?? status
   // @ts-expect-error dynamic access
   const config = STYLE_MAP[type]?.[status]
   
   if (!config) {
-    return <Badge variant="outline" className={className}>{status}</Badge>
+    return <Badge variant="outline" className={className}>{display}</Badge>
   }
 
   const { colors, icon: Icon } = config
@@ -42,7 +44,7 @@ export function AppStatusBadge({ status, type, className = "", size = "md" }: St
   return (
     <Badge variant="outline" className={`${colors} ${sizeClasses} gap-1 font-medium ${className}`}>
       {Icon && <Icon className={size === "sm" ? "w-2.5 h-2.5" : "w-3 h-3"} />}
-      {status}
+      {display}
     </Badge>
   )
 }

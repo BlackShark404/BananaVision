@@ -42,6 +42,17 @@ Decision: [[Development Decisions]]; tests: [[Testing and Validation]].
 - `VITE_PUBLIC_BASE_URL` overrides the origin embedded in printed QR labels, so a label scanned off-station resolves to the public HTTPS link. When unset, labels keep the kiosk origin.
 - `VITE_API_URL`, `VITE_WS_URL` and `VITE_PUBLIC_BASE_URL` are build-time values; a production build written to `frontend/dist` is what Caddy serves. See [remote-access.md](../guides/remote-access.md).
 
+## Live ripeness projection (2026-11-25)
+
+Decision: [[Development Decisions]]. Helper: `frontend/src/lib/ripenessProjection.ts`.
+
+- The server attaches derived `ripeness_projection` (`base_ripeness`, `current_ripeness`, `progressed`, `elapsed_days`, `transitions`, `scan_date`, `as_of_date`) wherever `shelf_life_window` is returned (`DashboardScan`, `ScanLogRow`, `ScanResponse`, `PublicScanResponse`, and `scan:changed` events). `liveRipeness(projection, now, inventoryStatus)` rolls forward at `Asia/Manila` midnight without extra requests, never moves backward behind `as_of_date`, and freezes at `base_ripeness` for closed inventory statuses (`Sold`, `For Processing`, `Spoiled`).
+- **Scan Logs, Scan Details, and Dashboard Recent Scans:** render `Est. <Stage>` via `AppStatusBadge` (`label` prop) with `<Base> at scan` beneath when progressed for `In Stock` rows, and a plain scanned badge on Day 0 or closed stock. Edit dialogs always edit the scanned/verified ripeness anchor.
+- **Quality Control:** keeps observed scan-time ripeness as the primary badge and dialog value, showing only a muted `Now Est. <Stage>` hint for progressed `In Stock` rows so static photo review is never ambiguous.
+- **Inventory:** groups eligible `In Stock` hands in **Stock by Ripeness** and **Spoiling Soon** alerts by projected current ripeness and navigates to `/logs?...&ripeness_scope=current` so Inventory counts and Scan Logs match 1:1. Scan Logs shows an `Est. Current Ripeness` filter chip when `ripeness_scope=current` is active and resets to scanned ripeness if the user picks from the ripeness dropdown.
+- **Public Scan View (`/track/:scanId`):** displays projected `Est. <Stage>` alongside the live spoilage countdown (`ignoreClosedStatus: true`) and reveals `Scanned as <Stage>` inside the collapsed `Scan details` disclosure when progressed.
+- **Exports:** `SCAN_EXPORT_HEADERS` in `exportUtils.ts` and backend `export_format.py` share 15 columns with `Scanned Ripeness` and `Est. Current Ripeness` (`—` for closed stock).
+
 ## Analytics: Model Confidence vs. Verified Accuracy (2026-11-25)
 
 Decision: [[Development Decisions]].

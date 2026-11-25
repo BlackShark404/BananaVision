@@ -234,3 +234,27 @@ test('the normal landing page keeps its login buttons', async t => {
   await access.click()
   assert.equal(new URL(page.url()).pathname, '/login')
 })
+
+test('public QR tracking shows Est. projected ripeness even when closed and reveals Scanned as stage inside details', async t => {
+  const progressed = {
+    ...scanned(),
+    ripeness: 'Unripe',
+    inventory_status: 'Sold',
+    ripeness_projection: {
+      base_ripeness: 'Unripe',
+      current_ripeness: 'Ripe',
+      progressed: true,
+      elapsed_days: 10,
+      transitions: { 'Semi Ripe': 7, Ripe: 10, Overripe: 14 },
+      scan_date: '2026-09-22',
+      as_of_date: '2026-10-02',
+    },
+  }
+  const { page } = await openOnPhone(t, '/scans/fixture-scan/track', {
+    respond: () => ({ json: progressed, headers: CORS }),
+  })
+  await page.getByText('Est. Ripe', { exact: true }).waitFor()
+  assert.equal(await page.getByText('Scanned as Unripe', { exact: true }).isVisible(), false)
+  await page.getByText('Scan details', { exact: true }).click()
+  await page.getByText('Scanned as Unripe', { exact: true }).waitFor()
+})

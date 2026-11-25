@@ -45,6 +45,7 @@ import { collectScanPages, type ApiScan } from "@/lib/scanData"
 import { closedStockSpoilageLabel, formatSpoilageDays } from "@/lib/spoilageDisplay"
 import { inventoryStatusChangeNote } from "@/lib/inventoryStatusChange"
 import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
+import { liveRipeness } from "@/lib/ripenessProjection"
 import { LIVE_RESUMED_EVENT, SCAN_UPDATED_EVENT, SCANS_ADDED_EVENT, newEventId, type ScanUpdateDetail } from "@/lib/liveEvents"
 import { fingersLabel } from "@/lib/estimates"
 
@@ -67,7 +68,8 @@ async function mapScan(row: ScanLogRow, atRisk: boolean, asOf: string): Promise<
     source: row.source_name, intakeId: row.intake_id ?? undefined, inventoryStatus: row.inventory_status as InventoryStatus,
     statusUpdatedAt: row.status_updated_at ?? undefined, flagged: row.flagged, isOverridden: row.is_overridden,
     thumbnailUrl: row.thumbnail_url ? getImageUrl(row.thumbnail_url) : undefined, remainingDays: row.remaining_days,
-    riskAsOf: asOf, shelfLifeWindow: row.shelf_life_window ?? null, atRisk, operatorId: row.operator_id, sourceKey: row.source_key,
+    riskAsOf: asOf, shelfLifeWindow: row.shelf_life_window ?? null, ripenessProjection: row.ripeness_projection ?? null,
+    atRisk, operatorId: row.operator_id, sourceKey: row.source_key,
   }
   // A QR rendering failure must not hide the scan history.
   try { scan.qrCode = await generateQRCodeDataUrl(scan) } catch { /* Thumbnail fallback remains available. */ }
@@ -122,6 +124,7 @@ function mergeScanRow(row: LogScan, detail: ScanUpdateDetail): LogScan {
   if ("inventory_eligible" in raw) next.inventoryEligible = raw.inventory_eligible === true
   if ("risk_as_of" in raw) next.riskAsOf = raw.risk_as_of ?? undefined
   if ("shelf_life_window" in raw) next.shelfLifeWindow = raw.shelf_life_window ?? null
+  if ("ripeness_projection" in raw) next.ripenessProjection = raw.ripeness_projection ?? null
   if ("has_notes" in raw) next.hasNotes = raw.has_notes === true
   if ("thumbnail_url" in raw) next.thumbnailUrl = raw.thumbnail_url ? getImageUrl(raw.thumbnail_url) : undefined
   // remaining_days is rounded for transport. The reconciliation response owns
@@ -139,7 +142,15 @@ function filterMembership(
   if (params.inventory_status && scan.inventoryStatus !== params.inventory_status) return "out"
   if (params.flagged_only && scan.flagged !== true) return "out"
   if (params.cultivar && scan.cultivar !== params.cultivar) return "out"
-  if (params.ripeness && scan.ripeness !== params.ripeness) return "out"
+  if (params.ripeness) {
+    if (params.ripeness_scope === "current") {
+      if (!scan.ripenessProjection) return "unknown"
+      const current = liveRipeness(scan.ripenessProjection, Date.now(), scan.inventoryStatus)?.current
+      if (current !== params.ripeness) return "out"
+    } else if (scan.ripeness !== params.ripeness) {
+      return "out"
+    }
+  }
   if (params.intake_id && scan.intakeId !== params.intake_id) return "out"
   if (params.operator_id) {
     if (!scan.operatorId) return "unknown"
@@ -498,7 +509,7 @@ function LogsContent() {
   const clearAllFilters = () => setSearchParams({})
   const setSearch = (value: string) => updateFilters({ search: value }, true)
   const setCultivarFilter = (value: string) => updateFilters({ cultivar: value })
-  const setRipenessFilter = (value: string) => updateFilters({ ripeness: value })
+  const setRipenessFilter = (value: string) => updateFilters({ ripeness: value, ripeness_scope: undefined })
   const setSourceFilter = (value: string) => updateFilters({ source_key: value, source: undefined })
   const setOperatorFilter = (value: string) => updateFilters({ operator_id: value })
   const setStatusFilter = (value: string) => updateFilters({ status: value })
@@ -650,7 +661,29 @@ const columns: ColumnDef<LogScan>[] = [
     },
     {
       header: "Ripeness",
-      cell: (scan) => <AppStatusBadge type="ripeness" status={scan.ripeness} size="md" />,
+      cell: (scan) => {
+        const live = liveRipeness(scan.ripenessProjection, now, scan.inventoryStatus)
+        const display = live?.current ?? scan.ripeness
+        const progressed = live?.progressed ?? false
+        return (
+          <div className="space-y-0.5">
+            <AppStatusBadge
+              type="ripeness"
+              status={display}
+              label={live ? live.badgeLabel : display}
+              size="md"
+            />
+            {progressed && (
+              <span
+                className="block text-[10px] text-muted-foreground"
+                title="Observed ripeness when scanned; current stage is projected from elapsed days and scan conditions"
+              >
+                {scan.ripeness} at scan
+              </span>
+            )}
+          </div>
+        )
+      },
     },
     {
       header: "Source",
@@ -997,6 +1030,12 @@ const columns: ColumnDef<LogScan>[] = [
         <Badge variant="secondary">Eligible stock only</Badge>
         <span className="text-xs text-muted-foreground">In-stock scans linked to an active intake or valid unlinked provenance.</span>
         <Button variant="ghost" size="sm" onClick={() => updateFilters({ stock: undefined })}>Clear stock filter</Button>
+      </div>}
+
+      {requestParams.ripeness_scope === "current" && requestParams.ripeness && <div className="flex flex-wrap items-center gap-2 text-sm">
+        <Badge variant="secondary">Est. Current Ripeness: {requestParams.ripeness}</Badge>
+        <span className="text-xs text-muted-foreground">Showing scans projected to be {requestParams.ripeness} today (Asia/Manila).</span>
+        <Button variant="ghost" size="sm" onClick={() => updateFilters({ ripeness_scope: undefined })}>Switch to scanned ripeness</Button>
       </div>}
 
       {/* Table */}

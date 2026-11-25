@@ -14,7 +14,11 @@ from typing import Any
 from uuid import UUID
 
 from app.core.time import as_manila
-from app.services.inventory_policy import prediction_bounds, shelf_life_window
+from app.services.inventory_policy import (
+    prediction_bounds,
+    ripeness_projection,
+    shelf_life_window,
+)
 
 MONTHS = (
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -28,7 +32,8 @@ SCAN_EXPORT_HEADERS = [
     "Date & Time",
     "Source / Supplier",
     "Cultivar",
-    "Ripeness",
+    "Scanned Ripeness",
+    "Est. Current Ripeness",
     "Est. Fingers",
     "Est. Shelf Life (Original)",
     "Est. Time Left / Freshness",
@@ -176,6 +181,49 @@ def format_review_status(flagged: bool) -> str:
     return "Needs Review" if flagged else "Approved"
 
 
+def format_current_ripeness(
+    ripeness: Any,
+    cultivar: Any,
+    spoilage_days: str | None,
+    date_time: datetime | None,
+    now: datetime,
+    inventory_status: Any,
+    *,
+    temperature: float | Decimal | None = None,
+    humidity: float | Decimal | None = None,
+    vpd: float | Decimal | None = None,
+    treatment: Any = None,
+    projection: dict[str, Any] | None = None,
+) -> str:
+    """Format time-progressed ripeness for In Stock scans, or '—' when stock is closed."""
+    base = enum_text(ripeness)
+    if not base:
+        return ""
+    status = enum_text(inventory_status)
+    if status in CLOSED_STOCK_STATUSES:
+        return "—"
+    resolved = (
+        projection
+        if projection is not None
+        else ripeness_projection(
+            base,
+            cultivar,
+            spoilage_days,
+            date_time,
+            now,
+            temperature=temperature,
+            humidity=humidity,
+            vpd=vpd,
+            treatment=treatment,
+            inventory_status=status or "In Stock",
+        )
+    )
+    if resolved is None:
+        return base
+    current = str(resolved["current_ripeness"])
+    return f"Est. {current}" if resolved.get("progressed") else current
+
+
 def format_scan_export_cells(
     *,
     scan_id: UUID | str | None,
@@ -195,8 +243,11 @@ def format_scan_export_cells(
     operator_name: str | None,
     as_of: datetime,
     shelf_life: dict[str, Any] | None = None,
+    vpd: float | Decimal | None = None,
+    treatment: Any = None,
+    ripeness_proj: dict[str, Any] | None = None,
 ) -> list[ExportCell]:
-    """Return the 14 canonical cells matching SCAN_EXPORT_HEADERS."""
+    """Return the 15 canonical cells matching SCAN_EXPORT_HEADERS."""
     status_text = enum_text(inventory_status) or "In Stock"
     return [
         _text_cell(format_scan_ref(scan_id)),
@@ -204,6 +255,19 @@ def format_scan_export_cells(
         _text_cell(source_name or ""),
         _text_cell(enum_text(cultivar)),
         _text_cell(enum_text(ripeness)),
+        _text_cell(format_current_ripeness(
+            ripeness,
+            cultivar,
+            spoilage_days,
+            date_time,
+            as_of,
+            status_text,
+            temperature=temperature,
+            humidity=humidity,
+            vpd=vpd,
+            treatment=treatment,
+            projection=ripeness_proj,
+        )),
         _text_cell(format_fingers(
             finger_count,
             is_overridden=is_overridden,

@@ -85,3 +85,14 @@ test('buildScanLogsUrl includes limit or page_size when specified', () => {
   assert.equal(buildScanLogsUrl({ limit: 25 }), '/logs?limit=25')
   assert.equal(buildScanLogsUrl({ page_size: 50 }), '/logs?page_size=50')
 })
+
+test('ripeness_scope=current parses only alongside ripeness and builds Inventory click-through links', () => {
+  const url = buildScanLogsUrl({ status: 'In Stock', ripeness: 'Ripe', ripeness_scope: 'current', stock: 'eligible' })
+  assert.equal(url, '/logs?status=In+Stock&ripeness=Ripe&ripeness_scope=current&stock=eligible')
+  const parsed = scanLogParams(new URLSearchParams(url.split('?')[1]))
+  assert.equal(parsed.ripeness, 'Ripe')
+  assert.equal(parsed.ripeness_scope, 'current')
+  assert.equal(parsed.stock_eligible, true)
+  assert.equal(scanLogParams(new URLSearchParams('ripeness_scope=current')).ripeness_scope, undefined)
+  assert.equal(scanLogParams(new URLSearchParams('ripeness=Ripe')).ripeness_scope, undefined)
+})

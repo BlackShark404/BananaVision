@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { useScans } from "@/context/ScanContext"
 import { useInventory } from "@/context/InventoryContext"
 import { remainingStockDays, shelfLifeLabel } from "@/lib/inventoryRisk"
+import { effectiveRipeness, liveRipeness } from "@/lib/ripenessProjection"
 import { buildScanLogsUrl } from "@/lib/scanLogFilters"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -44,11 +45,19 @@ export default function Inventory() {
     const inStock = activeScans.filter(s => s.inventoryEligible === true && s.inventoryStatus === InventoryStatusEnum.IN_STOCK)
     const unknownRisk = inStock.filter(s => remainingStockDays(s, asOf) === null).length
 
-    // Group by ripeness
-    const unripe = inStock.filter(s => s.ripeness === RipenessEnum.UNRIPE)
-    const ripe = inStock.filter(s => s.ripeness === RipenessEnum.RIPE)
-    const overripe = inStock.filter(s => s.ripeness === RipenessEnum.OVERRIPE)
-    const semiRipe = inStock.filter(s => s.ripeness === RipenessEnum.SEMI_RIPE)
+    // Group in-stock hands by projected current ripeness (anchored to scanned stage on Day 0).
+    const ripenessOf = (s: ScanResult) => effectiveRipeness(s, asOf)
+    const isProgressed = (s: ScanResult) => liveRipeness(s.ripenessProjection, asOf, s.inventoryStatus)?.progressed === true
+    const unripe = inStock.filter(s => ripenessOf(s) === RipenessEnum.UNRIPE)
+    const ripe = inStock.filter(s => ripenessOf(s) === RipenessEnum.RIPE)
+    const overripe = inStock.filter(s => ripenessOf(s) === RipenessEnum.OVERRIPE)
+    const semiRipe = inStock.filter(s => ripenessOf(s) === RipenessEnum.SEMI_RIPE)
+    const ripenessProgressed = {
+      [RipenessEnum.UNRIPE]: unripe.some(isProgressed),
+      [RipenessEnum.SEMI_RIPE]: semiRipe.some(isProgressed),
+      [RipenessEnum.RIPE]: ripe.some(isProgressed),
+      [RipenessEnum.OVERRIPE]: overripe.some(isProgressed),
+    }
 
     // Calculate total hands and fingers
     const totalHands = inStock.length
@@ -56,19 +65,22 @@ export default function Inventory() {
     // A total reads as an estimate while any scan in it still has the AI count.
     const fingersEstimated = inStock.some(fingerCountIsEstimate)
 
-    // Spoilage alerts (will spoil in 2 days or less) - Grouped by intake, cultivar, and ripeness
-    const spoilageAlertsMap = new Map<string, { id: string; intakeId: string; source: string; cultivar: string; ripeness: string; spoilageDays: string; daysNum: number; count: number; fingers: number; fingersEstimated: boolean; oldestScanDate: Date }>()
+    // Spoilage alerts (will spoil in 2 days or less) - Grouped by intake, cultivar, and current ripeness
+    const spoilageAlertsMap = new Map<string, { id: string; intakeId: string; source: string; cultivar: string; ripeness: string; ripenessProgressed: boolean; spoilageDays: string; daysNum: number; count: number; fingers: number; fingersEstimated: boolean; oldestScanDate: Date }>()
 
     inStock.forEach(s => {
       const daysNum = remainingStockDays(s, asOf)
       if (daysNum === null || daysNum > 2) return
+      const currentRipeness = ripenessOf(s)
+      const progressed = isProgressed(s)
 
-      const key = `${s.intakeId ?? s.source ?? s.id}-${s.cultivar}-${s.ripeness}`
+      const key = `${s.intakeId ?? s.source ?? s.id}-${s.cultivar}-${currentRipeness}`
       const existing = spoilageAlertsMap.get(key)
       if (existing) {
         existing.count += 1
         existing.fingers += s.fingerCount
         existing.fingersEstimated ||= fingerCountIsEstimate(s)
+        existing.ripenessProgressed ||= progressed
         const scanDate = new Date(s.dateTime)
         if (scanDate < existing.oldestScanDate) existing.oldestScanDate = scanDate
         if (daysNum < existing.daysNum) {
@@ -81,7 +93,8 @@ export default function Inventory() {
           intakeId: s.intakeId || "unknown",
           source: s.source || "Unknown Supplier",
           cultivar: s.cultivar,
-          ripeness: s.ripeness,
+          ripeness: currentRipeness,
+          ripenessProgressed: progressed,
           spoilageDays: shelfLifeLabel(daysNum),
           daysNum,
           count: 1,
@@ -150,6 +163,7 @@ export default function Inventory() {
       ripe,
       overripe,
       semiRipe,
+      ripenessProgressed,
       spoilingSoon,
       byCultivar,
       fifoList,
@@ -260,11 +274,16 @@ export default function Inventory() {
       {/* Ripeness Distribution */}
       <Card className="rounded-xl sm:rounded-2xl">
         <CardContent className="p-4 sm:p-6">
-          <h3 className="text-base font-semibold mb-4">Stock by Ripeness</h3>
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <h3 className="text-base font-semibold">Stock by Ripeness</h3>
+            {Object.values(inventory.ripenessProgressed).some(Boolean) && (
+              <span className="text-xs text-muted-foreground">Includes Est. time-progressed stages</span>
+            )}
+          </div>
           <div className="space-y-4">
             <div
               className="p-2 -mx-2 rounded-lg hover:bg-muted/40 transition-colors cursor-pointer group/ripeness"
-              onClick={() => navigate(scanLogsLink({ status: "In Stock", ripeness: RipenessEnum.UNRIPE, stock: "eligible" }))}
+              onClick={() => navigate(scanLogsLink({ status: "In Stock", ripeness: RipenessEnum.UNRIPE, ripeness_scope: "current", stock: "eligible" }))}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -284,13 +303,13 @@ export default function Inventory() {
 
             <div
               className="p-2 -mx-2 rounded-lg hover:bg-muted/40 transition-colors cursor-pointer group/ripeness"
-              onClick={() => navigate(scanLogsLink({ status: "In Stock", ripeness: RipenessEnum.SEMI_RIPE, stock: "eligible" }))}
+              onClick={() => navigate(scanLogsLink({ status: "In Stock", ripeness: RipenessEnum.SEMI_RIPE, ripeness_scope: "current", stock: "eligible" }))}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-violet-500" />
                   <span className="text-sm font-medium group-hover/ripeness:text-primary transition-colors flex items-center gap-1.5">
-                    Semi Ripe
+                    {inventory.ripenessProgressed[RipenessEnum.SEMI_RIPE] ? "Est. Semi Ripe" : "Semi Ripe"}
                     <ExternalLink className="w-3 h-3 opacity-0 group-hover/ripeness:opacity-100 transition-opacity text-muted-foreground" />
                   </span>
                 </div>
@@ -304,13 +323,13 @@ export default function Inventory() {
 
             <div
               className="p-2 -mx-2 rounded-lg hover:bg-muted/40 transition-colors cursor-pointer group/ripeness"
-              onClick={() => navigate(scanLogsLink({ status: "In Stock", ripeness: RipenessEnum.RIPE, stock: "eligible" }))}
+              onClick={() => navigate(scanLogsLink({ status: "In Stock", ripeness: RipenessEnum.RIPE, ripeness_scope: "current", stock: "eligible" }))}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-yellow-500" />
                   <span className="text-sm font-medium group-hover/ripeness:text-primary transition-colors flex items-center gap-1.5">
-                    Ripe
+                    {inventory.ripenessProgressed[RipenessEnum.RIPE] ? "Est. Ripe" : "Ripe"}
                     <ExternalLink className="w-3 h-3 opacity-0 group-hover/ripeness:opacity-100 transition-opacity text-muted-foreground" />
                   </span>
                 </div>
@@ -324,13 +343,13 @@ export default function Inventory() {
 
             <div
               className="p-2 -mx-2 rounded-lg hover:bg-muted/40 transition-colors cursor-pointer group/ripeness"
-              onClick={() => navigate(scanLogsLink({ status: "In Stock", ripeness: RipenessEnum.OVERRIPE, stock: "eligible" }))}
+              onClick={() => navigate(scanLogsLink({ status: "In Stock", ripeness: RipenessEnum.OVERRIPE, ripeness_scope: "current", stock: "eligible" }))}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-red-500" />
                   <span className="text-sm font-medium group-hover/ripeness:text-primary transition-colors flex items-center gap-1.5">
-                    Overripe
+                    {inventory.ripenessProgressed[RipenessEnum.OVERRIPE] ? "Est. Overripe" : "Overripe"}
                     <ExternalLink className="w-3 h-3 opacity-0 group-hover/ripeness:opacity-100 transition-opacity text-muted-foreground" />
                   </span>
                 </div>
@@ -407,7 +426,7 @@ export default function Inventory() {
                   <div key={group.id} className="p-3 rounded-lg bg-muted/30 border hover:bg-muted/50 transition-colors cursor-pointer group/alert" onClick={() => {
                     const intakeId = group.intakeId !== "unknown" ? group.intakeId : undefined
                     if (intakeId) navigate(`/logs?intake=${encodeURIComponent(intakeId)}`)
-                    else navigate(scanLogsLink({ status: "In Stock", cultivar: group.cultivar, ripeness: group.ripeness, stock: "eligible" }))
+                    else navigate(scanLogsLink({ status: "In Stock", cultivar: group.cultivar, ripeness: group.ripeness, ripeness_scope: "current", stock: "eligible" }))
                   }}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
@@ -417,9 +436,11 @@ export default function Inventory() {
                               ? "bg-violet-50 text-violet-700 border-violet-200"
                               : group.ripeness === RipenessEnum.OVERRIPE
                                 ? "bg-red-50 text-red-700 border-red-200"
-                                : "bg-yellow-50 text-yellow-700 border-yellow-200"
+                                : group.ripeness === RipenessEnum.UNRIPE
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : "bg-yellow-50 text-yellow-700 border-yellow-200"
                             }`}>
-                            {group.ripeness}
+                            {group.ripenessProgressed ? `Est. ${group.ripeness}` : group.ripeness}
                           </Badge>
                           <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover/alert:opacity-100 transition-opacity ml-auto shrink-0" />
                         </div>

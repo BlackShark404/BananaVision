@@ -8,6 +8,7 @@ import { DashboardRecords } from "@/components/DashboardRecords"
 import { useWebSocket } from "@/hooks/useWebSocket"
 import { api, BASE_URL, withMediaToken } from "@/lib/api"
 import { buildScanLogsUrl } from "@/lib/scanLogFilters"
+import { liveRipeness } from "@/lib/ripenessProjection"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -311,7 +312,29 @@ function DashboardContent() {
                       </TableCell>
                       <TableCell className="font-medium text-sm">{scan.cultivar}</TableCell>
                       <TableCell>
-                        <AppStatusBadge type="ripeness" status={scan.ripeness ?? "Unknown"} size="sm" />
+                        {(() => {
+                          const live = liveRipeness(scan.ripeness_projection, now, scan.inventory_status)
+                          const display = live?.current ?? scan.ripeness ?? "Unknown"
+                          const progressed = live?.progressed ?? false
+                          return (
+                            <div className="space-y-0.5">
+                              <AppStatusBadge
+                                type="ripeness"
+                                status={display}
+                                label={live ? live.badgeLabel : display}
+                                size="sm"
+                              />
+                              {progressed && scan.ripeness && (
+                                <span
+                                  className="block text-[10px] text-muted-foreground"
+                                  title="Observed ripeness when scanned; current stage is projected from elapsed days and scan conditions"
+                                >
+                                  {scan.ripeness} at scan
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

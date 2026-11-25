@@ -1,3 +1,4 @@
+import type { RipenessProjection } from "@/lib/ripenessProjection"
 import type { ShelfLifeWindow } from "@/lib/shelfLifeWindow"
 
 export type DashboardView = "sources" | "operators"
@@ -16,8 +17,10 @@ export interface DashboardScan {
   flagged: boolean
   spoilage_days: string | null
   remaining_days: number | null
-  /** Absent on rows frozen before the server sent it. */
+  treatment?: string | null
+  /** Absent on rows frozen before the server sent them. */
   shelf_life_window?: ShelfLifeWindow | null
+  ripeness_projection?: RipenessProjection | null
 }
 
 export interface DashboardFifoRecommendation {

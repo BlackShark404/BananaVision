@@ -1,4 +1,5 @@
 import type { PrintJob } from "./printing"
+import type { RipenessProjection } from "@/lib/ripenessProjection"
 import type { ShelfLifeWindow } from "@/lib/shelfLifeWindow"
 import type { KnownActivityAction } from "@/lib/activityActions"
 
@@ -135,6 +136,7 @@ export interface ScanResult {
   remainingDays?: number | null
   riskAsOf?: string
   shelfLifeWindow?: ShelfLifeWindow | null
+  ripenessProjection?: RipenessProjection | null
   qrCode?: string
   hasNotes?: boolean
   images?: { camera_id: string; file_path: string }[]

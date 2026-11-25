@@ -5,6 +5,9 @@ import re
 from sqlalchemy import and_, or_
 
 from app.core.time import as_manila
+from app.services.spoilage import RIPENESS_STAGES, spoilage_predictor
+
+CLOSED_INVENTORY_STATUSES = frozenset({"Sold", "Spoiled", "For Processing"})
 
 WHITESPACE = " \t\r\n\v\f\u00a0"
 NUMBER = r"([0-9]+([.][0-9]+)?|[.][0-9]+)"
@@ -104,6 +107,91 @@ def shelf_life_window(raw: str | None, scanned_at, now) -> dict | None:
     }
 
 
+def _enum_text(value) -> str | None:
+    if value is None:
+        return None
+    return value.value if hasattr(value, "value") else str(value)
+
+
+def ripeness_projection(
+    ripeness,
+    cultivar,
+    spoilage_days: str | None,
+    scanned_at,
+    now,
+    *,
+    temperature=None,
+    humidity=None,
+    vpd=None,
+    treatment=None,
+    inventory_status=None,
+    respect_closed_status: bool = True,
+    predictor=None,
+) -> dict | None:
+    """Derive a live, monotonic time-progressed ripeness estimate on read.
+
+    Never modifies stored ripeness. Anchors at the scanned/admin-verified stage on
+    Day 0 and scales RFR stage remaining-life thresholds proportionally to the
+    stored `spoilage_days` prediction so admin overrides and legacy ranges stay
+    coherent. Closed inventory statuses freeze at the stored ripeness.
+    """
+    base = _enum_text(ripeness)
+    if base not in RIPENESS_STAGES or scanned_at is None or now is None:
+        return None
+    scan_date = as_manila(scanned_at).date()
+    as_of_date = as_manila(now).date()
+    status = _enum_text(inventory_status)
+    if respect_closed_status and status in CLOSED_INVENTORY_STATUSES:
+        return {
+            "base_ripeness": base,
+            "current_ripeness": base,
+            "progressed": False,
+            "elapsed_days": 0,
+            "transitions": {},
+            "scan_date": scan_date.isoformat(),
+            "as_of_date": as_of_date.isoformat(),
+        }
+
+    elapsed = elapsed_manila_days(scanned_at, now)
+    stage_idx = RIPENESS_STAGES.index(base)
+    transitions: dict[str, int] = {}
+
+    if stage_idx < len(RIPENESS_STAGES) - 1:
+        values = _prediction_values(spoilage_days)
+        if values is not None:
+            anchor_days = sum(values) / len(values)
+            active_predictor = predictor or spoilage_predictor
+            lifetimes = active_predictor.stage_lifetimes(
+                _enum_text(cultivar),
+                temperature=None if temperature is None else float(temperature),
+                humidity=None if humidity is None else float(humidity),
+                vpd=None if vpd is None else float(vpd),
+                treatment=_enum_text(treatment),
+            )
+            base_lifetime = lifetimes[stage_idx]
+            for next_idx in range(stage_idx + 1, len(RIPENESS_STAGES)):
+                ratio = lifetimes[next_idx] / base_lifetime if base_lifetime > 0 else 0.0
+                cutoff = anchor_days * ratio
+                transitions[RIPENESS_STAGES[next_idx]] = max(1, math.ceil(anchor_days - cutoff))
+
+    current = base
+    for next_idx in range(stage_idx + 1, len(RIPENESS_STAGES)):
+        stage_name = RIPENESS_STAGES[next_idx]
+        threshold_day = transitions.get(stage_name)
+        if threshold_day is not None and elapsed >= threshold_day:
+            current = stage_name
+
+    return {
+        "base_ripeness": base,
+        "current_ripeness": current,
+        "progressed": current != base,
+        "elapsed_days": elapsed,
+        "transitions": transitions,
+        "scan_date": scan_date.isoformat(),
+        "as_of_date": as_of_date.isoformat(),
+    }
+
+
 def inventory_facts(scan, status, now):
     provenance = scan.intake_provenance
     eligible = status == "In Stock" and (
@@ -112,9 +200,22 @@ def inventory_facts(scan, status, now):
             and scan.intake_origin_id == scan.intake_id
             and scan.intake is not None and scan.intake.status == "Active")
     )
-    raw = scan.classification.spoilage_days if scan.classification else None
+    classification = scan.classification
+    raw = getattr(classification, "spoilage_days", None) if classification else None
     remaining = remaining_shelf_life(raw, scan.date_time, now)
     return {
         "inventory_eligible": bool(eligible), "remaining_days": remaining, "risk_as_of": now,
         "shelf_life_window": shelf_life_window(raw, scan.date_time, now),
+        "ripeness_projection": ripeness_projection(
+            getattr(classification, "ripeness", None) if classification else None,
+            getattr(classification, "cultivar", None) if classification else None,
+            raw,
+            scan.date_time,
+            now,
+            temperature=getattr(classification, "temperature", None) if classification else None,
+            humidity=getattr(classification, "humidity", None) if classification else None,
+            vpd=getattr(classification, "vpd", None) if classification else None,
+            treatment=getattr(classification, "treatment", None) if classification else None,
+            inventory_status=status,
+        ),
     }

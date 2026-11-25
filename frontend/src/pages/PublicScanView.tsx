@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom"
 import { api } from "@/lib/api"
 import { formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
 import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
+import { liveRipeness } from "@/lib/ripenessProjection"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -133,6 +134,9 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
     { remainingDays: scan.remaining_days, riskAsOf: scan.risk_as_of ?? undefined, shelfLifeWindow: scan.shelf_life_window },
     now,
   )
+  const liveRip = liveRipeness(scan.ripeness_projection, now, scan.inventory_status, { ignoreClosedStatus: true })
+  const displayRipeness = liveRip?.current ?? scan.ripeness
+  const ripenessLabel = liveRip ? liveRip.badgeLabel : scan.ripeness
 
   return (
     <div className="min-h-screen bg-background">
@@ -165,7 +169,7 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
             {/* Ripeness + Cultivar */}
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${ripenessAccent[scan.ripeness ?? ""] || "bg-primary/10 text-primary"}`}>
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${ripenessAccent[displayRipeness ?? ""] || "bg-primary/10 text-primary"}`}>
                   <Banana className="w-6 h-6" aria-hidden="true" />
                 </div>
                 <div>
@@ -173,9 +177,9 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
                   <p className="text-xs text-muted-foreground">Cultivar</p>
                 </div>
               </div>
-              {scan.ripeness && (
-                <Badge variant="outline" className={`text-sm px-3 py-1 font-semibold ${ripenessColor[scan.ripeness] || ""}`}>
-                  {scan.ripeness}
+              {displayRipeness && (
+                <Badge variant="outline" className={`text-sm px-3 py-1 font-semibold ${ripenessColor[displayRipeness] || ""}`}>
+                  {ripenessLabel}
                 </Badge>
               )}
             </div>
@@ -256,8 +260,13 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
               </div>
             )}
 
-            {(scan.source_text || scan.treatment) && (
+            {(scan.source_text || scan.treatment || liveRip?.progressed) && (
               <div className="flex flex-wrap gap-2">
+                {liveRip?.progressed && scan.ripeness && (
+                  <Badge variant="secondary" className="gap-1.5 px-3 py-1">
+                    Scanned as {scan.ripeness}
+                  </Badge>
+                )}
                 {scan.source_text && (
                   <Badge variant="secondary" className="gap-1.5 px-3 py-1">
                     <Banana className="w-3.5 h-3.5" aria-hidden="true" /> {scan.source_text}

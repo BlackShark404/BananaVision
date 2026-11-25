@@ -23,6 +23,7 @@ export interface ScanLogParams {
   intake_id?: string
   cultivar?: string
   ripeness?: string
+  ripeness_scope?: "scanned" | "current"
   inventory_status?: string
   stock_eligible?: boolean
   flagged_only?: boolean

@@ -88,6 +88,7 @@ import { api } from "@/lib/api"
 import { closedStockSpoilageLabel, formatSpoilageDays, spoilageDayUnit } from "@/lib/spoilageDisplay"
 import { inventoryStatusChangeNote } from "@/lib/inventoryStatusChange"
 import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
+import { liveRipeness } from "@/lib/ripenessProjection"
 import { inManila } from "@/lib/manilaTime"
 import { fingerCountIsEstimate, fingersLabel } from "@/lib/estimates"
 
@@ -792,7 +793,29 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Ripeness</p>
-                      <AppStatusBadge type="ripeness" status={scan.ripeness} size="md" />
+                      {(() => {
+                        const live = liveRipeness(scan.ripenessProjection, now, scan.inventoryStatus)
+                        const display = live?.current ?? scan.ripeness
+                        const progressed = live?.progressed ?? false
+                        return (
+                          <>
+                            <AppStatusBadge
+                              type="ripeness"
+                              status={display}
+                              label={live ? live.badgeLabel : display}
+                              size="md"
+                            />
+                            {progressed && (
+                              <p
+                                className="text-xs text-muted-foreground mt-1"
+                                title="Observed ripeness when scanned; current stage is projected from elapsed days and scan conditions"
+                              >
+                                {scan.ripeness} at scan
+                              </p>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Confidence</p>

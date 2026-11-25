@@ -22,6 +22,7 @@ class ScanLogQuery(BaseModel):
     intake_id: UUID | None = None
     cultivar: CultivarEnum | None = None
     ripeness: RipenessEnum | None = None
+    ripeness_scope: Literal["scanned", "current"] = "scanned"
     inventory_status: InventoryStatusEnum | None = None
     stock_eligible: bool = False
     flagged_only: bool = False

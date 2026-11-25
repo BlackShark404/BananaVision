@@ -11,9 +11,11 @@ continue to work while upgraded models benefit from richer inputs.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import math
 from decimal import Decimal
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -27,8 +29,22 @@ settings = get_settings()
 
 # ── Feature encoding maps ────────────────────────────────────────────────────
 CULTIVAR_MAP = {CultivarEnum.LAKATAN.value: 0, CultivarEnum.LATUNDAN.value: 1, CultivarEnum.CARDABA.value: 2}
-RIPENESS_MAP = {RipenessEnum.UNRIPE.value: 0, RipenessEnum.SEMI_RIPE.value: 1, RipenessEnum.RIPE.value: 2, RipenessEnum.OVERRIPE.value: 3}
+RIPENESS_STAGES = (
+    RipenessEnum.UNRIPE.value,
+    RipenessEnum.SEMI_RIPE.value,
+    RipenessEnum.RIPE.value,
+    RipenessEnum.OVERRIPE.value,
+)
+RIPENESS_MAP = {stage: idx for idx, stage in enumerate(RIPENESS_STAGES)}
 TREATMENT_MAP = {TreatmentEnum.NATURAL.value: 0, TreatmentEnum.ETHEPHON.value: 1}
+
+# Strictly decreasing unrounded midpoints used when no RFR model is loaded.
+_FALLBACK_STAGE_MIDPOINTS: dict[str, tuple[float, float, float, float]] = {
+    CultivarEnum.LAKATAN.value: (6.5, 4.0, 3.0, 1.5),
+    CultivarEnum.LATUNDAN.value: (5.5, 3.0, 2.0, 1.0),
+    CultivarEnum.CARDABA.value: (8.5, 5.0, 4.0, 2.5),
+}
+_DEFAULT_STAGE_MIDPOINTS: tuple[float, float, float, float] = (6.5, 4.0, 3.0, 1.5)
 
 LEGACY_FEATURE_COUNT = 4
 ENHANCED_FEATURE_COUNT = 6  # + [vpd, treatment]
@@ -61,6 +77,12 @@ class SpoilagePredictor:
         self._model = None
         self._loaded = False
         self._reset_feature_metadata()
+        self._cached_stage_lifetimes = lru_cache(maxsize=2048)(self._compute_stage_lifetimes)
+
+    def _clear_stage_cache(self) -> None:
+        cache = getattr(self, "_cached_stage_lifetimes", None)
+        if cache is not None:
+            cache.cache_clear()
 
     def _reset_feature_metadata(self) -> None:
         self._n_features: int = LEGACY_FEATURE_COUNT
@@ -152,18 +174,24 @@ class SpoilagePredictor:
         cultivar_map = self._training_encoding(metadata, "cultivar_map", CULTIVAR_MAP)
         ripeness_map = self._training_encoding(metadata, "ripeness_map", RIPENESS_MAP)
         treatment_map = self._training_encoding(metadata, "treatment_map", TREATMENT_MAP)
+        # Avoid per-call joblib worker pool overhead on small inference batches.
+        if getattr(model, "n_jobs", None) == -1:
+            with contextlib.suppress(Exception):
+                model.n_jobs = 1
         self._model = model
         self._n_features = int(feature_count)
         self._feature_columns = columns
         self._cultivar_map = cultivar_map
         self._ripeness_map = ripeness_map
         self._treatment_map = treatment_map
+        self._clear_stage_cache()
 
     def load(self) -> None:
         """Load RFR model from .joblib file. Call once at startup."""
         self._model = None
         self._loaded = False
         self._reset_feature_metadata()
+        self._clear_stage_cache()
         try:
             import joblib
 
@@ -220,6 +248,84 @@ class SpoilagePredictor:
             )
         else:
             return self._fallback_predict(cultivar, ripeness, temp, hum, treatment)
+
+    def stage_lifetimes(
+        self,
+        cultivar: str | None,
+        temperature: float | None = None,
+        humidity: float | None = None,
+        vpd: float | None = None,
+        treatment: str | None = None,
+    ) -> tuple[float, float, float, float]:
+        """Return strictly decreasing remaining-day anchors for (Unripe, Semi Ripe, Ripe, Overripe).
+
+        Uses one batched prediction on the loaded RFR model behind an LRU cache, falling
+        back to strictly monotonic biological midpoints when no model is loaded or an
+        artifact returns non-monotonic estimates.
+        """
+        cv = cultivar if cultivar in CULTIVAR_MAP else CultivarEnum.LAKATAN.value
+        temp = (
+            round(float(temperature), 1)
+            if temperature is not None and math.isfinite(float(temperature))
+            else 25.0
+        )
+        hum = (
+            round(float(humidity), 1)
+            if humidity is not None and math.isfinite(float(humidity))
+            else 65.0
+        )
+        vpd_val = (
+            round(float(vpd), 3)
+            if vpd is not None and math.isfinite(float(vpd))
+            else round(calc_vpd(temp, hum), 3)
+        )
+        tr = treatment if treatment in TREATMENT_MAP else TreatmentEnum.NATURAL.value
+        return self._cached_stage_lifetimes(cv, temp, hum, vpd_val, tr)
+
+    def _compute_stage_lifetimes(
+        self,
+        cultivar: str,
+        temperature: float,
+        humidity: float,
+        vpd: float,
+        treatment: str,
+    ) -> tuple[float, float, float, float]:
+        fallback = _FALLBACK_STAGE_MIDPOINTS.get(cultivar, _DEFAULT_STAGE_MIDPOINTS)
+        if self._model is None:
+            return fallback
+        try:
+            rows = []
+            cultivar_code = self._cultivar_map.get(
+                cultivar, self._cultivar_map[CultivarEnum.LAKATAN.value],
+            )
+            treatment_code = self._treatment_map.get(
+                treatment, self._treatment_map[TreatmentEnum.NATURAL.value],
+            )
+            for stage in RIPENESS_STAGES:
+                values = {
+                    "cultivar_encoded": cultivar_code,
+                    "ripeness_encoded": self._ripeness_map[stage],
+                    "temperature": temperature,
+                    "humidity": humidity,
+                }
+                if self.uses_enhanced_features:
+                    values["vpd"] = vpd
+                    values["treatment_encoded"] = treatment_code
+                rows.append([values[column] for column in self._feature_columns])
+            preds = [float(x) for x in self._model.predict(np.array(rows))]
+            if (
+                len(preds) == 4
+                and all(math.isfinite(x) and x > 0 for x in preds)
+                and preds[0] > preds[1] > preds[2] > preds[3]
+            ):
+                return (preds[0], preds[1], preds[2], preds[3])
+            logger.warning(
+                "RFR stage lifetimes non-monotonic for %s (%.1fC, %.1f%%, %s); using fallback",
+                cultivar, temperature, humidity, treatment,
+            )
+        except Exception as exc:
+            logger.error(f"RFR stage lifetime inference error: {exc}")
+        return fallback
 
     def _model_predict(
         self,

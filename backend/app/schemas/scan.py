@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from .enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
 from .printing import PrintJobResponse
-from .shelf_life import ShelfLifeWindow
+from .shelf_life import RipenessProjection, ShelfLifeWindow
 
 
 # ── Requests ─────────────────────────────────────────────────────────────────
@@ -160,6 +160,7 @@ class ScanResponse(BaseModel):
     remaining_days: float | None = None
     risk_as_of: Timestamp | None = None
     shelf_life_window: ShelfLifeWindow | None = None
+    ripeness_projection: RipenessProjection | None = None
     status_updated_at: Timestamp | None = None
     flagged: bool = False
     is_overridden: bool = False
@@ -208,6 +209,7 @@ class PublicScanResponse(BaseModel):
     remaining_days: float | None = None
     risk_as_of: Timestamp | None = None
     shelf_life_window: ShelfLifeWindow | None = None
+    ripeness_projection: RipenessProjection | None = None
     finger_count: int
     temperature: float | None = None
     humidity: float | None = None

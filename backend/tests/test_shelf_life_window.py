@@ -191,7 +191,11 @@ def test_inventory_facts_adds_the_window_without_touching_existing_facts():
     assert facts["inventory_eligible"] is True
     assert facts["remaining_days"] == 1 and facts["risk_as_of"] == now
     assert facts["shelf_life_window"] == shelf_life_window("1-3", SCANNED, now)
-    assert set(facts) == {"inventory_eligible", "remaining_days", "risk_as_of", "shelf_life_window"}
+    assert facts["ripeness_projection"] is None
+    assert set(facts) == {
+        "inventory_eligible", "remaining_days", "risk_as_of",
+        "shelf_life_window", "ripeness_projection",
+    }
     # The window does not depend on stock status or eligibility; pages decide what to show.
     for status in ("Sold", "Spoiled", "For Processing"):
         sold = inventory_facts(record, status, now)

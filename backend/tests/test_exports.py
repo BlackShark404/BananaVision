@@ -196,21 +196,22 @@ def test_scan_excel_and_pdf_filters_permissions_parity_and_csv_removal(
         assert data[0][2] == source.strip()
         assert data[0][3] == "Lakatan"
         assert data[0][4] == "Ripe"
-        assert data[0][5] == "Est. 0 fingers"
-        assert data[0][6] == "14–15 days"
-        assert data[0][7] == "14–15 days left"
-        assert data[0][8] == "In Stock"
-        assert data[0][9] == "Approved"
-        assert data[0][10] == "0.0"
+        assert data[0][5] == "Ripe"
+        assert data[0][6] == "Est. 0 fingers"
+        assert data[0][7] == "14–15 days"
+        assert data[0][8] == "14–15 days left"
+        assert data[0][9] == "In Stock"
+        assert data[0][10] == "Approved"
         assert data[0][11] == "0.0"
         assert data[0][12] == "0.0"
-        assert data[0][13] == "=SUM(1,2)"
+        assert data[0][13] == "0.0"
+        assert data[0][14] == "=SUM(1,2)"
         # Numeric spreadsheet cells for Confidence, Temperature, and Humidity (with 0.0 format).
-        assert rows[1]["K2"] == ("0.0", "n")
         assert rows[1]["L2"] == ("0.0", "n")
         assert rows[1]["M2"] == ("0.0", "n")
+        assert rows[1]["N2"] == ("0.0", "n")
         # Formula text stays safe inlineStr without Excel formula elements.
-        assert rows[1]["N2"] == ("=SUM(1,2)", "inlineStr")
+        assert rows[1]["O2"] == ("=SUM(1,2)", "inlineStr")
         columns = root.findall("m:cols/m:col", NS)
         assert all(12 <= float(column.attrib["width"]) <= 81 for column in columns)
         assert max(float(column.attrib["width"]) for column in columns) >= 80
@@ -342,28 +343,31 @@ def test_human_friendly_freshness_review_and_finger_count_rules(export_app, logs
         assert len(rows) == 6
 
         by_source = {row[2]: row for row in rows}
-        # Active scan: Scan Ref, Est. 14 fingers, 10–11 days, 8–9 days left, Approved, numeric 89.8/26.4/72.6.
+        # Active scan: Scan Ref, Scanned/Current Ripeness, Est. 14 fingers, 10–11 days, 8–9 days left, Approved, numeric 89.8/26.4/72.6.
         assert by_source["Davao Farm"][0] == format_scan_ref(active_id)
-        assert by_source["Davao Farm"][5:14] == [
-            "Est. 14 fingers", "10–11 days", "8–9 days left", "In Stock", "Approved",
+        assert by_source["Davao Farm"][4:15] == [
+            "Ripe", "Ripe", "Est. 14 fingers", "10–11 days", "8–9 days left", "In Stock", "Approved",
             "89.8", "26.4", "72.6", "Maria Santos",
         ]
-        # Final day scan: human-corrected count -> "12 fingers" (no Est.), Needs Review.
+        # Final day scan (Semi Ripe scanned 3 days ago with 2-3d shelf life): progressed to Est. Overripe, human-corrected count -> "12 fingers" (no Est.), Needs Review.
         assert by_source["Bukidnon Growers"][0] == format_scan_ref(final_id)
-        assert by_source["Bukidnon Growers"][3:11] == [
-            "Latundan", "Semi Ripe", "12 fingers", "2–3 days", "Final day",
+        assert by_source["Bukidnon Growers"][3:12] == [
+            "Latundan", "Semi Ripe", "Est. Overripe", "12 fingers", "2–3 days", "Final day",
             "In Stock", "Needs Review", "74.2",
         ]
-        # Overdue by 1 day: count unchanged from AI baseline -> "Est. 1 finger".
+        # Overdue by 1 day: already Overripe at scan -> plain "Overripe", count unchanged from AI baseline -> "Est. 1 finger".
         assert by_source["Cebu Co-op"][0] == format_scan_ref(overdue_id)
-        assert by_source["Cebu Co-op"][3:10] == [
-            "Cardaba", "Overripe", "Est. 1 finger", "3 days", "Overdue by 1 day",
+        assert by_source["Cebu Co-op"][3:11] == [
+            "Cardaba", "Overripe", "Overripe", "Est. 1 finger", "3 days", "Overdue by 1 day",
             "In Stock", "Approved",
         ]
-        # Closed stock shows outcome, never countdown or raw floats.
-        assert by_source["Closed Sold"][7:9] == ["Sold", "Sold"]
-        assert by_source["Closed For Processing"][7:9] == ["For Processing", "For Processing"]
-        assert by_source["Closed Spoiled"][7:9] == ["Spoiled", "Spoiled"]
+        # Closed stock freezes Est. Current Ripeness to "—" and shows outcome in Freshness/Inventory Status.
+        assert by_source["Closed Sold"][5] == "—"
+        assert by_source["Closed Sold"][8:10] == ["Sold", "Sold"]
+        assert by_source["Closed For Processing"][5] == "—"
+        assert by_source["Closed For Processing"][8:10] == ["For Processing", "For Processing"]
+        assert by_source["Closed Spoiled"][5] == "—"
+        assert by_source["Closed Spoiled"][8:10] == ["Spoiled", "Spoiled"]
 
         # PDF parity: every formatted value from XLSX (including Scan Ref) is present in the PDF output.
         _, pdf_text = extract_pdf_text(pdf_resp.content)
@@ -395,9 +399,9 @@ def test_config_excel_and_pdf_same_complete_summary_and_admin_scope(export_app, 
         assert len(rows) == 15
         assert rows[0][0] == format_scan_ref(ids[0])
         assert rows[0][2] == "Farm 00"
-        assert rows[0][6] == "4–5 days"
-        assert rows[0][10] == "85.5"
-        assert rows[0][13] == "Juan Dela Cruz"
+        assert rows[0][7] == "4–5 days"
+        assert rows[0][11] == "85.5"
+        assert rows[0][14] == "Juan Dela Cruz"
 
         pdf_result = client.get("/api/v1/config/export", params={"format": "pdf"})
         assert pdf_result.status_code == 200
@@ -427,19 +431,19 @@ def test_xlsx_preserves_whitespace_and_null_optional_values_are_blank(export_app
         assert xlsx_result.status_code == 200, xlsx_result.text
         root, rows = workbook_rows(xlsx_result.content)
         assert rows[1]["A2"] == (format_scan_ref(identifier), "inlineStr")
-        assert rows[1]["N2"] == ("  00123  ", "inlineStr")
+        assert rows[1]["O2"] == ("  00123  ", "inlineStr")
         assert root.findall("m:sheetData/m:row", NS)[1].find(
-            "m:c[@r='N2']/m:is/m:t", NS,
+            "m:c[@r='O2']/m:is/m:t", NS,
         ).attrib[XML_SPACE] == "preserve"
-        # Optional fields (Source, Cultivar, Ripeness, Shelf Life, Freshness, Confidence, Temp, Humidity) are blank.
-        for ref in ("C2", "D2", "E2", "G2", "H2", "K2", "L2", "M2"):
+        # Optional fields (Source, Cultivar, Scanned Ripeness, Est. Current Ripeness, Shelf Life, Freshness, Confidence, Temp, Humidity) are blank.
+        for ref in ("C2", "D2", "E2", "F2", "H2", "I2", "L2", "M2", "N2"):
             assert rows[1][ref][0] is None, (ref, rows[1][ref])
 
         export_app.dependency_overrides[get_current_user] = lambda: admin
         config_xlsx = client.get("/api/v1/config/export", params={"format": "xlsx"})
         assert config_xlsx.status_code == 200, config_xlsx.text
         _, config_rows = workbook_rows(config_xlsx.content)
-        for ref in ("C2", "D2", "E2", "G2", "H2", "K2", "L2", "M2"):
+        for ref in ("C2", "D2", "E2", "F2", "H2", "I2", "L2", "M2", "N2"):
             assert config_rows[1][ref][0] is None, (ref, config_rows[1][ref])
 
 

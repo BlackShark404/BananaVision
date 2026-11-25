@@ -26,6 +26,7 @@ from app.models.operator_profile import OperatorProfile
 from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.models.supplier import Supplier
 from app.models.user_account import UserAccount
+from app.schemas.enums import RipenessEnum
 from app.schemas.scan_logs import (
     OperatorOption,
     ScanLogList,
@@ -37,7 +38,7 @@ from app.schemas.scan_logs import (
     SourceOption,
 )
 from app.services import dashboard
-from app.services.inventory_policy import eligible_stock, shelf_life_window
+from app.services.inventory_policy import eligible_stock, ripeness_projection, shelf_life_window
 from app.services.scan_evidence import thumbnail_url
 from app.services.scan_snapshots import (
     MAX_ROWS,
@@ -46,6 +47,7 @@ from app.services.scan_snapshots import (
     save_snapshot,
     slice_snapshot,
 )
+from app.services.spoilage import RIPENESS_STAGES
 
 EXPORT_HEADERS = SCAN_EXPORT_HEADERS
 
@@ -64,10 +66,19 @@ def _conditions(scans, query: ScanLogQuery, threshold: float):
             func.btrim(scans.c.original_source_text, dashboard.WHITESPACE) == name,
             func.btrim(scans.c.legacy_intake_source, dashboard.WHITESPACE) == name,
         ))
-    for name in ("operator_id", "intake_id", "cultivar", "ripeness", "inventory_status"):
+    for name in ("operator_id", "intake_id", "cultivar", "inventory_status"):
         value = getattr(query, name)
         if value is not None:
             conditions.append(getattr(scans.c, name) == value)
+    if query.ripeness is not None:
+        if query.ripeness_scope == "current":
+            # Ripeness only advances monotonically, so any row currently at `query.ripeness`
+            # must have been scanned at or before that stage.
+            idx = RIPENESS_STAGES.index(query.ripeness.value)
+            allowed = [RipenessEnum(stage) for stage in RIPENESS_STAGES[: idx + 1]]
+            conditions.append(scans.c.ripeness.in_(allowed))
+        else:
+            conditions.append(scans.c.ripeness == query.ripeness)
     if query.stock_eligible:
         conditions.append(eligible_stock(scans))
     if query.flagged_only and query.attention != "review":
@@ -117,6 +128,28 @@ def _ordering(scans, query: ScanLogQuery):
     primary = column.asc() if query.direction == "asc" else column.desc()
     # A stable ID tiebreak prevents rows moving between pages with equal values.
     return [primary.nulls_last(), scans.c.date_time.desc(), scans.c.id.desc()]
+
+
+def _uses_current_ripeness_filter(query: ScanLogQuery) -> bool:
+    return query.ripeness is not None and query.ripeness_scope == "current"
+
+
+def _row_matches_current_ripeness(row, query: ScanLogQuery, now: datetime) -> bool:
+    if not _uses_current_ripeness_filter(query):
+        return True
+    projection = ripeness_projection(
+        row.ripeness,
+        row.cultivar,
+        row.spoilage_days,
+        row.date_time,
+        now,
+        temperature=getattr(row, "temperature", None),
+        humidity=getattr(row, "humidity", None),
+        vpd=getattr(row, "vpd", None),
+        treatment=getattr(row, "treatment", None),
+        inventory_status=row.inventory_status,
+    )
+    return projection is not None and projection["current_ripeness"] == query.ripeness.value
 
 
 def _row(row, now: datetime) -> ScanLogRow:
@@ -239,6 +272,12 @@ async def _new_scan_count(
             boundary,
             and_(scans.c.date_time == since, scans.c.id > UUID(watermark_id)),
         )
+    if _uses_current_ripeness_filter(query):
+        now = dashboard.now_manila()
+        rows = (await db.execute(
+            select(scans).where(*_conditions(scans, query, threshold), boundary)
+        )).all()
+        return sum(1 for row in rows if _row_matches_current_ripeness(row, query, now))
     total = await db.scalar(
         select(func.count()).select_from(scans)
         .where(*_conditions(scans, query, threshold), boundary)
@@ -275,6 +314,25 @@ async def reconcile_scan_logs(
     scans = dashboard._scoped_projection(user, now)
     threshold = await dashboard._threshold(db)
     conditions = _conditions(scans, query, threshold)
+    if _uses_current_ripeness_filter(query):
+        all_rows = (await db.execute(
+            select(scans, dashboard._expiring(scans).label("at_risk")).where(*conditions)
+        )).all()
+        matched = [row for row in all_rows if _row_matches_current_ripeness(row, query, now)]
+        scores = [float(row.confidence) for row in matched if row.confidence is not None]
+        id_set = set(identifiers)
+        current = {row.id: row for row in matched if row.id in id_set}
+        ordered = [current[identifier] for identifier in identifiers if identifier in current]
+        return ScanLogReconciliation(
+            snapshot_id=saved.id, items=[_row(row, now) for row in ordered],
+            at_risk_ids=[row.id for row in ordered if row.at_risk],
+            total=len(matched),
+            avg_confidence=dashboard._mean(sum(scores) / len(scores)) if scores else None,
+            at_risk_count=sum(bool(row.at_risk) for row in matched),
+            review_count=sum(bool(row.flagged) for row in matched),
+            flagged_count=sum(bool(row.flagged) for row in matched),
+            confidence_threshold=threshold, generated_at=now,
+        )
     metrics_query = (
         select(
             func.count().label("live_total"),
@@ -322,14 +380,18 @@ async def list_scan_logs(
     threshold = await dashboard._threshold(db)
     conditions = _conditions(scans, query, threshold)
     if query.stable:
-        raw = (
-            await db.execute(
-                select(scans, dashboard._expiring(scans).label("at_risk"))
-                .where(*conditions)
-                .order_by(*_ordering(scans, query))
-                .limit(MAX_ROWS + 1)
-            )
-        ).all()
+        statement = (
+            select(scans, dashboard._expiring(scans).label("at_risk"))
+            .where(*conditions)
+            .order_by(*_ordering(scans, query))
+        )
+        if not _uses_current_ripeness_filter(query):
+            statement = statement.limit(MAX_ROWS + 1)
+        raw = (await db.execute(statement)).all()
+        if _uses_current_ripeness_filter(query):
+            raw = [row for row in raw if _row_matches_current_ripeness(row, query, now)]
+            if len(raw) > MAX_ROWS:
+                raw = raw[: MAX_ROWS + 1]
         rows = [_row(row, now) for row in raw]
         scores = [row.confidence for row in rows if row.confidence is not None]
         watermark_row = max(
@@ -380,6 +442,26 @@ async def list_scan_logs(
             },
         )
         return ScanLogList(**slice_snapshot(saved, query.page, query.page_size))
+    if _uses_current_ripeness_filter(query):
+        all_rows = (await db.execute(
+            select(scans, dashboard._expiring(scans).label("at_risk"))
+            .where(*conditions)
+            .order_by(*_ordering(scans, query))
+        )).all()
+        matched = [row for row in all_rows if _row_matches_current_ripeness(row, query, now)]
+        scores = [float(row.confidence) for row in matched if row.confidence is not None]
+        start = (query.page - 1) * query.page_size
+        page_rows = matched[start : start + query.page_size]
+        return ScanLogList(
+            items=[_row(row, now) for row in page_rows], total=len(matched),
+            page=query.page, page_size=query.page_size,
+            avg_confidence=dashboard._mean(sum(scores) / len(scores)) if scores else None,
+            at_risk_count=sum(bool(row.at_risk) for row in matched),
+            review_count=sum(bool(row.flagged) for row in matched),
+            flagged_count=sum(bool(row.flagged) for row in matched),
+            generated_at=now, confidence_threshold=threshold,
+            options=await _options(db, scans),
+        )
     metrics = (await db.execute(
         select(
             func.count().label("total"),
@@ -460,7 +542,8 @@ async def _export_filter_summary(db: AsyncSession, query: ScanLogQuery) -> list[
     if query.cultivar is not None:
         parts.append(f"Cultivar: {query.cultivar.value}")
     if query.ripeness is not None:
-        parts.append(f"Ripeness: {query.ripeness.value}")
+        label = "Est. Current Ripeness" if query.ripeness_scope == "current" else "Scanned Ripeness"
+        parts.append(f"{label}: {query.ripeness.value}")
     if query.inventory_status is not None:
         parts.append(f"Status: {query.inventory_status.value}")
     if query.stock_eligible:
@@ -523,7 +606,7 @@ async def _collect_export_data(
     else:
         result = await db.stream(statement)
 
-    collected: list[tuple[ScanLogRow, int | None, int | None, dict | None]] = []
+    collected: list[tuple[ScanLogRow, int | None, int | None, dict | None, dict | None]] = []
     overridden_ids: list[UUID] = []
     try:
         async for batch in result.partitions(200):
@@ -534,17 +617,36 @@ async def _collect_export_data(
                     finger_count = row.finger_count if has_finger_count else None
                     original_finger_count = raw.get("_original_finger_count")
                     window = shelf_life_window(row.spoilage_days, row.date_time, as_of)
-                    collected.append((row, finger_count, original_finger_count, window))
+                    projection = ripeness_projection(
+                        row.ripeness,
+                        row.cultivar,
+                        row.spoilage_days,
+                        row.date_time,
+                        as_of,
+                        temperature=row.temperature,
+                        humidity=row.humidity,
+                        vpd=row.vpd,
+                        treatment=row.treatment,
+                        inventory_status=row.inventory_status,
+                    )
+                    collected.append((row, finger_count, original_finger_count, window, projection))
                 else:
+                    if not _row_matches_current_ripeness(raw, query, as_of):
+                        continue
                     row = _row(raw, as_of)
                     window = (
                         row.shelf_life_window.model_dump()
                         if row.shelf_life_window is not None
                         else None
                     )
+                    projection = (
+                        row.ripeness_projection.model_dump()
+                        if row.ripeness_projection is not None
+                        else None
+                    )
                     if row.is_overridden:
                         overridden_ids.append(row.id)
-                    collected.append((row, raw.finger_count, None, window))
+                    collected.append((row, raw.finger_count, None, window, projection))
     finally:
         await result.close()
 
@@ -556,7 +658,7 @@ async def _collect_export_data(
             )
 
     formatted_rows: list[list[ExportCell]] = []
-    for row, finger_count, snapshot_original, window in collected:
+    for row, finger_count, snapshot_original, window, projection in collected:
         source = "" if row.source_key == "unknown" else row.source_name
         original_finger_count = (
             snapshot_original if query.snapshot_id else original_counts.get(row.id)
@@ -576,9 +678,12 @@ async def _collect_export_data(
             confidence=row.confidence,
             temperature=row.temperature,
             humidity=row.humidity,
+            vpd=row.vpd,
+            treatment=row.treatment,
             operator_name=row.operator_name,
             as_of=as_of,
             shelf_life=window,
+            ripeness_proj=projection,
         ))
 
     filters = await _export_filter_summary(db, query)

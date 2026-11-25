@@ -1,4 +1,92 @@
-CURRENT RESUME HERE (2026-11-25) - ANALYTICS CONFIDENCE VS. VERIFIED ACCURACY (COMPLIANCE ITEM #2)
+CURRENT RESUME HERE (2026-11-25) - LIVE DERIVED-ON-READ RIPENESS PROGRESSION & ICON AUDIT
+
+USER REQUEST (2026-11-25)
+- Replace all raw Unicode UI emojis across `frontend/src/` with `lucide-react` icons and add a
+  permanent icon rule in `AGENTS.md` + ICM.
+- Implement derived-on-read live ripeness progression (Unripe -> Semi Ripe -> Ripe -> Overripe)
+  grounded in `spoilage_rfr.joblib` across Scan Logs, Scan Details, Quality Control, Inventory,
+  Dashboard, Public Scan View, and Excel/PDF exports with zero DB migration, `ripeness_scope=current`
+  Inventory -> Scan Logs filter parity (Option A), and dedicated `Scanned Ripeness` +
+  `Est. Current Ripeness` export columns.
+
+DONE
+- UI icon audit & standing rule:
+  - Replaced all raw Unicode UI emojis/dingbat icons in `ScanDetail.tsx`, `Kiosk.tsx`,
+    `PublicScanView.tsx`, and `Profile.tsx` with `lucide-react` (`Thermometer`, `Droplets`, `Wind`,
+    `Leaf`, `FlaskConical`, `Banana`, `Check`). Verified 0 emoji hits across `frontend/src/`.
+  - Added standing `lucide-react` / no-emoji rule to `AGENTS.md` and ICM (`01M88QN59RND3N2Q66FVX191SV`).
+- Backend live ripeness projection (zero DB migration):
+  - `backend/app/services/spoilage.py`: added LRU-cached, single-threaded (`n_jobs=1`) batched
+    `stage_lifetimes(...)` on `SpoilagePredictor` (360/360 strictly monotonic on `spoilage_rfr.joblib`)
+    plus strictly monotonic unrounded fallback midpoints when `.joblib` is absent.
+  - `backend/app/schemas/shelf_life.py`, `dashboard.py`, `scan.py`, `scan_logs.py`: added
+    `RipenessProjection`, `DashboardScan.treatment`, and `ScanLogQuery.ripeness_scope`.
+  - `backend/app/services/inventory_policy.py`: added `ripeness_projection(...)` using
+    `elapsed_manila_days` and proportional scaling to stored `spoilage_days` (preserving Day-0 anchor
+    on admin overrides/legacy ranges, freezing closed stock on staff views, and keeping Public QR
+    advancing alongside its countdown). Attached in `inventory_facts`, `dashboard._scan`,
+    `scan_records.partial_scan_event_payload`, and `api/v1/scans.py::public_scan_track`.
+  - `backend/app/services/dashboard.py`: selected `ScanClassification.treatment` in `_scoped_projection`.
+  - `backend/app/services/scan_snapshots.py`: strips both `shelf_life_window` and
+    `ripeness_projection` before 20 MiB checks and rebuilds both in `slice_snapshot`.
+  - `backend/app/services/scan_logs.py`: implemented `ripeness_scope=current` across list, stable
+    snapshots, reconcile, pending counts, and XLSX/PDF exports (with monotonic SQL pre-filter).
+  - `backend/app/core/export_format.py` & `backend/app/api/v1/config.py`: updated canonical
+    `SCAN_EXPORT_HEADERS` to 15 columns (`Scanned Ripeness` + `Est. Current Ripeness`, `—` for closed
+    stock) with verified 744pt landscape PDF layout and intact `SCAN-XXXXXXXX` refs.
+  - Analytics (`human_verified_accuracy`, Confidence vs. Verified Accuracy, ripeness charts) and
+    stored DB values remain strictly anchored to scan-time classification.
+- Frontend live ripeness projection & surfaces:
+  - `frontend/src/lib/ripenessProjection.ts`: Asia/Manila midnight rollover mirroring
+    `shelfLifeWindow.ts`, slow-clock monotonic guard, and closed-status freeze.
+  - Synced `types/dashboard.ts`, `types/scanLogs.ts`, `types/index.ts`, `lib/scanData.ts`,
+    `lib/api.ts`, `lib/scanLogFilters.ts`, `lib/exportUtils.ts` (15-column parity),
+    `context/ScanContext.tsx` (merges `ripenessProjection` on partial `scan:changed` WebSocket
+    events), and `components/AppStatusBadge.tsx` (`label` prop).
+  - Updated `Logs.tsx` (two-line `Est.` ripeness + `ripeness_scope=current` chip), `ScanDetail.tsx`
+    (projected badge + scanned anchor note; Edit dialog keeps scanned anchor), `Dashboard.tsx`
+    (Recent Scans two-line badge), `QualityControl.tsx` (scanned ripeness primary + muted
+    `Now Est. ...` hint), `Inventory.tsx` (Stock by Ripeness & Spoiling Soon grouped by projected
+    current ripeness, linking with `ripeness_scope=current`), and `PublicScanView.tsx` (projected
+    badge + `Scanned as ...` inside details).
+- Tests & Docs:
+  - Added `backend/tests/test_ripeness_projection.py` and `frontend/tests/ripenessProjection.test.mjs`;
+    updated `test_exports.py`, `test_estimate_wording.py`, `test_shelf_life_window.py`,
+    `clientexports.test.mjs`, `scanlogfilters.test.mjs`, `persistence.test.mjs`,
+    `public-scan.test.mjs`, `scanrecords.test.mjs`, and `dashboard.test.mjs`.
+  - Synced `docs/knowledge/Development Decisions.md`, `docs/knowledge/Frontend.md`, Graphify
+    (6948 nodes, 20704 edges, 321 communities), and ICM (`01M88TPGJDFTRWEMYH8KES11F9`).
+
+VERIFIED (2026-11-25)
+- Scoped diff review: audited full backend/frontend diff and `shelf_life_window` parity; caught and
+  fixed missing `ripenessProjection` merge on partial WebSocket events in `ScanContext.tsx`.
+- Backend pytest (11 affected suites from isolated temp dir): 229 passed, 4 skipped (Windows
+  `time.tzset`), 0 failed.
+- Disposable PostgreSQL 18 pytest (`test_scan_logs_reconciliation_postgresql.py`,
+  `test_scan_records_postgresql.py`, `test_scan_trigger_postgresql.py`, isolated temp cluster on
+  `127.0.0.1:55439`, stopped and removed after run): 13 passed, 0 failed.
+- Backend Ruff (`uvx ruff check --config backend/pyproject.toml`): 0 new diagnostics across all
+  touched/new backend files (pre-existing repo baseline: 736 total).
+- Real-RFR export check (`spoilage_rfr.joblib` loaded, Lakatan Natural `[14.4, 7.91, 5.09, 1.07]`):
+  verified 15-column `.xlsx` (`Scanned Ripeness` + `Est. Current Ripeness`: `Est. Ripe` aged In Stock,
+  plain `Unripe` Day-0, `—` closed `Sold`) and valid 2405-byte landscape `.pdf`.
+- Frontend unit + Playwright browser tests (9 suites via local `PLAYWRIGHT_MODULE`, covering Inventory
+  `ripeness_scope=current` click-through, Logs banner/Excel+PDF export forwarding/switch-to-scanned,
+  ScanDetail edit anchor, Quality Control primary+hint, Dashboard Recent Scans, Public QR closed-stock
+  progression, and ScanContext partial WS hydration): 206 passed, 0 failed, 0 skipped.
+- Zero Unicode emoji/pictograph UI hits across `frontend/src/**/*.{ts,tsx}`.
+- `npx tsc -b` passed; `npm run build` (`tsc -b && vite build`) passed (`frontend/dist` rebuilt).
+- `npm run lint`: 36 problems (31 errors, 5 warnings) — exact pre-existing baseline, 0 new diagnostics.
+- `git diff --check`: clean.
+- Live dev servers restarted via `dev.bat` (FastAPI `--reload` on port 8000, Vite on port 5173).
+- Not verified: live Chrome DevTools attachment to `http://localhost:5173` (Chrome remote debugging
+  disabled: `ENOENT: DevToolsActivePort`).
+
+EXACT NEXT STEP
+- All live ripeness progression changes are verified and committed on `main` (not pushed). Push to
+  remote when authorized, or open `http://localhost:5173` in Chrome to inspect live.
+
+PREVIOUS RESUME (2026-11-25) - ANALYTICS CONFIDENCE VS. VERIFIED ACCURACY (COMPLIANCE ITEM #2)
 
 USER REQUEST (2026-11-25)
 - Implement Compliance Item #2 ("analytics - confidence vs accuracy") by auditing and surfacing

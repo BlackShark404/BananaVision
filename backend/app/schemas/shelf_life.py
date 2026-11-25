@@ -23,3 +23,23 @@ class ShelfLifeWindow(BaseModel):
     state: Literal["active", "final_day", "expired"]
     scan_date: date
     as_of_date: date
+
+
+RipenessStage = Literal["Unripe", "Semi Ripe", "Ripe", "Overripe"]
+
+
+class RipenessProjection(BaseModel):
+    """Live time-progressed ripeness estimate, derived on read; never stored.
+
+    Anchored at `base_ripeness` (the scan-time or admin-verified classification)
+    and advanced monotonically in whole Asia/Manila calendar days using the
+    RFR stage thresholds (or monotonic fallback ratios).
+    """
+
+    base_ripeness: RipenessStage
+    current_ripeness: RipenessStage
+    progressed: bool
+    elapsed_days: int
+    transitions: dict[RipenessStage, int]
+    scan_date: date
+    as_of_date: date

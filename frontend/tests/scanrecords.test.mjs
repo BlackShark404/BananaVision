@@ -1393,3 +1393,95 @@ test('ScanDetail moving stock to Sold says the scan leaves stock', async t => {
   const { note } = await changeStatus(t, 'In Stock', 'Sold', 'Dispatched')
   assert.equal(note, 'The scan leaves stock. This change will be recorded in the scan history.')
 })
+
+for (const screen of ['logs', 'detail']) {
+  test(`${screen} shows Est. projected ripeness with scanned anchor and freezes closed stock`, async t => {
+    const projected = {
+      ...scan(),
+      ripeness: 'Unripe',
+      inventory_status: 'In Stock',
+      ripeness_projection: {
+        base_ripeness: 'Unripe',
+        current_ripeness: 'Ripe',
+        progressed: true,
+        elapsed_days: 10,
+        transitions: { 'Semi Ripe': 7, Ripe: 10, Overripe: 14 },
+        scan_date: '2026-09-22',
+        as_of_date: '2026-10-02',
+      },
+    }
+    const { page } = await setup(t, 200, { screen, record: projected })
+    await page.getByText('Est. Ripe', { exact: true }).waitFor()
+    await page.getByText('Unripe at scan', { exact: true }).waitFor()
+    if (screen === 'detail') {
+      await page.getByRole('button', { name: 'Edit', exact: true }).click()
+      await page.locator('#edit-ripeness').getByText('Unripe', { exact: true }).waitFor()
+    }
+  })
+
+  test(`${screen} freezes closed-status ripeness at the scanned stage`, async t => {
+    const closed = {
+      ...scan(),
+      ripeness: 'Unripe',
+      inventory_status: 'Sold',
+      ripeness_projection: {
+        base_ripeness: 'Unripe',
+        current_ripeness: 'Ripe',
+        progressed: true,
+        elapsed_days: 10,
+        transitions: { 'Semi Ripe': 7, Ripe: 10, Overripe: 14 },
+        scan_date: '2026-09-22',
+        as_of_date: '2026-10-02',
+      },
+    }
+    const { page } = await setup(t, 200, { screen, record: closed })
+    await page.getByText('Unripe', { exact: true }).first().waitFor()
+    assert.equal(await page.getByText('Est. Ripe', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('Unripe at scan', { exact: true }).count(), 0)
+  })
+}
+
+test('Logs ripeness_scope=current shows banner, forwards scope to Excel/PDF exports, and clears on switch', async t => {
+  const projected = {
+    ...scan(),
+    ripeness: 'Unripe',
+    inventory_status: 'In Stock',
+    ripeness_projection: {
+      base_ripeness: 'Unripe',
+      current_ripeness: 'Ripe',
+      progressed: true,
+      elapsed_days: 10,
+      transitions: { 'Semi Ripe': 7, Ripe: 10, Overripe: 14 },
+      scan_date: '2026-09-22',
+      as_of_date: '2026-10-02',
+    },
+  }
+  const { page, state } = await setup(t, 200, {
+    screen: 'logs',
+    path: '/logs?status=In+Stock&ripeness=Ripe&ripeness_scope=current&stock=eligible',
+    record: projected,
+  })
+  await page.getByText('Est. Current Ripeness: Ripe', { exact: true }).waitFor()
+  await page.getByText('Est. Ripe', { exact: true }).waitFor()
+  await page.getByText('Unripe at scan', { exact: true }).waitFor()
+
+  const listReq = state.requests.find(req => req.path === '/api/v1/scan-logs')
+  assert.equal(listReq?.query.ripeness, 'Ripe')
+  assert.equal(listReq?.query.ripeness_scope, 'current')
+
+  await page.getByRole('button', { name: 'Export Excel' }).click()
+  await page.waitForTimeout(150)
+  await page.getByRole('button', { name: 'Export options' }).click()
+  await page.getByRole('menuitem', { name: /Export PDF/i }).click()
+  await page.waitForTimeout(150)
+
+  const exportReqs = state.requests.filter(req => req.path === '/api/v1/scan-logs/export')
+  assert.deepEqual(
+    exportReqs.map(req => [req.query.format, req.query.ripeness, req.query.ripeness_scope]),
+    [['xlsx', 'Ripe', 'current'], ['pdf', 'Ripe', 'current']],
+  )
+
+  await page.getByRole('button', { name: 'Switch to scanned ripeness' }).click()
+  await page.waitForFunction(() => !new URL(window.location.href).searchParams.has('ripeness_scope'))
+  assert.equal(await page.getByText('Est. Current Ripeness: Ripe', { exact: true }).count(), 0)
+})

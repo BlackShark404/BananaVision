@@ -14,6 +14,7 @@ import { fingerCountIsEstimate, fingerCountText } from "./estimates"
 import { remainingStockDays } from "./inventoryRisk"
 import { formatManilaDateTime } from "./manilaTime"
 import { buildPdfBlob, type PdfExportOptions } from "./pdfExport"
+import { liveRipeness } from "./ripenessProjection"
 import { liveShelfLife } from "./shelfLifeWindow"
 import { closedStockSpoilageLabel, formatSpoilageDays } from "./spoilageDisplay"
 
@@ -53,7 +54,8 @@ export const SCAN_EXPORT_HEADERS: string[] = [
   "Date & Time",
   "Source / Supplier",
   "Cultivar",
-  "Ripeness",
+  "Scanned Ripeness",
+  "Est. Current Ripeness",
   "Est. Fingers",
   "Est. Shelf Life (Original)",
   "Est. Time Left / Freshness",
@@ -64,6 +66,15 @@ export const SCAN_EXPORT_HEADERS: string[] = [
   "Humidity (%)",
   "Operator",
 ]
+
+function formatScanCurrentRipeness(scan: ScanResult, now: number): string {
+  const base = scan.ripeness && scan.ripeness !== "Unknown" ? scan.ripeness : ""
+  if (!base) return ""
+  const status = scan.inventoryStatus || "In Stock"
+  if (closedStockSpoilageLabel(status) !== null) return "—"
+  const live = liveRipeness(scan.ripenessProjection, now, status)
+  return live ? live.badgeLabel : base
+}
 
 function formatScanFreshness(scan: ScanResult, now: number): string {
   const status = scan.inventoryStatus || "In Stock"
@@ -90,7 +101,7 @@ function formatScanFreshness(scan: ScanResult, now: number): string {
   return ""
 }
 
-/** Formats one scan into the 14 human-friendly cells matching SCAN_EXPORT_HEADERS. */
+/** Formats one scan into the 15 human-friendly cells matching SCAN_EXPORT_HEADERS. */
 export function formatScanExportRow(scan: ScanResult, now: number): ExportCellValue[] {
   const shelfLife = formatSpoilageDays(scan.spoilageDays)
   const hasFingerCount = typeof scan.fingerCount === "number"
@@ -101,6 +112,7 @@ export function formatScanExportRow(scan: ScanResult, now: number): ExportCellVa
     scan.source?.trim() || "",
     scan.cultivar && scan.cultivar !== "Unknown" ? scan.cultivar : "",
     scan.ripeness && scan.ripeness !== "Unknown" ? scan.ripeness : "",
+    formatScanCurrentRipeness(scan, now),
     hasFingerCount ? fingerCountText(scan.fingerCount, fingerCountIsEstimate(scan)) : "",
     shelfLife === "Unknown" ? "" : shelfLife,
     formatScanFreshness(scan, now),

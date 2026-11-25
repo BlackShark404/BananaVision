@@ -2,6 +2,22 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-25: Derived-on-read live ripeness progression
+
+- **Architecture:** Mirrors `shelf_life_window` — stored `scan_classification.ripeness` and `scan_original_ai_result.ripeness` are never mutated in PostgreSQL, and no database migration is required.
+- **RFR + YOLO grounding (`backend/app/services/spoilage.py`, `backend/app/services/inventory_policy.py`):**
+  - Multi-view YOLO + `FusionEngine` establishes the immutable scan-time ripeness anchor (`base_ripeness`).
+  - `SpoilagePredictor.stage_lifetimes(cultivar, temp, humidity, vpd, treatment)` evaluates all 4 ripeness stages (`Unripe`, `Semi Ripe`, `Ripe`, `Overripe`) in one batched `n_jobs=1` NumPy call behind an LRU cache (`maxsize=2048`), verified strictly monotonic across 360 / 360 `(18–36°C × 40–90% RH × Natural/Ethephon × Lakatan/Latundan/Cardaba)` combinations on `spoilage_rfr.joblib`. When the `.joblib` model is absent, strictly monotonic unrounded cultivar midpoints are used instead of the rounded `_fallback_predict` strings.
+  - Transition days are scaled proportionally to stored `spoilage_days` (`cutoff_k = S * (T_k / T_s0)`, `transition_day_k = max(1, ceil(S - cutoff_k))`) so unmodified RFR scans hit exact RFR thresholds while admin-overridden heuristic ranges remain anchored on Day 0 and never jump prematurely.
+  - Advances monotonically in whole `Asia/Manila` calendar days (`elapsed_manila_days`), freezing at the stored ripeness for closed inventory statuses (`Sold`, `For Processing`, `Spoiled`) on staff views while continuing alongside the countdown on Public QR (`respect_closed_status=False`).
+  - `dashboard._scoped_projection` now includes `ScanClassification.treatment`; `scan_snapshots.py` strips `ripeness_projection` before the 20 MiB budget check and rebuilds it in `slice_snapshot`.
+- **Inventory → Scan Logs filter parity (Option A):** Added `ripeness_scope=scanned|current` (default `scanned`) to `GET /api/v1/scan-logs`, `/pending`, `/reconcile`, and `/export` using a monotonic SQL pre-filter plus cached projection evaluation before pagination/snapshots. Inventory's Stock by Ripeness bars and unlinked Spoilage Alerts link with `ripeness_scope=current` so counts match 1:1.
+- **UI & Exports:**
+  - Scan Logs, Scan Details, and Dashboard Recent Scans render projected stages as `Est. <Stage>` (matching `AppStatusBadge` ripeness colors via optional `label` prop) with `<Base> at scan` beneath when progressed; Edit dialogs keep editing the scanned/verified anchor.
+  - Quality Control keeps **scanned/observed ripeness** primary so static photo review stays unambiguous, showing only a muted `Now Est. <Stage>` hint when progressed.
+  - Analytics Verified Accuracy and historical ripeness charts stay strictly anchored to scan-time classification.
+  - Excel and PDF scan exports expand from 14 to 15 columns with **`Scanned Ripeness`** and **`Est. Current Ripeness`** (`—` when closed stock, blank when ripeness is missing) in exact XLSX/PDF parity.
+
 ## 2026-11-25: Analytics Model Confidence vs. Verified Accuracy
 
 - **Compliance Item #2:** surfaced real-world **Verified Accuracy** alongside **Model Confidence** on the Analytics page without renaming, removing, or mislabeling confidence metrics and with no database migration.

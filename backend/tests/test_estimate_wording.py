@@ -10,6 +10,7 @@ from app.services.scan_service import estimated_fingers
 def test_export_headers_mark_estimated_columns_and_exclude_programmer_fields():
     headers = scan_logs.EXPORT_HEADERS
     estimated = (
+        "Est. Current Ripeness",
         "Est. Fingers",
         "Est. Shelf Life (Original)",
         "Est. Time Left / Freshness",
@@ -17,18 +18,19 @@ def test_export_headers_mark_estimated_columns_and_exclude_programmer_fields():
     for name in estimated:
         assert name in headers
     for old in (
-        "Finger Count", "Original Shelf Life (days)", "Remaining Shelf Life (days)",
+        "Ripeness", "Finger Count", "Original Shelf Life (days)", "Remaining Shelf Life (days)",
         "Scan ID", "Intake ID", "Operator Username", "Overridden",
         "Status Updated At (UTC+08:00)", "VPD (kPa)",
     ):
         assert old not in headers
     # Measured, recorded, and identifier columns are not estimates.
     for exact in (
-        "Scan Ref", "Date & Time", "Temperature (°C)", "Humidity (%)", "Confidence (%)", "Operator",
+        "Scan Ref", "Date & Time", "Scanned Ripeness",
+        "Temperature (°C)", "Humidity (%)", "Confidence (%)", "Operator",
     ):
         assert exact in headers
     assert headers[0] == "Scan Ref"
-    assert len(headers) == len(set(headers)) == 14
+    assert len(headers) == len(set(headers)) == 15
 
 
 def test_export_finger_count_marks_ai_estimates_only():

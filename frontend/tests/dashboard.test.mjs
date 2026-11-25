@@ -262,3 +262,69 @@ test('operator success KPI opens exactly the all-time successful scan population
   await page.waitForURL('**/logs?**')
   assert.deepEqual(Object.fromEntries(new URL(page.url()).searchParams), { attention: 'success' })
 })
+
+test("Dashboard Recent Scans shows Est. projected ripeness for aged In Stock scans and freezes closed stock", async t => {
+  const { page } = await setup(t, {
+    response: {
+      summary: summary({
+        recent_scans: [
+          {
+            id: "scan-aged-stock",
+            date_time: "2026-09-22T12:00:00+08:00",
+            cultivar: "Lakatan",
+            ripeness: "Unripe",
+            confidence: 92,
+            operator_id: "operator-1",
+            operator_name: "Alex Santos",
+            source_key: "supplier:source-1",
+            source_name: "Davao Farm",
+            inventory_status: "In Stock",
+            flagged: false,
+            spoilage_days: "14.4",
+            remaining_days: 4.4,
+            treatment: "Natural",
+            ripeness_projection: {
+              base_ripeness: "Unripe",
+              current_ripeness: "Ripe",
+              progressed: true,
+              elapsed_days: 10,
+              transitions: { "Semi Ripe": 7, Ripe: 10, Overripe: 14 },
+              scan_date: "2026-09-22",
+              as_of_date: "2026-10-02",
+            },
+          },
+          {
+            id: "scan-aged-sold",
+            date_time: "2026-09-22T12:00:00+08:00",
+            cultivar: "Cardaba",
+            ripeness: "Semi Ripe",
+            confidence: 88,
+            operator_id: "operator-1",
+            operator_name: "Alex Santos",
+            source_key: "supplier:source-1",
+            source_name: "Sold Farm",
+            inventory_status: "Sold",
+            flagged: false,
+            spoilage_days: "10",
+            remaining_days: 0,
+            treatment: "Natural",
+            ripeness_projection: {
+              base_ripeness: "Semi Ripe",
+              current_ripeness: "Overripe",
+              progressed: true,
+              elapsed_days: 10,
+              transitions: { Ripe: 3, Overripe: 7 },
+              scan_date: "2026-09-22",
+              as_of_date: "2026-10-02",
+            },
+          },
+        ],
+      }),
+    },
+  })
+  await page.getByText("Est. Ripe", { exact: true }).waitFor()
+  await page.getByText("Unripe at scan", { exact: true }).waitFor()
+  await page.getByText("Semi Ripe", { exact: true }).waitFor()
+  assert.equal(await page.getByText("Est. Overripe", { exact: true }).count(), 0)
+  assert.equal(await page.getByText("Semi Ripe at scan", { exact: true }).count(), 0)
+})

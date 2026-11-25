@@ -10,6 +10,7 @@ export interface ScanLogNavigation {
   status?: string
   cultivar?: string
   ripeness?: string
+  ripeness_scope?: "scanned" | "current"
   stock?: "eligible"
   sort?: ScanLogParams["sort"]
   direction?: ScanLogParams["direction"]
@@ -63,6 +64,8 @@ export function scanLogParams(params: URLSearchParams): ScanLogParams {
   const status = params.get("status")
   const rawPageSize = Number(params.get("limit") || params.get("page_size"))
   const pageSize = (VALID_PAGE_SIZES as readonly number[]).includes(rawPageSize) ? rawPageSize : 10
+  const ripeness = params.get("ripeness") || undefined
+  const ripenessScope = ripeness && params.get("ripeness_scope") === "current" ? "current" : undefined
   return {
     business_date: selectedScanLogDay(params) || undefined,
     source_key: params.get("source_key") || undefined,
@@ -70,7 +73,8 @@ export function scanLogParams(params: URLSearchParams): ScanLogParams {
     operator_id: params.get("operator_id") || undefined,
     intake_id: params.get("intake") || undefined,
     cultivar: params.get("cultivar") || undefined,
-    ripeness: params.get("ripeness") || undefined,
+    ripeness,
+    ripeness_scope: ripenessScope,
     inventory_status: status && status !== "Flagged" ? status : undefined,
     stock_eligible: params.get("stock") === "eligible",
     // The review queue is the flagged scans, so Status Flagged and attention=review agree.

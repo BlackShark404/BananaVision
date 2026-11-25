@@ -202,32 +202,34 @@ for (const screen of ["activity", "intakes", "quality"]) {
       assert.ok(pdfText.includes("INT-A1B2C300") && pdfText.includes("INT-A1B2C317") && pdfText.includes("Oct 2, 2026") && pdfText.includes("BATCH-00"))
     } else {
       assert.deepEqual(rows[0], [
-        "Scan Ref", "Date & Time", "Source / Supplier", "Cultivar", "Ripeness", "Est. Fingers",
+        "Scan Ref", "Date & Time", "Source / Supplier", "Cultivar",
+        "Scanned Ripeness", "Est. Current Ripeness", "Est. Fingers",
         "Est. Shelf Life (Original)", "Est. Time Left / Freshness", "Inventory Status",
         "Review Status", "Confidence (%)", "Temperature (°C)", "Humidity (%)", "Operator",
       ])
       // Row 0: Scan Ref first, readable timestamp with seconds, numeric Confidence/Temp/Humidity.
       assert.deepEqual(rows[1], [
-        "SCAN-DEB78E00", readableTimestamp, longText, "Lakatan", "Ripe", "Est. 0 fingers",
+        "SCAN-DEB78E00", readableTimestamp, longText, "Lakatan", "Ripe", "Ripe", "Est. 0 fingers",
         "3–4 days", "3–4 days left", "In Stock", "Needs Review", 0, 26.4, 72.6, "Export group 00",
       ])
-      assert.equal(sheet.getRow(2).getCell(11).numFmt, "0.0")
       assert.equal(sheet.getRow(2).getCell(12).numFmt, "0.0")
       assert.equal(sheet.getRow(2).getCell(13).numFmt, "0.0")
+      assert.equal(sheet.getRow(2).getCell(14).numFmt, "0.0")
       // Row 1: missing optional temp/humidity/source stay blank.
       assert.equal(rows[2][0], "SCAN-DEB78E01")
       assert.equal(rows[2][2], "")
-      assert.equal(rows[2][11], "")
       assert.equal(rows[2][12], "")
+      assert.equal(rows[2][13], "")
       // Row 2: human-corrected finger count drops "Est." prefix.
       assert.equal(rows[3][0], "SCAN-DEB78E02")
-      assert.equal(rows[3][5], "12 fingers")
-      assert.equal(rows[3][9], "Approved")
-      // Row 3: closed stock shows outcome ("Sold") instead of countdown.
-      assert.equal(rows[4][7], "Sold")
+      assert.equal(rows[3][6], "12 fingers")
+      assert.equal(rows[3][10], "Approved")
+      // Row 3: closed stock freezes Est. Current Ripeness to "—" and shows outcome ("Sold") in Freshness/Status.
+      assert.equal(rows[4][5], "—")
       assert.equal(rows[4][8], "Sold")
+      assert.equal(rows[4][9], "Sold")
       assert.equal(rows[18][0], "SCAN-DEB78E17")
-      assert.equal(rows[18][13], "Export group 17")
+      assert.equal(rows[18][14], "Export group 17")
       // PDF parity: short Scan Ref included, raw UUID and 15-digit float excluded, formatted values match.
       assert.ok(!pdfText.includes(scanUuid(0)))
       assert.ok(!pdfText.includes("3.545454"))

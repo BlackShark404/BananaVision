@@ -34,6 +34,7 @@ import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
 import { closedStockSpoilageLabel, formatSpoilageDays } from "@/lib/spoilageDisplay"
 import { liveShelfLifeLabel } from "@/lib/inventoryRisk"
+import { liveRipeness } from "@/lib/ripenessProjection"
 import { CULTIVARS, RIPENESS_LEVELS, type ScanResult, type Cultivar, type Ripeness } from "@/types"
 import { AppChangePreview } from "@/components/AppChangePreview"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -384,7 +385,23 @@ export default function QualityControl() {
     },
     {
       header: "Ripeness",
-      cell: (scan) => <AppStatusBadge type="ripeness" status={scan.ripeness} size="md" />,
+      cell: (scan) => {
+        // Keep the observed scan-time ripeness primary so static photo review stays unambiguous.
+        const live = liveRipeness(scan.ripenessProjection, now, scan.inventoryStatus)
+        return (
+          <div className="space-y-0.5">
+            <AppStatusBadge type="ripeness" status={scan.ripeness} size="md" />
+            {live?.progressed && (
+              <span
+                className="block text-[10px] text-muted-foreground"
+                title="Projected current ripeness for in-stock fruit; the badge above shows the observed ripeness in the scan photo"
+              >
+                Now {live.badgeLabel}
+              </span>
+            )}
+          </div>
+        )
+      },
     },
     {
       header: "Source",
@@ -792,6 +809,14 @@ export default function QualityControl() {
                       <CardContent className="p-4">
                         <Label className="text-xs text-muted-foreground">Ripeness</Label>
                         <p className="text-lg font-bold mt-1">{selectedScan.ripeness}</p>
+                        {(() => {
+                          const live = liveRipeness(selectedScan.ripenessProjection, now, selectedScan.inventoryStatus)
+                          return live?.progressed ? (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Now {live.badgeLabel} (projected)
+                            </p>
+                          ) : null
+                        })()}
                       </CardContent>
                     </Card>
                     <Card className="bg-muted/50">

@@ -361,3 +361,112 @@ test("an intake live event that arrives before its create response does not dupl
   assert.equal(current.intakes.filter(intake => intake.id === "intake-new").length, 1, "The create response must merge into the live row, not prepend a copy")
   assert.equal(current.activeIntake.id, "intake-new")
 })
+
+test("Inventory groups eligible stock by projected current ripeness and navigates with ripeness_scope=current", async t => {
+  const projectedScans = [
+    {
+      id: "scan-prog", revision: 1, date_time: "2026-09-22T12:00:00+08:00", cultivar: "Lakatan", ripeness: "Unripe",
+      confidence: 92, spoilage_days: "14.4", finger_count: 10, operator_name: "Test Admin", source_text: "Davao Farm",
+      inventory_status: "In Stock", intake_id: "intake-1", flagged: false, has_notes: false,
+      inventory_eligible: true, intake_provenance: "linked", remaining_days: 4.4, risk_as_of: "2026-10-02T12:00:00+08:00",
+      ripeness_projection: {
+        base_ripeness: "Unripe", current_ripeness: "Ripe", progressed: true, elapsed_days: 10,
+        transitions: { "Semi Ripe": 7, Ripe: 10, Overripe: 14 },
+        scan_date: "2026-09-22", as_of_date: "2026-10-02",
+      },
+    },
+    {
+      id: "scan-closed", revision: 1, date_time: "2026-09-22T12:00:00+08:00", cultivar: "Lakatan", ripeness: "Unripe",
+      confidence: 90, spoilage_days: "14.4", finger_count: 8, operator_name: "Test Admin", source_text: "Davao Farm",
+      inventory_status: "Sold", intake_id: "intake-1", flagged: false, has_notes: false,
+      inventory_eligible: false, intake_provenance: "linked", remaining_days: 4.4, risk_as_of: "2026-10-02T12:00:00+08:00",
+      ripeness_projection: {
+        base_ripeness: "Unripe", current_ripeness: "Unripe", progressed: false, elapsed_days: 0,
+        transitions: {}, scan_date: "2026-09-22", as_of_date: "2026-10-02",
+      },
+    },
+  ]
+  const { page } = await setup(t, { screen: "inventory", scans: projectedScans })
+  await page.getByText("Includes Est. time-progressed stages", { exact: true }).waitFor()
+  const ripeRow = page.getByText("Est. Ripe", { exact: true }).locator("../..")
+  await ripeRow.getByText("1 hands", { exact: true }).waitFor()
+  await page.getByText("Est. Ripe", { exact: true }).click()
+  const navigated = new URL(page.url())
+  assert.equal(navigated.pathname, "/logs")
+  assert.equal(navigated.searchParams.get("status"), "In Stock")
+  assert.equal(navigated.searchParams.get("ripeness"), "Ripe")
+  assert.equal(navigated.searchParams.get("ripeness_scope"), "current")
+  assert.equal(navigated.searchParams.get("stock"), "eligible")
+})
+
+test("Quality Control keeps scanned ripeness primary and shows projected ripeness only as a muted hint", async t => {
+  const projectedScans = [
+    {
+      id: "scan-0", revision: 1, date_time: "2026-09-22T12:00:00+08:00", cultivar: "Lakatan", ripeness: "Unripe",
+      confidence: 92, spoilage_days: "14.4", finger_count: 10, operator_name: "Test Admin", source_text: "Davao Farm",
+      inventory_status: "In Stock", intake_id: "intake-1", flagged: false, has_notes: false,
+      inventory_eligible: true, intake_provenance: "linked", remaining_days: 4.4, risk_as_of: "2026-10-02T12:00:00+08:00",
+      ripeness_projection: {
+        base_ripeness: "Unripe", current_ripeness: "Ripe", progressed: true, elapsed_days: 10,
+        transitions: { "Semi Ripe": 7, Ripe: 10, Overripe: 14 },
+        scan_date: "2026-09-22", as_of_date: "2026-10-02",
+      },
+    },
+  ]
+  const { page } = await setup(t, { screen: "quality", scans: projectedScans })
+  const row = page.locator("tbody tr").first()
+  await row.getByText("Unripe", { exact: true }).waitFor()
+  await row.getByText("Now Est. Ripe", { exact: true }).waitFor()
+  await row.click()
+  const dialog = page.getByRole("dialog")
+  await dialog.waitFor()
+  await dialog.getByText("Unripe", { exact: true }).waitFor()
+  await dialog.getByText("Now Est. Ripe (projected)", { exact: true }).waitFor()
+})
+
+test("ScanContext updates ripenessProjection on partial WebSocket scan:changed events", async t => {
+  const closedAged = [
+    {
+      id: "scan-0", revision: 1, date_time: "2026-09-22T12:00:00+08:00", cultivar: "Lakatan", ripeness: "Unripe",
+      confidence: 92, spoilage_days: "14.4", finger_count: 10, operator_name: "Test Admin", source_text: "Davao Farm",
+      inventory_status: "Sold", intake_id: "intake-1", flagged: false, has_notes: false,
+      inventory_eligible: false, intake_provenance: "linked", remaining_days: 4.4, risk_as_of: "2026-10-02T12:00:00+08:00",
+      ripeness_projection: {
+        base_ripeness: "Unripe", current_ripeness: "Unripe", progressed: false, elapsed_days: 0,
+        transitions: {}, scan_date: "2026-09-22", as_of_date: "2026-10-02",
+      },
+    },
+  ]
+  const { page } = await setup(t, { screen: "inventory", scans: closedAged })
+  await page.getByText("0 hands", { exact: true }).first().waitFor()
+  // Re-opening stock via a partial bulk event must hydrate the restored ripeness_projection.
+  await page.evaluate(() => {
+    window.dashboardSocket.emit("scan:changed", {
+      event_id: "evt-partial-reopen",
+      partial: true,
+      revision: 2,
+      kind: "status",
+      changed: ["inventory_status"],
+      scan: {
+        id: "scan-0",
+        revision: 2,
+        inventory_status: "In Stock",
+        inventory_eligible: true,
+        remaining_days: 4.4,
+        risk_as_of: "2026-10-02T12:00:00+08:00",
+        ripeness_projection: {
+          base_ripeness: "Unripe",
+          current_ripeness: "Ripe",
+          progressed: true,
+          elapsed_days: 10,
+          transitions: { "Semi Ripe": 7, Ripe: 10, Overripe: 14 },
+          scan_date: "2026-09-22",
+          as_of_date: "2026-10-02",
+        },
+      },
+    })
+  })
+  await page.getByText("Includes Est. time-progressed stages", { exact: true }).waitFor()
+  const ripeRow = page.getByText("Est. Ripe", { exact: true }).locator("../..")
+  await ripeRow.getByText("1 hands", { exact: true }).waitFor()
+})
