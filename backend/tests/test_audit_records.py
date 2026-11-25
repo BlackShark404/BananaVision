@@ -393,12 +393,12 @@ def test_manual_print_and_retry_are_each_logged_once(printer):
 
 def test_inventory_summary_export_is_logged(application):
     app = application
-    for kind in ("csv", "xlsx"):
+    for kind in ("xlsx", "pdf"):
         response = app.client.get("/api/v1/config/export", params={"format": kind})
         assert response.status_code == 200, response.text
     assert details(app, "data_exported") == [
-        "Exported inventory summary (csv): 1 scan",
         "Exported inventory summary (xlsx): 1 scan",
+        "Exported inventory summary (pdf): 1 scan",
     ]
 
 
@@ -408,7 +408,7 @@ def test_inventory_summary_export_fails_closed_without_its_audit_row(application
     response = app.client.get("/api/v1/config/export")
     app.state.fail_commit = False
     assert response.status_code == 500
-    assert "Scan ID" not in response.text
+    assert b"PK\x03\x04" not in response.content
     assert rows(app, "data_exported") == []
 
 
@@ -447,14 +447,15 @@ def test_scan_log_export_is_logged_with_format_scope_and_filters(logs):
         "page": 3,
     })
     assert response.status_code == 200, response.text
-    assert response.text.startswith("\ufeffScan ID,")
-    xlsx = app.client.get("/api/v1/scan-logs/export", params={"format": "xlsx"})
-    assert xlsx.status_code == 200, xlsx.text
+    assert response.content.startswith(b"PK\x03\x04")
+    pdf = app.client.get("/api/v1/scan-logs/export", params={"format": "pdf"})
+    assert pdf.status_code == 200, pdf.text
+    assert pdf.content.startswith(b"%PDF-1.4\n")
     # The export stream's session never commits; the audit row has its own transaction.
     assert details(app, "data_exported") == [
-        "Exported scan logs (csv, all accounts): filters cultivar Lakatan, "
+        "Exported scan logs (xlsx, all accounts): filters cultivar Lakatan, "
         "search 'Original Supplier'",
-        "Exported scan logs (xlsx, all accounts): filters none",
+        "Exported scan logs (pdf, all accounts): filters none",
     ]
     assert {row.user_id for row in rows(app, "data_exported")} == {app.ids.admin}
 
@@ -468,7 +469,7 @@ def test_scan_log_export_by_an_operator_names_its_scope(logs):
     response = app.client.get("/api/v1/scan-logs/export", params={"inventory_status": "Sold"})
     assert response.status_code == 200, response.text
     assert details(app, "data_exported") == [
-        "Exported scan logs (csv, own scans): filters inventory_status Sold"
+        "Exported scan logs (xlsx, own scans): filters inventory_status Sold"
     ]
 
 
@@ -540,16 +541,13 @@ async def test_snapshot_export_audit_row_does_not_wait_on_its_own_lock(station, 
         user = await stream.get(UserAccount, x.actors[0])
         query = ScanLogQuery(snapshot_id=saved.snapshot_id, stable=True)
         response = await scan_logs.scan_logs_export(peer, stream, user, query)
-        body = "".join([
-            chunk if isinstance(chunk, str) else chunk.decode()
-            async for chunk in response.body_iterator
-        ])
+        body = response.body
         await stream.rollback()
-    assert str(x.scan) in body
+    assert body.startswith(b"PK\x03\x04")
     async with x.sessions() as db:
         [row] = (await db.execute(
             select(ActivityLog).where(ActivityLog.action == "data_exported")
         )).scalars().all()
     assert row.user_id == x.actors[0] and row.ip_address == "10.0.0.7"
-    assert row.details.startswith("Exported scan logs (csv, all accounts): filters none")
+    assert row.details.startswith("Exported scan logs (xlsx, all accounts): filters none")
     assert f"snapshot {saved.snapshot_id}" in row.details

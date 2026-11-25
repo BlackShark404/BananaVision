@@ -68,7 +68,7 @@ async def save_snapshot(db, user, key, payload):
     if len(payload["items"]) > MAX_ROWS or len(json.dumps(payload).encode()) > MAX_BYTES:
         raise HTTPException(
             413,
-            "Too many records for a browse snapshot. Narrow the filters or use a full CSV export.",
+            "Too many records for a browse snapshot. Narrow the filters or use a full export.",
         )
     now = now_manila()
     await db.execute(delete(ScanSnapshot).where(ScanSnapshot.expires_at <= now))

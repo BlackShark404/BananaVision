@@ -1,11 +1,12 @@
-"""Lossless export contracts using isolated SQL fixtures and workbook XML."""
+"""Human-friendly Excel (.xlsx) and PDF (.pdf) export contracts and parity tests."""
 
 # Imported pytest fixtures intentionally share names with test parameters.
 # ruff: noqa: F811
 
-import csv
 import io
+import re
 import xml.etree.ElementTree as ET
+import zlib
 from datetime import timedelta
 from decimal import Decimal
 from types import SimpleNamespace
@@ -23,15 +24,23 @@ from app.api.deps import get_current_user
 from app.api.v1 import config
 from app.api.v1 import scan_logs as logs_api
 from app.core.database import Base, get_db, get_stream_db
+from app.core.export_format import SCAN_EXPORT_HEADERS
 from app.core.xlsx import number_text
+from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
-from app.schemas.scan_logs import ScanLogQuery
+from app.models.scan_original_ai_result import ScanOriginalAiResult
+from app.schemas.enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
 from app.services import auth_service, scan_logs
 from tests.test_dashboard import NOW, account, db, scan  # noqa: F401
 from tests.test_scan_logs import logs_db  # noqa: F401
 
 NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 XML_SPACE = "{http://www.w3.org/XML/1998/namespace}space"
+
+EXCLUDED_HEADERS = {
+    "Scan ID", "Intake ID", "Operator Username",
+    "Overridden", "Status Updated At", "Status Updated At (UTC+08:00)", "VPD (kPa)",
+}
 
 
 def workbook_rows(content, sheet="sheet1"):
@@ -50,6 +59,55 @@ def workbook_rows(content, sheet="sheet1"):
                 assert cell.find("m:f", NS) is None
             rows.append(cells)
         return root, rows
+
+
+def workbook_table(content, sheet="sheet1") -> tuple[list[str], list[list[str]]]:
+    _, raw_rows = workbook_rows(content, sheet=sheet)
+    col_count = len(raw_rows[0])
+    letters = [chr(65 + idx) for idx in range(col_count)]
+    headers = [raw_rows[0][f"{col}1"][0] or "" for col in letters]
+    data = [
+        [row[f"{col}{r_idx + 2}"][0] or "" for col in letters]
+        for r_idx, row in enumerate(raw_rows[1:])
+    ]
+    return headers, data
+
+
+def decode_pdf_literal(raw: str) -> str:
+    out = bytearray()
+    i = 0
+    while i < len(raw):
+        if raw[i] == "\\" and i + 1 < len(raw):
+            nxt = raw[i + 1]
+            if nxt in ("(", ")", "\\"):
+                out.append(ord(nxt))
+                i += 2
+                continue
+            if i + 3 < len(raw) and all(c in "01234567" for c in raw[i + 1:i + 4]):
+                out.append(int(raw[i + 1:i + 4], 8))
+                i += 4
+                continue
+        out.append(ord(raw[i]))
+        i += 1
+    return out.decode("cp1252")
+
+
+def extract_pdf_text(pdf_bytes: bytes) -> tuple[list[str], str]:
+    assert pdf_bytes.startswith(b"%PDF-1.4\n")
+    assert pdf_bytes.rstrip().endswith(b"%%EOF")
+    pages: list[str] = []
+    for match in re.finditer(rb"stream\n(.*?)\nendstream", pdf_bytes, flags=re.S):
+        raw_stream = match.group(1)
+        try:
+            decoded = zlib.decompress(raw_stream).decode("ascii")
+        except zlib.error:
+            decoded = raw_stream.decode("ascii", errors="replace")
+        tokens = [
+            decode_pdf_literal(tok.group(1))
+            for tok in re.finditer(r"\(((?:\\.|[^\\()])*)\)\s*Tj", decoded)
+        ]
+        pages.append(" ".join(tokens))
+    return pages, "\n".join(pages)
 
 
 @compiles(JSONB, "sqlite")
@@ -72,7 +130,7 @@ def export_app(logs_db):
     return app
 
 
-def test_scan_excel_all_rows_filters_permissions_and_full_text(
+def test_scan_excel_and_pdf_filters_permissions_parity_and_csv_removal(
     export_app, logs_db, monkeypatch,
 ):
     own, other = account(logs_db, name='=SUM(1,2)'), account(logs_db)
@@ -98,10 +156,15 @@ def test_scan_excel_all_rows_filters_permissions_and_full_text(
     monkeypatch.setattr(auth_service, "lock_current_account", lock)
     monkeypatch.setattr(scan_logs, "save_snapshot", save)
     monkeypatch.setattr(scan_logs, "load_snapshot", load)
-    prediction = "1.123456789012345678"
-    source = '日本語, "Saging"\n' + "source " * 20
-    expected = [scan(logs_db, own, at=NOW - timedelta(seconds=i),
-                     source=source, prediction=prediction, confidence=0) for i in range(205)]
+    prediction = "14.560613439297734"
+    source = 'Peñafrancia Farm, "Saging"\n' + "source " * 15
+    expected = [
+        scan(
+            logs_db, own, at=NOW - timedelta(seconds=i),
+            source=source, prediction=prediction, confidence=0,
+        )
+        for i in range(205)
+    ]
     scan(logs_db, own, source="Excluded", confidence=0)
     scan(logs_db, other, source=source, confidence=0)
     logs_db.session.execute(update(ScanClassification).where(
@@ -117,18 +180,27 @@ def test_scan_excel_all_rows_filters_permissions_and_full_text(
         )
         assert result.headers["content-disposition"].endswith('.xlsx"')
         root, rows = workbook_rows(result.content)
-        assert len(rows) == 206
-        assert [row[f"A{i + 2}"][0] for i, row in enumerate(rows[1:])] == [
-            str(identifier) for identifier in expected
-        ]
-        assert rows[1]["C2"] == ("=SUM(1,2)", "inlineStr")
-        assert rows[1]["E2"] == (source.strip(), "inlineStr")
-        assert rows[1]["K2"] == (prediction, "inlineStr")
-        assert rows[1]["B2"][0].endswith("+08:00")
-        assert rows[1]["B2"][1] == "inlineStr"
-        assert rows[1]["H2"] == rows[1]["M2"] == rows[1]["N2"] == ("0", "n")
-        assert rows[1]["J2"] == ("0", "b")
-        assert rows[1]["P2"][0] is None
+        headers, data = workbook_table(result.content)
+        assert headers == SCAN_EXPORT_HEADERS
+        assert not EXCLUDED_HEADERS.intersection(headers)
+        assert len(data) == 205
+        # Readable Asia/Manila timestamp (NOW = 2026-10-02 10:00 +08:00), never ISO-8601.
+        assert data[0][0] == "Oct 2, 2026, 10:00 AM"
+        assert "T" not in data[0][0] and "+08:00" not in data[0][0]
+        assert data[0][1] == source.strip()
+        assert data[0][2] == "Lakatan"
+        assert data[0][3] == "Ripe"
+        assert data[0][4] == "Est. 0 fingers"
+        assert data[0][5] == "14–15 days"
+        assert data[0][6] == "14–15 days left"
+        assert data[0][7] == "In Stock"
+        assert data[0][8] == "Approved"
+        assert data[0][9] == "0.0%"
+        assert data[0][10] == "0.0°C"
+        assert data[0][11] == "0.0%"
+        assert data[0][12] == "=SUM(1,2)"
+        # Formula text stays safe inlineStr without Excel formula elements.
+        assert rows[1]["M2"] == ("=SUM(1,2)", "inlineStr")
         columns = root.findall("m:cols/m:col", NS)
         assert all(12 <= float(column.attrib["width"]) <= 81 for column in columns)
         assert max(float(column.attrib["width"]) for column in columns) >= 80
@@ -143,151 +215,211 @@ def test_scan_excel_all_rows_filters_permissions_and_full_text(
                 for text in sheet.findall(".//m:t", NS)
             )
 
+        # PDF export matches the exact same headers, record count, and formatted values.
+        pdf_result = client.get("/api/v1/scan-logs/export", params={**params, "format": "pdf"})
+        assert pdf_result.status_code == 200, pdf_result.text
+        assert pdf_result.headers["content-type"] == "application/pdf"
+        assert pdf_result.headers["content-disposition"].endswith('.pdf"')
+        assert b"/MediaBox [0 0 792 612]" in pdf_result.content  # Landscape orientation
+        pages, pdf_text = extract_pdf_text(pdf_result.content)
+        assert len(pages) > 1
+        assert "BananaVision — Scan Logs Report" in pages[0]
+        assert "Exported: Oct 2, 2026, 10:00 AM (Asia/Manila)" in pages[0]
+        assert "Total records: 205" in pages[0]
+        assert "Filters: Source:" in pages[0]
+        assert f"Page 1 of {len(pages)}" in pages[0]
+        assert f"Page {len(pages)} of {len(pages)}" in pages[-1]
+        for header in SCAN_EXPORT_HEADERS:
+            for token in header.split():
+                assert token in pages[0] and token in pages[1]
+        for cell in ("Oct 2, 2026, 10:00 AM", "Est. 0 fingers", "14–15 days", "14–15 days left",
+                     "0.0%", "0.0°C", "=SUM(1,2)", "Peñafrancia"):
+            assert cell in pdf_text
+        assert str(expected[0]) not in pdf_text
+
+        # Snapshot serves both XLSX and PDF cleanly with identical row counts.
         listing = client.get("/api/v1/scan-logs", params={
             "stable": True, "page_size": 1, "source": source,
         })
         assert listing.status_code == 200, listing.text
         token = listing.json()["snapshot_id"]
-        snapshot = client.get("/api/v1/scan-logs/export", params={
-            "format": "xlsx", "snapshot_id": token, "source": source,
-            "page": 99, "limit": 1,
-        })
-        assert snapshot.status_code == 200, snapshot.text
-        assert len(workbook_rows(snapshot.content)[1]) == 206
+        for fmt in ("xlsx", "pdf"):
+            snap_resp = client.get("/api/v1/scan-logs/export", params={
+                "format": fmt, "snapshot_id": token, "source": source,
+                "page": 99, "limit": 1,
+            })
+            assert snap_resp.status_code == 200, snap_resp.text
+            if fmt == "xlsx":
+                assert len(workbook_table(snap_resp.content)[1]) == 205
+            else:
+                _, snap_pdf_text = extract_pdf_text(snap_resp.content)
+                assert "Total records: 205" in snap_pdf_text
+
+        # Account scope still enforced; CSV rejected with 422.
         denied = client.get("/api/v1/scan-logs/export", params={
             "format": "xlsx", "operator_id": str(other.operator_id),
         })
-        assert len(workbook_rows(denied.content)[1]) == 1
-        assert client.get("/api/v1/scan-logs/export", params={"format": "pdf"}).status_code == 422
+        assert len(workbook_table(denied.content)[1]) == 0
+        assert client.get("/api/v1/scan-logs/export", params={"format": "csv"}).status_code == 422
         assert client.get("/api/v1/scan-logs/export", params={
             "format": "xlsx", "page_size": 101,
         }).status_code == 422
 
 
-def test_config_excel_and_csv_same_complete_summary_and_admin_scope(export_app, logs_db):
-    admin, operator = account(logs_db, role="Admin"), account(logs_db)
-    for i in range(205):
-        scan(logs_db, operator, at=NOW + timedelta(seconds=i), confidence=0)
-    export_app.dependency_overrides[get_current_user] = lambda: operator
-    with TestClient(export_app) as client:
-        for kind in ("csv", "xlsx"):
-            assert client.get("/api/v1/config/export", params={"format": kind}).status_code == 403
-        export_app.dependency_overrides[get_current_user] = lambda: admin
-        csv_result = client.get("/api/v1/config/export")
-        assert csv_result.status_code == 200
-        csv_data = list(csv.reader(io.StringIO(csv_result.text)))
-        assert len(csv_data) == 206
-        excel_result = client.get("/api/v1/config/export", params={"format": "xlsx"})
-        assert excel_result.status_code == 200
-        _, rows = workbook_rows(excel_result.content)
-        assert len(rows) == len(csv_data)
-        assert rows[0]["A1"][0] == csv_data[0][0] == "Scan ID"
-        assert [row[f"A{i + 2}"][0] for i, row in enumerate(rows[1:])] == [
-            row[0] for row in csv_data[1:]
-        ]
-        assert rows[1]["E2"] == ("0", "n")
-        assert rows[1]["F2"] == ("N/A", "inlineStr")
-        assert client.get("/api/v1/config/export", params={"format": "pdf"}).status_code == 422
-
-
-@pytest.mark.asyncio
-async def test_csv_full_precision_and_special_values_remain_unchanged(logs_db):
-    own = account(logs_db, name='=HYPERLINK("https://example.test")')
-    prediction = "1.123456789012345678"
-    source = '日本語, "banana"\n' + "long " * 60
-    identifier = scan(logs_db, own, prediction=prediction, source=source, confidence=0)
-    chunks = await scan_logs.export_scan_logs(logs_db, own, ScanLogQuery())
-    rows = list(csv.DictReader(io.StringIO("".join([c async for c in chunks]).lstrip("\ufeff"))))
-    assert rows[0]["Scan ID"] == str(identifier)
-    assert rows[0]["Source"] == source.strip()
-    assert rows[0]["Est. Original Shelf Life (days)"] == prediction
-    assert rows[0]["Confidence (%)"] == "0.0"
-    assert rows[0]["Operator"] == '\'=HYPERLINK("https://example.test")'
-
-
-def test_xlsx_preserves_whitespace_precision_ranges_and_config_values(export_app, logs_db):
-    admin = account(logs_db, role="Admin")
-    owner = account(logs_db, name="  00123  ")
-    identifier = scan(
-        logs_db, owner, confidence=92.123456789, prediction="3-4",
-        source="  Farm 001  ",
+def test_human_friendly_freshness_review_and_finger_count_rules(export_app, logs_db):
+    owner = account(logs_db, name="Maria Santos")
+    # 1. Active in-stock scan with AI-estimated finger count and decimal shelf life.
+    active_id = scan(
+        logs_db, owner, at=NOW - timedelta(days=2), source="Davao Farm",
+        prediction="10.4321987654321", confidence=89.84, flagged=False,
     )
     logs_db.session.execute(update(ScanClassification).where(
-        ScanClassification.scan_id == identifier,
-    ).values(temperature=22.29, humidity=53.37, vpd=1.555))
+        ScanClassification.scan_id == active_id,
+    ).values(finger_count=14, temperature=26.44, humidity=72.56))
+
+    # 2. Final day scan with human-corrected finger count (must NOT say "Est.").
+    final_id = scan(
+        logs_db, owner, at=NOW - timedelta(days=3), source="Bukidnon Growers",
+        prediction="2-3", confidence=74.2, flagged=True,
+    )
+    logs_db.session.execute(update(Scan).where(Scan.id == final_id).values(is_overridden=True))
+    logs_db.session.execute(update(ScanClassification).where(
+        ScanClassification.scan_id == final_id,
+    ).values(
+        cultivar=CultivarEnum.LATUNDAN, ripeness=RipenessEnum.SEMI_RIPE,
+        finger_count=12, temperature=25.0, humidity=68.0,
+    ))
+    logs_db.add(
+        ScanOriginalAiResult, scan_id=final_id, cultivar=CultivarEnum.LATUNDAN,
+        ripeness=RipenessEnum.SEMI_RIPE, confidence=74.2, spoilage_days="2-3", finger_count=10,
+    )
+
+    # 3. Overdue by 1 day scan where cultivar was overridden, NOT finger count (stays "Est.").
+    overdue_id = scan(
+        logs_db, owner, at=NOW - timedelta(days=4), source="Cebu Co-op",
+        prediction="3", confidence=91.0,
+    )
+    logs_db.session.execute(update(Scan).where(Scan.id == overdue_id).values(is_overridden=True))
+    logs_db.session.execute(update(ScanClassification).where(
+        ScanClassification.scan_id == overdue_id,
+    ).values(cultivar=CultivarEnum.CARDABA, ripeness=RipenessEnum.OVERRIPE, finger_count=1))
+    logs_db.add(
+        ScanOriginalAiResult, scan_id=overdue_id, cultivar=CultivarEnum.LAKATAN,
+        ripeness=RipenessEnum.OVERRIPE, confidence=91.0, spoilage_days="3", finger_count=1,
+    )
+
+    # 4. Closed-stock scans (Sold, For Processing, Spoiled).
+    for offset, status in enumerate(
+        (InventoryStatusEnum.SOLD, InventoryStatusEnum.FOR_PROCESSING, InventoryStatusEnum.SPOILED),
+        start=5,
+    ):
+        scan(
+            logs_db, owner, at=NOW - timedelta(days=offset), source=f"Closed {status.value}",
+            prediction="4", confidence=88.0, statuses=[(NOW, status)],
+        )
+
     export_app.dependency_overrides[get_current_user] = lambda: owner
     with TestClient(export_app) as client:
-        result = client.get("/api/v1/scan-logs/export", params={"format": "xlsx"})
-        assert result.status_code == 200, result.text
-        root, rows = workbook_rows(result.content)
-        assert rows[1]["C2"] == ("  00123  ", "inlineStr")
-        assert rows[1]["E2"] == ("Farm 001", "inlineStr")
-        # Confidence is DECIMAL(5,2); the export must not truncate it further.
-        assert rows[1]["H2"] == ("92.12", "n")
-        assert rows[1]["K2"] == ("3-4", "inlineStr")
-        assert rows[1]["L2"][1] == "n"
-        assert rows[1]["N2"] == ("22.29", "n")
-        assert rows[1]["O2"] == ("53.37", "n")
-        assert rows[1]["S2"] == ("1.555", "n")
-        assert root.findall("m:sheetData/m:row", NS)[1].find(
-            "m:c[@r='C2']/m:is/m:t", NS,
-        ).attrib[XML_SPACE] == "preserve"
+        xlsx_resp = client.get("/api/v1/scan-logs/export", params={"format": "xlsx"})
+        pdf_resp = client.get("/api/v1/scan-logs/export", params={"format": "pdf"})
+        assert xlsx_resp.status_code == 200 and pdf_resp.status_code == 200
+        headers, rows = workbook_table(xlsx_resp.content)
+        assert headers == SCAN_EXPORT_HEADERS
+        assert len(rows) == 6
 
+        by_source = {row[1]: row for row in rows}
+        # Active scan: Est. 14 fingers, 10–11 days original, 8–9 days left, Approved, 89.8%.
+        assert by_source["Davao Farm"][4:13] == [
+            "Est. 14 fingers", "10–11 days", "8–9 days left", "In Stock", "Approved",
+            "89.8%", "26.4°C", "72.6%", "Maria Santos",
+        ]
+        # Final day scan: human-corrected count -> "12 fingers" (no Est.), Needs Review.
+        assert by_source["Bukidnon Growers"][2:10] == [
+            "Latundan", "Semi Ripe", "12 fingers", "2–3 days", "Final day",
+            "In Stock", "Needs Review", "74.2%",
+        ]
+        # Overdue by 1 day: count unchanged from AI baseline -> "Est. 1 finger".
+        assert by_source["Cebu Co-op"][2:9] == [
+            "Cardaba", "Overripe", "Est. 1 finger", "3 days", "Overdue by 1 day",
+            "In Stock", "Approved",
+        ]
+        # Closed stock shows outcome, never countdown or raw floats.
+        assert by_source["Closed Sold"][6:8] == ["Sold", "Sold"]
+        assert by_source["Closed For Processing"][6:8] == ["For Processing", "For Processing"]
+        assert by_source["Closed Spoiled"][6:8] == ["Spoiled", "Spoiled"]
+
+        # PDF parity: every formatted value from XLSX is present in the PDF output.
+        _, pdf_text = extract_pdf_text(pdf_resp.content)
+        for row in rows:
+            for value in row:
+                if value:
+                    assert value in pdf_text
+
+
+def test_config_excel_and_pdf_same_complete_summary_and_admin_scope(export_app, logs_db):
+    admin, operator = account(logs_db, role="Admin"), account(logs_db, name="Juan Dela Cruz")
+    for i in range(15):
+        scan(logs_db, operator, at=NOW - timedelta(minutes=15 - i), confidence=85.5,
+             prediction="4.6", source=f"Farm {i:02d}")
+    export_app.dependency_overrides[get_current_user] = lambda: operator
+    with TestClient(export_app) as client:
+        for kind in ("xlsx", "pdf"):
+            assert client.get("/api/v1/config/export", params={"format": kind}).status_code == 403
         export_app.dependency_overrides[get_current_user] = lambda: admin
-        config_result = client.get("/api/v1/config/export", params={"format": "xlsx"})
-        assert config_result.status_code == 200, config_result.text
-        _, config_rows = workbook_rows(config_result.content)
-        row = next(row for row in config_rows if row.get("A2") is not None
-                   and row["A2"][0] == str(identifier))
-        assert row["E2"] == ("92.12", "n")
+        # Default format is xlsx; csv is rejected with 422.
+        assert client.get("/api/v1/config/export", params={"format": "csv"}).status_code == 422
+        excel_result = client.get("/api/v1/config/export")
+        assert excel_result.status_code == 200
+        assert excel_result.headers["content-disposition"].endswith(".xlsx\"")
+        headers, rows = workbook_table(excel_result.content)
+        assert headers == SCAN_EXPORT_HEADERS
+        assert len(rows) == 15
+        assert rows[0][1] == "Farm 00"
+        assert rows[0][5] == "4–5 days"
+        assert rows[0][9] == "85.5%"
+        assert rows[0][12] == "Juan Dela Cruz"
+
+        pdf_result = client.get("/api/v1/config/export", params={"format": "pdf"})
+        assert pdf_result.status_code == 200
+        assert pdf_result.headers["content-type"] == "application/pdf"
+        assert pdf_result.headers["content-disposition"].endswith(".pdf\"")
+        pages, pdf_text = extract_pdf_text(pdf_result.content)
+        assert "BananaVision — Inventory Scan Summary" in pages[0]
+        assert "Total records: 15" in pages[0]
+        assert "Farm 00" in pdf_text and "Farm 14" in pdf_text
+        assert "4–5 days" in pdf_text and "85.5%" in pdf_text and "Juan Dela Cruz" in pdf_text
 
 
-def test_xlsx_null_optional_values_are_blank_like_csv(export_app, logs_db):
+def test_xlsx_preserves_whitespace_and_null_optional_values_are_blank(export_app, logs_db):
     admin = account(logs_db, role="Admin")
-    owner = account(logs_db)
-    identifier = scan(logs_db, owner, confidence=90, prediction="5-7")
+    owner = account(logs_db, name="  00123  ")
+    identifier = scan(logs_db, owner, confidence=90, prediction="5-7", source=None)
     logs_db.session.execute(update(ScanClassification).where(
         ScanClassification.scan_id == identifier,
-    ).values(cultivar=None, ripeness=None, confidence=None, spoilage_days=None))
+    ).values(
+        cultivar=None, ripeness=None, confidence=None,
+        spoilage_days=None, temperature=None, humidity=None,
+    ))
     export_app.dependency_overrides[get_current_user] = lambda: owner
     with TestClient(export_app) as client:
-        csv_result = client.get("/api/v1/scan-logs/export")
-        assert csv_result.status_code == 200
-        csv_row = next(csv.DictReader(
-            io.StringIO(csv_result.text.lstrip("\ufeff")),
-        ))
-        assert csv_row["Cultivar"] == ""
-        assert csv_row["Ripeness"] == ""
-        assert csv_row["Confidence (%)"] == ""
-        assert csv_row["Est. Original Shelf Life (days)"] == ""
-
-        xlsx_result = client.get(
-            "/api/v1/scan-logs/export", params={"format": "xlsx"},
-        )
+        xlsx_result = client.get("/api/v1/scan-logs/export", params={"format": "xlsx"})
         assert xlsx_result.status_code == 200, xlsx_result.text
-        _, rows = workbook_rows(xlsx_result.content)
-        for reference in ("F2", "G2", "H2", "K2"):
-            assert rows[1][reference][0] is None, (reference, rows[1][reference])
+        root, rows = workbook_rows(xlsx_result.content)
+        # Operator preserves whitespace in inlineStr.
+        assert rows[1]["M2"] == ("  00123  ", "inlineStr")
+        assert root.findall("m:sheetData/m:row", NS)[1].find(
+            "m:c[@r='M2']/m:is/m:t", NS,
+        ).attrib[XML_SPACE] == "preserve"
+        # Optional fields (Source, Cultivar, Ripeness, Shelf Life, Freshness, Confidence, Temp, Humidity) are blank.
+        for ref in ("B2", "C2", "D2", "F2", "G2", "J2", "K2", "L2"):
+            assert rows[1][ref][0] is None, (ref, rows[1][ref])
 
         export_app.dependency_overrides[get_current_user] = lambda: admin
-        config_csv = client.get("/api/v1/config/export")
-        assert config_csv.status_code == 200
-        config_csv_row = list(csv.reader(io.StringIO(config_csv.text)))[1]
-        assert config_csv_row[2:5] == ["", "", ""]
-
-        config_xlsx = client.get(
-            "/api/v1/config/export", params={"format": "xlsx"},
-        )
+        config_xlsx = client.get("/api/v1/config/export", params={"format": "xlsx"})
         assert config_xlsx.status_code == 200, config_xlsx.text
         _, config_rows = workbook_rows(config_xlsx.content)
-        config_row = next(
-            row for row in config_rows[1:]
-            if row.get("A2") and row["A2"][0] == str(identifier)
-        )
-        for reference in ("C2", "D2", "E2"):
-            assert config_row[reference][0] is None, (
-                reference, config_row[reference],
-            )
+        for ref in ("B2", "C2", "D2", "F2", "G2", "J2", "K2", "L2"):
+            assert config_rows[1][ref][0] is None, (ref, config_rows[1][ref])
 
 
 def test_number_text_keeps_exact_integer_and_decimal_values():
@@ -302,11 +434,20 @@ def test_empty_exports_keep_headers_and_media_contract(export_app, logs_db):
     empty = account(logs_db)
     export_app.dependency_overrides[get_current_user] = lambda: empty
     with TestClient(export_app) as client:
-        csv_result = client.get("/api/v1/scan-logs/export")
-        assert csv_result.status_code == 200
-        assert len(list(csv.reader(io.StringIO(csv_result.text.lstrip("\ufeff"))))) == 1
-        xlsx_result = client.get("/api/v1/scan-logs/export", params={"format": "xlsx"})
+        xlsx_result = client.get("/api/v1/scan-logs/export")
         assert xlsx_result.status_code == 200
-        _, rows = workbook_rows(xlsx_result.content)
-        assert len(rows) == 1
-        assert rows[0]["A1"] == ("Scan ID", "inlineStr")
+        assert xlsx_result.headers["content-type"] == (
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        headers, rows = workbook_table(xlsx_result.content)
+        assert headers == SCAN_EXPORT_HEADERS
+        assert rows == []
+
+        pdf_result = client.get("/api/v1/scan-logs/export", params={"format": "pdf"})
+        assert pdf_result.status_code == 200
+        assert pdf_result.headers["content-type"] == "application/pdf"
+        pages, text = extract_pdf_text(pdf_result.content)
+        assert len(pages) == 1
+        assert "Total records: 0" in text
+        assert "No matching records." in text
+        assert "Date" in text and "Operator" in text

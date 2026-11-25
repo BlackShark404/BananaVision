@@ -60,11 +60,19 @@ def test_xlsx_parts_are_stamped_with_the_manila_clock(monkeypatch, los_angeles):
     from app.core import xlsx
 
     monkeypatch.setattr(xlsx, "now_manila", lambda: INSTANT.astimezone(MANILA))
-    with zipfile.ZipFile(io.BytesIO(xlsx.build_xlsx(["Scan ID"], [["1"]]))) as workbook:
+    with zipfile.ZipFile(io.BytesIO(xlsx.build_xlsx(["Cultivar"], [["Lakatan"]]))) as workbook:
         members = workbook.infolist()
     assert members
     assert {member.date_time for member in members} == {MANILA_STAMP}
     assert {member.compress_type for member in members} == {zipfile.ZIP_DEFLATED}
+
+
+def test_pdf_metadata_and_header_use_the_manila_clock(monkeypatch, los_angeles):
+    from app.core import pdf
+
+    monkeypatch.setattr(pdf, "now_manila", lambda: INSTANT.astimezone(MANILA))
+    doc = pdf.build_pdf(["Cultivar"], [["Lakatan"]], title="Clock Test")
+    assert b"/CreationDate (D:20261002003000+08'00')" in doc
 
 
 def test_backup_manifest_is_stamped_with_the_manila_clock(

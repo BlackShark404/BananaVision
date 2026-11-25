@@ -8,7 +8,10 @@ process.env.TZ = 'America/Los_Angeles'
 
 const source = await readFile(new URL('../src/lib/manilaTime.ts', import.meta.url), 'utf8')
 const { code } = await transform(source, { loader: 'ts', format: 'esm' })
-const { MANILA_TIME_ZONE, inManila, manilaDayKey, manilaToday, isManilaToday } =
+const {
+  MANILA_TIME_ZONE, inManila, manilaDayKey, manilaToday, isManilaToday,
+  formatManilaDateTime, formatManilaDate, manilaPdfTimestamp,
+} =
   await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
 
 const at = iso => Date.parse(iso)
@@ -63,6 +66,17 @@ test('manilaToday is the local calendar date of the Manila day for the date pick
   const today = manilaToday(at('2026-10-01T16:30:00Z'))
   assert.deepEqual([today.getFullYear(), today.getMonth() + 1, today.getDate()], [2026, 10, 2])
   assert.equal([today.getHours(), today.getMinutes()].join(':'), '0:0')
+})
+
+test('export date/time formatters always render Asia/Manila wall clock', () => {
+  // 16:30 UTC on Oct 1 is 12:30 AM on Oct 2 in Asia/Manila (and Oct 1 in Los Angeles).
+  assert.equal(formatManilaDateTime('2026-10-01T16:30:00Z'), 'Oct 2, 2026, 12:30 AM')
+  assert.equal(formatManilaDateTime('2026-11-19T21:12:45.123456+08:00'), 'Nov 19, 2026, 9:12 PM')
+  assert.equal(formatManilaDate('2026-10-02'), 'Oct 2, 2026')
+  assert.equal(formatManilaDate('2026-10-01T16:30:00Z'), 'Oct 2, 2026')
+  assert.equal(manilaPdfTimestamp(at('2026-10-01T16:30:00Z')), "D:20261002003000+08'00'")
+  assert.equal(formatManilaDateTime(''), '')
+  assert.equal(formatManilaDate(null), '')
 })
 
 // ── Source guard: every date shown, grouped or used in a file name goes through Manila. ──

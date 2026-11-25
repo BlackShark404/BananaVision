@@ -1,7 +1,8 @@
 """Centralized Scan Logs filters, metrics, scope and complete safe export."""
 
-import csv
 import io
+import xml.etree.ElementTree as ET
+import zipfile
 from datetime import date, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
@@ -15,10 +16,12 @@ from app.api.deps import get_current_user
 from app.api.v1.scan_logs import router
 from app.core import database
 from app.core.database import get_db, get_stream_db
+from app.core.export_format import format_manila_datetime
 from app.models.activity_log import ActivityLog
 from app.models.intake import Intake
 from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
+from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.models.supplier import Supplier
 from app.models.system_config import SystemConfig
 from app.models.user_account import UserAccount
@@ -50,6 +53,7 @@ def logs_db(db, monkeypatch):
     # through its session, an export stream's row through a separate session.
     engine = db.session.get_bind()
     ActivityLog.__table__.create(engine, checkfirst=True)
+    ScanOriginalAiResult.__table__.create(engine, checkfirst=True)
     insert_values = db.add
 
     def add(model, **values):
@@ -65,10 +69,32 @@ def logs_db(db, monkeypatch):
     return db
 
 
-async def csv_rows(db, user, query):
-    contents = await scan_logs.export_scan_logs(db, user, query)
-    text = "".join([chunk async for chunk in contents]).lstrip("\ufeff")
-    return list(csv.DictReader(io.StringIO(text)))
+def parse_xlsx_dicts(xlsx_bytes: bytes) -> list[dict[str, str]]:
+    ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    with zipfile.ZipFile(io.BytesIO(xlsx_bytes)) as archive:
+        root = ET.fromstring(archive.read("xl/worksheets/sheet1.xml"))
+    xml_rows = root.findall("m:sheetData/m:row", ns)
+    headers = []
+    for cell in xml_rows[0].findall("m:c", ns):
+        assert cell.find("m:f", ns) is None
+        text = cell.find("m:is/m:t", ns)
+        headers.append(text.text if text is not None and text.text is not None else "")
+    records: list[dict[str, str]] = []
+    for xml_row in xml_rows[1:]:
+        values = []
+        for cell in xml_row.findall("m:c", ns):
+            assert cell.find("m:f", ns) is None
+            text = cell.find("m:is/m:t", ns)
+            num = cell.find("m:v", ns)
+            val = text.text if text is not None else num.text if num is not None else ""
+            values.append(val or "")
+        records.append(dict(zip(headers, values, strict=True)))
+    return records
+
+
+async def export_rows(db, user, query):
+    xlsx_bytes = await scan_logs.export_scan_logs_xlsx(db, user, query)
+    return parse_xlsx_dicts(xlsx_bytes)
 
 
 @pytest.mark.asyncio
@@ -124,8 +150,9 @@ async def test_stock_eligible_filters_list_export_and_snapshot_binding(
     assert result.total == len(expected)
     assert {row.id for row in result.items} == expected
     export_query = query.model_copy(update={"snapshot_id": result.snapshot_id})
-    exported = await csv_rows(logs_db, own, export_query)
-    assert {row["Scan ID"] for row in exported} == {str(identifier) for identifier in expected}
+    exported = await export_rows(logs_db, own, export_query)
+    assert len(exported) == len(expected)
+    assert all(row["Inventory Status"] == "In Stock" for row in exported)
     if stable:
         # The frozen result keeps its eligibility decision until refreshed.
         logs_db.session.execute(update(Intake).values(status="Depleted"))
@@ -138,7 +165,7 @@ async def test_stock_eligible_filters_list_export_and_snapshot_binding(
             await scan_logs.list_scan_logs(logs_db, own, changed)
         assert rejected_list.value.status_code == 409
         with pytest.raises(HTTPException) as rejected_export:
-            await csv_rows(logs_db, own, changed)
+            await export_rows(logs_db, own, changed)
         assert rejected_export.value.status_code == 409
 
 
@@ -250,11 +277,11 @@ async def test_risk_rows_counts_filters_and_export_share_unrounded_stock_rule(
         assert not ids.intersection(row.id for row in part.items)
         ids.update(row.id for row in part.items)
     assert ids == expected_ids
-    exported = await csv_rows(logs_db, operator, risk_query.model_copy(
+    exported = await export_rows(logs_db, operator, risk_query.model_copy(
         update={"snapshot_id": first.snapshot_id},
     ))
-    assert {row["Scan ID"] for row in exported} == {str(identifier) for identifier in ids}
-    assert all("Est. Remaining Shelf Life (days)" in row for row in exported)
+    assert len(exported) == len(ids)
+    assert all("Est. Time Left / Freshness" in row for row in exported)
     if stable:
         monkeypatch.setattr(dashboard, "now_manila", lambda: NOW + timedelta(days=1))
         frozen = await scan_logs.list_scan_logs(logs_db, operator, query.model_copy(
@@ -305,13 +332,11 @@ def test_vpd_logs_api_and_export_preserve_stored_values_and_scope(logs_db):
         assert {row["id"]: row["vpd"] for row in response.json()["items"]} == expected
         exported = client.get("/api/v1/scan-logs/export")
         assert exported.status_code == 200
-        rows = list(csv.DictReader(io.StringIO(exported.text.lstrip("\ufeff"))))
-        assert {row["Scan ID"]: row["VPD (kPa)"] for row in rows} == {
-            identifier: "" if value is None else f"{value:.3f}"
-            for identifier, value in expected.items()
-        }
-        # Preserve existing CSV field positions for downstream consumers.
-        assert list(rows[0])[-2:] == ["Status Updated At (UTC+08:00)", "VPD (kPa)"]
+        rows = parse_xlsx_dicts(exported.content)
+        assert len(rows) == 4
+        # Programmer/scientific fields stay on the API, excluded from client exports.
+        assert "VPD (kPa)" not in rows[0]
+        assert "Scan ID" not in rows[0]
 
 
 @pytest.mark.asyncio
@@ -349,13 +374,14 @@ async def test_vpd_snapshot_keeps_recorded_value_and_legacy_missing_stays_unknow
     query = ScanLogQuery(snapshot_id=first.snapshot_id)
     frozen = await scan_logs.list_scan_logs(logs_db, own, query)
     assert frozen.items[0].vpd == 1.555
-    assert (await csv_rows(logs_db, own, query))[0]["VPD (kPa)"] == "1.555"
+    exported_frozen = await export_rows(logs_db, own, query)
+    assert len(exported_frozen) == 1 and "VPD (kPa)" not in exported_frozen[0]
     # A snapshot captured before the API extension has no VPD key. Do not derive
     # one from its temperature/humidity or replace it with a current DB reading.
     del saved.payload["items"][0]["vpd"]
     legacy = await scan_logs.list_scan_logs(logs_db, own, query)
     assert legacy.items[0].model_dump(mode="json")["vpd"] is None
-    assert (await csv_rows(logs_db, own, query))[0]["VPD (kPa)"] == ""
+    assert len(await export_rows(logs_db, own, query)) == 1
 
 
 @pytest.mark.asyncio
@@ -387,10 +413,11 @@ async def test_combined_filters_full_counts_pagination_and_export(logs_db):
     assert first.total == second.total == first.review_count == first.flagged_count == 31
     assert first.at_risk_count == 31 and first.avg_confidence == 60
     assert {r.id for r in first.items + second.items} == expected
-    exported = await csv_rows(db, admin, query.model_copy(update={"page": 9, "page_size": 1}))
+    exported = await export_rows(db, admin, query.model_copy(update={"page": 9, "page_size": 1}))
     assert len(exported) == 31
-    assert {r["Scan ID"] for r in exported} == {str(scan_id) for scan_id in expected}
-    assert exported[0]["Scan ID"] == str(first.items[0].id)
+    assert exported[0]["Date & Time"] == format_manila_datetime(first.items[0].date_time)
+    assert exported[0]["Source / Supplier"] == "Farm A"
+    assert exported[0]["Review Status"] == "Needs Review"
     # Options remain all-time/account-scoped even when the filtered page is empty.
     empty = await scan_logs.list_scan_logs(
         db, admin, query.model_copy(update={"search": "does not exist"})
@@ -427,7 +454,7 @@ async def test_scope_namesakes_renames_and_source_history(logs_db):
     assert stable.total == 1
     denied_filter = await scan_logs.list_scan_logs(db, own, ScanLogQuery(operator_id=other.operator_id))
     assert denied_filter.total == 0
-    assert await csv_rows(db, own, ScanLogQuery(operator_id=other.operator_id)) == []
+    assert await export_rows(db, own, ScanLogQuery(operator_id=other.operator_id)) == []
     today = await scan_logs.list_scan_logs(db, own, ScanLogQuery(business_date=NOW.date()))
     assert today.total == 0 and len(today.options.sources) == 1
 
@@ -501,11 +528,11 @@ async def test_extended_fields_numeric_sort_literal_search_and_safe_csv(logs_db)
     assert row.status_updated_at == NOW
     literal = await scan_logs.list_scan_logs(db, operator, ScanLogQuery(search="%_"))
     assert [r.id for r in literal.items] == [high]
-    csv_data = await csv_rows(db, operator, ScanLogQuery(sort="spoilage_days", direction="asc"))
-    assert csv_data[0]["Source"] == "'" + special_source
-    assert csv_data[0]["Operator"] == "'=SUM(1,2)"
-    assert csv_data[0]["Confidence (%)"] == "0.0"
-    assert csv_data[2]["Confidence (%)"] == ""
+    export_data = await export_rows(db, operator, ScanLogQuery(sort="spoilage_days", direction="asc"))
+    assert export_data[0]["Source / Supplier"] == special_source
+    assert export_data[0]["Operator"] == "=SUM(1,2)"
+    assert export_data[0]["Confidence (%)"] == "0.0%"
+    assert export_data[2]["Confidence (%)"] == ""
     db.session.execute(update(ScanClassification).where(ScanClassification.scan_id == high).values(
         cultivar=CultivarEnum.LATUNDAN, ripeness=RipenessEnum.SEMI_RIPE,
     ))
@@ -521,14 +548,16 @@ async def test_extended_fields_numeric_sort_literal_search_and_safe_csv(logs_db)
 async def test_export_crosses_stream_batches_without_pagination_truncation(logs_db):
     operator = account(logs_db)
     for index in range(205):
-        scan(logs_db, operator, at=NOW - timedelta(seconds=index))
-    stream = await scan_logs.export_scan_logs(
+        scan(logs_db, operator, at=NOW - timedelta(seconds=index), source=f"Batch {index:03d}")
+    xlsx_bytes = await scan_logs.export_scan_logs_xlsx(
         logs_db, operator, ScanLogQuery(page=20, page_size=1),
     )
-    chunks = [chunk async for chunk in stream]
-    assert len(chunks) == 3  # Header, 200 rows, then the final 5 rows.
-    rows = list(csv.DictReader(io.StringIO("".join(chunks).lstrip("\ufeff"))))
-    assert len(rows) == len({row["Scan ID"] for row in rows}) == 205
+    rows = parse_xlsx_dicts(xlsx_bytes)
+    assert len(rows) == len({row["Source / Supplier"] for row in rows}) == 205
+    pdf_bytes = await scan_logs.export_scan_logs_pdf(
+        logs_db, operator, ScanLogQuery(format="pdf", page=20, page_size=1),
+    )
+    assert pdf_bytes.startswith(b"%PDF-1.4\n")
 
 
 def test_api_query_validation_authentication_export_and_page_independent_metrics(logs_db):
@@ -556,12 +585,12 @@ def test_api_query_validation_authentication_export_and_page_independent_metrics
         assert data["page_size"] == 10
         exported = client.get("/api/v1/scan-logs/export", params={"page": 3, "page_size": 1})
         assert exported.status_code == 200
-        assert len(list(csv.DictReader(io.StringIO(exported.text.lstrip("\ufeff"))))) == 23
+        assert len(parse_xlsx_dicts(exported.content)) == 23
         assert "attachment" in exported.headers["content-disposition"]
         # Paging never limits an export, so it is not recorded as a filter.
         assert db.session.scalars(
             select(ActivityLog.details).where(ActivityLog.action == "data_exported")
-        ).all() == ["Exported scan logs (csv, own scans): filters none"]
+        ).all() == ["Exported scan logs (xlsx, own scans): filters none"]
         for params in (
             {"page": 0}, {"page_size": 101}, {"business_date": "bad"}, {"operator_id": "bad"},
             {"intake_id": "bad"}, {"cultivar": "bad"}, {"ripeness": "bad"},
@@ -591,37 +620,28 @@ async def test_equal_key_pages_are_deterministic_and_account_scoped(logs_db, sor
     assert set(identifiers) == expected
     again = await scan_logs.list_scan_logs(logs_db, own, query)
     assert [row.id for row in again.items] == identifiers[:3]
-    assert [row["Scan ID"] for row in await csv_rows(logs_db, own, query)] == [
-        str(i) for i in identifiers
+    exported = await export_rows(logs_db, own, query)
+    assert len(exported) == 8
+    assert [row["Confidence (%)"] for row in exported] == [
+        "" if r.confidence is None else f"{r.confidence:.1f}%"
+        for page in pages for r in page.items
     ]
 
 
 @pytest.mark.asyncio
-async def test_csv_round_trip_special_characters_and_formula_prefixes(logs_db):
+async def test_xlsx_round_trip_special_characters_and_formula_prefixes(logs_db):
     own = account(logs_db)
     values = ['Mangga, saging "hinog" — 日本語', 'line\rreturn', 'line\nfeed', 'line\r\npair',
               '=1+1', '+SUM(1,2)', '-cmd', '@formula', '  =1', '\t+1', '\r-1', '\n@1']
-    ids = [scan(logs_db, own, source=value) for value in values]
-    rows = {row['Scan ID']: row for row in await csv_rows(logs_db, own, ScanLogQuery())}
-    for identifier, value in zip(ids, values, strict=True):
-        # Source labels have always been trimmed by the shared SQL projection.
-        normalized = value.strip()
-        try:
-            float(normalized)
-            numeric = True
-        except ValueError:
-            numeric = False
-        dangerous = normalized.startswith(('=', '+', '@')) or (
-            normalized.startswith('-') and not numeric
-        )
-        expected = "'" + normalized if dangerous else normalized
-        assert rows[str(identifier)]['Source'] == expected
-        if value.lstrip().startswith(('=', '+', '-', '@')):
-            # Leading control characters are still escaped even before a number.
-            assert scan_logs._safe_cell(value) == "'" + value
-    assert scan_logs._safe_cell(-1.5) == -1.5
-    assert scan_logs._safe_cell("-1") == "-1"
-    assert scan_logs._safe_cell("-cmd") == "'-cmd"
+    for value in values:
+        scan(logs_db, own, source=value)
+    rows = await export_rows(logs_db, own, ScanLogQuery())
+    sources = [row["Source / Supplier"] for row in rows]
+    # Inline strings keep exact trimmed text without formula elements; XML normalizes CR to LF.
+    assert set(sources) == {
+        value.strip().replace("\r\n", "\n").replace("\r", "\n") for value in values
+    }
+
 
 @pytest.mark.asyncio
 async def test_success_drilldown_matches_dashboard_numerator_and_full_export(logs_db):
@@ -639,10 +659,8 @@ async def test_success_drilldown_matches_dashboard_numerator_and_full_export(log
     result = await scan_logs.list_scan_logs(db, own, ScanLogQuery(attention='success'))
     assert summary.success_rate == 60
     assert result.total == 3 and {row.id for row in result.items} == expected
-    assert {
-        row["Scan ID"]
-        for row in await csv_rows(db, own, ScanLogQuery(attention="success", page=7, page_size=1))
-    } == {str(sid) for sid in expected}
+    exported = await export_rows(db, own, ScanLogQuery(attention="success", page=7, page_size=1))
+    assert {row["Confidence (%)"] for row in exported} == {"85.0%", "90.0%", "60.0%"}
 
 
 @pytest.mark.asyncio
@@ -739,9 +757,9 @@ async def test_export_scan_logs_with_limit_alias(logs_db):
     own = account(db)
     scan(db, own, confidence=88, prediction="3")
     export_query = ScanLogQuery(limit=25)
-    rows = await csv_rows(db, own, export_query)
+    rows = await export_rows(db, own, export_query)
     assert len(rows) == 1
-    assert float(rows[0]["Confidence (%)"]) == 88.0
+    assert rows[0]["Confidence (%)"] == "88.0%"
 
 
 @pytest.mark.asyncio

@@ -1,7 +1,6 @@
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
-from fastapi.responses import StreamingResponse
 
 from app.api.deps import CurrentUser, DbSession, StreamDbSession
 from app.core.http import get_client_ip
@@ -9,7 +8,7 @@ from app.schemas.scan_logs import ScanLogList, ScanLogPending, ScanLogQuery, Sca
 from app.services import audit
 from app.services.scan_logs import (
     check_export_snapshot,
-    export_scan_logs,
+    export_scan_logs_pdf,
     export_scan_logs_xlsx,
     list_scan_logs,
     pending_scan_count,
@@ -83,15 +82,16 @@ async def scan_logs_export(
         audit.AuditAction.DATA_EXPORTED, export_details(user, query),
         actor=user, ip=get_client_ip(request), required=True,
     )
-    if query.format == "xlsx":
-        xlsx_bytes = await export_scan_logs_xlsx(db, user, query)
+    if query.format == "pdf":
+        pdf_bytes = await export_scan_logs_pdf(db, user, query)
         return Response(
-            content=xlsx_bytes,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": 'attachment; filename="bananavision_scan_logs.xlsx"'},
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": 'attachment; filename="bananavision_scan_logs.pdf"'},
         )
-    contents = await export_scan_logs(db, user, query)
-    return StreamingResponse(
-        contents, media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="bananavision_scan_logs.csv"'},
+    xlsx_bytes = await export_scan_logs_xlsx(db, user, query)
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="bananavision_scan_logs.xlsx"'},
     )

@@ -64,7 +64,7 @@ async function openActivity(t, { echoAsOf = true, secondPageAsOf = null } = {}) 
 }
 
 async function loaded(page) {
-  await page.getByRole("button", { name: "Export CSV", exact: true }).waitFor()
+  await page.getByRole("button", { name: "Export Excel", exact: true }).waitFor()
   await page.waitForFunction(() => !document.querySelector('table [data-slot="skeleton"]'))
   await page.getByText("Sign-in failed for an unrecognized username", { exact: true }).waitFor()
 }

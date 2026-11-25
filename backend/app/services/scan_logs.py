@@ -1,9 +1,7 @@
-"""One SQL filter pipeline for Scan Logs, full-result metrics and streamed CSV."""
+"""One SQL filter pipeline for Scan Logs, full-result metrics and Excel/PDF exports."""
 
 from __future__ import annotations
 
-import csv
-import io
 from datetime import datetime
 from types import SimpleNamespace
 from uuid import UUID
@@ -12,8 +10,19 @@ from fastapi import HTTPException
 from sqlalchemy import String, and_, cast, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.export_format import (
+    SCAN_EXPORT_HEADERS,
+    format_manila_date,
+    format_scan_export_row,
+    to_xlsx_rows,
+)
+from app.core.pdf import build_pdf
 from app.core.time import as_manila
-from app.core.xlsx import build_xlsx, number_text
+from app.core.xlsx import build_xlsx
+from app.models.intake import Intake
+from app.models.operator_profile import OperatorProfile
+from app.models.scan_original_ai_result import ScanOriginalAiResult
+from app.models.supplier import Supplier
 from app.models.user_account import UserAccount
 from app.schemas.scan_logs import (
     OperatorOption,
@@ -26,7 +35,7 @@ from app.schemas.scan_logs import (
     SourceOption,
 )
 from app.services import dashboard
-from app.services.inventory_policy import eligible_stock
+from app.services.inventory_policy import eligible_stock, shelf_life_window
 from app.services.scan_evidence import thumbnail_url
 from app.services.scan_snapshots import (
     MAX_ROWS,
@@ -36,14 +45,7 @@ from app.services.scan_snapshots import (
     slice_snapshot,
 )
 
-EXPORT_HEADERS = [
-    "Scan ID", "Scanned At (UTC+08:00)", "Operator", "Operator Username", "Source",
-    "Cultivar", "Ripeness", "Confidence (%)", "Inventory Status", "Flagged",
-    "Est. Original Shelf Life (days)", "Est. Remaining Shelf Life (days)",
-    "Est. Finger Count",
-    "Temperature (C)", "Humidity (%)", "Intake ID", "Overridden",
-    "Status Updated At (UTC+08:00)", "VPD (kPa)",
-]
+EXPORT_HEADERS = SCAN_EXPORT_HEADERS
 
 
 def _conditions(scans, query: ScanLogQuery, threshold: float):
@@ -322,6 +324,8 @@ async def list_scan_logs(
         watermark_row = max(
             raw, key=lambda row: (as_manila(row.date_time), row.id.int), default=None
         )
+        overridden_ids = [source.id for source in raw if source.is_overridden]
+        original_counts = await _original_finger_counts(db, overridden_ids)
         # Capture the same unrounded stock/risk decision used by filters and metrics.
         # Never reclassify from rounded remaining days or the displayed range.
         # No history/notes or credentials are included in browse payloads.
@@ -331,8 +335,17 @@ async def list_scan_logs(
             key,
             {
                 "items": [
-                    {**row.model_dump(mode="json"), "username": source.username,
-                     "_at_risk": bool(source.at_risk)}
+                    {
+                        **row.model_dump(mode="json"),
+                        "username": source.username,
+                        "_at_risk": bool(source.at_risk),
+                        "_has_finger_count": source.finger_count is not None,
+                        **(
+                            {"_original_finger_count": original_counts[source.id]}
+                            if source.id in original_counts
+                            else {}
+                        ),
+                    }
                     for row, source in zip(rows, raw, strict=True)
                 ],
                 "meta": {
@@ -380,21 +393,79 @@ async def list_scan_logs(
     )
 
 
-def _safe_cell(value):
-    """Protect CSV consumers from formulas without altering numeric strings."""
-    if not isinstance(value, str):
-        return value
-    stripped = value.lstrip()
-    dangerous = bool(stripped) and stripped[0] in "=+-@"
-    if dangerous and stripped[0] == "-":
-        try:
-            float(stripped)
-            dangerous = False
-        except ValueError:
-            pass
-    if value.startswith(("\t", "\r", "\n")) or dangerous:
-        return "'" + value
-    return value
+async def _original_finger_counts(
+    db: AsyncSession, scan_ids: list[UUID],
+) -> dict[UUID, int]:
+    """Load pre-override AI finger counts for overridden scans only."""
+    if not scan_ids:
+        return {}
+    rows = (await db.execute(
+        select(ScanOriginalAiResult.scan_id, ScanOriginalAiResult.finger_count)
+        .where(ScanOriginalAiResult.scan_id.in_(scan_ids))
+    )).all()
+    return {row.scan_id: int(row.finger_count) for row in rows if row.finger_count is not None}
+
+
+async def _export_filter_summary(db: AsyncSession, query: ScanLogQuery) -> list[str]:
+    """Build plain-language filter chips for PDF report headers (no raw UUIDs)."""
+    parts: list[str] = []
+    if query.business_date is not None:
+        parts.append(f"Date: {format_manila_date(query.business_date)}")
+    if query.source_key is not None:
+        if query.source_key.startswith("supplier:"):
+            try:
+                supplier_id = UUID(query.source_key.removeprefix("supplier:"))
+                supplier_name = await db.scalar(
+                    select(Supplier.name).where(Supplier.id == supplier_id)
+                )
+            except ValueError:
+                supplier_name = None
+            parts.append(f"Source: {supplier_name or 'Selected supplier'}")
+        elif query.source_key.startswith("text:"):
+            parts.append(f"Source: {query.source_key[5:]}")
+        elif query.source_key == "unknown":
+            parts.append("Source: Unknown")
+    elif query.source is not None and query.source.strip():
+        parts.append(f"Source: {query.source.strip()}")
+    if query.operator_id is not None:
+        op_name = await db.scalar(
+            select(UserAccount.full_name)
+            .join(OperatorProfile, OperatorProfile.account_id == UserAccount.id)
+            .where(OperatorProfile.id == query.operator_id)
+        )
+        parts.append(f"Operator: {op_name or 'Selected operator'}")
+    if query.intake_id is not None:
+        intake = (await db.execute(
+            select(Intake.batch_number, Intake.intake_date, Supplier.name)
+            .outerjoin(Supplier, Supplier.id == Intake.supplier_id)
+            .where(Intake.id == query.intake_id)
+        )).first()
+        if intake and intake.batch_number:
+            parts.append(f"Delivery Batch: {intake.batch_number}")
+        elif intake and intake.name:
+            parts.append(f"Delivery: {intake.name} ({format_manila_date(intake.intake_date)})")
+        else:
+            parts.append("Delivery Intake: Filtered")
+    if query.cultivar is not None:
+        parts.append(f"Cultivar: {query.cultivar.value}")
+    if query.ripeness is not None:
+        parts.append(f"Ripeness: {query.ripeness.value}")
+    if query.inventory_status is not None:
+        parts.append(f"Status: {query.inventory_status.value}")
+    if query.stock_eligible:
+        parts.append("Eligible Stock Only")
+    attention_labels = {
+        "at-risk": "At-Risk",
+        "review": "Needs Review",
+        "success": "Approved",
+    }
+    if query.attention in attention_labels:
+        parts.append(f"View: {attention_labels[query.attention]}")
+    elif query.flagged_only:
+        parts.append("Review: Needs Review")
+    if query.search and query.search.strip():
+        parts.append(f'Search: "{query.search.strip()}"')
+    return parts
 
 
 async def check_export_snapshot(db: AsyncSession, user: UserAccount, query: ScanLogQuery):
@@ -407,9 +478,12 @@ async def check_export_snapshot(db: AsyncSession, user: UserAccount, query: Scan
         await _snapshot(db, user, query, lock=False)
 
 
-async def export_scan_logs(db: AsyncSession, user: UserAccount, query: ScanLogQuery):
-    """Return a stream over ALL matching records, with bounded fetch/output buffers."""
+async def _collect_export_data(
+    db: AsyncSession, user: UserAccount, query: ScanLogQuery,
+) -> tuple[list[list[str]], datetime, list[str]]:
+    """Collect the canonical formatted rows shared by both Excel and PDF exports."""
     now = dashboard.now_manila()
+    as_of = now
     scans = dashboard._scoped_projection(user, now)
     threshold = await dashboard._threshold(db)
     statement = (
@@ -417,9 +491,14 @@ async def export_scan_logs(db: AsyncSession, user: UserAccount, query: ScanLogQu
         .where(*_conditions(scans, query, threshold))
         .order_by(*_ordering(scans, query)).execution_options(yield_per=200)
     )
-    # Start the query before HTTP headers are sent, so initial DB failures propagate.
     if query.snapshot_id:
         saved = await _snapshot(db, user, query)
+        generated_raw = saved.payload.get("meta", {}).get("generated_at")
+        if isinstance(generated_raw, str):
+            try:
+                as_of = as_manila(datetime.fromisoformat(generated_raw))
+            except ValueError:
+                as_of = now
 
         class SnapshotRows:
             async def partitions(self, size):
@@ -433,88 +512,79 @@ async def export_scan_logs(db: AsyncSession, user: UserAccount, query: ScanLogQu
     else:
         result = await db.stream(statement)
 
-    async def contents():
-        output = io.StringIO(newline="")
-        writer = csv.writer(output)
-        writer.writerow(EXPORT_HEADERS)
-        try:
-            yield "\ufeff" + output.getvalue()
-            async for batch in result.partitions(200):
-                output.seek(0)
-                output.truncate(0)
-                for raw in batch:
-                    row = ScanLogRow.model_validate(raw) if query.snapshot_id else _row(raw, now)
-                    username = raw["username"] if query.snapshot_id else raw.username
-                    writer.writerow([_safe_cell(cell) for cell in [
-                        str(row.id), row.date_time.isoformat(), row.operator_name, username,
-                        row.source_name, row.cultivar, row.ripeness, row.confidence,
-                        row.inventory_status, row.flagged, row.spoilage_days, row.remaining_days,
-                        row.finger_count, row.temperature, row.humidity,
-                        str(row.intake_id) if row.intake_id else None, row.is_overridden,
-                        row.status_updated_at.isoformat() if row.status_updated_at else None,
-                        None if row.vpd is None else f"{row.vpd:.3f}",
-                    ]])
-                yield output.getvalue()
-        finally:
-            await result.close()
-
-    return contents()
-
-
-async def export_scan_logs_xlsx(db: AsyncSession, user: UserAccount, query: ScanLogQuery) -> bytes:
-    now = dashboard.now_manila()
-    scans = dashboard._scoped_projection(user, now)
-    threshold = await dashboard._threshold(db)
-    statement = (
-        select(scans)
-        .where(*_conditions(scans, query, threshold))
-        .order_by(*_ordering(scans, query)).execution_options(yield_per=200)
-    )
-    if query.snapshot_id:
-        saved = await _snapshot(db, user, query)
-
-        class SnapshotRows:
-            async def partitions(self, size):
-                for start in range(0, len(saved.payload["items"]), size):
-                    yield saved.payload["items"][start:start + size]
-
-            async def close(self):
-                pass
-
-        result = SnapshotRows()
-    else:
-        result = await db.stream(statement)
-
-    xlsx_rows = []
+    collected: list[tuple[ScanLogRow, int | None, int | None, dict | None]] = []
+    overridden_ids: list[UUID] = []
     try:
         async for batch in result.partitions(200):
             for raw in batch:
-                row = ScanLogRow.model_validate(raw) if query.snapshot_id else _row(raw, now)
-                username = raw["username"] if query.snapshot_id else raw.username
-                xlsx_rows.append([
-                    (str(row.id), "inlineStr"),
-                    (row.date_time.isoformat(), "inlineStr"),
-                    (row.operator_name, "inlineStr"),
-                    (username, "inlineStr"),
-                    (row.source_name or "", "inlineStr"),
-                    (row.cultivar, "inlineStr"),
-                    (row.ripeness, "inlineStr"),
-                    (number_text(row.confidence), "n") if row.confidence is not None else None,
-                    (row.inventory_status, "inlineStr"),
-                    ("1" if row.flagged else "0", "b"),
-                    (row.spoilage_days, "inlineStr") if row.spoilage_days is not None else None,
-                    (str(row.remaining_days), "n") if row.remaining_days is not None else None,
-                    (number_text(row.finger_count), "n") if row.finger_count is not None else None,
-                    (number_text(row.temperature), "n") if row.temperature is not None else None,
-                    (number_text(row.humidity), "n") if row.humidity is not None else None,
-                    (str(row.intake_id), "inlineStr") if row.intake_id else None,
-                    ("1" if row.is_overridden else "0", "b"),
-                    (
-                        row.status_updated_at.isoformat(), "inlineStr",
-                    ) if row.status_updated_at else None,
-                    (number_text(row.vpd), "n") if row.vpd is not None else None,
-                ])
+                if query.snapshot_id:
+                    row = ScanLogRow.model_validate(raw)
+                    has_finger_count = raw.get("_has_finger_count", True)
+                    finger_count = row.finger_count if has_finger_count else None
+                    original_finger_count = raw.get("_original_finger_count")
+                    window = shelf_life_window(row.spoilage_days, row.date_time, as_of)
+                    collected.append((row, finger_count, original_finger_count, window))
+                else:
+                    row = _row(raw, as_of)
+                    window = (
+                        row.shelf_life_window.model_dump()
+                        if row.shelf_life_window is not None
+                        else None
+                    )
+                    if row.is_overridden:
+                        overridden_ids.append(row.id)
+                    collected.append((row, raw.finger_count, None, window))
     finally:
         await result.close()
 
-    return build_xlsx(EXPORT_HEADERS, xlsx_rows, sheet_name="sheet1")
+    original_counts: dict[UUID, int] = {}
+    if not query.snapshot_id and overridden_ids:
+        for start in range(0, len(overridden_ids), 500):
+            original_counts.update(
+                await _original_finger_counts(db, overridden_ids[start:start + 500])
+            )
+
+    formatted_rows: list[list[str]] = []
+    for row, finger_count, snapshot_original, window in collected:
+        source = "" if row.source_key == "unknown" else row.source_name
+        original_finger_count = (
+            snapshot_original if query.snapshot_id else original_counts.get(row.id)
+        )
+        formatted_rows.append(format_scan_export_row(
+            date_time=row.date_time,
+            source_name=source,
+            cultivar=row.cultivar,
+            ripeness=row.ripeness,
+            finger_count=finger_count,
+            is_overridden=row.is_overridden,
+            original_finger_count=original_finger_count,
+            spoilage_days=row.spoilage_days,
+            inventory_status=row.inventory_status,
+            flagged=row.flagged,
+            confidence=row.confidence,
+            temperature=row.temperature,
+            humidity=row.humidity,
+            operator_name=row.operator_name,
+            as_of=as_of,
+            shelf_life=window,
+        ))
+
+    filters = await _export_filter_summary(db, query)
+    return formatted_rows, as_of, filters
+
+
+async def export_scan_logs_xlsx(db: AsyncSession, user: UserAccount, query: ScanLogQuery) -> bytes:
+    rows, as_of, _ = await _collect_export_data(db, user, query)
+    return build_xlsx(EXPORT_HEADERS, to_xlsx_rows(rows), sheet_name="sheet1", timestamp=as_of)
+
+
+async def export_scan_logs_pdf(db: AsyncSession, user: UserAccount, query: ScanLogQuery) -> bytes:
+    rows, as_of, filters = await _collect_export_data(db, user, query)
+    return build_pdf(
+        EXPORT_HEADERS,
+        rows,
+        title="BananaVision — Scan Logs Report",
+        filters=filters,
+        exported_at=as_of,
+        orientation="landscape",
+    )

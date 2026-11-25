@@ -1,5 +1,7 @@
 """Cross-request snapshots are immutable, scoped and bounded; generated DB only."""
 
+import io
+import zipfile
 from datetime import timedelta
 from uuid import uuid4
 
@@ -97,11 +99,10 @@ def test_logs_snapshot_exports_original_filtered_population(application):  # noq
     params["snapshot_id"] = first["snapshot_id"]
     assert app.client.get("/api/v1/scan-logs", params=params).json() == first
     exported = app.client.get("/api/v1/scan-logs/export", params=params)
-    assert (
-        exported.status_code == 200
-        and "Lakatan" in exported.text
-        and "Cardaba" not in exported.text
-    )
+    assert exported.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(exported.content)) as archive:
+        sheet_xml = archive.read("xl/worksheets/sheet1.xml").decode("utf-8")
+    assert "Lakatan" in sheet_xml and "Cardaba" not in sheet_xml
 
 
 def test_pending_scan_count_is_snapshot_relative_and_non_mutating(application):  # noqa: F811

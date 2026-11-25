@@ -13,7 +13,7 @@ export interface ScanLogRow extends DashboardScan {
 }
 
 export interface ScanLogParams {
-  format?: "csv" | "xlsx"
+  format?: "xlsx" | "pdf"
   stable?: boolean
   snapshot_id?: string
   business_date?: string

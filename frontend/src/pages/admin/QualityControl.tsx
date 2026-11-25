@@ -17,7 +17,7 @@ import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { AppDataTable, type ColumnDef } from "@/components/AppDataTable"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { ExportDropdown } from "@/components/ExportDropdown"
-import { downloadCsv, downloadXlsx } from "@/lib/exportUtils"
+import { SCAN_EXPORT_HEADERS, downloadPdf, downloadXlsx, formatScanExportRow } from "@/lib/exportUtils"
 import { Input } from "@/components/ui/input"
 import { NumberField } from "@/components/ui/number-field"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
@@ -43,9 +43,6 @@ import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import { inManila, manilaDayKey } from "@/lib/manilaTime"
 import { fingerCountIsEstimate, fingersLabel } from "@/lib/estimates"
-
-// Estimated columns say so; the cells stay plain numbers.
-const EXPORT_HEADERS = ["Scan ID", "Date/Time", "Operator", "Cultivar", "Ripeness", "Confidence (%)", "Temperature (°C)", "Humidity (%)", "Est. Spoilage (days)", "Est. Finger Count", "Source", "Flagged", "Status"]
 
 const PAGE_SIZE = 15
 
@@ -270,30 +267,19 @@ export default function QualityControl() {
   const sortedScansRef = useRef(filteredScans)
   const [exporting, setExporting] = useState(false)
 
-  const handleExportCsv = () => {
-    if (scansLoading || Boolean(scansError)) {
-      toast.error("Wait for the complete scan history to load before exporting.")
-      return
-    }
-    const filename = `quality-control-${manilaDayKey(Date.now())}.csv`
-    const headers = EXPORT_HEADERS
-    const rows = sortedScansRef.current.map(scan => [
-      scan.id,
-      scan.dateTime,
-      scan.operator,
-      scan.cultivar,
-      scan.ripeness,
-      scan.confidence !== null && scan.confidence !== undefined ? String(scan.confidence) : "",
-      scan.temperature !== null && scan.temperature !== undefined ? String(scan.temperature) : "",
-      scan.humidity !== null && scan.humidity !== undefined ? String(scan.humidity) : "",
-      scan.spoilageDays !== null && scan.spoilageDays !== undefined ? String(scan.spoilageDays) : "",
-      scan.fingerCount !== null && scan.fingerCount !== undefined ? String(scan.fingerCount) : "",
-      scan.source || "",
-      scan.flagged ? "Yes" : "No",
-      reviewLabel(scan)
-    ])
-    downloadCsv(filename, headers, rows)
-    toast.success("Export successful", { description: `${rows.length} scans exported to CSV` })
+  const buildExportRows = () => {
+    const exportedAt = Date.now()
+    return sortedScansRef.current.map(scan => formatScanExportRow(scan, exportedAt))
+  }
+
+  const activeExportFilters = (): string[] => {
+    const filters: string[] = []
+    if (filterView === "flagged") filters.push("View: Flagged")
+    else if (filterView === "low-confidence") filters.push("View: Low Confidence")
+    else if (filterView === "overridden") filters.push("View: Overridden")
+    if (sourceFilter !== "all") filters.push(`Source: ${sourceFilter}`)
+    if (searchQuery.trim()) filters.push(`Search: "${searchQuery.trim()}"`)
+    return filters
   }
 
   const handleExportXlsx = async () => {
@@ -304,24 +290,31 @@ export default function QualityControl() {
     setExporting(true)
     try {
       const filename = `quality-control-${manilaDayKey(Date.now())}.xlsx`
-      const headers = EXPORT_HEADERS
-      const rows = sortedScansRef.current.map(scan => [
-        scan.id,
-        scan.dateTime,
-        scan.operator,
-        scan.cultivar,
-        scan.ripeness,
-        scan.confidence !== null && scan.confidence !== undefined ? Number(scan.confidence) : null,
-        scan.temperature !== null && scan.temperature !== undefined ? Number(scan.temperature) : null,
-        scan.humidity !== null && scan.humidity !== undefined ? Number(scan.humidity) : null,
-        scan.spoilageDays !== null && scan.spoilageDays !== undefined ? String(scan.spoilageDays) : "",
-        scan.fingerCount !== null && scan.fingerCount !== undefined ? Number(scan.fingerCount) : null,
-        scan.source || null,
-        scan.flagged ? "Yes" : "No",
-        reviewLabel(scan)
-      ])
-      await downloadXlsx(filename, "Quality Control", headers, rows)
+      const rows = buildExportRows()
+      await downloadXlsx(filename, "Quality Control", SCAN_EXPORT_HEADERS, rows)
       toast.success("Export successful", { description: `${rows.length} scans exported to Excel` })
+    } catch (e) {
+      toast.error("Export failed", { description: e instanceof Error ? e.message : "Please try again" })
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleExportPdf = async () => {
+    if (scansLoading || Boolean(scansError)) {
+      toast.error("Wait for the complete scan history to load before exporting.")
+      return
+    }
+    setExporting(true)
+    try {
+      const filename = `quality-control-${manilaDayKey(Date.now())}.pdf`
+      const rows = buildExportRows()
+      await downloadPdf(filename, SCAN_EXPORT_HEADERS, rows, {
+        title: "BananaVision — Quality Control Report",
+        filters: activeExportFilters(),
+        orientation: "landscape",
+      })
+      toast.success("Export successful", { description: `${rows.length} scans exported to PDF` })
     } catch (e) {
       toast.error("Export failed", { description: e instanceof Error ? e.message : "Please try again" })
     } finally {
@@ -485,8 +478,8 @@ export default function QualityControl() {
         icon={ShieldCheck}
         action={
           <ExportDropdown
-            onExportCsv={handleExportCsv}
             onExportXlsx={handleExportXlsx}
+            onExportPdf={handleExportPdf}
             disabled={scansLoading || Boolean(scansError)}
             exporting={exporting}
           />

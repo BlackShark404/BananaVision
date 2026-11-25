@@ -22,7 +22,7 @@ import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppTableFilters } from "@/components/AppTableFilters"
 import { ExportDropdown } from "@/components/ExportDropdown"
-import { downloadCsv, downloadXlsx } from "@/lib/exportUtils"
+import { downloadPdf, downloadXlsx } from "@/lib/exportUtils"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -50,7 +50,16 @@ import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { inManila, manilaDayKey } from "@/lib/manilaTime"
+import { formatManilaDate, inManila, manilaDayKey } from "@/lib/manilaTime"
+
+const INTAKE_EXPORT_HEADERS = [
+  "Date",
+  "Supplier / Source",
+  "Batch / PO",
+  "Items Scanned",
+  "Intake Status",
+  "Inventory Status",
+]
 
 // Valid transitions: key = current status, value = allowed target statuses
 const VALID_TRANSITIONS: Record<string, InventoryStatus[]> = {
@@ -122,18 +131,22 @@ export default function DeliveryIntake() {
   const sortedIntakesRef = useRef(filtered)
   const [exporting, setExporting] = useState(false)
 
-  const handleExportCsv = () => {
-    if (dataUnavailable) return
-    const filename = `intakes-${manilaDayKey(Date.now())}.csv`
-    const rows = sortedIntakesRef.current.map(intake => [
-      intake.id,
-      intake.source || "Unknown",
-      intake.date,
-      (intake.scanCount || 0).toString(),
-      intake.status
+  const buildIntakeExportRows = () =>
+    sortedIntakesRef.current.map(intake => [
+      formatManilaDate(intake.date),
+      (intake.supplierName && intake.supplierName !== "Unknown" ? intake.supplierName : intake.source) || "",
+      intake.batchNumber || "",
+      intake.scanCount || 0,
+      intake.status || "",
+      intake.inventoryStatus || "In Stock",
     ])
-    downloadCsv(filename, ["Intake ID", "Source", "Date", "Total Scans", "Status"], rows)
-    toast.success("Export successful", { description: `${rows.length} intakes exported to CSV` })
+
+  const activeExportFilters = (): string[] => {
+    const filters: string[] = []
+    if (statusFilter !== "all") filters.push(`Status: ${statusFilter}`)
+    if (sourceFilter !== "all") filters.push(`Source: ${sourceFilter}`)
+    if (search.trim()) filters.push(`Search: "${search.trim()}"`)
+    return filters
   }
 
   const handleExportXlsx = async () => {
@@ -141,15 +154,28 @@ export default function DeliveryIntake() {
     setExporting(true)
     try {
       const filename = `intakes-${manilaDayKey(Date.now())}.xlsx`
-      const rows = sortedIntakesRef.current.map(intake => [
-        intake.id,
-        intake.source || "Unknown",
-        intake.date,
-        intake.scanCount || 0,
-        intake.status
-      ])
-      await downloadXlsx(filename, "Delivery Intakes", ["Intake ID", "Source", "Date", "Total Scans", "Status"], rows)
+      const rows = buildIntakeExportRows()
+      await downloadXlsx(filename, "Delivery Intakes", INTAKE_EXPORT_HEADERS, rows)
       toast.success("Export successful", { description: `${rows.length} intakes exported to Excel` })
+    } catch (e) {
+      toast.error("Export failed", { description: e instanceof Error ? e.message : "Please try again" })
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleExportPdf = async () => {
+    if (dataUnavailable) return
+    setExporting(true)
+    try {
+      const filename = `intakes-${manilaDayKey(Date.now())}.pdf`
+      const rows = buildIntakeExportRows()
+      await downloadPdf(filename, INTAKE_EXPORT_HEADERS, rows, {
+        title: "BananaVision — Delivery Intakes Report",
+        filters: activeExportFilters(),
+        orientation: "landscape",
+      })
+      toast.success("Export successful", { description: `${rows.length} intakes exported to PDF` })
     } catch (e) {
       toast.error("Export failed", { description: e instanceof Error ? e.message : "Please try again" })
     } finally {
@@ -371,8 +397,8 @@ export default function DeliveryIntake() {
         icon={Package}
         action={
           <ExportDropdown
-            onExportCsv={handleExportCsv}
             onExportXlsx={handleExportXlsx}
+            onExportPdf={handleExportPdf}
             disabled={dataUnavailable}
             exporting={exporting}
           />

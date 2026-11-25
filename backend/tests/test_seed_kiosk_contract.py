@@ -1,7 +1,8 @@
 """Compare demo records and the real trigger route using disposable PG and mocked hardware."""
 
-import csv
 import io
+import xml.etree.ElementTree as ET
+import zipfile
 from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -219,13 +220,15 @@ async def test_seed_and_kiosk_records_agree_across_consumers(
         assert summary.current_stock_count == 16  # Ten sold demo scans excluded.
         registry = await list_intakes(db, admin)
         assert sum(item.scan_count for item in registry) == (26 if linked else 25)
-        content = await scan_logs.export_scan_logs(db, admin, ScanLogQuery())
-        exported = list(csv.DictReader(io.StringIO(
-            "".join([part async for part in content]).lstrip("\ufeff"),
-        )))
-        row = next(item for item in exported if item["Scan ID"] == saved["id"])
-        assert row["VPD (kPa)"] == ("" if expected_vpd is None else f"{expected_vpd:.3f}")
-        assert row["Est. Original Shelf Life (days)"] == saved["spoilage_days"]
-        assert row["Source"] == log.source_name
-        assert row["Scanned At (UTC+08:00)"] == saved["date_time"]
+        xlsx_bytes = await scan_logs.export_scan_logs_xlsx(db, admin, ScanLogQuery())
+        pdf_bytes = await scan_logs.export_scan_logs_pdf(db, admin, ScanLogQuery(format="pdf"))
+        with zipfile.ZipFile(io.BytesIO(xlsx_bytes)) as archive:
+            sheet_root = ET.fromstring(archive.read("xl/worksheets/sheet1.xml"))
+        ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+        xml_rows = sheet_root.findall("m:sheetData/m:row", ns)
+        assert len(xml_rows) == 27  # Header + 25 seeded + 1 live scan.
+        headers = [cell.find("m:is/m:t", ns).text for cell in xml_rows[0].findall("m:c", ns)]
+        assert "VPD (kPa)" not in headers and "Scan ID" not in headers
+        assert headers[0] == "Date & Time"
+        assert pdf_bytes.startswith(b"%PDF-1.4\n")
         assert len(predictions) == 1  # Reads never rerun predictions.

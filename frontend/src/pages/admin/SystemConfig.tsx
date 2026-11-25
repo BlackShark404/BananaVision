@@ -181,12 +181,12 @@ export default function SystemConfig() {
     toast.info("Settings reset to defaults")
   }
 
-  const handleExportData = async (format: "csv" | "xlsx") => {
+  const handleExportData = async (format: "xlsx" | "pdf") => {
     if (exportFlight.current) return
     exportFlight.current = true; setExporting(true)
     try {
       await api.config.export(format)
-      toast.success("Scan summaries exported", { description: `${format.toUpperCase()} download started` })
+      toast.success("Scan summaries exported", { description: `${format === "xlsx" ? "Excel" : "PDF"} download started` })
     } catch {
       toast.error("Export Failed", { description: "Could not export scan summaries" })
     } finally { exportFlight.current = false; setExporting(false) }
@@ -433,11 +433,11 @@ export default function SystemConfig() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-5 first:pt-0 last:pb-0">
                 <div>
                   <h4 className="font-medium text-sm sm:text-base">Export Scan Summaries</h4>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Download a CSV or XLSX report of scan summaries. This export cannot restore station data.</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Download an Excel or PDF report of scan summaries. This export cannot restore station data.</p>
                 </div>
                 <ExportDropdown
-                  onExportCsv={() => void handleExportData("csv")}
                   onExportXlsx={() => void handleExportData("xlsx")}
+                  onExportPdf={() => void handleExportData("pdf")}
                   disabled={exporting}
                   exporting={exporting}
                 />

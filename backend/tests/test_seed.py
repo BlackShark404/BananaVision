@@ -1,9 +1,10 @@
 """Demo seeding on an explicitly disposable PostgreSQL schema, never station data."""
 
 import asyncio
-import csv
 import io
 import os
+import xml.etree.ElementTree as ET
+import zipfile
 from datetime import datetime
 from types import SimpleNamespace
 from uuid import uuid4
@@ -163,12 +164,14 @@ async def test_seed_history_and_consumer_apis_are_consistent(empty_seed_database
         assert sum(row.total_scans for row in summary.operator_performance) == 25
         logs = await scan_logs.list_scan_logs(db, admin, ScanLogQuery(page_size=100))
         assert logs.total == 25 and all(row.vpd is not None for row in logs.items)
-        content = await scan_logs.export_scan_logs(db, admin, ScanLogQuery())
-        rows = list(
-            csv.DictReader(io.StringIO("".join([part async for part in content]).lstrip("\ufeff")))
-        )
-        assert len(rows) == 25
-        assert {row["VPD (kPa)"] for row in rows} == {f"{s.classification.vpd:.3f}" for s in scans}
+        xlsx_bytes = await scan_logs.export_scan_logs_xlsx(db, admin, ScanLogQuery())
+        pdf_bytes = await scan_logs.export_scan_logs_pdf(db, admin, ScanLogQuery(format="pdf"))
+        with zipfile.ZipFile(io.BytesIO(xlsx_bytes)) as archive:
+            sheet_root = ET.fromstring(archive.read("xl/worksheets/sheet1.xml"))
+        ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+        xml_rows = sheet_root.findall("m:sheetData/m:row", ns)
+        assert len(xml_rows) == 26  # Header + 25 seeded scans.
+        assert pdf_bytes.startswith(b"%PDF-1.4\n")
 
 
 async def test_seed_refuses_repeat_without_changing_existing_rows(empty_seed_database):

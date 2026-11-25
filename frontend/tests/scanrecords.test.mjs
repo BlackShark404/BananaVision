@@ -46,7 +46,14 @@ async function setup(t, status = 200, options = {}) {
       const code = state.readStatus ?? status
       return reply(code === 200 ? snapshot : { detail: 'Unavailable' }, code)
     }
-    if (url.pathname === '/api/v1/scan-logs/export') return route.fulfill({ status: 200, body: 'id,name\n1,Frozen\n', headers: { ...headers, 'content-type': 'text/csv' } })
+    if (url.pathname === '/api/v1/scan-logs/export') {
+      const isPdf = url.searchParams.get('format') === 'pdf'
+      return route.fulfill({
+        status: 200,
+        body: isPdf ? '%PDF-1.4\n%%EOF\n' : 'PK\x03\x04',
+        headers: { ...headers, 'content-type': isPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+      })
+    }
     if (url.pathname === '/api/v1/scan-logs/pending') {
       if (state.pendingStatus) return reply({ detail: 'Live scan count unavailable' }, state.pendingStatus)
       if (state.pendingResponse) return reply(state.pendingResponse(Object.fromEntries(url.searchParams)))
@@ -136,7 +143,7 @@ test('Logs keep readable ranges and risk snapshot membership while showing a liv
   await table.getByRole('columnheader', { name: 'Est. Spoilage' }).click()
   await until(() => queries.at(-1).sort === 'spoilage_days')
   assert.equal(queries.at(-1).attention, 'at-risk')
-  await until(async () => await page.getByRole('button', { name: 'Export CSV' }).isEnabled())
+  await until(async () => await page.getByRole('button', { name: 'Export Excel' }).isEnabled())
   assert.equal(await page.getByRole('button', { name: 'Refresh', exact: true }).count(), 0)
   const retainedSnapshot = snapshotId
   const before = queries.length
@@ -836,9 +843,13 @@ test('Logs retains a snapshot across pages and export, resets on filters and rec
   await page.locator('tbody tr').first().waitFor()
   await page.getByLabel('Go to next page').click()
   await until(() => state.requests.some(r => r.query.page === '2' && r.query.snapshot_id === 'snapshot-one'))
-  await page.getByRole('button', { name: 'Export CSV' }).click()
-  await until(() => state.requests.some(r => r.path.endsWith('/export')))
-  assert.equal(state.requests.find(r => r.path.endsWith('/export')).query.snapshot_id, 'snapshot-one')
+  await page.getByRole('button', { name: 'Export Excel' }).click()
+  await until(() => state.requests.some(r => r.path.endsWith('/export') && r.query.format === 'xlsx'))
+  assert.equal(state.requests.find(r => r.path.endsWith('/export') && r.query.format === 'xlsx').query.snapshot_id, 'snapshot-one')
+  await page.getByRole('button', { name: 'Export options', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Export PDF (.pdf)', exact: true }).click()
+  await until(() => state.requests.some(r => r.path.endsWith('/export') && r.query.format === 'pdf'))
+  assert.equal(state.requests.find(r => r.path.endsWith('/export') && r.query.format === 'pdf').query.snapshot_id, 'snapshot-one')
   state.snapshotToken = 'snapshot-two'
   await page.getByPlaceholder(/search by cultivar/i).fill('New cohort')
   await page.locator('tbody').getByText('New cohort', { exact: true }).waitFor()
@@ -1028,13 +1039,14 @@ test('ordinary websocket completion refreshes notifications once across duplicat
   assert.equal(await page.evaluate(() => window.scanNotificationEvents), 1)
 })
 
-test('an oversized snapshot still permits a complete filtered CSV export', async t => {
+test('an oversized snapshot still permits a complete filtered Excel/PDF export', async t => {
   const { page, state } = await setup(t, 200, { screen: 'logs', logStatus: 413 })
   await page.getByRole('alert').filter({ hasText: 'Too many records for a browse snapshot.' }).waitFor()
-  assert.equal(await page.getByRole('button', { name: 'Export CSV' }).isEnabled(), true)
-  await page.getByRole('button', { name: 'Export CSV' }).click()
+  assert.equal(await page.getByRole('button', { name: 'Export Excel' }).isEnabled(), true)
+  await page.getByRole('button', { name: 'Export Excel' }).click()
   await until(() => state.requests.some(r => r.path.endsWith('/export')))
   assert.equal(state.requests.find(r => r.path.endsWith('/export')).query.snapshot_id, undefined)
+  assert.equal(state.requests.find(r => r.path.endsWith('/export')).query.format, 'xlsx')
 })
 
 for (const screen of ['detail', 'quality']) {

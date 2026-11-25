@@ -305,19 +305,23 @@ test("Quality Control shows write failures without success toasts or discarding 
   assert.equal(await page.locator('[data-sonner-toast][data-type="success"]').count(), 0)
 })
 
-test("Quality Control export includes complete history and its original timestamp strings", async t => {
+test("Quality Control export includes complete history with readable Asia/Manila timestamps", async t => {
   const { page } = await setup(t, { screen: "quality" })
   const downloadPromise = page.waitForEvent("download")
-  await page.getByRole("button", { name: /export csv/i }).click()
+  await page.getByRole("button", { name: /export excel/i }).click()
   const download = await downloadPromise
-  const csv = await readFile(await download.path(), "utf8")
-  assert.equal(csv.split("\n").length, 206)
-  assert(csv.includes(`"scan-204","${storedDate(204)}"`))
+  const { default: ExcelJS } = await import("exceljs")
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(await readFile(await download.path()))
+  const sheet = workbook.worksheets[0]
+  assert.equal(sheet.rowCount, 206)
+  assert.equal(sheet.getRow(206).getCell(1).value, "Oct 14, 2023, 8:10 AM")
+  assert.equal(sheet.getRow(206).getCell(2).value, "Oldest source")
 })
 
 test("Quality Control disables export after incomplete history retrieval", async t => {
   const { page } = await setup(t, { screen: "quality", failPage: 2 })
-  assert.equal(await page.getByRole("button", { name: /export csv/i }).isDisabled(), true)
+  assert.equal(await page.getByRole("button", { name: /export excel/i }).isDisabled(), true)
   await page.getByRole("alert").filter({ hasText: /History page unavailable/ }).waitFor()
 })
 

@@ -31,6 +31,50 @@ export function manilaToday(time: number | Date = Date.now()): Date {
 
 const BUSINESS_DATE = /^\d{4}-\d{2}-\d{2}$/
 
+const dateParts = new Intl.DateTimeFormat("en-US", inManila({
+  month: "short", day: "numeric", year: "numeric",
+}))
+
+const dateTimeParts = new Intl.DateTimeFormat("en-US", inManila({
+  month: "short", day: "numeric", year: "numeric",
+  hour: "numeric", minute: "2-digit", hour12: true,
+}))
+
+const pdfStampParts = new Intl.DateTimeFormat("en-CA", inManila({
+  year: "numeric", month: "2-digit", day: "2-digit",
+  hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+}))
+
+/** Human-readable Asia/Manila timestamp for exports, e.g. "Nov 19, 2026, 9:12 PM". */
+export function formatManilaDateTime(value: string | number | Date | null | undefined): string {
+  if (value === null || value === undefined || value === "") return ""
+  const instant = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(instant.getTime())) return typeof value === "string" ? value : ""
+  const parts: Record<string, string> = {}
+  for (const part of dateTimeParts.formatToParts(instant)) parts[part.type] = part.value
+  return `${parts.month} ${parts.day}, ${parts.year}, ${parts.hour}:${parts.minute} ${parts.dayPeriod}`
+}
+
+/** Human-readable Asia/Manila calendar date for exports, e.g. "Oct 2, 2026". */
+export function formatManilaDate(value: string | number | Date | null | undefined): string {
+  if (value === null || value === undefined || value === "") return ""
+  const instant = typeof value === "string" && BUSINESS_DATE.test(value)
+    ? new Date(`${value}T00:00:00+08:00`)
+    : value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(instant.getTime())) return typeof value === "string" ? value : ""
+  const parts: Record<string, string> = {}
+  for (const part of dateParts.formatToParts(instant)) parts[part.type] = part.value
+  return `${parts.month} ${parts.day}, ${parts.year}`
+}
+
+/** PDF CreationDate metadata string in Asia/Manila (+08'00'). */
+export function manilaPdfTimestamp(time: number | Date = Date.now()): string {
+  const parts: Record<string, string> = {}
+  for (const part of pdfStampParts.formatToParts(time)) parts[part.type] = part.value
+  const hour = parts.hour === "24" ? "00" : parts.hour
+  return `D:${parts.year}${parts.month}${parts.day}${hour}${parts.minute}${parts.second}+08'00'`
+}
+
 /**
  * Whether a stored business date (YYYY-MM-DD, already a Manila day) or an instant falls on
  * today's Manila calendar day. Unreadable values are never today.

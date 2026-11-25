@@ -4,19 +4,21 @@ System configuration routes.
 
 from __future__ import annotations
 
-import csv
-import io
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
-from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import AdminUser, CurrentUser, DbSession
+from app.core.export_format import SCAN_EXPORT_HEADERS, format_scan_export_row, to_xlsx_rows
 from app.core.http import get_client_ip
-from app.core.xlsx import build_xlsx, number_text
+from app.core.pdf import build_pdf
+from app.core.time import now_manila
+from app.core.xlsx import build_xlsx
 from app.models.admin_profile import AdminProfile
+from app.models.intake import Intake
+from app.models.operator_profile import OperatorProfile
 from app.models.scan import Scan
 from app.schemas.common import SystemConfigResponse, SystemConfigUpdate
 from app.services import audit, configuration
@@ -76,12 +78,18 @@ async def export_database(
     db: DbSession,
     admin: AdminUser,
     request: Request,
-    format: Annotated[Literal["csv", "xlsx"], Query()] = "csv",
+    format: Annotated[Literal["xlsx", "pdf"], Query()] = "xlsx",
 ):
-    """Export scan summaries to CSV or XLSX. This file cannot restore the database."""
+    """Export scan summaries to Excel (.xlsx) or PDF (.pdf). Cannot restore the database."""
     result = await db.execute(
         select(Scan)
-        .options(selectinload(Scan.classification), selectinload(Scan.status_logs))
+        .options(
+            selectinload(Scan.classification),
+            selectinload(Scan.status_logs),
+            selectinload(Scan.original_ai_result),
+            selectinload(Scan.operator).selectinload(OperatorProfile.account),
+            selectinload(Scan.intake).selectinload(Intake.supplier),
+        )
         .order_by(Scan.date_time, Scan.id)
     )
     scans = result.scalars().all()
@@ -92,76 +100,68 @@ async def export_database(
         actor=admin, ip=get_client_ip(request),
     )
 
-    headers = [
-        "Scan ID", "Date Time (UTC+08:00)", "Cultivar", "Ripeness",
-        "Confidence", "Inventory Status",
-    ]
+    as_of = now_manila()
+    rows: list[list[str]] = []
+    for scan in scans:
+        classification = scan.classification
+        status = scan.status_logs[-1].inventory_status if scan.status_logs else "In Stock"
+        if scan.intake and scan.intake.supplier:
+            source = scan.intake.supplier.name
+        else:
+            source = (scan.source_text or "").strip()
+        operator_name = (
+            scan.operator_name_snapshot
+            or (
+                scan.operator.account.full_name
+                if scan.operator and scan.operator.account
+                else ""
+            )
+        )
+        rows.append(format_scan_export_row(
+            date_time=scan.date_time,
+            source_name=source,
+            cultivar=classification.cultivar if classification else None,
+            ripeness=classification.ripeness if classification else None,
+            finger_count=classification.finger_count if classification else None,
+            is_overridden=bool(scan.is_overridden),
+            original_finger_count=(
+                scan.original_ai_result.finger_count if scan.original_ai_result else None
+            ),
+            spoilage_days=classification.spoilage_days if classification else None,
+            inventory_status=status,
+            flagged=bool(scan.flagged),
+            confidence=classification.confidence if classification else None,
+            temperature=classification.temperature if classification else None,
+            humidity=classification.humidity if classification else None,
+            operator_name=operator_name,
+            as_of=as_of,
+        ))
 
-    if format == "xlsx":
-        xlsx_rows = []
-        for scan in scans:
-            cultivar = scan.classification.cultivar if scan.classification else "N/A"
-            ripeness = scan.classification.ripeness if scan.classification else "N/A"
-            confidence = scan.classification.confidence if scan.classification else "N/A"
-            status = scan.status_logs[-1].inventory_status if scan.status_logs else "N/A"
-            cultivar_text = (
-                str(getattr(cultivar, "value", cultivar))
-                if cultivar is not None else None
-            )
-            ripeness_text = (
-                str(getattr(ripeness, "value", ripeness))
-                if ripeness is not None else None
-            )
-            status_text = (
-                str(getattr(status, "value", status))
-                if status is not None else None
-            )
-
-            if confidence == "N/A":
-                conf_cell = ("N/A", "inlineStr")
-            elif confidence is None:
-                conf_cell = None
-            else:
-                try:
-                    float(confidence)
-                    conf_cell = (number_text(confidence), "n")
-                except (ValueError, TypeError):
-                    conf_cell = (str(confidence), "inlineStr")
-            xlsx_rows.append([
-                (str(scan.id), "inlineStr"),
-                (scan.date_time.isoformat(), "inlineStr"),
-                (cultivar_text, "inlineStr") if cultivar_text is not None else None,
-                (ripeness_text, "inlineStr") if ripeness_text is not None else None,
-                conf_cell,
-                (status_text, "inlineStr") if status_text is not None else None,
-            ])
-        xlsx_bytes = build_xlsx(headers, xlsx_rows, sheet_name="sheet1")
+    if format == "pdf":
+        pdf_bytes = build_pdf(
+            SCAN_EXPORT_HEADERS,
+            rows,
+            title="BananaVision — Inventory Scan Summary",
+            exported_at=as_of,
+            orientation="landscape",
+        )
         return Response(
-            content=xlsx_bytes,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            content=pdf_bytes,
+            media_type="application/pdf",
             headers={"Content-Disposition": (
-                'attachment; filename="bananavision_inventory_export.xlsx"'
+                'attachment; filename="bananavision_inventory_export.pdf"'
             )},
         )
 
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(headers)
-
-    for scan in scans:
-        cultivar = scan.classification.cultivar if scan.classification else "N/A"
-        ripeness = scan.classification.ripeness if scan.classification else "N/A"
-        confidence = scan.classification.confidence if scan.classification else "N/A"
-        status = scan.status_logs[-1].inventory_status if scan.status_logs else "N/A"
-        writer.writerow([scan.id, scan.date_time.isoformat(), getattr(cultivar, "value", cultivar),
-                         getattr(ripeness, "value", ripeness), confidence, getattr(status, "value", status)])
-
-    output.seek(0)
-
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=bananavision_inventory_export.csv"}
+    xlsx_bytes = build_xlsx(
+        SCAN_EXPORT_HEADERS, to_xlsx_rows(rows), sheet_name="sheet1", timestamp=as_of,
+    )
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": (
+            'attachment; filename="bananavision_inventory_export.xlsx"'
+        )},
     )
 
 

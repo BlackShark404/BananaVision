@@ -329,7 +329,7 @@ export const api = {
       const query = new URLSearchParams()
       for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== "") query.set(key, String(value))
       const token = getToken()
-      const format = params.format || "csv"
+      const format = params.format || "xlsx"
       query.set("format", format)
       const response = await fetch(`${BASE_URL}/api/v1/scan-logs/export?${query}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}, signal, cache: "no-store",
@@ -362,7 +362,7 @@ export const api = {
   config: {
     get: (signal?: AbortSignal) => get<ApiConfig>("/api/v1/config", undefined, signal),
     update: (data: ApiConfigUpdate) => patch<ApiConfig>("/api/v1/config", data),
-    export: async (format: "csv" | "xlsx" = "csv") => {
+    export: async (format: "xlsx" | "pdf" = "xlsx") => {
       const token = getToken()
       const res = await fetch(`${BASE_URL}/api/v1/config/export?format=${format}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}

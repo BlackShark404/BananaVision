@@ -2,9 +2,9 @@
  * Display vocabulary for audit-log actions.
  *
  * Keys mirror `AuditAction` in backend/app/services/audit.py exactly
- * (tests/activityactions.test.mjs compares the two). Stored rows keep the raw
- * action string; exports and API filters use it unchanged. Actions this map
- * does not know (legacy rows) still display through the title-case fallback.
+ * (tests/activityactions.test.mjs compares the two). Stored rows and API filters
+ * keep the raw action string; UI and exports display the friendly label. Actions
+ * this map does not know (legacy rows) still display through the title-case fallback.
  */
 
 export type ActivityCategory = "auth" | "security" | "credential" | "data" | "export" | "system"

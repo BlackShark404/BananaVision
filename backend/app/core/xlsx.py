@@ -16,11 +16,12 @@ import re
 import unicodedata
 import xml.sax.saxutils as saxutils
 from collections.abc import Sequence
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
-from app.core.time import now_manila
+from app.core.time import as_manila, now_manila
 
 NS_SPREADSHEET = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 MAX_ROW_HEIGHT = 409.0
@@ -89,6 +90,8 @@ def build_xlsx(
     headers: Sequence[str],
     rows: Sequence[Sequence[Any]],
     sheet_name: str = "sheet1",
+    *,
+    timestamp: datetime | None = None,
 ) -> bytes:
     """Generate an OpenXML (.xlsx) file as bytes."""
     num_cols = len(headers)
@@ -272,7 +275,7 @@ def build_xlsx(
 
     # Zip members carry a modification time; stamp it with the Manila clock rather than
     # the server's local zone.
-    stamp = now_manila().timetuple()[:6]
+    stamp = (as_manila(timestamp) if timestamp is not None else now_manila()).timetuple()[:6]
 
     def part(name: str) -> ZipInfo:
         info = ZipInfo(name, date_time=stamp)

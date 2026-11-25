@@ -579,12 +579,12 @@ function LogsContent() {
     )
   }
 
-  const exportLogs = async (format: "csv" | "xlsx") => {
+  const exportLogs = async (format: "xlsx" | "pdf") => {
     if (resource.isPreviousData || resource.loading) return
     setExporting(true)
     try {
       await api.scanLogs.export({ ...requestParams, snapshot_id: response?.snapshot_id, format }, AbortSignal.timeout(300_000))
-      toast.success(`Exported all matching scan records to ${format.toUpperCase()}`)
+      toast.success(`Exported all matching scan records to ${format === "xlsx" ? "Excel" : "PDF"}`)
     } catch (error) { toast.error(error instanceof Error ? error.message : "Export failed. Check connection or narrow date range.") }
     finally { setExporting(false) }
   }
@@ -816,8 +816,8 @@ const columns: ColumnDef<LogScan>[] = [
               </Button>
             )}
             <ExportDropdown
-              onExportCsv={() => void exportLogs("csv")}
               onExportXlsx={() => void exportLogs("xlsx")}
+              onExportPdf={() => void exportLogs("pdf")}
               disabled={exporting || resource.loading || resource.isPreviousData}
               exporting={exporting}
             />

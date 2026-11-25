@@ -1,8 +1,9 @@
 """Timezone and persistence contracts through real routes without a live database."""
 
-import csv
-import io
 import asyncio
+import io
+import xml.etree.ElementTree as ET
+import zipfile
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4
@@ -209,10 +210,16 @@ def test_history_pagination_preserves_old_instants_incomplete_rows_and_csv(appli
     assert detail.status_code == 200 and detail.json()["date_time"] == incomplete["date_time"]
     exported = app.client.get("/api/v1/config/export")
     assert exported.status_code == 200
-    rows = list(csv.DictReader(io.StringIO(exported.text)))
-    assert len(rows) == 32
-    assert all(row["Date Time (UTC+08:00)"].endswith("+08:00") for row in rows)
-    assert [(row["Date Time (UTC+08:00)"], row["Scan ID"]) for row in rows] == sorted(ordering)
+    assert exported.content.startswith(b"PK\x03\x04")
+    with zipfile.ZipFile(io.BytesIO(exported.content)) as archive:
+        root = ET.fromstring(archive.read("xl/worksheets/sheet1.xml"))
+    ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    xml_rows = root.findall("m:sheetData/m:row", ns)
+    assert len(xml_rows) == 33  # Header + 32 scans.
+    header_a1 = xml_rows[0].find("m:c[@r='A1']/m:is/m:t", ns).text
+    assert header_a1 == "Date & Time"
+    dates = [row.find(f"m:c[@r='A{i}']/m:is/m:t", ns).text for i, row in enumerate(xml_rows[1:], 2)]
+    assert all(date_text.startswith("Jan 2, 2025, ") for date_text in dates)
 
 
 @pytest.mark.parametrize("vpd", [0, None, 1.25, 1.555])

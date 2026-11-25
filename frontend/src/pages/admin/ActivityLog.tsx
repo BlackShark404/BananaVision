@@ -8,13 +8,14 @@ import { AppDataTable, type ColumnDef } from "@/components/AppDataTable"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppTableFilters } from "@/components/AppTableFilters"
 import { ExportDropdown } from "@/components/ExportDropdown"
-import { downloadCsv, downloadXlsx } from "@/lib/exportUtils"
+import { downloadPdf, downloadXlsx } from "@/lib/exportUtils"
 import { ScrollText, Filter, Activity, UserCheck, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
-import { manilaDayKey } from "@/lib/manilaTime"
+import { formatManilaDateTime, manilaDayKey } from "@/lib/manilaTime"
 import { activityBadgeClass, activityLabel, isCriticalActivity } from "@/lib/activityActions"
 import type { ActivityLog as ActivityEntry } from "@/types"
 
+const ACTIVITY_EXPORT_HEADERS = ["Date & Time", "User", "Action", "Details", "IP Address"]
 const PAGE_SIZE = 15
 
 export default function ActivityLog() {
@@ -59,38 +60,50 @@ export default function ActivityLog() {
   const sortedLogsRef = useRef(filtered)
   const [exporting, setExporting] = useState(false)
 
-  const handleExportCsv = () => {
-    if (activityLoading || !!activityError || !activityReady) return
-    const logs = sortedLogsRef.current
-    const filename = `activity-log-${manilaDayKey(Date.now())}.csv`
-    const headers = ["Timestamp", "User", "Action", "Details", "IP Address"]
-    const rows = logs.map(log => [
-      log.timestamp,
+  const buildActivityExportRows = () =>
+    sortedLogsRef.current.map(log => [
+      formatManilaDateTime(log.timestamp),
       log.user,
-      log.action,
+      activityLabel(log.action),
       log.details,
-      log.ipAddress || ""
+      log.ipAddress || "",
     ])
-    downloadCsv(filename, headers, rows)
-    toast.success("Export successful", { description: `${logs.length} activities exported to CSV` })
+
+  const activeExportFilters = (): string[] => {
+    const filters: string[] = []
+    if (actionFilter !== "all") filters.push(`Action: ${activityLabel(actionFilter)}`)
+    if (userFilter !== "all") filters.push(`User: ${userFilter}`)
+    if (search.trim()) filters.push(`Search: "${search.trim()}"`)
+    return filters
   }
 
   const handleExportXlsx = async () => {
     if (activityLoading || !!activityError || !activityReady) return
     setExporting(true)
     try {
-      const logs = sortedLogsRef.current
       const filename = `activity-log-${manilaDayKey(Date.now())}.xlsx`
-      const headers = ["Timestamp", "User", "Action", "Details", "IP Address"]
-      const rows = logs.map(log => [
-        log.timestamp,
-        log.user,
-        log.action,
-        log.details,
-        log.ipAddress || ""
-      ])
-      await downloadXlsx(filename, "Activity Log", headers, rows)
-      toast.success("Export successful", { description: `${logs.length} activities exported to Excel` })
+      const rows = buildActivityExportRows()
+      await downloadXlsx(filename, "Activity Log", ACTIVITY_EXPORT_HEADERS, rows)
+      toast.success("Export successful", { description: `${rows.length} activities exported to Excel` })
+    } catch (e) {
+      toast.error("Export failed", { description: e instanceof Error ? e.message : "Please try again" })
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleExportPdf = async () => {
+    if (activityLoading || !!activityError || !activityReady) return
+    setExporting(true)
+    try {
+      const filename = `activity-log-${manilaDayKey(Date.now())}.pdf`
+      const rows = buildActivityExportRows()
+      await downloadPdf(filename, ACTIVITY_EXPORT_HEADERS, rows, {
+        title: "BananaVision — Activity Log Report",
+        filters: activeExportFilters(),
+        orientation: "landscape",
+      })
+      toast.success("Export successful", { description: `${rows.length} activities exported to PDF` })
     } catch (e) {
       toast.error("Export failed", { description: e instanceof Error ? e.message : "Please try again" })
     } finally {
@@ -157,8 +170,8 @@ export default function ActivityLog() {
         icon={ScrollText}
         action={
           <ExportDropdown
-            onExportCsv={handleExportCsv}
             onExportXlsx={handleExportXlsx}
+            onExportPdf={handleExportPdf}
             disabled={activityLoading || !!activityError || !activityReady}
             exporting={exporting}
           />

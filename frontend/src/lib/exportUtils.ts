@@ -1,49 +1,91 @@
 /**
- * CSV/XLSX export helpers shared by the client-side exports (scan quality,
- * activity logs, delivery intakes, system configuration).
+ * Excel (.xlsx) and PDF (.pdf) export helpers shared by the client-side exports
+ * (Quality Control, Delivery Intakes, Activity Log).
  *
  * ExcelJS's Node stream-based writer never resolves inside the browser, so the
- * XLSX workbook is assembled directly from OpenXML parts, mirroring the proven
- * backend/app/core/xlsx.py templates: text wrapping, auto-calculated column
- * widths, dynamic row heights, typed cells and inlineStr escaping that keeps
+ * XLSX workbook is assembled directly from OpenXML parts, mirroring
+ * backend/app/core/xlsx.py: text wrapping, auto-calculated column widths,
+ * dynamic row heights, typed cells and inlineStr escaping that keeps
  * user-authored "=" / "+" / "@" text from being interpreted as formulas.
  */
 
+import type { ScanResult } from "@/types"
+import { fingerCountIsEstimate, fingerCountText } from "./estimates"
+import { remainingStockDays } from "./inventoryRisk"
+import { formatManilaDateTime } from "./manilaTime"
+import { buildPdfBlob, type PdfExportOptions } from "./pdfExport"
+import { liveShelfLife } from "./shelfLifeWindow"
+import { closedStockSpoilageLabel, formatSpoilageDays } from "./spoilageDisplay"
+
 const NS_SPREADSHEET = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 
-/**
- * Escapes a cell value for RFC 4180 CSV output. Every field is quoted, matching
- * the previous client exports, so delimiters, quotes, newlines and surrounding
- * spaces round-trip exactly. Formula-like text is prefixed with an apostrophe
- * before quoting so spreadsheet applications cannot execute it.
- */
-export function formatCsvCell(value: unknown): string {
-  let str = value === null || value === undefined ? "" : String(value)
-  const stripped = str.replace(/^[\s\uFEFF]+/, "")
-  const dangerous = /^[=+@]/.test(stripped) ||
-    (stripped.startsWith("-") && !Number.isFinite(Number(stripped)))
-  if (/^[\t\r\n]/.test(str) || dangerous) str = `'${str}`
-  return `"${str.replace(/"/g, '""')}"`
+export type ExportCellValue = string | number | boolean | null | undefined
+
+/** Canonical human-friendly scan export columns shared with backend exports. */
+export const SCAN_EXPORT_HEADERS: string[] = [
+  "Date & Time",
+  "Source / Supplier",
+  "Cultivar",
+  "Ripeness",
+  "Est. Fingers",
+  "Est. Shelf Life (Original)",
+  "Est. Time Left / Freshness",
+  "Inventory Status",
+  "Review Status",
+  "Confidence (%)",
+  "Temperature (°C)",
+  "Humidity (%)",
+  "Operator",
+]
+
+function formatScanFreshness(scan: ScanResult, now: number): string {
+  const status = scan.inventoryStatus || "In Stock"
+  if (closedStockSpoilageLabel(status) !== null) return status
+  const live = liveShelfLife(scan.shelfLifeWindow, now)
+  if (live) {
+    if (live.state === "final_day") return "Final day"
+    if (live.state === "expired") {
+      return `Overdue by ${live.daysPast} ${live.daysPast === 1 ? "day" : "days"}`
+    }
+    return live.remainingMin === live.remainingMax
+      ? `${live.remainingMax} ${live.remainingMax === 1 ? "day" : "days"} left`
+      : `${live.remainingMin}–${live.remainingMax} days left`
+  }
+  const remaining = remainingStockDays(scan, now)
+  if (remaining !== null) {
+    if (remaining < 0) {
+      const daysPast = Math.max(1, Math.ceil(-remaining))
+      return `Overdue by ${daysPast} ${daysPast === 1 ? "day" : "days"}`
+    }
+    const label = formatSpoilageDays(remaining)
+    return label === "Unknown" ? "" : `${label} left`
+  }
+  return ""
 }
 
-/**
- * Downloads data as a UTF-8 encoded CSV file with BOM.
- */
-export function downloadCsv(filename: string, headers: string[], rows: (string | number | boolean | null | undefined)[][]): void {
-  const headerLine = headers.map(formatCsvCell).join(",")
-  const rowLines = rows.map(row => row.map(formatCsvCell).join(","))
-  const csvContent = "\uFEFF" + [headerLine, ...rowLines].join("\n")
-
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.href = url
-  link.setAttribute("download", filename.endsWith(".csv") ? filename : `${filename}.csv`)
-  link.style.visibility = "hidden"
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+/** Formats one scan into the 13 human-friendly cells matching SCAN_EXPORT_HEADERS. */
+export function formatScanExportRow(scan: ScanResult, now: number): string[] {
+  const shelfLife = formatSpoilageDays(scan.spoilageDays)
+  const hasFingerCount = typeof scan.fingerCount === "number"
+    && Number.isInteger(scan.fingerCount) && scan.fingerCount >= 0
+  return [
+    formatManilaDateTime(scan.dateTime),
+    scan.source?.trim() || "",
+    scan.cultivar && scan.cultivar !== "Unknown" ? scan.cultivar : "",
+    scan.ripeness && scan.ripeness !== "Unknown" ? scan.ripeness : "",
+    hasFingerCount ? fingerCountText(scan.fingerCount, fingerCountIsEstimate(scan)) : "",
+    shelfLife === "Unknown" ? "" : shelfLife,
+    formatScanFreshness(scan, now),
+    scan.inventoryStatus || "In Stock",
+    scan.flagged ? "Needs Review" : "Approved",
+    scan.confidence !== null && scan.confidence !== undefined && Number.isFinite(scan.confidence)
+      ? `${scan.confidence.toFixed(1)}%` : "",
+    scan.temperature !== null && scan.temperature !== undefined && Number.isFinite(scan.temperature)
+      ? `${scan.temperature.toFixed(1)}°C` : "",
+    scan.humidity !== null && scan.humidity !== undefined && Number.isFinite(scan.humidity)
+      ? `${scan.humidity.toFixed(1)}%` : "",
+    scan.operator || "",
+  ]
 }
 
 // ── In-browser XLSX builder ──────────────────────────────────────────────────
@@ -182,8 +224,8 @@ type XlsxCell =
   | { value: string, type: "b" }
   | null
 
-function cellOf(raw: string | number | boolean | null | undefined): XlsxCell {
-  if (raw === null || raw === undefined) return null
+function cellOf(raw: ExportCellValue): XlsxCell {
+  if (raw === null || raw === undefined || raw === "") return null
   if (typeof raw === "string") return { value: raw, type: "s" }
   if (typeof raw === "boolean") return { value: raw ? "1" : "0", type: "b" }
   if (!Number.isFinite(raw)) return { value: `${raw}`, type: "s" }
@@ -204,7 +246,7 @@ function renderCell(cell: XlsxCell, ref: string, style: number): string {
  * index 1) from which Excel derives implicit column widths and dynamic row
  * heights, bold wrapped headers (index 2), typed number/boolean/string cells.
  */
-export function buildXlsxXml(headers: string[], rows: (string | number | boolean | null | undefined)[][]): string {
+export function buildXlsxXml(headers: string[], rows: ExportCellValue[][]): string {
   const numCols = headers.length
 
   const columnWidths: number[] = []
@@ -212,7 +254,7 @@ export function buildXlsxXml(headers: string[], rows: (string | number | boolean
     let maxWidth = displayWidth(headers[c])
     for (const row of rows) {
       const raw = row[c]
-      if (raw === null || raw === undefined) continue
+      if (raw === null || raw === undefined || raw === "") continue
       for (const line of `${raw}`.split("\n")) {
         maxWidth = Math.max(maxWidth, displayWidth(line))
       }
@@ -327,9 +369,22 @@ export async function downloadXlsx(
   filename: string,
   sheetName: string,
   headers: string[],
-  rows: (string | number | boolean | null | undefined)[][],
+  rows: ExportCellValue[][],
 ): Promise<void> {
   const sheetXml = buildXlsxXml(headers, rows)
   const blob = buildXlsx(sheetName, sheetXml)
   triggerDownload(filename.endsWith(".xlsx") ? filename : `${filename}.xlsx`, blob)
+}
+
+/**
+ * Downloads data as a formatted tabular PDF report with Asia/Manila export timestamp.
+ */
+export async function downloadPdf(
+  filename: string,
+  headers: string[],
+  rows: ExportCellValue[][],
+  options: PdfExportOptions,
+): Promise<void> {
+  const blob = buildPdfBlob(headers, rows, options)
+  triggerDownload(filename.endsWith(".pdf") ? filename : `${filename}.pdf`, blob)
 }
