@@ -315,8 +315,9 @@ test("Quality Control export includes complete history with readable Asia/Manila
   await workbook.xlsx.load(await readFile(await download.path()))
   const sheet = workbook.worksheets[0]
   assert.equal(sheet.rowCount, 206)
-  assert.equal(sheet.getRow(206).getCell(1).value, "Oct 14, 2023, 8:10 AM")
-  assert.equal(sheet.getRow(206).getCell(2).value, "Oldest source")
+  assert.equal(sheet.getRow(206).getCell(1).value, "SCAN-SCAN204")
+  assert.equal(sheet.getRow(206).getCell(2).value, "Oct 14, 2023, 8:10:00 AM")
+  assert.equal(sheet.getRow(206).getCell(3).value, "Oldest source")
 })
 
 test("Quality Control disables export after incomplete history retrieval", async t => {

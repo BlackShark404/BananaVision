@@ -217,8 +217,11 @@ def test_history_pagination_preserves_old_instants_incomplete_rows_and_csv(appli
     xml_rows = root.findall("m:sheetData/m:row", ns)
     assert len(xml_rows) == 33  # Header + 32 scans.
     header_a1 = xml_rows[0].find("m:c[@r='A1']/m:is/m:t", ns).text
-    assert header_a1 == "Date & Time"
-    dates = [row.find(f"m:c[@r='A{i}']/m:is/m:t", ns).text for i, row in enumerate(xml_rows[1:], 2)]
+    header_b1 = xml_rows[0].find("m:c[@r='B1']/m:is/m:t", ns).text
+    assert header_a1 == "Scan Ref" and header_b1 == "Date & Time"
+    refs = [row.find(f"m:c[@r='A{i}']/m:is/m:t", ns).text for i, row in enumerate(xml_rows[1:], 2)]
+    dates = [row.find(f"m:c[@r='B{i}']/m:is/m:t", ns).text for i, row in enumerate(xml_rows[1:], 2)]
+    assert all(ref.startswith("SCAN-") and len(ref) == 13 for ref in refs)
     assert all(date_text.startswith("Jan 2, 2025, ") for date_text in dates)
 
 

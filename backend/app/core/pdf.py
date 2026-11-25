@@ -168,8 +168,8 @@ def _compute_column_widths(
     if num_cols == 0:
         return []
     sample_rows = rows[:200]
-    min_floor = 32.0 if num_cols >= 10 else 44.0
-    max_share = 0.22 if num_cols >= 10 else 0.44 if num_cols <= 5 else 0.30
+    min_floor = 30.0 if num_cols >= 12 else 32.0 if num_cols >= 10 else 44.0
+    max_share = 0.20 if num_cols >= 12 else 0.22 if num_cols >= 10 else 0.44 if num_cols <= 5 else 0.30
     max_cap = usable_width * max_share
 
     mins: list[float] = []
@@ -196,6 +196,14 @@ def _compute_column_widths(
             cell_widths.sort()
             p90 = cell_widths[min(len(cell_widths) - 1, int(len(cell_widths) * 0.90))]
             ideal_w = max(min_w, min(max_cap, max(header_full + 2 * pad_x + 2.0, p90)))
+            all_single_token = all(
+                " " not in (row[c] if c < len(row) else "")
+                and "\n" not in (row[c] if c < len(row) else "")
+                for row in sample_rows
+            )
+            if all_single_token and cell_widths[-1] <= 76.0:
+                min_w = max(min_w, min(max_cap, cell_widths[-1]))
+                ideal_w = max(ideal_w, min_w)
         else:
             ideal_w = max(min_w, min(max_cap, header_full + 2 * pad_x + 2.0))
 
@@ -265,12 +273,12 @@ def build_pdf(
     footer_h = 16.0
     usable_w = page_w - 2 * margin_x
 
-    # Adaptive compact typography for wide 13-column reports vs narrower tables.
-    header_font = 7.5 if num_cols >= 10 else 8.5
-    body_font = 7.2 if num_cols >= 10 else 8.2
-    header_line_h = header_font + 2.5
-    body_line_h = body_font + 2.6
-    pad_x = 3.5 if num_cols >= 10 else 5.0
+    # Adaptive compact typography for wide 14-column reports vs narrower tables.
+    header_font = 7.0 if num_cols >= 12 else 7.5 if num_cols >= 10 else 8.5
+    body_font = 6.8 if num_cols >= 12 else 7.2 if num_cols >= 10 else 8.2
+    header_line_h = header_font + 2.4
+    body_line_h = body_font + 2.5
+    pad_x = 3.0 if num_cols >= 12 else 3.5 if num_cols >= 10 else 5.0
     pad_y = 4.0
 
     timestamp = as_manila(exported_at) if exported_at is not None else now_manila()

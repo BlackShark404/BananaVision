@@ -37,7 +37,7 @@ const dateParts = new Intl.DateTimeFormat("en-US", inManila({
 
 const dateTimeParts = new Intl.DateTimeFormat("en-US", inManila({
   month: "short", day: "numeric", year: "numeric",
-  hour: "numeric", minute: "2-digit", hour12: true,
+  hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true,
 }))
 
 const pdfStampParts = new Intl.DateTimeFormat("en-CA", inManila({
@@ -45,14 +45,14 @@ const pdfStampParts = new Intl.DateTimeFormat("en-CA", inManila({
   hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
 }))
 
-/** Human-readable Asia/Manila timestamp for exports, e.g. "Nov 19, 2026, 9:12 PM". */
+/** Human-readable Asia/Manila timestamp with seconds for exports, e.g. "Nov 25, 2026, 1:45:11 PM". */
 export function formatManilaDateTime(value: string | number | Date | null | undefined): string {
   if (value === null || value === undefined || value === "") return ""
   const instant = value instanceof Date ? value : new Date(value)
   if (Number.isNaN(instant.getTime())) return typeof value === "string" ? value : ""
   const parts: Record<string, string> = {}
   for (const part of dateTimeParts.formatToParts(instant)) parts[part.type] = part.value
-  return `${parts.month} ${parts.day}, ${parts.year}, ${parts.hour}:${parts.minute} ${parts.dayPeriod}`
+  return `${parts.month} ${parts.day}, ${parts.year}, ${parts.hour}:${parts.minute}:${parts.second} ${parts.dayPeriod}`
 }
 
 /** Human-readable Asia/Manila calendar date for exports, e.g. "Oct 2, 2026". */

@@ -22,7 +22,7 @@ import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { AppTableFilters } from "@/components/AppTableFilters"
 import { ExportDropdown } from "@/components/ExportDropdown"
-import { downloadPdf, downloadXlsx } from "@/lib/exportUtils"
+import { downloadPdf, downloadXlsx, formatIntakeRef } from "@/lib/exportUtils"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -53,6 +53,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { formatManilaDate, inManila, manilaDayKey } from "@/lib/manilaTime"
 
 const INTAKE_EXPORT_HEADERS = [
+  "Intake Ref",
   "Date",
   "Supplier / Source",
   "Batch / PO",
@@ -112,10 +113,19 @@ export default function DeliveryIntake() {
     return intakesWithScanCount.filter((intake) => {
       if (statusFilter !== "all" && intake.status !== statusFilter) return false
       if (sourceFilter !== "all" && intake.source !== sourceFilter) return false
-      if (search) {
-        const q = search.toLowerCase()
-        return (intake.source?.toLowerCase() || "").includes(q) || 
-               intake.id.toLowerCase().includes(q)
+      if (search.trim()) {
+        const q = search.trim().toLowerCase()
+        const refQuery = q.startsWith("int-") ? q.slice(4).trim() : null
+        const compactQuery = q.replace(/-/g, "")
+        const intakeRef = formatIntakeRef(intake.id).toLowerCase()
+        const compactId = intake.id.replace(/-/g, "").toLowerCase()
+        return (intake.source?.toLowerCase() || "").includes(q) ||
+               (intake.supplierName?.toLowerCase() || "").includes(q) ||
+               (intake.batchNumber?.toLowerCase() || "").includes(q) ||
+               intake.id.toLowerCase().includes(q) ||
+               intakeRef.includes(q) ||
+               (compactQuery.length > 0 && compactId.includes(compactQuery)) ||
+               (refQuery !== null && refQuery.length > 0 && compactId.startsWith(refQuery.replace(/-/g, "")))
       }
       return true
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -133,6 +143,7 @@ export default function DeliveryIntake() {
 
   const buildIntakeExportRows = () =>
     sortedIntakesRef.current.map(intake => [
+      formatIntakeRef(intake.id),
       formatManilaDate(intake.date),
       (intake.supplierName && intake.supplierName !== "Unknown" ? intake.supplierName : intake.source) || "",
       intake.batchNumber || "",

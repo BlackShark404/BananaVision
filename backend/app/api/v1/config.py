@@ -11,7 +11,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import AdminUser, CurrentUser, DbSession
-from app.core.export_format import SCAN_EXPORT_HEADERS, format_scan_export_row, to_xlsx_rows
+from app.core.export_format import (
+    SCAN_EXPORT_HEADERS,
+    ExportCell,
+    format_scan_export_cells,
+    to_pdf_rows,
+    to_xlsx_rows,
+)
 from app.core.http import get_client_ip
 from app.core.pdf import build_pdf
 from app.core.time import now_manila
@@ -101,7 +107,7 @@ async def export_database(
     )
 
     as_of = now_manila()
-    rows: list[list[str]] = []
+    rows: list[list[ExportCell]] = []
     for scan in scans:
         classification = scan.classification
         status = scan.status_logs[-1].inventory_status if scan.status_logs else "In Stock"
@@ -117,7 +123,8 @@ async def export_database(
                 else ""
             )
         )
-        rows.append(format_scan_export_row(
+        rows.append(format_scan_export_cells(
+            scan_id=scan.id,
             date_time=scan.date_time,
             source_name=source,
             cultivar=classification.cultivar if classification else None,
@@ -140,7 +147,7 @@ async def export_database(
     if format == "pdf":
         pdf_bytes = build_pdf(
             SCAN_EXPORT_HEADERS,
-            rows,
+            to_pdf_rows(rows),
             title="BananaVision — Inventory Scan Summary",
             exported_at=as_of,
             orientation="landscape",

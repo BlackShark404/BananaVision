@@ -175,8 +175,8 @@ function computeColumnWidths(
   const numCols = headers.length
   if (numCols === 0) return []
   const sample = rows.slice(0, 200)
-  const minFloor = numCols >= 10 ? 32 : 44
-  const maxShare = numCols >= 10 ? 0.22 : numCols <= 5 ? 0.44 : 0.30
+  const minFloor = numCols >= 12 ? 30 : numCols >= 10 ? 32 : 44
+  const maxShare = numCols >= 12 ? 0.20 : numCols >= 10 ? 0.22 : numCols <= 5 ? 0.44 : 0.30
   const maxCap = usableWidth * maxShare
 
   const mins: number[] = []
@@ -186,7 +186,7 @@ function computeColumnWidths(
     const words = header.split(/\s+/).filter(Boolean)
     const longestWord = Math.max(...(words.length ? words : [header]).map(w => measureText(w, headerFont, true)))
     const headerFull = measureText(header, headerFont, true)
-    const minW = Math.max(minFloor, Math.min(maxCap, longestWord + 2 * padX + 2))
+    let minW = Math.max(minFloor, Math.min(maxCap, longestWord + 2 * padX + 2))
 
     const widths: number[] = []
     for (const row of sample) {
@@ -202,6 +202,15 @@ function computeColumnWidths(
       widths.sort((a, b) => a - b)
       const p90 = widths[Math.min(widths.length - 1, Math.floor(widths.length * 0.9))]
       idealW = Math.max(minW, Math.min(maxCap, Math.max(headerFull + 2 * padX + 2, p90)))
+      const allSingleToken = sample.every(row => {
+        const val = row[c] ?? ""
+        return !val.includes(" ") && !val.includes("\n")
+      })
+      const maxW = widths[widths.length - 1]
+      if (allSingleToken && maxW <= 76) {
+        minW = Math.max(minW, Math.min(maxCap, maxW))
+        idealW = Math.max(idealW, minW)
+      }
     }
     mins.push(minW)
     ideals.push(idealW)
@@ -228,17 +237,21 @@ function computeColumnWidths(
 
 const asciiEncoder = new TextEncoder()
 
+export type PdfCellInput = string | number | boolean | null | undefined | { display: string }
+
 /** Builds a valid PDF 1.4 document with wrapped table rows and Asia/Manila metadata. */
 export function buildPdfBytes(
   headers: string[],
-  rows: (string | number | boolean | null | undefined)[][],
+  rows: PdfCellInput[][],
   options: PdfExportOptions,
 ): Uint8Array {
   const numCols = headers.length
   const normalizedRows: string[][] = rows.map(row =>
     headers.map((_, c) => {
       const val = row[c]
-      return val === null || val === undefined ? "" : String(val)
+      if (val === null || val === undefined) return ""
+      if (typeof val === "object" && "display" in val) return val.display
+      return String(val)
     }),
   )
 
@@ -252,11 +265,11 @@ export function buildPdfBytes(
   const footerH = 16
   const usableW = pageW - 2 * marginX
 
-  const headerFont = numCols >= 10 ? 7.5 : 8.5
-  const bodyFont = numCols >= 10 ? 7.2 : 8.2
-  const headerLineH = headerFont + 2.5
-  const bodyLineH = bodyFont + 2.6
-  const padX = numCols >= 10 ? 3.5 : 5
+  const headerFont = numCols >= 12 ? 7.0 : numCols >= 10 ? 7.5 : 8.5
+  const bodyFont = numCols >= 12 ? 6.8 : numCols >= 10 ? 7.2 : 8.2
+  const headerLineH = headerFont + 2.4
+  const bodyLineH = bodyFont + 2.5
+  const padX = numCols >= 12 ? 3 : numCols >= 10 ? 3.5 : 5
   const padY = 4
 
   const exportedAt = options.exportedAt ?? Date.now()
@@ -493,7 +506,7 @@ export function buildPdfBytes(
 
 export function buildPdfBlob(
   headers: string[],
-  rows: (string | number | boolean | null | undefined)[][],
+  rows: PdfCellInput[][],
   options: PdfExportOptions,
 ): Blob {
   const bytes = buildPdfBytes(headers, rows, options)

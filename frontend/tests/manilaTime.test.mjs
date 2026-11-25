@@ -69,9 +69,9 @@ test('manilaToday is the local calendar date of the Manila day for the date pick
 })
 
 test('export date/time formatters always render Asia/Manila wall clock', () => {
-  // 16:30 UTC on Oct 1 is 12:30 AM on Oct 2 in Asia/Manila (and Oct 1 in Los Angeles).
-  assert.equal(formatManilaDateTime('2026-10-01T16:30:00Z'), 'Oct 2, 2026, 12:30 AM')
-  assert.equal(formatManilaDateTime('2026-11-19T21:12:45.123456+08:00'), 'Nov 19, 2026, 9:12 PM')
+  // 16:30 UTC on Oct 1 is 12:30:00 AM on Oct 2 in Asia/Manila (and Oct 1 in Los Angeles).
+  assert.equal(formatManilaDateTime('2026-10-01T16:30:00Z'), 'Oct 2, 2026, 12:30:00 AM')
+  assert.equal(formatManilaDateTime('2026-11-19T21:12:45.123456+08:00'), 'Nov 19, 2026, 9:12:45 PM')
   assert.equal(formatManilaDate('2026-10-02'), 'Oct 2, 2026')
   assert.equal(formatManilaDate('2026-10-01T16:30:00Z'), 'Oct 2, 2026')
   assert.equal(manilaPdfTimestamp(at('2026-10-01T16:30:00Z')), "D:20261002003000+08'00'")

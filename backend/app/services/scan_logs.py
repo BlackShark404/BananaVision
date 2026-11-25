@@ -12,8 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.export_format import (
     SCAN_EXPORT_HEADERS,
+    ExportCell,
     format_manila_date,
-    format_scan_export_row,
+    format_scan_export_cells,
+    to_pdf_rows,
     to_xlsx_rows,
 )
 from app.core.pdf import build_pdf
@@ -78,10 +80,12 @@ def _conditions(scans, query: ScanLogQuery, threshold: float):
         conditions.append(dashboard._successful(scans, threshold))
     if query.search and query.search.strip():
         text = query.search.strip().lower()
+        ref_candidate = text.removeprefix("scan-").strip() if text.startswith("scan-") else text
         try:
-            exact_uuid = UUID(text)
+            exact_uuid = UUID(ref_candidate)
             conditions.append(scans.c.id == exact_uuid)
         except ValueError:
+            compact_id = func.replace(func.lower(cast(scans.c.id, String)), "-", "")
             fields = [
                 cast(scans.c.id, String), scans.c.operator_name, scans.c.username,
                 scans.c.source_name,
@@ -90,6 +94,13 @@ def _conditions(scans, query: ScanLogQuery, threshold: float):
                 func.replace(cast(scans.c.inventory_status, String), "_", " "),
             ]
             matches = [func.lower(field).contains(text, autoescape=True) for field in fields]
+            compact_query = text.replace("-", "")
+            if compact_query:
+                matches.append(compact_id.contains(compact_query, autoescape=True))
+            if text.startswith("scan-") and ref_candidate:
+                compact_ref = ref_candidate.replace("-", "")
+                if compact_ref:
+                    matches.append(compact_id.startswith(compact_ref, autoescape=True))
             conditions.append(or_(*matches))
     return conditions
 
@@ -480,7 +491,7 @@ async def check_export_snapshot(db: AsyncSession, user: UserAccount, query: Scan
 
 async def _collect_export_data(
     db: AsyncSession, user: UserAccount, query: ScanLogQuery,
-) -> tuple[list[list[str]], datetime, list[str]]:
+) -> tuple[list[list[ExportCell]], datetime, list[str]]:
     """Collect the canonical formatted rows shared by both Excel and PDF exports."""
     now = dashboard.now_manila()
     as_of = now
@@ -544,13 +555,14 @@ async def _collect_export_data(
                 await _original_finger_counts(db, overridden_ids[start:start + 500])
             )
 
-    formatted_rows: list[list[str]] = []
+    formatted_rows: list[list[ExportCell]] = []
     for row, finger_count, snapshot_original, window in collected:
         source = "" if row.source_key == "unknown" else row.source_name
         original_finger_count = (
             snapshot_original if query.snapshot_id else original_counts.get(row.id)
         )
-        formatted_rows.append(format_scan_export_row(
+        formatted_rows.append(format_scan_export_cells(
+            scan_id=row.id,
             date_time=row.date_time,
             source_name=source,
             cultivar=row.cultivar,
@@ -582,7 +594,7 @@ async def export_scan_logs_pdf(db: AsyncSession, user: UserAccount, query: ScanL
     rows, as_of, filters = await _collect_export_data(db, user, query)
     return build_pdf(
         EXPORT_HEADERS,
-        rows,
+        to_pdf_rows(rows),
         title="BananaVision — Scan Logs Report",
         filters=filters,
         exported_at=as_of,

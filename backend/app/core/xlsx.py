@@ -150,11 +150,16 @@ def build_xlsx(
             cell_ref = f"{col_letter(c_idx + 1)}{r_idx}"
             cell = row[c_idx] if c_idx < len(row) else None
 
+            style_idx = 1
             if isinstance(cell, tuple):
-                val, cell_type = cell
+                if len(cell) == 3:
+                    val, cell_type, style_idx = cell
+                else:
+                    val, cell_type = cell
             elif isinstance(cell, dict):
                 val = cell.get("value")
                 cell_type = cell.get("type")
+                style_idx = int(cell.get("style", 1))
             elif cell is None:
                 val, cell_type = None, None
             elif isinstance(cell, bool):
@@ -179,13 +184,13 @@ def build_xlsx(
             if val is None or cell_type is None:
                 row_cells.append(f'<c r="{cell_ref}" s="1"/>')
             elif cell_type == "b":
-                row_cells.append(f'<c r="{cell_ref}" t="b" s="1"><v>{val}</v></c>')
+                row_cells.append(f'<c r="{cell_ref}" t="b" s="{style_idx}"><v>{val}</v></c>')
             elif cell_type == "n":
-                row_cells.append(f'<c r="{cell_ref}" t="n" s="1"><v>{val}</v></c>')
+                row_cells.append(f'<c r="{cell_ref}" t="n" s="{style_idx}"><v>{val}</v></c>')
             else:
                 # String / inlineStr - safe from formula execution and preserves spaces.
                 row_cells.append(
-                    f'<c r="{cell_ref}" t="inlineStr" s="1"><is>'
+                    f'<c r="{cell_ref}" t="inlineStr" s="{style_idx}"><is>'
                     f'<t xml:space="preserve">{escape_xml(str(val))}</t></is></c>'
                 )
 
@@ -247,6 +252,9 @@ def build_xlsx(
     styles_xml = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
         '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">\n'
+        '  <numFmts count="1">\n'
+        '    <numFmt numFmtId="164" formatCode="0.0"/>\n'
+        '  </numFmts>\n'
         '  <fonts count="2">\n'
         '    <font><sz val="11"/><name val="Calibri"/></font>\n'
         '    <font><b/><sz val="11"/><name val="Calibri"/></font>\n'
@@ -261,13 +269,17 @@ def build_xlsx(
         '  <cellStyleXfs count="1">\n'
         '    <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>\n'
         '  </cellStyleXfs>\n'
-        '  <cellXfs count="3">\n'
+        '  <cellXfs count="4">\n'
         '    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>\n'
         '    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1">\n'
         '      <alignment wrapText="1" vertical="top"/>\n'
         '    </xf>\n'
         '    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyAlignment="1">\n'
         '      <alignment wrapText="1" vertical="center"/>\n'
+        '    </xf>\n'
+        '    <xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" '
+        'applyNumberFormat="1" applyAlignment="1">\n'
+        '      <alignment wrapText="1" vertical="top"/>\n'
         '    </xf>\n'
         '  </cellXfs>\n'
         '</styleSheet>'

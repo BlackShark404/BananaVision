@@ -16,7 +16,7 @@ from app.api.deps import get_current_user
 from app.api.v1.scan_logs import router
 from app.core import database
 from app.core.database import get_db, get_stream_db
-from app.core.export_format import format_manila_datetime
+from app.core.export_format import format_manila_datetime, format_scan_ref
 from app.models.activity_log import ActivityLog
 from app.models.intake import Intake
 from app.models.scan import Scan
@@ -529,9 +529,10 @@ async def test_extended_fields_numeric_sort_literal_search_and_safe_csv(logs_db)
     literal = await scan_logs.list_scan_logs(db, operator, ScanLogQuery(search="%_"))
     assert [r.id for r in literal.items] == [high]
     export_data = await export_rows(db, operator, ScanLogQuery(sort="spoilage_days", direction="asc"))
+    assert export_data[0]["Scan Ref"] == format_scan_ref(low)
     assert export_data[0]["Source / Supplier"] == special_source
     assert export_data[0]["Operator"] == "=SUM(1,2)"
-    assert export_data[0]["Confidence (%)"] == "0.0%"
+    assert export_data[0]["Confidence (%)"] == "0.0"
     assert export_data[2]["Confidence (%)"] == ""
     db.session.execute(update(ScanClassification).where(ScanClassification.scan_id == high).values(
         cultivar=CultivarEnum.LATUNDAN, ripeness=RipenessEnum.SEMI_RIPE,
@@ -542,6 +543,12 @@ async def test_extended_fields_numeric_sort_literal_search_and_safe_csv(logs_db)
     assert [r.id for r in by_enum.items] == [high]
     by_uuid = await scan_logs.list_scan_logs(db, operator, ScanLogQuery(search=str(high)))
     assert [r.id for r in by_uuid.items] == [high]
+    # Direct lookup using the exported short Scan Ref (with and without prefix, case-insensitive).
+    high_ref = format_scan_ref(high)
+    short_hex = high_ref.removeprefix("SCAN-")
+    for query_text in (high_ref, high_ref.lower(), short_hex, short_hex.lower()):
+        matched = await scan_logs.list_scan_logs(db, operator, ScanLogQuery(search=query_text))
+        assert [r.id for r in matched.items] == [high], query_text
 
 
 @pytest.mark.asyncio
@@ -622,8 +629,9 @@ async def test_equal_key_pages_are_deterministic_and_account_scoped(logs_db, sor
     assert [row.id for row in again.items] == identifiers[:3]
     exported = await export_rows(logs_db, own, query)
     assert len(exported) == 8
+    assert [row["Scan Ref"] for row in exported] == [format_scan_ref(i) for i in identifiers]
     assert [row["Confidence (%)"] for row in exported] == [
-        "" if r.confidence is None else f"{r.confidence:.1f}%"
+        "" if r.confidence is None else f"{r.confidence:.1f}"
         for page in pages for r in page.items
     ]
 
@@ -660,7 +668,8 @@ async def test_success_drilldown_matches_dashboard_numerator_and_full_export(log
     assert summary.success_rate == 60
     assert result.total == 3 and {row.id for row in result.items} == expected
     exported = await export_rows(db, own, ScanLogQuery(attention="success", page=7, page_size=1))
-    assert {row["Confidence (%)"] for row in exported} == {"85.0%", "90.0%", "60.0%"}
+    assert {row["Scan Ref"] for row in exported} == {format_scan_ref(sid) for sid in expected}
+    assert {row["Confidence (%)"] for row in exported} == {"85.0", "90.0", "60.0"}
 
 
 @pytest.mark.asyncio
@@ -759,7 +768,7 @@ async def test_export_scan_logs_with_limit_alias(logs_db):
     export_query = ScanLogQuery(limit=25)
     rows = await export_rows(db, own, export_query)
     assert len(rows) == 1
-    assert rows[0]["Confidence (%)"] == "88.0%"
+    assert rows[0]["Confidence (%)"] == "88.0"
 
 
 @pytest.mark.asyncio

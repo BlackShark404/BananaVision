@@ -1,14 +1,17 @@
 """Shared human-friendly formatting for BananaVision scan exports (XLSX and PDF).
 
-Produces one canonical table of formatted values so Excel and PDF exports share
-the exact same columns, row order, and cell contents.
+Produces one canonical table so Excel and PDF exports share the exact same
+columns, row order, and displayed values while keeping measurement/percentage
+columns numeric in Excel spreadsheets.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
+from uuid import UUID
 
 from app.core.time import as_manila
 from app.services.inventory_policy import prediction_bounds, shelf_life_window
@@ -21,6 +24,7 @@ MONTHS = (
 CLOSED_STOCK_STATUSES = frozenset({"Sold", "Spoiled", "For Processing"})
 
 SCAN_EXPORT_HEADERS = [
+    "Scan Ref",
     "Date & Time",
     "Source / Supplier",
     "Cultivar",
@@ -37,14 +41,49 @@ SCAN_EXPORT_HEADERS = [
 ]
 
 
+@dataclass(frozen=True)
+class ExportCell:
+    """One canonical cell carrying both its exact display text and Excel cell typing."""
+
+    text: str
+    xlsx_type: str = "inlineStr"  # "inlineStr" | "n"
+    xlsx_value: str | None = None
+    xlsx_style: int = 1
+
+
+def _text_cell(value: str) -> ExportCell:
+    return ExportCell(text=value)
+
+
+def _fixed1_cell(value: float | Decimal | None) -> ExportCell:
+    """Format a 1-decimal measurement/percentage that stays numeric in Excel."""
+    if value is None:
+        return ExportCell(text="")
+    formatted = f"{float(value):.1f}"
+    # Style index 3 applies Excel number format "0.0" so Excel displays 1 decimal place
+    # while preserving native numeric sorting and formulas (AVERAGE, MIN, MAX).
+    return ExportCell(text=formatted, xlsx_type="n", xlsx_value=formatted, xlsx_style=3)
+
+
+def format_scan_ref(scan_id: UUID | str | None) -> str:
+    """Deterministic short scan code derived from scan.id, e.g. 'SCAN-DEB78E6B'."""
+    if scan_id is None:
+        return ""
+    cleaned = str(scan_id).strip().replace("-", "")
+    return f"SCAN-{cleaned[:8].upper()}" if cleaned else ""
+
+
 def format_manila_datetime(value: datetime | None) -> str:
-    """Format a timestamp as readable Asia/Manila time, e.g. 'Nov 19, 2026, 9:12 PM'."""
+    """Format a timestamp as readable Asia/Manila time with seconds, e.g. 'Nov 25, 2026, 1:45:11 PM'."""
     if value is None:
         return ""
     local = as_manila(value)
     hour12 = local.hour % 12 or 12
     ampm = "AM" if local.hour < 12 else "PM"
-    return f"{MONTHS[local.month - 1]} {local.day}, {local.year}, {hour12}:{local.minute:02d} {ampm}"
+    return (
+        f"{MONTHS[local.month - 1]} {local.day}, {local.year}, "
+        f"{hour12}:{local.minute:02d}:{local.second:02d} {ampm}"
+    )
 
 
 def format_manila_date(value: date | datetime | None) -> str:
@@ -137,26 +176,9 @@ def format_review_status(flagged: bool) -> str:
     return "Needs Review" if flagged else "Approved"
 
 
-def format_confidence(confidence: float | Decimal | None) -> str:
-    if confidence is None:
-        return ""
-    return f"{float(confidence):.1f}%"
-
-
-def format_temperature(temperature: float | Decimal | None) -> str:
-    if temperature is None:
-        return ""
-    return f"{float(temperature):.1f}°C"
-
-
-def format_humidity(humidity: float | Decimal | None) -> str:
-    if humidity is None:
-        return ""
-    return f"{float(humidity):.1f}%"
-
-
-def format_scan_export_row(
+def format_scan_export_cells(
     *,
+    scan_id: UUID | str | None,
     date_time: datetime | None,
     source_name: str | None,
     cultivar: Any,
@@ -173,39 +195,57 @@ def format_scan_export_row(
     operator_name: str | None,
     as_of: datetime,
     shelf_life: dict[str, Any] | None = None,
-) -> list[str]:
-    """Return the 13 formatted cell strings matching SCAN_EXPORT_HEADERS."""
+) -> list[ExportCell]:
+    """Return the 14 canonical cells matching SCAN_EXPORT_HEADERS."""
     status_text = enum_text(inventory_status) or "In Stock"
     return [
-        format_manila_datetime(date_time),
-        source_name or "",
-        enum_text(cultivar),
-        enum_text(ripeness),
-        format_fingers(
+        _text_cell(format_scan_ref(scan_id)),
+        _text_cell(format_manila_datetime(date_time)),
+        _text_cell(source_name or ""),
+        _text_cell(enum_text(cultivar)),
+        _text_cell(enum_text(ripeness)),
+        _text_cell(format_fingers(
             finger_count,
             is_overridden=is_overridden,
             original_finger_count=original_finger_count,
-        ),
-        format_original_shelf_life(spoilage_days),
-        format_freshness(
+        )),
+        _text_cell(format_original_shelf_life(spoilage_days)),
+        _text_cell(format_freshness(
             spoilage_days,
             date_time,
             as_of,
             status_text,
             window=shelf_life,
-        ),
-        status_text,
-        format_review_status(flagged),
-        format_confidence(confidence),
-        format_temperature(temperature),
-        format_humidity(humidity),
-        operator_name or "",
+        )),
+        _text_cell(status_text),
+        _text_cell(format_review_status(flagged)),
+        _fixed1_cell(confidence),
+        _fixed1_cell(temperature),
+        _fixed1_cell(humidity),
+        _text_cell(operator_name or ""),
     ]
 
 
-def to_xlsx_rows(rows: list[list[str]]) -> list[list[tuple[str, str] | None]]:
-    """Convert formatted string rows to inlineStr cells, keeping blank strings as empty cells."""
-    return [
-        [None if value == "" else (value, "inlineStr") for value in row]
-        for row in rows
-    ]
+def to_xlsx_rows(rows: list[list[ExportCell]]) -> list[list[dict[str, Any] | None]]:
+    """Convert canonical export cells to typed XLSX cell specs (blank for empty cells)."""
+    xlsx_rows: list[list[dict[str, Any] | None]] = []
+    for row in rows:
+        out_row: list[dict[str, Any] | None] = []
+        for cell in row:
+            if cell.text == "":
+                out_row.append(None)
+            elif cell.xlsx_type == "n":
+                out_row.append({
+                    "value": cell.xlsx_value if cell.xlsx_value is not None else cell.text,
+                    "type": "n",
+                    "style": cell.xlsx_style,
+                })
+            else:
+                out_row.append({"value": cell.text, "type": "inlineStr", "style": cell.xlsx_style})
+        xlsx_rows.append(out_row)
+    return xlsx_rows
+
+
+def to_pdf_rows(rows: list[list[ExportCell]]) -> list[list[str]]:
+    """Convert canonical export cells to display strings for PDF rendering."""
+    return [[cell.text for cell in row] for row in rows]

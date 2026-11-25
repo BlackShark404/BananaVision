@@ -229,6 +229,6 @@ async def test_seed_and_kiosk_records_agree_across_consumers(
         assert len(xml_rows) == 27  # Header + 25 seeded + 1 live scan.
         headers = [cell.find("m:is/m:t", ns).text for cell in xml_rows[0].findall("m:c", ns)]
         assert "VPD (kPa)" not in headers and "Scan ID" not in headers
-        assert headers[0] == "Date & Time"
+        assert headers[:2] == ["Scan Ref", "Date & Time"]
         assert pdf_bytes.startswith(b"%PDF-1.4\n")
         assert len(predictions) == 1  # Reads never rerun predictions.

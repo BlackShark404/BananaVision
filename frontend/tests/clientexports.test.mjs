@@ -6,11 +6,14 @@ let runtime
 before(async () => { runtime = await startBrowser({ fixture: "clientexports.fixture.tsx", port: 5217 }) })
 after(async () => { await runtime?.close() })
 
-const longText = 'Export group: Peñafrancia, "full detail"\n' + "Unabridged value • ".repeat(15)
+const longText = ('Export group: Peñafrancia, "full detail"\n' + "Unabridged value • ".repeat(15)).trim()
 const timestamp = "2026-10-02T12:34:56.123456+08:00"
-const readableTimestamp = "Oct 2, 2026, 12:34 PM"
+const readableTimestamp = "Oct 2, 2026, 12:34:56 PM"
+const scanUuid = index => `deb78e${String(index).padStart(2, "0")}-0f09-4e3b-bd35-cd66690fca72`
+const intakeUuid = index => `a1b2c3${String(index).padStart(2, "0")}-1111-4222-8333-444455556666`
+
 const scans = Array.from({ length: 19 }, (_, index) => ({
-  id: `full-scan-identifier-${String(index).padStart(2, "0")}`, revision: 1,
+  id: scanUuid(index), revision: 1,
   date_time: timestamp, operator_name: index === 18 ? "Excluded" : `Export group ${String(index).padStart(2, "0")}`,
   cultivar: "Lakatan", ripeness: "Ripe", confidence: index, temperature: index === 1 ? null : 26.44,
   humidity: index === 1 ? null : 72.56, spoilage_days: "3.5454545454545454", finger_count: index === 2 ? 12 : index,
@@ -30,7 +33,7 @@ const activities = Array.from({ length: 19 }, (_, index) => ({
   action: "login", details: index === 18 ? "Excluded" : longText, ip_address: null,
 })).reverse()
 const intakes = Array.from({ length: 19 }, (_, index) => ({
-  id: `full-intake-identifier-${String(index).padStart(2, "0")}`, intake_date: "2026-10-02", status: "Active",
+  id: intakeUuid(index), intake_date: "2026-10-02", status: "Active",
   batch_number: `BATCH-${String(index).padStart(2, "0")}`,
   supplier_name: index === 18 ? "Excluded" : `Export group ${String(index).padStart(2, "0")}`,
   source: index === 18 ? "Excluded" : `${longText}${String(index).padStart(2, "0")}`,
@@ -135,6 +138,24 @@ test("ExportDropdown removes CSV completely and shows only Excel and PDF options
   assert.deepEqual(items.map(s => s.trim()), ["Export Excel (.xlsx)", "Export PDF (.pdf)"])
 })
 
+test("Quality Control and Delivery Intakes search by exported Scan Ref and Intake Ref", async t => {
+  const qualityPage = await openScreen(t, "quality")
+  const qSearch = qualityPage.getByPlaceholder("Search by operator, cultivar, source, or ID...")
+  for (const query of ["SCAN-DEB78E02", "scan-deb78e02", "DEB78E02", scanUuid(2)]) {
+    await qSearch.fill(query)
+    await qualityPage.waitForFunction(() => document.querySelectorAll("tbody tr").length === 1)
+    assert.equal(await qualityPage.locator("tbody").getByText("Export group 02", { exact: true }).count(), 1, query)
+  }
+
+  const intakesPage = await openScreen(t, "intakes")
+  const iSearch = intakesPage.getByPlaceholder("Search by source or intake ID...")
+  for (const query of ["INT-A1B2C305", "int-a1b2c305", "A1B2C305", "BATCH-05", intakeUuid(5)]) {
+    await iSearch.fill(query)
+    await intakesPage.waitForFunction(() => document.querySelectorAll("tbody tr").length === 1)
+    assert.equal(await intakesPage.locator("tbody").getByText("Export group 05", { exact: true }).count(), 1, query)
+  }
+})
+
 for (const [screen, prefix] of [["activity", "activity-log"], ["intakes", "intakes"], ["quality", "quality-control"]]) {
   test(`${screen} export file names carry the Asia/Manila date, not the UTC or browser date`, async t => {
     // 16:30 UTC on 1 October is 00:30 on 2 October in Manila and 12:30 on 1 October in New York.
@@ -162,7 +183,7 @@ for (const screen of ["activity", "intakes", "quality"]) {
     const pdfText = extractPdfText(pdfBuffer)
     assert.ok(pdfText.includes("Asia/Manila"), "PDF includes Asia/Manila export timestamp")
     assert.ok(pdfText.includes("Total records: 18"), "PDF includes filtered record count")
-    assert.ok(pdfText.includes('Filters:'), "PDF includes active filter summary")
+    assert.ok(pdfText.includes("Filters:"), "PDF includes active filter summary")
     assert.equal(rows.length, 19, "header and all 18 matching records across pages")
 
     if (screen === "activity") {
@@ -173,38 +194,44 @@ for (const screen of ["activity", "intakes", "quality"]) {
       assert.ok(pdfText.includes("Signed in"))
       assert.ok(pdfText.includes(readableTimestamp))
     } else if (screen === "intakes") {
-      assert.deepEqual(rows[0], ["Date", "Supplier / Source", "Batch / PO", "Items Scanned", "Intake Status", "Inventory Status"])
-      assert.deepEqual(rows[1], ["Oct 2, 2026", "Export group 00", "BATCH-00", 0, "Active", "In Stock"])
-      assert.equal(rows[18][1], "Export group 17")
-      assert.ok(!pdfText.includes("full-intake-identifier"), "raw intake UUID excluded")
-      assert.ok(pdfText.includes("Oct 2, 2026") && pdfText.includes("BATCH-00") && pdfText.includes("Export group 17"))
+      assert.deepEqual(rows[0], ["Intake Ref", "Date", "Supplier / Source", "Batch / PO", "Items Scanned", "Intake Status", "Inventory Status"])
+      assert.deepEqual(rows[1], ["INT-A1B2C300", "Oct 2, 2026", "Export group 00", "BATCH-00", 0, "Active", "In Stock"])
+      assert.equal(rows[18][0], "INT-A1B2C317")
+      assert.equal(rows[18][2], "Export group 17")
+      assert.ok(!pdfText.includes(intakeUuid(0)), "raw 36-char intake UUID excluded")
+      assert.ok(pdfText.includes("INT-A1B2C300") && pdfText.includes("INT-A1B2C317") && pdfText.includes("Oct 2, 2026") && pdfText.includes("BATCH-00"))
     } else {
       assert.deepEqual(rows[0], [
-        "Date & Time", "Source / Supplier", "Cultivar", "Ripeness", "Est. Fingers",
+        "Scan Ref", "Date & Time", "Source / Supplier", "Cultivar", "Ripeness", "Est. Fingers",
         "Est. Shelf Life (Original)", "Est. Time Left / Freshness", "Inventory Status",
         "Review Status", "Confidence (%)", "Temperature (°C)", "Humidity (%)", "Operator",
       ])
-      // Row 0: flagged scan -> Needs Review, AI-estimated fingers, whole-day shelf life, readable time.
+      // Row 0: Scan Ref first, readable timestamp with seconds, numeric Confidence/Temp/Humidity.
       assert.deepEqual(rows[1], [
-        readableTimestamp, longText, "Lakatan", "Ripe", "Est. 0 fingers",
-        "3–4 days", "3–4 days left", "In Stock", "Needs Review", "0.0%",
-        "26.4°C", "72.6%", "Export group 00",
+        "SCAN-DEB78E00", readableTimestamp, longText, "Lakatan", "Ripe", "Est. 0 fingers",
+        "3–4 days", "3–4 days left", "In Stock", "Needs Review", 0, 26.4, 72.6, "Export group 00",
       ])
+      assert.equal(sheet.getRow(2).getCell(11).numFmt, "0.0")
+      assert.equal(sheet.getRow(2).getCell(12).numFmt, "0.0")
+      assert.equal(sheet.getRow(2).getCell(13).numFmt, "0.0")
       // Row 1: missing optional temp/humidity/source stay blank.
-      assert.equal(rows[2][1], "")
-      assert.equal(rows[2][10], "")
+      assert.equal(rows[2][0], "SCAN-DEB78E01")
+      assert.equal(rows[2][2], "")
       assert.equal(rows[2][11], "")
+      assert.equal(rows[2][12], "")
       // Row 2: human-corrected finger count drops "Est." prefix.
-      assert.equal(rows[3][4], "12 fingers")
-      assert.equal(rows[3][8], "Approved")
+      assert.equal(rows[3][0], "SCAN-DEB78E02")
+      assert.equal(rows[3][5], "12 fingers")
+      assert.equal(rows[3][9], "Approved")
       // Row 3: closed stock shows outcome ("Sold") instead of countdown.
-      assert.equal(rows[4][6], "Sold")
       assert.equal(rows[4][7], "Sold")
-      assert.equal(rows[18][12], "Export group 17")
-      // PDF parity: no raw UUID, no raw 15-digit float, all formatted values appear.
-      assert.ok(!pdfText.includes("full-scan-identifier"))
+      assert.equal(rows[4][8], "Sold")
+      assert.equal(rows[18][0], "SCAN-DEB78E17")
+      assert.equal(rows[18][13], "Export group 17")
+      // PDF parity: short Scan Ref included, raw UUID and 15-digit float excluded, formatted values match.
+      assert.ok(!pdfText.includes(scanUuid(0)))
       assert.ok(!pdfText.includes("3.545454"))
-      for (const token of [readableTimestamp, "Est. 0 fingers", "12 fingers", "3–4 days", "3–4 days left", "Needs Review", "Approved", "26.4°C", "72.6%", "Export group 17"]) {
+      for (const token of ["SCAN-DEB78E00", "SCAN-DEB78E17", readableTimestamp, "Est. 0 fingers", "12 fingers", "3–4 days", "3–4 days left", "Needs Review", "Approved", "26.4", "72.6", "Export group 17"]) {
         assert.ok(pdfText.includes(token), `expected PDF to include ${token}`)
       }
     }

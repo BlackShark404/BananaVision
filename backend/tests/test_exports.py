@@ -1,4 +1,4 @@
-"""Human-friendly Excel (.xlsx) and PDF (.pdf) export contracts and parity tests."""
+"""Human-friendly Excel (.xlsx) and PDF (.pdf) export contracts, traceability, and parity tests."""
 
 # Imported pytest fixtures intentionally share names with test parameters.
 # ruff: noqa: F811
@@ -24,7 +24,7 @@ from app.api.deps import get_current_user
 from app.api.v1 import config
 from app.api.v1 import scan_logs as logs_api
 from app.core.database import Base, get_db, get_stream_db
-from app.core.export_format import SCAN_EXPORT_HEADERS
+from app.core.export_format import SCAN_EXPORT_HEADERS, format_scan_ref
 from app.core.xlsx import number_text
 from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
@@ -182,25 +182,35 @@ def test_scan_excel_and_pdf_filters_permissions_parity_and_csv_removal(
         root, rows = workbook_rows(result.content)
         headers, data = workbook_table(result.content)
         assert headers == SCAN_EXPORT_HEADERS
+        assert headers[0] == "Scan Ref"
         assert not EXCLUDED_HEADERS.intersection(headers)
         assert len(data) == 205
-        # Readable Asia/Manila timestamp (NOW = 2026-10-02 10:00 +08:00), never ISO-8601.
-        assert data[0][0] == "Oct 2, 2026, 10:00 AM"
-        assert "T" not in data[0][0] and "+08:00" not in data[0][0]
-        assert data[0][1] == source.strip()
-        assert data[0][2] == "Lakatan"
-        assert data[0][3] == "Ripe"
-        assert data[0][4] == "Est. 0 fingers"
-        assert data[0][5] == "14–15 days"
-        assert data[0][6] == "14–15 days left"
-        assert data[0][7] == "In Stock"
-        assert data[0][8] == "Approved"
-        assert data[0][9] == "0.0%"
-        assert data[0][10] == "0.0°C"
-        assert data[0][11] == "0.0%"
-        assert data[0][12] == "=SUM(1,2)"
+        # Deterministic SCAN-XXXXXXXX ref first, never raw 36-char UUID.
+        first_ref = format_scan_ref(expected[0])
+        assert re.fullmatch(r"SCAN-[0-9A-F]{8}", first_ref)
+        assert [row[0] for row in data] == [format_scan_ref(sid) for sid in expected]
+        # Readable Asia/Manila timestamp with seconds (NOW = 2026-10-02 12:00:00 +08:00).
+        assert data[0][1] == "Oct 2, 2026, 12:00:00 PM"
+        assert data[1][1] == "Oct 2, 2026, 11:59:59 AM"
+        assert "T" not in data[0][1] and "+08:00" not in data[0][1]
+        assert data[0][2] == source.strip()
+        assert data[0][3] == "Lakatan"
+        assert data[0][4] == "Ripe"
+        assert data[0][5] == "Est. 0 fingers"
+        assert data[0][6] == "14–15 days"
+        assert data[0][7] == "14–15 days left"
+        assert data[0][8] == "In Stock"
+        assert data[0][9] == "Approved"
+        assert data[0][10] == "0.0"
+        assert data[0][11] == "0.0"
+        assert data[0][12] == "0.0"
+        assert data[0][13] == "=SUM(1,2)"
+        # Numeric spreadsheet cells for Confidence, Temperature, and Humidity (with 0.0 format).
+        assert rows[1]["K2"] == ("0.0", "n")
+        assert rows[1]["L2"] == ("0.0", "n")
+        assert rows[1]["M2"] == ("0.0", "n")
         # Formula text stays safe inlineStr without Excel formula elements.
-        assert rows[1]["M2"] == ("=SUM(1,2)", "inlineStr")
+        assert rows[1]["N2"] == ("=SUM(1,2)", "inlineStr")
         columns = root.findall("m:cols/m:col", NS)
         assert all(12 <= float(column.attrib["width"]) <= 81 for column in columns)
         assert max(float(column.attrib["width"]) for column in columns) >= 80
@@ -208,6 +218,7 @@ def test_scan_excel_and_pdf_filters_permissions_parity_and_csv_removal(
         with ZipFile(io.BytesIO(result.content)) as archive:
             styles = ET.fromstring(archive.read("xl/styles.xml"))
             assert styles.findall('.//m:alignment[@wrapText="1"]', NS)
+            assert styles.findall('.//m:numFmt[@formatCode="0.0"]', NS)
             assert not any("hyperlink" in name for name in archive.namelist())
             sheet = ET.fromstring(archive.read("xl/worksheets/sheet1.xml"))
             assert all(
@@ -215,7 +226,7 @@ def test_scan_excel_and_pdf_filters_permissions_parity_and_csv_removal(
                 for text in sheet.findall(".//m:t", NS)
             )
 
-        # PDF export matches the exact same headers, record count, and formatted values.
+        # PDF export matches the exact same headers, record count, Scan Ref, and formatted values.
         pdf_result = client.get("/api/v1/scan-logs/export", params={**params, "format": "pdf"})
         assert pdf_result.status_code == 200, pdf_result.text
         assert pdf_result.headers["content-type"] == "application/pdf"
@@ -224,7 +235,7 @@ def test_scan_excel_and_pdf_filters_permissions_parity_and_csv_removal(
         pages, pdf_text = extract_pdf_text(pdf_result.content)
         assert len(pages) > 1
         assert "BananaVision — Scan Logs Report" in pages[0]
-        assert "Exported: Oct 2, 2026, 10:00 AM (Asia/Manila)" in pages[0]
+        assert "Exported: Oct 2, 2026, 12:00:00 PM (Asia/Manila)" in pages[0]
         assert "Total records: 205" in pages[0]
         assert "Filters: Source:" in pages[0]
         assert f"Page 1 of {len(pages)}" in pages[0]
@@ -232,12 +243,12 @@ def test_scan_excel_and_pdf_filters_permissions_parity_and_csv_removal(
         for header in SCAN_EXPORT_HEADERS:
             for token in header.split():
                 assert token in pages[0] and token in pages[1]
-        for cell in ("Oct 2, 2026, 10:00 AM", "Est. 0 fingers", "14–15 days", "14–15 days left",
-                     "0.0%", "0.0°C", "=SUM(1,2)", "Peñafrancia"):
+        for cell in (first_ref, "Oct 2, 2026, 12:00:00 PM", "Est. 0 fingers", "14–15 days",
+                     "14–15 days left", "0.0", "=SUM(1,2)", "Peñafrancia"):
             assert cell in pdf_text
         assert str(expected[0]) not in pdf_text
 
-        # Snapshot serves both XLSX and PDF cleanly with identical row counts.
+        # Snapshot serves both XLSX and PDF cleanly with identical row counts and refs.
         listing = client.get("/api/v1/scan-logs", params={
             "stable": True, "page_size": 1, "source": source,
         })
@@ -250,10 +261,13 @@ def test_scan_excel_and_pdf_filters_permissions_parity_and_csv_removal(
             })
             assert snap_resp.status_code == 200, snap_resp.text
             if fmt == "xlsx":
-                assert len(workbook_table(snap_resp.content)[1]) == 205
+                snap_data = workbook_table(snap_resp.content)[1]
+                assert len(snap_data) == 205
+                assert snap_data[0][0] == first_ref
             else:
                 _, snap_pdf_text = extract_pdf_text(snap_resp.content)
                 assert "Total records: 205" in snap_pdf_text
+                assert first_ref in snap_pdf_text
 
         # Account scope still enforced; CSV rejected with 422.
         denied = client.get("/api/v1/scan-logs/export", params={
@@ -327,28 +341,31 @@ def test_human_friendly_freshness_review_and_finger_count_rules(export_app, logs
         assert headers == SCAN_EXPORT_HEADERS
         assert len(rows) == 6
 
-        by_source = {row[1]: row for row in rows}
-        # Active scan: Est. 14 fingers, 10–11 days original, 8–9 days left, Approved, 89.8%.
-        assert by_source["Davao Farm"][4:13] == [
+        by_source = {row[2]: row for row in rows}
+        # Active scan: Scan Ref, Est. 14 fingers, 10–11 days, 8–9 days left, Approved, numeric 89.8/26.4/72.6.
+        assert by_source["Davao Farm"][0] == format_scan_ref(active_id)
+        assert by_source["Davao Farm"][5:14] == [
             "Est. 14 fingers", "10–11 days", "8–9 days left", "In Stock", "Approved",
-            "89.8%", "26.4°C", "72.6%", "Maria Santos",
+            "89.8", "26.4", "72.6", "Maria Santos",
         ]
         # Final day scan: human-corrected count -> "12 fingers" (no Est.), Needs Review.
-        assert by_source["Bukidnon Growers"][2:10] == [
+        assert by_source["Bukidnon Growers"][0] == format_scan_ref(final_id)
+        assert by_source["Bukidnon Growers"][3:11] == [
             "Latundan", "Semi Ripe", "12 fingers", "2–3 days", "Final day",
-            "In Stock", "Needs Review", "74.2%",
+            "In Stock", "Needs Review", "74.2",
         ]
         # Overdue by 1 day: count unchanged from AI baseline -> "Est. 1 finger".
-        assert by_source["Cebu Co-op"][2:9] == [
+        assert by_source["Cebu Co-op"][0] == format_scan_ref(overdue_id)
+        assert by_source["Cebu Co-op"][3:10] == [
             "Cardaba", "Overripe", "Est. 1 finger", "3 days", "Overdue by 1 day",
             "In Stock", "Approved",
         ]
         # Closed stock shows outcome, never countdown or raw floats.
-        assert by_source["Closed Sold"][6:8] == ["Sold", "Sold"]
-        assert by_source["Closed For Processing"][6:8] == ["For Processing", "For Processing"]
-        assert by_source["Closed Spoiled"][6:8] == ["Spoiled", "Spoiled"]
+        assert by_source["Closed Sold"][7:9] == ["Sold", "Sold"]
+        assert by_source["Closed For Processing"][7:9] == ["For Processing", "For Processing"]
+        assert by_source["Closed Spoiled"][7:9] == ["Spoiled", "Spoiled"]
 
-        # PDF parity: every formatted value from XLSX is present in the PDF output.
+        # PDF parity: every formatted value from XLSX (including Scan Ref) is present in the PDF output.
         _, pdf_text = extract_pdf_text(pdf_resp.content)
         for row in rows:
             for value in row:
@@ -358,15 +375,17 @@ def test_human_friendly_freshness_review_and_finger_count_rules(export_app, logs
 
 def test_config_excel_and_pdf_same_complete_summary_and_admin_scope(export_app, logs_db):
     admin, operator = account(logs_db, role="Admin"), account(logs_db, name="Juan Dela Cruz")
+    ids = []
     for i in range(15):
-        scan(logs_db, operator, at=NOW - timedelta(minutes=15 - i), confidence=85.5,
-             prediction="4.6", source=f"Farm {i:02d}")
+        ids.append(scan(
+            logs_db, operator, at=NOW - timedelta(minutes=15 - i), confidence=85.5,
+            prediction="4.6", source=f"Farm {i:02d}",
+        ))
     export_app.dependency_overrides[get_current_user] = lambda: operator
     with TestClient(export_app) as client:
         for kind in ("xlsx", "pdf"):
             assert client.get("/api/v1/config/export", params={"format": kind}).status_code == 403
         export_app.dependency_overrides[get_current_user] = lambda: admin
-        # Default format is xlsx; csv is rejected with 422.
         assert client.get("/api/v1/config/export", params={"format": "csv"}).status_code == 422
         excel_result = client.get("/api/v1/config/export")
         assert excel_result.status_code == 200
@@ -374,10 +393,11 @@ def test_config_excel_and_pdf_same_complete_summary_and_admin_scope(export_app, 
         headers, rows = workbook_table(excel_result.content)
         assert headers == SCAN_EXPORT_HEADERS
         assert len(rows) == 15
-        assert rows[0][1] == "Farm 00"
-        assert rows[0][5] == "4–5 days"
-        assert rows[0][9] == "85.5%"
-        assert rows[0][12] == "Juan Dela Cruz"
+        assert rows[0][0] == format_scan_ref(ids[0])
+        assert rows[0][2] == "Farm 00"
+        assert rows[0][6] == "4–5 days"
+        assert rows[0][10] == "85.5"
+        assert rows[0][13] == "Juan Dela Cruz"
 
         pdf_result = client.get("/api/v1/config/export", params={"format": "pdf"})
         assert pdf_result.status_code == 200
@@ -386,8 +406,9 @@ def test_config_excel_and_pdf_same_complete_summary_and_admin_scope(export_app, 
         pages, pdf_text = extract_pdf_text(pdf_result.content)
         assert "BananaVision — Inventory Scan Summary" in pages[0]
         assert "Total records: 15" in pages[0]
+        assert format_scan_ref(ids[0]) in pdf_text and format_scan_ref(ids[-1]) in pdf_text
         assert "Farm 00" in pdf_text and "Farm 14" in pdf_text
-        assert "4–5 days" in pdf_text and "85.5%" in pdf_text and "Juan Dela Cruz" in pdf_text
+        assert "4–5 days" in pdf_text and "85.5" in pdf_text and "Juan Dela Cruz" in pdf_text
 
 
 def test_xlsx_preserves_whitespace_and_null_optional_values_are_blank(export_app, logs_db):
@@ -405,20 +426,20 @@ def test_xlsx_preserves_whitespace_and_null_optional_values_are_blank(export_app
         xlsx_result = client.get("/api/v1/scan-logs/export", params={"format": "xlsx"})
         assert xlsx_result.status_code == 200, xlsx_result.text
         root, rows = workbook_rows(xlsx_result.content)
-        # Operator preserves whitespace in inlineStr.
-        assert rows[1]["M2"] == ("  00123  ", "inlineStr")
+        assert rows[1]["A2"] == (format_scan_ref(identifier), "inlineStr")
+        assert rows[1]["N2"] == ("  00123  ", "inlineStr")
         assert root.findall("m:sheetData/m:row", NS)[1].find(
-            "m:c[@r='M2']/m:is/m:t", NS,
+            "m:c[@r='N2']/m:is/m:t", NS,
         ).attrib[XML_SPACE] == "preserve"
         # Optional fields (Source, Cultivar, Ripeness, Shelf Life, Freshness, Confidence, Temp, Humidity) are blank.
-        for ref in ("B2", "C2", "D2", "F2", "G2", "J2", "K2", "L2"):
+        for ref in ("C2", "D2", "E2", "G2", "H2", "K2", "L2", "M2"):
             assert rows[1][ref][0] is None, (ref, rows[1][ref])
 
         export_app.dependency_overrides[get_current_user] = lambda: admin
         config_xlsx = client.get("/api/v1/config/export", params={"format": "xlsx"})
         assert config_xlsx.status_code == 200, config_xlsx.text
         _, config_rows = workbook_rows(config_xlsx.content)
-        for ref in ("B2", "C2", "D2", "F2", "G2", "J2", "K2", "L2"):
+        for ref in ("C2", "D2", "E2", "G2", "H2", "K2", "L2", "M2"):
             assert config_rows[1][ref][0] is None, (ref, config_rows[1][ref])
 
 
@@ -450,4 +471,4 @@ def test_empty_exports_keep_headers_and_media_contract(export_app, logs_db):
         assert len(pages) == 1
         assert "Total records: 0" in text
         assert "No matching records." in text
-        assert "Date" in text and "Operator" in text
+        assert "Scan" in text and "Ref" in text and "Operator" in text

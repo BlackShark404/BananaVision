@@ -19,10 +19,37 @@ import { closedStockSpoilageLabel, formatSpoilageDays } from "./spoilageDisplay"
 
 const NS_SPREADSHEET = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 
-export type ExportCellValue = string | number | boolean | null | undefined
+export interface StyledNumericCell {
+  value: number
+  display: string
+  style: number
+}
+
+export type ExportCellValue = string | number | boolean | null | undefined | StyledNumericCell
+
+/** Deterministic short scan code derived from scan.id, e.g. "SCAN-DEB78E6B". */
+export function formatScanRef(scanId: string | null | undefined): string {
+  if (!scanId) return ""
+  const cleaned = scanId.trim().replace(/-/g, "")
+  return cleaned ? `SCAN-${cleaned.slice(0, 8).toUpperCase()}` : ""
+}
+
+/** Deterministic short intake code derived from intake.id, e.g. "INT-A1B2C3D4". */
+export function formatIntakeRef(intakeId: string | null | undefined): string {
+  if (!intakeId) return ""
+  const cleaned = intakeId.trim().replace(/-/g, "")
+  return cleaned ? `INT-${cleaned.slice(0, 8).toUpperCase()}` : ""
+}
+
+function fixed1Cell(value: number | null | undefined): ExportCellValue {
+  if (value === null || value === undefined || !Number.isFinite(value)) return ""
+  const display = value.toFixed(1)
+  return { value: Number(display), display, style: 3 }
+}
 
 /** Canonical human-friendly scan export columns shared with backend exports. */
 export const SCAN_EXPORT_HEADERS: string[] = [
+  "Scan Ref",
   "Date & Time",
   "Source / Supplier",
   "Cultivar",
@@ -63,12 +90,13 @@ function formatScanFreshness(scan: ScanResult, now: number): string {
   return ""
 }
 
-/** Formats one scan into the 13 human-friendly cells matching SCAN_EXPORT_HEADERS. */
-export function formatScanExportRow(scan: ScanResult, now: number): string[] {
+/** Formats one scan into the 14 human-friendly cells matching SCAN_EXPORT_HEADERS. */
+export function formatScanExportRow(scan: ScanResult, now: number): ExportCellValue[] {
   const shelfLife = formatSpoilageDays(scan.spoilageDays)
   const hasFingerCount = typeof scan.fingerCount === "number"
     && Number.isInteger(scan.fingerCount) && scan.fingerCount >= 0
   return [
+    formatScanRef(scan.id),
     formatManilaDateTime(scan.dateTime),
     scan.source?.trim() || "",
     scan.cultivar && scan.cultivar !== "Unknown" ? scan.cultivar : "",
@@ -78,12 +106,9 @@ export function formatScanExportRow(scan: ScanResult, now: number): string[] {
     formatScanFreshness(scan, now),
     scan.inventoryStatus || "In Stock",
     scan.flagged ? "Needs Review" : "Approved",
-    scan.confidence !== null && scan.confidence !== undefined && Number.isFinite(scan.confidence)
-      ? `${scan.confidence.toFixed(1)}%` : "",
-    scan.temperature !== null && scan.temperature !== undefined && Number.isFinite(scan.temperature)
-      ? `${scan.temperature.toFixed(1)}°C` : "",
-    scan.humidity !== null && scan.humidity !== undefined && Number.isFinite(scan.humidity)
-      ? `${scan.humidity.toFixed(1)}%` : "",
+    fixed1Cell(scan.confidence),
+    fixed1Cell(scan.temperature),
+    fixed1Cell(scan.humidity),
     scan.operator || "",
   ]
 }
@@ -219,21 +244,40 @@ function wrappedLineCount(value: string, columnWidth: number): number {
 }
 
 type XlsxCell =
-  | { value: string, type: "s" }
-  | { value: number | string, type: "n" }
-  | { value: string, type: "b" }
+  | { value: string, display: string, type: "s", style?: number }
+  | { value: number | string, display: string, type: "n", style?: number }
+  | { value: string, display: string, type: "b", style?: number }
   | null
+
+function isStyledCell(raw: ExportCellValue): raw is StyledNumericCell {
+  return typeof raw === "object" && raw !== null && "display" in raw && "value" in raw
+}
+
+function cellDisplayText(raw: ExportCellValue): string {
+  if (raw === null || raw === undefined || raw === "") return ""
+  if (isStyledCell(raw)) return raw.display
+  return `${raw}`
+}
 
 function cellOf(raw: ExportCellValue): XlsxCell {
   if (raw === null || raw === undefined || raw === "") return null
-  if (typeof raw === "string") return { value: raw, type: "s" }
-  if (typeof raw === "boolean") return { value: raw ? "1" : "0", type: "b" }
-  if (!Number.isFinite(raw)) return { value: `${raw}`, type: "s" }
-  return { value: raw.toString(), type: "n" }
+  if (isStyledCell(raw)) {
+    if (!Number.isFinite(raw.value)) return { value: raw.display, display: raw.display, type: "s" }
+    return { value: raw.display, display: raw.display, type: "n", style: raw.style }
+  }
+  if (typeof raw === "string") return { value: raw, display: raw, type: "s" }
+  if (typeof raw === "boolean") {
+    const val = raw ? "1" : "0"
+    return { value: val, display: val, type: "b" }
+  }
+  if (!Number.isFinite(raw)) return { value: `${raw}`, display: `${raw}`, type: "s" }
+  const text = raw.toString()
+  return { value: text, display: text, type: "n" }
 }
 
-function renderCell(cell: XlsxCell, ref: string, style: number): string {
-  if (!cell) return `<c r="${ref}" s="${style}"/>`
+function renderCell(cell: XlsxCell, ref: string, defaultStyle: number): string {
+  if (!cell) return `<c r="${ref}" s="${defaultStyle}"/>`
+  const style = cell.style ?? defaultStyle
   if (cell.type === "s") {
     return `<c r="${ref}" t="inlineStr" s="${style}"><is><t xml:space="preserve">${escapeXml(cell.value)}</t></is></c>`
   }
@@ -244,7 +288,8 @@ function renderCell(cell: XlsxCell, ref: string, style: number): string {
  * Generates an OpenXML SpreadsheetML workbook with the styling contract shared
  * with the backend exports: white data style with top-aligned wrapping (cellXfs
  * index 1) from which Excel derives implicit column widths and dynamic row
- * heights, bold wrapped headers (index 2), typed number/boolean/string cells.
+ * heights, bold wrapped headers (index 2), 1-decimal numeric style (index 3),
+ * and typed number/boolean/string cells.
  */
 export function buildXlsxXml(headers: string[], rows: ExportCellValue[][]): string {
   const numCols = headers.length
@@ -253,9 +298,9 @@ export function buildXlsxXml(headers: string[], rows: ExportCellValue[][]): stri
   for (let c = 0; c < numCols; c++) {
     let maxWidth = displayWidth(headers[c])
     for (const row of rows) {
-      const raw = row[c]
-      if (raw === null || raw === undefined || raw === "") continue
-      for (const line of `${raw}`.split("\n")) {
+      const text = cellDisplayText(row[c])
+      if (!text) continue
+      for (const line of text.split("\n")) {
         maxWidth = Math.max(maxWidth, displayWidth(line))
       }
     }
@@ -279,7 +324,7 @@ export function buildXlsxXml(headers: string[], rows: ExportCellValue[][]): stri
     let visualLines = 1
     const cells = headers.map((_, c) => {
       const cell = cellOf(rows[r][c])
-      if (cell) visualLines = Math.max(visualLines, wrappedLineCount(String(cell.value), columnWidths[c]))
+      if (cell) visualLines = Math.max(visualLines, wrappedLineCount(cell.display, columnWidths[c]))
       return renderCell(cell, `${colLetter(c + 1)}${ref}`, 1)
     }).join("")
     const height = Math.min(409, Math.max(16, visualLines * 18))
@@ -331,14 +376,16 @@ function buildXlsx(name: string, sheetXml: string): Blob {
     ["xl/styles.xml", (
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
       '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      '<numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts>' +
       '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' +
       '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
       '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
       '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-      '<cellXfs count="3">' +
+      '<cellXfs count="4">' +
       '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
       '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>' +
       '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>' +
+      '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>' +
       '</cellXfs>' +
       '</styleSheet>'
     )],

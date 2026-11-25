@@ -17,7 +17,7 @@ import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { AppDataTable, type ColumnDef } from "@/components/AppDataTable"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { ExportDropdown } from "@/components/ExportDropdown"
-import { SCAN_EXPORT_HEADERS, downloadPdf, downloadXlsx, formatScanExportRow } from "@/lib/exportUtils"
+import { SCAN_EXPORT_HEADERS, downloadPdf, downloadXlsx, formatScanExportRow, formatScanRef } from "@/lib/exportUtils"
 import { Input } from "@/components/ui/input"
 import { NumberField } from "@/components/ui/number-field"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
@@ -114,13 +114,22 @@ export default function QualityControl() {
     }
     
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      filtered = filtered.filter(s =>
-        s.operator.toLowerCase().includes(q) ||
-        s.cultivar.toLowerCase().includes(q) ||
-        s.id.toLowerCase().includes(q) ||
-        (s.source && s.source.toLowerCase().includes(q))
-      )
+      const q = searchQuery.trim().toLowerCase()
+      const refQuery = q.startsWith("scan-") ? q.slice(5).trim() : null
+      const compactQuery = q.replace(/-/g, "")
+      filtered = filtered.filter(s => {
+        const scanRef = formatScanRef(s.id).toLowerCase()
+        const compactId = s.id.replace(/-/g, "").toLowerCase()
+        return (
+          s.operator.toLowerCase().includes(q) ||
+          s.cultivar.toLowerCase().includes(q) ||
+          s.id.toLowerCase().includes(q) ||
+          scanRef.includes(q) ||
+          (compactQuery.length > 0 && compactId.includes(compactQuery)) ||
+          (refQuery !== null && refQuery.length > 0 && compactId.startsWith(refQuery.replace(/-/g, ""))) ||
+          (s.source && s.source.toLowerCase().includes(q))
+        )
+      })
     }
     
     return [...filtered].sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())

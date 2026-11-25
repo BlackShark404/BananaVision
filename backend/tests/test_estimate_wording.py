@@ -22,10 +22,13 @@ def test_export_headers_mark_estimated_columns_and_exclude_programmer_fields():
         "Status Updated At (UTC+08:00)", "VPD (kPa)",
     ):
         assert old not in headers
-    # Measured and recorded columns are not estimates.
-    for exact in ("Date & Time", "Temperature (°C)", "Humidity (%)", "Confidence (%)", "Operator"):
+    # Measured, recorded, and identifier columns are not estimates.
+    for exact in (
+        "Scan Ref", "Date & Time", "Temperature (°C)", "Humidity (%)", "Confidence (%)", "Operator",
+    ):
         assert exact in headers
-    assert len(headers) == len(set(headers)) == 13
+    assert headers[0] == "Scan Ref"
+    assert len(headers) == len(set(headers)) == 14
 
 
 def test_export_finger_count_marks_ai_estimates_only():
