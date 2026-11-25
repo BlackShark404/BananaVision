@@ -2,6 +2,23 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-25: Analytics Model Confidence vs. Verified Accuracy
+
+- **Compliance Item #2:** surfaced real-world **Verified Accuracy** alongside **Model Confidence** on the Analytics page without renaming, removing, or mislabeling confidence metrics and with no database migration.
+- **Honest verified ground-truth population (`backend/app/services/analytics.py`):**
+  - A scan enters the verified population only when both its original AI classification (`ScanOriginalAiResult` or unmodified `ScanClassification`) and final `ScanClassification` have valid `CultivarEnum` and `RipenessEnum` values, AND either:
+    1. An admin corrected it (`is_overridden = true` with a saved `ScanOriginalAiResult`; unrecoverable overrides without an original AI snapshot are excluded), or
+    2. An admin resolved its QC review by clearing its flag (`flagged = false` with a `ScanEvent` where `kind = "flag"` and `new_values["flagged"] = false`), explicitly excluding automated legacy rule cleanups from `review_auto_flags.py` (`reason LIKE 'Auto-flag rule corrected:%'`).
+  - Unreviewed scans and currently flagged scans awaiting review are never counted as verified; when `verified_scan_count == 0`, `human_verified_accuracy` and `override_rate` return `null` (never fabricated `100%` or `0%`).
+  - Agreement checks `model_cultivar == cultivar AND model_ripeness == ripeness`, so finger-count-only and spoilage-only admin edits count as verified-accurate rather than classification errors.
+  - `avg_confidence` and `low_confidence_rate` remain strictly on original AI confidence (`ScanOriginalAiResult` when overridden).
+- **Synchronized API contract (`backend/app/schemas/analytics.py`, `frontend/src/types/analytics.ts`):**
+  - Added `verified_correct_count`, `overridden_classification_count`, and `override_rate` to `AnalyticsSummary`, and `verifiedAccuracy` / `verifiedCount` to each `RipenessConfidence` row (`ripeness_confidence`, grouped by predicted `model_ripeness`).
+  - Updated `METRIC_DEFINITIONS` (`model_confidence`, `low_confidence`, `confidence_by_ripeness`, `human_verified_accuracy`) in plain language distinguishing AI certainty from human-verified accuracy.
+- **UI (`frontend/src/pages/Analytics.tsx`):**
+  - Added a **Verified Accuracy** `AppStatsCard` beside **Avg Confidence** and **Low Confidence** (`grid-cols-2 md:grid-cols-3 xl:grid-cols-5`), showing `—` + `"No verified scans in range"` when `0` and `"X of Y verified scans"` when populated.
+  - Upgraded **Confidence by Ripeness** to **Confidence vs. Verified Accuracy** (grouped Recharts `BarChart` on a shared `0–100%` Y-axis with existing per-chart period controls). Ripeness stages with `verifiedCount === 0` keep `verifiedAccuracy: null` so no misleading `0%` bar is drawn, and the tooltip explicitly shows `"No verified scans"`.
+
 ## 2026-11-25: Excel and PDF exports with human-friendly format and reference traceability
 
 - **Compliance Item #1:** replaced CSV exports across all five export surfaces (Scan Logs, System Configuration scan summaries, Quality Control, Delivery Intakes, Activity Log) with **Excel (.xlsx)** and **PDF (.pdf)** only.

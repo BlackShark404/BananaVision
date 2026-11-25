@@ -13,12 +13,13 @@ const payload = (overrides = {}) => ({
   total_scans: 12, avg_confidence: 90, most_common_cultivar: "Lakatan", low_confidence_count: 2, low_confidence_rate: 16.7,
   at_risk_count: 2, classification_count: 12, incomplete_count: 0, confidence_sample_count: 12, confidence_threshold: 85,
   current_stock_count: 10, risk_unknown_count: 0, human_verified_accuracy: null, verified_scan_count: 0,
+  verified_correct_count: 0, overridden_classification_count: 0, override_rate: null,
   source_options: sources, generated_at: "2026-10-05T10:00:00+08:00", business_date: "2026-10-05",
   next_refresh_at: "2026-10-06T00:00:00+08:00", timezone: "Asia/Manila", range_start: "2026-09-29T00:00:00+08:00",
   range_end: "2026-10-05T10:00:00+08:00", trend_start: "2026-09-22", trend_end: "2026-10-05",
   metric_definitions: definitions, ripeness_distribution: [{ name: "Ripe", value: 12 }], cultivar_counts: [{ name: "Lakatan", count: 12 }],
   cultivar_ripeness: [{ name: "Lakatan", Unripe: 0, "Semi Ripe": 0, Ripe: 12, Overripe: 0 }],
-  ripeness_confidence: [{ ripeness: "Ripe", count: 12, avgConfidence: 90 }],
+  ripeness_confidence: [{ ripeness: "Ripe", count: 12, avgConfidence: 90, verifiedAccuracy: null, verifiedCount: 0 }],
   scans_by_source: [{ ...sources[0], count: 12 }], scan_trend: [{ date: "Oct 05", count: 12 }],
   hourly_distribution: [{ hour: "10 AM", count: 12 }],
   operator_performance: [{ operator_id: "operator-a", name: "Kiosk Operator", total_scans: 12, avg_confidence: 90, confidence_sample_count: 12 }],
@@ -57,11 +58,11 @@ async function expectCount(page, count) {
 test("all Analytics KPI and chart definitions use the server contract", async t => {
   const { page } = await setup(t)
   await expectCount(page, 12)
-  for (const [label, key] of [["Total Scans", "throughput"], ["Avg Confidence", "model_confidence"], ["Low Confidence", "low_confidence"], ["At-Risk Scans", "inventory_risk"]]) {
+  for (const [label, key] of [["Total Scans", "throughput"], ["Avg Confidence", "model_confidence"], ["Verified Accuracy", "human_verified_accuracy"], ["Low Confidence", "low_confidence"], ["At-Risk Scans", "inventory_risk"]]) {
     assert.equal(await card(page, label).getAttribute("title"), definitions[key])
     assert.equal(await card(page, label).getAttribute("aria-description"), definitions[key])
   }
-  for (const [label, key] of [["Ripeness Distribution", "classifications"], ["Cultivar Counts", "classifications"], ["Ripeness by Cultivar", "classifications"], ["Confidence by Ripeness", "confidence_by_ripeness"], ["Scans by Source", "sources"], ["Scan Trend (Last 14 Days)", "trend"], ["Operator Performance Table", "operators"], ["Peak Scanning Hours", "hourly"]]) {
+  for (const [label, key] of [["Ripeness Distribution", "classifications"], ["Cultivar Counts", "classifications"], ["Ripeness by Cultivar", "classifications"], ["Confidence vs. Verified Accuracy", "confidence_by_ripeness"], ["Scans by Source", "sources"], ["Scan Trend (Last 14 Days)", "trend"], ["Operator Performance Table", "operators"], ["Peak Scanning Hours", "hourly"]]) {
     assert.equal(await page.getByText(label, { exact: true }).getAttribute("title"), definitions[key])
   }
 })
@@ -70,12 +71,47 @@ test("empty and incomplete data have no fabricated confidence or accuracy", asyn
   const { page } = await setup(t, payload({ total_scans: 0, classification_count: 0, confidence_sample_count: 0, avg_confidence: null, low_confidence_rate: null, at_risk_count: 0, scans_by_source: [], operator_performance: [] }))
   await expectCount(page, 0)
   assert.equal(await card(page, "Avg Confidence").locator("h3").innerText(), "—")
+  assert.equal(await card(page, "Verified Accuracy").locator("h3").innerText(), "—")
+  await card(page, "Verified Accuracy").getByText("No verified scans in range", { exact: true }).waitFor()
   assert.equal(await card(page, "Low Confidence").locator("h3").innerText(), "—")
   await page.getByText(/No scans match this source/).waitFor()
   assert.equal(await page.getByText("No classified scans in this selection.", { exact: true }).count(), 3)
   await page.getByText("Metric definitions", { exact: true }).click()
   await page.getByText(`Verified Accuracy: ${definitions.human_verified_accuracy}`, { exact: true }).waitFor()
   assert.doesNotMatch(await page.locator("body").innerText(), /NaN|undefined|null%/)
+})
+
+test("Verified Accuracy KPI and Confidence vs. Verified Accuracy chart separate confidence from verified accuracy", async t => {
+  const { page } = await setup(t, payload({
+    total_scans: 20,
+    avg_confidence: 91.2,
+    confidence_sample_count: 20,
+    human_verified_accuracy: 80,
+    verified_scan_count: 5,
+    verified_correct_count: 4,
+    overridden_classification_count: 1,
+    override_rate: 20,
+    ripeness_confidence: [
+      { ripeness: "Unripe", avgConfidence: 88.5, count: 6, verifiedAccuracy: 100, verifiedCount: 2 },
+      { ripeness: "Semi Ripe", avgConfidence: 84, count: 4, verifiedAccuracy: 50, verifiedCount: 2 },
+      { ripeness: "Ripe", avgConfidence: 94.5, count: 8, verifiedAccuracy: 100, verifiedCount: 1 },
+      { ripeness: "Overripe", avgConfidence: 92, count: 2, verifiedAccuracy: null, verifiedCount: 0 },
+    ],
+  }))
+  await expectCount(page, 20)
+  assert.equal(await card(page, "Avg Confidence").locator("h3").innerText(), "91.2%")
+  assert.equal(await card(page, "Verified Accuracy").locator("h3").innerText(), "80%")
+  await card(page, "Verified Accuracy").getByText("4 of 5 verified scans", { exact: true }).waitFor()
+
+  const comparison = card(page, "Confidence vs. Verified Accuracy")
+  await comparison.getByText("Avg Model Confidence (%)", { exact: true }).waitFor()
+  await comparison.getByText("Verified Accuracy (%)", { exact: true }).waitFor()
+  await page.clock.runFor(1500)
+  // Recharts renders one <path> per non-null bar rectangle across the two series:
+  // 4 confidence bars + 3 verified-accuracy bars (Overripe has verifiedAccuracy: null -> no 0% bar).
+  const bars = await comparison.locator(".recharts-bar-rectangle path").count()
+  assert.equal(bars, 7)
+  assert.doesNotMatch(await comparison.innerText(), /NaN|undefined|null%/)
 })
 
 test("source choices survive filtering and a delayed older response cannot replace the selected range", async t => {

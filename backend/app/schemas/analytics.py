@@ -24,6 +24,8 @@ class RipenessConfidence(BaseModel):
     ripeness: str
     avgConfidence: float | None
     count: int
+    verifiedAccuracy: float | None = None
+    verifiedCount: int = 0
 
 
 class OperatorPerformance(BaseModel):
@@ -66,6 +68,9 @@ class AnalyticsSummary(BaseModel):
     risk_unknown_count: int
     human_verified_accuracy: float | None = None
     verified_scan_count: int = 0
+    verified_correct_count: int = 0
+    overridden_classification_count: int = 0
+    override_rate: float | None = None
     metric_definitions: dict[str, str]
     source_options: list[SourceOption]
     ripeness_distribution: list[RipenessDistribution]

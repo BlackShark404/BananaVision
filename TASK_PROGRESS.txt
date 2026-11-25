@@ -1,4 +1,63 @@
-CURRENT RESUME HERE (2026-11-25) - EXCEL & PDF EXPORTS, HUMAN-FRIENDLY FORMAT, AND REFERENCE TRACEABILITY
+CURRENT RESUME HERE (2026-11-25) - ANALYTICS CONFIDENCE VS. VERIFIED ACCURACY (COMPLIANCE ITEM #2)
+
+USER REQUEST (2026-11-25)
+- Implement Compliance Item #2 ("analytics - confidence vs accuracy") by auditing and surfacing
+  real-world human-verified accuracy alongside Model Confidence on the Analytics page without
+  renaming/removing Confidence metrics or requiring a database migration.
+
+DONE
+- Backend (`backend/app/schemas/analytics.py`, `backend/app/services/analytics.py`):
+  - Derived `human_verified_accuracy`, `verified_scan_count`, `verified_correct_count`,
+    `overridden_classification_count`, and `override_rate` inside `_projection()` and
+    `get_summary()` under the exact same role scoping (Admin vs. Operator) and Asia/Manila
+    period/filter conditions (`range`/`date_from`/`date_to`, `source_key`, `source`,
+    `cultivar`, `inventory_status`).
+  - Verified population includes only scans with valid original AI and final labels that were
+    either admin-corrected (`is_overridden=True` with `ScanOriginalAiResult`) or had their QC
+    flag cleared by an admin (`flagged=False` + `ScanEvent` `kind="flag"`, `flagged=False`,
+    excluding automated `review_auto_flags.py` cleanups with `Auto-flag rule corrected:%`).
+    Unreviewed and still-flagged scans are excluded; returns `None` when `verified_scan_count == 0`.
+  - Agreement compares original AI `cultivar` + `ripeness` against final `ScanClassification`,
+    so finger-count-only and spoilage-only edits are not penalized as classification errors.
+    `avg_confidence` and `low_confidence_rate` remain strictly on original AI confidence.
+  - Extended `RipenessConfidence` (`ripeness_confidence`) with `verifiedAccuracy: float | None`
+    and `verifiedCount: int` per predicted ripeness stage (`Unripe`, `Semi Ripe`, `Ripe`,
+    `Overripe`) and updated `METRIC_DEFINITIONS` in plain language.
+- Frontend (`frontend/src/types/analytics.ts`, `frontend/src/pages/Analytics.tsx`):
+  - Synchronized `AnalyticsSummary` and `RipenessConfidenceRow` types.
+  - Added **Verified Accuracy** `AppStatsCard` alongside **Avg Confidence** and **Low Confidence**
+    (`grid-cols-2 md:grid-cols-3 xl:grid-cols-5`), rendering `—` / `"No verified scans in range"`
+    when `verified_scan_count === 0` and `"X of Y verified scans"` when populated.
+  - Upgraded **Confidence by Ripeness** to **Confidence vs. Verified Accuracy** (grouped Recharts
+    `BarChart` on shared `0–100%` Y-axis preserving per-chart period controls). Stages with
+    `verifiedCount === 0` keep `verifiedAccuracy: null` (no 0% bar) and show `"No verified scans"`
+    in `ConfidenceAccuracyTooltip`.
+- Tests & Docs:
+  - Updated/added backend tests in `backend/tests/test_analytics.py` (unreviewed, confirmed QC
+    flag approvals, automated cleanup exclusion, re-flagged scans, finger-count/spoilage-only
+    edits, cultivar/ripeness overrides, unrecoverable overrides, Admin vs. Operator scoping,
+    Asia/Manila custom dates, PostgreSQL SQL compilation).
+  - Updated/added frontend browser tests in `frontend/tests/analytics.test.mjs` (KPI definitions,
+    zero-verified empty state, mixed verified/unverified stages with exact non-null bar count).
+  - Updated `docs/knowledge/Development Decisions.md`, `docs/knowledge/Frontend.md`, Graphify, ICM.
+
+VERIFIED (2026-11-25)
+- Backend pytest (`test_analytics`, `test_dashboard`, `test_scan_records`, `test_manila_time_guard`,
+  `test_seed`, `test_seed_kiosk_contract` from isolated temp dir): 59 passed, 28 skipped
+  (PostgreSQL-only tests), 0 failed.
+- Frontend tests (`manilaTime.test.mjs`, `analyticsPeriod.test.mjs`, `analytics.test.mjs` via
+  local `PLAYWRIGHT_MODULE`): 24 passed, 0 failed.
+- `npx tsc -b` passed; `npm run build` (`tsc -b && vite build`) passed (`frontend/dist` rebuilt).
+- `npm run lint`: 36 problems (31 errors, 5 warnings) — exact pre-existing baseline, 0 new
+  diagnostics.
+- Not run: PostgreSQL-only test variants (no disposable PG cluster spun up), backend Ruff (not
+  installed in `backend/venv`).
+
+EXACT NEXT STEP
+- Review the scoped diff and inspect Analytics KPI cards and Confidence vs. Verified Accuracy
+  chart in the browser. Nothing is staged or committed.
+
+PREVIOUS RESUME (2026-11-25) - EXCEL & PDF EXPORTS, HUMAN-FRIENDLY FORMAT, AND REFERENCE TRACEABILITY
 
 USER REQUEST (2026-11-25)
 - Replace CSV exports with Excel (.xlsx) and PDF (.pdf) across all five export surfaces and

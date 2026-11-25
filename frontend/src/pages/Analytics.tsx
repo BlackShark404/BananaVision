@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { useAuth } from "@/context/AuthContext"
 import { useDashboardResource } from "@/hooks/useDashboardResource"
-import type { AnalyticsRange, AnalyticsSummary } from "@/types/analytics"
+import type { AnalyticsRange, AnalyticsSummary, RipenessConfidenceRow } from "@/types/analytics"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,7 +21,7 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import { BarChart3, TrendingUp, Target, AlertTriangle, Users, Calendar, Package, Clock, Loader2, CalendarDays, X } from "lucide-react"
+import { BarChart3, TrendingUp, Target, ShieldCheck, AlertTriangle, Users, Calendar, Package, Clock, Loader2, CalendarDays, X } from "lucide-react"
 import { AppDateFilter } from "@/components/AppDateFilter"
 import { ANALYTICS_RANGE_LABELS, DEFAULT_ANALYTICS_PERIOD, analyticsPeriodLabel, analyticsPeriodParams, hasCustomDates, rangeChoice, type AnalyticsPeriod } from "@/lib/analyticsPeriod"
 import {
@@ -35,7 +35,6 @@ import {
   CartesianGrid,
   LineChart,
   Line,
-  ComposedChart,
 } from "recharts"
 import { inManila } from "@/lib/manilaTime"
 
@@ -63,8 +62,8 @@ const cultivarRipenessChartConfig = {
 } satisfies ChartConfig
 
 const confidenceChartConfig = {
-  count: { label: "Count", color: "#eab308" },
-  avgConfidence: { label: "Avg Confidence %", color: "#22c55e" },
+  avgConfidence: { label: "Avg Model Confidence (%)", color: "#22c55e" },
+  verifiedAccuracy: { label: "Verified Accuracy (%)", color: "#2563eb" },
 } satisfies ChartConfig
 
 const sourceChartConfig = {
@@ -85,7 +84,7 @@ const metricLabels: Record<string, string> = {
   model_confidence: "Avg Confidence",
   low_confidence: "Low Confidence",
   inventory_risk: "At-Risk Scans",
-  confidence_by_ripeness: "Confidence by Ripeness",
+  confidence_by_ripeness: "Confidence vs. Verified Accuracy",
   trend: "Scan Trend",
   sources: "Scans by Source",
   operators: "Operator Performance",
@@ -213,6 +212,42 @@ function PeriodControls({ name, period, onChange, clear, compact = false }: {
         )}
       </div>
     </>
+  )
+}
+
+function ConfidenceAccuracyTooltip({ active, payload }: {
+  active?: boolean
+  payload?: Array<{ payload?: RipenessConfidenceRow }>
+}) {
+  if (!active || !payload?.length) return null
+  const row = payload[0]?.payload
+  if (!row) return null
+  return (
+    <div className="border-border/50 bg-background grid min-w-[12.5rem] items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-xl">
+      <div className="font-medium text-foreground">{row.ripeness}</div>
+      <div className="grid gap-1.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: confidenceChartConfig.avgConfidence.color }} />
+            <span>Avg Model Confidence</span>
+          </div>
+          <span className="font-mono font-medium tabular-nums text-foreground">
+            {row.avgConfidence != null ? `${row.avgConfidence}% (${row.count})` : "No valid predictions"}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: confidenceChartConfig.verifiedAccuracy.color }} />
+            <span>Verified Accuracy</span>
+          </div>
+          <span className="font-mono font-medium tabular-nums text-foreground">
+            {row.verifiedCount > 0 && row.verifiedAccuracy != null
+              ? `${row.verifiedAccuracy}% (${row.verifiedCount} verified)`
+              : "No verified scans"}
+          </span>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -390,7 +425,7 @@ function AnalyticsContent() {
         </div>
       ) : <>
       {/* Metric Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
         <AppStatsCard
           title="Total Scans"
           value={summary.total_scans}
@@ -408,6 +443,20 @@ function AnalyticsContent() {
           delay={100}
           description={`Original AI confidence · ${summary.confidence_sample_count} valid results`}
           helpText={summary.metric_definitions.model_confidence}
+        />
+        <AppStatsCard
+          title="Verified Accuracy"
+          value={percent(summary.human_verified_accuracy)}
+          icon={ShieldCheck}
+          iconColor="text-blue-600"
+          iconBgColor="bg-blue-500/10"
+          delay={125}
+          description={
+            summary.verified_scan_count > 0
+              ? `${summary.verified_correct_count} of ${summary.verified_scan_count} verified scans`
+              : "No verified scans in range"
+          }
+          helpText={summary.metric_definitions.human_verified_accuracy}
         />
         <AppStatsCard
           title="Low Confidence"
@@ -533,26 +582,25 @@ function AnalyticsContent() {
           </CardContent>
         </Card>
 
-        {/* Confidence by Ripeness */}
+        {/* Confidence vs. Verified Accuracy */}
         <Card className="rounded-xl sm:rounded-2xl animate-fade-in stagger-8">
           <ChartCardHeader
-            title="Confidence by Ripeness"
+            title="Confidence vs. Verified Accuracy"
             helpText={summary.metric_definitions.confidence_by_ripeness}
             chart={confidenceChart}
           />
           <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
-            {chartStatus(confidenceChart) ?? (noData(confidenceChart, summary.confidence_sample_count, d => d.count === 0) ? emptyChart("No valid model-confidence results in this selection.") : (
+            {chartStatus(confidenceChart) ?? (noData(confidenceChart, summary.confidence_sample_count + summary.verified_scan_count, d => d.count === 0 && d.verifiedCount === 0) ? emptyChart("No valid confidence or verified results in this selection.") : (
             <ChartContainer config={confidenceChartConfig} className="h-[240px] sm:h-[280px] w-full">
-              <ComposedChart data={confidenceChart.data}>
+              <BarChart data={confidenceChart.data}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="ripeness" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                <ChartTooltip content={<ChartTooltipContent />} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}%`} />
+                <ChartTooltip content={<ConfidenceAccuracyTooltip />} />
                 <ChartLegend content={<ChartLegendContent />} />
-                <Bar yAxisId="left" dataKey="count" fill="var(--color-count)" radius={[8, 8, 0, 0]} name="Count" />
-                <Line yAxisId="right" type="monotone" dataKey="avgConfidence" stroke="var(--color-avgConfidence)" strokeWidth={2.5} name="Avg Confidence %" />
-              </ComposedChart>
+                <Bar dataKey="avgConfidence" fill="var(--color-avgConfidence)" radius={[6, 6, 0, 0]} name="Avg Model Confidence (%)" />
+                <Bar dataKey="verifiedAccuracy" fill="var(--color-verifiedAccuracy)" radius={[6, 6, 0, 0]} name="Verified Accuracy (%)" />
+              </BarChart>
             </ChartContainer>
             ))}
           </CardContent>

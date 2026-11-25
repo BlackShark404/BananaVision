@@ -13,11 +13,12 @@ from datetime import date, datetime, timedelta
 from typing import Literal
 
 from fastapi import HTTPException
-from sqlalchemy import and_, case, extract, func, or_, select
+from sqlalchemy import and_, case, exists, extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import TIMEZONE_NAME, as_manila, business_day_bounds, now_manila
 from app.models.operator_profile import OperatorProfile
+from app.models.scan_history import ScanEvent
 from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.models.user_account import UserAccount
 from app.schemas.analytics import (
@@ -32,6 +33,7 @@ from app.services.dashboard import (
 from app.services.inventory_policy import eligible_stock
 
 DateRange = Literal["today", "week", "month", "all"]
+AUTO_FLAG_CLEANUP_PREFIX = "Auto-flag rule corrected:"
 
 METRIC_DEFINITIONS = {
     "throughput": (
@@ -43,12 +45,12 @@ METRIC_DEFINITIONS = {
         "Incomplete results are excluded from these charts."
     ),
     "model_confidence": (
-        "Average AI confidence (0–100%), not measured accuracy. Uses original predictions; "
-        "incomplete or invalid results and edited results without a saved prediction are excluded."
+        "How certain the AI was about its original prediction (0–100%), not measured accuracy. "
+        "Incomplete or invalid results and edited scans without a saved original prediction are excluded."
     ),
     "low_confidence": (
-        "Percentage of valid AI predictions below the confidence threshold. "
-        "Uses the same predictions as Avg Confidence."
+        "Percentage of valid AI predictions below the confidence review threshold. "
+        "Drives automatic flagging and uses the same predictions as Avg Confidence."
     ),
     "inventory_risk": (
         "In-stock scans with 2 days or less left, including overdue stock. "
@@ -57,8 +59,8 @@ METRIC_DEFINITIONS = {
         "Unknown estimates are excluded."
     ),
     "confidence_by_ripeness": (
-        "Average AI confidence and number of valid predictions for each predicted ripeness. "
-        "May differ from charts that include manual corrections."
+        "Compares average AI confidence against human-verified accuracy for each predicted ripeness stage. "
+        "Stages with no verified scans show confidence only."
     ),
     "trend": (
         "Daily scans for the last 14 days, including today. Uses source, cultivar and "
@@ -73,8 +75,9 @@ METRIC_DEFINITIONS = {
     ),
     "hourly": "Scans grouped by time of day in Asia/Manila.",
     "human_verified_accuracy": (
-        "Unavailable: no independent verification results are recorded. "
-        "Flags and manual edits do not measure accuracy."
+        "Percentage of admin-reviewed scans where the original AI cultivar and ripeness matched the final verified result. "
+        "Includes QC flag removals and admin corrections; finger-count or spoilage-only edits do not count as classification errors. "
+        "Unreviewed scans are excluded."
     ),
 }
 
@@ -121,12 +124,31 @@ def _projection(user: UserAccount, now: datetime):
             else_=None,
         )
 
+    # Admin-only flag removals resolve QC review. Exclude automated legacy
+    # auto-flag rule cleanups so only genuine human reviews count as ground truth.
+    flag_cleared = case(
+        (ScanEvent.kind == "flag", ScanEvent.new_values["flagged"].as_boolean()),
+        else_=None,
+    ).is_(False)
+    has_flag_clearance = exists(
+        select(1).where(
+            ScanEvent.scan_id == scans.c.id,
+            ScanEvent.kind == "flag",
+            flag_cleared,
+            or_(
+                ScanEvent.reason.is_(None),
+                ~ScanEvent.reason.like(f"{AUTO_FLAG_CLEANUP_PREFIX}%"),
+            ),
+        )
+    )
+
     return (
         select(
             scans,
             model_value(original.cultivar, scans.c.cultivar).label("model_cultivar"),
             model_value(original.ripeness, scans.c.ripeness).label("model_ripeness"),
             model_value(original.confidence, scans.c.confidence).label("model_confidence"),
+            has_flag_clearance.label("has_flag_clearance"),
         )
         .select_from(scans)
         .outerjoin(original, original.scan_id == scans.c.id)
@@ -185,6 +207,34 @@ def _confidence(scans):
     )
 
 
+def _verified(scans):
+    """Scans with human QC ground truth (admin correction or cleared QC flag)."""
+    return and_(
+        _complete(scans.c.model_cultivar, scans.c.model_ripeness),
+        _complete(scans.c.cultivar, scans.c.ripeness),
+        or_(
+            scans.c.is_overridden.is_(True),
+            and_(scans.c.flagged.is_(False), scans.c.has_flag_clearance.is_(True)),
+        ),
+    )
+
+
+def _classification_matches(scans):
+    """Original AI cultivar and ripeness agree with the final verified classification."""
+    return and_(
+        scans.c.model_cultivar == scans.c.cultivar,
+        scans.c.model_ripeness == scans.c.ripeness,
+    )
+
+
+def _classification_overridden(scans):
+    """Original AI cultivar or ripeness was changed in the final verified classification."""
+    return or_(
+        scans.c.model_cultivar != scans.c.cultivar,
+        scans.c.model_ripeness != scans.c.ripeness,
+    )
+
+
 def _current_stock(scans):
     return eligible_stock(scans)
 
@@ -238,6 +288,9 @@ async def get_summary(
     threshold = await _threshold(db) if confidence_threshold is None else confidence_threshold
     complete = _complete(scans.c.cultivar, scans.c.ripeness)
     valid_confidence = _confidence(scans)
+    verified = _verified(scans)
+    matches = _classification_matches(scans)
+    overridden_classification = _classification_overridden(scans)
     stock = _current_stock(scans)
     totals = (await db.execute(
         select(
@@ -249,6 +302,9 @@ async def get_summary(
             func.count().filter(stock).label("stock"),
             func.count().filter(and_(stock, _expiring(scans))).label("risk"),
             func.count().filter(and_(stock, scans.c.remaining_days.is_(None))).label("unknown_risk"),
+            func.count().filter(verified).label("verified_count"),
+            func.count().filter(and_(verified, matches)).label("verified_correct"),
+            func.count().filter(and_(verified, overridden_classification)).label("overridden_classifications"),
         ).select_from(scans).where(*conditions)
     )).one()
 
@@ -269,10 +325,12 @@ async def get_summary(
     confidence_rows = (await db.execute(
         select(
             scans.c.model_ripeness,
-            func.avg(scans.c.model_confidence).label("confidence"),
-            func.count().label("count"),
+            func.avg(scans.c.model_confidence).filter(valid_confidence).label("confidence"),
+            func.count().filter(valid_confidence).label("count"),
+            func.count().filter(verified).label("verified_count"),
+            func.count().filter(and_(verified, matches)).label("verified_correct"),
         )
-        .where(*conditions, valid_confidence)
+        .where(*conditions, or_(valid_confidence, verified))
         .group_by(scans.c.model_ripeness)
     )).all()
     confidence_by_ripeness = {_label(r.model_ripeness): r for r in confidence_rows}
@@ -322,6 +380,17 @@ async def get_summary(
         low_confidence_count=totals.low,
         low_confidence_rate=(round(totals.low / totals.confidence_count * 100, 1) if totals.confidence_count else None),
         at_risk_count=totals.risk, current_stock_count=totals.stock, risk_unknown_count=totals.unknown_risk,
+        human_verified_accuracy=(
+            round(totals.verified_correct / totals.verified_count * 100, 1)
+            if totals.verified_count else None
+        ),
+        verified_scan_count=totals.verified_count,
+        verified_correct_count=totals.verified_correct,
+        overridden_classification_count=totals.overridden_classifications,
+        override_rate=(
+            round(totals.overridden_classifications / totals.verified_count * 100, 1)
+            if totals.verified_count else None
+        ),
         metric_definitions=METRIC_DEFINITIONS,
         source_options=[SourceOption(key=_source(r)[0], name=r.source_name) for r in option_rows],
         ripeness_distribution=ripeness, cultivar_counts=cultivars,
@@ -332,6 +401,17 @@ async def get_summary(
             ripeness=r.value,
             avgConfidence=_mean(confidence_by_ripeness[r.value].confidence) if r.value in confidence_by_ripeness else None,
             count=confidence_by_ripeness[r.value].count if r.value in confidence_by_ripeness else 0,
+            verifiedAccuracy=(
+                round(
+                    confidence_by_ripeness[r.value].verified_correct
+                    / confidence_by_ripeness[r.value].verified_count
+                    * 100,
+                    1,
+                )
+                if r.value in confidence_by_ripeness and confidence_by_ripeness[r.value].verified_count
+                else None
+            ),
+            verifiedCount=confidence_by_ripeness[r.value].verified_count if r.value in confidence_by_ripeness else 0,
         ) for r in RipenessEnum],
         scans_by_source=[SourceCount(key=_source(r)[0], name=r.source_name, count=r.count) for r in source_rows],
         scan_trend=[ScanTrend(

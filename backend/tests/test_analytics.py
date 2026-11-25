@@ -22,6 +22,7 @@ from app.core.time import as_manila, business_day_bounds
 from app.models.intake import Intake
 from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
+from app.models.scan_history import ScanEvent
 from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.models.supplier import Supplier
 from app.models.system_config import SystemConfig
@@ -35,6 +36,7 @@ from tests.test_dashboard import NOW, account, db, scan  # noqa: F401
 def analytics_db(db, monkeypatch):
     monkeypatch.setattr(analytics, "now_manila", lambda: NOW)
     ScanOriginalAiResult.__table__.create(db.session.get_bind())
+    ScanEvent.__table__.create(db.session.get_bind())
 
     def local_time(zone, value):
         assert zone == "Asia/Manila"
@@ -54,10 +56,16 @@ async def test_empty_dataset_has_no_fabricated_confidence_or_accuracy(analytics_
     assert result.total_scans == result.classification_count == result.confidence_sample_count == 0
     assert result.avg_confidence is None and result.low_confidence_rate is None
     assert result.human_verified_accuracy is None and result.verified_scan_count == 0
+    assert result.verified_correct_count == 0 and result.overridden_classification_count == 0
+    assert result.override_rate is None
     assert result.current_stock_count == result.at_risk_count == result.risk_unknown_count == 0
     assert result.source_options == result.operator_performance == result.hourly_distribution == []
     assert len(result.scan_trend) == 14 and sum(row.count for row in result.scan_trend) == 0
-    assert all(row.avgConfidence is None and row.count == 0 for row in result.ripeness_confidence)
+    assert all(
+        row.avgConfidence is None and row.count == 0
+        and row.verifiedAccuracy is None and row.verifiedCount == 0
+        for row in result.ripeness_confidence
+    )
     assert result.next_refresh_at == business_day_bounds(date(2026, 10, 2))[1]
     assert result.range_start == business_day_bounds(date(2026, 9, 26))[0]
     assert result.range_end == NOW
@@ -187,10 +195,159 @@ async def test_confidence_excludes_missing_invalid_and_unrecoverable_overrides(a
     unripe = next(r for r in result.ripeness_confidence if r.ripeness == "Unripe")
     ripe = next(r for r in result.ripeness_confidence if r.ripeness == "Ripe")
     assert (unripe.count, unripe.avgConfidence) == (1, 60)
+    assert (unripe.verifiedCount, unripe.verifiedAccuracy) == (1, 0.0)
     assert (ripe.count, ripe.avgConfidence) == (2, 37.5)
+    assert (ripe.verifiedCount, ripe.verifiedAccuracy) == (0, None)
+    assert result.verified_scan_count == 1 and result.verified_correct_count == 0
+    assert result.overridden_classification_count == 1 and result.override_rate == 100.0
+    assert result.human_verified_accuracy == 0.0
     operator = result.operator_performance[0]
     assert operator.confidence_sample_count == 3 and operator.avg_confidence == result.avg_confidence
     assert operator.overridden_scans == 2
+
+
+@pytest.mark.asyncio
+async def test_verified_accuracy_distinguishes_confirmed_overrides_non_classification_edits_and_unreviewed(analytics_db):
+    db = analytics_db
+    admin = account(db, role="Admin")
+    op = account(db)
+
+    # Unreviewed scans: one normal, one still flagged awaiting review -> neither is verified.
+    scan(db, op, confidence=95)
+    scan(db, op, confidence=70, flagged=True)
+    # Automated legacy flag cleanup must not count as human verification.
+    cleaned = scan(db, op, confidence=88, flagged=False)
+    db.add(
+        ScanEvent, scan_id=cleaned, revision=2, kind="flag", timestamp=NOW,
+        actor_id=admin.id, actor_name="Admin",
+        reason="Auto-flag rule corrected: only a confidence below the threshold flags a scan (88% is not below 80%)",
+        previous_values={"flagged": True}, new_values={"flagged": False},
+    )
+    # Previously cleared, then re-flagged for review -> pending review, not currently verified.
+    reflagged = scan(db, op, confidence=78, flagged=True)
+    db.add(
+        ScanEvent, scan_id=reflagged, revision=2, kind="flag", timestamp=NOW,
+        actor_id=admin.id, actor_name="Admin",
+        previous_values={"flagged": True}, new_values={"flagged": False},
+    )
+    # 1. Admin QC flag approval (AI Lakatan/Ripe confirmed correct).
+    approved = scan(db, op, confidence=76, flagged=False)
+    db.add(
+        ScanEvent, scan_id=approved, revision=2, kind="flag", timestamp=NOW,
+        actor_id=admin.id, actor_name="Admin", reason="Looks ripe on inspection",
+        previous_values={"flagged": True}, new_values={"flagged": False},
+    )
+    # 2. Finger-count-only edit (cultivar & ripeness unchanged -> accurate, not penalized).
+    finger_edit = scan(db, op, confidence=92)
+    db.session.execute(update(Scan).where(Scan.id == finger_edit).values(is_overridden=True))
+    db.session.execute(
+        update(ScanClassification).where(ScanClassification.scan_id == finger_edit).values(finger_count=14)
+    )
+    db.add(
+        ScanOriginalAiResult, scan_id=finger_edit, cultivar=CultivarEnum.LAKATAN,
+        ripeness=RipenessEnum.RIPE, confidence=84, finger_count=12,
+    )
+    # 3. Spoilage-only edit on Unripe (cultivar & ripeness unchanged -> accurate).
+    spoilage_edit = scan(db, op, confidence=99)
+    db.session.execute(update(Scan).where(Scan.id == spoilage_edit).values(is_overridden=True))
+    db.session.execute(
+        update(ScanClassification)
+        .where(ScanClassification.scan_id == spoilage_edit)
+        .values(cultivar=CultivarEnum.CARDABA, ripeness=RipenessEnum.UNRIPE, spoilage_days="7-8")
+    )
+    db.add(
+        ScanOriginalAiResult, scan_id=spoilage_edit, cultivar=CultivarEnum.CARDABA,
+        ripeness=RipenessEnum.UNRIPE, confidence=86, finger_count=6, spoilage_days="5-6",
+    )
+    # 4. Cultivar override (original Lakatan/Ripe -> final Cardaba/Ripe -> inaccurate).
+    cultivar_override = scan(db, op, confidence=100)
+    db.session.execute(update(Scan).where(Scan.id == cultivar_override).values(is_overridden=True))
+    db.session.execute(
+        update(ScanClassification)
+        .where(ScanClassification.scan_id == cultivar_override)
+        .values(cultivar=CultivarEnum.CARDABA, ripeness=RipenessEnum.RIPE)
+    )
+    db.add(
+        ScanOriginalAiResult, scan_id=cultivar_override, cultivar=CultivarEnum.LAKATAN,
+        ripeness=RipenessEnum.RIPE, confidence=82, finger_count=6,
+    )
+    # 5. Ripeness override (original Lakatan/Semi Ripe -> final Lakatan/Ripe -> inaccurate).
+    ripeness_override = scan(db, op, confidence=100)
+    db.session.execute(update(Scan).where(Scan.id == ripeness_override).values(is_overridden=True))
+    db.add(
+        ScanOriginalAiResult, scan_id=ripeness_override, cultivar=CultivarEnum.LAKATAN,
+        ripeness=RipenessEnum.SEMI_RIPE, confidence=74, finger_count=6,
+    )
+    # Unrecoverable override (no ScanOriginalAiResult) -> excluded from verified & confidence.
+    unrecoverable = scan(db, op, confidence=100)
+    db.session.execute(update(Scan).where(Scan.id == unrecoverable).values(is_overridden=True))
+
+    summary = await analytics.get_summary(db, admin)
+    assert summary.verified_scan_count == 5
+    assert summary.verified_correct_count == 3
+    assert summary.overridden_classification_count == 2
+    assert summary.human_verified_accuracy == 60.0
+    assert summary.override_rate == 40.0
+    # Confidence uses original AI predictions (95, 70, 88, 78, 76, 84, 86, 82, 74) = 733 / 9 = 81.4
+    assert summary.confidence_sample_count == 9
+    assert summary.avg_confidence == 81.4
+
+    by_stage = {row.ripeness: row for row in summary.ripeness_confidence}
+    assert (by_stage["Unripe"].verifiedCount, by_stage["Unripe"].verifiedAccuracy) == (1, 100.0)
+    assert (by_stage["Semi Ripe"].verifiedCount, by_stage["Semi Ripe"].verifiedAccuracy) == (1, 0.0)
+    assert (by_stage["Ripe"].verifiedCount, by_stage["Ripe"].verifiedAccuracy) == (3, 66.7)
+    assert (by_stage["Overripe"].verifiedCount, by_stage["Overripe"].verifiedAccuracy) == (0, None)
+
+
+@pytest.mark.asyncio
+async def test_verified_accuracy_respects_role_scope_and_manila_custom_date_filters(analytics_db):
+    db = analytics_db
+    admin = account(db, role="Admin")
+    op_a, op_b = account(db), account(db)
+    day_prev = business_day_bounds(date(2026, 10, 1))[0] + timedelta(hours=10)
+
+    # Op A on Oct 1: overridden ripeness (inaccurate).
+    a_prev = scan(db, op_a, at=day_prev, confidence=100, source="Farm A")
+    db.session.execute(update(Scan).where(Scan.id == a_prev).values(is_overridden=True))
+    db.add(
+        ScanOriginalAiResult, scan_id=a_prev, cultivar=CultivarEnum.LAKATAN,
+        ripeness=RipenessEnum.UNRIPE, confidence=75, finger_count=6,
+    )
+    # Op A on Oct 2: QC flag cleared (accurate).
+    a_today = scan(db, op_a, at=NOW, confidence=79, source="Farm A")
+    db.add(
+        ScanEvent, scan_id=a_today, revision=2, kind="flag", timestamp=NOW,
+        actor_id=admin.id, actor_name="Admin",
+        previous_values={"flagged": True}, new_values={"flagged": False},
+    )
+    # Op B on Oct 2: QC flag cleared (accurate).
+    b_today = scan(db, op_b, at=NOW, confidence=77, source="Farm B")
+    db.add(
+        ScanEvent, scan_id=b_today, revision=2, kind="flag", timestamp=NOW,
+        actor_id=admin.id, actor_name="Admin",
+        previous_values={"flagged": True}, new_values={"flagged": False},
+    )
+
+    admin_week = await analytics.get_summary(db, admin, date_range="week")
+    assert (admin_week.verified_scan_count, admin_week.verified_correct_count, admin_week.human_verified_accuracy) == (3, 2, 66.7)
+
+    admin_today = await analytics.get_summary(
+        db, admin, date_from=date(2026, 10, 2), date_to=date(2026, 10, 2),
+    )
+    assert (admin_today.verified_scan_count, admin_today.verified_correct_count, admin_today.human_verified_accuracy) == (2, 2, 100.0)
+
+    op_a_week = await analytics.get_summary(db, op_a, date_range="week")
+    assert (op_a_week.verified_scan_count, op_a_week.verified_correct_count, op_a_week.human_verified_accuracy) == (2, 1, 50.0)
+
+    op_a_oct1 = await analytics.get_summary(
+        db, op_a, date_from=date(2026, 10, 1), date_to=date(2026, 10, 1),
+    )
+    assert (op_a_oct1.verified_scan_count, op_a_oct1.verified_correct_count, op_a_oct1.human_verified_accuracy) == (1, 0, 0.0)
+
+    op_b_oct1 = await analytics.get_summary(
+        db, op_b, date_from=date(2026, 10, 1), date_to=date(2026, 10, 1),
+    )
+    assert (op_b_oct1.verified_scan_count, op_b_oct1.human_verified_accuracy) == (0, None)
 
 
 @pytest.mark.asyncio
@@ -402,5 +559,6 @@ def test_postgres_queries_keep_stable_scope_elapsed_risk_and_original_model(anal
     sql = str(select(projection).compile(dialect=postgresql.dialect()))
     assert "operator_profile.account_id" in sql
     assert "scan_original_ai_result" in sql and "model_confidence" in sql
+    assert "scan_event" in sql and "has_flag_clearance" in sql
     assert "EXTRACT(epoch" in sql and "split_part" in sql
     assert "scan_status_log.updated_at DESC, scan_status_log.id DESC" in sql

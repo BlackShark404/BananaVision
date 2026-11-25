@@ -42,6 +42,15 @@ Decision: [[Development Decisions]]; tests: [[Testing and Validation]].
 - `VITE_PUBLIC_BASE_URL` overrides the origin embedded in printed QR labels, so a label scanned off-station resolves to the public HTTPS link. When unset, labels keep the kiosk origin.
 - `VITE_API_URL`, `VITE_WS_URL` and `VITE_PUBLIC_BASE_URL` are build-time values; a production build written to `frontend/dist` is what Caddy serves. See [remote-access.md](../guides/remote-access.md).
 
+## Analytics: Model Confidence vs. Verified Accuracy (2026-11-25)
+
+Decision: [[Development Decisions]].
+
+- The Analytics KPI row (`frontend/src/pages/Analytics.tsx`) shows **Verified Accuracy** alongside **Avg Confidence** and **Low Confidence** using `AppStatsCard` (`grid-cols-2 md:grid-cols-3 xl:grid-cols-5`). When `verified_scan_count === 0`, it renders `—` with `"No verified scans in range"`; otherwise it renders `"X of Y verified scans"` from `verified_correct_count` and `verified_scan_count`.
+- The **Confidence vs. Verified Accuracy** chart (upgraded from *Confidence by Ripeness*) plots **Avg Model Confidence (%)** and **Verified Accuracy (%)** side-by-side per predicted ripeness stage (`Unripe`, `Semi Ripe`, `Ripe`, `Overripe`) on a shared `0–100%` Y-axis using Recharts `BarChart`, `ChartContainer`, and `ChartLegend`, while keeping its independent per-chart `PeriodControls` and `useDashboardResource` error/retry states.
+- Stages with `verifiedCount === 0` keep `verifiedAccuracy: null` so Recharts omits the accuracy bar instead of plotting `0%`, and `ConfidenceAccuracyTooltip` displays `"No verified scans"`.
+- Both KPI tooltips and the **Metric definitions** disclosure read `metric_definitions.model_confidence` and `metric_definitions.human_verified_accuracy` directly from `GET /api/v1/analytics/summary`.
+
 ## Analytics dates (2026-11-24)
 
 - **Page period:** one state `{ range, from, to }` (`AnalyticsPeriod`,

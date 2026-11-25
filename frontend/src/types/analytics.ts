@@ -17,6 +17,14 @@ export interface AnalyticsOperator {
   overridden_scans: number
 }
 
+export interface RipenessConfidenceRow {
+  ripeness: string
+  avgConfidence: number | null
+  count: number
+  verifiedAccuracy: number | null
+  verifiedCount: number
+}
+
 export interface AnalyticsSummary {
   total_scans: number
   avg_confidence: number | null
@@ -32,6 +40,9 @@ export interface AnalyticsSummary {
   risk_unknown_count: number
   human_verified_accuracy: number | null
   verified_scan_count: number
+  verified_correct_count: number
+  overridden_classification_count: number
+  override_rate: number | null
   source_options: { key: string; name: string }[]
   generated_at: string
   business_date: string
@@ -46,7 +57,7 @@ export interface AnalyticsSummary {
   cultivar_counts: { name: string; count: number }[]
   scan_trend: { date: string; count: number }[]
   cultivar_ripeness: { name: string; Unripe: number; "Semi Ripe": number; Ripe: number; Overripe: number }[]
-  ripeness_confidence: { ripeness: string; avgConfidence: number | null; count: number }[]
+  ripeness_confidence: RipenessConfidenceRow[]
   scans_by_source: { key: string; name: string; count: number }[]
   hourly_distribution: { hour: string; count: number }[]
   operator_performance: AnalyticsOperator[]
