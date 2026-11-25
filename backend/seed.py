@@ -203,8 +203,24 @@ async def seed_data(db):
     db.add(i2)
     await db.flush()
 
-    # Generate QR codes for both intakes
-    for intake in (i1, i2):
+    # 7b. Near-expiry stock for Spoilage Alerts pagination: an open ethephon intake
+    # from yesterday puts five cultivar/ripeness groups inside the two-day window.
+    i3 = Intake(
+        supplier_id=s1.id,
+        batch_number="BCH-SPOIL1",
+        source="Kiosk",
+        intake_date=previous_intake_time.date(),
+        status=IntakeStatusEnum.ACTIVE,
+        created_at=previous_intake_time,
+        updated_at=now - timedelta(days=1),
+        treatment=TreatmentEnum.ETHEPHON,
+        treated_at=previous_intake_time,
+    )
+    db.add(i3)
+    await db.flush()
+
+    # Generate QR codes for the intakes
+    for intake in (i1, i2, i3):
         qr_data = {
             "intake_id": str(intake.id),
             "supplier_id": str(intake.supplier_id),
@@ -294,6 +310,48 @@ async def seed_data(db):
                     evidence_id=f"status:{sold.id}",
                 )
             )
+
+    # 9. Deterministic spoilage alerts (five groups, so Inventory paginates 3 + 2).
+    spoilage_groups = (
+        (CultivarEnum.LAKATAN, RipenessEnum.OVERRIPE),
+        (CultivarEnum.LATUNDAN, RipenessEnum.OVERRIPE),
+        (CultivarEnum.CARDABA, RipenessEnum.OVERRIPE),
+        (CultivarEnum.LAKATAN, RipenessEnum.RIPE),
+        (CultivarEnum.LATUNDAN, RipenessEnum.RIPE),
+    )
+    for index, (cultivar, ripeness) in enumerate(spoilage_groups):
+        scan_time = previous_intake_time + timedelta(hours=1, minutes=index * 5)
+        temperature = round(random.uniform(22.0, 24.0), 2)
+        humidity = round(random.uniform(50.0, 60.0), 2)
+        vpd = calc_vpd(temperature, humidity)
+        classification = ScanClassification(
+            cultivar=cultivar.value,
+            ripeness=ripeness.value,
+            confidence=round(random.uniform(85.0, 99.9), 2),
+            temperature=temperature,
+            humidity=humidity,
+            vpd=vpd,
+            treatment=i3.treatment,
+            spoilage_days=predictor.predict(
+                cultivar.value,
+                ripeness.value,
+                temperature,
+                humidity,
+                vpd=vpd,
+                treatment=i3.treatment.value,
+            ),
+            finger_count=random.randint(5, 12),
+        )
+        await create_scan_record(
+            db, operator_id=operator_prof.id, operator_name=operator_user.full_name,
+            intake=i3, source_text=s1.name, date_time=scan_time,
+            classification=classification,
+            actor_id=None, actor_name="Demo Seeder",
+            reason=(
+                "Synthetic demo scan: simulated classification, confidence, finger count and "
+                "sensor readings; no YOLO image inference. Spoilage uses the shared Kiosk predictor."
+            ),
+        )
 
     await db.flush()
 

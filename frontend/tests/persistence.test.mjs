@@ -232,6 +232,26 @@ test("inventory totals bunches received per supplier and variety, including sold
   await page.getByText("2 hands in stock", { exact: true }).waitFor()
 })
 
+test("spoilage alerts paginate three per page instead of scrolling", async t => {
+  const spoilers = rows(5).map((row, index) => ({
+    ...row, intake_id: null, intake_provenance: "unlinked", inventory_eligible: true,
+    source_text: `Spoiler ${index + 1}`, cultivar: "Lakatan", remaining_days: 1,
+    risk_as_of: new Date().toISOString(), spoilage_days: "2",
+  }))
+  const { page } = await setup(t, { screen: "inventory", scans: spoilers })
+  await page.getByText("Page 1 of 2", { exact: true }).waitFor()
+  await page.getByText("Spoiler 1 — Lakatan", { exact: true }).waitFor()
+  await page.getByText("Spoiler 3 — Lakatan", { exact: true }).waitFor()
+  assert.equal(await page.getByText("Spoiler 4 — Lakatan", { exact: true }).count(), 0)
+  await page.getByRole("button", { name: "Next spoilage alerts" }).click()
+  await page.getByText("Page 2 of 2", { exact: true }).waitFor()
+  await page.getByText("Spoiler 4 — Lakatan", { exact: true }).waitFor()
+  await page.getByText("Spoiler 5 — Lakatan", { exact: true }).waitFor()
+  assert.equal(await page.getByText("Spoiler 1 — Lakatan", { exact: true }).count(), 0)
+  await page.getByRole("button", { name: "Previous spoilage alerts" }).click()
+  await page.getByText("Page 1 of 2", { exact: true }).waitFor()
+})
+
 test("late intake read cannot undo a confirmed bulk update", async t => {
   const { page, state } = await setup(t, { count: 2, failWrites: false })
   let release

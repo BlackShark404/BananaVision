@@ -222,11 +222,14 @@ Plain `python seed.py` requires an empty database and refuses existing records w
 message and exit code 20. Configuration, connection and other failures still fail. `start.bat`
 and `dev.bat` retain their previous startup behavior and do not run this demo reset.
 
-The 25 synthetic scans use stored two-decimal temperature/humidity readings and the existing
+The 30 synthetic scans use stored two-decimal temperature/humidity readings and the existing
 `calc_vpd` function (kPa, three decimals), intake treatment, fallback spoilage estimates,
-original-result snapshots and linked history events. These are demo predictions, not model
-validation or training measurements. History explicitly names **Demo Seeder**, with no
-invented human actor. This generates new demo records; it does not backfill historical fields.
+original-result snapshots and linked history events. Five of them sit on an open ethephon
+intake from the previous day in five near-expiry cultivar/ripeness groups, so Inventory's
+**Spoilage Alerts** always has two pages to exercise (three per page). These are demo
+predictions, not model validation or training measurements. History explicitly names
+**Demo Seeder**, with no invented human actor. This generates new demo records; it does not
+backfill historical fields.
 The fixture operator is inactive with no usable PIN; an administrator must reset credentials
 and activate it for use. Camera images/detections and print jobs are not fabricated or executed.
 

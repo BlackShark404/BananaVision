@@ -12,7 +12,7 @@ import { ContentSkeleton } from "@/components/LoadingState"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { Progress } from "@/components/ui/progress"
-import { Package, AlertTriangle, TrendingDown, CheckCircle, Clock, Banana, ExternalLink, Truck } from "lucide-react"
+import { Package, AlertTriangle, TrendingDown, CheckCircle, Clock, Banana, ExternalLink, Truck, ChevronLeft, ChevronRight } from "lucide-react"
 import { InventoryStatusEnum, RipenessEnum, CultivarEnum, type ScanResult } from "@/types"
 import { estimateText, fingerCountIsEstimate, fingerCountText } from "@/lib/estimates"
 import { bunchCountText, receivedBySupplier } from "@/lib/supplierReceipts"
@@ -22,11 +22,14 @@ function fingersOf(list: ScanResult[]): string {
   return fingerCountText(list.reduce((sum, s) => sum + s.fingerCount, 0), list.some(fingerCountIsEstimate))
 }
 
+const SPOILAGE_PAGE_SIZE = 3
+
 export default function Inventory() {
   const navigate = useNavigate()
   const { scans, scansReady, scansLoading, scansError, refreshScans } = useScans()
   const { intakesReady, intakesLoading, intakesError, intakesStale, refreshIntakes } = useInventory()
   const [sourceFilter, setSourceFilter] = useState<string>("all")
+  const [spoilagePage, setSpoilagePage] = useState(1)
   const scanLogsLink = (filters: Parameters<typeof buildScanLogsUrl>[0]) =>
     buildScanLogsUrl({ ...(sourceFilter !== "all" ? { source: sourceFilter } : {}), ...filters })
   const [asOf, setAsOf] = useState(Date.now)
@@ -166,6 +169,14 @@ export default function Inventory() {
       receivedTotal,
     }
   }, [scans, sourceFilter, asOf])
+
+  const spoilagePageCount = Math.max(1, Math.ceil(inventory.spoilingSoon.length / SPOILAGE_PAGE_SIZE))
+  const currentSpoilagePage = Math.min(spoilagePage, spoilagePageCount)
+  const spoilageStart = (currentSpoilagePage - 1) * SPOILAGE_PAGE_SIZE
+  const visibleSpoilage = inventory.spoilingSoon.slice(spoilageStart, spoilageStart + SPOILAGE_PAGE_SIZE)
+
+  useEffect(() => { setSpoilagePage(1) }, [sourceFilter])
+  useEffect(() => { setSpoilagePage(page => Math.min(page, spoilagePageCount)) }, [spoilagePageCount])
 
   const isLoading = scansLoading || intakesLoading
   const loadError = scansError || (!intakesLoading && intakesError && !intakesStale ? intakesError : null)
@@ -409,8 +420,9 @@ export default function Inventory() {
                 <p className="text-xs text-muted-foreground mt-1">{inventory.unknownRisk ? "Unknown estimates need review" : "No known estimates within two days"}</p>
               </div>
             ) : (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {inventory.spoilingSoon.map((group) => (
+              <>
+                <div className="space-y-2">
+                  {visibleSpoilage.map((group) => (
                   <div key={group.id} className="p-3 rounded-lg bg-muted/30 border hover:bg-muted/50 transition-colors cursor-pointer group/alert" onClick={() => {
                     const intakeId = group.intakeId !== "unknown" ? group.intakeId : undefined
                     if (intakeId) navigate(`/logs?intake=${encodeURIComponent(intakeId)}`)
@@ -453,8 +465,39 @@ export default function Inventory() {
                       </Badge>
                     </div>
                   </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+                {spoilagePageCount > 1 && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-3">
+                    <p className="text-xs text-muted-foreground">
+                      Showing {spoilageStart + 1}–{Math.min(spoilageStart + SPOILAGE_PAGE_SIZE, inventory.spoilingSoon.length)} of {inventory.spoilingSoon.length}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        aria-label="Previous spoilage alerts"
+                        disabled={currentSpoilagePage <= 1}
+                        onClick={() => setSpoilagePage(currentSpoilagePage - 1)}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <span className="text-xs text-muted-foreground">Page {currentSpoilagePage} of {spoilagePageCount}</span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        aria-label="Next spoilage alerts"
+                        disabled={currentSpoilagePage >= spoilagePageCount}
+                        onClick={() => setSpoilagePage(currentSpoilagePage + 1)}
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>

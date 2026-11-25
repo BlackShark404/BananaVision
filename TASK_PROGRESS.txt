@@ -19,13 +19,24 @@ DONE
   - `frontend/tests/persistence.test.mjs`: Inventory case proving per-supplier totals,
     variety badges, and that sold stock still counts as received.
   - Updated `docs/knowledge/Frontend.md`. No backend, API, schema or migration change.
+- Follow-up (same request thread): Spoilage Alerts now paginates 3 entries per page instead of
+  scrolling. Removed `max-h-64 overflow-y-auto`; added Previous/Next controls, `Page X of Y`
+  and `Showing A–B of N`. Page resets on source-filter change and clamps when alerts shrink.
+- Follow-up demo data: `backend/seed.py` adds an open ethephon intake from the previous day
+  with five near-expiry cultivar/ripeness groups (Lakatan/Latundan/Cardaba Overripe,
+  Lakatan/Latundan Ripe), guaranteeing 5 Spoilage Alert groups (two pages). Seed total is now
+  30 scans, 40 events, 21 in stock. Updated `test_seed.py`,
+  `test_seed_kiosk_contract.py`, `backend/README.md` and `docs/knowledge/Frontend.md`.
 
 VERIFIED (2026-11-25)
 - `node --test frontend/tests/supplierReceipts.test.mjs`: 5 passed, 0 failed.
 - `node --test frontend/tests/persistence.test.mjs` with local `PLAYWRIGHT_MODULE`:
-  19 passed, 0 failed; new Inventory test passed.
-- Desktop (1280×1100) and mobile (390×900) fixture screenshots reviewed: card renders
-  correctly, badges wrap, totals align.
+  20 passed, 0 failed; supplier-receipts and spoilage-pagination cases passed.
+- Desktop (1280×1100) and mobile (390×900) fixture screenshots reviewed: supplier card and
+  3-row Spoilage Alerts pager render correctly, badges and 3-per-page rows fit.
+- Seed suites on a disposable PostgreSQL 17 cluster (port 55439, removed afterwards):
+  `test_seed.py` + `test_seed_kiosk_contract.py`: 25 passed, 0 failed, including the new
+  five-group spoilage demo test.
 - `frontend/node_modules/.bin/tsc -b frontend/tsconfig.json` passed; `npm run build` passed
   (dist ignored by Git).
 - `npm run lint`: 36 problems (31 errors, 5 warnings) — exact pre-existing baseline; targeted

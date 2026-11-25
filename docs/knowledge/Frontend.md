@@ -2,6 +2,13 @@
 
 BananaVision's frontend is a React 19 single-page application built with Vite, TypeScript, Tailwind CSS, and Radix UI primitives.
 
+## Inventory: Spoilage Alerts pagination (2026-11-25)
+
+- Spoilage Alerts no longer scrolls (`max-h-64 overflow-y-auto` removed). It shows three alert groups per page with Previous / Next controls, a `Page X of Y` label and a `Showing A–B of N` summary (`frontend/src/pages/Inventory.tsx`).
+- Page state resets on source-filter changes and clamps when the alert count shrinks, so the list never lands on an empty page. Controls appear only when more than one page exists.
+- Test: the pagination case in `frontend/tests/persistence.test.mjs` proves three groups on page 1, the remaining two on page 2, and the return to page 1.
+- Demo seed: `backend/seed.py` adds an open ethephon intake from the previous day with five near-expiry cultivar/ripeness groups, so a reseeded development database always shows two Spoilage Alerts pages. `backend/tests/test_seed.py` checks the five groups and their remaining life.
+
 ## Inventory: received bunches per supplier (2026-11-25)
 
 - The Inventory page adds a **Received by Supplier** card (`frontend/src/pages/Inventory.tsx`) that answers how many banana bunches each supplier delivered and which varieties they were.

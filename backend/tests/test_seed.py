@@ -5,7 +5,7 @@ import io
 import os
 import xml.etree.ElementTree as ET
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -17,10 +17,12 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import seed
 from app.core.time import MANILA
-from app.models import Scan, ScanEvent, UserAccount
+from app.models import Intake, Scan, ScanEvent, UserAccount
+from app.schemas.enums import IntakeStatusEnum
 from app.schemas.scan_logs import ScanLogQuery
 from app.services import analytics, scan_logs, scan_records
 from app.services.feature_engineering import calc_vpd
+from app.services.inventory_policy import remaining_shelf_life
 from app.services.spoilage import SpoilagePredictor
 
 pytestmark = pytest.mark.skipif(
@@ -72,7 +74,7 @@ async def test_seed_environment_matches_stored_precision_and_current_scan_contra
     await seed.main()
     async with empty_seed_database.sessions() as db:
         scans = (await db.scalars(select(Scan))).all()
-        assert len(scans) == 25
+        assert len(scans) == 30
         predictor = SpoilagePredictor()
         predictor.load()
         for scan in scans:
@@ -118,6 +120,22 @@ async def test_seed_environment_matches_stored_precision_and_current_scan_contra
             assert original.created_at == scan.date_time
 
 
+async def test_seed_includes_five_spoilage_alert_groups_for_inventory_pagination(
+    empty_seed_database,
+):
+    await seed.main()
+    async with empty_seed_database.sessions() as db:
+        intake = await db.scalar(select(Intake).where(Intake.batch_number == "BCH-SPOIL1"))
+        assert intake is not None and intake.status == IntakeStatusEnum.ACTIVE
+        alert_scans = intake.scans
+        assert len(alert_scans) == 5
+        assert len({(s.classification.cultivar, s.classification.ripeness) for s in alert_scans}) == 5
+        as_of = max(s.date_time for s in alert_scans) + timedelta(days=1)
+        for scan in alert_scans:
+            remaining = remaining_shelf_life(scan.classification.spoilage_days, scan.date_time, as_of)
+            assert remaining is not None and remaining <= 2
+
+
 async def test_seeder_loads_shared_predictor_before_generating_scans(empty_seed_database, monkeypatch):
     predictor = SpoilagePredictor()
     loaded = []
@@ -137,7 +155,7 @@ async def test_seeder_loads_shared_predictor_before_generating_scans(empty_seed_
     await seed.main()
     async with empty_seed_database.sessions() as db:
         scans = (await db.scalars(select(Scan))).all()
-        assert len(scans) == 25
+        assert len(scans) == 30
         assert all(s.classification.spoilage_days == "2.00001" for s in scans)
         assert all(s.original_ai_result.spoilage_days == "2.00001" for s in scans)
 
@@ -151,7 +169,7 @@ async def test_seed_history_and_consumer_apis_are_consistent(empty_seed_database
         admin = await db.scalar(select(UserAccount).where(UserAccount.username == "seed_admin"))
         scans = (await db.scalars(select(Scan))).all()
         events = (await db.scalars(select(ScanEvent))).all()
-        assert len(events) == 35  # 25 creations and 10 later sales.
+        assert len(events) == 40  # 30 creations and 10 later sales.
         for scan in scans:
             detail = await scan_records.serialize_detail(db, scan, admin)
             assert detail.history and not any(e.legacy for e in detail.history)
@@ -160,17 +178,17 @@ async def test_seed_history_and_consumer_apis_are_consistent(empty_seed_database
             assert all("Synthetic" in e.reason for e in detail.history)
             assert detail.history[-1].revision == scan.revision
         summary = await analytics.get_summary(db, admin, date_range="all")
-        assert summary.total_scans == summary.confidence_sample_count == 25
-        assert sum(row.total_scans for row in summary.operator_performance) == 25
+        assert summary.total_scans == summary.confidence_sample_count == 30
+        assert sum(row.total_scans for row in summary.operator_performance) == 30
         logs = await scan_logs.list_scan_logs(db, admin, ScanLogQuery(page_size=100))
-        assert logs.total == 25 and all(row.vpd is not None for row in logs.items)
+        assert logs.total == 30 and all(row.vpd is not None for row in logs.items)
         xlsx_bytes = await scan_logs.export_scan_logs_xlsx(db, admin, ScanLogQuery())
         pdf_bytes = await scan_logs.export_scan_logs_pdf(db, admin, ScanLogQuery(format="pdf"))
         with zipfile.ZipFile(io.BytesIO(xlsx_bytes)) as archive:
             sheet_root = ET.fromstring(archive.read("xl/worksheets/sheet1.xml"))
         ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
         xml_rows = sheet_root.findall("m:sheetData/m:row", ns)
-        assert len(xml_rows) == 26  # Header + 25 seeded scans.
+        assert len(xml_rows) == 31  # Header + 30 seeded scans.
         assert pdf_bytes.startswith(b"%PDF-1.4\n")
 
 
@@ -222,7 +240,7 @@ async def test_explicit_reset_replaces_demo_records_and_reapplies_migrations(emp
     await seed.main(reset_demo=True)
     async with empty_seed_database.sessions() as db:
         after = set(await db.scalars(select(Scan.id)))
-        assert len(after) == 25 and before.isdisjoint(after)
+        assert len(after) == 30 and before.isdisjoint(after)
         assert await db.scalar(text("SELECT version_num FROM alembic_version")) == revision
         assert await db.scalar(text("SELECT message FROM user_evidence")) == "keep me"
         scans = (await db.scalars(select(Scan))).all()
@@ -254,8 +272,8 @@ async def test_concurrent_explicit_resets_leave_one_complete_dataset(empty_seed_
     await seed.main()
     await asyncio.gather(seed.main(reset_demo=True), seed.main(reset_demo=True))
     async with empty_seed_database.sessions() as db:
-        assert len((await db.scalars(select(Scan.id))).all()) == 25
-        assert len((await db.scalars(select(ScanEvent.id))).all()) == 35
+        assert len((await db.scalars(select(Scan.id))).all()) == 30
+        assert len((await db.scalars(select(ScanEvent.id))).all()) == 40
 
 
 async def test_concurrent_seeds_create_only_one_dataset(empty_seed_database):
@@ -264,7 +282,7 @@ async def test_concurrent_seeds_create_only_one_dataset(empty_seed_database):
     errors = [result for result in results if isinstance(result, RuntimeError)]
     assert len(errors) == 1 and "empty" in str(errors[0])
     async with empty_seed_database.sessions() as db:
-        assert len((await db.scalars(select(Scan.id))).all()) == 25
+        assert len((await db.scalars(select(Scan.id))).all()) == 30
 
 
 async def test_seed_keeps_zero_vpd(empty_seed_database, monkeypatch):
