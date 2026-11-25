@@ -211,25 +211,34 @@ test("inventory finger totals drop Est. only when every counted scan was correct
 })
 
 test("inventory totals bunches received per supplier and variety, including sold stock", async t => {
-  const records = rows(5).map((row, index) => ({
+  const records = rows(6).map((row, index) => ({
     ...row,
     intake_id: null, intake_provenance: "unlinked", inventory_eligible: true,
-    source_text: index < 3 ? "Supplier Alpha" : "Supplier Beta",
-    cultivar: ["Lakatan", "Lakatan", "Cardaba", "Latundan", "Lakatan"][index],
+    source_text: index < 3 ? "Supplier Alpha" : index < 5 ? "Supplier Beta" : null,
+    cultivar: ["Lakatan", "Lakatan", "Cardaba", "Latundan", "Lakatan", "Cardaba"][index],
     inventory_status: index === 4 ? "Sold" : "In Stock",
   }))
   const { page } = await setup(t, { screen: "inventory", scans: records })
   await page.getByText("Received by Supplier", { exact: true }).waitFor()
-  await page.getByText("5 bunches", { exact: true }).waitFor()
+  await page.getByText("6 bunches", { exact: true }).waitFor()
   await page.getByText("Supplier Alpha", { exact: true }).first().waitFor()
   await page.getByText("3 bunches", { exact: true }).waitFor()
   await page.getByText("Supplier Beta", { exact: true }).first().waitFor()
   await page.getByText("2 bunches", { exact: true }).waitFor()
+  await page.getByText("Unknown Supplier", { exact: true }).first().waitFor()
+  await page.getByText("1 bunch", { exact: true }).waitFor()
   await page.getByText("Lakatan · 2", { exact: true }).waitFor()
-  await page.getByText("Cardaba · 1", { exact: true }).waitFor()
+  await page.getByText("Cardaba · 1", { exact: true }).first().waitFor()
   await page.getByText("Latundan · 1", { exact: true }).waitFor()
-  // One of the three Lakatan bunches was sold: receipts still show all five bunches.
-  await page.getByText("2 hands in stock", { exact: true }).waitFor()
+  // One of the three Lakatan bunches was sold: receipts still show all six bunches.
+  await page.getByText("2 hands in stock", { exact: true }).first().waitFor()
+  // Spoilage Alerts and FIFO rows also carry the supplier name: click the Received by Supplier row.
+  await page.locator('[class*="group/supplier"]').filter({ hasText: "Unknown Supplier" }).click()
+  await page.waitForURL(url => url.pathname === "/logs")
+  const navigated = new URL(page.url())
+  assert.equal(navigated.pathname, "/logs")
+  assert.equal(navigated.searchParams.get("source_key"), "unknown")
+  assert.equal(navigated.searchParams.get("source"), null)
 })
 
 test("spoilage alerts paginate three per page instead of scrolling", async t => {

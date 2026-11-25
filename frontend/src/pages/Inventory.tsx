@@ -543,7 +543,11 @@ export default function Inventory() {
                 <div
                   key={group.supplier}
                   className="p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer group/supplier"
-                  onClick={() => navigate(scanLogsLink({ source: group.supplier }))}
+                  onClick={() => navigate(
+                    group.supplier === "Unknown Supplier" && !scans.some(s => s.source?.trim() === "Unknown Supplier")
+                      ? scanLogsLink({ source_key: "unknown", source: undefined })
+                      : scanLogsLink({ source: group.supplier }),
+                  )}
                 >
                   <div className="flex items-center gap-1.5 mb-2">
                     <p className="font-medium text-sm truncate group-hover/supplier:text-primary transition-colors">{group.supplier}</p>

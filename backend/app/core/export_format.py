@@ -79,7 +79,7 @@ def format_scan_ref(scan_id: UUID | str | None) -> str:
 
 
 def format_manila_datetime(value: datetime | None) -> str:
-    """Format a timestamp as readable Asia/Manila time with seconds, e.g. 'Nov 25, 2026, 1:45:11 PM'."""
+    """Format a timestamp as readable Asia/Manila time with seconds ('Nov 25, 2026, 1:45:11 PM')."""
     if value is None:
         return ""
     local = as_manila(value)

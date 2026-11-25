@@ -8,14 +8,14 @@ BananaVision's frontend is a React 19 single-page application built with Vite, T
 - Page state resets on source-filter changes and clamps when the alert count shrinks, so the list never lands on an empty page. Controls appear only when more than one page exists.
 - Each alert row gives the supplier and variety a full-width line with the ripeness badge; hand count and days-left badge share a wrapping second row, and the scan date sits on a third. Long supplier names no longer squeeze against the days-left badge.
 - Test: the pagination case in `frontend/tests/persistence.test.mjs` proves three groups on page 1, the remaining two on page 2, and the return to page 1.
-- Demo seed: `backend/seed.py` adds an open ethephon intake from the previous day with five near-expiry cultivar/ripeness groups, so a reseeded development database always shows two Spoilage Alerts pages. `backend/tests/test_seed.py` checks the five groups and their remaining life.
+- Demo seed: `backend/seed.py` adds an open ethephon intake with five near-expiry cultivar/ripeness groups, so a reseeded development database always shows two Spoilage Alerts pages. Lakatan Ripe (about 3.3 days of RFR shelf life) is scanned one day earlier than the other four groups, so every group has two days or less left while still showing five distinct projected ripeness stages. `backend/tests/test_seed.py` checks the five groups, their remaining life and their projected ripeness using the loaded RFR predictor.
 
 ## Inventory: received bunches per supplier (2026-11-25)
 
 - The Inventory page adds a **Received by Supplier** card (`frontend/src/pages/Inventory.tsx`) that answers how many banana bunches each supplier delivered and which varieties they were.
 - `frontend/src/lib/supplierReceipts.ts` groups the scans already loaded by `ScanContext`; every recorded scan counts as one received bunch, including Sold, For Processing and Spoiled stock. Missing sources read `Unknown Supplier`; missing cultivars read `Variety unknown`.
 - Suppliers sort by bunch count (descending), then by name. Varieties sort Lakatan, Latundan, Cardaba, then any unknown label. The card header shows the total bunches in scope.
-- The card respects the page's source filter, and a supplier row opens Scan Logs filtered to that source. No backend, API or schema change.
+- The card respects the page's source filter, and a supplier row opens Scan Logs filtered to that source. Scans with no recorded source show as `Unknown Supplier` and open `/logs?source_key=unknown`, because Scan Logs stores those rows under the `unknown` source key rather than a source name. No backend, API or schema change.
 - Tests: `frontend/tests/supplierReceipts.test.mjs` (grouping and ordering) and the Inventory case in `frontend/tests/persistence.test.mjs` (per-supplier totals, variety badges, sold stock still received).
 
 ## Public QR page shows only the scanned data (2026-11-13)

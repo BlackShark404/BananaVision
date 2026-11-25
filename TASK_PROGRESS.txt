@@ -1,4 +1,39 @@
-CURRENT RESUME HERE (2026-11-25) - LIVE DERIVED-ON-READ RIPENESS PROGRESSION, ICON AUDIT & INVENTORY UPDATES
+CURRENT RESUME HERE (2026-11-26) - AUDIT FIXES FOR LAWRENCE S. RAMIREZ COMMITS (e562b2c..2992f73)
+
+USER REQUEST (2026-11-26)
+- Read-only audit of Lawrence S. Ramirez commits `e562b2c..2992f73` found 0 Critical, 0 High,
+  1 Medium and 3 Low issues. User approved and authorized all fixes, commit and push.
+
+DONE
+- [Medium-1] `backend/seed.py`: BCH-SPOIL1 intake starts one day earlier; Lakatan Ripe
+  (~3.34d RFR) is scanned one day before the other four groups, so all five Spoilage Alert
+  groups have <=2 days left and stay at five distinct projected ripeness stages.
+  `backend/tests/test_seed.py` now also checks projected groups with the loaded RFR predictor
+  (the unloaded global predictor used fallback stage ratios and disagreed with the live app).
+- [Low-1] `frontend/src/pages/Inventory.tsx`: Received by Supplier "Unknown Supplier" row opens
+  `/logs?source_key=unknown` (sourceless rows have no source name in Scan Logs).
+  Covered in `frontend/tests/persistence.test.mjs`.
+- [Low-2] `backend/app/core/xlsx.py`: custom sheet titles are XML-escaped and sanitized
+  (31 chars, no `[]:*?/\`); OPC part paths unchanged. New test in `test_exports.py`.
+- [Low-3] Ruff cleanup in Lawrence-touched export/analytics/backup files: 53 -> 32 diagnostics
+  across the 8 touched files, 0 new (remaining 32 are older debt).
+- Docs: `docs/knowledge/Frontend.md` (unknown-supplier link, seed staggering).
+
+VERIFIED (2026-11-26)
+- Disposable PostgreSQL 18 pytest (temp clusters on 127.0.0.1:55442/55443, stopped and deleted):
+  first run of 7 suites 95 passed / 1 failed / 4 skipped (Windows tzset); after the test_seed
+  predictor fix, `test_seed.py` + `test_seed_kiosk_contract.py` + `test_analytics.py` 42 passed.
+  `test_exports.py`, `test_backup_archive.py`, `test_ripeness_projection.py` and
+  `test_manila_time_guard.py` passed in the first run.
+- Frontend: `persistence.test.mjs` 23/23; `manilaTime`, `supplierReceipts`, `clientexports`
+  all passed; `npx tsc -b` 0 errors; `npx eslint src/pages/Inventory.tsx` clean;
+  `npm run lint` 36 problems (31 errors, 5 warnings) = unchanged baseline; `npm run build` passed.
+
+EXACT NEXT STEP
+- None pending for this audit. Optional: pay down older Ruff E501 debt in
+  `backup_archive.py` / `analytics.py`, and older ESLint debt (36 problems baseline).
+
+PREVIOUS RESUME (2026-11-25) - LIVE DERIVED-ON-READ RIPENESS PROGRESSION, ICON AUDIT & INVENTORY UPDATES
 
 USER REQUEST (2026-11-25)
 - Replace all raw Unicode UI emojis across `frontend/src/` with `lucide-react` icons and add a

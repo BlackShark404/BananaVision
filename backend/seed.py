@@ -204,17 +204,18 @@ async def seed_data(db):
     await db.flush()
 
     # 7b. Near-expiry stock for Spoilage Alerts pagination: an open ethephon intake
-    # from yesterday puts five cultivar/ripeness groups inside the two-day window.
+    # puts five distinct cultivar/ripeness groups inside the two-day alert window.
+    spoilage_intake_time = previous_intake_time - timedelta(days=1)
     i3 = Intake(
         supplier_id=s1.id,
         batch_number="BCH-SPOIL1",
         source="Kiosk",
-        intake_date=previous_intake_time.date(),
+        intake_date=spoilage_intake_time.date(),
         status=IntakeStatusEnum.ACTIVE,
-        created_at=previous_intake_time,
-        updated_at=now - timedelta(days=1),
+        created_at=spoilage_intake_time,
+        updated_at=previous_intake_time + timedelta(hours=2),
         treatment=TreatmentEnum.ETHEPHON,
-        treated_at=previous_intake_time,
+        treated_at=spoilage_intake_time,
     )
     db.add(i3)
     await db.flush()
@@ -311,16 +312,18 @@ async def seed_data(db):
                 )
             )
 
-    # 9. Deterministic spoilage alerts (five groups, so Inventory paginates 3 + 2).
+    # 9. Deterministic spoilage alerts (five distinct groups, so Inventory paginates 3 + 2).
+    # Lakatan Ripe (~3.34d RFR shelf life) is seeded one day earlier than Latundan Ripe (~2.19d)
+    # and the Overripe groups so all five have <=2 days left while staying at distinct stages.
     spoilage_groups = (
-        (CultivarEnum.LAKATAN, RipenessEnum.OVERRIPE),
-        (CultivarEnum.LATUNDAN, RipenessEnum.OVERRIPE),
-        (CultivarEnum.CARDABA, RipenessEnum.OVERRIPE),
-        (CultivarEnum.LAKATAN, RipenessEnum.RIPE),
-        (CultivarEnum.LATUNDAN, RipenessEnum.RIPE),
+        (CultivarEnum.LAKATAN, RipenessEnum.OVERRIPE, previous_intake_time),
+        (CultivarEnum.LATUNDAN, RipenessEnum.OVERRIPE, previous_intake_time),
+        (CultivarEnum.CARDABA, RipenessEnum.OVERRIPE, previous_intake_time),
+        (CultivarEnum.LAKATAN, RipenessEnum.RIPE, spoilage_intake_time),
+        (CultivarEnum.LATUNDAN, RipenessEnum.RIPE, previous_intake_time),
     )
-    for index, (cultivar, ripeness) in enumerate(spoilage_groups):
-        scan_time = previous_intake_time + timedelta(hours=1, minutes=index * 5)
+    for index, (cultivar, ripeness, base_time) in enumerate(spoilage_groups):
+        scan_time = base_time + timedelta(hours=1, minutes=index * 5)
         temperature = round(random.uniform(22.0, 24.0), 2)
         humidity = round(random.uniform(50.0, 60.0), 2)
         vpd = calc_vpd(temperature, humidity)

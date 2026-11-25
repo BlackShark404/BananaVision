@@ -169,7 +169,9 @@ def _compute_column_widths(
         return []
     sample_rows = rows[:200]
     min_floor = 30.0 if num_cols >= 12 else 32.0 if num_cols >= 10 else 44.0
-    max_share = 0.20 if num_cols >= 12 else 0.22 if num_cols >= 10 else 0.44 if num_cols <= 5 else 0.30
+    max_share = (
+        0.20 if num_cols >= 12 else 0.22 if num_cols >= 10 else 0.44 if num_cols <= 5 else 0.30
+    )
     max_cap = usable_width * max_share
 
     mins: list[float] = []
@@ -353,7 +355,9 @@ def build_pdf(
         # Page header banner.
         if page_num == 1:
             ops.append("0.08 0.12 0.18 rg")
-            ops.append(f"BT /F2 13.5 Tf {margin_x:.2f} {y - 11:.2f} Td ({_pdf_escape(title)}) Tj ET")
+            ops.append(
+                f"BT /F2 13.5 Tf {margin_x:.2f} {y - 11:.2f} Td ({_pdf_escape(title)}) Tj ET"
+            )
             y -= 18.0
             ops.append("0.30 0.36 0.44 rg")
             ops.append(
