@@ -259,6 +259,11 @@ function PublicScanRecord({ scanId }: { scanId?: string }) {
                 )}
               </div>
             )}
+            {scan.storage_exposure && scan.storage_exposure.reading_count > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Storage exposure avg: {scan.storage_exposure.avg_temperature.toFixed(1)}°C · {scan.storage_exposure.avg_humidity.toFixed(1)}% RH ({scan.storage_exposure.biological_elapsed_days.toFixed(1)}d biological age over {scan.storage_exposure.actual_elapsed_days.toFixed(1)}d)
+              </p>
+            )}
 
             {(scan.source_text || scan.treatment || liveRip?.progressed) && (
               <div className="flex flex-wrap gap-2">

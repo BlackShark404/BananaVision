@@ -29,7 +29,13 @@ from app.models.scan import Scan
 from app.schemas.common import SystemConfigResponse, SystemConfigUpdate
 from app.services import audit, configuration
 from app.services.camera_manager import camera_manager  # noqa: F401 - tests patch via this module
+from app.services.inventory_policy import (
+    ripeness_projection,
+    scan_storage_exposure,
+    shelf_life_window,
+)
 from app.services.runtime_operations import station_lock
+from app.services.sensor_exposure import load_buckets_for_dates
 
 router = APIRouter(prefix="/config", tags=["Config"])
 
@@ -107,10 +113,36 @@ async def export_database(
     )
 
     as_of = now_manila()
+    buckets, starts = await load_buckets_for_dates(db, [s.date_time for s in scans], as_of)
     rows: list[list[ExportCell]] = []
     for scan in scans:
         classification = scan.classification
         status = scan.status_logs[-1].inventory_status if scan.status_logs else "In Stock"
+        exposure = (
+            scan_storage_exposure(
+                scan, status, as_of, exposure_buckets=buckets, bucket_starts=starts,
+            )
+            if buckets
+            else None
+        )
+        offset_days = exposure.exposure_offset_days if exposure is not None else 0
+        spoilage_days = classification.spoilage_days if classification else None
+        window = shelf_life_window(
+            spoilage_days, scan.date_time, as_of, exposure_offset_days=offset_days,
+        )
+        projection = ripeness_projection(
+            classification.ripeness if classification else None,
+            classification.cultivar if classification else None,
+            spoilage_days,
+            scan.date_time,
+            as_of,
+            temperature=classification.temperature if classification else None,
+            humidity=classification.humidity if classification else None,
+            vpd=classification.vpd if classification else None,
+            treatment=classification.treatment if classification else None,
+            inventory_status=status,
+            exposure_offset_days=offset_days,
+        )
         if scan.intake and scan.intake.supplier:
             source = scan.intake.supplier.name
         else:
@@ -134,7 +166,7 @@ async def export_database(
             original_finger_count=(
                 scan.original_ai_result.finger_count if scan.original_ai_result else None
             ),
-            spoilage_days=classification.spoilage_days if classification else None,
+            spoilage_days=spoilage_days,
             inventory_status=status,
             flagged=bool(scan.flagged),
             confidence=classification.confidence if classification else None,
@@ -144,6 +176,8 @@ async def export_database(
             treatment=classification.treatment if classification else None,
             operator_name=operator_name,
             as_of=as_of,
+            shelf_life=window,
+            ripeness_proj=projection,
         ))
 
     if format == "pdf":

@@ -676,11 +676,18 @@ export default function Kiosk() {
                   // Choose column count to evenly fill: use the card count itself (up to 4)
                   const cols = envCards.length <= 4 ? envCards.length : 4
                   return (
-                    <div
-                      className="grid gap-3"
-                      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-                    >
-                      {envCards}
+                    <div className="space-y-2">
+                      <div
+                        className="grid gap-3"
+                        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+                      >
+                        {envCards}
+                      </div>
+                      {lastResult.temperature === undefined && lastResult.humidity === undefined && (
+                        <p className="text-[11px] text-muted-foreground text-center">
+                          DHT22 sensor unavailable or stale at scan time — shelf life uses 25.0°C / 65.0% RH baseline.
+                        </p>
+                      )}
                     </div>
                   )
                 })()}

@@ -45,7 +45,19 @@ from app.services.fusion_engine import COUNT_VIEWS_DIFFER, fusion_engine
 from app.services.spoilage import spoilage_predictor
 from app.services.feature_engineering import calc_vpd
 from app.models.intake import Intake
-from app.services.sensor_reader import sensor_reader
+from app.models.sensor_reading import SensorReading
+from app.services.sensor_reader import (
+    DHT22_HUM_MAX_PCT,
+    DHT22_HUM_MIN_PCT,
+    DHT22_TEMP_MAX_C,
+    DHT22_TEMP_MIN_C,
+    SensorData,
+    freshness_window_seconds,
+    is_valid_dht22,
+    resolve_scan_sensor_reading,
+    sensor_reader,
+    trimmed_mean,
+)
 from app.ws.manager import ws_manager
 from app.ws import events
 
@@ -443,7 +455,34 @@ async def _execute_scan_pipeline(
                     det.bounding_boxes = harmonized_boxes
 
         # ── Step 6: Get sensor data + compute features + predict spoilage ─
-        sensor_data = sensor_reader.latest
+        scan_now = now_manila()
+        sensor_data = resolve_scan_sensor_reading(sensor_reader, now=scan_now)
+        if sensor_data is None and getattr(sensor_reader, "is_connected", None) is True:
+            from datetime import timedelta
+
+            cutoff = scan_now - timedelta(seconds=freshness_window_seconds())
+            window = max(1, int(getattr(settings, "sensor_smoothing_window", 5)))
+            db_rows = (await db.execute(
+                select(SensorReading)
+                .where(
+                    SensorReading.recorded_at >= cutoff,
+                    SensorReading.recorded_at <= scan_now,
+                    SensorReading.temperature.between(DHT22_TEMP_MIN_C, DHT22_TEMP_MAX_C),
+                    SensorReading.humidity.between(DHT22_HUM_MIN_PCT, DHT22_HUM_MAX_PCT),
+                )
+                .order_by(SensorReading.recorded_at.desc())
+                .limit(window)
+            )).scalars().all()
+            valid_rows = [r for r in db_rows if is_valid_dht22(r.temperature, r.humidity)]
+            if valid_rows:
+                sensor_data = SensorData(
+                    temperature=round(trimmed_mean([float(r.temperature) for r in valid_rows]), 2),
+                    humidity=round(
+                        min(100.0, max(0.0, trimmed_mean([float(r.humidity) for r in valid_rows]))),
+                        2,
+                    ),
+                    recorded_at=valid_rows[0].recorded_at,
+                )
         temperature = sensor_data.temperature if sensor_data else None
         humidity = sensor_data.humidity if sensor_data else None
 

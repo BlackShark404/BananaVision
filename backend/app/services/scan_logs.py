@@ -26,7 +26,7 @@ from app.models.operator_profile import OperatorProfile
 from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.models.supplier import Supplier
 from app.models.user_account import UserAccount
-from app.schemas.enums import RipenessEnum
+from app.schemas.enums import InventoryStatusEnum, RipenessEnum
 from app.schemas.scan_logs import (
     OperatorOption,
     ScanLogList,
@@ -47,12 +47,17 @@ from app.services.scan_snapshots import (
     save_snapshot,
     slice_snapshot,
 )
+from app.services.sensor_exposure import (
+    effective_remaining_days,
+    load_buckets_for_query,
+    row_exposure,
+)
 from app.services.spoilage import RIPENESS_STAGES
 
 EXPORT_HEADERS = SCAN_EXPORT_HEADERS
 
 
-def _conditions(scans, query: ScanLogQuery, threshold: float):
+def _conditions(scans, query: ScanLogQuery, threshold: float, *, defer_at_risk: bool = False):
     conditions = []
     if query.business_date is not None:
         conditions.append(dashboard._day(scans, query.business_date))
@@ -84,7 +89,7 @@ def _conditions(scans, query: ScanLogQuery, threshold: float):
     if query.flagged_only and query.attention != "review":
         conditions.append(scans.c.flagged.is_(True))
     if query.attention == "at-risk":
-        conditions.append(dashboard._expiring(scans))
+        conditions.append(eligible_stock(scans) if defer_at_risk else dashboard._expiring(scans))
     elif query.attention == "review":
         conditions.append(dashboard._review(scans, threshold))
     elif query.attention == "success":
@@ -134,9 +139,27 @@ def _uses_current_ripeness_filter(query: ScanLogQuery) -> bool:
     return query.ripeness is not None and query.ripeness_scope == "current"
 
 
-def _row_matches_current_ripeness(row, query: ScanLogQuery, now: datetime) -> bool:
+def _row_is_at_risk(row, now: datetime, *, buckets=(), bucket_starts=None) -> bool:
+    if not buckets:
+        return bool(getattr(row, "at_risk", False))
+    if not getattr(row, "is_eligible", False):
+        return False
+    eff = effective_remaining_days(row, now, buckets=buckets, bucket_starts=bucket_starts)
+    return eff is not None and eff <= 2.0
+
+
+def _row_matches_current_ripeness(
+    row,
+    query: ScanLogQuery,
+    now: datetime,
+    *,
+    buckets=(),
+    bucket_starts=None,
+) -> bool:
     if not _uses_current_ripeness_filter(query):
         return True
+    exposure = row_exposure(row, now, buckets=buckets, bucket_starts=bucket_starts) if buckets else None
+    offset_days = exposure.exposure_offset_days if exposure is not None else 0
     projection = ripeness_projection(
         row.ripeness,
         row.cultivar,
@@ -148,13 +171,42 @@ def _row_matches_current_ripeness(row, query: ScanLogQuery, now: datetime) -> bo
         vpd=getattr(row, "vpd", None),
         treatment=getattr(row, "treatment", None),
         inventory_status=row.inventory_status,
+        exposure_offset_days=offset_days,
     )
     return projection is not None and projection["current_ripeness"] == query.ripeness.value
 
 
-def _row(row, now: datetime) -> ScanLogRow:
+def _row_matches_query(
+    row,
+    query: ScanLogQuery,
+    now: datetime,
+    *,
+    buckets=(),
+    bucket_starts=None,
+    defer_at_risk: bool = False,
+) -> bool:
+    if defer_at_risk and query.attention == "at-risk":
+        if not _row_is_at_risk(row, now, buckets=buckets, bucket_starts=bucket_starts):
+            return False
+    return _row_matches_current_ripeness(
+        row, query, now, buckets=buckets, bucket_starts=bucket_starts,
+    )
+
+
+async def _load_scan_logs_buckets(db: AsyncSession, scans, base_conditions, now: datetime):
+    return await load_buckets_for_query(
+        db,
+        select(func.min(scans.c.date_time)).where(
+            *base_conditions,
+            scans.c.inventory_status == InventoryStatusEnum.IN_STOCK,
+        ),
+        now,
+    )
+
+
+def _row(row, now: datetime, *, buckets=(), bucket_starts=None) -> ScanLogRow:
     return ScanLogRow(
-        **dashboard._scan(row, now).model_dump(),
+        **dashboard._scan(row, now, buckets=buckets, bucket_starts=bucket_starts).model_dump(),
         revision=row.revision,
         temperature=None if row.temperature is None else float(row.temperature),
         humidity=None if row.humidity is None else float(row.humidity),
@@ -272,12 +324,23 @@ async def _new_scan_count(
             boundary,
             and_(scans.c.date_time == since, scans.c.id > UUID(watermark_id)),
         )
-    if _uses_current_ripeness_filter(query):
-        now = dashboard.now_manila()
+    now = dashboard.now_manila()
+    base_conditions = _conditions(scans, query, threshold, defer_at_risk=True)
+    buckets, starts = await _load_scan_logs_buckets(db, scans, [*base_conditions, boundary], now)
+    if _uses_current_ripeness_filter(query) or (bool(buckets) and query.attention == "at-risk"):
         rows = (await db.execute(
-            select(scans).where(*_conditions(scans, query, threshold), boundary)
+            select(
+                scans,
+                dashboard._expiring(scans).label("at_risk"),
+                eligible_stock(scans).label("is_eligible"),
+            ).where(*_conditions(scans, query, threshold, defer_at_risk=bool(buckets)), boundary)
         )).all()
-        return sum(1 for row in rows if _row_matches_current_ripeness(row, query, now))
+        return sum(
+            1 for row in rows
+            if _row_matches_query(
+                row, query, now, buckets=buckets, bucket_starts=starts, defer_at_risk=bool(buckets),
+            )
+        )
     total = await db.scalar(
         select(func.count()).select_from(scans)
         .where(*_conditions(scans, query, threshold), boundary)
@@ -313,22 +376,40 @@ async def reconcile_scan_logs(
     now = dashboard.now_manila()
     scans = dashboard._scoped_projection(user, now)
     threshold = await dashboard._threshold(db)
-    conditions = _conditions(scans, query, threshold)
-    if _uses_current_ripeness_filter(query):
+    base_conditions = _conditions(scans, query, threshold, defer_at_risk=True)
+    buckets, starts = await _load_scan_logs_buckets(db, scans, base_conditions, now)
+    conditions = base_conditions if buckets else _conditions(scans, query, threshold)
+    if _uses_current_ripeness_filter(query) or bool(buckets):
         all_rows = (await db.execute(
-            select(scans, dashboard._expiring(scans).label("at_risk")).where(*conditions)
+            select(
+                scans,
+                dashboard._expiring(scans).label("at_risk"),
+                eligible_stock(scans).label("is_eligible"),
+            ).where(*conditions)
         )).all()
-        matched = [row for row in all_rows if _row_matches_current_ripeness(row, query, now)]
+        matched = [
+            row for row in all_rows
+            if _row_matches_query(
+                row, query, now, buckets=buckets, bucket_starts=starts, defer_at_risk=bool(buckets),
+            )
+        ]
         scores = [float(row.confidence) for row in matched if row.confidence is not None]
         id_set = set(identifiers)
         current = {row.id: row for row in matched if row.id in id_set}
         ordered = [current[identifier] for identifier in identifiers if identifier in current]
         return ScanLogReconciliation(
-            snapshot_id=saved.id, items=[_row(row, now) for row in ordered],
-            at_risk_ids=[row.id for row in ordered if row.at_risk],
+            snapshot_id=saved.id,
+            items=[_row(row, now, buckets=buckets, bucket_starts=starts) for row in ordered],
+            at_risk_ids=[
+                row.id for row in ordered
+                if _row_is_at_risk(row, now, buckets=buckets, bucket_starts=starts)
+            ],
             total=len(matched),
             avg_confidence=dashboard._mean(sum(scores) / len(scores)) if scores else None,
-            at_risk_count=sum(bool(row.at_risk) for row in matched),
+            at_risk_count=sum(
+                1 for row in matched
+                if _row_is_at_risk(row, now, buckets=buckets, bucket_starts=starts)
+            ),
             review_count=sum(bool(row.flagged) for row in matched),
             flagged_count=sum(bool(row.flagged) for row in matched),
             confidence_threshold=threshold, generated_at=now,
@@ -378,21 +459,37 @@ async def list_scan_logs(
     now = dashboard.now_manila()
     scans = dashboard._scoped_projection(user, now)
     threshold = await dashboard._threshold(db)
-    conditions = _conditions(scans, query, threshold)
+    base_conditions = _conditions(scans, query, threshold, defer_at_risk=True)
+    buckets, starts = await _load_scan_logs_buckets(db, scans, base_conditions, now)
+    conditions = base_conditions if buckets else _conditions(scans, query, threshold)
     if query.stable:
         statement = (
-            select(scans, dashboard._expiring(scans).label("at_risk"))
+            select(
+                scans,
+                dashboard._expiring(scans).label("at_risk"),
+                eligible_stock(scans).label("is_eligible"),
+            )
             .where(*conditions)
             .order_by(*_ordering(scans, query))
         )
-        if not _uses_current_ripeness_filter(query):
+        if not (_uses_current_ripeness_filter(query) or (bool(buckets) and query.attention == "at-risk")):
             statement = statement.limit(MAX_ROWS + 1)
         raw = (await db.execute(statement)).all()
-        if _uses_current_ripeness_filter(query):
-            raw = [row for row in raw if _row_matches_current_ripeness(row, query, now)]
+        if _uses_current_ripeness_filter(query) or (bool(buckets) and query.attention == "at-risk"):
+            raw = [
+                row for row in raw
+                if _row_matches_query(
+                    row, query, now, buckets=buckets, bucket_starts=starts,
+                    defer_at_risk=bool(buckets),
+                )
+            ]
             if len(raw) > MAX_ROWS:
                 raw = raw[: MAX_ROWS + 1]
-        rows = [_row(row, now) for row in raw]
+        rows = [_row(row, now, buckets=buckets, bucket_starts=starts) for row in raw]
+        at_risk_flags = [
+            _row_is_at_risk(source, now, buckets=buckets, bucket_starts=starts)
+            for source in raw
+        ]
         scores = [row.confidence for row in rows if row.confidence is not None]
         watermark_row = max(
             raw, key=lambda row: (as_manila(row.date_time), row.id.int), default=None
@@ -402,25 +499,27 @@ async def list_scan_logs(
         # Capture the same unrounded stock/risk decision used by filters and metrics.
         # Never reclassify from rounded remaining days or the displayed range.
         # No history/notes or credentials are included in browse payloads.
+        snapshot_items = []
+        for row, source, is_risk in zip(rows, raw, at_risk_flags, strict=True):
+            exposure = row_exposure(source, now, buckets=buckets, bucket_starts=starts) if buckets else None
+            offset_days = exposure.exposure_offset_days if exposure is not None else 0
+            item = {
+                **row.model_dump(mode="json"),
+                "username": source.username,
+                "_at_risk": is_risk,
+                "_has_finger_count": source.finger_count is not None,
+            }
+            if offset_days:
+                item["_exposure_offset_days"] = offset_days
+            if source.id in original_counts:
+                item["_original_finger_count"] = original_counts[source.id]
+            snapshot_items.append(item)
         saved = await save_snapshot(
             db,
             user,
             key,
             {
-                "items": [
-                    {
-                        **row.model_dump(mode="json"),
-                        "username": source.username,
-                        "_at_risk": bool(source.at_risk),
-                        "_has_finger_count": source.finger_count is not None,
-                        **(
-                            {"_original_finger_count": original_counts[source.id]}
-                            if source.id in original_counts
-                            else {}
-                        ),
-                    }
-                    for row, source in zip(rows, raw, strict=True)
-                ],
+                "items": snapshot_items,
                 "meta": {
                     "generated_at": now.isoformat(),
                     # New-scan detection starts after the newest frozen row,
@@ -434,7 +533,7 @@ async def list_scan_logs(
                     "avg_confidence": dashboard._mean(sum(scores) / len(scores))
                     if scores
                     else None,
-                    "at_risk_count": sum(bool(row.at_risk) for row in raw),
+                    "at_risk_count": sum(at_risk_flags),
                     "review_count": sum(bool(row.flagged) for row in rows),
                     "flagged_count": sum(row.flagged for row in rows),
                     "options": (await _options(db, scans)).model_dump(mode="json"),
@@ -442,21 +541,34 @@ async def list_scan_logs(
             },
         )
         return ScanLogList(**slice_snapshot(saved, query.page, query.page_size))
-    if _uses_current_ripeness_filter(query):
+    if _uses_current_ripeness_filter(query) or bool(buckets):
         all_rows = (await db.execute(
-            select(scans, dashboard._expiring(scans).label("at_risk"))
+            select(
+                scans,
+                dashboard._expiring(scans).label("at_risk"),
+                eligible_stock(scans).label("is_eligible"),
+            )
             .where(*conditions)
             .order_by(*_ordering(scans, query))
         )).all()
-        matched = [row for row in all_rows if _row_matches_current_ripeness(row, query, now)]
+        matched = [
+            row for row in all_rows
+            if _row_matches_query(
+                row, query, now, buckets=buckets, bucket_starts=starts, defer_at_risk=bool(buckets),
+            )
+        ]
         scores = [float(row.confidence) for row in matched if row.confidence is not None]
         start = (query.page - 1) * query.page_size
         page_rows = matched[start : start + query.page_size]
         return ScanLogList(
-            items=[_row(row, now) for row in page_rows], total=len(matched),
+            items=[_row(row, now, buckets=buckets, bucket_starts=starts) for row in page_rows],
+            total=len(matched),
             page=query.page, page_size=query.page_size,
             avg_confidence=dashboard._mean(sum(scores) / len(scores)) if scores else None,
-            at_risk_count=sum(bool(row.at_risk) for row in matched),
+            at_risk_count=sum(
+                1 for row in matched
+                if _row_is_at_risk(row, now, buckets=buckets, bucket_starts=starts)
+            ),
             review_count=sum(bool(row.flagged) for row in matched),
             flagged_count=sum(bool(row.flagged) for row in matched),
             generated_at=now, confidence_threshold=threshold,
@@ -580,9 +692,19 @@ async def _collect_export_data(
     as_of = now
     scans = dashboard._scoped_projection(user, now)
     threshold = await dashboard._threshold(db)
+    base_conditions = _conditions(scans, query, threshold, defer_at_risk=True)
+    buckets, starts = (
+        ([], [])
+        if query.snapshot_id
+        else await _load_scan_logs_buckets(db, scans, base_conditions, as_of)
+    )
+    conditions = base_conditions if buckets else _conditions(scans, query, threshold)
     statement = (
-        select(scans)
-        .where(*_conditions(scans, query, threshold))
+        select(
+            scans,
+            eligible_stock(scans).label("is_eligible"),
+        )
+        .where(*conditions)
         .order_by(*_ordering(scans, query)).execution_options(yield_per=200)
     )
     if query.snapshot_id:
@@ -616,7 +738,10 @@ async def _collect_export_data(
                     has_finger_count = raw.get("_has_finger_count", True)
                     finger_count = row.finger_count if has_finger_count else None
                     original_finger_count = raw.get("_original_finger_count")
-                    window = shelf_life_window(row.spoilage_days, row.date_time, as_of)
+                    offset_days = int(raw.get("_exposure_offset_days") or 0)
+                    window = shelf_life_window(
+                        row.spoilage_days, row.date_time, as_of, exposure_offset_days=offset_days,
+                    )
                     projection = ripeness_projection(
                         row.ripeness,
                         row.cultivar,
@@ -628,12 +753,16 @@ async def _collect_export_data(
                         vpd=row.vpd,
                         treatment=row.treatment,
                         inventory_status=row.inventory_status,
+                        exposure_offset_days=offset_days,
                     )
                     collected.append((row, finger_count, original_finger_count, window, projection))
                 else:
-                    if not _row_matches_current_ripeness(raw, query, as_of):
+                    if not _row_matches_query(
+                        raw, query, as_of, buckets=buckets, bucket_starts=starts,
+                        defer_at_risk=bool(buckets),
+                    ):
                         continue
-                    row = _row(raw, as_of)
+                    row = _row(raw, as_of, buckets=buckets, bucket_starts=starts)
                     window = (
                         row.shelf_life_window.model_dump()
                         if row.shelf_life_window is not None

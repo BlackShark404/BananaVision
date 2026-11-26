@@ -52,7 +52,12 @@ export function liveShelfLife(window: ShelfLifeWindow | null | undefined, now: n
   const scanDay = dayOf(window.scan_date), asOf = dayOf(window.as_of_date)
   if (![low, high].every(Number.isSafeInteger) || low < 0 || high < low
     || !Number.isFinite(scanDay) || !Number.isFinite(asOf) || !Number.isFinite(now)) return null
-  const elapsedDays = Math.max(0, Math.max(manilaDayNumber(now), asOf) - scanDay)
+  const serverCalendar = Math.max(0, asOf - scanDay)
+  const exposureOffset = Number.isSafeInteger(window.elapsed_days) && window.elapsed_days >= 0
+    ? window.elapsed_days - serverCalendar
+    : 0
+  const calendarElapsed = Math.max(0, Math.max(manilaDayNumber(now), asOf) - scanDay)
+  const elapsedDays = Math.max(0, calendarElapsed + exposureOffset)
   return {
     elapsedDays,
     remainingMin: Math.max(0, low - elapsedDays),

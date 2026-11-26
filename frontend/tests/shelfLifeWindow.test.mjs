@@ -123,3 +123,26 @@ test('tooltips say which day of the window it is', () => {
   assert.equal(shelfLifeWindowDetail(liveShelfLife(serverWindow(1, 3, 1, '2026-11-13'), now)), '1 day since the scan, by Asia/Manila calendar date')
   assert.equal(shelfLifeWindowDetail(liveShelfLife(serverWindow(1, 3, 0, '2026-11-13'), now)), '0 days since the scan, by Asia/Manila calendar date')
 })
+
+test('preserves server continuous-exposure offset and rolls forward across Manila midnight', () => {
+  const hot = Object.freeze({
+    min_days: 5, max_days: 7, elapsed_days: 4,
+    remaining_min_days: 1, remaining_max_days: 3, days_past: 0, state: 'active',
+    scan_date: '2026-11-06', as_of_date: '2026-11-08',
+  })
+  const sameDay = liveShelfLife(hot, at('2026-11-08T04:00:00Z'))
+  assert.equal(sameDay.elapsedDays, 4)
+  assert.equal(shelfLifeWindowLabel(sameDay), '1–3 days left')
+
+  const nextManilaDay = liveShelfLife(hot, at('2026-11-08T16:00:00Z'))
+  assert.equal(nextManilaDay.elapsedDays, 5)
+  assert.equal(shelfLifeWindowLabel(nextManilaDay), '0–2 days left')
+
+  const cool = Object.freeze({
+    min_days: 5, max_days: 7, elapsed_days: 2,
+    remaining_min_days: 3, remaining_max_days: 5, days_past: 0, state: 'active',
+    scan_date: '2026-11-06', as_of_date: '2026-11-10',
+  })
+  assert.equal(liveShelfLife(cool, at('2026-11-10T04:00:00Z')).elapsedDays, 2)
+  assert.equal(liveShelfLife(cool, at('2026-11-10T16:00:00Z')).elapsedDays, 3)
+})

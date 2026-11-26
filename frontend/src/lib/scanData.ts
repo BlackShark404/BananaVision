@@ -1,4 +1,4 @@
-import type { ScanResult, ScanNote } from "@/types"
+import type { ScanResult, ScanNote, StorageExposureSummary } from "@/types"
 import type { RipenessProjection } from "@/lib/ripenessProjection"
 import type { ShelfLifeWindow } from "@/lib/shelfLifeWindow"
 
@@ -34,6 +34,7 @@ export interface ApiScan {
   risk_as_of?: string | null
   shelf_life_window?: ShelfLifeWindow | null
   ripeness_projection?: RipenessProjection | null
+  storage_exposure?: StorageExposureSummary | null
   inventory_status?: ScanResult["inventoryStatus"]
   status_updated_at?: string | null
   flagged?: boolean
@@ -86,6 +87,7 @@ export function mapApiScan(scan: ApiScan, imageUrl: (path: string) => string = p
     riskAsOf: scan.risk_as_of ?? undefined,
     shelfLifeWindow: scan.shelf_life_window ?? null,
     ripenessProjection: scan.ripeness_projection ?? null,
+    storageExposure: scan.storage_exposure ?? null,
     inventoryStatus: scan.inventory_status,
     statusUpdatedAt: scan.status_updated_at ? storedTimestamp(scan.status_updated_at) : undefined,
     flagged: scan.flagged,

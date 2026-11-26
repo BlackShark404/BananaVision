@@ -11,7 +11,14 @@ from app.api.deps import DbSession, CurrentUser
 from app.core.time import now_manila
 from app.models.sensor_reading import SensorReading
 from app.schemas.common import SensorReadingResponse, SensorHistoryResponse
-from app.services.sensor_reader import freshness_window_seconds
+from app.services.sensor_reader import (
+    DHT22_HUM_MAX_PCT,
+    DHT22_HUM_MIN_PCT,
+    DHT22_TEMP_MAX_C,
+    DHT22_TEMP_MIN_C,
+    freshness_window_seconds,
+    is_valid_dht22,
+)
 
 
 router = APIRouter(prefix="/sensors", tags=["Sensors"])
@@ -28,14 +35,20 @@ def _response(reading) -> SensorReadingResponse:
 async def latest_sensor(db: DbSession, user: CurrentUser):
     """Get the latest DHT22 sensor reading."""
     result = await db.execute(
-        select(SensorReading).order_by(desc(SensorReading.recorded_at)).limit(1)
+        select(SensorReading)
+        .where(
+            SensorReading.temperature.between(DHT22_TEMP_MIN_C, DHT22_TEMP_MAX_C),
+            SensorReading.humidity.between(DHT22_HUM_MIN_PCT, DHT22_HUM_MAX_PCT),
+        )
+        .order_by(desc(SensorReading.recorded_at))
+        .limit(1)
     )
     reading = result.scalar_one_or_none()
     if not reading:
         # Fall back to the latest in-memory reading if no DB records yet
         from app.services.sensor_reader import sensor_reader
         data = sensor_reader.latest
-        if data:
+        if data and is_valid_dht22(data.temperature, data.humidity):
             return SensorReadingResponse(
                 temperature=data.temperature,
                 humidity=data.humidity,
@@ -55,7 +68,13 @@ async def sensor_history(
 ):
     """Get sensor reading history."""
     result = await db.execute(
-        select(SensorReading).order_by(desc(SensorReading.recorded_at)).limit(limit)
+        select(SensorReading)
+        .where(
+            SensorReading.temperature.between(DHT22_TEMP_MIN_C, DHT22_TEMP_MAX_C),
+            SensorReading.humidity.between(DHT22_HUM_MIN_PCT, DHT22_HUM_MAX_PCT),
+        )
+        .order_by(desc(SensorReading.recorded_at))
+        .limit(limit)
     )
     readings = result.scalars().all()
     return SensorHistoryResponse(

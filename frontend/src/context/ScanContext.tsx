@@ -272,6 +272,9 @@ function ScanStore({ children }: { children: React.ReactNode }) {
             ripenessProjection: "ripeness_projection" in incoming
               ? (incoming.ripeness_projection ?? null)
               : previous.ripenessProjection,
+            storageExposure: "storage_exposure" in incoming
+              ? (incoming.storage_exposure ?? null)
+              : previous.storageExposure,
           }
           knownScans.current.set(incoming.id, updated)
           setScans(current => current.map(scan => scan.id === incoming.id ? updated : scan))

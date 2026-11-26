@@ -98,3 +98,20 @@ test("missing or damaged projections return null safely and effectiveRipeness fa
   assert.equal(effectiveRipeness({ ripeness: "Unripe", ripenessProjection: projection(), inventoryStatus: "In Stock" }, now), "Ripe")
   assert.equal(effectiveRipeness({ ripeness: "Unripe", ripenessProjection: projection(), inventoryStatus: "Sold" }, now), "Unripe")
 })
+
+test("preserves continuous-exposure offset and rolls forward across Manila midnight", () => {
+  const hot = projection({
+    elapsed_days: 4,
+    current_ripeness: "Semi Ripe",
+    progressed: true,
+    as_of_date: "2026-11-08",
+  })
+  const sameDay = liveRipeness(hot, at("2026-11-08T04:00:00Z"), "In Stock")
+  assert.equal(sameDay.elapsedDays, 4)
+  assert.equal(sameDay.current, "Semi Ripe")
+
+  const twoDaysLater = liveRipeness(hot, at("2026-11-09T16:00:00Z"), "In Stock")
+  assert.equal(twoDaysLater.elapsedDays, 6)
+  assert.equal(twoDaysLater.current, "Ripe")
+  assert.equal(twoDaysLater.badgeLabel, "Est. Ripe")
+})

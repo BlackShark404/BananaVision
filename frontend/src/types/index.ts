@@ -104,6 +104,19 @@ export interface ScanHistory {
   legacy: boolean
 }
 
+export interface StorageExposureSummary {
+  actual_elapsed_days: number
+  biological_elapsed_days: number
+  exposure_offset_days: number
+  exposure_factor: number
+  avg_temperature: number
+  avg_humidity: number
+  avg_vpd: number
+  covered_hours: number
+  total_hours: number
+  reading_count: number
+}
+
 export interface ScanResult {
   printJob?: PrintJob
   printError?: string
@@ -137,6 +150,7 @@ export interface ScanResult {
   riskAsOf?: string
   shelfLifeWindow?: ShelfLifeWindow | null
   ripenessProjection?: RipenessProjection | null
+  storageExposure?: StorageExposureSummary | null
   qrCode?: string
   hasNotes?: boolean
   images?: { camera_id: string; file_path: string }[]

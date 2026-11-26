@@ -43,13 +43,16 @@ from app.services.scan_records import (
     serialize_detail,
     serialize_scan,
 )
+from app.schemas.shelf_life import StorageExposureSummary
 from app.services.inventory_policy import (
     remaining_shelf_life,
     ripeness_projection,
+    scan_storage_exposure,
     shelf_life_window,
 )
 from app.services.ood_gate import REJECTION_CODE
 from app.services.scan_service import execute_scan_pipeline, rejection_payload
+from app.services.sensor_exposure import load_buckets_for_dates
 from app.config import get_settings
 from app.services.print_jobs import queue_automatic_label
 
@@ -165,9 +168,18 @@ async def list_scans(
         )
         # Use the same lock order as bulk intake writes; sort only after locks.
         scans.sort(key=lambda scan: (scan.date_time, scan.id), reverse=True)
-        saved = await save_snapshot(db, user, key, {
-            "items": [serialize_scan(scan, user).model_dump(mode="json") for scan in scans],
-        })
+        now = now_manila()
+        buckets, starts = await load_buckets_for_dates(db, [s.date_time for s in scans], now)
+        snapshot_items = []
+        for scan in scans:
+            serialized = serialize_scan(
+                scan, user, exposure_buckets=buckets, bucket_starts=starts, now=now,
+            )
+            item = serialized.model_dump(mode="json")
+            if serialized.storage_exposure and serialized.storage_exposure.exposure_offset_days:
+                item["_exposure_offset_days"] = serialized.storage_exposure.exposure_offset_days
+            snapshot_items.append(item)
+        saved = await save_snapshot(db, user, key, {"items": snapshot_items})
         return ScanListResponse(**slice_snapshot(saved, page, page_size))
 
     # Count total
@@ -178,9 +190,14 @@ async def list_scans(
     query = query.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(query)
     scans = result.scalars().all()
+    now = now_manila()
+    buckets, starts = await load_buckets_for_dates(db, [s.date_time for s in scans], now)
 
     return ScanListResponse(
-        items=[serialize_scan(s, user) for s in scans],
+        items=[
+            serialize_scan(s, user, exposure_buckets=buckets, bucket_starts=starts, now=now)
+            for s in scans
+        ],
         total=total,
         page=page,
         page_size=page_size,
@@ -200,7 +217,14 @@ async def public_scan_track(scan_id: uuid.UUID, db: DbSession):
         raise NotFoundException("Scan")
     classification = scan.classification
     latest = scan.status_logs[-1] if scan.status_logs else None
+    status = latest.inventory_status if latest else "In Stock"
     now = now_manila()
+    buckets, starts = await load_buckets_for_dates(db, [scan.date_time], now)
+    exposure = scan_storage_exposure(
+        scan, status, now,
+        exposure_buckets=buckets, bucket_starts=starts, respect_closed_status=False,
+    )
+    offset = exposure.exposure_offset_days if exposure is not None else 0
     return PublicScanResponse(
         id=scan.id,
         date_time=scan.date_time,
@@ -209,11 +233,17 @@ async def public_scan_track(scan_id: uuid.UUID, db: DbSession):
         confidence=classification.confidence if classification else None,
         spoilage_days=classification.spoilage_days if classification else None,
         remaining_days=remaining_shelf_life(
-            classification.spoilage_days if classification else None, scan.date_time, now
+            classification.spoilage_days if classification else None,
+            scan.date_time,
+            now,
+            exposure=exposure,
         ),
         risk_as_of=now,
         shelf_life_window=shelf_life_window(
-            classification.spoilage_days if classification else None, scan.date_time, now
+            classification.spoilage_days if classification else None,
+            scan.date_time,
+            now,
+            exposure_offset_days=offset,
         ),
         ripeness_projection=ripeness_projection(
             classification.ripeness if classification else None,
@@ -226,6 +256,12 @@ async def public_scan_track(scan_id: uuid.UUID, db: DbSession):
             vpd=classification.vpd if classification else None,
             treatment=classification.treatment if classification else None,
             respect_closed_status=False,
+            exposure_offset_days=offset,
+        ),
+        storage_exposure=(
+            StorageExposureSummary.model_validate(exposure, from_attributes=True)
+            if exposure is not None
+            else None
         ),
         finger_count=classification.finger_count if classification else 0,
         temperature=classification.temperature if classification else None,
@@ -233,7 +269,7 @@ async def public_scan_track(scan_id: uuid.UUID, db: DbSession):
         vpd=classification.vpd if classification else None,
         treatment=classification.treatment if classification else None,
         source_text=scan.source_text,
-        inventory_status=latest.inventory_status if latest else "In Stock",
+        inventory_status=status,
         flagged=scan.flagged,
         # Anyone with the QR link reads this; capture paths and camera IDs stay staff-only.
         images=[],

@@ -25,6 +25,21 @@ class ShelfLifeWindow(BaseModel):
     as_of_date: date
 
 
+class StorageExposureSummary(BaseModel):
+    """Continuous storage temperature/humidity exposure since scan time."""
+
+    actual_elapsed_days: float
+    biological_elapsed_days: float
+    exposure_offset_days: int
+    exposure_factor: float
+    avg_temperature: float
+    avg_humidity: float
+    avg_vpd: float
+    covered_hours: float
+    total_hours: float
+    reading_count: int
+
+
 RipenessStage = Literal["Unripe", "Semi Ripe", "Ripe", "Overripe"]
 
 
@@ -43,3 +58,18 @@ class RipenessProjection(BaseModel):
     transitions: dict[RipenessStage, int]
     scan_date: date
     as_of_date: date
+
+
+class StorageExposureSummary(BaseModel):
+    """Continuous storage temperature/humidity exposure since scan time."""
+
+    actual_elapsed_days: float
+    biological_elapsed_days: float
+    exposure_offset_days: int
+    exposure_factor: float
+    avg_temperature: float
+    avg_humidity: float
+    avg_vpd: float
+    covered_hours: float
+    total_hours: float
+    reading_count: int

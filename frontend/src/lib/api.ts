@@ -12,7 +12,7 @@ import type { RipenessProjection } from "@/lib/ripenessProjection"
 import type { ShelfLifeWindow } from "@/lib/shelfLifeWindow"
 import type { LabelPreview, PrintJob } from "@/types/printing"
 import type { CameraDiscovery } from "@/types/cameras"
-import type { InventoryStatus, IntakeStatus } from "@/types"
+import type { InventoryStatus, IntakeStatus, StorageExposureSummary } from "@/types"
 import type { AnalyticsRange, AnalyticsSummary, AnalyticsOperator } from "@/types/analytics"
 import type { ApiConfigUpdate, MaintenanceOperation, MaintenanceStatus, RestoreValidation, ApiActivityPage, ApiConfig, ApiDevice, ApiIntake, ApiMessage, ApiNotification, ApiSensor, ApiSupplier, ApiSupplierWrite, ApiUser, ApiUserCreate, ApiUserCreated, ApiUserUpdate } from "@/types/api"
 
@@ -256,6 +256,7 @@ export const api = {
         risk_as_of: string | null
         shelf_life_window?: ShelfLifeWindow | null
         ripeness_projection?: RipenessProjection | null
+        storage_exposure?: StorageExposureSummary | null
         finger_count: number
         temperature: number | null
         humidity: number | null

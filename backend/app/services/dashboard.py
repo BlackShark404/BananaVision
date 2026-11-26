@@ -10,6 +10,7 @@ Intake status does not change a scan's inventory status.
 from __future__ import annotations
 
 from datetime import date, datetime
+from types import SimpleNamespace
 from uuid import UUID
 
 from sqlalchemy import Float, String, and_, case, cast, extract, false, func, literal, not_, select
@@ -42,6 +43,11 @@ from app.services.inventory_policy import (
     eligible_stock,
     ripeness_projection,
     shelf_life_window,
+)
+from app.services.sensor_exposure import (
+    effective_remaining_days,
+    load_buckets_for_query,
+    row_exposure,
 )
 
 DEFAULT_CONFIDENCE_THRESHOLD = 80.0
@@ -176,10 +182,17 @@ def _fifo(row) -> DashboardFifoRecommendation:
     )
 
 
-def _scan(row, now: datetime) -> DashboardScan:
+def _scan(row, now: datetime, *, buckets=(), bucket_starts=None) -> DashboardScan:
     source_key, source_name = _source(row)
     treatment = getattr(row, "treatment", None)
     treatment_text = treatment.value if hasattr(treatment, "value") else treatment
+    exposure = row_exposure(row, now, buckets=buckets, bucket_starts=bucket_starts) if buckets else None
+    offset_days = exposure.exposure_offset_days if exposure is not None else 0
+    remaining = (
+        effective_remaining_days(row, now, buckets=buckets, bucket_starts=bucket_starts)
+        if buckets
+        else (None if row.remaining_days is None else round(float(row.remaining_days), 4))
+    )
     return DashboardScan(
         id=row.id,
         date_time=as_manila(row.date_time),
@@ -193,10 +206,12 @@ def _scan(row, now: datetime) -> DashboardScan:
         inventory_status=row.inventory_status,
         flagged=bool(row.flagged),
         spoilage_days=row.spoilage_days,
-        remaining_days=None if row.remaining_days is None else round(float(row.remaining_days), 4),
+        remaining_days=remaining,
         treatment=treatment_text,
-        # Derived from stored scan fields and elapsed Manila days; DB rows stay untouched.
-        shelf_life_window=shelf_life_window(row.spoilage_days, row.date_time, now),
+        # Derived from stored scan fields, elapsed Manila days, and continuous DHT22 exposure.
+        shelf_life_window=shelf_life_window(
+            row.spoilage_days, row.date_time, now, exposure_offset_days=offset_days,
+        ),
         ripeness_projection=ripeness_projection(
             row.ripeness,
             row.cultivar,
@@ -208,6 +223,7 @@ def _scan(row, now: datetime) -> DashboardScan:
             vpd=getattr(row, "vpd", None),
             treatment=treatment_text,
             inventory_status=row.inventory_status,
+            exposure_offset_days=offset_days,
         ),
     )
 
@@ -291,6 +307,13 @@ async def get_summary(
         .group_by(scans.c.operator_id, scans.c.operator_name, scans.c.username)
         .order_by(func.count().desc(), scans.c.operator_name, scans.c.operator_id)
     )).all()
+    buckets, starts = await load_buckets_for_query(
+        db,
+        select(func.min(scans.c.date_time)).where(
+            scans.c.inventory_status == InventoryStatusEnum.IN_STOCK,
+        ),
+        now,
+    )
     recent = (await db.execute(
         select(scans).order_by(scans.c.date_time.desc(), scans.c.id.desc()).limit(5)
     )).all()
@@ -307,20 +330,70 @@ async def get_summary(
     fifo_key = func.coalesce(
         cast(scans.c.intake_id, String), cast(scans.c.id, String),
     ).label("fifo_key")
-    fifo_rows = (await db.execute(
-        select(
-            scans.c.intake_id,
-            fifo_key,
-            func.min(scans.c.date_time).label("scanned_at"),
-            func.min(scans.c.source_name).label("source_name"),
-            func.count().label("hands"),
-            func.min(scans.c.remaining_days).label("earliest_remaining_days"),
-        )
-        .where(eligible_stock(scans))
-        .group_by(scans.c.intake_id, fifo_key)
-        .order_by(func.min(scans.c.date_time).asc(), fifo_key.asc())
-        .limit(FIFO_LIMIT)
-    )).all()
+    if buckets:
+        eligible_rows = (await db.execute(
+            select(
+                scans.c.intake_id,
+                fifo_key,
+                scans.c.date_time,
+                scans.c.source_name,
+                scans.c.predicted_days,
+                scans.c.remaining_days,
+                scans.c.temperature,
+                scans.c.humidity,
+                scans.c.inventory_status,
+            ).where(eligible_stock(scans))
+        )).all()
+        expiring_count = 0
+        fifo_groups: dict[str, dict] = {}
+        for item in eligible_rows:
+            eff = effective_remaining_days(item, now, buckets=buckets, bucket_starts=starts)
+            if eff is not None and eff <= 2.0:
+                expiring_count += 1
+            key = str(item.fifo_key)
+            group = fifo_groups.get(key)
+            scanned_dt = as_manila(item.date_time)
+            if group is None:
+                fifo_groups[key] = {
+                    "intake_id": item.intake_id,
+                    "fifo_key": item.fifo_key,
+                    "scanned_at": scanned_dt,
+                    "source_name": item.source_name,
+                    "hands": 1,
+                    "earliest_remaining_days": eff,
+                }
+            else:
+                group["hands"] += 1
+                if scanned_dt < group["scanned_at"]:
+                    group["scanned_at"] = scanned_dt
+                if item.source_name < group["source_name"]:
+                    group["source_name"] = item.source_name
+                if eff is not None and (
+                    group["earliest_remaining_days"] is None or eff < group["earliest_remaining_days"]
+                ):
+                    group["earliest_remaining_days"] = eff
+        sorted_fifo = sorted(
+            fifo_groups.values(),
+            key=lambda g: (g["scanned_at"], str(g["fifo_key"])),
+        )[:FIFO_LIMIT]
+        fifo_recommendations = [_fifo(SimpleNamespace(**g)) for g in sorted_fifo]
+    else:
+        expiring_count = alerts.expiring
+        fifo_rows = (await db.execute(
+            select(
+                scans.c.intake_id,
+                fifo_key,
+                func.min(scans.c.date_time).label("scanned_at"),
+                func.min(scans.c.source_name).label("source_name"),
+                func.count().label("hands"),
+                func.min(scans.c.remaining_days).label("earliest_remaining_days"),
+            )
+            .where(eligible_stock(scans))
+            .group_by(scans.c.intake_id, fifo_key)
+            .order_by(func.min(scans.c.date_time).asc(), fifo_key.asc())
+            .limit(FIFO_LIMIT)
+        )).all()
+        fifo_recommendations = [_fifo(r) for r in fifo_rows]
 
     return DashboardSummary(
         generated_at=now, business_date=day,
@@ -336,9 +409,9 @@ async def get_summary(
             operator_id=r.operator_id, name=r.operator_name, username=r.username,
             scan_count=r.scan_count, avg_confidence=_mean(r.avg_confidence),
         ) for r in operator_rows],
-        recent_scans=[_scan(r, now) for r in recent],
-        fifo_recommendations=[_fifo(r) for r in fifo_rows],
-        pending_review_count=alerts.review, expiring_stock_count=alerts.expiring,
+        recent_scans=[_scan(r, now, buckets=buckets, bucket_starts=starts) for r in recent],
+        fifo_recommendations=fifo_recommendations,
+        pending_review_count=alerts.review, expiring_stock_count=expiring_count,
         confidence_threshold=threshold,
     )
 
@@ -357,21 +430,46 @@ async def list_scans(
         conditions.append(_day(scans, day))
     elif view == "review":
         conditions.append(_review(scans, await _threshold(db)))
-    elif view == "expiring":
-        conditions.append(_expiring(scans))
     if source_key is not None:
         conditions.append(_source_filter(scans, source_key))
     if operator_id is not None:
         conditions.append(scans.c.operator_id == operator_id)
-    total = await db.scalar(select(func.count()).select_from(scans).where(*conditions))
+    buckets, starts = await load_buckets_for_query(
+        db,
+        select(func.min(scans.c.date_time)).where(
+            *conditions, scans.c.inventory_status == InventoryStatusEnum.IN_STOCK,
+        ),
+        now,
+    )
     ordering = [scans.c.date_time.desc(), scans.c.id.desc()]
     if sort == "confidence":
         ordering.insert(0, scans.c.confidence.asc().nulls_last())
+    if view == "expiring":
+        if buckets:
+            eligible_rows = (await db.execute(
+                select(scans).where(*conditions, eligible_stock(scans)).order_by(*ordering)
+            )).all()
+            matched = [
+                row for row in eligible_rows
+                if (eff := effective_remaining_days(row, now, buckets=buckets, bucket_starts=starts)) is not None
+                and eff <= 2.0
+            ]
+            total = len(matched)
+            offset = (page - 1) * page_size
+            rows = matched[offset : offset + page_size]
+            return DashboardScanList(
+                items=[_scan(row, now, buckets=buckets, bucket_starts=starts) for row in rows],
+                total=total, page=page, page_size=page_size,
+                generated_at=now, business_date=day,
+            )
+        conditions.append(_expiring(scans))
+    total = await db.scalar(select(func.count()).select_from(scans).where(*conditions))
     rows = (await db.execute(
         select(scans).where(*conditions).order_by(*ordering)
         .offset((page - 1) * page_size).limit(page_size)
     )).all()
     return DashboardScanList(
-        items=[_scan(row, now) for row in rows], total=total or 0, page=page, page_size=page_size,
+        items=[_scan(row, now, buckets=buckets, bucket_starts=starts) for row in rows],
+        total=total or 0, page=page, page_size=page_size,
         generated_at=now, business_date=day,
     )

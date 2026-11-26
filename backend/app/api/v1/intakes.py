@@ -28,6 +28,7 @@ from app.services.scan_records import (
     partial_scan_event_payload,
     scan_scope,
 )
+from app.services.sensor_exposure import load_buckets_for_dates
 from app.core.http import get_client_ip
 from app.models.supplier import Supplier
 from app.models.intake import Intake
@@ -330,6 +331,10 @@ async def bulk_update_intake_inventory(
         )
     updated_ids = []
     pending_events = []
+    event_now = now_manila()
+    buckets, starts = await load_buckets_for_dates(
+        db, [s.date_time for s in scans], event_now,
+    )
     for scan in scans:
         current = (
             scan.status_logs[-1].inventory_status
@@ -353,7 +358,9 @@ async def bulk_update_intake_inventory(
                         kind="status",
                         changed=change.changed,
                         actor_id=admin.id,
-                        scan=partial_scan_event_payload(scan),
+                        scan=partial_scan_event_payload(
+                            scan, exposure_buckets=buckets, bucket_starts=starts, now=event_now,
+                        ),
                         partial=True,
                     ),
                     scan.operator.account_id if scan.operator else None,

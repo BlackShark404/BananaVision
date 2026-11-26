@@ -31,10 +31,12 @@ from app.schemas.scan import (
     ScanNoteResponse,
     ScanResponse,
 )
+from app.schemas.shelf_life import StorageExposureSummary
 from app.services import audit
 from app.services.auth_service import lock_current_account
-from app.services.inventory_policy import inventory_facts
+from app.services.inventory_policy import inventory_facts, scan_storage_exposure
 from app.services.scan_evidence import evidence_url, thumbnail_url
+from app.services.sensor_exposure import load_buckets_for_dates
 from app.ws.mutations import intake_event, publish_intake_event, publish_scan_event, scan_event
 
 
@@ -102,9 +104,19 @@ async def load_authorized_scan(db, scan_id, user):
     return await authorize_scan(db, scan, user)
 
 
-def serialize_scan(scan, user=None):
+def serialize_scan(scan, user=None, *, exposure_buckets=None, bucket_starts=None, now=None):
     classification = scan.classification
     latest = scan.status_logs[-1] if scan.status_logs else None
+    status = latest.inventory_status if latest else InventoryStatusEnum.IN_STOCK
+    current_now = now or now_manila()
+    exposure = (
+        scan_storage_exposure(
+            scan, status, current_now,
+            exposure_buckets=exposure_buckets, bucket_starts=bucket_starts,
+        )
+        if exposure_buckets
+        else None
+    )
     return ScanResponse(
         id=scan.id,
         revision=scan.revision,
@@ -129,9 +141,15 @@ def serialize_scan(scan, user=None):
         intake_origin_id=scan.intake_origin_id,
         intake_provenance=scan.intake_provenance,
         **inventory_facts(
-            scan, latest.inventory_status if latest else InventoryStatusEnum.IN_STOCK, now_manila()
+            scan, status, current_now,
+            exposure_buckets=exposure_buckets, bucket_starts=bucket_starts,
         ),
-        inventory_status=latest.inventory_status if latest else InventoryStatusEnum.IN_STOCK,
+        storage_exposure=(
+            StorageExposureSummary.model_validate(exposure, from_attributes=True)
+            if exposure is not None
+            else None
+        ),
+        inventory_status=status,
         status_updated_at=latest.updated_at if latest else None,
         flagged=scan.flagged,
         is_overridden=scan.is_overridden,
@@ -159,9 +177,13 @@ def _scan_source(scan) -> tuple[str, str]:
     return "unknown", "Unknown"
 
 
-def scan_event_payload(scan, user) -> dict:
+def scan_event_payload(
+    scan, user, *, exposure_buckets=None, bucket_starts=None, now=None,
+) -> dict:
     """Authorized row fields only; image lists and note text are never broadcast."""
-    payload = serialize_scan(scan, user).model_dump(mode="json")
+    payload = serialize_scan(
+        scan, user, exposure_buckets=exposure_buckets, bucket_starts=bucket_starts, now=now,
+    ).model_dump(mode="json")
     payload.pop("images", None)
     payload.pop("original_ai_result", None)
     source_key, source_name = _scan_source(scan)
@@ -173,13 +195,18 @@ def scan_event_payload(scan, user) -> dict:
     return payload
 
 
-def partial_scan_event_payload(scan) -> dict:
+def partial_scan_event_payload(
+    scan, *, exposure_buckets=None, bucket_starts=None, now=None,
+) -> dict:
     """Bulk status changes do not need to hydrate a full classification row."""
     latest = scan.status_logs[-1] if scan.status_logs else None
+    current_now = now or now_manila()
     facts = inventory_facts(
         scan,
         latest.inventory_status if latest else InventoryStatusEnum.IN_STOCK,
-        now_manila(),
+        current_now,
+        exposure_buckets=exposure_buckets,
+        bucket_starts=bucket_starts,
     )
     return {
         "id": str(scan.id),
@@ -217,8 +244,12 @@ async def scan_history(db, scan, user):
 
 
 async def serialize_detail(db, scan, user):
+    now = now_manila()
+    buckets, starts = await load_buckets_for_dates(db, [scan.date_time], now)
     return ScanDetailResponse(
-        **serialize_scan(scan, user).model_dump(exclude={"images"}),
+        **serialize_scan(
+            scan, user, exposure_buckets=buckets, bucket_starts=starts, now=now,
+        ).model_dump(exclude={"images"}),
         images=[
             ScanImageResponse.model_validate(i).model_copy(
                 update={"file_path": evidence_url(i.file_path) or ""}
@@ -431,13 +462,17 @@ async def mutate_scan(db, scan_id, user, kind, body, client_ip=None):
     save_receipt(db, user, body, fingerprint, response)
     if change.changed:
         # Publish only after the row, audit event and replay receipt are durable.
+        event_now = now_manila()
+        buckets, starts = await load_buckets_for_dates(db, [scan.date_time], event_now)
         event = scan_event(
             scan_id=scan.id,
             revision=scan.revision,
             kind=kind,
             changed=change.changed,
             actor_id=user.id,
-            scan=scan_event_payload(scan, user),
+            scan=scan_event_payload(
+                scan, user, exposure_buckets=buckets, bucket_starts=starts, now=event_now,
+            ),
         )
         owner_id = (
             scan.operator.account.id

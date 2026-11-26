@@ -2,6 +2,13 @@
 
 BananaVision's frontend is a React 19 single-page application built with Vite, TypeScript, Tailwind CSS, and Radix UI primitives.
 
+## Continuous sensor exposure and baseline indicators (2026-11-26)
+
+Decision: [[Development Decisions]]. Helpers: `frontend/src/lib/shelfLifeWindow.ts`, `frontend/src/lib/ripenessProjection.ts`.
+
+- `liveShelfLifeWindow` and `liveRipeness` preserve any server-computed continuous DHT22 exposure offset (`exposureOffset = window.elapsed_days - Math.max(0, asOf - scanDay)`) when rolling projections forward at `Asia/Manila` midnight in the browser, keeping Dashboard, Scan Logs, Scan Detail, Kiosk, and Public Scan View synchronized without extra API polling.
+- `ScanResponse` and `PublicScanResponse` accept optional `storage_exposure` (`StorageExposureSummary`) from `/scans/{id}` and `/scans/{id}/track`. When present, `ScanDetail` and `PublicScanView` show average temperature, humidity, VPD, covered hours, and biological vs calendar days under storage/timeline notes; when DHT22 was disconnected or stale at scan time (`temperature === null || humidity === null`), `ScanDetail`, `Kiosk`, and `PublicScanView` disclose that spoilage uses the default `25 °C / 65%` baseline rather than live sensor readings.
+
 ## Inventory: Spoilage Alerts pagination (2026-11-25)
 
 - Spoilage Alerts no longer scrolls (`max-h-64 overflow-y-auto` removed). It shows three alert groups per page with Previous / Next controls, a `Page X of Y` label and a `Showing A–B of N` summary (`frontend/src/pages/Inventory.tsx`).

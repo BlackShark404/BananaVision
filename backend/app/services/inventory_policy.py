@@ -5,6 +5,7 @@ import re
 from sqlalchemy import and_, or_
 
 from app.core.time import as_manila
+from app.services.sensor_exposure import StorageExposureSummary, compute_exposure
 from app.services.spoilage import RIPENESS_STAGES, spoilage_predictor
 
 CLOSED_INVENTORY_STATUSES = frozenset({"Sold", "Spoiled", "For Processing"})
@@ -45,10 +46,18 @@ def _prediction_values(raw: str | None) -> list[float] | None:
     return values
 
 
-def remaining_shelf_life(raw: str | None, scanned_at, now) -> float | None:
+def remaining_shelf_life(
+    raw: str | None,
+    scanned_at,
+    now,
+    *,
+    exposure: StorageExposureSummary | None = None,
+) -> float | None:
     values = _prediction_values(raw)
     if values is None:
         return None
+    if exposure is not None:
+        return sum(values) / len(values) - exposure.biological_elapsed_days
     return (
         sum(values) / len(values)
         - (as_manila(now) - as_manila(scanned_at)).total_seconds() / 86400
@@ -80,18 +89,26 @@ def elapsed_manila_days(scanned_at, now) -> int:
     return max(0, (as_manila(now).date() - as_manila(scanned_at).date()).days)
 
 
-def shelf_life_window(raw: str | None, scanned_at, now) -> dict | None:
+def shelf_life_window(
+    raw: str | None,
+    scanned_at,
+    now,
+    *,
+    exposure_offset_days: int = 0,
+) -> dict | None:
     """What is left of a stored estimate on the Manila calendar date of `now`.
 
     Nothing is stored or rewritten: the estimate and the scan time stay as they
     were written, and each read subtracts the calendar days elapsed since the
-    scan. The window has passed once more days have elapsed than its upper bound.
+    scan (adjusted by `exposure_offset_days` when continuous storage readings exist).
+    The window has passed once more days have elapsed than its upper bound.
     """
     bounds = prediction_bounds(raw)
     if bounds is None or scanned_at is None or now is None:
         return None
     low, high = bounds
-    elapsed = elapsed_manila_days(scanned_at, now)
+    calendar_elapsed = elapsed_manila_days(scanned_at, now)
+    elapsed = max(0, calendar_elapsed + int(exposure_offset_days)) if calendar_elapsed > 0 or exposure_offset_days > 0 else 0
     return {
         "min_days": low,
         "max_days": high,
@@ -127,6 +144,7 @@ def ripeness_projection(
     inventory_status=None,
     respect_closed_status: bool = True,
     predictor=None,
+    exposure_offset_days: int = 0,
 ) -> dict | None:
     """Derive a live, monotonic time-progressed ripeness estimate on read.
 
@@ -152,7 +170,8 @@ def ripeness_projection(
             "as_of_date": as_of_date.isoformat(),
         }
 
-    elapsed = elapsed_manila_days(scanned_at, now)
+    calendar_elapsed = elapsed_manila_days(scanned_at, now)
+    elapsed = max(0, calendar_elapsed + int(exposure_offset_days)) if calendar_elapsed > 0 or exposure_offset_days > 0 else 0
     stage_idx = RIPENESS_STAGES.index(base)
     transitions: dict[str, int] = {}
 
@@ -192,7 +211,33 @@ def ripeness_projection(
     }
 
 
-def inventory_facts(scan, status, now):
+def scan_storage_exposure(
+    scan,
+    status,
+    now,
+    *,
+    exposure_buckets=None,
+    bucket_starts=None,
+    respect_closed_status: bool = True,
+) -> StorageExposureSummary | None:
+    """Compute post-scan continuous sensor exposure for active stock (or public tracking)."""
+    if not exposure_buckets:
+        return None
+    status_text = _enum_text(status)
+    if respect_closed_status and status_text in CLOSED_INVENTORY_STATUSES:
+        return None
+    classification = getattr(scan, "classification", None)
+    return compute_exposure(
+        getattr(scan, "date_time", None),
+        now,
+        ref_temperature=getattr(classification, "temperature", None) if classification else None,
+        ref_humidity=getattr(classification, "humidity", None) if classification else None,
+        buckets=exposure_buckets,
+        bucket_starts=bucket_starts,
+    )
+
+
+def inventory_facts(scan, status, now, *, exposure_buckets=None, bucket_starts=None):
     provenance = scan.intake_provenance
     eligible = status == "In Stock" and (
         (provenance == "unlinked" and scan.intake_id is None and scan.intake_origin_id is None)
@@ -202,10 +247,20 @@ def inventory_facts(scan, status, now):
     )
     classification = scan.classification
     raw = getattr(classification, "spoilage_days", None) if classification else None
-    remaining = remaining_shelf_life(raw, scan.date_time, now)
+    exposure = scan_storage_exposure(
+        scan,
+        status,
+        now,
+        exposure_buckets=exposure_buckets,
+        bucket_starts=bucket_starts,
+    )
+    offset_days = exposure.exposure_offset_days if exposure is not None else 0
+    remaining = remaining_shelf_life(raw, scan.date_time, now, exposure=exposure)
     return {
         "inventory_eligible": bool(eligible), "remaining_days": remaining, "risk_as_of": now,
-        "shelf_life_window": shelf_life_window(raw, scan.date_time, now),
+        "shelf_life_window": shelf_life_window(
+            raw, scan.date_time, now, exposure_offset_days=offset_days,
+        ),
         "ripeness_projection": ripeness_projection(
             getattr(classification, "ripeness", None) if classification else None,
             getattr(classification, "cultivar", None) if classification else None,
@@ -217,5 +272,6 @@ def inventory_facts(scan, status, now):
             vpd=getattr(classification, "vpd", None) if classification else None,
             treatment=getattr(classification, "treatment", None) if classification else None,
             inventory_status=status,
+            exposure_offset_days=offset_days,
         ),
     }

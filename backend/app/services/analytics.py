@@ -44,6 +44,7 @@ from app.services.dashboard import (
     _threshold,
 )
 from app.services.inventory_policy import eligible_stock
+from app.services.sensor_exposure import effective_remaining_days, load_buckets_for_query
 
 DateRange = Literal["today", "week", "month", "all"]
 AUTO_FLAG_CLEANUP_PREFIX = "Auto-flag rule corrected:"
@@ -307,6 +308,11 @@ async def get_summary(
     matches = _classification_matches(scans)
     overridden_classification = _classification_overridden(scans)
     stock = _current_stock(scans)
+    buckets, starts = await load_buckets_for_query(
+        db,
+        select(func.min(scans.c.date_time)).where(*conditions, stock),
+        now,
+    )
     totals = (await db.execute(
         select(
             func.count().label("total"),
@@ -385,6 +391,24 @@ async def get_summary(
         .where(*conditions).group_by(local_hour).order_by(local_hour)
     )).all()
 
+    at_risk_count = totals.risk
+    if buckets:
+        stock_rows = (await db.execute(
+            select(
+                scans.c.date_time,
+                scans.c.predicted_days,
+                scans.c.remaining_days,
+                scans.c.temperature,
+                scans.c.humidity,
+                scans.c.inventory_status,
+            ).where(*conditions, stock)
+        )).all()
+        at_risk_count = sum(
+            1 for item in stock_rows
+            if (eff := effective_remaining_days(item, now, buckets=buckets, bucket_starts=starts)) is not None
+            and eff <= 2.0
+        )
+
     return AnalyticsSummary(
         generated_at=now, business_date=today, next_refresh_at=business_day_bounds(today)[1],
         range_start=range_start, range_end=range_end,
@@ -396,7 +420,7 @@ async def get_summary(
         most_common_cultivar=most_common.name if most_common.count else "N/A",
         low_confidence_count=totals.low,
         low_confidence_rate=(round(totals.low / totals.confidence_count * 100, 1) if totals.confidence_count else None),
-        at_risk_count=totals.risk, current_stock_count=totals.stock, risk_unknown_count=totals.unknown_risk,
+        at_risk_count=at_risk_count, current_stock_count=totals.stock, risk_unknown_count=totals.unknown_risk,
         human_verified_accuracy=(
             round(totals.verified_correct / totals.verified_count * 100, 1)
             if totals.verified_count else None

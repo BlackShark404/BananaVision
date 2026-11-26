@@ -2,6 +2,19 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-26: DHT22 accuracy, smoothing, freshness checks, and continuous post-scan exposure
+
+- **Hardware boundary:** Retains the existing Arduino Uno + single DHT22 setup without requiring hardware changes; firmware (`arduino/dht22_sensor/dht22_sensor.ino`) keeps `TEMP:<val>,HUM:<val>` over serial and adds a 2-second warmup, `-40..80 °C` / `0..100 %` physical bounds checking, configurable calibration offsets, 3-sample transient-spike suppression, and a 5-sample trimmed mean.
+- **Serial ingestion and scan-time smoothing (`backend/app/services/sensor_reader.py`, `sensors.py`, `scan_service.py`):**
+  - `read_once()` drains `in_waiting` backlog up to `MAX_SERIAL_DRAIN_LINES=128` so 2-second firmware transmissions do not fall behind 5-second poll ticks.
+  - Non-finite/out-of-range DHT22 values are rejected both on serial parse and in `/api/v1/sensors/latest` and `/history`; serial disconnects reset live state and `start_polling()` attempts reconnection every `RECONNECT_INTERVAL_S=30.0`.
+  - Configurable `sensor_temp_offset`, `sensor_humidity_offset`, `sensor_smoothing_window` (default `5`), and `sensor_smoothing_max_age_s` (default `30`) smooth valid in-window samples via `trimmed_mean` at scan time (`resolve_scan_sensor_reading`) and fall back to fresh DB rows only when `sensor_reader.is_connected` is `True`. Stale or disconnected sensors never stamp frozen readings onto scans; `SpoilagePredictor` falls back cleanly to its `25.0 °C / 65.0 %` baseline.
+- **Continuous post-scan exposure (`backend/app/services/sensor_exposure.py`):**
+  - Aggregates hourly valid `SensorReading` buckets (`date_trunc('hour', ...)` on PostgreSQL, `strftime('%Y-%m-%dT%H:00:00+00:00', ...)` on SQLite) while guarding partial-schema SQLite test DBs without aborting transactions.
+  - Evaluates a bounded biological aging rate (`compute_aging_rate`, clamped `[0.5, 2.5]`, `1.0` identically at reference scan conditions) combining Q10 thermal scaling, high-RH acceleration above 85% RH, and VPD delta.
+  - Ignores pre-scan-only hourly buckets (`last_recorded_at <= scanned_at`) and requires at least 25% monitoring coverage (`MIN_EXPOSURE_COVERAGE = 0.25`) before overriding baseline elapsed days.
+  - Applies exposure consistently across Dashboard, Scan Logs, exports, Scan Detail, Public Scan View (`PublicScanResponse` / `ScanResponse` optional `storage_exposure`), and Analytics (`at_risk_count`), preserving closed-stock freezing (`Sold`, `Spoiled`, `For Processing`) while keeping public QR tracking live. Can be toggled off via `SENSOR_EXPOSURE_ADJUSTMENT=false`.
+
 ## 2026-11-25: Supplier inventory verification and expected received stock
 
 - **Recorded baseline:** New `intake_expected_stock` rows store expected received bunches per delivery intake and cultivar (positive counts, unique intake + cultivar, cascade on intake delete). Expected stock is **not** inferred from scans, so verification has an independent baseline. Migration `0014_expected_stock`; admins replace rows through `PATCH /api/v1/intakes/{id}/expected-stock`, which writes the `intake_expected_stock` audit action.

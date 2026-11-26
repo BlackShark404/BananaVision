@@ -75,6 +75,11 @@ class Settings(BaseSettings):
     sensor_serial_port: str = "/dev/ttyUSB0"
     sensor_baud_rate: int = 9600
     sensor_read_interval_s: int = 5
+    sensor_temp_offset: float = Field(0.0, ge=-20.0, le=20.0)
+    sensor_humidity_offset: float = Field(0.0, ge=-50.0, le=50.0)
+    sensor_smoothing_window: int = Field(5, ge=1, le=60)
+    sensor_smoothing_max_age_s: int = Field(30, ge=5, le=300)
+    sensor_exposure_adjustment: bool = True
 
     # ── ML Models ────────────────────────────────────────────────────────────
     yolo_model_path: str = "app/ml/weights/banana_yolov26n.pt"

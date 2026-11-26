@@ -919,6 +919,16 @@ function ScanDetailRecord({ scanId }: { scanId?: string }) {
                     </div>
                   )}
                 </div>
+                {scan.temperature === undefined && scan.humidity === undefined && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    No live DHT22 reading was captured at scan time (spoilage uses 25.0°C / 65.0% RH baseline).
+                  </p>
+                )}
+                {scan.storageExposure && scan.storageExposure.reading_count > 0 && scan.inventoryStatus === "In Stock" && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Post-scan DHT22 storage exposure: {scan.storageExposure.avg_temperature.toFixed(1)}°C, {scan.storageExposure.avg_humidity.toFixed(1)}% RH · {scan.storageExposure.biological_elapsed_days.toFixed(1)}d biological age over {scan.storageExposure.actual_elapsed_days.toFixed(1)}d
+                  </p>
+                )}
               </div>
 
               <Separator />

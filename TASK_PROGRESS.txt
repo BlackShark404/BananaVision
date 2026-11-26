@@ -1,4 +1,59 @@
-CURRENT RESUME HERE (2026-11-26) - SUPPLIER INVENTORY VERIFICATION (MERGED WITH AUDIT FIXES)
+CURRENT RESUME HERE (2026-11-26) - DHT22 SENSOR ACCURACY & CONTINUOUS POST-SCAN EXPOSURE
+
+USER REQUEST (2026-11-26)
+- Improve temperature/humidity accuracy and spoilage/shelf-life estimation across the pipeline
+  using only the existing Arduino + DHT22 hardware.
+
+DONE
+- Firmware (`arduino/dht22_sensor/dht22_sensor.ino`): 2s DHT22 warmup delay, physical bounds
+  validation (`-40..80 C`, `0..100 % RH`), calibration offsets (`TEMP_OFFSET_C`, `HUM_OFFSET_PCT`),
+  3-read transient spike suppression, and 5-sample circular trimmed mean preserving
+  `TEMP:<t>,HUM:<h>` serial output.
+- Backend config (`backend/app/config.py`, `backend/.env.example`): `sensor_temp_offset`,
+  `sensor_humidity_offset`, `sensor_smoothing_window`, `sensor_smoothing_max_age_s`, and
+  `sensor_exposure_adjustment`.
+- Backend serial ingestion & scan-time smoothing (`backend/app/services/sensor_reader.py`,
+  `backend/app/api/v1/sensors.py`, `backend/app/services/scan_service.py`):
+  - `read_once()` drains `in_waiting` backlog up to `MAX_SERIAL_DRAIN_LINES=128`.
+  - Rejects `NaN`/`inf`/out-of-range DHT22 values in serial parsing and `/latest` / `/history`.
+  - Marks reader disconnected on `OSError`/`SerialException` with 30s reconnect cadence.
+  - `resolve_scan_sensor_reading` computes trimmed mean of recent valid readings inside the
+    freshness window; refuses stale or disconnected readings so `SpoilagePredictor` uses its
+    baseline (`25.0 C / 65.0 %`) cleanly.
+- Continuous post-scan exposure (`backend/app/services/sensor_exposure.py` + `inventory_policy.py`,
+  `scan_records.py`, `scan_snapshots.py`, `scans.py`, `intakes.py`, `dashboard.py`, `scan_logs.py`,
+  `analytics.py`, `config.py`, `schemas/shelf_life.py`, `schemas/scan.py`):
+  - Hourly valid `SensorReading` bucketing (`date_trunc('hour', ...)` on PostgreSQL, `strftime`
+    on SQLite) with partial-schema guard and `last_recorded_at > start` / `MIN_EXPOSURE_COVERAGE=0.25`.
+  - Bounded aging rate combining Q10 thermal scaling, high-RH excess above 85%, and VPD delta.
+  - End-to-end integration across Dashboard, Scan Logs, exports, Scan Detail, Public QR, WebSocket
+    snapshots, and Analytics `at_risk_count`, keeping closed stock frozen for staff views.
+- Frontend (`frontend/src/lib/shelfLifeWindow.ts`, `ripenessProjection.ts`, `scanData.ts`,
+  `api.ts`, `types/index.ts`, `ScanContext.tsx`, `ScanDetail.tsx`, `Kiosk.tsx`, `PublicScanView.tsx`):
+  - Preserves continuous exposure offsets across Manila midnight rollovers.
+  - Renders `storage_exposure` notes on Scan Detail / Public QR and baseline disclosure when
+    DHT22 was unavailable at scan time.
+- Tests & Docs: `backend/tests/test_sensor_accuracy.py`, `frontend/tests/shelfLifeWindow.test.mjs`,
+  `frontend/tests/ripenessProjection.test.mjs`, `docs/knowledge/Development Decisions.md`,
+  `docs/knowledge/Frontend.md`.
+
+VERIFIED (2026-11-26)
+- Disposable PostgreSQL 17 (`bananavision_test`, stopped and deleted):
+  `test_sensor_accuracy.py`, `test_seed.py`, `test_seed_kiosk_contract.py`,
+  `test_scan_logs_reconciliation_postgresql.py`, `test_scan_records_postgresql.py`,
+  `test_scan_trigger_postgresql.py`, `test_migrations.py`, `test_backup_archive.py`: 110 passed.
+- Backend SQLite targeted regression suite (15 files including `test_sensor_accuracy.py`,
+  `test_manila_time_guard.py`, `test_connectivity.py`): 402 passed, 1 skipped (PG test).
+- Frontend unit tests (`shelfLifeWindow`, `ripenessProjection`, `manilaTime`): 42 passed.
+- Frontend build (`tsc -b && vite build`): passed; `npm run lint`: 36 problems (31 errors,
+  5 warnings, exact pre-existing baseline).
+- Not verified here: physical Arduino compile/upload (`arduino-cli`/board), Ruff (`ruff` not
+  installed locally), Playwright UI persistence (`PLAYWRIGHT_MODULE` unset).
+- Next step: User review/commit when ready; optional Arduino sketch upload if hardware offsets are
+  calibrated on-site.
+
+================================================================================
+ARCHIVED CHECKPOINT (2026-11-26) - SUPPLIER INVENTORY VERIFICATION (MERGED WITH AUDIT FIXES)
 
 USER REQUEST (2026-11-25)
 - Inventory checking must not redirect to Scan Logs. Sir Jayvee requires a dedicated page or

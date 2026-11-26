@@ -103,9 +103,12 @@ def _with_window(row, generated_at):
     """
     scanned_at = _instant(row.get("date_time"))
     as_of = _instant(row.get("risk_as_of") or generated_at)
+    offset = int(row.get("_exposure_offset_days") or 0)
     return {
         **row,
-        WINDOW: shelf_life_window(row.get("spoilage_days"), scanned_at, as_of),
+        WINDOW: shelf_life_window(
+            row.get("spoilage_days"), scanned_at, as_of, exposure_offset_days=offset,
+        ),
         PROJECTION: ripeness_projection(
             row.get("ripeness"),
             row.get("cultivar"),
@@ -117,6 +120,7 @@ def _with_window(row, generated_at):
             vpd=row.get("vpd"),
             treatment=row.get("treatment"),
             inventory_status=row.get("inventory_status"),
+            exposure_offset_days=offset,
         ),
     }
 
