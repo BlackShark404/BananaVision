@@ -1,13 +1,13 @@
 """Dashboard response contracts; absent measurements remain null."""
 
 from datetime import date
-from app.schemas.timestamps import Timestamp
 from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
 
 from app.schemas.shelf_life import RipenessProjection, ShelfLifeWindow
+from app.schemas.timestamps import Timestamp
 
 DashboardView = Literal["today", "review", "expiring", "all"]
 DashboardSort = Literal["date", "confidence"]

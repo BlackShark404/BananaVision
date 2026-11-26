@@ -4,53 +4,52 @@ Delivery intake routes.
 
 from __future__ import annotations
 
-import uuid
-import qrcode
-import io
 import base64
+import io
 import json
-from app.core.time import now_manila
+import uuid
 
+import qrcode
 from fastapi import APIRouter, Request
-from sqlalchemy import select, func, desc
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import noload, selectinload
 
-from app.api.deps import DbSession, CurrentUser, AdminUser
-from app.core.exceptions import NotFoundException, ConflictException, ForbiddenException
-from app.services.auth_service import lock_current_account
-from app.services.scan_records import (
-    lock_mutation,
-    mutation_fingerprint,
-    mutation_replay,
-    save_receipt,
-    apply_scan_change,
-    is_admin,
-    partial_scan_event_payload,
-    scan_scope,
-)
-from app.services.sensor_exposure import load_buckets_for_dates
+from app.api.deps import AdminUser, CurrentUser, DbSession
+from app.core.exceptions import ConflictException, ForbiddenException, NotFoundException
 from app.core.http import get_client_ip
-from app.models.supplier import Supplier
+from app.core.time import now_manila
 from app.models.intake import Intake
 from app.models.intake_expected_stock import IntakeExpectedStock
 from app.models.scan import Scan
+from app.models.supplier import Supplier
+from app.schemas.common import (
+    IntakeBulkInventoryUpdate,
+    IntakeCreate,
+    IntakeExpectedStockResponse,
+    IntakeExpectedStockUpdate,
+    IntakeResponse,
+    IntakeStatusUpdate,
+)
+from app.schemas.enums import IntakeStatusEnum, InventoryStatusEnum, TreatmentEnum
 from app.services import audit
+from app.services.auth_service import lock_current_account
+from app.services.scan_records import (
+    apply_scan_change,
+    is_admin,
+    lock_mutation,
+    mutation_fingerprint,
+    mutation_replay,
+    partial_scan_event_payload,
+    save_receipt,
+    scan_scope,
+)
+from app.services.sensor_exposure import load_buckets_for_dates
 from app.ws.mutations import (
     intake_event,
     publish_intake_event,
     publish_scan_event,
     scan_event,
 )
-from app.schemas.common import (
-    IntakeCreate,
-    IntakeExpectedStockResponse,
-    IntakeExpectedStockUpdate,
-    IntakeResponse,
-    IntakeStatusUpdate,
-    IntakeBulkInventoryUpdate,
-)
-from app.schemas.enums import IntakeStatusEnum, InventoryStatusEnum, TreatmentEnum
-
 
 router = APIRouter(prefix="/intakes", tags=["Intakes"])
 

@@ -9,8 +9,9 @@ from tests.test_time_and_writes import SessionAdapter, application  # noqa: F401
 
 
 def test_legacy_detail_loads_operator_account_before_serialization(application):
-    from app.services.scan_records import load_authorized_scan, serialize_detail
     from types import SimpleNamespace
+
+    from app.services.scan_records import load_authorized_scan, serialize_detail
 
     async def check():
         actor = SimpleNamespace(id=application.ids.admin, role=SimpleNamespace(name="Admin"))
@@ -24,10 +25,11 @@ def test_legacy_detail_loads_operator_account_before_serialization(application):
 
 
 def test_flag_mutation_loads_operator_account_before_serialization(application):
-    from app.services.scan_records import mutate_scan
-    from app.schemas.scan import ScanFlagRequest
     from types import SimpleNamespace
     from uuid import uuid4
+
+    from app.schemas.scan import ScanFlagRequest
+    from app.services.scan_records import mutate_scan
 
     async def check():
         actor = SimpleNamespace(id=application.ids.admin, role=SimpleNamespace(name="Admin"), token_version=1)

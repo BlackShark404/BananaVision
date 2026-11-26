@@ -19,7 +19,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from fastapi import HTTPException
-from sqlalchemy import select, delete, text, func
+from sqlalchemy import delete, func, select, text
 
 from app.core.database import Base
 from app.core.time import now_manila
@@ -565,7 +565,7 @@ def get_service():
     global _service
     if _service is None:
         from app.config import get_settings
-        from app.core.database import engine, async_session_factory
+        from app.core.database import async_session_factory, engine
         _service = MaintenanceService(engine, async_session_factory, get_settings().capture_path)
     return _service
 

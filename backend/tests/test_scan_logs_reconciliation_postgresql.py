@@ -3,13 +3,13 @@ import os
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import delete
+
 from app.models import OperatorProfile, Scan, ScanClassification, UserAccount, UserRole
 from app.schemas.scan import ScanFlagRequest
 from app.schemas.scan_logs import ScanLogQuery
 from app.services.scan_logs import list_scan_logs, reconcile_scan_logs
 from app.services.scan_records import mutate_scan
-from sqlalchemy import delete
-
 from tests.test_scan_records_postgresql import station  # noqa: F401
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.skipif(

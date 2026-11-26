@@ -1,6 +1,8 @@
 import asyncio
-from app.db.session import async_session
+
 from app.api.v1.analytics import analytics_summary
+from app.db.session import async_session
+
 
 async def main():
     async with async_session() as db:

@@ -4,16 +4,16 @@ SystemConfig ORM model — typed system configuration.
 
 from __future__ import annotations
 
-from datetime import datetime
-from app.core.time import now_manila
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Integer, ForeignKey, Boolean, CheckConstraint
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.db_types import ManilaDateTime
+from app.core.time import now_manila
 
 
 class SystemConfig(Base):

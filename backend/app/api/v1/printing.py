@@ -17,9 +17,9 @@ from app.schemas.printing import (
 )
 from app.services import print_jobs
 from app.services.prediction_label import PredictionData
+from app.services.printer_service import PrinterServiceError, list_printers
 from app.services.runtime_operations import run_blocking
 from app.services.scan_records import load_authorized_scan, scan_scope
-from app.services.printer_service import PrinterServiceError, list_printers
 
 router = APIRouter(tags=["Printing"])
 

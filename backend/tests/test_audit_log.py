@@ -13,17 +13,17 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from app.api.deps import get_current_user
 from app.core.exceptions import ForbiddenException
 from app.models import ActivityLog
 from app.schemas.enums import ActiveStatusEnum
 from app.services import audit
 from app.services.runtime_operations import StationCoordinator
-from fastapi import FastAPI, HTTPException
-from fastapi.testclient import TestClient
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from tests.test_time_and_writes import SessionAdapter
 from tests.test_time_and_writes import application as application_fixture
 
@@ -217,9 +217,10 @@ def test_refused_access_is_logged_once_per_throttle_window(application, monkeypa
 
 def test_refused_access_by_a_real_signed_in_user_is_logged(application):
     """No test override: the account is resolved from a real token, as in production."""
+    from sqlalchemy.orm import selectinload
+
     from app.models import UserAccount
     from app.services.auth_service import create_user_token
-    from sqlalchemy.orm import selectinload
 
     with Session(application.engine) as db:
         operator = db.scalar(select(UserAccount).options(selectinload(UserAccount.role))

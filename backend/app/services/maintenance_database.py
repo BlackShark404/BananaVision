@@ -1,6 +1,6 @@
 """PostgreSQL station ownership and transaction-level maintenance coordination."""
-from contextlib import asynccontextmanager
 import asyncio
+from contextlib import asynccontextmanager
 
 import anyio
 from fastapi import HTTPException

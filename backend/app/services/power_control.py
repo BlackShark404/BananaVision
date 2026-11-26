@@ -13,8 +13,8 @@ from app.core.time import now_manila
 from app.models.user_account import UserAccount
 from app.services import audit
 from app.services.audit import AuditAction
+from app.services.maintenance_state import get_state, operation_result, record_operation
 from app.services.runtime_operations import coordinator, run_blocking, station_lock
-from app.services.maintenance_state import get_state, record_operation, operation_result
 
 
 def boot_identity():

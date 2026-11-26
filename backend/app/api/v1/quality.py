@@ -5,13 +5,12 @@ Quality control routes.
 from __future__ import annotations
 
 from fastapi import APIRouter, Query
-from sqlalchemy import select, func, desc
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import DbSession, AdminUser
+from app.api.deps import AdminUser, DbSession
 from app.models.operator_profile import OperatorProfile
 from app.models.scan import Scan
-
 
 router = APIRouter(prefix="/quality", tags=["Quality"])
 

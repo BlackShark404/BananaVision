@@ -10,13 +10,14 @@ from typing import Annotated
 from fastapi import Depends, Header, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db, get_stream_db
 from app.core.exceptions import CredentialsException, ForbiddenException
 from app.core.security import decode_access_token
 from app.models.user_account import UserAccount
-from sqlalchemy.orm import selectinload
 from app.schemas.enums import ActiveStatusEnum, RoleEnum
+
 
 async def _resolve_user(db: AsyncSession, token: str) -> UserAccount:
     payload = decode_access_token(token)
@@ -31,7 +32,7 @@ async def _resolve_user(db: AsyncSession, token: str) -> UserAccount:
     try:
         user_id = uuid.UUID(payload["sub"])
     except (ValueError, TypeError):
-        raise CredentialsException("Malformed token payload")
+        raise CredentialsException("Malformed token payload") from None
 
     result = await db.execute(
         select(UserAccount)

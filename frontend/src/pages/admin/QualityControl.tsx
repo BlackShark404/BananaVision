@@ -20,7 +20,6 @@ import { ExportDropdown } from "@/components/ExportDropdown"
 import { SCAN_EXPORT_HEADERS, downloadPdf, downloadXlsx, formatScanExportRow, formatScanRef } from "@/lib/exportUtils"
 import { Input } from "@/components/ui/input"
 import { NumberField } from "@/components/ui/number-field"
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import {
   Dialog,
   DialogContent,
@@ -29,7 +28,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Loader2, ShieldCheck, Flag, MessageSquare, Edit, AlertTriangle, CheckCircle, Banana, ChevronsLeft, ChevronsRight, Filter, Thermometer, Droplets } from "lucide-react"
+import { Loader2, ShieldCheck, Flag, MessageSquare, Edit, AlertTriangle, CheckCircle, Banana, Filter, Thermometer, Droplets } from "lucide-react"
 import { toast } from "sonner"
 import { getSpoilageDays } from "@/lib/utils"
 import { closedStockSpoilageLabel, formatSpoilageDays } from "@/lib/spoilageDisplay"

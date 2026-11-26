@@ -8,13 +8,17 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 from sqlalchemy import select, text, update
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.database import Base
-from app.models import ActivityLog, UserAccount, MaintenanceState, ScanStatusLog, Scan
-from app.services import backup_archive as archive, backup_restore as restore, maintenance_database
+from app.models import ActivityLog, MaintenanceState, Scan, ScanStatusLog, UserAccount
+from app.services import backup_archive as archive
+from app.services import backup_restore as restore
+from app.services import maintenance_database
 from app.services.runtime_operations import StationCoordinator, maintenance_context
-from tests.test_backup_archive import station as station, archive_module as archive_module, AsyncDB  # noqa: F401
+from tests.test_backup_archive import AsyncDB
+from tests.test_backup_archive import archive_module as archive_module
+from tests.test_backup_archive import station as station  # noqa: F401
 
 
 @pytest.fixture(params=[1, 2])
@@ -87,8 +91,9 @@ async def test_replacement_transaction_and_sequences(recovery_station):
 async def test_legacy_restore_preserves_scan_and_available_history(
     recovery_station, legacy_scan_archive, tmp_path
 ):
-    from app.models import ScanEvent, ScanMutation
     from sqlalchemy import func
+
+    from app.models import ScanEvent, ScanMutation
     x = recovery_station
     path, version = legacy_scan_archive
     validated = archive.validate_archive(path, tmp_path / 'legacy-staged')

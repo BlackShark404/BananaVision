@@ -1,4 +1,61 @@
-CURRENT RESUME HERE (2026-11-26) - DHT22 SENSOR ACCURACY & CONTINUOUS POST-SCAN EXPOSURE
+CURRENT RESUME HERE (2026-11-26) - ZERO-ERROR FRONTEND ESLINT & BACKEND RUFF BASELINE
+
+USER REQUEST (2026-11-26)
+- Fix all 36 pre-existing frontend ESLint issues (31 errors, 5 warnings) with zero behavior change
+  so `npm run lint` exits 0, and tune backend Ruff configuration + safe autofixes using best
+  practices without noisy manual line-wrapping churn.
+
+DONE
+- Frontend ESLint (`36` problems -> `0` errors, `0` warnings across 13 files):
+  - `frontend/src/components/AppDataTable.tsx`: typed `SortableValue` / `sortKey`, memoized
+    `sortConfig`, replaced cascading `useEffect` page clamp with render-time clamping, and removed
+    `any` casts in client-side sorting.
+  - `frontend/src/hooks/useIsMobile.ts`: migrated viewport listener to `useSyncExternalStore`.
+  - `frontend/src/hooks/useWebSocket.ts`: typed `WsEvent.data` / `onEvent` as `unknown`, extracted
+    `roomsKey`, tracked `openSocketRef`, and moved `"connecting"` status transitions out of
+    synchronous `useEffect` execution while preserving mock/real WebSocket ordering.
+  - `frontend/src/context/AdminContext.tsx`, `InventoryContext.tsx`, `ScanContext.tsx`: extracted
+    stable `cancelConfigLoad` cleanup callback and replaced `any` mappers/WS handlers with typed
+    interfaces (`SupplierRecordInput`, `IntakeRecordInput`, `ScanWsPayload`).
+  - `frontend/src/pages/Analytics.tsx`, `Dashboard.tsx`, `Kiosk.tsx`, `Logs.tsx`,
+    `components/KioskOperatorSwap.tsx`, `pages/admin/DeliveryIntake.tsx`,
+    `pages/admin/QualityControl.tsx`: typed `DeliveryIntake` table columns (`IntakeRow`), extracted
+    `refreshAnalytics` dependency, and removed unused imports/variables.
+- Backend Ruff (`754` diagnostics -> `0` errors from both repo root and `backend/`):
+  - `backend/pyproject.toml`: ignored `E501` and stylistic `SIM102/103/105/108/117`, configured
+    `[tool.ruff.lint.flake8-bugbear]` `extend-immutable-calls` for FastAPI parameter helpers,
+    configured `[tool.ruff.lint.isort]` `known-first-party`, and added `per-file-ignores` for
+    `app/schemas/*.py` (`N815`, `UP042`) and `tests/**/*.py` (`B017`, `E702`, `E731`, `F811`, `N802`).
+  - Fixed duplicate `StorageExposureSummary` (`F811`) in `backend/app/schemas/shelf_life.py`,
+    top-of-file imports (`E402`), explicit `zip(..., strict=False)` (`B905`), exception chaining
+    (`B904`), and `dpi` naming (`N806`) across `deps.py`, `scans.py`, `cameras.py`, `devices.py`,
+    `router.py`, `classification.py`, `configuration.py`, and `cups_printer.py`, then ran safe
+    Ruff autofixes (`I001`, `F401`, `E401`, `UP015/017/024/037/041`).
+- Merge/contract test alignment uncovered by full-suite verification:
+  - Restored `spoilage_intake_time` on `Lakatan Ripe` in `backend/seed.py` (dropped during merge
+    `bf91f7c`), updated archive version assertion (`version 6`) in `test_audit_maintenance.py`, and
+    added `ripeness_projection` + `storage_exposure` to `PUBLIC_FIELDS` in
+    `test_public_scan_track.py`.
+
+VERIFIED (2026-11-26)
+- Frontend lint / types / build: `npm run lint` (`0` errors, `0` warnings), `npm run typecheck`
+  (`0` errors), `npm run build` (passed).
+- Frontend tests: `434 / 434` passed across all `frontend/tests/*.test.mjs` suites.
+- Backend Ruff: `uvx ruff check --config backend/pyproject.toml backend` (`0` errors) and
+  `uvx ruff check .` from `backend/` (`0` errors).
+- Backend pytest (disposable PostgreSQL 18 clusters on `127.0.0.1:55445` and `55446`, stopped and
+  deleted): all application, API, DB, seed, maintenance, security, analytics, export, and sensor
+  suites passed (`1,488` passing tests; the only remaining failures are pre-existing POSIX path/quote
+  assumptions on Windows in offline CLI training scripts `test_prepare_ood_dataset.py`,
+  `test_fetch_training_assets.py`, `test_export_station_training_set.py`, and
+  `test_train_finger_model.py`).
+
+EXACT NEXT STEP
+- Review `git status` / `git diff`, then commit and push when authorized. CI or pre-commit hooks can
+  now gate directly on `npm run lint` and `ruff check`.
+
+================================================================================
+PREVIOUS RESUME (2026-11-26) - DHT22 SENSOR ACCURACY & CONTINUOUS POST-SCAN EXPOSURE
 
 USER REQUEST (2026-11-26)
 - Improve temperature/humidity accuracy and spoilage/shelf-life estimation across the pipeline

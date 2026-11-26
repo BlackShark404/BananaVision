@@ -4,6 +4,9 @@ from datetime import timedelta
 from uuid import UUID, uuid4
 
 import pytest
+from sqlalchemy import delete, update
+from sqlalchemy.orm import Session
+
 from app.api.deps import get_current_user
 from app.api.v1.scan_logs import router
 from app.core.time import now_manila
@@ -11,9 +14,6 @@ from app.models import OperatorProfile, Scan, ScanClassification, UserAccount
 from app.models.maintenance_state import MaintenanceState
 from app.models.scan_snapshot import ScanSnapshot
 from app.services import dashboard
-from sqlalchemy import delete, update
-from sqlalchemy.orm import Session
-
 from tests.test_scan_records import operator_session
 from tests.test_time_and_writes import application  # noqa: F401
 

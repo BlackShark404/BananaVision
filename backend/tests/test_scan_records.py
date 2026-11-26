@@ -4,6 +4,9 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
 from app.api.deps import get_current_user
 from app.models import (
     ActivityLog,
@@ -15,9 +18,6 @@ from app.models import (
     UserAccount,
 )
 from app.schemas.enums import IntakeStatusEnum, InventoryStatusEnum
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
-
 from tests.test_time_and_writes import application as application
 
 

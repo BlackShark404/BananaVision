@@ -4,7 +4,7 @@ Uses the Dashboard database fixture with a local equivalent of PostgreSQL's
 timezone function. Production SQL is also compiled against PostgreSQL.
 """
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -114,7 +114,7 @@ async def test_manila_today_midnight_and_hourly_grouping(analytics_db):
     start, end = business_day_bounds(date(2026, 10, 2))
     scan(db, user, at=start - timedelta(microseconds=1))
     scan(db, user, at=start)
-    scan(db, user, at=datetime(2026, 10, 1, 23, 30, tzinfo=timezone.utc))
+    scan(db, user, at=datetime(2026, 10, 1, 23, 30, tzinfo=UTC))
     scan(db, user, at=NOW)
     scan(db, user, at=NOW + timedelta(microseconds=1))
     scan(db, user, at=end)

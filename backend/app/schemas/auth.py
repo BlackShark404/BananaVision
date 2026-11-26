@@ -8,7 +8,6 @@ import uuid
 
 from pydantic import BaseModel, Field
 
-
 # ── Requests ─────────────────────────────────────────────────────────────────
 
 class LoginRequest(BaseModel):

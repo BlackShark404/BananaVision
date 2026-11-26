@@ -238,7 +238,7 @@ def test_restore_validation_success_and_failure_are_logged(station):
     preview = checked.json()
     [row] = rows(station.engine, "restore_validated")
     assert preview["validation_id"] in row.details
-    assert "version 5" in row.details
+    assert "version 6" in row.details
     assert preview["manifest"]["created_at"] in row.details
     import hashlib
     assert f"sha256 {hashlib.sha256(archive).hexdigest()[:12]}" in row.details

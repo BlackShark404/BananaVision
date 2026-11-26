@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from app.core.time import now_manila
 
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
@@ -14,6 +13,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.db_types import ManilaDateTime
+from app.core.time import now_manila
 
 
 class ScanNote(Base):

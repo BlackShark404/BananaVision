@@ -13,34 +13,38 @@ from datetime import timedelta
 
 from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel
-from sqlalchemy import select, func, case, update
+from sqlalchemy import case, func, select, update
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import DbSession, CurrentUser, AdminUser
-from app.core.exceptions import NotFoundException, ConflictException, ForbiddenException
+from app.api.deps import AdminUser, CurrentUser, DbSession
+from app.core.exceptions import ConflictException, ForbiddenException, NotFoundException
+from app.core.http import get_client_ip
 from app.core.security import hash_password, hash_pin
 from app.core.temporary_credentials import temporary_password, temporary_pin
-from app.models.user_account import UserAccount
-from app.models.user_role import UserRole
+from app.core.time import now_manila
+from app.models.activity_log import ActivityLog
 from app.models.admin_profile import AdminProfile
 from app.models.operator_profile import OperatorProfile
-from app.models.activity_log import ActivityLog
 from app.models.scan import Scan
 from app.models.scan_classification import ScanClassification
-from app.core.time import now_manila
-from app.core.http import get_client_ip
-from app.services import audit
+from app.models.user_account import UserAccount
+from app.models.user_role import UserRole
+from app.schemas.enums import (
+    ActiveStatusEnum,
+    PasswordSetupReasonEnum,
+    PinSetupReasonEnum,
+    RoleEnum,
+)
 from app.schemas.user import (
     UserCreate,
     UserCreatedResponse,
-    UserUpdate,
-    UserResponse,
     UserListResponse,
     UserPasswordReset,
     UserPinReset,
+    UserResponse,
+    UserUpdate,
 )
-from app.schemas.enums import RoleEnum, ActiveStatusEnum, PasswordSetupReasonEnum, PinSetupReasonEnum
-
+from app.services import audit
 
 router = APIRouter(prefix="/users", tags=["Users"])
 

@@ -3,25 +3,30 @@ import os
 import subprocess
 from datetime import timedelta
 from types import SimpleNamespace
-from uuid import uuid4
 from unittest.mock import AsyncMock
+from uuid import uuid4
 
 import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.v1 import auth, cameras, config, users
 from app.config import Settings
 from app.core import database, startup
-from app.core.security import create_access_token, hash_password, verify_password, decode_access_token
+from app.core.security import (
+    create_access_token,
+    decode_access_token,
+    hash_password,
+    verify_password,
+)
 from app.core.time import now_manila
 from app.models import ActivityLog, Device, Scan, ScanClassification, SystemConfig, UserAccount
 from app.schemas.enums import CultivarEnum, RipenessEnum
 from app.services import data_retention, power_control, scan_service
 from app.services.capture_cleanup import remove_scan_captures
-from tests.test_time_and_writes import application, SessionAdapter  # noqa: F401
+from tests.test_time_and_writes import SessionAdapter, application  # noqa: F401
 
 
 @pytest.fixture

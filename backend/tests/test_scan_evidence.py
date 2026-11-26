@@ -5,9 +5,9 @@ from uuid import uuid4
 
 import cv2
 import numpy as np
-from app.models import ScanImage
 from sqlalchemy.orm import Session
 
+from app.models import ScanImage
 from tests.test_scan_records import operator_session
 from tests.test_time_and_writes import application as application
 

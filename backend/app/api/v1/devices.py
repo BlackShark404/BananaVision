@@ -4,19 +4,17 @@ Device routes.
 
 from __future__ import annotations
 
-from datetime import datetime
-from app.core.time import now_manila
-
 from fastapi import APIRouter
 from sqlalchemy import select
 
-from app.api.deps import DbSession, CurrentUser
+from app.api.deps import CurrentUser, DbSession
+from app.config import get_settings
+from app.core.time import now_manila
 from app.models.device import Device
 from app.schemas.common import DeviceResponse
 from app.schemas.enums import DeviceStatusEnum
 from app.services.camera_manager import camera_manager
 from app.services.runtime_operations import run_blocking
-from app.config import get_settings
 
 settings = get_settings()
 router = APIRouter(prefix="/devices", tags=["Devices"])
@@ -26,7 +24,9 @@ router = APIRouter(prefix="/devices", tags=["Devices"])
 async def list_devices(db: DbSession, user: CurrentUser):
     """List all camera devices with live status from camera_manager."""
     probe_results = await run_blocking(camera_manager.probe_all)
-    physical_by_name = dict(zip(camera_manager._logical_ids, camera_manager._device_ids))
+    physical_by_name = dict(
+        zip(camera_manager._logical_ids, camera_manager._device_ids, strict=False)
+    )
     now = now_manila()
 
     result = await db.execute(select(Device).order_by(Device.camera_id))

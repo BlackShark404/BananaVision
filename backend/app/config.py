@@ -4,11 +4,11 @@ Application configuration loaded from environment variables via Pydantic Setting
 
 from __future__ import annotations
 
-from pathlib import Path
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr, Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 

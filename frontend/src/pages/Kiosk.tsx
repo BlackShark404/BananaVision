@@ -140,16 +140,6 @@ export default function Kiosk() {
   // --- Live webcam switch state ---
   const [activeCameraIndex, setActiveCameraIndex] = useState(0)
 
-  const goToNextCamera = useCallback(() => {
-    if (cameras.length === 0) return
-    setActiveCameraIndex(prev => (prev + 1) % cameras.length)
-  }, [cameras.length])
-
-  const goToPrevCamera = useCallback(() => {
-    if (cameras.length === 0) return
-    setActiveCameraIndex(prev => (prev - 1 + cameras.length) % cameras.length)
-  }, [cameras.length])
-
   const selectCamera = useCallback((index: number) => {
     setActiveCameraIndex(index)
   }, [])

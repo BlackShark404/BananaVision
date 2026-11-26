@@ -35,7 +35,7 @@ async def websocket_endpoint(
         while True:
             try:
                 raw = await asyncio.wait_for(websocket.receive_text(), SESSION_CHECK_INTERVAL)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 if not await ws_manager.validate(websocket):
                     break
                 continue

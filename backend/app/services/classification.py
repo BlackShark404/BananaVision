@@ -971,7 +971,7 @@ class BananaClassifier:
                 **head_kwargs,
             )
         except Exception as exc:
-            raise ModelInferenceError(model_name, str(exc))
+            raise ModelInferenceError(model_name, str(exc)) from exc
 
         elapsed_ms = (time.time() - start) * 1000
 

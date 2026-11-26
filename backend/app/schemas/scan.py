@@ -6,14 +6,14 @@ from __future__ import annotations
 
 import uuid
 from typing import Annotated, Literal
-from app.schemas.timestamps import Timestamp
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
+
+from app.schemas.timestamps import Timestamp
 
 from .enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
 from .printing import PrintJobResponse
 from .shelf_life import RipenessProjection, ShelfLifeWindow, StorageExposureSummary
-
 
 # ── Requests ─────────────────────────────────────────────────────────────────
 

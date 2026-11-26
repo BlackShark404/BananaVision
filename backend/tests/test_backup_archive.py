@@ -6,7 +6,7 @@ import importlib
 import json
 import stat
 import zipfile
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
@@ -18,9 +18,9 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session
 
-from app.core.database import Base
 from app import models as m
-from app.schemas.enums import CultivarEnum, RipenessEnum, InventoryStatusEnum
+from app.core.database import Base
+from app.schemas.enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
 
 
 @compiles(JSONB, "sqlite")
@@ -56,7 +56,7 @@ def station(tmp_path):
     evidence.mkdir(parents=True)
     (evidence / "camera.jpg").write_bytes(b"captured frame")
     (evidence / "thumbnail.jpg").write_bytes(b"thumbnail")
-    instant = datetime(2025, 1, 1, 16, 30, tzinfo=timezone.utc)
+    instant = datetime(2025, 1, 1, 16, 30, tzinfo=UTC)
     with Session(engine) as db:
         db.add(m.UserRole(id=1, name="Admin"))
         db.flush()

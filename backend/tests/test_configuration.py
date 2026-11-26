@@ -1,5 +1,4 @@
 """Saved configuration, real inference arguments, and camera health contracts."""
-import asyncio
 import threading
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -15,7 +14,7 @@ from app.models import Device, SystemConfig
 from app.schemas.common import SystemConfigUpdate
 from app.services.camera_manager import CameraManager
 from app.services.classification import BananaClassifier
-from tests.test_time_and_writes import application, SessionAdapter  # noqa: F401
+from tests.test_time_and_writes import SessionAdapter, application  # noqa: F401
 
 
 @pytest.mark.parametrize('changes', [
@@ -155,8 +154,8 @@ def test_capture_rejects_unusable_frames():
 
 @pytest.mark.asyncio
 async def test_scan_snapshots_detection_cutoff_separately_from_review(configured, monkeypatch):
-    from app.services import scan_service
     from app.core.exceptions import ModelInferenceError
+    from app.services import scan_service
     with Session(configured.engine) as db:
         db.scalar(select(SystemConfig)).confidence_threshold = 63
         db.commit()
@@ -192,9 +191,10 @@ def test_slot_count_mismatch_does_not_save(configured):
 
 
 def test_saved_mapping_reports_partial_hardware_failure_without_env_write(configured, monkeypatch, tmp_path):
+    import importlib
+
     from app.api.v1 import cameras
     from app.services import configuration
-    import importlib
     camera_module = importlib.import_module('app.services.camera_manager')
     frame = np.tile(np.arange(64, dtype=np.uint8), (64, 1)) * 4
     frame = np.stack([frame] * 3, axis=2)

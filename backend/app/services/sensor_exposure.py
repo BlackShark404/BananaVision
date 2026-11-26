@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import contextlib
 from bisect import bisect_left
 from collections.abc import Iterable, Sequence
-import contextlib
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select, text
 
@@ -65,7 +65,7 @@ def _parse_bucket_timestamp(raw_bucket, dialect_name: str) -> datetime | None:
         except ValueError:
             return None
         if parsed.tzinfo is None and dialect_name == "sqlite":
-            parsed = parsed.replace(tzinfo=timezone.utc)
+            parsed = parsed.replace(tzinfo=UTC)
         return as_manila(parsed)
     return None
 

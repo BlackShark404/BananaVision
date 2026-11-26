@@ -1,6 +1,6 @@
 """Timezone-aware timestamp columns with consistent Python representations."""
 
-from datetime import timezone
+from datetime import UTC
 
 from sqlalchemy import DateTime
 from sqlalchemy.types import TypeDecorator
@@ -23,7 +23,7 @@ class ManilaDateTime(TypeDecorator):
         if value is None:
             return None
         value = as_manila(value)
-        return value.astimezone(timezone.utc) if dialect.name == "sqlite" else value
+        return value.astimezone(UTC) if dialect.name == "sqlite" else value
 
     def process_result_value(self, value, dialect):
         return None if value is None else as_manila(value)

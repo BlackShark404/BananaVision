@@ -74,7 +74,7 @@ def _get_cpu_temp() -> float | None:
     # 2. Linux fallback
     if system == "Linux":
         try:
-            with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
+            with open("/sys/class/thermal/thermal_zone0/temp") as f:
                 return round(float(f.read().strip()) / 1000.0, 1)
         except Exception:
             pass

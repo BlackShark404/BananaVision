@@ -1,5 +1,6 @@
 """Station control state must survive application-data restoration."""
 from alembic import op
+
 from app.models.maintenance_state import MaintenanceState
 
 revision = "0004_maintenance_state"

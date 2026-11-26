@@ -1,32 +1,29 @@
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
-from app.core.http import get_client_ip
 import asyncio
-import cv2
 import logging
 import uuid
-from app.services.runtime_operations import station_lock, run_blocking, coordinator
-from pydantic import BaseModel, Field, StrictInt, field_validator
+from typing import Annotated
 
-from app.services.camera_manager import camera_manager
-from app.services.camera_discovery import discover_camera_devices
+import cv2
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field, StrictInt, field_validator
+from sqlalchemy.future import select
+
+from app.api.deps import AdminUser, DbSession, MediaUser
 from app.config import get_settings
+from app.core.http import get_client_ip
+from app.models.admin_profile import AdminProfile
 from app.schemas.cameras import CameraDiscoveryResponse
+from app.services import audit, configuration
+from app.services.camera_discovery import discover_camera_devices
+from app.services.camera_manager import camera_manager
+from app.services.maintenance_state import operation_result, record_operation
+from app.services.runtime_operations import coordinator, run_blocking, station_lock
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 router = APIRouter(prefix="/cameras", tags=["Cameras"])
-
-
-from app.api.deps import DbSession, AdminUser, MediaUser
-from sqlalchemy.future import select
-from app.services import configuration
-from app.models.admin_profile import AdminProfile
-from app.services import audit
-from app.services.maintenance_state import operation_result, record_operation
 
 
 @router.get("/discovery", response_model=CameraDiscoveryResponse)
@@ -54,7 +51,7 @@ async def list_cameras(db: DbSession):
     No auth required — used by the kiosk to map cameras to preview streams.
     """
     config = await configuration.get_config(db)
-    applied = dict(zip(camera_manager._device_ids, camera_manager._logical_ids))
+    applied = dict(zip(camera_manager._device_ids, camera_manager._logical_ids, strict=False))
     return [{"device_id": slot.device_index, "camera_id": slot.camera_id,
              "label": settings.camera_labels[index] if index < len(settings.camera_labels) else f"Scanner {index + 1}",
              "online": slot.device_index in camera_manager.online_cameras

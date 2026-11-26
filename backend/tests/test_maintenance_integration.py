@@ -6,8 +6,8 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Scan, ActivityLog, Device
-from tests.test_time_and_writes import application, SessionAdapter  # noqa: F401
+from app.models import ActivityLog, Device, Scan
+from tests.test_time_and_writes import SessionAdapter, application  # noqa: F401
 
 
 @pytest.mark.asyncio
@@ -43,9 +43,11 @@ async def test_devices_use_real_logical_mapping_not_cam_number(application, monk
 @pytest.mark.asyncio
 @pytest.mark.parametrize('outcome,status', [(503, 'failed'), (504, 'unknown'), (None, 'accepted')])
 async def test_power_outcomes_are_durable_and_duplicate_retries_do_not_dispatch(application, monkeypatch, outcome, status):
-    from app.services import power_control, runtime_operations
-    from fastapi import HTTPException
     from uuid import uuid4
+
+    from fastapi import HTTPException
+
+    from app.services import power_control, runtime_operations
     local = runtime_operations.StationCoordinator()
     monkeypatch.setattr(power_control, 'coordinator', local)
     monkeypatch.setattr(power_control, 'async_session_factory', lambda: SessionAdapter(application.engine, application.state))
@@ -68,8 +70,9 @@ async def test_power_outcomes_are_durable_and_duplicate_retries_do_not_dispatch(
 
 @pytest.mark.asyncio
 async def test_power_intent_commit_failure_never_dispatches(application, monkeypatch):
-    from app.services import power_control, runtime_operations
     from uuid import uuid4
+
+    from app.services import power_control, runtime_operations
     local = runtime_operations.StationCoordinator()
     monkeypatch.setattr(power_control, 'coordinator', local)
     monkeypatch.setattr(power_control, 'async_session_factory', lambda: SessionAdapter(application.engine, application.state))
@@ -86,8 +89,9 @@ async def test_power_intent_commit_failure_never_dispatches(application, monkeyp
 
 @pytest.mark.asyncio
 async def test_power_cancellation_resumes_runtime_once(application, monkeypatch):
-    from app.services import power_control, runtime_operations
     from uuid import uuid4
+
+    from app.services import power_control, runtime_operations
     local = runtime_operations.StationCoordinator()
     monkeypatch.setattr(power_control, 'coordinator', local)
     monkeypatch.setattr(power_control, 'async_session_factory', lambda: SessionAdapter(application.engine, application.state))
@@ -111,11 +115,12 @@ async def test_power_cancellation_resumes_runtime_once(application, monkeypatch)
 def test_recovery_login_is_admin_only_and_does_not_change_application_data(application, monkeypatch):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
-    from app.api.v1 import auth
-    from app.services import audit, runtime_operations, maintenance_state
-    from app.core.security import hash_password, decode_access_token
-    from app.models import UserAccount, MaintenanceState
     from sqlalchemy import func
+
+    from app.api.v1 import auth
+    from app.core.security import decode_access_token, hash_password
+    from app.models import MaintenanceState, UserAccount
+    from app.services import audit, maintenance_state, runtime_operations
     local = runtime_operations.StationCoordinator()
     local.block('recovery-required')
     monkeypatch.setattr(runtime_operations, 'coordinator', local)
@@ -163,11 +168,12 @@ async def test_recovery_initializes_deferred_runtime_once(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_camera_apply_operation_replay_does_not_reinitialize(application, monkeypatch):
-    from uuid import uuid4
-    from app.api.v1 import maintenance
-    from app.services import backup_restore, configuration
-    from app.services.runtime_operations import StationCoordinator
     import asyncio
+    from uuid import uuid4
+
+    from app.api.v1 import maintenance
+    from app.services import configuration
+    from app.services.runtime_operations import StationCoordinator
     monkeypatch.setattr(maintenance, 'coordinator', StationCoordinator())
     monkeypatch.setattr(maintenance, 'get_service', lambda: SimpleNamespace(_lock=asyncio.Lock()))
     apply = AsyncMock()
@@ -194,6 +200,7 @@ async def test_camera_apply_operation_replay_does_not_reinitialize(application, 
 @pytest.mark.asyncio
 async def test_old_power_cancel_retry_cannot_reopen_admission_during_restore(application, monkeypatch):
     from fastapi import HTTPException
+
     from app.models import MaintenanceState
     from app.services import power_control
     from app.services.runtime_operations import StationCoordinator
@@ -212,6 +219,7 @@ async def test_old_power_cancel_retry_cannot_reopen_admission_during_restore(app
 async def test_power_cancel_waits_until_initial_dispatch_is_settled(application, monkeypatch):
     import asyncio
     from uuid import uuid4
+
     from app.services import power_control
     from app.services.runtime_operations import StationCoordinator
     local = StationCoordinator()
@@ -239,9 +247,10 @@ async def test_power_cancel_waits_until_initial_dispatch_is_settled(application,
 
 
 def test_production_application_blocks_ordinary_requests_during_recovery(application, monkeypatch):
+    from fastapi.testclient import TestClient
+
     from app.main import app
     from app.services import runtime_operations
-    from fastapi.testclient import TestClient
     local = runtime_operations.StationCoordinator(); local.block('recovery-required')
     monkeypatch.setattr(runtime_operations, 'coordinator', local)
     # No lifespan: all DB dependencies use the isolated application fixture.
@@ -259,13 +268,15 @@ def test_production_application_blocks_ordinary_requests_during_recovery(applica
 async def test_queued_backup_rechecks_authorization(application, monkeypatch, tmp_path, revocation):
     import asyncio
     from uuid import uuid4
-    from starlette.requests import Request
+
     from fastapi import HTTPException
+    from starlette.requests import Request
+
     from app.api.v1 import maintenance
-    from app.models import UserAccount, MaintenanceState
     from app.core.security import create_access_token
-    from app.services.backup_restore import MaintenanceService
+    from app.models import MaintenanceState, UserAccount
     from app.services import backup_restore
+    from app.services.backup_restore import MaintenanceService
     from app.services.runtime_operations import StationCoordinator
     local = StationCoordinator()
     monkeypatch.setattr(backup_restore, 'coordinator', local)

@@ -4,7 +4,6 @@ WebSocket event type constants and helper functions.
 
 from __future__ import annotations
 
-
 # ── Scan Events ──────────────────────────────────────────────────────────────
 SCAN_STARTED = "scan:started"
 SCAN_CAPTURING = "scan:capturing"

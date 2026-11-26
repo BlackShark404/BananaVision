@@ -6,7 +6,11 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.schemas.common import (
-    CultivarCount, CultivarRipeness, HourlyCount, RipenessDistribution, ScanTrend,
+    CultivarCount,
+    CultivarRipeness,
+    HourlyCount,
+    RipenessDistribution,
+    ScanTrend,
 )
 from app.schemas.timestamps import Timestamp
 

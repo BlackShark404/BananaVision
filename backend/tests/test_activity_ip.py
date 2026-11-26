@@ -1,10 +1,8 @@
 """Focused regression tests for client IP capture in ActivityLog across BananaVision."""
 
-import ipaddress
 from types import SimpleNamespace
 from uuid import uuid4
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -19,7 +17,6 @@ from app.schemas.scan import (
     ScanStatusUpdate,
 )
 from tests.test_time_and_writes import SessionAdapter, application  # noqa: F401
-
 
 # ── 1. Unit tests for get_client_ip and _parse_ip ──────────────────────────────
 

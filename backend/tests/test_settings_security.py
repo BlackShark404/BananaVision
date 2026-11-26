@@ -1,7 +1,8 @@
 """Production refuses predictable signing secrets; development keeps its placeholders."""
 import pytest
-from app.config import Settings
 from pydantic import ValidationError
+
+from app.config import Settings
 
 STRONG = "k" * 48
 

@@ -24,7 +24,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
-import { ScrollText, Filter, Banana, TrendingUp, Target, ChevronsLeft, ChevronsRight, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, Wind, QrCode, X, Edit, Flag, Loader2, RefreshCw } from "lucide-react"
+import { ScrollText, Filter, Banana, TrendingUp, Target, Package, Users, Clock, MoreVertical, Box, DollarSign, Settings, AlertTriangle, Thermometer, Droplets, Wind, QrCode, X, Edit, Flag, Loader2, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { getImageUrl } from "@/lib/utils"
 import { api } from "@/lib/api"
@@ -39,7 +39,7 @@ import { AppDateFilter } from "@/components/AppDateFilter"
 import { Badge } from "@/components/ui/badge"
 import { generateQRCodeDataUrl } from "@/lib/qrcode"
 import { ScanLabelPrint } from "@/components/ScanLabelPrint"
-import type { Cultivar, Ripeness, InventoryStatus, ScanResult } from "@/types"
+import type { InventoryStatus, ScanResult } from "@/types"
 import { AppStatusBadge } from "@/components/AppStatusBadge"
 import { collectScanPages, type ApiScan } from "@/lib/scanData"
 import { closedStockSpoilageLabel, formatSpoilageDays } from "@/lib/spoilageDisplay"

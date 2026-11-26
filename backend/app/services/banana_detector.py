@@ -76,6 +76,7 @@ class BananaPreDetector:
         """Load base COCO YOLO model. Auto-downloads on first run."""
         try:
             from pathlib import Path
+
             from ultralytics import YOLO
 
             self._model_name = Path(self._COCO_MODEL).stem  # e.g. "yolo26n"

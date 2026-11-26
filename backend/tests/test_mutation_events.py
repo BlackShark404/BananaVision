@@ -15,12 +15,12 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from app.models import ActivityLog, Intake, ScanStatusLog, SensorReading
-from app.schemas.enums import IntakeStatusEnum, InventoryStatusEnum
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.models import ActivityLog, Intake, ScanStatusLog, SensorReading
+from app.schemas.enums import IntakeStatusEnum, InventoryStatusEnum
 from tests.test_time_and_writes import SessionAdapter
 from tests.test_time_and_writes import application as application_fixture
 

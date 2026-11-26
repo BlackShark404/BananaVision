@@ -24,8 +24,21 @@ from enum import Enum
 from pathlib import Path, PurePosixPath
 from uuid import UUID
 
-from sqlalchemy import Boolean, Date, DateTime, Enum as SAEnum, Float, Integer, JSON, Numeric
-from sqlalchemy import String, UniqueConstraint, Uuid, insert, select
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    Integer,
+    Numeric,
+    String,
+    UniqueConstraint,
+    Uuid,
+    insert,
+    select,
+)
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import ARRAY
 
 from app import models  # noqa: F401 -- register application-owned metadata

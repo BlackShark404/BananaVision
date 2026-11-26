@@ -1,6 +1,6 @@
 """Version the previously manual batch lifecycle and engineered-feature columns."""
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects.postgresql import ENUM
 
 revision = "0002_feature_engineering"

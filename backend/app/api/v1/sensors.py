@@ -5,12 +5,12 @@ DHT22 sensor routes.
 from __future__ import annotations
 
 from fastapi import APIRouter, Query
-from sqlalchemy import select, desc
+from sqlalchemy import desc, select
 
-from app.api.deps import DbSession, CurrentUser
+from app.api.deps import CurrentUser, DbSession
 from app.core.time import now_manila
 from app.models.sensor_reading import SensorReading
-from app.schemas.common import SensorReadingResponse, SensorHistoryResponse
+from app.schemas.common import SensorHistoryResponse, SensorReadingResponse
 from app.services.sensor_reader import (
     DHT22_HUM_MAX_PCT,
     DHT22_HUM_MIN_PCT,
@@ -19,7 +19,6 @@ from app.services.sensor_reader import (
     freshness_window_seconds,
     is_valid_dht22,
 )
-
 
 router = APIRouter(prefix="/sensors", tags=["Sensors"])
 

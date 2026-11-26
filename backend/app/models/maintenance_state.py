@@ -1,7 +1,7 @@
 """Station control state is deliberately excluded from restorable application data."""
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, Integer, String, JSON
+from sqlalchemy import JSON, CheckConstraint, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base

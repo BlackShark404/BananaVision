@@ -6,17 +6,17 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from app.core.time import now_manila
 
-from sqlalchemy import CheckConstraint, Enum as SAEnum, Integer, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, Integer, String, UniqueConstraint
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.db_types import ManilaDateTime
-
-
+from app.core.time import now_manila
 from app.schemas.enums import DeviceStatusEnum
+
 
 class Device(Base):
     __tablename__ = "device"

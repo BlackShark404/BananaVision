@@ -152,6 +152,7 @@ async def list_kiosk_operators(db: DbSession):
     """
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
+
     from app.models.user_account import UserAccount
     from app.models.user_role import UserRole
     from app.schemas.enums import ActiveStatusEnum, RoleEnum
@@ -245,6 +246,7 @@ async def login(body: LoginRequest, db: DbSession, request: Request):
     login_limiter.record_success(body.username)
     if recovery_login:
         from sqlalchemy import select
+
         from app.models.maintenance_state import MaintenanceState
         generation = await db.scalar(select(MaintenanceState.auth_generation).where(MaintenanceState.id == 1))
         token = create_user_token(user, generation=generation or 'initial')

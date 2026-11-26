@@ -154,7 +154,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       if (generation === configRequests.current) setConfigError(error instanceof Error ? error.message : "Configuration unavailable")
     }
   }, [acceptConfig, setConfigConflict, setConfigError, user])
-  useEffect(() => { void reloadConfig(); return () => { configRequests.current++ } }, [reloadConfig])
+  const cancelConfigLoad = useCallback(() => { configRequests.current += 1 }, [])
+  useEffect(() => { void reloadConfig(); return cancelConfigLoad }, [reloadConfig, cancelConfigLoad])
 
   useEffect(() => {
     if (!user) return

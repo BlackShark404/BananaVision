@@ -6,14 +6,14 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Enum as SAEnum, ForeignKey, Integer, String, DECIMAL
+from sqlalchemy import DECIMAL, ForeignKey, Integer, String
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-
-
 from app.schemas.enums import CultivarEnum, RipenessEnum, TreatmentEnum
+
 
 class ScanClassification(Base):
     __tablename__ = "scan_classification"

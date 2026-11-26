@@ -2,12 +2,12 @@
 import asyncio
 
 from alembic import context
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
-from sqlalchemy import text
 
-from app.config import get_settings
 import app.models  # noqa: F401
+from app.config import get_settings
 from app.core.database import Base
 
 config = context.config

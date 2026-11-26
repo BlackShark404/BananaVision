@@ -333,13 +333,13 @@ async def seed_data(db):
             )
 
     # 9. Deterministic spoilage alerts (five distinct groups, so Inventory paginates 3 + 2).
-    # All five scans are dated yesterday. With ethephon treatment their predicted shelf life
-    # keeps each group at two days or less while projected stages stay distinct.
+    # Lakatan Ripe (~3.34d RFR shelf life) is seeded one day earlier than Latundan Ripe (~2.19d)
+    # and the Overripe groups so all five have <=2 days left while staying at distinct stages.
     spoilage_groups = (
         (CultivarEnum.LAKATAN, RipenessEnum.OVERRIPE, previous_intake_time),
         (CultivarEnum.LATUNDAN, RipenessEnum.OVERRIPE, previous_intake_time),
         (CultivarEnum.CARDABA, RipenessEnum.OVERRIPE, previous_intake_time),
-        (CultivarEnum.LAKATAN, RipenessEnum.RIPE, previous_intake_time),
+        (CultivarEnum.LAKATAN, RipenessEnum.RIPE, spoilage_intake_time),
         (CultivarEnum.LATUNDAN, RipenessEnum.RIPE, previous_intake_time),
     )
     i3_scans = []

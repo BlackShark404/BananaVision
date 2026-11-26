@@ -1,6 +1,6 @@
 """Add versioned canonical configuration without deleting legacy settings."""
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = '0003_system_configuration'
 down_revision = '0002_feature_engineering'

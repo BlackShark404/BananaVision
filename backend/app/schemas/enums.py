@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class CultivarEnum(str, Enum):
     LAKATAN = "Lakatan"
     LATUNDAN = "Latundan"

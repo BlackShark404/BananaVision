@@ -1,6 +1,6 @@
 """Add revisions and immutable evidence without reconstructing historical facts."""
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 from app.models.scan_history import ScanEvent, ScanMutation, ScanTombstone
 

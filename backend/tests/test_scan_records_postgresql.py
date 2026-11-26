@@ -6,6 +6,10 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import func, select, text
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from starlette.requests import Request
+
 from app.api.v1.intakes import IntakeBulkInventoryUpdate, bulk_update_intake_inventory
 from app.core.database import Base
 from app.core.time import now_manila
@@ -23,9 +27,6 @@ from app.models import (
 from app.schemas.enums import IntakeStatusEnum, InventoryStatusEnum
 from app.schemas.scan import ScanFlagRequest, ScanStatusUpdate
 from app.services import scan_records as records
-from sqlalchemy import func, select, text
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from starlette.requests import Request
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("BANANAVISION_TEST_DATABASE_URL"), reason="Disposable PostgreSQL required"

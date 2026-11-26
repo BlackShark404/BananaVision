@@ -14,3 +14,30 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "SIM"]
+# E501 is ignored so long strings, SQL queries, and domain formulas do not force manual wrapping.
+# SIM102/103/105/108/117 are purely stylistic control-flow preferences with low signal-to-noise.
+ignore = ["E501", "SIM102", "SIM103", "SIM105", "SIM108", "SIM117"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Cookie",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "fastapi.Security",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "scripts", "seed", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+# API schemas expose camelCase JSON fields and (str, Enum) SQLAlchemy-compatible enums.
+"**/app/schemas/*.py" = ["N815", "UP042"]
+"app/schemas/*.py" = ["N815", "UP042"]
+# Pytest modules define and inject fixtures by name in the same file, plus compact test stubs.
+"**/tests/**/*.py" = ["B017", "E702", "E731", "F811", "N802"]
+"tests/**/*.py" = ["B017", "E702", "E731", "F811", "N802"]

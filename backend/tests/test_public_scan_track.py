@@ -9,7 +9,8 @@ from tests.test_time_and_writes import application  # noqa: F401
 
 PUBLIC_FIELDS = {
     "id", "date_time", "cultivar", "ripeness", "confidence", "spoilage_days",
-    "remaining_days", "risk_as_of", "shelf_life_window", "finger_count", "temperature",
+    "remaining_days", "risk_as_of", "shelf_life_window", "ripeness_projection",
+    "storage_exposure", "finger_count", "temperature",
     "humidity", "vpd", "treatment", "source_text", "inventory_status", "flagged", "images",
 }
 

@@ -232,7 +232,9 @@ export default function DeliveryIntake() {
     }
   }
 
-  const columns: ColumnDef<any>[] = [
+  type IntakeRow = (typeof intakesWithScanCount)[number]
+
+  const columns: ColumnDef<IntakeRow>[] = [
     {
       header: "Intake ID",
       headerClassName: "",

@@ -7,6 +7,10 @@ from datetime import datetime, timedelta
 from unittest.mock import patch
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import select, update
+
 from app.api.deps import get_current_user
 from app.api.v1 import scan_logs as logs_api
 from app.core.database import Base, get_db, get_stream_db
@@ -18,10 +22,6 @@ from app.schemas.scan_logs import ScanLogQuery
 from app.services import analytics, auth_service, scan_logs, scan_snapshots
 from app.services.inventory_policy import ripeness_projection
 from app.services.spoilage import SpoilagePredictor
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlalchemy import select, update
-
 from tests.test_analytics import analytics_db  # noqa: F401
 from tests.test_dashboard import NOW, account, db, scan  # noqa: F401
 from tests.test_exports import extract_pdf_text, workbook_table

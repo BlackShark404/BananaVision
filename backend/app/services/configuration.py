@@ -290,7 +290,7 @@ async def apply_camera_config(config) -> None:
 
 async def sync_devices(db):
     """Publish only frame-verified current mappings after physical application."""
-    mapping = dict(zip(camera_manager._logical_ids, camera_manager._device_ids))
+    mapping = dict(zip(camera_manager._logical_ids, camera_manager._device_ids, strict=False))
     online = set(camera_manager.online_cameras)
     for device in (await db.execute(select(Device))).scalars():
         ok = mapping.get(device.camera_id) in online

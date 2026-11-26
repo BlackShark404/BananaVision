@@ -147,9 +147,9 @@ def _render_label_image(
     """Render a QR + text-panel label to PNG bytes at 203 DPI (common thermal)."""
     from PIL import Image, ImageDraw, ImageFont
 
-    DPI = 203  # Standard thermal printer DPI (8 dots/mm).
-    page_w = round(width_mm * DPI / 25.4)
-    page_h = round(height_mm * DPI / 25.4)
+    dpi = 203  # Standard thermal printer DPI (8 dots/mm).
+    page_w = round(width_mm * dpi / 25.4)
+    page_h = round(height_mm * dpi / 25.4)
     if page_w <= 0 or page_h <= 0:
         raise PrinterServiceError("Invalid label dimensions.")
 
@@ -201,7 +201,7 @@ def _render_label_image(
         font_px = max(7, min(round(row_height * 0.48), max(7, (page_w - panel_left - margin) // 7)))
         try:
             font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_px)
-        except (OSError, IOError):
+        except OSError:
             font = ImageFont.load_default()
         for index, label in enumerate(labels):
             top = margin + (index * row_height)

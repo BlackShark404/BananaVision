@@ -5,15 +5,21 @@ Pydantic schemas for devices, sensors, suppliers, intakes, analytics, activity, 
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
 from datetime import date
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StrictBool, StrictInt, field_validator, model_validator
+
 from app.core.time import now_manila
 from app.schemas.timestamps import InputTimestamp, Timestamp
 
-from pydantic import BaseModel, Field, StrictInt, StrictBool, field_validator, model_validator
-
-from .enums import ActiveStatusEnum, CultivarEnum, DeviceStatusEnum, IntakeStatusEnum, InventoryStatusEnum
-
+from .enums import (
+    ActiveStatusEnum,
+    CultivarEnum,
+    DeviceStatusEnum,
+    IntakeStatusEnum,
+    InventoryStatusEnum,
+)
 
 # ── Device ───────────────────────────────────────────────────────────────────
 

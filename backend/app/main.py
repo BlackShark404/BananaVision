@@ -13,16 +13,16 @@ from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 
 from fastapi import FastAPI
-from app.core.http import CorsFastAPI
-from app.api.v1.scan_evidence import router as scan_evidence_router
 
-from app.config import get_settings
 from app.api.v1.router import v1_router
-from app.ws.handlers import websocket_endpoint
-from app.core.startup import run_startup, run_shutdown, start_background_tasks
+from app.api.v1.scan_evidence import router as scan_evidence_router
+from app.config import get_settings
+from app.core.http import CorsFastAPI
+from app.core.startup import run_shutdown, run_startup, start_background_tasks
 from app.core.time import manila_struct_time
-from app.services.runtime_operations import StationAdmissionMiddleware
 from app.services import audit
+from app.services.runtime_operations import StationAdmissionMiddleware
+from app.ws.handlers import websocket_endpoint
 
 settings = get_settings()
 
@@ -116,12 +116,12 @@ app.include_router(scan_evidence_router)
 @app.get("/health", tags=["System"])
 async def health_check():
     """System health check endpoint."""
+    from app.core.time import now_manila
+    from app.services.banana_detector import banana_pre_detector
     from app.services.camera_manager import camera_manager
     from app.services.classification import banana_classifier
-    from app.services.banana_detector import banana_pre_detector
-    from app.services.spoilage import spoilage_predictor
     from app.services.sensor_reader import freshness_window_seconds, sensor_reader
-    from app.core.time import now_manila
+    from app.services.spoilage import spoilage_predictor
 
     models_ready = banana_classifier.is_loaded and banana_pre_detector.is_loaded
     cameras_ok = len(camera_manager.online_cameras) > 0

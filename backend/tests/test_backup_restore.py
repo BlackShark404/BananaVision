@@ -1,13 +1,8 @@
 """Restore recovery operates only on temporary SQLite databases and directories."""
-import asyncio
-from pathlib import Path
 
 import pytest
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
-from app.models import UserAccount, MaintenanceState
-from tests.test_backup_archive import station, archive_module, AsyncDB  # noqa: F401
+from tests.test_backup_archive import AsyncDB, archive_module, station  # noqa: F401
 
 
 def test_restore_service_available():
@@ -35,6 +30,7 @@ async def test_recovery_chooses_files_using_committed_marker(tmp_path):
 
 def test_import_does_not_create_capture_root(tmp_path, monkeypatch):
     import importlib
+
     from app.config import get_settings
     root = tmp_path / 'not-yet-recovered'
     monkeypatch.setattr(get_settings(), 'capture_dir', str(root))
@@ -44,8 +40,10 @@ def test_import_does_not_create_capture_root(tmp_path, monkeypatch):
 
 
 def test_temporary_validation_expiry_preserves_backups_and_recovery(tmp_path):
-    import os, time
+    import os
+    import time
     from uuid import uuid4
+
     from app.services.backup_restore import MaintenanceService, atomic_json
     service = MaintenanceService(None, None, tmp_path / 'captures')
     service.root.mkdir()

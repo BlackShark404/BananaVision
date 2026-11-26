@@ -190,7 +190,36 @@ function ScanStore({ children }: { children: React.ReactNode }) {
 
   // ── WebSocket — real-time updates ───────────────────────────────────────
 
-  const handleWsEvent = useCallback((event: string, data: any) => {
+  const handleWsEvent = useCallback((event: string, rawData: unknown) => {
+    type CompletedScanPayload = ApiScan & { scan_id?: string; supplier?: string }
+    interface ScanWsPayload {
+      camera_label?: string
+      index?: number
+      total?: number
+      result?: CompletedScanPayload
+      id?: string
+      scan_id?: string
+      supplier?: string
+      source_text?: string | null
+      source?: string | null
+      error?: string
+      code?: string
+      reason?: string
+      event_id?: string
+      deleted?: boolean
+      revision?: number
+      kind?: string
+      actor_id?: string
+      partial?: boolean
+      changed?: string[]
+      scan?: ApiScan & { operator_id?: string; source_key?: string; source_name?: string }
+      camera_id?: Parameters<typeof updateDeviceFromWs>[0]
+      status?: Parameters<typeof updateDeviceFromWs>[1]
+      last_seen?: Parameters<typeof updateDeviceFromWs>[2]
+    }
+    const isRecord = typeof rawData === "object" && rawData !== null
+    const data = (isRecord ? rawData : {}) as ScanWsPayload
+
     switch (event) {
       case "scan:started":
         scanAttempt.current += 1
@@ -198,7 +227,7 @@ function ScanStore({ children }: { children: React.ReactNode }) {
         break
 
       case "scan:capturing":
-        setScanState((s) => ({ ...s, scanStep: 1, scanStepLabel: `Capturing ${data.camera_label || ""}...`, scanProgress: 20 + (data.index / data.total) * 20 }))
+        setScanState((s) => ({ ...s, scanStep: 1, scanStepLabel: `Capturing ${data.camera_label || ""}...`, scanProgress: 20 + ((data.index ?? 0) / (data.total || 1)) * 20 }))
         break
 
       case "scan:captured":
@@ -218,8 +247,8 @@ function ScanStore({ children }: { children: React.ReactNode }) {
         break
 
       case "scan:completed": {
-        const result = data.result || data
-        void acceptCompletedScan({ ...result, id: result.id ?? result.scan_id, source_text: result.source_text ?? result.supplier ?? result.source }).catch(() => {
+        const result = data.result ?? (data as unknown as CompletedScanPayload)
+        void acceptCompletedScan({ ...result, id: result.id ?? result.scan_id ?? "", source_text: result.source_text ?? result.supplier ?? result.source }).catch(() => {
           setScanState({ isScanning: false, scanStep: 0, scanStepLabel: "", scanProgress: 0, lastResult: null, rejection: null })
           toast.error("The completed scan could not be loaded. Please refresh Scan Logs.")
         })
@@ -227,11 +256,11 @@ function ScanStore({ children }: { children: React.ReactNode }) {
       }
 
       case "scan:failed":
-        failScan(data?.error || "Scan failed. Please try again.", data?.code, data?.reason)
+        failScan(data.error || "Scan failed. Please try again.", data.code, data.reason)
         break
 
       case "scan:changed": {
-        const eventId = typeof data?.event_id === "string" ? data.event_id : ""
+        const eventId = typeof data.event_id === "string" ? data.event_id : ""
         if (eventId) {
           if (seenScanEvents.current.has(eventId)) break
           seenScanEvents.current.add(eventId)
@@ -308,11 +337,11 @@ function ScanStore({ children }: { children: React.ReactNode }) {
       }
 
       case "intake:changed":
-        notifyIntakeChanged(data ?? {})
+        notifyIntakeChanged(isRecord ? (rawData as Record<string, unknown>) : {})
         break
 
       case "supplier:changed":
-        notifySupplierChanged(data ?? {})
+        notifySupplierChanged(isRecord ? (rawData as Record<string, unknown>) : {})
         break
 
       case "notification":
@@ -324,7 +353,11 @@ function ScanStore({ children }: { children: React.ReactNode }) {
         break
 
       case "device:status":
-        updateDeviceFromWs(data.camera_id, data.status, data.last_seen)
+        updateDeviceFromWs(
+          data.camera_id as Parameters<typeof updateDeviceFromWs>[0],
+          data.status as Parameters<typeof updateDeviceFromWs>[1],
+          data.last_seen as Parameters<typeof updateDeviceFromWs>[2],
+        )
         break
     }
   }, [acceptCompletedScan, acceptScan, failScan, refreshScans, updateDeviceFromWs])

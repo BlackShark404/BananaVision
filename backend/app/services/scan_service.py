@@ -4,48 +4,48 @@ Scan pipeline orchestrator — coordinates the full capture → detect → fuse 
 
 from __future__ import annotations
 
-from app.services.scan_evidence import evidence_url
-
+import asyncio
 import logging
 import uuid
-import asyncio
 from contextlib import suppress
-from fastapi import HTTPException
-from app.config import get_settings
-from app.services.capture_cleanup import remove_scan_captures
-from app.services.runtime_operations import station_lock, coordinator, run_blocking
-from app.services.configuration import get_config
-from app.core.time import now_manila
 
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.scan import Scan
-from app.models.scan_classification import ScanClassification
-from app.services.scan_creation import create_scan_record
-from app.services.scan_records import serialize_scan
-from app.models.scan_detection import ScanDetection
-from app.models.scan_image import ScanImage
-from app.models.device import Device
-from app.models.app_notification import AppNotification
+from app.config import get_settings
 from app.core.exceptions import (
     ConflictException,
     ModelInferenceError,
     NotFoundException,
     ScanRejectedError,
 )
-from app.schemas.enums import IntakeStatusEnum
-from app.services.camera_manager import camera_manager
-from app.services.classification import (
-    banana_classifier, _parse_class_label, _unique_box_detections,
-)
-from app.services.banana_detector import banana_pre_detector
-from app.services import audit, ood_gate
-from app.services.fusion_engine import COUNT_VIEWS_DIFFER, fusion_engine
-from app.services.spoilage import spoilage_predictor
-from app.services.feature_engineering import calc_vpd
+from app.core.time import now_manila
+from app.models.app_notification import AppNotification
+from app.models.device import Device
 from app.models.intake import Intake
+from app.models.scan import Scan
+from app.models.scan_classification import ScanClassification
+from app.models.scan_detection import ScanDetection
+from app.models.scan_image import ScanImage
 from app.models.sensor_reading import SensorReading
+from app.schemas.enums import IntakeStatusEnum
+from app.services import audit, ood_gate
+from app.services.banana_detector import banana_pre_detector
+from app.services.camera_manager import camera_manager
+from app.services.capture_cleanup import remove_scan_captures
+from app.services.classification import (
+    _parse_class_label,
+    _unique_box_detections,
+    banana_classifier,
+)
+from app.services.configuration import get_config
+from app.services.feature_engineering import calc_vpd
+from app.services.fusion_engine import COUNT_VIEWS_DIFFER, fusion_engine
+from app.services.runtime_operations import coordinator, run_blocking, station_lock
+from app.services.scan_creation import create_scan_record
+from app.services.scan_evidence import evidence_url
+from app.services.scan_records import serialize_scan
 from app.services.sensor_reader import (
     DHT22_HUM_MAX_PCT,
     DHT22_HUM_MIN_PCT,
@@ -58,8 +58,9 @@ from app.services.sensor_reader import (
     sensor_reader,
     trimmed_mean,
 )
-from app.ws.manager import ws_manager
+from app.services.spoilage import spoilage_predictor
 from app.ws import events
+from app.ws.manager import ws_manager
 
 logger = logging.getLogger(__name__)
 

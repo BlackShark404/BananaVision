@@ -21,7 +21,6 @@ import {
   Camera,
   AlertCircle,
   Package,
-  Target,
   TrendingUp,
   Users,
   Activity,
@@ -470,7 +469,7 @@ function DashboardContent() {
         {cameras.error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 mb-3 text-sm">{cameras.data ? "Camera status refresh failed; showing last known status." : "Camera status unavailable."} <Button variant="link" size="sm" onClick={() => void refreshCameras()}>Retry cameras</Button></div>}
         {cameras.data && devices.length > 0 && onlineCameras === 0 && <p className="text-sm text-muted-foreground mb-3">No cameras are currently online. <Link to="/devices" className="underline">Check Device Status</Link> to troubleshoot.</p>}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {cameras.data ? devices.length ? devices.map((camera, index) => (
+          {cameras.data ? devices.length ? devices.map((camera) => (
             <DashboardCamera key={`${camera.device_id}:${camera.online}`} camera={camera} cameraId={camera.camera_id} stale={staleCameras} />
           )) : <Card className="col-span-full rounded-lg sm:rounded-xl"><CardContent className="py-6 text-center text-sm text-muted-foreground">No cameras configured. <Link to="/devices" className="underline">Open Device Status</Link> to review the setup.</CardContent></Card> : <p className="col-span-full py-6 text-center text-sm text-muted-foreground">{cameras.loading ? "Loading cameras…" : "Camera status unavailable."}</p>}
         </div>

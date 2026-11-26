@@ -14,8 +14,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
-from app.core.time import now_manila
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,33 +21,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.core.database import async_session_factory, engine
 from app.core.migrations import initialize_schema
-from app.core.security import hash_password, hash_pin
+from app.core.security import hash_password
+from app.core.time import now_manila
+from app.models.admin_profile import AdminProfile
+from app.models.device import Device
 from app.models.user_account import UserAccount
 from app.models.user_role import UserRole
-from app.models.admin_profile import AdminProfile
-from app.models.operator_profile import OperatorProfile
-from app.models.device import Device
-from app.models.system_config import SystemConfig
-from app.models.supplier import Supplier
-from app.models.intake import Intake
-from app.models.scan import Scan
-from app.models.scan_classification import ScanClassification
-from app.models.scan_status_log import ScanStatusLog
-import uuid
-import random
-from datetime import timedelta
-from app.services.camera_manager import camera_manager
-from app.services.runtime_operations import station_lock, coordinator, run_blocking
-from app.services import audit, configuration, maintenance_state, maintenance_database
+from app.schemas.enums import ActiveStatusEnum, DeviceStatusEnum, PasswordSetupReasonEnum, RoleEnum
+from app.services import audit, configuration, maintenance_database, maintenance_state
 from app.services.backup_restore import get_service
-from app.services.power_control import reconcile_power
-from app.services.classification import banana_classifier
 from app.services.banana_detector import banana_pre_detector
-from app.services.spoilage import spoilage_predictor
+from app.services.camera_manager import camera_manager
+from app.services.classification import banana_classifier
+from app.services.power_control import reconcile_power
+from app.services.runtime_operations import coordinator, run_blocking, station_lock
 from app.services.sensor_reader import freshness_window_seconds, sensor_reader
-from app.ws.manager import ws_manager
+from app.services.spoilage import spoilage_predictor
 from app.ws import events
-from app.schemas.enums import RoleEnum, ActiveStatusEnum, DeviceStatusEnum, PasswordSetupReasonEnum
+from app.ws.manager import ws_manager
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

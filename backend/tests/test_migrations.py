@@ -1,6 +1,6 @@
 """Upgrade old and already-current schemas without losing accounts or scan data."""
-import os
 import asyncio
+import os
 from uuid import uuid4
 
 import pytest

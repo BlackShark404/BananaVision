@@ -9,14 +9,13 @@ import uuid
 from fastapi import APIRouter, Request
 from sqlalchemy import select
 
-from app.api.deps import DbSession, CurrentUser, AdminUser
+from app.api.deps import AdminUser, CurrentUser, DbSession
 from app.core.exceptions import NotFoundException
-from app.models.supplier import Supplier
 from app.core.http import get_client_ip
+from app.models.supplier import Supplier
+from app.schemas.common import SupplierCreate, SupplierResponse, SupplierUpdate
 from app.services import audit
-from app.schemas.common import SupplierCreate, SupplierUpdate, SupplierResponse
 from app.ws.mutations import publish_supplier_event, supplier_event
-
 
 router = APIRouter(prefix="/suppliers", tags=["Suppliers"])
 

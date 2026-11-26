@@ -16,7 +16,7 @@ from app.api.deps import get_current_user
 from app.api.v1 import scan_logs as logs_api
 from app.core.database import Base, get_db, get_stream_db
 from app.core.time import MANILA, as_manila
-from app.models import Scan, ScanClassification, SensorReading
+from app.models import ScanClassification, SensorReading
 from app.schemas.enums import CultivarEnum, InventoryStatusEnum, RipenessEnum, TreatmentEnum
 from app.schemas.scan_logs import ScanLogQuery
 from app.services import analytics, dashboard, scan_logs, scan_records, scan_service, sensor_reader
@@ -381,8 +381,10 @@ async def test_continuous_exposure_updates_analytics_at_risk_count(analytics_db,
 async def test_postgresql_hourly_buckets_and_partial_schema_guard():
     import os
     from uuid import uuid4
+
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
     from app.core.database import Base as AppBase
 
     url = os.environ.get("BANANAVISION_TEST_DATABASE_URL")

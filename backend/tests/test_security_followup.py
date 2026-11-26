@@ -2,15 +2,15 @@
 import asyncio
 import json
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
-import pytest
 import jwt.api_jwt
+import pytest
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, func, select, update, text
+from sqlalchemy import create_engine, func, select, text, update
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session
 from starlette.websockets import WebSocketDisconnect
@@ -27,7 +27,8 @@ from app.ws import handlers
 from app.ws.authorization import current_socket_role
 from app.ws.manager import ConnectionManager
 from tests.test_assigned_fixes import secured  # noqa: F401
-from tests.test_time_and_writes import application as application, SessionAdapter  # noqa: F401
+from tests.test_time_and_writes import SessionAdapter
+from tests.test_time_and_writes import application as application  # noqa: F401
 
 
 def token_for(account_id, **claims):
@@ -60,7 +61,7 @@ async def test_connected_socket_revalidates_before_every_delivery(application, d
     await manager.send_personal(socket, "healthy", {})
     assert [message["event"] for message in socket.messages] == ["healthy"]
     if revocation == "expired":
-        future = datetime.now(timezone.utc) + timedelta(days=3650)
+        future = datetime.now(UTC) + timedelta(days=3650)
 
         class ExpiredClock(datetime):
             @classmethod

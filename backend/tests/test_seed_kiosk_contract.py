@@ -20,9 +20,8 @@ from app.api.v1.intakes import list_intakes
 from app.core.database import get_db
 from app.models import Scan, UserAccount
 from app.schemas.scan_logs import ScanLogQuery
-from app.services import analytics, dashboard, scan_logs, scan_records, scan_service
+from app.services import analytics, dashboard, scan_logs, scan_records, scan_service, spoilage
 from app.services.feature_engineering import calc_vpd
-from app.services import spoilage
 from tests.test_seed import empty_seed_database, pytestmark  # noqa: F401
 
 

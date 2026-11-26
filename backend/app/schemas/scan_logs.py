@@ -1,7 +1,6 @@
 """Shared filter/response contracts for Scan Logs and its Excel/PDF exports."""
 
 from datetime import date
-from app.schemas.timestamps import Timestamp
 from typing import Literal
 from uuid import UUID
 
@@ -9,6 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.dashboard import DashboardScan
 from app.schemas.enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
+from app.schemas.timestamps import Timestamp
 
 
 class ScanLogQuery(BaseModel):

@@ -6,17 +6,17 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from app.core.time import now_manila
 
-from sqlalchemy import Enum as SAEnum, DECIMAL, ForeignKey, Integer, String
+from sqlalchemy import DECIMAL, ForeignKey, Integer, String
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.db_types import ManilaDateTime
-
-
+from app.core.time import now_manila
 from app.schemas.enums import CultivarEnum, RipenessEnum
+
 
 class ScanOriginalAiResult(Base):
     __tablename__ = "scan_original_ai_result"

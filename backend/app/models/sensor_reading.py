@@ -6,13 +6,13 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from app.core.time import now_manila
 
 from sqlalchemy import Float, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
 from app.core.db_types import ManilaDateTime
+from app.core.time import now_manila
 
 
 class SensorReading(Base):

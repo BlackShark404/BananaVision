@@ -23,7 +23,7 @@ export type ConnectionStatus = "connecting" | "connected" | "disconnected"
 
 export interface WsEvent {
   event: string
-  data: any
+  data: unknown
   timestamp: string
 }
 
@@ -31,7 +31,7 @@ interface UseWebSocketOptions {
   /** Room names to subscribe to */
   rooms?: string[]
   /** Callback for each received event */
-  onEvent?: (event: string, data: any) => void
+  onEvent?: (event: string, data: unknown) => void
   /** Called after an existing connection reopens, so clients can resync. */
   onReconnect?: () => void
   /** Whether to enable the connection (defaults to true) */
@@ -39,7 +39,16 @@ interface UseWebSocketOptions {
 }
 
 export function useWebSocket({ rooms = [], onEvent, onReconnect, enabled = true }: UseWebSocketOptions) {
-  const [status, setStatus] = useState<ConnectionStatus>("disconnected")
+  const roomsKey = rooms.join(",")
+  const connectionKey = enabled ? roomsKey : null
+  const [activeKey, setActiveKey] = useState(connectionKey)
+  const [status, setStatus] = useState<ConnectionStatus>(() =>
+    connectionKey !== null && getToken() ? "connecting" : "disconnected",
+  )
+  if (activeKey !== connectionKey) {
+    setActiveKey(connectionKey)
+    setStatus(connectionKey !== null && getToken() ? "connecting" : "disconnected")
+  }
   const [lastEvent, setLastEvent] = useState<WsEvent | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectAttempt = useRef(0)
@@ -47,6 +56,7 @@ export function useWebSocket({ rooms = [], onEvent, onReconnect, enabled = true 
   const heartbeatTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const onEventRef = useRef(onEvent)
   const onReconnectRef = useRef(onReconnect)
+  const openSocketRef = useRef<() => void>(() => {})
   const hasConnected = useRef(false)
 
   const stopHeartbeat = useCallback(() => {
@@ -65,15 +75,14 @@ export function useWebSocket({ rooms = [], onEvent, onReconnect, enabled = true 
     onReconnectRef.current = onReconnect
   }, [onReconnect])
 
-  const connect = useCallback(() => {
+  const openSocket = useCallback(() => {
     const token = getToken()
     if (!token || !enabled) return
 
     // Build URL
-    const roomsParam = rooms.length > 0 ? `&rooms=${rooms.join(",")}` : ""
+    const roomsParam = roomsKey.length > 0 ? `&rooms=${roomsKey}` : ""
     const url = `${WS_BASE}/api/v1/ws?token=${token}${roomsParam}`
 
-    setStatus("connecting")
     const ws = new WebSocket(url)
     wsRef.current = ws
 
@@ -88,7 +97,7 @@ export function useWebSocket({ rooms = [], onEvent, onReconnect, enabled = true 
       heartbeatTimer.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event: "ping" }))
       }, HEARTBEAT_INTERVAL_MS)
-      console.log("[WS] Connected", rooms)
+      console.log("[WS] Connected", roomsKey ? roomsKey.split(",") : [])
       // The first connection uses initial fetches; only a resume can have
       // missed events while no socket was open.
       if (resumed) onReconnectRef.current?.()
@@ -124,13 +133,20 @@ export function useWebSocket({ rooms = [], onEvent, onReconnect, enabled = true 
       const delay = Math.min(1000 * 2 ** reconnectAttempt.current, 30000)
       reconnectAttempt.current += 1
       console.log(`[WS] Reconnecting in ${delay}ms (attempt ${reconnectAttempt.current})`)
-      reconnectTimer.current = setTimeout(connect, delay)
+      reconnectTimer.current = setTimeout(() => {
+        if (enabled && getToken()) setStatus("connecting")
+        openSocketRef.current()
+      }, delay)
     }
 
     ws.onerror = () => {
       // onclose will fire after this, triggering reconnect
     }
-  }, [enabled, rooms.join(","), stopHeartbeat])
+  }, [enabled, roomsKey, stopHeartbeat])
+
+  useEffect(() => {
+    openSocketRef.current = openSocket
+  }, [openSocket])
 
   const reconnect = useCallback(() => {
     if (reconnectTimer.current) {
@@ -144,12 +160,13 @@ export function useWebSocket({ rooms = [], onEvent, onReconnect, enabled = true 
       wsRef.current = null
       previous.close(1000)
     }
-    connect()
-  }, [connect, stopHeartbeat])
+    if (enabled && getToken()) setStatus("connecting")
+    openSocket()
+  }, [enabled, openSocket, stopHeartbeat])
 
   // Connect on mount / when deps change
   useEffect(() => {
-    connect()
+    openSocket()
 
     return () => {
       // Cleanup
@@ -165,7 +182,7 @@ export function useWebSocket({ rooms = [], onEvent, onReconnect, enabled = true 
         previous.close(1000) // Invalidate ownership before asynchronous close callbacks.
       }
     }
-  }, [connect, stopHeartbeat])
+  }, [openSocket, stopHeartbeat])
 
   return { status, lastEvent, reconnect }
 }

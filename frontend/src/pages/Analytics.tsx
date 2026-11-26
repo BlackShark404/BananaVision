@@ -318,6 +318,7 @@ function AnalyticsContent() {
     return response
   }, [filterParams, period])
   const resource = useDashboardResource(fetchAnalytics, { keepPreviousData: true })
+  const refreshAnalytics = resource.refresh
   // A failed request is never presented as a successful empty dataset or old filter result.
   const summary = resource.error ? null : resource.data
   const loading = resource.loading
@@ -326,9 +327,9 @@ function AnalyticsContent() {
     if (!summary?.next_refresh_at) return
     const delay = Date.parse(summary.next_refresh_at) - Date.now()
     if (!Number.isFinite(delay) || delay < 0) return
-    const timer = window.setTimeout(() => void resource.refresh(), delay + 100)
+    const timer = window.setTimeout(() => void refreshAnalytics(), delay + 100)
     return () => window.clearTimeout(timer)
-  }, [summary?.next_refresh_at, resource.refresh])
+  }, [summary?.next_refresh_at, refreshAnalytics])
 
   // ── Derived chart data ──────────────────────────────────────────────────
 

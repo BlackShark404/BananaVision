@@ -5,7 +5,7 @@ btrim primitives are supplied as SQLite functions; SQLAlchemy supplies each
 dialect's regexp/epoch syntax. An async adapter avoids another test dependency.
 """
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -40,7 +40,7 @@ from app.schemas.enums import (
 )
 from app.services import dashboard
 
-NOW = datetime(2026, 10, 2, 4, tzinfo=timezone.utc)  # Noon in Manila.
+NOW = datetime(2026, 10, 2, 4, tzinfo=UTC)  # Noon in Manila.
 
 
 class Database:
@@ -154,8 +154,8 @@ async def test_namesakes_and_renames_use_ids_and_filters_cannot_broaden_scope(db
 async def test_manila_midnight_and_pagination_cover_more_than_20_scans(db):
     operator = account(db)
     start, end = dashboard.business_day_bounds(date(2026, 10, 2))
-    assert start == datetime(2026, 10, 1, 16, tzinfo=timezone.utc)
-    assert end == datetime(2026, 10, 2, 16, tzinfo=timezone.utc)
+    assert start == datetime(2026, 10, 1, 16, tzinfo=UTC)
+    assert end == datetime(2026, 10, 2, 16, tzinfo=UTC)
     before = scan(db, operator, at=start - timedelta(microseconds=1))
     expected = {scan(db, operator, at=start + timedelta(minutes=n)) for n in range(31)}
     scan(db, operator, at=end)

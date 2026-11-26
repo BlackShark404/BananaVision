@@ -39,14 +39,57 @@ const InventoryContext = createContext<InventoryContextType | null>(null)
 
 // ── Mappers ─────────────────────────────────────────────────────────────────
 
-const mapApiSupplier = (s: any): Supplier => ({
-  id: s.id,
-  name: s.name,
-  contactPerson: s.contact_person || s.contactPerson,
-  contactPhone: s.contact_phone || s.contactPhone,
-  status: s.status,
+interface SupplierRecordInput {
+  id?: string
+  name?: string
+  contact_person?: string | null
+  contactPerson?: string | null
+  contact_phone?: string | null
+  contactPhone?: string | null
+  status?: string
+  date_added?: string | null
+  dateAdded?: string | null
+  updated_at?: string | null
+  updatedAt?: string | null
+}
+
+interface IntakeRecordInput {
+  id?: string
+  supplier_id?: string | null
+  supplierId?: string | null
+  supplier_name?: string | null
+  supplierName?: string | null
+  source?: string | null
+  batch_number?: string | null
+  batchNumber?: string | null
+  qr_code?: string | null
+  qrCode?: string | null
+  intake_date?: string | null
+  date?: string | null
+  status?: string
+  treatment?: string | null
+  harvested_at?: string | null
+  harvestedAt?: string | null
+  treated_at?: string | null
+  treatedAt?: string | null
+  spoiled_at?: string | null
+  spoiledAt?: string | null
+  scan_count?: number | null
+  scanCount?: number | null
+  expected_stock?: unknown
+  expectedStock?: unknown
+  updated_at?: string | null
+  updatedAt?: string | null
+}
+
+const mapApiSupplier = (s: SupplierRecordInput): Supplier => ({
+  id: s.id ?? "",
+  name: s.name ?? "",
+  contactPerson: s.contact_person || s.contactPerson || undefined,
+  contactPhone: s.contact_phone || s.contactPhone || undefined,
+  status: (s.status as Supplier["status"]) || "Active",
   dateAdded: s.date_added || s.dateAdded || "",
-  updatedAt: s.updated_at || s.updatedAt,
+  updatedAt: s.updated_at || s.updatedAt || undefined,
 })
 
 const mapExpectedStock = (raw: unknown): ExpectedStockLine[] => {
@@ -63,22 +106,22 @@ const mapExpectedStock = (raw: unknown): ExpectedStockLine[] => {
   })
 }
 
-const mapApiIntake = (i: any): DailyIntake => ({
-  id: i.id,
-  supplierId: i.supplier_id || i.supplierId,
+const mapApiIntake = (i: IntakeRecordInput): DailyIntake => ({
+  id: i.id ?? "",
+  supplierId: i.supplier_id || i.supplierId || "",
   supplierName: i.supplier_name || i.supplierName || i.source || "Unknown",
-  source: i.source || i.supplier_name || i.supplierName,
-  batchNumber: i.batch_number || i.batchNumber,
-  qrCode: i.qr_code || i.qrCode,
+  source: i.source || i.supplier_name || i.supplierName || undefined,
+  batchNumber: i.batch_number || i.batchNumber || "",
+  qrCode: i.qr_code || i.qrCode || undefined,
   date: i.intake_date || i.date || "",
   status: i.status as "Active" | "Depleted",
-  treatment: i.treatment,
-  harvestedAt: i.harvested_at || i.harvestedAt,
-  treatedAt: i.treated_at || i.treatedAt,
-  spoiledAt: i.spoiled_at || i.spoiledAt,
+  treatment: (i.treatment as DailyIntake["treatment"]) || undefined,
+  harvestedAt: i.harvested_at || i.harvestedAt || undefined,
+  treatedAt: i.treated_at || i.treatedAt || undefined,
+  spoiledAt: i.spoiled_at || i.spoiledAt || undefined,
   scanCount: i.scan_count || i.scanCount || 0,
   expectedStock: mapExpectedStock(i.expected_stock ?? i.expectedStock),
-  updatedAt: i.updated_at || i.updatedAt,
+  updatedAt: i.updated_at || i.updatedAt || undefined,
 })
 
 // ── Provider ────────────────────────────────────────────────────────────────

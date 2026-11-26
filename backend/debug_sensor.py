@@ -1,9 +1,10 @@
-import time
-import requests
 import argparse
-import sys
 import os
+import sys
+import time
 from datetime import datetime
+
+import requests
 
 # Add the app directory to path so we can import config if needed
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

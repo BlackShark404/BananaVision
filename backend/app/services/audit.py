@@ -24,12 +24,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-import weakref
 import unicodedata
+import weakref
 from collections import deque
-from types import SimpleNamespace
 from contextvars import ContextVar
 from enum import Enum, StrEnum
+from types import SimpleNamespace
 from typing import Any
 from uuid import UUID
 

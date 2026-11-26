@@ -4,17 +4,18 @@ Scan routes — trigger scans, CRUD, flagging, notes, overrides.
 
 from __future__ import annotations
 
-import uuid
 import logging
+import uuid
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import desc, func, select
-from app.core.http import get_client_ip
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import AdminUser, CurrentUser, DbSession
+from app.config import get_settings
 from app.core.exceptions import ModelInferenceError, NotFoundException, ScanRejectedError
+from app.core.http import get_client_ip
 from app.core.time import now_manila
 from app.models.operator_profile import OperatorProfile
 from app.models.scan import Scan
@@ -35,14 +36,6 @@ from app.schemas.scan import (
     ScanStatusUpdate,
     ScanTriggerRequest,
 )
-from app.services.scan_records import (
-    load_authorized_scan,
-    mutate_scan,
-    scan_history,
-    scan_scope,
-    serialize_detail,
-    serialize_scan,
-)
 from app.schemas.shelf_life import StorageExposureSummary
 from app.services.inventory_policy import (
     remaining_shelf_life,
@@ -51,10 +44,17 @@ from app.services.inventory_policy import (
     shelf_life_window,
 )
 from app.services.ood_gate import REJECTION_CODE
+from app.services.print_jobs import queue_automatic_label
+from app.services.scan_records import (
+    load_authorized_scan,
+    mutate_scan,
+    scan_history,
+    scan_scope,
+    serialize_detail,
+    serialize_scan,
+)
 from app.services.scan_service import execute_scan_pipeline, rejection_payload
 from app.services.sensor_exposure import load_buckets_for_dates
-from app.config import get_settings
-from app.services.print_jobs import queue_automatic_label
 
 router = APIRouter(prefix="/scans", tags=["Scans"])
 logger = logging.getLogger(__name__)
@@ -87,7 +87,7 @@ async def trigger_scan(
             content={"detail": exc.message, **rejection_payload(exc)},
         )
     except ModelInferenceError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     response = serialize_scan(scan, user)
     if get_settings().bananavision_auto_print:

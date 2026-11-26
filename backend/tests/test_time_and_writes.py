@@ -4,7 +4,7 @@ import asyncio
 import io
 import xml.etree.ElementTree as ET
 import zipfile
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -20,11 +20,19 @@ from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_current_user
 from app.api.v1 import (
-    activity, config, intakes, notifications, quality, scans, sensors, suppliers, users,
+    activity,
+    config,
+    intakes,
+    notifications,
+    quality,
+    scans,
+    sensors,
+    suppliers,
+    users,
 )
 from app.core import database
 from app.core.db_types import ManilaDateTime
-from app.core.time import MANILA, as_manila, business_day_bounds, input_manila, now_manila
+from app.core.time import as_manila, business_day_bounds, input_manila, now_manila
 from app.models import (
     ActivityLog,
     AdminProfile,
@@ -43,7 +51,10 @@ from app.models import (
     UserRole,
 )
 from app.schemas.enums import (
-    ActiveStatusEnum, CultivarEnum, IntakeStatusEnum, InventoryStatusEnum, RipenessEnum,
+    CultivarEnum,
+    IntakeStatusEnum,
+    InventoryStatusEnum,
+    RipenessEnum,
 )
 from app.schemas.timestamps import InputTimestamp, Timestamp
 
@@ -107,7 +118,7 @@ def application(monkeypatch):
     monkeypatch.setattr(database, "async_session_factory", lambda: SessionAdapter(engine, state))
     ids = SimpleNamespace(admin=uuid4(), operator=uuid4(), profile=uuid4(), supplier=uuid4(),
                           intake=uuid4(), scan=uuid4())
-    historical = datetime(2025, 1, 1, 16, 30, tzinfo=timezone.utc)
+    historical = datetime(2025, 1, 1, 16, 30, tzinfo=UTC)
     with Session(engine) as db:
         db.add_all([UserRole(id=1, name="Admin"), UserRole(id=2, name="Operator")])
         db.flush()
@@ -165,7 +176,7 @@ def application(monkeypatch):
 
 
 def test_timezone_preserves_instants_and_input_interpretation():
-    original = datetime(2025, 1, 1, 16, 30, tzinfo=timezone.utc)
+    original = datetime(2025, 1, 1, 16, 30, tzinfo=UTC)
     normalized = as_manila(original)
     assert normalized == original
     assert normalized.isoformat() == "2025-01-02T00:30:00+08:00"
@@ -175,7 +186,7 @@ def test_timezone_preserves_instants_and_input_interpretation():
     assert TypeAdapter(InputTimestamp).validate_python("2025-01-02T00:30:00") == original
     assert now_manila().utcoffset() == timedelta(hours=8)
     start, end = business_day_bounds(date(2025, 1, 2))
-    assert start == datetime(2025, 1, 1, 16, tzinfo=timezone.utc)
+    assert start == datetime(2025, 1, 1, 16, tzinfo=UTC)
     assert end - start == timedelta(days=1)
     # Every ORM timestamp participates in the centralized conversion.
     timestamp_columns = [column for table in database.Base.metadata.tables.values()

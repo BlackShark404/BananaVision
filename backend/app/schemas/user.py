@@ -5,10 +5,11 @@ Pydantic schemas for user management.
 from __future__ import annotations
 
 import uuid
-from app.schemas.timestamps import Timestamp
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
+
+from app.schemas.timestamps import Timestamp
 
 from .enums import ActiveStatusEnum, PasswordSetupReasonEnum, PinSetupReasonEnum, RoleEnum
 
@@ -66,7 +67,7 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     @classmethod
-    def from_db_model(cls, account: "UserAccount") -> "UserResponse":
+    def from_db_model(cls, account: UserAccount) -> UserResponse:
         return cls(
             id=account.id,
             username=account.username,

@@ -5,7 +5,6 @@ dependency-free so databases that already recorded it can still start and
 fresh databases can advance through the same migration history.
 """
 
-from alembic import op
 
 
 revision = "0007_prediction_print_jobs"

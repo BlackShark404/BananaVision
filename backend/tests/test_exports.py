@@ -14,6 +14,12 @@ from uuid import uuid4
 from zipfile import ZipFile
 
 import pytest
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
+from sqlalchemy import update
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.compiler import compiles
+
 from app.api.deps import get_current_user
 from app.api.v1 import config
 from app.api.v1 import scan_logs as logs_api
@@ -25,12 +31,6 @@ from app.models.scan_classification import ScanClassification
 from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.schemas.enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
 from app.services import auth_service, scan_logs
-from fastapi import FastAPI, HTTPException
-from fastapi.testclient import TestClient
-from sqlalchemy import update
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.compiler import compiles
-
 from tests.test_dashboard import NOW, account, db, scan  # noqa: F401
 from tests.test_scan_logs import logs_db  # noqa: F401
 

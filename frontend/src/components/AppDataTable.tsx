@@ -15,6 +15,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ChevronsLeft, ChevronsRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 
+export type SortableValue = string | number | boolean | Date | null | undefined
+
 export interface ColumnDef<T> {
   header: React.ReactNode
   cell: (row: T, index: number) => React.ReactNode
@@ -22,7 +24,7 @@ export interface ColumnDef<T> {
   headerClassName?: string
   stopPropagation?: boolean
   sortable?: boolean
-  sortKey?: string | ((row: T) => any)
+  sortKey?: string | ((row: T) => SortableValue)
 }
 
 export interface AppDataTableProps<T> {
@@ -68,18 +70,27 @@ export function AppDataTable<T>({
 }: AppDataTableProps<T>) {
   const [localPage, setLocalPage] = useState(1)
   const [localSort, setSortConfig] = useState<{ columnIdx: number, direction: 'asc' | 'desc' } | null>(null)
-  const page = serverState?.page ?? localPage
-  const setPage = (next: number) => serverState ? serverState.onPageChange(next) : setLocalPage(next)
-  const sortConfig = serverState ? { columnIdx: columns.findIndex(column => column.sortKey === serverState.sort.key), direction: serverState.sort.direction } : localSort
-
   const pageSize = pagination?.pageSize || data.length || 1
   const total = serverState?.total ?? data.length
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
-  // Clamp page if data shrinks so the current page exceeds the new total
-  useEffect(() => {
-    setLocalPage((prev) => (prev > totalPages ? totalPages : prev))
-  }, [totalPages])
+  // Clamp local page during render when data shrinks so we avoid a cascading effect render.
+  if (!serverState && localPage > totalPages) {
+    setLocalPage(totalPages)
+  }
+
+  const page = serverState?.page ?? Math.min(localPage, totalPages)
+  const setPage = (next: number) => serverState ? serverState.onPageChange(next) : setLocalPage(next)
+  const sortConfig = React.useMemo(
+    () =>
+      serverState
+        ? {
+            columnIdx: columns.findIndex((column) => column.sortKey === serverState.sort.key),
+            direction: serverState.sort.direction,
+          }
+        : localSort,
+    [serverState, columns, localSort],
+  )
 
   const handleSort = (colIdx: number, column: ColumnDef<T>) => {
     if (loading || !column.sortable) return
@@ -104,25 +115,43 @@ export function AppDataTable<T>({
     if (!column || !column.sortable) return data
 
     return [...data].sort((a, b) => {
-      let valA: any
-      let valB: any
-      
+      let rawA: unknown
+      let rawB: unknown
+
       if (typeof column.sortKey === 'function') {
-        valA = column.sortKey(a)
-        valB = column.sortKey(b)
+        rawA = column.sortKey(a)
+        rawB = column.sortKey(b)
       } else if (typeof column.sortKey === 'string') {
-        valA = (a as any)[column.sortKey]
-        valB = (b as any)[column.sortKey]
+        rawA = (a as Record<string, unknown>)[column.sortKey]
+        rawB = (b as Record<string, unknown>)[column.sortKey]
       } else {
         return 0
       }
 
-      // Handle null/undefined values
-      if (valA == null) valA = ''
-      if (valB == null) valB = ''
+      const toSortable = (val: unknown): string | number => {
+        if (val == null) return ''
+        if (typeof val === 'number') return val
+        if (typeof val === 'boolean') return val ? 1 : 0
+        if (val instanceof Date) return val.getTime()
+        return String(val)
+      }
 
-      if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1
-      if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1
+      const valA = toSortable(rawA)
+      const valB = toSortable(rawB)
+
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1
+        return 0
+      }
+
+      if (valA === '' && valB !== '') return sortConfig.direction === 'asc' ? -1 : 1
+      if (valB === '' && valA !== '') return sortConfig.direction === 'asc' ? 1 : -1
+
+      const strA = String(valA)
+      const strB = String(valB)
+      if (strA < strB) return sortConfig.direction === 'asc' ? -1 : 1
+      if (strA > strB) return sortConfig.direction === 'asc' ? 1 : -1
       return 0
     })
   }, [data, sortConfig, columns, serverState])

@@ -1,6 +1,6 @@
 """Add session generation to existing accounts without changing credentials."""
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "0001_session_revocation"
 down_revision = None

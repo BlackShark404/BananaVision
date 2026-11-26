@@ -112,10 +112,9 @@ async def test_nested_work_counts_once_and_failure_releases_admission():
 async def test_restore_generation_revokes_token_without_changing_account_version(application):
     from app.api.deps import get_current_user
     from app.core.security import create_access_token
+    from app.models.user_account import UserAccount
     from app.services import maintenance_state
     from tests.test_time_and_writes import SessionAdapter
-    from sqlalchemy import update
-    from app.models.user_account import UserAccount
 
     async with SessionAdapter(application.engine, application.state) as db:
         account = await db.scalar(__import__("sqlalchemy").select(UserAccount).where(UserAccount.id == application.ids.admin))

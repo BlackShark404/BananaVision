@@ -1,6 +1,6 @@
 """Business timestamps share one zone; existing database instants never move."""
 
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta, timezone
 
 # Manila is UTC+8 without DST for the system's operational dates. A fixed zone
 # also works on Windows without requiring a separate tzdata installation.
@@ -15,7 +15,7 @@ def now_manila() -> datetime:
 def as_manila(value: datetime) -> datetime:
     """Normalize stored timestamps; legacy zone-less database values are UTC."""
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
+        value = value.replace(tzinfo=UTC)
     return value.astimezone(MANILA)
 
 
