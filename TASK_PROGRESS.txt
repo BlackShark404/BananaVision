@@ -1,4 +1,4 @@
-CURRENT RESUME HERE (2026-11-25) - SUPPLIER INVENTORY VERIFICATION MODAL
+CURRENT RESUME HERE (2026-11-26) - SUPPLIER INVENTORY VERIFICATION (MERGED WITH AUDIT FIXES)
 
 USER REQUEST (2026-11-25)
 - Inventory checking must not redirect to Scan Logs. Sir Jayvee requires a dedicated page or
@@ -56,9 +56,58 @@ VERIFIED (2026-11-25)
   exact pre-existing baseline; targeted lint introduced no new diagnostics.
 - Not run: full backend suite, Ruff (not installed), live station data.
 
+MERGE RESOLUTION (2026-11-26)
+- Merged `origin/main` commit 1652566 (audit fixes). Kept the supplier verification modal and
+  expected-stock tracking; took the staggered spoilage seed window, xlsx sheet-title escaping,
+  analytics/backup fixes, Ruff cleanup and updated docs.
+- The incoming Received by Supplier "Unknown Supplier opens Scan Logs" fix is superseded: every
+  supplier row, including unknown sources, opens the verification modal. The old
+  `supplierReceipts` docs and persistence case were removed rather than reintroduced.
+- Seed combines the per-group spoilage base times with the `i3_scans` tracking used by the
+  expected-stock demo statuses.
+
+AUDIT FIXES FROM ORIGIN/MAIN (2026-11-26)
+
+USER REQUEST (2026-11-26)
+- Read-only audit of Lawrence S. Ramirez commits `e562b2c..2992f73` found 0 Critical, 0 High,
+  1 Medium and 3 Low issues. User approved and authorized all fixes, commit and push.
+
+DONE
+- [Medium-1] `backend/seed.py`: BCH-SPOIL1 intake starts one day earlier, while all five
+  spoilage scans stay dated yesterday. Under ethephon treatment the predictor gives each group
+  two days or less remaining, and the five projected cultivar/ripeness stages stay distinct.
+  `backend/tests/test_seed.py` checks projected groups with the loaded RFR predictor.
+- [Low-1] Superseded during merge: the Received by Supplier card no longer exists, so the
+  unknown-source Scan Logs link was not reintroduced. Unknown sources now open the supplier
+  verification modal with sourced scans and unlinked counts.
+- [Low-2] `backend/app/core/xlsx.py`: custom sheet titles are XML-escaped and sanitized
+  (31 chars, no `[]:*?/\`); OPC part paths unchanged. New test in `test_exports.py`.
+- [Low-3] Ruff cleanup in Lawrence-touched export/analytics/backup files: 53 -> 32 diagnostics
+  across the 8 touched files, 0 new (remaining 32 are older debt).
+- Docs: `docs/knowledge/Frontend.md` (unknown-supplier link, seed staggering).
+
+VERIFIED (2026-11-26)
+- Disposable PostgreSQL 18 pytest (temp clusters on 127.0.0.1:55442/55443, stopped and deleted):
+  first run of 7 suites 95 passed / 1 failed / 4 skipped (Windows tzset); after the test_seed
+  predictor fix, `test_seed.py` + `test_seed_kiosk_contract.py` + `test_analytics.py` 42 passed.
+  `test_exports.py`, `test_backup_archive.py`, `test_ripeness_projection.py` and
+  `test_manila_time_guard.py` passed in the first run.
+- Frontend: `persistence.test.mjs` 23/23 on the audit branch; `manilaTime` and `clientexports`
+  passed (the `supplierReceipts` test was later superseded by `supplierVerification`).
+  `npx tsc -b` 0 errors; `npx eslint src/pages/Inventory.tsx` clean;
+  `npm run lint` 36 problems (31 errors, 5 warnings) = unchanged baseline; `npm run build` passed.
+
+MERGE VERIFICATION (2026-11-26)
+- Backend with disposable PostgreSQL 17 (127.0.0.1:55444, removed after): seed, kiosk
+  contract, migrations, backup archive/restore, writes, analytics and exports: 147 passed.
+- Merged spoilage regression fixed: ethephon Lakatan Ripe predicts about 2.5 days, so moving its
+  scan one day earlier projected Overripe and collapsed two demo groups. All five alert scans
+  now use yesterday's time; five distinct projected stages and <=2 days remaining hold.
+- Frontend: `persistence.test.mjs` 24 passed; `tsc -b`, targeted ESLint and `npm run build`
+  passed.
+
 EXACT NEXT STEP
-- Review the scoped diff; reseed a development DB to see the four demo statuses. Nothing is
-  staged or committed.
+- Merge is resolved but not committed. Review the merge diff, then commit when authorized.
 
 PREVIOUS RESUME (2026-11-25) - LIVE DERIVED-ON-READ RIPENESS PROGRESSION, ICON AUDIT & INVENTORY UPDATES
 

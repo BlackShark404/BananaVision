@@ -23,7 +23,7 @@ from app.schemas.enums import IntakeStatusEnum
 from app.schemas.scan_logs import ScanLogQuery
 from app.services import analytics, scan_logs, scan_records
 from app.services.feature_engineering import calc_vpd
-from app.services.inventory_policy import remaining_shelf_life
+from app.services.inventory_policy import remaining_shelf_life, ripeness_projection
 from app.services.spoilage import SpoilagePredictor
 
 pytestmark = pytest.mark.skipif(
@@ -132,9 +132,23 @@ async def test_seed_includes_five_spoilage_alert_groups_for_inventory_pagination
         assert len(alert_scans) == 5
         assert len({(s.classification.cultivar, s.classification.ripeness) for s in alert_scans}) == 5
         as_of = max(s.date_time for s in alert_scans) + timedelta(days=1)
+        # Project with the same loaded predictor the app uses, not the unloaded global fallback.
+        predictor = SpoilagePredictor()
+        predictor.load()
+        projected_groups = set()
         for scan in alert_scans:
-            remaining = remaining_shelf_life(scan.classification.spoilage_days, scan.date_time, as_of)
+            c = scan.classification
+            remaining = remaining_shelf_life(c.spoilage_days, scan.date_time, as_of)
             assert remaining is not None and remaining <= 2
+            proj = ripeness_projection(
+                c.ripeness, c.cultivar, c.spoilage_days, scan.date_time, as_of,
+                temperature=c.temperature, humidity=c.humidity,
+                vpd=c.vpd, treatment=c.treatment, inventory_status="In Stock",
+                predictor=predictor,
+            )
+            assert proj is not None
+            projected_groups.add((c.cultivar.value, proj["current_ripeness"]))
+        assert len(projected_groups) == 5
 
 
 async def test_seed_records_expected_stock_for_verification_demos(empty_seed_database):

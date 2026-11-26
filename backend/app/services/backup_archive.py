@@ -371,12 +371,17 @@ def model_prerequisites():
     settings = get_settings()
     result = {}
     # The files the backend actually loads, packaged fallbacks included.
-    for name, configured in [('classifier', settings.yolo_model_path), ('spoilage', settings.rfr_model_path)]:
+    model_specs = (
+        ("classifier", settings.yolo_model_path),
+        ("spoilage", settings.rfr_model_path),
+    )
+    for name, configured in model_specs:
         path = (
             SpoilagePredictor.resolve_model_path(configured)
             if name == "spoilage" else classification.resolve_model_path(configured)
         )
-        result[name] = {'filename': path.name, 'sha256': _hash_file(path) if path.is_file() else None}
+        sha256 = _hash_file(path) if path.is_file() else None
+        result[name] = {"filename": path.name, "sha256": sha256}
     return result
 
 

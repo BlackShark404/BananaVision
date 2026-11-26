@@ -22,13 +22,26 @@ from app.models.scan_history import ScanEvent
 from app.models.scan_original_ai_result import ScanOriginalAiResult
 from app.models.user_account import UserAccount
 from app.schemas.analytics import (
-    AnalyticsSummary, CultivarCount, CultivarRipeness, HourlyCount,
-    OperatorPerformance, OperatorPerformanceList, RipenessConfidence,
-    RipenessDistribution, ScanTrend, SourceCount, SourceOption,
+    AnalyticsSummary,
+    CultivarCount,
+    CultivarRipeness,
+    HourlyCount,
+    OperatorPerformance,
+    OperatorPerformanceList,
+    RipenessConfidence,
+    RipenessDistribution,
+    ScanTrend,
+    SourceCount,
+    SourceOption,
 )
 from app.schemas.enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
 from app.services.dashboard import (
-    _expiring, _mean, _scoped_projection, _source, _source_filter, _threshold,
+    _expiring,
+    _mean,
+    _scoped_projection,
+    _source,
+    _source_filter,
+    _threshold,
 )
 from app.services.inventory_policy import eligible_stock
 
@@ -59,7 +72,8 @@ METRIC_DEFINITIONS = {
         "Unknown estimates are excluded."
     ),
     "confidence_by_ripeness": (
-        "Compares average AI confidence against human-verified accuracy for each predicted ripeness stage. "
+        "Compares average AI confidence against human-verified accuracy "
+        "for each predicted ripeness stage. "
         "Stages with no verified scans show confidence only."
     ),
     "trend": (
@@ -75,8 +89,9 @@ METRIC_DEFINITIONS = {
     ),
     "hourly": "Scans grouped by time of day in Asia/Manila.",
     "human_verified_accuracy": (
-        "Percentage of admin-reviewed scans where the original AI cultivar and ripeness matched the final verified result. "
-        "Includes QC flag removals and admin corrections; finger-count or spoilage-only edits do not count as classification errors. "
+        "Percentage of admin-reviewed scans where the original AI cultivar and ripeness "
+        "matched the final verified result. Includes QC flag removals and admin corrections; "
+        "finger-count or spoilage-only edits do not count as classification errors. "
         "Unreviewed scans are excluded."
     ),
 }
@@ -304,7 +319,9 @@ async def get_summary(
             func.count().filter(and_(stock, scans.c.remaining_days.is_(None))).label("unknown_risk"),
             func.count().filter(verified).label("verified_count"),
             func.count().filter(and_(verified, matches)).label("verified_correct"),
-            func.count().filter(and_(verified, overridden_classification)).label("overridden_classifications"),
+            func.count().filter(
+                and_(verified, overridden_classification),
+            ).label("overridden_classifications"),
         ).select_from(scans).where(*conditions)
     )).one()
 
@@ -408,10 +425,17 @@ async def get_summary(
                     * 100,
                     1,
                 )
-                if r.value in confidence_by_ripeness and confidence_by_ripeness[r.value].verified_count
+                if (
+                    r.value in confidence_by_ripeness
+                    and confidence_by_ripeness[r.value].verified_count
+                )
                 else None
             ),
-            verifiedCount=confidence_by_ripeness[r.value].verified_count if r.value in confidence_by_ripeness else 0,
+            verifiedCount=(
+                confidence_by_ripeness[r.value].verified_count
+                if r.value in confidence_by_ripeness
+                else 0
+            ),
         ) for r in RipenessEnum],
         scans_by_source=[SourceCount(key=_source(r)[0], name=r.source_name, count=r.count) for r in source_rows],
         scan_trend=[ScanTrend(

@@ -14,23 +14,23 @@ from uuid import uuid4
 from zipfile import ZipFile
 
 import pytest
+from app.api.deps import get_current_user
+from app.api.v1 import config
+from app.api.v1 import scan_logs as logs_api
+from app.core.database import Base, get_db, get_stream_db
+from app.core.export_format import SCAN_EXPORT_HEADERS, format_scan_ref
+from app.core.xlsx import build_xlsx, number_text
+from app.models.scan import Scan
+from app.models.scan_classification import ScanClassification
+from app.models.scan_original_ai_result import ScanOriginalAiResult
+from app.schemas.enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
+from app.services import auth_service, scan_logs
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.compiler import compiles
 
-from app.api.deps import get_current_user
-from app.api.v1 import config
-from app.api.v1 import scan_logs as logs_api
-from app.core.database import Base, get_db, get_stream_db
-from app.core.export_format import SCAN_EXPORT_HEADERS, format_scan_ref
-from app.core.xlsx import number_text
-from app.models.scan import Scan
-from app.models.scan_classification import ScanClassification
-from app.models.scan_original_ai_result import ScanOriginalAiResult
-from app.schemas.enums import CultivarEnum, InventoryStatusEnum, RipenessEnum
-from app.services import auth_service, scan_logs
 from tests.test_dashboard import NOW, account, db, scan  # noqa: F401
 from tests.test_scan_logs import logs_db  # noqa: F401
 
@@ -343,25 +343,25 @@ def test_human_friendly_freshness_review_and_finger_count_rules(export_app, logs
         assert len(rows) == 6
 
         by_source = {row[2]: row for row in rows}
-        # Active scan: Scan Ref, Scanned/Current Ripeness, Est. 14 fingers, 10–11 days, 8–9 days left, Approved, numeric 89.8/26.4/72.6.
+        # Active scan: Scan Ref, Scanned/Current Ripeness, Est. 14 fingers, numeric 89.8/26.4/72.6.
         assert by_source["Davao Farm"][0] == format_scan_ref(active_id)
         assert by_source["Davao Farm"][4:15] == [
-            "Ripe", "Ripe", "Est. 14 fingers", "10–11 days", "8–9 days left", "In Stock", "Approved",
-            "89.8", "26.4", "72.6", "Maria Santos",
+            "Ripe", "Ripe", "Est. 14 fingers", "10–11 days", "8–9 days left",
+            "In Stock", "Approved", "89.8", "26.4", "72.6", "Maria Santos",
         ]
-        # Final day scan (Semi Ripe scanned 3 days ago with 2-3d shelf life): progressed to Est. Overripe, human-corrected count -> "12 fingers" (no Est.), Needs Review.
+        # Final day scan (Semi Ripe 3d ago, 2-3d life): Est. Overripe, human count "12 fingers".
         assert by_source["Bukidnon Growers"][0] == format_scan_ref(final_id)
         assert by_source["Bukidnon Growers"][3:12] == [
             "Latundan", "Semi Ripe", "Est. Overripe", "12 fingers", "2–3 days", "Final day",
             "In Stock", "Needs Review", "74.2",
         ]
-        # Overdue by 1 day: already Overripe at scan -> plain "Overripe", count unchanged from AI baseline -> "Est. 1 finger".
+        # Overdue by 1 day: already Overripe at scan -> plain "Overripe", AI count "Est. 1 finger".
         assert by_source["Cebu Co-op"][0] == format_scan_ref(overdue_id)
         assert by_source["Cebu Co-op"][3:11] == [
             "Cardaba", "Overripe", "Overripe", "Est. 1 finger", "3 days", "Overdue by 1 day",
             "In Stock", "Approved",
         ]
-        # Closed stock freezes Est. Current Ripeness to "—" and shows outcome in Freshness/Inventory Status.
+        # Closed stock freezes Est. Current Ripeness to "—" and shows outcome in Freshness/Status.
         assert by_source["Closed Sold"][5] == "—"
         assert by_source["Closed Sold"][8:10] == ["Sold", "Sold"]
         assert by_source["Closed For Processing"][5] == "—"
@@ -369,7 +369,7 @@ def test_human_friendly_freshness_review_and_finger_count_rules(export_app, logs
         assert by_source["Closed Spoiled"][5] == "—"
         assert by_source["Closed Spoiled"][8:10] == ["Spoiled", "Spoiled"]
 
-        # PDF parity: every formatted value from XLSX (including Scan Ref) is present in the PDF output.
+        # PDF parity: every formatted value from XLSX (including Scan Ref) appears in the PDF.
         _, pdf_text = extract_pdf_text(pdf_resp.content)
         for row in rows:
             for value in row:
@@ -435,7 +435,7 @@ def test_xlsx_preserves_whitespace_and_null_optional_values_are_blank(export_app
         assert root.findall("m:sheetData/m:row", NS)[1].find(
             "m:c[@r='O2']/m:is/m:t", NS,
         ).attrib[XML_SPACE] == "preserve"
-        # Optional fields (Source, Cultivar, Scanned Ripeness, Est. Current Ripeness, Shelf Life, Freshness, Confidence, Temp, Humidity) are blank.
+        # Optional fields (Source, Cultivar, Ripeness, Shelf Life, Metrics) are blank.
         for ref in ("C2", "D2", "E2", "F2", "H2", "I2", "L2", "M2", "N2"):
             assert rows[1][ref][0] is None, (ref, rows[1][ref])
 
@@ -476,3 +476,21 @@ def test_empty_exports_keep_headers_and_media_contract(export_app, logs_db):
         assert "Total records: 0" in text
         assert "No matching records." in text
         assert "Scan" in text and "Ref" in text and "Operator" in text
+
+
+def test_build_xlsx_escapes_and_sanitizes_custom_sheet_names():
+    raw = build_xlsx(
+        ["Scan Ref", "Notes"],
+        [["SCAN-12345678", "OK"]],
+        sheet_name='Scan & "Logs" / [Summary]:*?',
+        timestamp=NOW,
+    )
+    with ZipFile(io.BytesIO(raw)) as archive:
+        assert "xl/worksheets/sheet1.xml" in archive.namelist()
+        wb = ET.fromstring(archive.read("xl/workbook.xml"))
+        ct = ET.fromstring(archive.read("[Content_Types].xml"))
+        rels = ET.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
+    sheet_el = wb.find("m:sheets/m:sheet", NS)
+    assert sheet_el is not None
+    assert sheet_el.attrib["name"] == 'Scan & "Logs"    Summary'
+    assert ct is not None and rels is not None

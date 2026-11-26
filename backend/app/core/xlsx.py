@@ -45,6 +45,18 @@ def escape_xml(value: str) -> str:
     return saxutils.escape(clean_xml_text(value))
 
 
+def escape_xml_attr(value: str) -> str:
+    return saxutils.escape(clean_xml_text(value), {'"': "&quot;", "'": "&apos;"})
+
+
+def safe_sheet_title(name: str) -> str:
+    """Apply Excel worksheet tab-name rules (31 chars, no reserved characters)."""
+    if not name or name == "sheet1":
+        return "Sheet1"
+    cleaned = re.sub(r"[:\\/?*\[\]]", " ", name).strip()
+    return (cleaned or "Sheet1")[:31]
+
+
 def display_width(value: str) -> int:
     """Approximate visible cell width, counting wide CJK characters as two."""
     width = 0
@@ -207,6 +219,8 @@ def build_xlsx(
         f'</worksheet>'
     )
 
+    tab_title = escape_xml_attr(safe_sheet_title(sheet_name))
+
     content_types_xml = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
         '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n'
@@ -215,7 +229,7 @@ def build_xlsx(
         '  <Default Extension="xml" ContentType="application/xml"/>\n'
         '  <Override PartName="/xl/workbook.xml" ContentType="application/'
         'vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>\n'
-        f'  <Override PartName="/xl/worksheets/{sheet_name}.xml" ContentType="application/'
+        '  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/'
         'vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>\n'
         '  <Override PartName="/xl/styles.xml" ContentType="application/'
         'vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>\n'
@@ -232,9 +246,10 @@ def build_xlsx(
 
     workbook_xml = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
-        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">\n'
+        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">\n'
         '  <sheets>\n'
-        '    <sheet name="Sheet1" sheetId="1" r:id="rId1"/>\n'
+        f'    <sheet name="{tab_title}" sheetId="1" r:id="rId1"/>\n'
         '  </sheets>\n'
         '</workbook>'
     )
@@ -243,7 +258,7 @@ def build_xlsx(
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
         '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n'
         '  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/'
-        f'officeDocument/2006/relationships/worksheet" Target="worksheets/{sheet_name}.xml"/>\n'
+        'officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>\n'
         '  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/'
         'officeDocument/2006/relationships/styles" Target="styles.xml"/>\n'
         '</Relationships>'
@@ -301,6 +316,6 @@ def build_xlsx(
         zf.writestr(part("xl/workbook.xml"), workbook_xml)
         zf.writestr(part("xl/_rels/workbook.xml.rels"), workbook_rels_xml)
         zf.writestr(part("xl/styles.xml"), styles_xml)
-        zf.writestr(part(f"xl/worksheets/{sheet_name}.xml"), worksheet_xml)
+        zf.writestr(part("xl/worksheets/sheet1.xml"), worksheet_xml)
 
     return buf.getvalue()
