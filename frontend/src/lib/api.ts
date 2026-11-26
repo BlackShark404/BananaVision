@@ -314,6 +314,8 @@ export const api = {
     scanRevisions: (id: string) => get<{ revisions: Record<string, number> }>(`/api/v1/intakes/${id}/scan-revisions`),
     bulkInventory: (id: string, data: { inventory_status: InventoryStatus; request_id: string; expected_revisions: Record<string, number>; reason: string }) =>
       patch<{ revisions: Record<string, number>; updated_count: number; updated_scan_ids: string[]; status_updated_at: string; intake_status: IntakeStatus }>(`/api/v1/intakes/${id}/bulk-inventory`, data),
+    setExpectedStock: (id: string, items: { cultivar: string; expected_bunches: number }[]) =>
+      patch<ApiIntake>(`/api/v1/intakes/${id}/expected-stock`, { items }),
   },
 
   // Dashboard metrics and their record views share server-enforced user scope.

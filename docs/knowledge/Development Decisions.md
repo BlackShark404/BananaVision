@@ -2,6 +2,14 @@
 
 Documented architectural, technical, and operational decisions in BananaVision.
 
+## 2026-11-25: Supplier inventory verification and expected received stock
+
+- **Recorded baseline:** New `intake_expected_stock` rows store expected received bunches per delivery intake and cultivar (positive counts, unique intake + cultivar, cascade on intake delete). Expected stock is **not** inferred from scans, so verification has an independent baseline. Migration `0014_expected_stock`; admins replace rows through `PATCH /api/v1/intakes/{id}/expected-stock`, which writes the `intake_expected_stock` audit action.
+- **Verification:** Inventory's supplier row opens `SupplierInventoryModal` instead of Scan Logs. `frontend/src/lib/supplierVerification.ts` compares expected rows with scans from `ScanContext`; intake-linked scans match their delivery, source-only scans stay visible as unlinked. Verdicts are **Complete** (totals and every variety match), **Partial** (same varieties, short quantity), **Incomplete** (expected but no scans), **Discrepancy** (over-count, unexpected variety, or any delivery-level mismatch), and **Not recorded** for legacy intakes without expected rows.
+- **Scope:** No database backfill for existing intakes; administrators record expected stock when it becomes available. Operators see verification for the scans their role can read.
+- **Backups:** Archive format moves to version 6 with the new table in `TABLE_NAMES`. `archive_schema_v5.json` preserves v5 validation; older archives restore the new table as empty.
+- **Demo data:** `backend/seed.py` records expected rows so the demo shows all four required statuses: complete intake, one discrepant intake, one partial intake, and one expected-but-unscanned intake.
+
 ## 2026-11-25: Derived-on-read live ripeness progression
 
 - **Architecture:** Mirrors `shelf_life_window` — stored `scan_classification.ripeness` and `scan_original_ai_result.ripeness` are never mutated in PostgreSQL, and no database migration is required.

@@ -5,6 +5,7 @@ import io
 import os
 import xml.etree.ElementTree as ET
 import zipfile
+from collections import Counter
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
@@ -134,6 +135,30 @@ async def test_seed_includes_five_spoilage_alert_groups_for_inventory_pagination
         for scan in alert_scans:
             remaining = remaining_shelf_life(scan.classification.spoilage_days, scan.date_time, as_of)
             assert remaining is not None and remaining <= 2
+
+
+async def test_seed_records_expected_stock_for_verification_demos(empty_seed_database):
+    await seed.main()
+    async with empty_seed_database.sessions() as db:
+        intakes = {
+            intake.batch_number: intake
+            for intake in (await db.scalars(select(Intake))).all()
+        }
+        def expected(intake):
+            return Counter({
+                row.cultivar.value: row.expected_bunches for row in intake.expected_stock
+            })
+        def scanned(intake):
+            return Counter(scan.classification.cultivar.value for scan in intake.scans)
+        complete = intakes["BCH-1A2B3C"]
+        assert expected(complete) == scanned(complete)
+        discrepancy = intakes["BCH-9X8Y7Z"]
+        assert sum(expected(discrepancy).values()) == sum(scanned(discrepancy).values())
+        assert expected(discrepancy) != scanned(discrepancy)
+        partial = intakes["BCH-SPOIL1"]
+        assert sum(expected(partial).values()) == 7 and len(partial.scans) == 5
+        pending = intakes["BCH-PENDING"]
+        assert expected(pending) == Counter({"Lakatan": 4}) and pending.scans == []
 
 
 async def test_seeder_loads_shared_predictor_before_generating_scans(empty_seed_database, monkeypatch):

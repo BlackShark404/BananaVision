@@ -10,13 +10,13 @@ BananaVision's frontend is a React 19 single-page application built with Vite, T
 - Test: the pagination case in `frontend/tests/persistence.test.mjs` proves three groups on page 1, the remaining two on page 2, and the return to page 1.
 - Demo seed: `backend/seed.py` adds an open ethephon intake from the previous day with five near-expiry cultivar/ripeness groups, so a reseeded development database always shows two Spoilage Alerts pages. `backend/tests/test_seed.py` checks the five groups and their remaining life.
 
-## Inventory: received bunches per supplier (2026-11-25)
+## Inventory: supplier inventory verification (2026-11-25)
 
-- The Inventory page adds a **Received by Supplier** card (`frontend/src/pages/Inventory.tsx`) that answers how many banana bunches each supplier delivered and which varieties they were.
-- `frontend/src/lib/supplierReceipts.ts` groups the scans already loaded by `ScanContext`; every recorded scan counts as one received bunch, including Sold, For Processing and Spoiled stock. Missing sources read `Unknown Supplier`; missing cultivars read `Variety unknown`.
-- Suppliers sort by bunch count (descending), then by name. Varieties sort Lakatan, Latundan, Cardaba, then any unknown label. The card header shows the total bunches in scope.
-- The card respects the page's source filter, and a supplier row opens Scan Logs filtered to that source. No backend, API or schema change.
-- Tests: `frontend/tests/supplierReceipts.test.mjs` (grouping and ordering) and the Inventory case in `frontend/tests/persistence.test.mjs` (per-supplier totals, variety badges, sold stock still received).
+- The Inventory page's **Supplier Verification** card (`frontend/src/pages/Inventory.tsx`) replaces the Scan Logs redirect. Each supplier row opens `frontend/src/components/SupplierInventoryModal.tsx`; nothing in this checking flow navigates to Scan Logs.
+- `frontend/src/lib/supplierVerification.ts` compares expected received stock (`daily_intake.expected_stock`, per variety) with the scans already loaded by `ScanContext`. Scans linked to an intake are matched to that delivery; scans that only carry the supplier name stay visible as unlinked.
+- Statuses: **Complete** (all recorded stock scanned with matching varieties), **Partial** (same varieties, fewer scans than expected), **Incomplete** (expected stock but no scans), **Discrepancy** (extra scans, a scanned variety with no expected quantity, or any delivery-level mismatch), and **Not recorded** (legacy intake without expected stock).
+- The modal shows supplier-level expected/scanned/remaining totals, a progress bar, per-variety scanned/expected badges, and one verification row per delivery with batch, date, status, variety match and expected vs scanned. Admins record or edit expected bunches per variety inline; `PATCH /api/v1/intakes/{id}/expected-stock` replaces the recorded rows and writes an `intake_expected_stock` audit entry.
+- Tests: `frontend/tests/supplierVerification.test.mjs` (statuses, unlinked scans, aggregation) and the verification/modal cases in `frontend/tests/persistence.test.mjs` (color statuses, no navigation away from Inventory, admin expected-stock save).
 
 ## Public QR page shows only the scanned data (2026-11-13)
 

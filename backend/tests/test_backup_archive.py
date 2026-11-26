@@ -72,6 +72,9 @@ def station(tmp_path):
         intake = m.Intake(source="Supplier", supplier_id=supplier.id, intake_date=date(2025, 1, 2))
         db.add(intake)
         db.flush()
+        db.add(m.IntakeExpectedStock(
+            intake_id=intake.id, cultivar=CultivarEnum.LAKATAN, expected_bunches=5,
+        ))
         db.add(m.Scan(id=scan_id, operator_id=operator.id, intake_id=intake.id, date_time=instant))
         db.flush()
         db.add_all([
@@ -151,8 +154,8 @@ def rewrite(path, *, edit_manifest=None, edit_row=None, extra=None, omit=None):
 def test_complete_all_table_roundtrip_preserves_values_and_instants(archive_module, station, tmp_path):
     path = backup(archive_module, station, tmp_path)
     validated = archive_module.validate_archive(path, tmp_path / "staging")
-    assert validated.manifest["version"] == 5
-    assert len(validated.manifest["tables"]) == 22
+    assert validated.manifest["version"] == 6
+    assert len(validated.manifest["tables"]) == 23
     assert all(t["count"] == 1 for t in validated.manifest["tables"].values())
     assert "maintenance_state" not in validated.manifest["tables"]
     assert "scan_label_print_job" not in validated.manifest["tables"]
@@ -167,6 +170,7 @@ def test_complete_all_table_roundtrip_preserves_values_and_instants(archive_modu
         assert restored.scalar(select(m.ScanClassification)).confidence == Decimal("91.25")
         assert restored.scalar(select(m.ActivityLog)).actor_name == "Admin"
         assert restored.scalar(select(m.ScanClassification)).cultivar == CultivarEnum.LAKATAN
+        assert restored.scalar(select(m.IntakeExpectedStock)).expected_bunches == 5
         assert restored.scalar(select(m.ScanDetection)).bounding_boxes == [
             {"xyxy": [1, 2, 3, 4], "confidence": 0.9125, "extra": None}]
         assert restored.scalar(select(m.ScanImage)).file_path == f"/captures/{station[2]}/camera.jpg"

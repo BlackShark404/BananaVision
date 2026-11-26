@@ -40,6 +40,7 @@ TABLE_NAMES = frozenset({
     "activity_log", "system_config", "app_notification",
     "app_notification_read", "sensor_reading",
     "scan_event", "scan_mutation", "scan_tombstone",
+    "intake_expected_stock",
 })
 LEGACY_SCHEMA = json.loads(
     Path(__file__).with_name("archive_schema_v1.json").read_text(encoding="utf-8")
@@ -52,6 +53,9 @@ V3_SCHEMA = json.loads(
 )
 V4_SCHEMA = json.loads(
     Path(__file__).with_name("archive_schema_v4.json").read_text(encoding="utf-8")
+)
+V5_SCHEMA = json.loads(
+    Path(__file__).with_name("archive_schema_v5.json").read_text(encoding="utf-8")
 )
 MAX_ARCHIVE_BYTES = 4 * 1024**3
 MAX_EXPANDED_BYTES = 8 * 1024**3
@@ -377,7 +381,7 @@ def model_prerequisites():
 
 
 def _new_manifest() -> dict:
-    return {"format": "bananavision-station", "version": 5,
+    return {"format": "bananavision-station", "version": 6,
             "application_version": "0.1.0", "created_at": now_manila().isoformat(),
             "schema": schema_description(), "tables": {}, "files": {},
             "prerequisites": {"database": "PostgreSQL", "timezone": "Asia/Manila",
@@ -841,13 +845,25 @@ def _upgrade_to_current(manifest, root):
                 raise ArchiveError("Table count mismatch")
 
 
+def _add_missing_tables(manifest, root):
+    """Give an older archive an empty file for tables added after it was written."""
+    digest = hashlib.sha256(b"").hexdigest()
+    for table in application_tables():
+        if table.name in manifest["tables"]:
+            continue
+        path = root / "tables" / f"{table.name}.jsonl"
+        path.write_bytes(b"")
+        manifest["tables"][table.name] = _descriptor(0, digest, 0)
+
+
 def _upgrade_staging(manifest, root):
-    """Strictly adapt v1/v2/v3/v4 archives to the current normalized schema.
+    """Strictly adapt older archives to the current normalized schema.
 
     The original archive hash remains authoritative. Only private staged rows and
     their descriptors change, so restore/compensation verify exactly what is inserted.
     No actors, old classifications or events can be inferred from present-day data.
     """
+    _add_missing_tables(manifest, root)
     _upgrade_to_v3(manifest, root)
     _upgrade_to_current(manifest, root)
 
@@ -888,10 +904,11 @@ def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
             if (
                 manifest["format"] != "bananavision-station"
                 or type(manifest["version"]) is not int
-                or manifest["version"] not in (1, 2, 3, 4, 5)
+                or manifest["version"] not in (1, 2, 3, 4, 5, 6)
             ):
                 raise ArchiveError("Unsupported archive version")
-            expected_schema = {1: LEGACY_SCHEMA, 2: V2_SCHEMA, 3: V3_SCHEMA, 4: V4_SCHEMA}.get(
+            expected_schema = {1: LEGACY_SCHEMA, 2: V2_SCHEMA, 3: V3_SCHEMA, 4: V4_SCHEMA,
+                               5: V5_SCHEMA}.get(
                 manifest["version"], schema_description()
             )
             if manifest["application_version"] != "0.1.0" or manifest["schema"] != expected_schema:
@@ -932,7 +949,7 @@ def validate_archive(archive: Path, staging_root: Path) -> ValidatedBackup:
                 path = evidence_root.joinpath(*name.split("/"))
                 _copy_member(source, f"evidence/{name}", path, descriptor)
                 evidence[name] = path
-        if manifest["version"] < 5:
+        if manifest["version"] < 6:
             _upgrade_staging(manifest, owned)
         validated = ValidatedBackup(manifest, owned, evidence_root, evidence, _hash_file(archive))
         _check_constraints(validated)

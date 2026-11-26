@@ -77,6 +77,14 @@ async function setup(t, options = {}) {
         state.scans[0].inventory_status = body.inventory_status
         return reply({ revisions: { "scan-0": ++state.scans[0].revision }, updated_scan_ids: ["scan-0"], updated_count: 1, status_updated_at: storedDate(0), intake_status: "Depleted" })
       }
+      const expectedMatch = url.pathname.match(/^\/api\/v1\/intakes\/([^/]+)\/expected-stock$/)
+      if (expectedMatch) {
+        const intake = state.intakes.find(item => item.id === expectedMatch[1])
+        if (!intake) return reply({ detail: "Intake not found" }, 404)
+        intake.expected_stock = body.items.map(item => ({ cultivar: item.cultivar, expected_bunches: item.expected_bunches }))
+        intake.updated_at = storedDate(0)
+        return reply(intake)
+      }
       return reply({ detail: `Unexpected successful test write: ${url.pathname}` }, 400)
     }
     if (url.pathname === "/api/v1/scans") {
@@ -210,26 +218,84 @@ test("inventory finger totals drop Est. only when every counted scan was correct
   await page.getByText(/^Est\. /).first().waitFor()
 })
 
-test("inventory totals bunches received per supplier and variety, including sold stock", async t => {
-  const records = rows(5).map((row, index) => ({
-    ...row,
-    intake_id: null, intake_provenance: "unlinked", inventory_eligible: true,
-    source_text: index < 3 ? "Supplier Alpha" : "Supplier Beta",
-    cultivar: ["Lakatan", "Lakatan", "Cardaba", "Latundan", "Lakatan"][index],
-    inventory_status: index === 4 ? "Sold" : "In Stock",
-  }))
-  const { page } = await setup(t, { screen: "inventory", scans: records })
-  await page.getByText("Received by Supplier", { exact: true }).waitFor()
-  await page.getByText("5 bunches", { exact: true }).waitFor()
-  await page.getByText("Supplier Alpha", { exact: true }).first().waitFor()
-  await page.getByText("3 bunches", { exact: true }).waitFor()
-  await page.getByText("Supplier Beta", { exact: true }).first().waitFor()
-  await page.getByText("2 bunches", { exact: true }).waitFor()
-  await page.getByText("Lakatan · 2", { exact: true }).waitFor()
-  await page.getByText("Cardaba · 1", { exact: true }).waitFor()
-  await page.getByText("Latundan · 1", { exact: true }).waitFor()
-  // One of the three Lakatan bunches was sold: receipts still show all five bunches.
-  await page.getByText("2 hands in stock", { exact: true }).waitFor()
+test("supplier verification opens in a modal with expected vs scanned and statuses", async t => {
+  const expected = (slug, supplier, cultivar, bunches) => ({
+    id: `intake-${slug}`, supplier_id: "supplier-1", supplier_name: supplier,
+    batch_number: `BCH-${slug}`, intake_date: storedDate(0), status: "Active", scan_count: 0,
+    expected_stock: [{ cultivar, expected_bunches: bunches }],
+  })
+  const intakes = [
+    expected("complete", "Complete Co", "Lakatan", 2),
+    expected("partial", "Partial Co", "Latundan", 3),
+    expected("over", "Discrepancy Co", "Lakatan", 2),
+    expected("empty", "Incomplete Co", "Cardaba", 2),
+  ]
+  const records = []
+  for (const [supplier, intakeId, cultivar, count] of [
+    ["Complete Co", "intake-complete", "Lakatan", 2],
+    ["Partial Co", "intake-partial", "Latundan", 2],
+    ["Discrepancy Co", "intake-over", "Lakatan", 2],
+    ["Discrepancy Co", "intake-over", "Cardaba", 1],
+  ]) {
+    for (let index = 0; index < count; index++) {
+      records.push({
+        ...rows(1)[0], id: `scan-${records.length}`, source_text: supplier,
+        intake_id: intakeId, intake_provenance: "linked", inventory_eligible: true, cultivar,
+      })
+    }
+  }
+  const { page } = await setup(t, { screen: "inventory", scans: records, intakes })
+  await page.getByText("Supplier Verification", { exact: true }).waitFor()
+  await page.getByText("7 bunches", { exact: true }).waitFor()
+  for (const verdict of ["Complete", "Partial", "Discrepancy", "Incomplete"]) {
+    await page.getByText(verdict, { exact: true }).waitFor()
+  }
+  await page.getByText("Expected 2 · Scanned 2", { exact: true }).waitFor()
+  await page.getByText("Expected 3 · Scanned 2", { exact: true }).waitFor()
+  await page.getByText("Expected 2 · Scanned 3", { exact: true }).waitFor()
+  await page.getByText("Expected 2 · Scanned 0", { exact: true }).waitFor()
+  const url = page.url()
+
+  await page.getByText("Complete Co", { exact: true }).first().click()
+  const dialog = page.getByRole("dialog")
+  await dialog.waitFor()
+  await dialog.getByText("All received stock was scanned and matches the recorded varieties.").waitFor()
+  await dialog.getByText("Scan Verification by Delivery", { exact: true }).waitFor()
+  assert.equal(page.url(), url, "Verification opens without leaving Inventory")
+  await page.keyboard.press("Escape")
+  await dialog.waitFor({ state: "hidden" })
+
+  await page.getByText("Incomplete Co", { exact: true }).first().click()
+  await dialog.waitFor()
+  await dialog.getByText("No stock has been scanned for this supplier yet.").waitFor()
+  await dialog.getByRole("button", { name: /Edit expected stock/i }).waitFor()
+  assert.equal(page.url(), url, "Incomplete suppliers stay on the Inventory page")
+})
+
+test("an admin records expected stock inside the supplier verification modal", async t => {
+  const intakes = [{
+    id: "intake-edit", supplier_id: "supplier-1", supplier_name: "Edit Co", batch_number: "BCH-EDIT",
+    intake_date: storedDate(0), status: "Active", scan_count: 1,
+    expected_stock: [{ cultivar: "Lakatan", expected_bunches: 1 }],
+  }]
+  const scans = [{ ...rows(1)[0], id: "scan-edit", source_text: "Edit Co",
+    intake_id: "intake-edit", intake_provenance: "linked", inventory_eligible: true, cultivar: "Lakatan" }]
+  const { page, state } = await setup(t, { screen: "inventory", scans, intakes, failWrites: false })
+  await page.getByText("Edit Co", { exact: true }).first().click()
+  const dialog = page.getByRole("dialog")
+  await dialog.getByRole("button", { name: "Edit expected stock" }).click()
+  await dialog.getByLabel("Expected Lakatan bunches").fill("3")
+  await dialog.getByLabel("Expected Cardaba bunches").fill("1")
+  await dialog.getByRole("button", { name: "Save expected stock" }).click()
+  await dialog.getByText("Lakatan: 1/3", { exact: true }).waitFor()
+  const request = state.requests.find(item => item.path === "/api/v1/intakes/intake-edit/expected-stock")
+  assert.deepEqual(request.body, { items: [
+    { cultivar: "Lakatan", expected_bunches: 3 },
+    { cultivar: "Cardaba", expected_bunches: 1 },
+  ] })
+  await page.keyboard.press("Escape")
+  await dialog.waitFor({ state: "hidden" })
+  await page.getByText("Expected 4 · Scanned 1", { exact: true }).waitFor()
 })
 
 test("spoilage alerts paginate three per page instead of scrolling", async t => {

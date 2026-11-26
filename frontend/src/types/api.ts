@@ -1,4 +1,4 @@
-import type { ActiveStatus, ActivityLog, DeviceStatus, IntakeStatus, NotificationType, Role, Treatment, User } from "@/types"
+import type { ActiveStatus, ActivityLog, Cultivar, DeviceStatus, IntakeStatus, NotificationType, Role, Treatment, User } from "@/types"
 
 export interface ApiUser {
   id: string
@@ -105,6 +105,7 @@ export interface ApiIntake {
   treated_at: string | null
   spoiled_at: string | null
   scan_count: number
+  expected_stock?: { cultivar: Cultivar; expected_bunches: number }[]
   created_at: string
   updated_at?: string
 }

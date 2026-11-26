@@ -69,6 +69,7 @@ export const ACTIVITY_ACTIONS = {
   supplier_updated: entry("Supplier updated", "data", YELLOW, "Updated supplier details"),
   intake_created: entry("Intake created", "data", EMERALD, "Recorded a new delivery intake"),
   intake_status_changed: entry("Intake status changed", "data", YELLOW, "Updated intake status in Intake Management"),
+  intake_expected_stock: entry("Expected stock recorded", "data", YELLOW, "Recorded expected received bunches for a delivery intake"),
   scan_created: entry("Scan created", "data", EMERALD, "Captured a new banana scan in Kiosk"),
   scan_rejected: entry("Scan rejected", "data", AMBER, "Scan rejected: no supported banana detected"),
   scan_failed: entry("Scan failed", "data", AMBER, "A scan could not be completed"),

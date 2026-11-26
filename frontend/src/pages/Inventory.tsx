@@ -13,10 +13,11 @@ import { ContentSkeleton } from "@/components/LoadingState"
 import { AppStatsCard } from "@/components/AppStatsCard"
 import { AppPageHeader } from "@/components/AppPageHeader"
 import { Progress } from "@/components/ui/progress"
-import { Package, AlertTriangle, TrendingDown, CheckCircle, Clock, Banana, ExternalLink, Truck, ChevronLeft, ChevronRight } from "lucide-react"
+import { Package, AlertTriangle, TrendingDown, CheckCircle, Clock, Banana, ExternalLink, Truck, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react"
 import { InventoryStatusEnum, RipenessEnum, CultivarEnum, type ScanResult } from "@/types"
 import { estimateText, fingerCountIsEstimate, fingerCountText } from "@/lib/estimates"
-import { bunchCountText, receivedBySupplier } from "@/lib/supplierReceipts"
+import { bunchCountText, verifySupplier } from "@/lib/supplierVerification"
+import { SupplierInventoryModal, VerdictBadge } from "@/components/SupplierInventoryModal"
 
 /** A group's finger total, marked as an estimate while any count in it is the AI value. */
 function fingersOf(list: ScanResult[]): string {
@@ -28,9 +29,10 @@ const SPOILAGE_PAGE_SIZE = 3
 export default function Inventory() {
   const navigate = useNavigate()
   const { scans, scansReady, scansLoading, scansError, refreshScans } = useScans()
-  const { intakesReady, intakesLoading, intakesError, intakesStale, refreshIntakes } = useInventory()
+  const { intakes, intakesReady, intakesLoading, intakesError, intakesStale, refreshIntakes } = useInventory()
   const [sourceFilter, setSourceFilter] = useState<string>("all")
   const [spoilagePage, setSpoilagePage] = useState(1)
+  const [verificationSupplier, setVerificationSupplier] = useState<string | null>(null)
   const scanLogsLink = (filters: Parameters<typeof buildScanLogsUrl>[0]) =>
     buildScanLogsUrl({ ...(sourceFilter !== "all" ? { source: sourceFilter } : {}), ...filters })
   const [asOf, setAsOf] = useState(Date.now)
@@ -159,10 +161,6 @@ export default function Inventory() {
     const forProcessing = activeScans.filter(s => s.inventoryStatus === InventoryStatusEnum.FOR_PROCESSING).length
     const spoiled = activeScans.filter(s => s.inventoryStatus === InventoryStatusEnum.SPOILED).length
 
-    // Receipts cover every recorded delivery, not only what is still in stock.
-    const received = receivedBySupplier(activeScans)
-    const receivedTotal = received.reduce((sum, supplier) => sum + supplier.total, 0)
-
     return {
       totalHands,
       totalFingers,
@@ -179,10 +177,26 @@ export default function Inventory() {
       forProcessing,
       spoiled,
       unknownRisk,
-      received,
-      receivedTotal,
     }
   }, [scans, sourceFilter, asOf])
+
+  const supplierRows = useMemo(() => {
+    const names = new Set<string>()
+    for (const scan of scans) names.add(scan.source?.trim() || "Unknown Supplier")
+    for (const intake of intakes) {
+      const name = intake.supplierName?.trim()
+      const recorded = intake.expectedStock?.some(line => line.expectedBunches > 0)
+      if (name && name !== "Unknown" && recorded) names.add(name)
+    }
+    return [...names]
+      .filter(name => sourceFilter === "all" || name === sourceFilter)
+      .map(name => verifySupplier(name, intakes, scans))
+      .sort((left, right) =>
+        right.expectedTotal - left.expectedTotal
+        || right.scannedTotal - left.scannedTotal
+        || left.supplier.localeCompare(right.supplier))
+  }, [scans, intakes, sourceFilter])
+  const supplierScannedTotal = supplierRows.reduce((sum, supplier) => sum + supplier.scannedTotal, 0)
 
   const spoilagePageCount = Math.max(1, Math.ceil(inventory.spoilingSoon.length / SPOILAGE_PAGE_SIZE))
   const currentSpoilagePage = Math.min(spoilagePage, spoilagePageCount)
@@ -226,8 +240,13 @@ export default function Inventory() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Sources</SelectItem>
-              {Array.from(new Set(scans.map(s => s.source).filter(Boolean))).sort().map((src) => (
-                <SelectItem key={src} value={src as string}>{src}</SelectItem>
+              {Array.from(new Set([
+                ...scans.map(s => s.source),
+                ...intakes
+                  .filter(intake => intake.expectedStock?.some(line => line.expectedBunches > 0))
+                  .map(intake => intake.supplierName),
+              ].filter((name): name is string => Boolean(name) && name !== "Unknown"))).sort().map((src) => (
+                <SelectItem key={src} value={src}>{src}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -520,43 +539,43 @@ export default function Inventory() {
         </Card>
       </div>
 
-      {/* Received by Supplier */}
+      {/* Supplier Inventory Verification */}
       <Card className="rounded-xl sm:rounded-2xl">
         <CardContent className="p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-1">
-            <Truck className="w-5 h-5 text-primary" />
-            <h3 className="text-base font-semibold">Received by Supplier</h3>
-            <Badge variant="outline" className="ml-auto text-xs">{bunchCountText(inventory.receivedTotal)}</Badge>
+            <ShieldCheck className="w-5 h-5 text-primary" />
+            <h3 className="text-base font-semibold">Supplier Verification</h3>
+            <Badge variant="outline" className="ml-auto text-xs">{bunchCountText(supplierScannedTotal)}</Badge>
           </div>
           <p className="text-sm text-muted-foreground mb-4">
-            Banana bunches received per supplier and variety, including sold and spoiled stock
+            Verify received stock against scanned bunches and varieties. Open a supplier for details.
           </p>
-          {inventory.received.length === 0 ? (
+          {supplierRows.length === 0 ? (
             <div className="text-center py-8">
               <Truck className="w-12 h-12 text-muted-foreground/50 mx-auto mb-2" />
-              <p className="text-sm font-medium">No deliveries recorded yet</p>
-              <p className="text-xs text-muted-foreground mt-1">Supplier totals appear after the first scan.</p>
+              <p className="text-sm font-medium">No suppliers recorded yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Suppliers appear after a delivery intake or scan.</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {inventory.received.map((group) => (
+              {supplierRows.map((supplier) => (
                 <div
-                  key={group.supplier}
+                  key={supplier.supplier}
                   className="p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer group/supplier"
-                  onClick={() => navigate(scanLogsLink({ source: group.supplier }))}
+                  onClick={() => setVerificationSupplier(supplier.supplier)}
                 >
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <p className="font-medium text-sm truncate group-hover/supplier:text-primary transition-colors">{group.supplier}</p>
-                    <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover/supplier:opacity-100 transition-opacity shrink-0" />
-                    <span className="ml-auto text-sm font-bold shrink-0">{bunchCountText(group.total)}</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-sm truncate group-hover/supplier:text-primary transition-colors">{supplier.supplier}</p>
+                    <VerdictBadge verdict={supplier.verdict} />
+                    <span className="ml-auto inline-flex items-center gap-0.5 text-xs font-medium text-primary shrink-0">
+                      Verify <ChevronRight className="w-3.5 h-3.5" />
+                    </span>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {group.varieties.map((variety) => (
-                      <Badge key={variety.cultivar} variant="outline" className="text-[10px] sm:text-xs">
-                        {variety.cultivar === "Unknown" ? "Variety unknown" : variety.cultivar} · {variety.count}
-                      </Badge>
-                    ))}
-                  </div>
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    {supplier.expectedTotal > 0
+                      ? `Expected ${supplier.expectedTotal} · Scanned ${supplier.scannedTotal}`
+                      : `${supplier.scannedTotal} scanned · expected not recorded`}
+                  </p>
                 </div>
               ))}
             </div>
@@ -617,6 +636,14 @@ export default function Inventory() {
           </div>
         </CardContent>
       </Card>
+
+      <SupplierInventoryModal
+        supplier={verificationSupplier}
+        intakes={intakes}
+        scans={scans}
+        open={verificationSupplier !== null}
+        onOpenChange={open => { if (!open) setVerificationSupplier(null) }}
+      />
     </div>
   )
 }

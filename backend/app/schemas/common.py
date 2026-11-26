@@ -12,7 +12,7 @@ from app.schemas.timestamps import InputTimestamp, Timestamp
 
 from pydantic import BaseModel, Field, StrictInt, StrictBool, field_validator, model_validator
 
-from .enums import ActiveStatusEnum, DeviceStatusEnum, IntakeStatusEnum, InventoryStatusEnum
+from .enums import ActiveStatusEnum, CultivarEnum, DeviceStatusEnum, IntakeStatusEnum, InventoryStatusEnum
 
 
 # ── Device ───────────────────────────────────────────────────────────────────
@@ -86,6 +86,32 @@ class IntakeCreate(BaseModel):
     harvested_at: InputTimestamp | None = None
     treated_at: InputTimestamp | None = None
 
+class IntakeExpectedStockItem(BaseModel):
+    cultivar: CultivarEnum
+    expected_bunches: Annotated[int, Field(ge=1, le=1_000_000, strict=True)]
+
+
+class IntakeExpectedStockUpdate(BaseModel):
+    items: list[IntakeExpectedStockItem] = Field(default_factory=list, max_length=3)
+
+    @field_validator("items")
+    @classmethod
+    def unique_cultivars(cls, items):
+        cultivars = [item.cultivar for item in items]
+        if len(cultivars) != len(set(cultivars)):
+            raise ValueError("Each variety may appear only once")
+        return items
+
+    model_config = {"extra": "forbid"}
+
+
+class IntakeExpectedStockResponse(BaseModel):
+    cultivar: CultivarEnum
+    expected_bunches: int
+
+    model_config = {"from_attributes": True}
+
+
 class IntakeResponse(BaseModel):
     id: uuid.UUID
     supplier_id: uuid.UUID | None = None
@@ -100,6 +126,7 @@ class IntakeResponse(BaseModel):
     treated_at: Timestamp | None = None
     spoiled_at: Timestamp | None = None
     scan_count: int = 0
+    expected_stock: list[IntakeExpectedStockResponse] = Field(default_factory=list)
     created_at: Timestamp
     updated_at: Timestamp
 

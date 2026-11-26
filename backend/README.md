@@ -226,10 +226,12 @@ The 30 synthetic scans use stored two-decimal temperature/humidity readings and 
 `calc_vpd` function (kPa, three decimals), intake treatment, fallback spoilage estimates,
 original-result snapshots and linked history events. Five of them sit on an open ethephon
 intake from the previous day in five near-expiry cultivar/ripeness groups, so Inventory's
-**Spoilage Alerts** always has two pages to exercise (three per page). These are demo
-predictions, not model validation or training measurements. History explicitly names
-**Demo Seeder**, with no invented human actor. This generates new demo records; it does not
-backfill historical fields.
+**Spoilage Alerts** always has two pages to exercise (three per page). Demo intakes also
+record expected received bunches per variety: one complete delivery, one discrepant
+variety/count, one partial delivery, and one expected delivery with no scans (Incomplete).
+These are demo predictions, not model validation or training measurements. History
+explicitly names **Demo Seeder**, with no invented human actor. This generates new demo
+records; it does not backfill historical fields.
 The fixture operator is inactive with no usable PIN; an administrator must reset credentials
 and activate it for use. Camera images/detections and print jobs are not fabricated or executed.
 

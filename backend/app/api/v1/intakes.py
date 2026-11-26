@@ -31,6 +31,7 @@ from app.services.scan_records import (
 from app.core.http import get_client_ip
 from app.models.supplier import Supplier
 from app.models.intake import Intake
+from app.models.intake_expected_stock import IntakeExpectedStock
 from app.models.scan import Scan
 from app.services import audit
 from app.ws.mutations import (
@@ -41,6 +42,8 @@ from app.ws.mutations import (
 )
 from app.schemas.common import (
     IntakeCreate,
+    IntakeExpectedStockResponse,
+    IntakeExpectedStockUpdate,
     IntakeResponse,
     IntakeStatusUpdate,
     IntakeBulkInventoryUpdate,
@@ -173,11 +176,92 @@ async def list_intakes(db: DbSession, user: CurrentUser):
             treated_at=intake.treated_at,
             spoiled_at=intake.spoiled_at,
             scan_count=scan_count,
+            expected_stock=[
+                IntakeExpectedStockResponse.model_validate(row) for row in intake.expected_stock
+            ],
             created_at=intake.created_at,
             updated_at=intake.updated_at,
         )
         for intake, scan_count in rows
     ]
+
+
+@router.patch("/{intake_id}/expected-stock", response_model=IntakeResponse)
+async def update_intake_expected_stock(
+    intake_id: uuid.UUID, body: IntakeExpectedStockUpdate, db: DbSession,
+    admin: AdminUser, request: Request,
+):
+    """Replace the expected received bunches recorded for one intake."""
+    intake = (await db.execute(
+        select(Intake).where(Intake.id == intake_id)
+        .options(selectinload(Intake.supplier), selectinload(Intake.expected_stock))
+        .with_for_update()
+    )).scalar_one_or_none()
+    if not intake:
+        raise NotFoundException("Intake")
+
+    desired = {item.cultivar: item.expected_bunches for item in body.items}
+    existing = {row.cultivar: row for row in intake.expected_stock}
+    for cultivar, row in existing.items():
+        if cultivar not in desired:
+            intake.expected_stock.remove(row)
+    for cultivar, bunches in desired.items():
+        row = existing.get(cultivar)
+        if row is None:
+            intake.expected_stock.append(
+                IntakeExpectedStock(cultivar=cultivar, expected_bunches=bunches)
+            )
+        else:
+            row.expected_bunches = bunches
+    await db.flush()
+
+    scan_count = await db.scalar(
+        select(func.count()).select_from(Scan)
+        .where(Scan.intake_id == intake.id, scan_scope(admin))
+    )
+    recorded = ", ".join(
+        f"{cultivar.value} {bunches}"
+        for cultivar, bunches in sorted(desired.items(), key=lambda pair: pair[0].value)
+    ) or "none"
+    await audit.record(
+        db, audit.AuditAction.INTAKE_EXPECTED_STOCK,
+        f"Intake {intake_id} expected stock recorded: {recorded}",
+        actor=admin, ip=get_client_ip(request),
+    )
+    response = IntakeResponse(
+        id=intake.id,
+        supplier_id=intake.supplier_id,
+        supplier_name=intake.supplier.name if intake.supplier else None,
+        source=intake.source,
+        batch_number=intake.batch_number,
+        qr_code=intake.qr_code,
+        intake_date=intake.intake_date,
+        status=intake.status,
+        treatment=intake.treatment.value if intake.treatment else None,
+        harvested_at=intake.harvested_at,
+        treated_at=intake.treated_at,
+        spoiled_at=intake.spoiled_at,
+        scan_count=scan_count or 0,
+        expected_stock=[
+            IntakeExpectedStockResponse.model_validate(row)
+            for row in sorted(intake.expected_stock, key=lambda row: row.cultivar.value)
+        ],
+        created_at=intake.created_at,
+        updated_at=intake.updated_at,
+    )
+    payload = response.model_dump(mode="json")
+    payload.pop("qr_code", None)
+    await db.commit()
+    await publish_intake_event(
+        intake_event(
+            intake_id=intake.id,
+            kind="expected-stock",
+            actor_id=admin.id,
+            intake=payload,
+            status=intake.status,
+        )
+    )
+    return response
 
 
 @router.patch("/{intake_id}/status")

@@ -156,8 +156,14 @@ export interface DailyIntake {
   treatedAt?: string
   spoiledAt?: string
   scanCount?: number
+  expectedStock?: ExpectedStockLine[]
   source?: string
   updatedAt?: string
+}
+
+export interface ExpectedStockLine {
+  cultivar: Cultivar
+  expectedBunches: number
 }
 
 export interface Supplier {

@@ -3,7 +3,7 @@ import { api } from "@/lib/api"
 import { scanWrite } from "@/lib/scanWrites"
 import { useAuth } from "@/context/AuthContext"
 import { useScans } from "@/context/ScanContext"
-import type { DailyIntake, Supplier, InventoryStatus } from "@/types"
+import type { DailyIntake, ExpectedStockLine, Supplier, InventoryStatus } from "@/types"
 import { useLocation } from "react-router-dom"
 import { INTAKE_CHANGED_EVENT, LIVE_RESUMED_EVENT, SUPPLIER_CHANGED_EVENT } from "@/lib/liveEvents"
 import { isManilaToday } from "@/lib/manilaTime"
@@ -23,6 +23,7 @@ interface InventoryContextType {
   setActiveIntake: (intake: DailyIntake | null) => void
   startIntake: (supplierId: string, batchNumber: string, treatment?: string) => Promise<DailyIntake>
   bulkUpdateIntakeInventory: (intakeId: string, status: InventoryStatus, reason: string, revisions: Record<string, number>) => Promise<BulkInventoryResponse>
+  setIntakeExpectedStock: (intakeId: string, items: ExpectedStockLine[]) => Promise<DailyIntake>
   suppliersLoading: boolean
   suppliersReady: boolean
   suppliersError: string | null
@@ -48,6 +49,20 @@ const mapApiSupplier = (s: any): Supplier => ({
   updatedAt: s.updated_at || s.updatedAt,
 })
 
+const mapExpectedStock = (raw: unknown): ExpectedStockLine[] => {
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((item: unknown) => {
+    if (typeof item !== "object" || item === null) return []
+    const record = item as Record<string, unknown>
+    const cultivar = record.cultivar
+    const bunches = record.expected_bunches ?? record.expectedBunches
+    return typeof cultivar === "string" && typeof bunches === "number"
+      && Number.isInteger(bunches) && bunches > 0
+      ? [{ cultivar: cultivar as ExpectedStockLine["cultivar"], expectedBunches: bunches }]
+      : []
+  })
+}
+
 const mapApiIntake = (i: any): DailyIntake => ({
   id: i.id,
   supplierId: i.supplier_id || i.supplierId,
@@ -62,6 +77,7 @@ const mapApiIntake = (i: any): DailyIntake => ({
   treatedAt: i.treated_at || i.treatedAt,
   spoiledAt: i.spoiled_at || i.spoiledAt,
   scanCount: i.scan_count || i.scanCount || 0,
+  expectedStock: mapExpectedStock(i.expected_stock ?? i.expectedStock),
   updatedAt: i.updated_at || i.updatedAt,
 })
 
@@ -81,6 +97,7 @@ interface IntakeEventDetail {
     date?: string
     status?: string
     scan_count?: number
+    expected_stock?: { cultivar: string; expected_bunches: number }[]
     treatment?: string
     created_at?: string
     updated_at?: string
@@ -345,6 +362,17 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
     return newIntake
   }, [acceptWrite])
 
+  const setIntakeExpectedStock = useCallback(async (intakeId: string, items: ExpectedStockLine[]) => {
+    const resp = await api.intakes.setExpectedStock(intakeId, items.map(item => ({
+      cultivar: item.cultivar, expected_bunches: item.expectedBunches,
+    })))
+    const updated = mapApiIntake(resp)
+    acceptWrite()
+    setIntakes(prev => prev.map(intake => intake.id === intakeId ? { ...intake, ...updated } : intake))
+    setActiveIntake(current => current?.id === intakeId ? { ...current, ...updated } : current)
+    return updated
+  }, [acceptWrite])
+
   const bulkUpdateIntakeInventory = useCallback(async (intakeId: string, status: InventoryStatus, reason: string, revisions: Record<string, number>) => {
     return scanWrite(`${user?.id}:${intakeId}:bulk`, { inventory_status: status, reason, expected_revisions: revisions }, async body => {
       const result = await api.intakes.bulkInventory(intakeId, body)
@@ -404,6 +432,7 @@ function InventoryStore({ children }: { children: React.ReactNode }) {
       setActiveIntake,
       startIntake,
       bulkUpdateIntakeInventory,
+      setIntakeExpectedStock,
       suppliers, suppliersLoading, suppliersReady, suppliersError,
       addSupplier,
       updateSupplier,

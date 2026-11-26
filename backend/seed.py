@@ -5,6 +5,7 @@ import io
 import json
 import logging
 import random
+from collections import Counter
 from datetime import timedelta
 
 import qrcode
@@ -20,6 +21,7 @@ from app.core.time import now_manila
 from app.models.admin_profile import AdminProfile
 from app.models.device import Device
 from app.models.intake import Intake
+from app.models.intake_expected_stock import IntakeExpectedStock
 from app.models.operator_profile import OperatorProfile
 from app.models.scan_classification import ScanClassification
 from app.models.scan_history import ScanEvent
@@ -219,8 +221,22 @@ async def seed_data(db):
     db.add(i3)
     await db.flush()
 
+    # 7c. An open delivery with recorded stock but no scans yet (Incomplete status).
+    i4 = Intake(
+        supplier_id=s2.id,
+        batch_number="BCH-PENDING",
+        source="Kiosk",
+        intake_date=current_intake_time.date(),
+        status=IntakeStatusEnum.ACTIVE,
+        created_at=current_intake_time,
+        updated_at=current_intake_time,
+        treatment=TreatmentEnum.NATURAL,
+    )
+    db.add(i4)
+    await db.flush()
+
     # Generate QR codes for the intakes
-    for intake in (i1, i2, i3):
+    for intake in (i1, i2, i3, i4):
         qr_data = {
             "intake_id": str(intake.id),
             "supplier_id": str(intake.supplier_id),
@@ -238,6 +254,7 @@ async def seed_data(db):
     # 8. Scans & Classifications
     cultivars = [e.value for e in CultivarEnum]
     ripeness_levels = [e.value for e in RipenessEnum]
+    i1_scans, i2_scans = [], []
 
     for i in range(25):
         is_i1 = i < 15
@@ -285,7 +302,10 @@ async def seed_data(db):
                 "sensor readings; no YOLO image inference. Spoilage uses the shared Kiosk predictor."
             ),
         )
+        if is_i1:
+            i1_scans.append(scan)
         if not is_i1:
+            i2_scans.append(scan)
             sold_time = scan_time + timedelta(minutes=1)
             sold = ScanStatusLog(
                 scan_id=scan.id,
@@ -319,6 +339,7 @@ async def seed_data(db):
         (CultivarEnum.LAKATAN, RipenessEnum.RIPE),
         (CultivarEnum.LATUNDAN, RipenessEnum.RIPE),
     )
+    i3_scans = []
     for index, (cultivar, ripeness) in enumerate(spoilage_groups):
         scan_time = previous_intake_time + timedelta(hours=1, minutes=index * 5)
         temperature = round(random.uniform(22.0, 24.0), 2)
@@ -342,7 +363,7 @@ async def seed_data(db):
             ),
             finger_count=random.randint(5, 12),
         )
-        await create_scan_record(
+        scan = await create_scan_record(
             db, operator_id=operator_prof.id, operator_name=operator_user.full_name,
             intake=i3, source_text=s1.name, date_time=scan_time,
             classification=classification,
@@ -352,6 +373,36 @@ async def seed_data(db):
                 "sensor readings; no YOLO image inference. Spoilage uses the shared Kiosk predictor."
             ),
         )
+        i3_scans.append(scan)
+
+    # 10. Expected received stock: complete, discrepancy, partial and incomplete demos.
+    def record_expected(intake, counts):
+        for cultivar, bunches in sorted(counts.items()):
+            if bunches > 0:
+                db.add(IntakeExpectedStock(
+                    intake_id=intake.id,
+                    cultivar=CultivarEnum(cultivar),
+                    expected_bunches=bunches,
+                ))
+
+    def cultivar_name(scan):
+        cultivar = scan.classification.cultivar
+        return getattr(cultivar, "value", cultivar)
+
+    i2_expected = Counter(cultivar_name(scan) for scan in i2_scans)
+    if i2_expected:
+        donor = sorted(i2_expected)[0]
+        i2_expected[donor] -= 1
+        if i2_expected[donor] == 0:
+            del i2_expected[donor]
+        recipient = next(c.value for c in CultivarEnum if c.value != donor)
+        i2_expected[recipient] += 1
+    i3_expected = Counter(cultivar_name(scan) for scan in i3_scans)
+    i3_expected[CultivarEnum.CARDABA.value] += 2
+    record_expected(i1, Counter(cultivar_name(scan) for scan in i1_scans))
+    record_expected(i2, i2_expected)
+    record_expected(i3, i3_expected)
+    record_expected(i4, {CultivarEnum.LAKATAN.value: 4})
 
     await db.flush()
 

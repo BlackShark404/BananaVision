@@ -348,6 +348,43 @@ def test_public_track_reports_review_status(application):
     assert second.json()["flagged"] is True
 
 
+def test_expected_stock_patch_replaces_rows_and_rejects_invalid_items(application):
+    app = application
+    url = f"/api/v1/intakes/{app.ids.intake}/expected-stock"
+    saved = app.client.patch(url, json={"items": [
+        {"cultivar": "Lakatan", "expected_bunches": 5},
+        {"cultivar": "Cardaba", "expected_bunches": 2},
+    ]})
+    assert saved.status_code == 200, saved.text
+    assert [(row["cultivar"], row["expected_bunches"]) for row in saved.json()["expected_stock"]] == [
+        ("Cardaba", 2), ("Lakatan", 5),
+    ]
+    listing = app.client.get("/api/v1/intakes")
+    assert listing.status_code == 200, listing.text
+    intake = next(row for row in listing.json() if row["id"] == str(app.ids.intake))
+    assert {(row["cultivar"], row["expected_bunches"]) for row in intake["expected_stock"]} == {
+        ("Cardaba", 2), ("Lakatan", 5),
+    }
+    replaced = app.client.patch(url, json={"items": [
+        {"cultivar": "Latundan", "expected_bunches": 1},
+    ]})
+    assert replaced.status_code == 200, replaced.text
+    assert [(row["cultivar"], row["expected_bunches"]) for row in replaced.json()["expected_stock"]] == [
+        ("Latundan", 1),
+    ]
+    cleared = app.client.patch(url, json={"items": []})
+    assert cleared.status_code == 200 and cleared.json()["expected_stock"] == []
+    for invalid in (
+        {"items": [
+            {"cultivar": "Lakatan", "expected_bunches": 5},
+            {"cultivar": "Lakatan", "expected_bunches": 2},
+        ]},
+        {"items": [{"cultivar": "Lakatan", "expected_bunches": 0}]},
+        {"items": [{"cultivar": "Saging", "expected_bunches": 2}]},
+    ):
+        assert app.client.patch(url, json=invalid).status_code == 422, invalid
+
+
 def test_activity_details_render_enum_values_not_enum_reprs(application):
     app = application
     created = app.client.post("/api/v1/users", json={

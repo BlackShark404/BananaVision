@@ -90,6 +90,7 @@ class AuditAction(StrEnum):
     SUPPLIER_UPDATED = "supplier_updated"
     INTAKE_CREATED = "intake_created"
     INTAKE_STATUS_CHANGED = "intake_status_changed"
+    INTAKE_EXPECTED_STOCK = "intake_expected_stock"
     SCAN_CREATED = "scan_created"
     SCAN_REJECTED = "scan_rejected"
     SCAN_FAILED = "scan_failed"

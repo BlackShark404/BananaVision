@@ -1,4 +1,66 @@
-CURRENT RESUME HERE (2026-11-25) - LIVE DERIVED-ON-READ RIPENESS PROGRESSION, ICON AUDIT & INVENTORY UPDATES
+CURRENT RESUME HERE (2026-11-25) - SUPPLIER INVENTORY VERIFICATION MODAL
+
+USER REQUEST (2026-11-25)
+- Inventory checking must not redirect to Scan Logs. Sir Jayvee requires a dedicated page or
+  modal per supplier showing supplier inventory/expected stock, scan verification of quantity
+  and variety, color-coded status (Complete/Partial/Incomplete/Discrepancy), and expected vs
+  scanned bunches.
+- Approved choices: expected stock recorded per intake per variety; verification lives in a
+  modal opened from Inventory.
+
+DONE
+- Backend:
+  - `backend/app/models/intake_expected_stock.py` + migration `0014_expected_stock`:
+    `intake_expected_stock` rows (intake, cultivar, positive expected_bunches, unique pair,
+    cascade). Migration skips the synthetic integer-id legacy fixture and is a no-op when the
+    table already exists.
+  - `Intake.expected_stock` selectin relationship; `models/__init__` export.
+  - `IntakeResponse.expected_stock`; list/create responses include it.
+  - Admin-only `PATCH /api/v1/intakes/{id}/expected-stock` replaces rows, validates unique
+    cultivars and bunches >= 1, writes audit action `intake_expected_stock`, publishes the
+    intake live event.
+  - Backup archive format 6: new table in `TABLE_NAMES`, `archive_schema_v5.json` snapshot,
+    v5 archives restore with an empty expected-stock table.
+- Frontend:
+  - `frontend/src/lib/supplierVerification.ts`: pure verification by supplier and intake with
+    Complete/Partial/Incomplete/Discrepancy/Not recorded, per-variety expected vs scanned,
+    unlinked-scan reporting, and supplier-level aggregation.
+  - `frontend/src/components/SupplierInventoryModal.tsx`: supplier inventory totals, progress,
+    variety badges, per-delivery verification rows, admin inline expected-stock editor.
+  - `frontend/src/pages/Inventory.tsx`: card renamed **Supplier Verification**; rows open the
+    modal and never navigate; source filter applies; suppliers with expected stock but no scans
+    appear as Incomplete.
+  - Types/API/context: `ExpectedStockLine`, `DailyIntake.expectedStock`,
+    `api.intakes.setExpectedStock`, `InventoryContext.setIntakeExpectedStock`,
+    `intake_expected_stock` activity label.
+  - Removed the superseded `supplierReceipts.ts` helper/test (replaced by
+    `supplierVerification.ts`).
+- Seed/demo: expected stock rows for i1 (Complete), i2 (Discrepancy), i3 (Partial) and new
+  i4 `BCH-PENDING` with 4 Lakatan expected and no scans (Incomplete).
+- Tests/docs: new/updated `test_time_and_writes.py`, `test_seed.py`,
+  `test_seed_kiosk_contract.py`, `test_migrations.py`, `test_backup_archive.py`,
+  `supplierVerification.test.mjs`, `persistence.test.mjs`; Frontend.md, Database.md,
+  Development Decisions.md, backend README.
+
+VERIFIED (2026-11-25)
+- Backend SQLite: `test_time_and_writes.py` 41 passed; audit and Manila-time suites 77 passed,
+  2 skipped.
+- Disposable PostgreSQL 17 (port 55441, removed after): seed, kiosk-contract, migrations,
+  backup archive and restore tests: 82 passed.
+- Frontend browser (`PLAYWRIGHT_MODULE`): full `persistence.test.mjs` 24 passed, including
+  supplier statuses, no-navigation modal, and admin expected-stock save. Unit suites
+  `supplierVerification`/`activityactions`/`manilaTime`: 22 passed.
+- Desktop and mobile modal screenshots reviewed: totals, progress, variety badges and delivery
+  rows render without clipping.
+- `tsc -b` and `npm run build` passed; `npm run lint`: 36 problems (31 errors, 5 warnings),
+  exact pre-existing baseline; targeted lint introduced no new diagnostics.
+- Not run: full backend suite, Ruff (not installed), live station data.
+
+EXACT NEXT STEP
+- Review the scoped diff; reseed a development DB to see the four demo statuses. Nothing is
+  staged or committed.
+
+PREVIOUS RESUME (2026-11-25) - LIVE DERIVED-ON-READ RIPENESS PROGRESSION, ICON AUDIT & INVENTORY UPDATES
 
 USER REQUEST (2026-11-25)
 - Replace all raw Unicode UI emojis across `frontend/src/` with `lucide-react` icons and add a

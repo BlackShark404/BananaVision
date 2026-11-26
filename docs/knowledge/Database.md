@@ -5,8 +5,11 @@
 - [Current SQL DDL](../bananavision_schema_current.sql) — Alembic revision
   `0012_audit_integrity`, 25 application tables, 7 PostgreSQL enum types and
   20 foreign keys.
-- The migration head is `0013_threshold_default`. It changes data only (a saved 85%
-  review threshold becomes 80% once). A migration id must be 32 characters or fewer:
+- The migration head is `0014_expected_stock`. It adds `intake_expected_stock`
+  (expected received bunches per intake and variety; unique on intake + cultivar, cascade
+  on intake delete), bringing the ORM to 26 application tables. The migration head before
+  it was `0013_threshold_default`, which changes data only (a saved 85% review threshold
+  becomes 80% once). A migration id must be 32 characters or fewer:
   `alembic_version.version_num` is `VARCHAR(32)` and PostgreSQL rejects a longer id.
 - [Data dictionary](../data/schema_tables.md) — table purposes, columns, nullability, database
   defaults, keys, constraints, indexes, enum labels and ERD cardinalities.
@@ -46,6 +49,16 @@ user's receipt, so one account marking a broadcast read never changes another ac
 view. The `scan_flagged` pipeline creates one broadcast row; `scan_complete` remains
 private to the scanning operator. Both receipt foreign keys cascade on delete. See
 [[Resolved Bugs]] and [[Testing and Validation]].
+
+## Expected received stock
+
+`intake_expected_stock` records the bunches a delivery intake is expected to contain, one
+row per intake and cultivar, with a positive `expected_bunches` count. It is the recorded
+baseline for Inventory's supplier verification: scans linked to the intake are compared
+with these rows by total and per variety. Rows are replaced through the admin-only
+`PATCH /api/v1/intakes/{id}/expected-stock` endpoint and cascade-delete with their intake.
+The table is included in backup archives; archive format version is 6, and v5 archives
+restore with an empty expected-stock table.
 
 ## Timestamps
 

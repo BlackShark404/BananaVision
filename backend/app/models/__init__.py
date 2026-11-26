@@ -8,6 +8,7 @@ from app.models.app_notification import AppNotification
 from app.models.app_notification_read import AppNotificationRead
 from app.models.device import Device
 from app.models.intake import Intake
+from app.models.intake_expected_stock import IntakeExpectedStock
 from app.models.maintenance_state import MaintenanceState
 from app.models.operator_profile import OperatorProfile
 from app.models.print_job import PrintJob
@@ -33,6 +34,7 @@ __all__ = [
     "OperatorProfile",
     "Supplier",
     "Intake",
+    "IntakeExpectedStock",
     "Scan",
     "ScanClassification",
     "ScanStatusLog",
